@@ -1,5 +1,5 @@
 /**
- * main.c - main function
+ * lusush.c - main function
  */
 
 #include <stdio.h>
