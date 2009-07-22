@@ -1,5 +1,5 @@
 /**
- * main.c - main function
+ * lusush.c - main function
  */
 
 #include <stdio.h>
@@ -51,7 +51,7 @@ int main(int argc, char **argv, char **env)
         }
         else {
 #if defined( PRINT_DEBUG )
-            display_cmdhistist(&cmdhist);
+            display_cmdlist(&cmdhist);
 #endif
             if (is_builtin_cmd(cmd->argv[0]) == true) {
                 exec_builtin_cmd(cmd);
@@ -73,6 +73,7 @@ int main(int argc, char **argv, char **env)
                     free(cmdpath);
                 cmdpath = NULL;
             }
+            cmd = cmd->next;
         }
     }
 
