@@ -20,6 +20,7 @@ struct _CMD
 {
     char buf[MAXLINE];          // null terminated user input
     int argc;                   // argument count
+    char timestamp[60];         // timestamp
     struct _CMD *next;          // next command
     struct _CMD *prev;          // previous command
     char *argv[1024];        // argument vector to pass to exec

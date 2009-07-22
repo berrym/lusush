@@ -8,5 +8,6 @@ extern void cmdfree(CMD *);
 extern void free_cmdlist(CMDLIST *);
 extern void display_cmdlist(CMDLIST *);
 extern void display_cmd(CMD *);
+extern void timestamp_cmd(CMD *);
 
 #endif

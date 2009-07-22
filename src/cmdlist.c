@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "ldefs.h"
 #include "ltypes.h"
 #include "cmdlist.h"
@@ -82,7 +83,7 @@ void display_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd = cmdl->head;
 
-    while (cmd != NULL) {
+    while (cmd != NULL && cmd->argc > 0) {
         display_cmd(cmd);
         cmd = cmd->next;
     }
@@ -98,5 +99,16 @@ void display_cmd(CMD *cmd)
         printf("argv[%d]->%s\t", i, cmd->argv[i]);
     }
     printf("\n\tbuf->%s\n", cmd->buf);
+    printf("\ttimestamp->%s", cmd->timestamp);
 }
 
+void timestamp_cmd(CMD *cmd)
+{
+    time_t rawtime;
+    struct tm *timeinfo;
+    char *thetime;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    thetime = asctime(timeinfo);
+    strcpy(cmd->timestamp, thetime);
+}

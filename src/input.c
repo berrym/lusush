@@ -18,6 +18,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
         buf[strlen(buf) - 1] = '\0';
 
     strcpy(cmd->buf, buf);
+    timestamp_cmd(cmd);
 
     if (cmdalloc(cmd) == -1) {
         return -1;
