@@ -5,7 +5,10 @@
 #include "parse.h"
 
 /**
- * readline
+ * get_input():
+ *      reads input one line at a time from the stream in.  The line
+ *      is parsed and the information is stored in doubly linked listed
+ *      of commands, that is a CMDLIST of CMD's.
  */
 int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
