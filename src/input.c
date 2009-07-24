@@ -9,6 +9,7 @@
  */
 int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
+    int ret;
     char buf[MAXLINE];
 
     if (fgets(buf, MAXLINE, in) == NULL)
@@ -23,7 +24,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     if (cmdalloc(cmd) == -1) {
         return -1;
     }
-    if ((cmd->argc = parse_cmd(cmd->argv, buf)) < 0) {
+    if ((ret = parse_cmd(cmd, buf)) < 0) {
         return -1;
     }
 

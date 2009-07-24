@@ -32,8 +32,8 @@ int main(int argc, char **argv, char **env)
     init(argv);
 
     // Initialize doubly linked list of commands
-    cmdhist.head->next = NULL;
-    cmdhist.head->prev = NULL;
+    cmdhist.head->next = (CMD *) NULL;
+    cmdhist.head->prev = (CMD *) NULL;
     cmdhist.size = 0;
 
     // Point cmd to list head

@@ -25,17 +25,13 @@ void exec_cmdl(CMDLIST *cmdl, char **envp)
     register int i;
     CMD *cmd;
 
-    /*
-     * Check that parameters are not NULL
-     */
+    // Check that parameters are not NULL
     if (cmdl == NULL)
         return;
 
     cmd = cmdl->head;       // Point cmd to beginning of command list
 
-    /*
-     * Execute commands in list
-     */
+    // Execute commands in list     
     for (i = 0; i < cmdl->size; i++) {
         if (is_builtin_cmd(cmd->argv[0]) == true)
             exec_builtin_cmd(cmd);
@@ -57,6 +53,14 @@ void exec_external_cmd(CMD *cmd, char **envp)
         return;
     }
     else if (pid == 0) {                      // child process
+        // Close stdin and stdout if executing in the background
+        // and then redirect them to /dev/null
+        if (cmd->background) {
+            close(STDIN_FILENO);
+            close(STDOUT_FILENO);
+            freopen("/dev/null", "r", stdin);
+            freopen("/dev/null", "w", stderr);
+        }
         if (envp != NULL) {
             print_debug("calling execve\n");
             execve(cmd->argv[0], cmd->argv, envp);
@@ -70,13 +74,18 @@ void exec_external_cmd(CMD *cmd, char **envp)
         exit(127);
     }
 
-    /**
-     * NOTE:
-     * Don't worry about executeing process in background - WNOHANG -,
-     * just block parent untill child terminates
+    /*
+     * If executing the command in the background, call waitpid with
+     * the WNOHANG option, otherwise pass 0 to block.
      */
-    if ((pid = waitpid(pid, &status, 0)) == -1) // parent
-        perror("lusush: waitpid");
+    if (cmd->background) {
+        if ((pid = waitpid(pid, &status, WNOHANG)) == -1) // parent
+            perror("lusush: waitpid");
+    }
+    else {
+        if ((pid = waitpid(pid, &status, 0)) == -1) // parent
+            perror("lusush: waitpid");
+    } 
 }
 
 bool is_builtin_cmd(const char *cmdname)
@@ -153,7 +162,7 @@ char *path_to_cmd(char *cmd)
         strcat(full_cmd, "/");
         strcat(full_cmd, cmd);
 
-        /* call stat */
+        // call stat
         if (stat(full_cmd, &cmd_st) == -1) {
             print_debug("\t%s: stat: %s\n", full_cmd, strerror(errno));
         }

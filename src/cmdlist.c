@@ -100,6 +100,7 @@ void display_cmd(CMD *cmd)
     }
     printf("\n\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
+    printf("\tbackground->%d\n", cmd->background);
 }
 
 void timestamp_cmd(CMD *cmd)
