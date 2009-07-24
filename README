@@ -1,4 +1,6 @@
 LUSUSH
 
-    THIS IS THE MASTER BRANCH OF LUSUS
-
+    lusush is a shell for the UNIX environment.  It is simple and essentially
+    featurless.  Originally developed as an educational experience to gain
+    more familiarity with programming in a UNIX environment, that is what the
+    project remains today.
