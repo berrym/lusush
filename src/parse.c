@@ -1,17 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "ldefs.h"
+#include "ltypes.h"
 #include "parse.h"
 
 /**
  * parse_cmd:
  *      Given a string of input parse_cmd will seperate words by whitespace
  *      and place each individual word into it's own string inside of a pointer
- *      to pointer char, called wordlist, which should already be initialized.
- *      parse_cmd __DOES NOT__ alloc wordlist, only additional strings.
+ *      to pointer char, called argv, which should already be initialized.
+ *      parse_cmd __DOES NOT__ alloc cmd->argv, only additional strings.
+ *      Special characters like &, <, and > have special cases and are dealt
+ *      with according to their meaning, setting appropriate flags.
  */
-int parse_cmd(char **wordlist, const char *line)
+int parse_cmd(CMD *cmd, const char *line)
 {
     unsigned int i, j;
     unsigned int lpos, wpos;
@@ -26,31 +30,38 @@ int parse_cmd(char **wordlist, const char *line)
     /*
      * Loop through line character at a time and place words, seperated by
      * whitespace, into individual elements in an array of strings.
+     * Special characters
      */
     for (i = 0; i < strlen(line); i++) {
         c = line[i];
 
+        if (c == '&') {
+            cmd->background = true;         // flag as background process
+            cmd->argv[lpos][wpos]='\0';
+            break;
+        }
         // c is not whitespeace
-        if (c != ' ' && c != '\t') {
-            wordlist[lpos][wpos] = c;       // copy the character
+        else if (!isspace(c)) {
+            cmd->argv[lpos][wpos] = c;       // copy the character
             wpos++;
         }
+        // c is whitespace
         else {
-            wordlist[lpos][wpos] = '\0';    // place NULL at end of string
+            cmd->argv[lpos][wpos] = '\0';    // place NULL at end of string
             lpos++;                         // increment line index
             wpos = 0;                       // set word character index to 0
 
             // Allocate room on the heap for the next string
-            wordlist[lpos] = (char *)calloc(MAXLINE, sizeof(char));
-            if (wordlist[lpos] == NULL) {
+            cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
+            if (cmd->argv[lpos] == NULL) {
                 perror("lusush: calloc");
                 for (j = lpos - 1; j >= 0; j--) {
-                    free(wordlist[j]);
-                    wordlist[j] = NULL;
+                    free(cmd->argv[j]);
+                    cmd->argv[j] = NULL;
                 }
                 return -1;
             }
-            wordlist[lpos][wpos] = '\0';    // initialize new word with NULL
+            cmd->argv[lpos][wpos] = '\0';    // initialize new word with NULL
 
             do {
                 i++;
@@ -63,7 +74,8 @@ int parse_cmd(char **wordlist, const char *line)
     }
 
     lpos++;
-    wordlist[lpos] = NULL;
+    cmd->argv[lpos] = NULL;
+    cmd->argc = lpos;
 
     return lpos;
 }
