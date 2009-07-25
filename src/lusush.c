@@ -44,7 +44,7 @@ int main(int argc, char **argv, char **env)
             perror("lusush: calloc");
             bActive = false;
         }
-        printf("%s ", ENV_PROMPT);
+        //printf("%s ", ENV_PROMPT);
 
         if (get_input(stdin, &cmdhist, cmd) < 0) {
             bActive = false;

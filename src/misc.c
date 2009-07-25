@@ -1,4 +1,9 @@
+#include <unistd.h>
+#include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include "ldefs.h"
+#include "env.h"
 #include "misc.h"
 
 /**
@@ -17,4 +22,23 @@ void print_debug(const char *fmt, ...)
     vprintf(fmt, args);
     va_end(args);
 #endif
+}
+
+/**
+ * build_prompt:
+ *      Builds the user's prompt displaying the current working directory.
+ */
+void build_prompt(void)
+{
+    char cwd[MAXLINE];
+
+    if (getcwd(cwd, MAXLINE) == NULL) {
+        perror("lusush: build_prompt");
+        strcpy(ENV_PROMPT, "% ");
+    }
+    else
+    {
+        strcpy(ENV_PROMPT, cwd);
+        strcat(ENV_PROMPT, "% ");
+    }
 }

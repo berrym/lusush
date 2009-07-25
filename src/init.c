@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "ldefs.h"
 #include "init.h"
 #include "misc.h"
 #include "env.h"

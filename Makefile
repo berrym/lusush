@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -lreadline
 OBJDIR=obj
 SRCDIR=src
 SRCS=$(SRCDIR)/builtins.c \

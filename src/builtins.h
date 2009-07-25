@@ -18,9 +18,9 @@
 
 /**
  * Builtin commands
- *
- *  cd      change directory
- *  pwd     print working directory
+ *      exit    exit program
+ *      cd      change directory
+ *      pwd     print working directory
  */
 extern const char *builtin_cmds[BUILTIN_CMD_CNT];
 
