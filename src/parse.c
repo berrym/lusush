@@ -40,6 +40,12 @@ int parse_cmd(CMD *cmd, const char *line)
             cmd->argv[lpos][wpos]='\0';
             break;
         }
+        else if (c == '<') {
+        }
+        else if (c == '>') {
+        }
+        else if (c == '|') {
+        }
         // c is not whitespeace
         else if (!isspace(c)) {
             cmd->argv[lpos][wpos] = c;       // copy the character
