@@ -2,9 +2,11 @@
 #include <stdio.h>
 #include "ldefs.h"
 #include "builtins.h"
+#include "misc.h"
 
 /**
  * Builtin commands
+ *      exit    exit program
  *      cd      change directory
  *      pwd     print working directory
  */
@@ -21,6 +23,7 @@ void cd(const char *path)
 {
     if (chdir(path) < 0)
         perror("lusush: chdir");
+    build_prompt();
 }
 
 void pwd(void)

@@ -51,7 +51,8 @@ void env_init(char **argv)
 
     // set the user's prompt
     ENV_PROMPT = (char *)calloc(MAXLINE, sizeof(char));
-    strncpy(ENV_PROMPT, "%", 1);
+    //strncpy(ENV_PROMPT, "%", 1);
+    build_prompt();
 }
 
 void global_cleanup(void)
