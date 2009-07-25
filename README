@@ -1,6 +1,16 @@
 LUSUSH
 
-    lusush is a shell for the UNIX environment.  It is simple and essentially
+    Lusush is a shell for the UNIX environment.  It is simple and essentially
     featurless.  Originally developed as an educational experience to gain
     more familiarity with programming in a UNIX environment, that is what the
     project remains today.
+
+    Lusush is useless for most people.  It has no job control, no scripting,
+    and basically lacks most features that people require from a shell.  It
+    is however a lightweight alternative to shells with those features, and
+    does it's job well.
+
+    Should anybody find lusush or it's sourcecode usefull, perhaps as a How
+    Not To guide, please let me know.
+
+Luny Lususnaturae <trismegustis@gmail.com>
