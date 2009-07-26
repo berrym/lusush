@@ -53,10 +53,19 @@ void exec_external_cmd(CMD *cmd, char **envp)
         return;
     }
     else if (pid == 0) {                      // child process
+        if (cmd->in_redirect) {
+            close(STDIN_FILENO);
+            freopen(cmd->in_filename, "r", stdin);
+        }
+        if (cmd->out_redirect) {
+            close(STDOUT_FILENO);
+            freopen(cmd->out_filename, "w", stdout);
+        }
         // Close stdin and stdout if executing in the background
         // and then redirect them to /dev/null
-        if (cmd->background) {
-            close(STDIN_FILENO);
+        if (cmd->background && !cmd->out_redirect) {
+            if (!cmd->in_redirect)
+                close(STDIN_FILENO);
             close(STDOUT_FILENO);
             freopen("/dev/null", "r", stdin);
             freopen("/dev/null", "w", stderr);
@@ -69,7 +78,6 @@ void exec_external_cmd(CMD *cmd, char **envp)
             print_debug("calling execv\n");
             execv(cmd->argv[0], cmd->argv);
         }
-
         fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
         exit(127);
     }
