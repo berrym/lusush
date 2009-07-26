@@ -22,6 +22,10 @@ struct _CMD
     int argc;                   // argument count
     char timestamp[60];         // timestamp
     bool background;            // background process flag
+    bool in_redirect;           // input redirection flag
+    bool out_redirect;          // output redirection flag
+    char in_filename[MAXLINE];  // input filename - if redirect set
+    char out_filename[MAXLINE]; // output filename - if redirect set
     struct _CMD *next;          // next command
     struct _CMD *prev;          // previous command
     char *argv[1024];           // argument vector to pass to exec

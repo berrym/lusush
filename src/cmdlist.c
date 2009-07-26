@@ -101,6 +101,10 @@ void display_cmd(CMD *cmd)
     printf("\n\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
     printf("\tbackground->%d\n", cmd->background);
+    printf("\tin_redirect->%d\n", cmd->in_redirect);
+    printf("\tout_redirect->%d\n", cmd->out_redirect);
+    printf("\tin_filename->%s\n", cmd->in_filename);
+    printf("\tout_filename->%s\n", cmd->out_filename);
 }
 
 void timestamp_cmd(CMD *cmd)
