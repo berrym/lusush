@@ -55,10 +55,10 @@ void init(char **argv)
  */
 void sig_int(int signo)
 {
-    fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
-    fflush(stderr);
-    global_cleanup();
-    exit(EXIT_FAILURE);
+    fprintf(stderr, "lusush: caught signal %d.\n", signo);
+    //fflush(stderr);
+    //global_cleanup();
+    //exit(EXIT_FAILURE);
 }
 
 /**
@@ -70,7 +70,7 @@ void sig_seg(int signo)
 {
     fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
     fprintf(stderr, "\tAnd fix your damn code.\n");
-    fflush(stderr);
+    //fflush(stderr);
     global_cleanup();
     exit(EXIT_FAILURE);
 }
