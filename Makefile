@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -lreadline
+CFLAGS=-Wall
+LDFLAGS=-lreadline
 OBJDIR=obj
 SRCDIR=src
 SRCS=$(SRCDIR)/builtins.c \
@@ -26,11 +27,11 @@ DEL=rm -rf
 all:
 	$(CC) $(CFLAGS) -c $(SRCS)
 	$(MV) *.o $(OBJDIR)
-	$(CC) $(CFLAGS) $(OBJS) -o $(EXE)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $(EXE)
 debug:
 	$(CC) $(CFLAGS) -g -c $(SRCS)
 	$(MV) *.o $(OBJDIR)
-	$(CC) $(CFLAGS) -g $(OBJS) -o $(EXE)
+	$(CC) $(CFLAGS) $(LDFLAGS) -g $(OBJS) -o $(EXE)
 clean:
 	$(DEL) $(OBJS)
 	$(DEL) $(EXE)
