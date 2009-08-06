@@ -29,6 +29,8 @@ int cmdalloc(CMD *cmd)
     else {
        cmd->argv[0][0] = '\0';  // initialize with null character
     }
+    cmd->background = cmd->in_redirect = cmd->out_redirect = false;
+    *cmd->in_filename = *cmd->out_filename = '\0';
 
     return 0;
 }

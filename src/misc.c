@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include "ldefs.h"
@@ -40,5 +41,7 @@ void build_prompt(void)
     {
         strcpy(ENV_PROMPT, cwd);
         strcat(ENV_PROMPT, "% ");
+        setenv("PS1", ENV_PROMPT, 1);
     }
+    PS1 = getenv("PS1");
 }

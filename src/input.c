@@ -43,6 +43,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
     int ret;
     char *buf;
+    const char *prompt = getenv("PS1");
     //char buf[MAXLINE];
     /*
     if (fgets(buf, MAXLINE, in) == NULL)
@@ -51,8 +52,8 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';
     */
-    if ((buf = rl_gets(ENV_PROMPT)) == NULL)
-        return -1;
+    if ((buf = rl_gets(prompt)) == (char *)NULL)
+        return 1;
 
     strcpy(cmd->buf, buf);
     timestamp_cmd(cmd);

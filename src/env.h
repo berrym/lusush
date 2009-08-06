@@ -17,6 +17,7 @@ extern char *ENV_SHELL;
 extern char *ENV_LOGNAME;
 extern char *ENV_MAIL;
 
+extern char *PS1;
 extern int SHELL_TYPE;
 
 extern void env_init(char **);

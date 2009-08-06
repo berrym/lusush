@@ -20,6 +20,7 @@ char *ENV_SHELL = NULL;
 char *ENV_LOGNAME = NULL;
 char *ENV_MAIL = NULL;
 
+char *PS1 = (char *)NULL;
 int SHELL_TYPE = 0;
 
 /**
