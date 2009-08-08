@@ -43,7 +43,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
     int ret;
     char *buf;
-    const char *prompt = getenv("PS1");
+    const char *prompt = getenv("PROMPT");
     //char buf[MAXLINE];
     /*
     if (fgets(buf, MAXLINE, in) == NULL)

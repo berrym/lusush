@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "ldefs.h"
 #include "ltypes.h"
 #include "parse.h"
@@ -108,13 +109,14 @@ int parse_cmd(CMD *cmd, const char *line)
     }
 
     for (i = 0; cmd->argv[i]; i++) {
-        if (!*cmd->argv[i]) {
+        if (isspace(*cmd->argv[i])) {
             free(cmd->argv[i]);
-            cmd->argv[i] = NULL;
+            cmd->argv[i] = (char *)NULL;
         }
     }
+
     lpos++;
-    cmd->argv[lpos] = NULL;
+    cmd->argv[lpos] = (char *)NULL;
     cmd->argc = lpos;
 
     return lpos;

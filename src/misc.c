@@ -32,6 +32,7 @@ void print_debug(const char *fmt, ...)
 void build_prompt(void)
 {
     char cwd[MAXLINE];
+    char ENV_PROMPT[MAXLINE];
 
     if (getcwd(cwd, MAXLINE) == NULL) {
         perror("lusush: build_prompt");
@@ -41,7 +42,6 @@ void build_prompt(void)
     {
         strcpy(ENV_PROMPT, cwd);
         strcat(ENV_PROMPT, "% ");
-        setenv("PS1", ENV_PROMPT, 1);
     }
-    PS1 = getenv("PS1");
+    setenv("PROMPT", ENV_PROMPT, 1);
 }
