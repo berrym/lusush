@@ -1,13 +1,18 @@
 #include <stdio.h>                  // Needed for readline history to compile
 #include <stdlib.h>
 #include <string.h>
+
+#if defined( USING_READLINE )
 #include <readline/readline.h>
 #include <readline/history.h>
+#endif
+
 #include "input.h"
 #include "cmdlist.h"
 #include "env.h"
 #include "parse.h"
 
+#if defined( USING_READLINE )
 static char *line_read = (char *)NULL;
 
 /**
@@ -32,6 +37,7 @@ char *rl_gets(const char *prompt)
 
     return (line_read);
 }
+#endif
 
 /**
  * get_input:
@@ -42,18 +48,23 @@ char *rl_gets(const char *prompt)
 int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
     int ret;
+#if defined( USING_READLINE )
     char *buf;
     const char *prompt = getenv("PROMPT");
-    //char buf[MAXLINE];
-    /*
+#else
+    char buf[MAXLINE];
+#endif
+
+#if defined( USING_READLINE )
+    if ((buf = rl_gets(prompt)) == (char *)NULL)
+        return 1;
+#else
     if (fgets(buf, MAXLINE, in) == NULL)
         return -1;
 
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';
-    */
-    if ((buf = rl_gets(prompt)) == (char *)NULL)
-        return 1;
+#endif
 
     strcpy(cmd->buf, buf);
     timestamp_cmd(cmd);

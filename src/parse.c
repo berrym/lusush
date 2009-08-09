@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include "ldefs.h"
 #include "ltypes.h"
 #include "parse.h"
@@ -92,26 +91,26 @@ int parse_cmd(CMD *cmd, const char *line)
             lpos++;                         // increment line index
             wpos = 0;                       // set word character index to 0
             // Allocate room on the heap for the next string
-            if (line[i+1] != '\0') {
-                cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
-                if (cmd->argv[lpos] == NULL) {
-                    perror("lusush: calloc");
-                    for (j = lpos - 1; j >= 0; j--) {
-                        free(cmd->argv[j]);
-                        cmd->argv[j] = NULL;
-                    }
-                    return -1;
+            //if (line[i+1] != '\0') {
+            cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
+            if (cmd->argv[lpos] == NULL) {
+                perror("lusush: calloc");
+                for (j = lpos - 1; j >= 0; j--) {
+                    free(cmd->argv[j]);
+                    cmd->argv[j] = NULL;
                 }
-                cmd->argv[lpos][wpos] = '\0';   // initialize with NULL
+                return -1;
             }
+            cmd->argv[lpos][wpos] = '\0';   // initialize with NULL
+            //}
             cmd->argc++;
         }
     }
 
-    for (i = 0; cmd->argv[i]; i++) {
-        if (isspace(*cmd->argv[i])) {
-            free(cmd->argv[i]);
-            cmd->argv[i] = (char *)NULL;
+    for (j = 0; cmd->argv[j]; j++) {
+        if (!*cmd->argv[j]) {
+            free(cmd->argv[j]);
+            cmd->argv[j] = (char *)NULL;
         }
     }
 
