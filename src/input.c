@@ -1,6 +1,8 @@
 #include <stdio.h>                  // Needed for readline history to compile
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include "ldefs.h"
 
 #if defined( USING_READLINE )
 #include <readline/readline.h>
@@ -66,10 +68,17 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
         buf[strlen(buf) - 1] = '\0';
 #endif
 
-    strcpy(cmd->buf, buf);
-    timestamp_cmd(cmd);
+    // Remove trailing whitespace
+    if (isspace(strlen(buf) - 1)) {
+        do {
+            buf[strlen(buf) - 1] = '\0';
+        }
+        while (isspace(buf[strlen(buf) - 1]));
+    }
+    strcpy(cmd->buf, buf);              // Copy the string
+    timestamp_cmd(cmd);                 // date it
 
-    if (cmdalloc(cmd) == -1) {
+    if (cmdalloc(cmd) < 0) {
         return -1;
     }
     if ((ret = parse_cmd(cmd, buf)) < 0) {

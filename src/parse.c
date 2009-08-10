@@ -107,13 +107,6 @@ int parse_cmd(CMD *cmd, const char *line)
         }
     }
 
-    for (j = 0; cmd->argv[j]; j++) {
-        if (!*cmd->argv[j]) {
-            free(cmd->argv[j]);
-            cmd->argv[j] = (char *)NULL;
-        }
-    }
-
     lpos++;
     cmd->argv[lpos] = (char *)NULL;
     cmd->argc = lpos;

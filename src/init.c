@@ -40,10 +40,12 @@ void init(char **argv)
         exit(EXIT_FAILURE);
     }
 
+#if !defined( USING_READLINE )
     // Set stdout, stdin, and stderr to a non-buffered state
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+#endif
 
     // Set the initial environment
     env_init(argv);

@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "ldefs.h"
+#include "ltypes.h"
 #include "exec.h"
 #include "misc.h"
 #include "builtins.h"
@@ -44,8 +46,18 @@ void exec_cmdl(CMDLIST *cmdl, char **envp)
 
 void exec_external_cmd(CMD *cmd, char **envp)
 {
-    int status;
+    int status,j;
     pid_t pid;
+
+    // Check for invalid strings at the end of vector,
+    // give back to free pool, they will mess up redirections
+    for (j = 0; cmd->argv[j]; j++) {
+        if (!*cmd->argv[j]) {
+            cmd->argc--;
+            free(cmd->argv[j]);
+            cmd->argv[j] = (char *)NULL;
+        }
+    }
 
     // Spawn a new process
     if ((pid = fork()) < 0) {
@@ -53,10 +65,12 @@ void exec_external_cmd(CMD *cmd, char **envp)
         return;
     }
     else if (pid == 0) {                      // child process
+        // Input redirection
         if (cmd->in_redirect) {
             close(STDIN_FILENO);
             freopen(cmd->in_filename, "r", stdin);
         }
+        // Output redirection
         if (cmd->out_redirect) {
             close(STDOUT_FILENO);
             freopen(cmd->out_filename, "w", stdout);
@@ -121,6 +135,13 @@ void exec_builtin_cmd(CMD *cmd)
     }
     else if (strcmp(cmd->argv[0], builtin_cmds[BUILTIN_CMD_PWD]) == 0) {
         pwd();
+    }
+    else if (strcmp(cmd->argv[0], builtin_cmds[BUILTIN_CMD_HISTORY]) == 0) {
+#if defined( USING_READLINE )
+        history();
+#else
+        history(cmd);
+#endif
     }
 }
 
