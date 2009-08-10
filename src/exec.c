@@ -15,35 +15,6 @@
 
 ////////////////////////// EXECUTE COMMAND FUNCTIONS /////////////////////////
 
-/**
- * TODO: Figure out what is wrong with this function.  It causes some
- * serious (aka FATAL) issues when called.
- *
- * exec_cmdl:
- *      a wrapper to exec_builtin_cmd and exec_external_cmd.
- */
-void exec_cmdl(CMDLIST *cmdl, char **envp)
-{
-    register int i;
-    CMD *cmd;
-
-    // Check that parameters are not NULL
-    if (cmdl == NULL)
-        return;
-
-    cmd = cmdl->head;       // Point cmd to beginning of command list
-
-    // Execute commands in list     
-    for (i = 0; i < cmdl->size; i++) {
-        if (is_builtin_cmd(cmd->argv[0]) == true)
-            exec_builtin_cmd(cmd);
-        else
-            exec_external_cmd(cmd, envp);
-
-        cmd = cmd->next;    // Point cmd to next command
-    }
-}
-
 void exec_external_cmd(CMD *cmd, char **envp)
 {
     int status,j;
