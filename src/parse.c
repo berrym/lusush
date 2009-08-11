@@ -23,8 +23,10 @@ int parse_cmd(CMD *cmd, const char *line)
     bool out_redirect;
     char c;
 
-    if (!line || !*line)
+    if (!line)
         return -1;
+    if (!*line)
+        return 0;
 
     // initialize our integral variables to zero
     i = j = 0;

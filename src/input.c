@@ -58,11 +58,11 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 #endif
 
 #if defined( USING_READLINE )
-    if ((buf = rl_gets(prompt)) == (char *)NULL)
-        return 1;
+    if ((buf = rl_gets(prompt)) == NULL)
+        return 0;
 #else
     if (fgets(buf, MAXLINE, in) == NULL)
-        return -1;
+        return 0;
 
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';
@@ -84,6 +84,10 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     if ((ret = parse_cmd(cmd, buf)) < 0) {
         return -1;
     }
+    else if (ret == 0)
+    {
+        return 0;
+    }
 
     cmd->next->prev = cmd;
     cmd = cmd->next;
@@ -91,5 +95,5 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 
     cmdl->size++;
 
-    return cmdl->size;
+    return ret;
 }

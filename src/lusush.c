@@ -20,6 +20,7 @@ int main(int argc, char **argv, char **env)
     CMD *cmd;
     bool bActive = true;
     int i;
+    int ret;
     char *cmdpath;
     CMDLIST cmdhist;
 
@@ -47,8 +48,12 @@ int main(int argc, char **argv, char **env)
 #if !defined( USING_READLINE )
         printf("%s", getenv("PROMPT"));
 #endif
-        if (get_input(stdin, &cmdhist, cmd) < 0) {
+        if ((ret = get_input(stdin, &cmdhist, cmd)) < 0) {
             bActive = false;
+        }
+        else if (ret == 0)
+        {
+            ;
         }
         else {
 #if defined( PRINT_DEBUG )

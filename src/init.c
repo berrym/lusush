@@ -57,7 +57,7 @@ void init(char **argv)
  */
 void sig_int(int signo)
 {
-    fprintf(stderr, "lusush: caught signal %d.\n", signo);
+    print_debug("\nlusush: caught signal %d.\n", signo);
     //fflush(stderr);
     //global_cleanup();
     //exit(EXIT_FAILURE);

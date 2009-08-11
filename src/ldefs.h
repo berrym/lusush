@@ -8,6 +8,6 @@
 
 //#define PRINT_DEBUG         // print debugging statements
 
-//#define USING_READLINE      // use GNU READLINE
+#define USING_READLINE      // use GNU READLINE
 
 #endif
