@@ -6,7 +6,7 @@
 #endif
 #define MAXLINE 4096        // maximum string length
 
-#define PRINT_DEBUG         // print debugging statements
+//#define PRINT_DEBUG         // print debugging statements
 
 //#define USING_READLINE      // use GNU READLINE
 
