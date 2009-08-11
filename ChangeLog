@@ -1,0 +1,111 @@
+commit 4600f5053c0f0770636ff47171a703972c90148f
+Author: Luny Lususnaturae <lusus@tardis.site>
+Date:   Tue Aug 11 16:35:31 2009 -0400
+
+    Line input updated, blank lines won't cuase program to quit.
+
+diff --git a/src/init.c b/src/init.c
+index 2a2896c..35284cf 100755
+--- a/src/init.c
++++ b/src/init.c
+@@ -57,7 +57,7 @@ void init(char **argv)
+  */
+ void sig_int(int signo)
+ {
+-    fprintf(stderr, "lusush: caught signal %d.\n", signo);
++    print_debug("\nlusush: caught signal %d.\n", signo);
+     //fflush(stderr);
+     //global_cleanup();
+     //exit(EXIT_FAILURE);
+diff --git a/src/input.c b/src/input.c
+index 0fcddad..d545e1a 100755
+--- a/src/input.c
++++ b/src/input.c
+@@ -58,11 +58,11 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
+ #endif
+ 
+ #if defined( USING_READLINE )
+-    if ((buf = rl_gets(prompt)) == (char *)NULL)
+-        return 1;
++    if ((buf = rl_gets(prompt)) == NULL)
++        return 0;
+ #else
+     if (fgets(buf, MAXLINE, in) == NULL)
+-        return -1;
++        return 0;
+ 
+     if (buf[strlen(buf) - 1] == '\n')
+         buf[strlen(buf) - 1] = '\0';
+@@ -84,6 +84,10 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
+     if ((ret = parse_cmd(cmd, buf)) < 0) {
+         return -1;
+     }
++    else if (ret == 0)
++    {
++        return 0;
++    }
+ 
+     cmd->next->prev = cmd;
+     cmd = cmd->next;
+@@ -91,5 +95,5 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
+ 
+     cmdl->size++;
+ 
+-    return cmdl->size;
++    return ret;
+ }
+diff --git a/src/ldefs.h b/src/ldefs.h
+index 0f0b86d..85e83e0 100755
+--- a/src/ldefs.h
++++ b/src/ldefs.h
+@@ -8,6 +8,6 @@
+ 
+ //#define PRINT_DEBUG         // print debugging statements
+ 
+-//#define USING_READLINE      // use GNU READLINE
++#define USING_READLINE      // use GNU READLINE
+ 
+ #endif
+diff --git a/src/lusush.c b/src/lusush.c
+index 10c879a..2f5cf6c 100755
+--- a/src/lusush.c
++++ b/src/lusush.c
+@@ -20,6 +20,7 @@ int main(int argc, char **argv, char **env)
+     CMD *cmd;
+     bool bActive = true;
+     int i;
++    int ret;
+     char *cmdpath;
+     CMDLIST cmdhist;
+ 
+@@ -47,9 +48,13 @@ int main(int argc, char **argv, char **env)
+ #if !defined( USING_READLINE )
+         printf("%s", getenv("PROMPT"));
+ #endif
+-        if (get_input(stdin, &cmdhist, cmd) < 0) {
++        if ((ret = get_input(stdin, &cmdhist, cmd)) < 0) {
+             bActive = false;
+         }
++        else if (ret == 0)
++        {
++            ;
++        }
+         else {
+ #if defined( PRINT_DEBUG )
+             display_cmdlist(&cmdhist);
+diff --git a/src/parse.c b/src/parse.c
+index 26c1234..9f03424 100644
+--- a/src/parse.c
++++ b/src/parse.c
+@@ -23,8 +23,10 @@ int parse_cmd(CMD *cmd, const char *line)
+     bool out_redirect;
+     char c;
+ 
+-    if (!line || !*line)
++    if (!line)
+         return -1;
++    if (!*line)
++        return 0;
+ 
+     // initialize our integral variables to zero
+     i = j = 0;

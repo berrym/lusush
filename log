@@ -1,0 +1,3 @@
+gcc -Wall -g -c src/builtins.c src/cmdlist.c src/env.c src/exec.c src/init.c src/input.c src/misc.c src/lusush.c src/parse.c
+mv *.o obj
+gcc -Wall -lreadline -g obj/builtins.o obj/cmdlist.o obj/env.o obj/exec.o obj/init.o obj/input.o obj/misc.o obj/lusush.o obj/parse.o -o lusush

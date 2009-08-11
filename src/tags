@@ -1,0 +1,40 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.7	//
+ENV_HOME	env.c	/^char *ENV_HOME = (char *)NULL;$/;"	v
+ENV_LOGNAME	env.c	/^char *ENV_LOGNAME = (char *)NULL;$/;"	v
+ENV_MAIL	env.c	/^char *ENV_MAIL = (char *)NULL;$/;"	v
+ENV_PATH	env.c	/^char *ENV_PATH = (char *)NULL;$/;"	v
+ENV_SHELL	env.c	/^char *ENV_SHELL = (char *)NULL;$/;"	v
+SHELL_TYPE	env.c	/^int SHELL_TYPE = 0;$/;"	v
+build_prompt	misc.c	/^void build_prompt(void)$/;"	f
+builtin_cmds	builtins.c	/^const char *builtin_cmds[BUILTIN_CMD_CNT] =$/;"	v
+cd	builtins.c	/^void cd(const char *path)$/;"	f
+cmdalloc	cmdlist.c	/^int cmdalloc(CMD *cmd)$/;"	f
+cmdfree	cmdlist.c	/^void cmdfree(CMD *cmd)$/;"	f
+display_cmd	cmdlist.c	/^void display_cmd(CMD *cmd)$/;"	f
+display_cmdlist	cmdlist.c	/^void display_cmdlist(CMDLIST *cmdl)$/;"	f
+env_init	env.c	/^void env_init(char **argv)$/;"	f
+exec_builtin_cmd	exec.c	/^void exec_builtin_cmd(CMD *cmd)$/;"	f
+exec_external_cmd	exec.c	/^void exec_external_cmd(CMD *cmd, char **envp)$/;"	f
+free_cmdlist	cmdlist.c	/^void free_cmdlist(CMDLIST *cmdl)$/;"	f
+get_input	input.c	/^int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)$/;"	f
+global_cleanup	env.c	/^void global_cleanup(void)$/;"	f
+hist_list	builtins.c	/^static HIST_ENTRY **hist_list;$/;"	v	file:
+history	builtins.c	/^void history(CMD *cmd)$/;"	f
+history	builtins.c	/^void history(void)$/;"	f
+init	init.c	/^void init(char **argv)$/;"	f
+is_builtin_cmd	exec.c	/^bool is_builtin_cmd(const char *cmdname)$/;"	f
+line_read	input.c	/^static char *line_read = (char *)NULL;$/;"	v	file:
+main	lusush.c	/^int main(int argc, char **argv, char **env)$/;"	f
+parse_cmd	parse.c	/^int parse_cmd(CMD *cmd, const char *line)$/;"	f
+path_to_cmd	exec.c	/^char *path_to_cmd(char *cmd)$/;"	f
+print_debug	misc.c	/^void print_debug(const char *fmt, ...)$/;"	f
+pwd	builtins.c	/^void pwd(void)$/;"	f
+rl_gets	input.c	/^char *rl_gets(const char *prompt)$/;"	f
+sig_int	init.c	/^void sig_int(int signo)$/;"	f
+sig_seg	init.c	/^void sig_seg(int signo)$/;"	f
+timestamp_cmd	cmdlist.c	/^void timestamp_cmd(CMD *cmd)$/;"	f
