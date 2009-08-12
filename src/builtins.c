@@ -51,8 +51,7 @@ void history(void)
     if ((hist_list = history_list())) {
         puts("Command history.\n");
         for (i = 0; hist_list[i]; i++) {
-            if (hist_list[i])
-                printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
+            printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
         }
     }
 }
