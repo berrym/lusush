@@ -1,7 +1,9 @@
 LUSUSH
 
+==== OVERVIEW
+
     Lusush is a shell for the UNIX environment.  It is simple and essentially
-    featurless.  Originally developed as an educational experience to gain
+    featureless.  Originally developed as an educational experience to gain
     more familiarity with programming in a UNIX environment, that is what the
     project remains today.
 
@@ -10,7 +12,33 @@ LUSUSH
     is however a lightweight alternative to shells with those features, and
     does it's job well.
 
-    Should anybody find lusush or it's sourcecode usefull, perhaps as a How
+    Should anybody find lusush or it's source code useful, perhaps as a How
     Not To guide, please let me know.
+
+==== INSTALLATION
+
+    Basic installation can be achieved with the following commands.
+
+    ./configure
+    make install
+
+    This will put the binary lusush in the top level directory where you can
+    move it to any site specific location you so desire.
+
+==== BASIC USAGE
+
+    Lusus can be run as a login shell or interactively.  You type commands
+    and lusush will attempt to locate them, then execute them.
+
+    If you wish to use the redirection feature of lusush, it's the same as
+    typical shell convention except that you are required to leave no space
+    between the redirection symbol and the requisite file name.  This is
+    because of the limited nature of lusush's parser.
+
+    e.g. /home/you% ls >tmp
+         /home/you% cat <tmp >tmp2
+
+    NOT  /home/you% ls > tmp
+         /home/you% cat < tmp > tmp2
 
 Luny Lususnaturae <trismegustis@gmail.com>
