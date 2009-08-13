@@ -1,1 +1,4 @@
-Last update to lusush was 8/12/2009
+Last update to lusush was 8/13/2009
+    * Basic help documentation is available through new builtin command help.
+    * User setting and unsetting of environment variables is possible through
+      new builtin commands setenv, and unsetenv.

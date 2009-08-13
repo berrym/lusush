@@ -81,38 +81,74 @@ void exec_external_cmd(CMD *cmd, char **envp)
     } 
 }
 
-bool is_builtin_cmd(const char *cmdname)
+int is_builtin_cmd(const char *cmdname)
 {
     register int i;
 
-    for (i = 0; i < BUILTIN_CMD_CNT; i++) {
-        if (strcmp(cmdname, builtin_cmds[i]) == 0)
-            return true;
+    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+        if (strcmp(cmdname, builtins[i]) == 0)
+            return i;
     }
 
-    return false;
+    return -1;
 }
 
-void exec_builtin_cmd(CMD *cmd)
+void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    if (strcmp(cmd->argv[0], builtin_cmds[0]) == 0) {
-        printf("Goodbye!\n");
-        global_cleanup();
-        exit(EXIT_SUCCESS);
-    }
-    else if (strcmp(cmd->argv[0], builtin_cmds[BUILTIN_CMD_CD]) == 0) {
-        if (cmd->argv[1] != NULL)
-            cd(cmd->argv[1]);
-    }
-    else if (strcmp(cmd->argv[0], builtin_cmds[BUILTIN_CMD_PWD]) == 0) {
-        pwd();
-    }
-    else if (strcmp(cmd->argv[0], builtin_cmds[BUILTIN_CMD_HISTORY]) == 0) {
+    switch (cmdno) {
+        case BUILTIN_CMD_EXIT:
+            printf("Goodbye!\n");
+            global_cleanup();
+            exit(EXIT_SUCCESS);
+            break;
+
+        case BUILTIN_CMD_HELP:
+            if (cmd->argv[1] && *cmd->argv[1]) {
+                help(cmd->argv[1]);
+            }
+            else {
+                help((char *)NULL);
+            }
+            break;
+
+        case BUILTIN_CMD_CD:
+            if (cmd->argv[1] != NULL)
+                cd(cmd->argv[1]);
+            break;
+
+        case BUILTIN_CMD_PWD:
+            pwd();
+            break;
+
+        case BUILTIN_CMD_HISTORY:
 #if defined( USING_READLINE )
-        history();
+            history();
 #else
-        history(cmd);
+            history(cmd);
 #endif
+            break;
+
+        case BUILTIN_CMD_SETENV:
+            if (cmd->argc != 3) {
+                fprintf(stderr, "lusush: setenv: takes two arguments\n");
+            }
+            else {
+                if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
+                    perror("lusush: setenv");
+                }
+            }
+            break;
+
+        case BUILTIN_CMD_UNSETENV:
+            if (cmd->argc != 2) {
+                fprintf(stderr, "lusush: unsetenv: takes one argument\n");
+            }
+            else {
+                if (unsetenv(cmd->argv[1]) < 0) {
+                    perror("lusush: unsetenv");
+                }
+            }
+            break;
     }
 }
 

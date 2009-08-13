@@ -12,20 +12,43 @@ static HIST_ENTRY **hist_list;
 
 /**
  * Builtin commands
- *      exit    exit program
- *      cd      change directory
- *      pwd     print working directory
- *      history print command history
+ *      exit        exit program
+ *      help        print help
+ *      cd          change directory
+ *      pwd         print working directory
+ *      history     print command history
+ *      setenv      set environment variable
+ *      unsetenv    unset environment variable
  */
-const char *builtin_cmds[BUILTIN_CMD_CNT] =
+
+const char *builtins[BUILTIN_CMD_CNT] =
 {
-    "exit",
-    "cd",
-    "pwd",
-    "history"
+    "exit",         "exit program",
+    "help",         "display basic help",
+    "cd",           "change directory",
+    "pwd",          "print working directory",
+    "history",      "print command history",
+    "setenv",       "set environment variable",
+    "unsetenv",     "delete environment variable"
 };
 
 ///////////////////////// BUILTIN COMMANDS ///////////////////////////////////
+
+void help(const char *cmdname)
+{
+    int i;
+    if (cmdname == (char *)NULL) {
+        printf("Builtin commands:\n");
+        for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
+        }
+    }
+    else {
+        if ((i = is_builtin_cmd(cmdname)) != -1) {
+            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
+        }
+    }
+}
 
 void cd(const char *path)
 {
@@ -49,7 +72,7 @@ void history(void)
 {
     int i;
     if ((hist_list = history_list())) {
-        puts("Command history.\n");
+        printf("Command history.\n");
         for (i = 0; hist_list[i]; i++) {
             printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
         }
@@ -60,7 +83,7 @@ void history(CMD *cmd)
 {
     int i = 0;
 
-    puts("Command history.\n");
+    printf("Command history.\n");
 
     while (cmd->prev != NULL) {
         cmd = cmd->prev;

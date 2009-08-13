@@ -59,8 +59,8 @@ int main(int argc, char **argv, char **env)
 #if defined( PRINT_DEBUG )
             display_cmdlist(&cmdhist);
 #endif
-            if (is_builtin_cmd(cmd->argv[0]) == true) {
-                exec_builtin_cmd(cmd);
+            if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+                exec_builtin_cmd(ret, cmd);
             }
             else {
                 cmdpath = path_to_cmd(cmd->argv[0]);

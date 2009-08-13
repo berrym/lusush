@@ -22,6 +22,9 @@ LUSUSH
     ./configure
     make install
 
+    This will put the binary lusush in the top level directory where you can
+    move it to any site specific location you so desire.
+
     Optionally configure can take some arguments that you may want to set.
     For example you may want to tell it where to look for libraries.
     On my NetBSD machine I would give it something that looked like this so
@@ -29,13 +32,24 @@ LUSUSH
 
     ./configure LDFLAGS+="-L/usr/pkg/lib -R/usr/pkg/lib"
 
-    This will put the binary lusush in the top level directory where you can
-    move it to any site specific location you so desire.
-
 ==== BASIC USAGE
 
     Lusus can be run as a login shell or interactively.  You type commands
     and lusush will attempt to locate them, then execute them.
+
+    Upon running lusush you will be greeted with a prompt, usually your home
+    directory followed by a percent sign.
+
+    /home/you%
+
+    To see a complete list of builtin commands and their description, run help.
+
+    e.g. /home/you% help
+
+    You may also run help followed by an optional command you specifically want
+    to see some information on.
+
+    e.g. /home/you% help pwd
 
     If you wish to use the redirection feature of lusush, it's the same as
     typical shell convention except that you are required to leave no space
@@ -47,5 +61,17 @@ LUSUSH
 
     NOT  /home/you% ls > tmp
          /home/you% cat < tmp > tmp2
+
+    To set an environment variable use the setenv command.
+
+    e.g. /home/you% setenv MYVAR testing123
+
+    And to delete an environment variable use unsetenv.
+
+    e.g. /home/you% unsetenv MYVAR
+
+    Control-C is ignored by default, and for the moment EOF will not cause an
+    exit, this will be fixed in time, but for now if you want to exit the
+    shell you will have to issue the command exit.
 
 Luny Lususnaturae <trismegustis@gmail.com>
