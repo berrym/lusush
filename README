@@ -30,7 +30,7 @@ LUSUSH
     On my NetBSD machine I would give it something that looked like this so
     that I can link readline into lusush.
 
-    ./configure LDFLAGS+="-L/usr/pkg/lib -R/usr/pkg/lib"
+    ./configure LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
 
 ==== BASIC USAGE
 

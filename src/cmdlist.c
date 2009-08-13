@@ -37,30 +37,32 @@ int cmdalloc(CMD *cmd)
 
 /**
  * cmdfree:
- *      free's the memory pointed to by cmd, including reverse recursive 
+ *      free's the memory pointed to by cmd, including recursive 
  *      free'ing of the strings in cmd->argv.
  */
 void cmdfree(CMD *cmd)
 {
     int i;
 
-    if (cmd->argv != NULL) {
-        for (i = (cmd->argc - 1); i >= 0; i--) {
-            free(cmd->argv[i]);
-            cmd->argv[i] = NULL;
+    if (cmd) {
+        if (cmd->argv) {
+            for (i = 0; cmd->argv[i]; i--) {
+                free(cmd->argv[i]);
+                cmd->argv[i] = (char *)NULL;
+            }
         }
-        //free(cmd->argv);
-        //cmd->argv = (char **)0;
+
+        strcpy(cmd->buf, "\0");
+        cmd->argc = 0;
+
+        if (cmd->next)
+            cmd->next->prev = cmd->prev;
+        if (cmd->prev)
+            cmd->prev->next = cmd->next;
+
+        free(cmd);
+        cmd = NULL;
     }
-
-    strcpy(cmd->buf, "\0");
-    cmd->argc = 0;
-
-    cmd->next->prev = cmd->prev;
-    cmd->prev->next = cmd->next;
-
-    free(cmd);
-    cmd = NULL;
 }
 
 void free_cmdlist(CMDLIST *cmdl)
@@ -68,16 +70,14 @@ void free_cmdlist(CMDLIST *cmdl)
     CMD *cmd, *tmp;
     cmd = cmdl->head;
 
-    while (cmd != NULL) {
+    while (cmd) {
         cmd = cmd->next;
     }
 
-    tmp = cmd->prev;
-
-    while (tmp != NULL) {
+    while (cmd) {
+        tmp = cmd->prev;
         cmdfree(cmd);
         cmd = tmp;
-        tmp = cmd->prev;
     }
 }
 
@@ -85,7 +85,7 @@ void display_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd = cmdl->head;
 
-    while (cmd != NULL && cmd->argc > 0) {
+    while (cmd && cmd->argc) {
         display_cmd(cmd);
         cmd = cmd->next;
     }

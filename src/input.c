@@ -59,10 +59,10 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 
 #if defined( USING_READLINE )
     if ((buf = rl_gets(prompt)) == NULL)
-        return 0;
+        return -1;
 #else
     if (fgets(buf, MAXLINE, in) == NULL)
-        return 0;
+        return -1;
 
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';

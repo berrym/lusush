@@ -89,7 +89,13 @@ int main(int argc, char **argv, char **env)
     printf("\n");
 
     global_cleanup();
-    //free_cmdlist(&cmdhist);
+    if (cmdhist.size) {
+        free_cmdlist(&cmdhist);
+    }
+    else {
+        free(cmdhist.head);
+        cmdhist.head = (CMD *)NULL;
+    }
 
     return 0;
 }
