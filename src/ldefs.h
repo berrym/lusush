@@ -1,3 +1,5 @@
+#include "../config.h"
+
 #ifndef __LDEFS_H__
 #define __LDEFS_H__
 
@@ -8,6 +10,8 @@
 
 //#define PRINT_DEBUG         // print debugging statements
 
+#ifdef HAVE_LIBREADLINE
 #define USING_READLINE      // use GNU READLINE
+#endif
 
 #endif
