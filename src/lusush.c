@@ -84,7 +84,7 @@ int main(int argc, char **argv, char **env)
     }
 
     for (i = 0; i < cmdhist.size; i++) {
-        printf("#%d# ", i+1);
+        print_debug("#%d# ", i+1);
     }
     printf("\n");
 

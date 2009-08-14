@@ -1,4 +1,8 @@
 #include "ldefs.h"
+#include "../config.h"
+#ifdef HAVE__BOOL
+#include <stdbool.h>
+#endif
 
 #ifndef __LTYPES_H__
 #define __LTYPES_H__
@@ -8,7 +12,7 @@
 /**
  * enum bool
  */
-#ifndef bool
+#ifndef HAVE__BOOL
 typedef enum { false = 0, true = 1 } bool;
 #endif
 
