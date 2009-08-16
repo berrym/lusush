@@ -69,7 +69,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 #endif
 
     // Remove trailing whitespace
-    if (isspace(buf[strlen(buf) - 1])) {
+    if (strlen(buf) > 1 && isspace(buf[strlen(buf) - 1])) {
         do {
             buf[strlen(buf) - 1] = '\0';
         }
