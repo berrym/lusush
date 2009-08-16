@@ -11,6 +11,7 @@
 #include "input.h"
 #include "cmdlist.h"
 #include "exec.h"
+#include "builtins.h"
 #include "misc.h"
 
 ///////////////////////// MAIN FUNCTION //////////////////////////////////////
@@ -48,38 +49,40 @@ int main(int argc, char **argv, char **env)
 #if !defined( USING_READLINE )
         printf("%s", getenv("PROMPT"));
 #endif
-        if ((ret = get_input(stdin, &cmdhist, cmd)) < 0) {
-            bActive = false;
-        }
-        else if (ret == 0)
-        {
-            ;
-        }
-        else {
+        switch(ret = get_input(stdin, &cmdhist, cmd)) {
+            case -1:
+                bActive = false;
+                break;
+            case 0:
+                break;
+            default:
 #if defined( PRINT_DEBUG )
-            display_cmdlist(&cmdhist);
+                display_cmdlist(&cmdhist);
 #endif
-            if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
-                exec_builtin_cmd(ret, cmd);
-            }
-            else {
-                cmdpath = path_to_cmd(cmd->argv[0]);
-                if (cmdpath != NULL && strcmp(cmdpath, "S_ISDIR") == 0) {
-                    printf("lusush: %s is a directory.\n", cmd->argv[0]);
-                }
-                else if (cmdpath != NULL) {
-                    strcpy(cmd->argv[0], cmdpath);
-                    exec_external_cmd(cmd, NULL);
+                if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+                    exec_builtin_cmd(ret, cmd);
                 }
                 else {
-                    printf("lusush: command not found.\n");
-                }
+                    cmdpath = path_to_cmd(cmd->argv[0]);
+                    if (cmdpath != NULL && strcmp(cmdpath, "S_ISDIR") == 0) {
+                        print_debug("lusush: %s is a directory.\n",
+                                cmd->argv[0]);
+                        cd(cmd->argv[0]);
+                    }
+                    else if (cmdpath != NULL) {
+                        strcpy(cmd->argv[0], cmdpath);
+                        exec_external_cmd(cmd, NULL);
+                    }
+                    else {
+                        printf("lusush: command not found.\n");
+                    }
 
-                if (cmdpath != NULL)
-                    free(cmdpath);
-                cmdpath = NULL;
-            }
-            cmd = cmd->next;
+                    if (cmdpath != NULL)
+                        free(cmdpath);
+                    cmdpath = NULL;
+                }
+                cmd = cmd->next;
+                break;
         }
     }
 
