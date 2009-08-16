@@ -68,7 +68,7 @@ void cmdfree(CMD *cmd)
 void free_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd, *tmp;
-    cmd = cmdl->head;
+    cmd = &cmdl->head;
 
     while (cmd) {
         cmd = cmd->next;
@@ -83,7 +83,7 @@ void free_cmdlist(CMDLIST *cmdl)
 
 void display_cmdlist(CMDLIST *cmdl)
 {
-    CMD *cmd = cmdl->head;
+    CMD *cmd = &cmdl->head;
 
     while (cmd && cmd->argc) {
         display_cmd(cmd);
@@ -93,7 +93,7 @@ void display_cmdlist(CMDLIST *cmdl)
 
 void display_cmd(CMD *cmd)
 {
-    int i;
+    register int i;
 
     printf("Processed Command:\n");
     printf("\targc->%d\n\t", cmd->argc);

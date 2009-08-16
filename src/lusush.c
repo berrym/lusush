@@ -16,7 +16,7 @@
 
 ///////////////////////// MAIN FUNCTION //////////////////////////////////////
 
-int main(int argc, char **argv, char **env)
+int main(int argc, char **argv)
 {
     CMD *cmd;
     bool bActive = true;
@@ -25,21 +25,16 @@ int main(int argc, char **argv, char **env)
     char *cmdpath;
     CMDLIST cmdhist;
 
-    if ((cmdhist.head = (CMD *)calloc(1, sizeof(CMD *))) == NULL) {
-        perror("lusush: calloc");
-        exit(EXIT_FAILURE);
-    }
-
     // Perform startup tasks
     init(argv);
 
     // Initialize doubly linked list of commands
-    //cmdhist.head->next = (CMD *) NULL;
-    //cmdhist.head->prev = (CMD *) NULL;
+    cmdhist.head.next = (CMD *) NULL;
+    cmdhist.head.prev = (CMD *) NULL;
     cmdhist.size = 0;
 
     // Point cmd to list head
-    cmd = cmdhist.head;
+    cmd = &cmdhist.head;
 
     while (bActive) {
         if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == NULL) {
@@ -94,10 +89,6 @@ int main(int argc, char **argv, char **env)
     global_cleanup();
     if (cmdhist.size) {
         free_cmdlist(&cmdhist);
-    }
-    else {
-        free(cmdhist.head);
-        cmdhist.head = (CMD *)NULL;
     }
 
     return 0;

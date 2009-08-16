@@ -73,7 +73,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
         do {
             buf[strlen(buf) - 1] = '\0';
         }
-        while (isspace(buf[strlen(buf) - 1]));
+        while (buf[strlen(buf) - 1] && isspace(buf[strlen(buf) - 1]));
     }
     strcpy(cmd->buf, buf);              // Copy the string
     timestamp_cmd(cmd);                 // date it

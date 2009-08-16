@@ -43,7 +43,7 @@ typedef struct _CMD CMD;
 struct _CMDLIST
 {
     int size;
-    CMD *head;
+    CMD head;
 };
 typedef struct _CMDLIST CMDLIST;
 
