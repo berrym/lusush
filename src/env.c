@@ -15,12 +15,11 @@
  */
 char *ENV_HOME = (char *)NULL;
 char *ENV_PATH = (char *)NULL;
-//char *ENV_PROMPT = (char *)NULL;
+char *ENV_PROMPT = (char *)NULL;
 char *ENV_SHELL = (char *)NULL;
 char *ENV_LOGNAME = (char *)NULL;
 char *ENV_MAIL = (char *)NULL;
 
-//char *PS1 = (char *)NULL;
 int SHELL_TYPE = 0;
 
 /**
@@ -51,25 +50,18 @@ void env_init(char **argv)
     print_debug("*** LOGNAME IS SET\n%s\n\n", ENV_LOGNAME);
 
     // set the user's prompt
-    /*
-    if ((ENV_PROMPT = (char *)calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: calloc");
-        exit(EXIT_FAILURE);
-    }
-    */
     build_prompt();
-    //ENV_PROMPT = getenv("PROMPT");
 }
 
 void global_cleanup(void)
 {
-    ENV_LOGNAME = NULL;
+    ENV_LOGNAME = (char *)NULL;
 
-    ENV_HOME = NULL;
+    ENV_HOME = (char *)NULL;
 
-    ENV_PATH = NULL;
+    ENV_PATH = (char *)NULL;
     
-    //ENV_PROMPT = NULL;
+    ENV_PROMPT = (char *)NULL;
 
-    ENV_SHELL = NULL;
+    ENV_SHELL = (char *)NULL;
 }

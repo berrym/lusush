@@ -42,7 +42,7 @@ int main(int argc, char **argv)
             bActive = false;
         }
 #if !defined( USING_READLINE )
-        printf("%s", getenv("PROMPT"));
+        printf("%s", (ENV_PROMPT = getenv("PROMPT")) ? ENV_PROMPT : "% ");
 #endif
         switch(ret = get_input(stdin, &cmdhist, cmd)) {
             case -1:

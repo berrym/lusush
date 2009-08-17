@@ -52,13 +52,14 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     int ret;
 #if defined( USING_READLINE )
     char *buf;
-    const char *prompt = getenv("PROMPT");
+    //const char *prompt = getenv("PROMPT");
 #else
     char buf[MAXLINE];
 #endif
 
 #if defined( USING_READLINE )
-    if ((buf = rl_gets(prompt)) == NULL)
+    if ((buf = rl_gets((ENV_PROMPT = getenv("PROMPT"))
+                        ? ENV_PROMPT : "% ")) == NULL)
         return -1;
 #else
     if (fgets(buf, MAXLINE, in) == NULL)
