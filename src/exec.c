@@ -15,6 +15,42 @@
 
 ////////////////////////// EXECUTE COMMAND FUNCTIONS /////////////////////////
 
+void exec_cmd(CMD *cmd)
+{
+    int ret;
+    char *cmdpath;
+
+    if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == NULL) {
+        perror("lusush: calloc");
+        global_cleanup();
+        exit(EXIT_FAILURE);
+    }
+
+    if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+        exec_builtin_cmd(ret, cmd);
+    }
+    else {
+        cmdpath = path_to_cmd(cmd->argv[0]);
+        if (cmdpath != NULL && strcmp(cmdpath, "S_ISDIR") == 0) {
+            print_debug("lusush: %s is a directory.\n",
+                    cmd->argv[0]);
+            cd(cmd->argv[0]);
+        }
+        else if (cmdpath != NULL) {
+            strcpy(cmd->argv[0], cmdpath);
+            exec_external_cmd(cmd, NULL);
+        }
+        else {
+            printf("lusush: command not found.\n");
+        }
+
+        if (cmdpath != NULL)
+            free(cmdpath);
+        cmdpath = NULL;
+    }
+
+}
+
 void exec_external_cmd(CMD *cmd, char **envp)
 {
     int status,j;

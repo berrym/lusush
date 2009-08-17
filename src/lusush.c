@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     bool bActive = true;
     int i;
     int ret;
-    char *cmdpath;
+    //char *cmdpath;
     CMDLIST cmdhist;
 
     // Perform startup tasks
@@ -37,10 +37,7 @@ int main(int argc, char **argv)
     cmd = &cmdhist.head;
 
     while (bActive) {
-        if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == NULL) {
-            perror("lusush: calloc");
-            bActive = false;
-        }
+
 #if !defined( USING_READLINE )
         printf("%s", (ENV_PROMPT = getenv("PROMPT")) ? ENV_PROMPT : "% ");
 #endif
@@ -54,28 +51,7 @@ int main(int argc, char **argv)
 #if defined( PRINT_DEBUG )
                 display_cmdlist(&cmdhist);
 #endif
-                if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
-                    exec_builtin_cmd(ret, cmd);
-                }
-                else {
-                    cmdpath = path_to_cmd(cmd->argv[0]);
-                    if (cmdpath != NULL && strcmp(cmdpath, "S_ISDIR") == 0) {
-                        print_debug("lusush: %s is a directory.\n",
-                                cmd->argv[0]);
-                        cd(cmd->argv[0]);
-                    }
-                    else if (cmdpath != NULL) {
-                        strcpy(cmd->argv[0], cmdpath);
-                        exec_external_cmd(cmd, NULL);
-                    }
-                    else {
-                        printf("lusush: command not found.\n");
-                    }
-
-                    if (cmdpath != NULL)
-                        free(cmdpath);
-                    cmdpath = NULL;
-                }
+                exec_cmd(cmd);
                 cmd = cmd->next;
                 break;
         }
