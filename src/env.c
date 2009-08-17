@@ -52,16 +52,3 @@ void env_init(char **argv)
     // set the user's prompt
     build_prompt();
 }
-
-void global_cleanup(void)
-{
-    ENV_LOGNAME = (char *)NULL;
-
-    ENV_HOME = (char *)NULL;
-
-    ENV_PATH = (char *)NULL;
-    
-    ENV_PROMPT = (char *)NULL;
-
-    ENV_SHELL = (char *)NULL;
-}

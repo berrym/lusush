@@ -20,7 +20,6 @@ extern char *ENV_MAIL;
 extern int SHELL_TYPE;
 
 extern void env_init(char **);
-extern void global_cleanup(void);
 
 enum {
     SHELL_TYPE_LOGIN=1,

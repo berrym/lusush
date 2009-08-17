@@ -45,3 +45,16 @@ void build_prompt(void)
     }
     setenv("PROMPT", ENV_PROMPT, 1);
 }
+
+void global_cleanup(void)
+{
+    ENV_LOGNAME = (char *)NULL;
+
+    ENV_HOME = (char *)NULL;
+
+    ENV_PATH = (char *)NULL;
+    
+    ENV_PROMPT = (char *)NULL;
+
+    ENV_SHELL = (char *)NULL;
+}

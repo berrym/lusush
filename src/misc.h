@@ -3,5 +3,6 @@
 
 extern void print_debug(const char *, ...);
 extern void build_prompt(void);
+extern void global_cleanup(void);
 
 #endif
