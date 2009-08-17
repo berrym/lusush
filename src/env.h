@@ -22,14 +22,9 @@ extern int SHELL_TYPE;
 extern void env_init(char **);
 extern void global_cleanup(void);
 
-#ifdef SHELL_TYPE_LOGIN
-#undef SHELL_TYPE_LOGIN
-#endif
-#define SHELL_TYPE_LOGIN 1
-
-#ifdef SHELL_TYPE_INTERACTIVE
-#undef SHELL_TYPE_INTERACTIVE
-#endif
-#define SHELL_TYPE_INTERACTIVE 2
+enum {
+    SHELL_TYPE_LOGIN=1,
+    SHELL_TYPE_INTERACTIVE
+};
 
 #endif
