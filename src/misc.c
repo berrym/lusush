@@ -34,7 +34,7 @@ void build_prompt(void)
     char cwd[MAXLINE];
     char ENV_PROMPT[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == NULL) {
+    if (getcwd(cwd, MAXLINE) == (char *)NULL) {
         perror("lusush: build_prompt");
         strcpy(ENV_PROMPT, "% ");
     }

@@ -59,10 +59,10 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 
 #if defined( USING_READLINE )
     if ((buf = rl_gets((ENV_PROMPT = getenv("PROMPT"))
-                        ? ENV_PROMPT : "% ")) == NULL)
+                        ? ENV_PROMPT : "% ")) == (char *)NULL)
         return -1;
 #else
-    if (fgets(buf, MAXLINE, in) == NULL)
+    if (fgets(buf, MAXLINE, in) == (char *)NULL)
         return -1;
 
     if (buf[strlen(buf) - 1] == '\n')
@@ -92,7 +92,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 
     cmd->next->prev = cmd;
     cmd = cmd->next;
-    cmd->next = NULL;
+    cmd->next = (CMD *)NULL;
 
     cmdl->size++;
 

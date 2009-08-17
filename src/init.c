@@ -42,9 +42,9 @@ void init(char **argv)
 
 #if !defined( USING_READLINE )
     // Set stdout, stdin, and stderr to a non-buffered state
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stdin, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
+    setvbuf(stdout, (char *)NULL, _IONBF, 0);
+    setvbuf(stdin, (char *)NULL, _IONBF, 0);
+    setvbuf(stderr, (char *)NULL, _IONBF, 0);
 #endif
 
     // Set the initial environment
@@ -58,9 +58,6 @@ void init(char **argv)
 void sig_int(int signo)
 {
     print_debug("\nlusush: caught signal %d.\n", signo);
-    //fflush(stderr);
-    //global_cleanup();
-    //exit(EXIT_FAILURE);
 }
 
 /**
@@ -72,7 +69,6 @@ void sig_seg(int signo)
 {
     fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
     fprintf(stderr, "\tAnd fix your damn code.\n");
-    //fflush(stderr);
     global_cleanup();
     exit(EXIT_FAILURE);
 }

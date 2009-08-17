@@ -22,7 +22,6 @@ int main(int argc, char **argv)
     bool bActive = true;
     int i;
     int ret;
-    //char *cmdpath;
     CMDLIST cmdhist;
 
     // Perform startup tasks

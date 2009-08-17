@@ -20,7 +20,7 @@ void exec_cmd(CMD *cmd)
     int ret;
     char *cmdpath;
 
-    if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == NULL) {
+    if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
         perror("lusush: calloc");
         global_cleanup();
         exit(EXIT_FAILURE);
@@ -31,22 +31,22 @@ void exec_cmd(CMD *cmd)
     }
     else {
         cmdpath = path_to_cmd(cmd->argv[0]);
-        if (cmdpath != NULL && strcmp(cmdpath, "S_ISDIR") == 0) {
+        if (cmdpath && strcmp(cmdpath, "S_ISDIR") == 0) {
             print_debug("lusush: %s is a directory.\n",
                     cmd->argv[0]);
             cd(cmd->argv[0]);
         }
-        else if (cmdpath != NULL) {
+        else if (cmdpath) {
             strcpy(cmd->argv[0], cmdpath);
-            exec_external_cmd(cmd, NULL);
+            exec_external_cmd(cmd, (char **)NULL);
         }
         else {
             printf("lusush: command not found.\n");
         }
 
-        if (cmdpath != NULL)
+        if (cmdpath)
             free(cmdpath);
-        cmdpath = NULL;
+        cmdpath = (char *)NULL;
     }
 
 }
@@ -91,7 +91,7 @@ void exec_external_cmd(CMD *cmd, char **envp)
             freopen("/dev/null", "r", stdin);
             freopen("/dev/null", "w", stderr);
         }
-        if (envp != NULL) {
+        if (envp) {
             print_debug("calling execve\n");
             execve(cmd->argv[0], cmd->argv, envp);
         }
@@ -148,7 +148,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             break;
 
         case BUILTIN_CMD_CD:
-            if (cmd->argv[1] != NULL)
+            if (cmd->argv[1])
                 cd(cmd->argv[1]);
             break;
 
@@ -198,12 +198,12 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
  */
 char *path_to_cmd(char *cmd)
 {
-    char *tok = NULL, *full_cmd = NULL, *ptr = NULL;
+    char *tok = (char *)NULL, *full_cmd = (char *)NULL, *ptr = (char *)NULL;
     struct stat cmd_st;
     char *isdir;
     if ((isdir = calloc(strlen("S_ISDIR")+1, sizeof(char))) == NULL) {
         perror("lusush: calloc");
-        return NULL;
+        return (char *)NULL;
     }
     strcpy(isdir, "S_ISDIR");
     isdir[strlen(isdir)] = '\0';
@@ -223,11 +223,10 @@ char *path_to_cmd(char *cmd)
     tok = strtok(ptr, ": ");    // seperate tokens by ':' or ' '
     print_debug("Searching path for command\n");
 
-    while (tok != NULL) {
-        full_cmd = (char *)calloc(MAXLINE, sizeof(char));
-        if (full_cmd == NULL) {
+    while (tok) {
+        if ((full_cmd=(char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
             perror("calloc");
-            return NULL;
+            return (char *)NULL;
         }
         full_cmd[0] = '\0';
         strcpy(full_cmd, tok);
@@ -235,8 +234,8 @@ char *path_to_cmd(char *cmd)
         strcat(full_cmd, cmd);
 
         // call stat
-        if (stat(full_cmd, &cmd_st) == -1) {
-            print_debug("\t%s: stat: %s\n", full_cmd, strerror(errno));
+        if (stat(full_cmd, &cmd_st) < 0) {
+            print_debug("\tlusush%s: stat: %s\n", full_cmd, strerror(errno));
         }
         else {
             if (S_ISREG(cmd_st.st_mode)) {     // is a regular file
@@ -246,10 +245,10 @@ char *path_to_cmd(char *cmd)
         }
 
         free(full_cmd);
-        full_cmd = NULL;
+        full_cmd = (char *)NULL;
 
-        tok = strtok(NULL, ": ");
+        tok = strtok((char *)NULL, ": ");
     }
 
-    return NULL;
+    return (char *)NULL;
 }

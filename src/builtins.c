@@ -61,7 +61,7 @@ void pwd(void)
 {
     char cwd[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == NULL)
+    if (getcwd(cwd, MAXLINE) == (char *)NULL)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);
@@ -85,11 +85,11 @@ void history(CMD *cmd)
 
     printf("Command history.\n");
 
-    while (cmd->prev != NULL) {
+    while (cmd->prev) {
         cmd = cmd->prev;
     }
 
-    while (cmd->next != NULL) {
+    while (cmd->next) {
         printf("%4d:\t%s\n", i, cmd->buf);
         cmd = cmd->next;
         i++;

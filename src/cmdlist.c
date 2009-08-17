@@ -16,7 +16,7 @@
 int cmdalloc(CMD *cmd)
 {
     // Allocate the next node
-    if ((cmd->next = (CMD *)calloc(1, sizeof(CMD))) == NULL) {
+    if ((cmd->next = (CMD *)calloc(1, sizeof(CMD))) == (CMD *)NULL) {
         perror("lusush: calloc");
         return -1;
     }
@@ -61,7 +61,7 @@ void cmdfree(CMD *cmd)
             cmd->prev->next = cmd->next;
 
         free(cmd);
-        cmd = NULL;
+        cmd = (CMD *)NULL;
     }
 }
 

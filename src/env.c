@@ -39,7 +39,7 @@ void env_init(char **argv)
 
     // get the user's shell, if it is null then set it.
     ENV_SHELL = getenv("SHELL");
-    if (ENV_SHELL == NULL) {
+    if (ENV_SHELL == (char *)NULL) {
         setenv("SHELL", argv[0], 1);
         ENV_SHELL = getenv("SHELL");
     }
