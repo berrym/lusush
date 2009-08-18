@@ -52,7 +52,6 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     int ret;
 #if defined( USING_READLINE )
     char *buf;
-    //const char *prompt = getenv("PROMPT");
 #else
     char buf[MAXLINE];
 #endif
@@ -70,11 +69,11 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 #endif
 
     // Remove trailing whitespace
-    if (strlen(buf) > 1 && isspace(buf[strlen(buf) - 1])) {
+    if (strlen(buf) >= 1 && isspace(buf[strlen(buf) - 1])) {
         do {
             buf[strlen(buf) - 1] = '\0';
         }
-        while (buf[strlen(buf) - 1] && isspace(buf[strlen(buf) - 1]));
+        while (strlen(buf) >= 1 && isspace((int)buf[strlen(buf) - 1]));
     }
     strcpy(cmd->buf, buf);              // Copy the string
     timestamp_cmd(cmd);                 // date it
@@ -82,19 +81,17 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
     if (cmdalloc(cmd) < 0) {
         return -1;
     }
-    if ((ret = parse_cmd(cmd, buf)) < 0) {
-        return -1;
+
+    switch (ret = parse_cmd(cmd, buf)) {
+        case -1:
+            return -1;
+        case 0:
+            return 0;
+        default:
+            cmd->next->prev = cmd;
+            cmd = cmd->next;
+            cmd->next = (CMD *) NULL;
+            cmdl->size++;
+            return ret;
     }
-    else if (ret == 0)
-    {
-        return 0;
-    }
-
-    cmd->next->prev = cmd;
-    cmd = cmd->next;
-    cmd->next = (CMD *)NULL;
-
-    cmdl->size++;
-
-    return ret;
-}
+ }
