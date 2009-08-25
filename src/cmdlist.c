@@ -29,6 +29,9 @@ int cmdalloc(CMD *cmd)
     else {
        cmd->argv[0][0] = '\0';  // initialize with null character
     }
+
+    // Make sure everything is zero/null
+    cmd->hist_offset = cmd->argc = 0;
     cmd->background = cmd->in_redirect = cmd->out_redirect = false;
     *cmd->in_filename = *cmd->out_filename = '\0';
 
@@ -85,6 +88,7 @@ void display_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd = &cmdl->head;
 
+    printf("cmdl->size->[%4d]\n", cmdl->size);
     while (cmd && cmd->argc) {
         display_cmd(cmd);
         cmd = cmd->next;
@@ -96,17 +100,23 @@ void display_cmd(CMD *cmd)
     register int i;
 
     printf("Processed Command:\n");
-    printf("\targc->%d\n\t", cmd->argc);
+    printf("\thist_offset->%d\n", cmd->hist_offset);
+    printf("\targc->%d\n", cmd->argc);
     for (i=0; i < cmd->argc; i++) {
-        printf("argv[%d]->%s\t", i, cmd->argv[i]);
+        printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
     }
-    printf("\n\tbuf->%s\n", cmd->buf);
+    printf("\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
-    printf("\tbackground->%d\n", cmd->background);
-    printf("\tin_redirect->%d\n", cmd->in_redirect);
-    printf("\tout_redirect->%d\n", cmd->out_redirect);
-    printf("\tin_filename->%s\n", cmd->in_filename);
-    printf("\tout_filename->%s\n", cmd->out_filename);
+    printf("\tbackground->%s\n", cmd->background
+            ? "true" : "false");
+    printf("\tin_redirect->%s\n", cmd->in_redirect
+            ? "true" : "false");
+    printf("\tout_redirect->%s\n", cmd->out_redirect
+            ? "true" : "false");
+    printf("\tin_filename->%s\n", cmd->in_filename
+            ? cmd->in_filename : "empty");
+    printf("\tout_filename->%s\n", cmd->out_filename
+            ? cmd->out_filename : "empty");
 }
 
 void timestamp_cmd(CMD *cmd)

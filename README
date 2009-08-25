@@ -37,10 +37,13 @@ LUSUSH
     Lusus can be run as a login shell or interactively.  You type commands
     and lusush will attempt to locate them, then execute them.
 
-    Upon running lusush you will be greeted with a prompt, usually your home
+    Upon running lusush you will be greeted with a prompt, usually the current
     directory followed by a percent sign.
 
-    /home/you%
+    e.g. /home/you%
+         /%
+         /usr/incude%
+    etc.
 
     To see a complete list of builtin commands and their description, run help.
 
@@ -70,8 +73,12 @@ LUSUSH
 
     e.g. /home/you% unsetenv MYVAR
 
-    Control-C is ignored by default, and for the moment EOF will not cause an
-    exit, this will be fixed in time, but for now if you want to exit the
-    shell you will have to issue the command exit.
+    Commands can be chained together so they are executed one after the other
+    by inserting a semicolon between them.  There is no required spacing rule
+    as with the redirection feature.
+
+    e.g /home/you% echo 1; echo 2 ; echo 3 ;echo 4;echo 5
+
+    Control-C (SIGINT) is ignored by default to allow normal operation.
 
 Luny Lususnaturae <trismegustis@gmail.com>

@@ -49,7 +49,10 @@ char *rl_gets(const char *prompt)
  */
 int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
+    unsigned int cnt = 0;
     int ret;
+    char *tok;
+    char tmp[MAXLINE] = { '\0' };
 #if defined( USING_READLINE )
     char *buf;
 #else
@@ -68,30 +71,36 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
         buf[strlen(buf) - 1] = '\0';
 #endif
 
-    // Remove trailing whitespace
-    if (strlen(buf) >= 1 && isspace(buf[strlen(buf) - 1])) {
-        do {
-            buf[strlen(buf) - 1] = '\0';
+    strncpy(tmp, buf, MAXLINE);
+    tok = strtok(tmp, ";");
+    cmdl->size++;
+    while (tok) {
+        // Remove trailing whitespace
+        if (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1])) {
+            do {
+                tok[strlen(tok) - 1] = '\0';
+            }
+            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]));
         }
-        while (strlen(buf) >= 1 && isspace((int)buf[strlen(buf) - 1]));
-    }
-    strcpy(cmd->buf, buf);              // Copy the string
-    timestamp_cmd(cmd);                 // date it
+        strcpy(cmd->buf, tok);              // Copy the string
+        timestamp_cmd(cmd);                 // date it
 
-    if (cmdalloc(cmd) < 0) {
-        return -1;
-    }
-
-    switch (ret = parse_cmd(cmd, buf)) {
-        case -1:
+        if (cmdalloc(cmd) < 0) {
             return -1;
-        case 0:
-            return 0;
-        default:
-            cmd->next->prev = cmd;
-            cmd = cmd->next;
-            cmd->next = (CMD *) NULL;
-            cmdl->size++;
-            return ret;
+        }
+
+        switch (ret = parse_cmd(cmd, tok)) {
+            case -1:
+            case 0:
+                return ret;
+            default:
+                cmd->next->prev = cmd;
+                cmd = cmd->next;
+                cmd->next = (CMD *) NULL;
+                cnt++;
+        }
+        tok = strtok((char *)NULL, ";");
     }
- }
+
+    return cnt;
+}

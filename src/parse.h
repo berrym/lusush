@@ -3,6 +3,6 @@
 #ifndef __PARSE_H__
 #define __PARSE_H__
 
-extern int parse_cmd(CMD *, const char *);
+extern int parse_cmd(CMD *, char *);
 
 #endif

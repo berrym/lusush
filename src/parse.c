@@ -15,7 +15,7 @@
  *      with according to their meaning, setting appropriate flags and filling
  *      appropriate buffers with information.
  */
-int parse_cmd(CMD *cmd, const char *line)
+int parse_cmd(CMD *cmd, char *line)
 {
     unsigned int i, j, lpos, wpos;
     bool in_redirect, out_redirect, read_reg, in_quote;

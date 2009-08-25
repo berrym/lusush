@@ -22,6 +22,7 @@ typedef enum { false = 0, true = 1 } bool;
  */
 struct _CMD
 {
+    int hist_offset;            // place in command history
     char buf[MAXLINE];          // null terminated user input
     int argc;                   // argument count
     char timestamp[60];         // timestamp
