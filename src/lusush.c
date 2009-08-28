@@ -48,13 +48,16 @@ int main(int argc, char **argv)
                 break;
             default:
                 cmd->hist_offset = cmdhist.size;
-                for (i = 0; i < ret; i++) {
 #if defined( PRINT_DEBUG )
-                    display_cmdlist(&cmdhist);
+                display_cmdlist(&cmdhist);
 #endif
-                    print_debug("ret (at) main --> %d\n", ret);
-                    print_debug("i (at) main --> %d\n", i);
-                    exec_cmd(cmd);
+                print_debug("ret (at) main --> %d\n", ret);
+                if (exec_cmd(cmd, ret) < ret) {
+                    while (cmd->next) {
+                        cmd = cmd->next;
+                    }
+                }
+                else {
                     cmd = cmd->next;
                 }
                 break;

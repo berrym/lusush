@@ -32,7 +32,8 @@ int cmdalloc(CMD *cmd)
 
     // Make sure everything is zero/null
     cmd->hist_offset = cmd->argc = 0;
-    cmd->background = cmd->in_redirect = cmd->out_redirect = false;
+    cmd->fd[0] = cmd->fd[1] = 0;
+    cmd->pipe = cmd->background = cmd->in_redirect = cmd->out_redirect = false;
     *cmd->in_filename = *cmd->out_filename = '\0';
 
     return 0;
@@ -107,6 +108,7 @@ void display_cmd(CMD *cmd)
     }
     printf("\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
+    printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
     printf("\tbackground->%s\n", cmd->background
             ? "true" : "false");
     printf("\tin_redirect->%s\n", cmd->in_redirect

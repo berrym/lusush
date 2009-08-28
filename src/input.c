@@ -50,13 +50,15 @@ char *rl_gets(const char *prompt)
 int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
     unsigned int cnt = 0;
-    int ret;
-    char *tok;
+    int ret = 0, i = 0, j = 0;
+    bool pipe = false;
+    char *tok = (char *)NULL, *ptr1 = (char *)NULL, *savep1 = (char *)NULL;
+    char *subtok = (char *)NULL, *ptr2 = (char *)NULL, *savep2 = (char *)NULL;
     char tmp[MAXLINE] = { '\0' };
 #if defined( USING_READLINE )
-    char *buf;
+    char *buf = (char *)NULL;
 #else
-    char buf[MAXLINE];
+    char buf[MAXLINE] = { '\0' };
 #endif
 
 #if defined( USING_READLINE )
@@ -72,34 +74,62 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
 #endif
 
     strncpy(tmp, buf, MAXLINE);
-    tok = strtok(tmp, ";");
     cmdl->size++;
-    while (tok) {
+
+    for (i = 0, ptr1 = tmp ;; i++, ptr1 = NULL) {
+        if (!(tok = strtok_r(ptr1, ";", &savep1))) {
+            break;
+        }
+
         // Remove trailing whitespace
         if (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1])) {
-            do {
+            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1])) {
                 tok[strlen(tok) - 1] = '\0';
             }
-            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]));
-        }
-        strcpy(cmd->buf, tok);              // Copy the string
-        timestamp_cmd(cmd);                 // date it
-
-        if (cmdalloc(cmd) < 0) {
-            return -1;
         }
 
-        switch (ret = parse_cmd(cmd, tok)) {
-            case -1:
-            case 0:
-                return ret;
-            default:
-                cmd->next->prev = cmd;
-                cmd = cmd->next;
-                cmd->next = (CMD *) NULL;
-                cnt++;
+        for (j = 0, ptr2 = tok ;; j++, ptr2 = NULL) {
+            if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
+                pipe = false;
+                break;
+            }
+            // Remove trailing whitespace
+            if (strlen(subtok) >= 1 &&
+                    isspace((int)subtok[strlen(subtok) - 1])) {
+                while (strlen(subtok) >= 1 &&
+                        isspace((int)subtok[strlen(subtok) - 1])) {
+                    subtok[strlen(subtok) - 1] = '\0';
+                }
+            }
+
+            strcpy(cmd->buf, subtok);           // Copy the string
+            timestamp_cmd(cmd);                 // date it
+
+            if (cmdalloc(cmd) < 0) {
+                return -1;
+            }
+
+            if (j && (j % 2) && j < 3) {
+                print_debug("****do pipe %s\n", subtok);
+                cmd->prev->pipe = true;
+                pipe = true;
+            }
+
+            if (pipe) {
+                cmd->pipe = true;
+            }
+
+            switch (ret = parse_cmd(cmd, subtok)) {
+                case -1:
+                case 0:
+                    return ret;
+                default:
+                    cmd->next->prev = cmd;
+                    cmd = cmd->next;
+                    cmd->next = (CMD *)NULL;
+                    cnt++;
+            }
         }
-        tok = strtok((char *)NULL, ";");
     }
 
     return cnt;

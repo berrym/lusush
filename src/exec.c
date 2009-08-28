@@ -15,46 +15,95 @@
 
 ////////////////////////// EXECUTE COMMAND FUNCTIONS /////////////////////////
 
-void exec_cmd(CMD *cmd)
+int exec_cmd(CMD *cmd, int cnt)
 {
-    int ret;
+    register int i;
+    int ret, status;
     char *cmdpath;
+    int pids[cnt];
+    CMD *psave1, *psave2;
 
-    if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
-        perror("lusush: calloc");
-        global_cleanup();
-        exit(EXIT_FAILURE);
+    psave1 = cmd;               // save current position in command history
+
+    for (i = 0; i < cnt; i++) {
+        pids[i] = 0;
     }
 
-    if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
-        exec_builtin_cmd(ret, cmd);
-    }
-    else {
-        cmdpath = path_to_cmd(cmd->argv[0]);
-        if (cmdpath && strcmp(cmdpath, "S_ISDIR") == 0) {
-            print_debug("lusush: %s is a directory.\n",
-                    cmd->argv[0]);
-            cd(cmd->argv[0]);
+    for (i = 0; i < cnt; i++) {
+        if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+            perror("lusush: calloc");
+            global_cleanup();
+            exit(EXIT_FAILURE);
         }
-        else if (cmdpath) {
-            strcpy(cmd->argv[0], cmdpath);
-            exec_external_cmd(cmd, (char **)NULL);
+
+        if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+            if (cmd->pipe) {
+                printf("lusush: pipes are not supported for builtins\n");
+                return i;
+            }
+            pids[i] = 0;
+            exec_builtin_cmd(ret, cmd);
         }
         else {
-            printf("lusush: command not found.\n");
+            cmdpath = path_to_cmd(cmd->argv[0]);
+            if (cmdpath && strcmp(cmdpath, "S_ISDIR") == 0) {
+                print_debug("lusush: %s is a directory.\n",
+                        cmd->argv[0]);
+                cd(cmd->argv[0]);
+            }
+            else if (cmdpath) {
+                strcpy(cmd->argv[0], cmdpath);
+                if ((pids[i] = exec_external_cmd(cmd, (char **)NULL)) == -1) {
+                    return -1;
+                }
+            }
+            else {
+                printf("lusush: command not found.\n");
+                return i;
+            }
+            if (cmdpath)
+                free(cmdpath);
+            cmdpath = (char *)NULL;
         }
-
-        if (cmdpath)
-            free(cmdpath);
-        cmdpath = (char *)NULL;
+        if (cmd->next)
+            cmd = cmd->next;
+        else
+            break;
     }
 
+    psave2 = cmd;                       // save last place in command history
+    cmd = psave1;                       // restore to inital offset
+
+    for (i = 0; i < cnt; i++) {
+        if (pids[i]) {
+            // If executing the command in the background, call waitpid with
+            // the WNOHANG option, otherwise pass 0 to block.
+            if (cmd->background) {
+                if ((pids[i]= waitpid(pids[i], &status, WNOHANG)) == -1) {
+                    perror("lusush: waitpid");
+                    return -1;
+                }
+            }
+            else {
+                if ((pids[i] = waitpid(pids[i], &status, 0)) == -1) {
+                    perror("lusush: waitpid");
+                    return -1;
+                }
+            } 
+        }
+        cmd = cmd->next;
+    }
+
+    cmd = psave2;                   // restore to final postion
+
+    return 0;
 }
 
-void exec_external_cmd(CMD *cmd, char **envp)
+int exec_external_cmd(CMD *cmd, char **envp)
 {
     int status,j;
     pid_t pid;
+    CMD *tmp;
 
     // Check for invalid strings at the end of vector,
     // give back to free pool, they will mess up redirections
@@ -66,55 +115,98 @@ void exec_external_cmd(CMD *cmd, char **envp)
         }
     }
 
+    /////////////////////////////////////////////////
     // Spawn a new process
-    if ((pid = fork()) < 0) {
-        perror("lusush: fork");
-        return;
-    }
-    else if (pid == 0) {                      // child process
-        // Input redirection
-        if (cmd->in_redirect) {
-            close(STDIN_FILENO);
-            freopen(cmd->in_filename, "r", stdin);
-        }
-        // Output redirection
-        if (cmd->out_redirect) {
-            close(STDOUT_FILENO);
-            freopen(cmd->out_filename, "w", stdout);
-        }
-        // Close stdin and stdout if executing in the background
-        // and then redirect them to /dev/null
-        if (cmd->background && !cmd->out_redirect) {
-            if (!cmd->in_redirect)
-                close(STDIN_FILENO);
-            close(STDOUT_FILENO);
-            freopen("/dev/null", "r", stdin);
-            freopen("/dev/null", "w", stderr);
-        }
-        if (envp) {
-            print_debug("calling execve\n");
-            execve(cmd->argv[0], cmd->argv, envp);
-        }
-        else {
-            print_debug("calling execv\n");
-            execv(cmd->argv[0], cmd->argv);
-        }
-        fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
-        exit(127);
-    }
+    /////////////////////////////////////////////////
 
-    /*
-     * If executing the command in the background, call waitpid with
-     * the WNOHANG option, otherwise pass 0 to block.
-     */
-    if (cmd->background) {
-        if ((pid = waitpid(pid, &status, WNOHANG)) == -1) // parent
-            perror("lusush: waitpid");
+    pid = fork();
+    switch (pid) {
+        case -1:                    // fork error
+            perror("lusush: fork");
+            return;
+        case 0:                     // child process
+            if (cmd->pipe) {
+
+                /////////////////////////////////////////////////
+                // Configure a pipe
+                /////////////////////////////////////////////////
+
+                if (cmd->prev && cmd->prev->pipe) {
+                    print_debug("*** Setting up pipe\n");
+                    tmp = cmd->prev;
+                    close(tmp->fd[1]);
+                    if (tmp->fd[0] != STDIN_FILENO) {
+                        if (dup2(tmp->fd[0], STDIN_FILENO) != STDIN_FILENO) {
+                            fprintf(stderr, "lusush: dup2\n");
+                            return -1;
+                        }
+                    }
+                    close(tmp->fd[0]);
+                }
+
+                /////////////////////////////////////////////////
+                // Create a pipe
+                /////////////////////////////////////////////////
+
+                if (cmd->next && cmd->next->pipe) {
+                    tmp = cmd->next;
+                    print_debug("**** Creating pipe\n");
+                    pipe(cmd->fd);
+                    if (cmd->fd[1] != STDOUT_FILENO) {
+                        if (dup2(cmd->fd[1], STDOUT_FILENO) != STDOUT_FILENO) {
+                            fprintf(stderr, "lusus: dup2\n");
+                            return -1;
+                        }
+                    }
+                }
+            }
+
+            /////////////////////////////////////////////////
+            // Input redirection
+            /////////////////////////////////////////////////
+
+            if (cmd->in_redirect && !cmd->prev->pipe) {
+                close(STDIN_FILENO);
+                freopen(cmd->in_filename, "r", stdin);
+            }
+
+            /////////////////////////////////////////////////
+            // Output redirection
+            /////////////////////////////////////////////////
+
+            if (cmd->out_redirect && !cmd->pipe) {
+                close(STDOUT_FILENO);
+                freopen(cmd->out_filename, "w", stdout);
+            }
+
+            // Close stdin and stdout if executing in the background
+            // and then redirect them to /dev/null
+            if (cmd->background && !cmd->out_redirect && !cmd->pipe) {
+                if (!cmd->in_redirect)
+                    close(STDIN_FILENO);
+                close(STDOUT_FILENO);
+                freopen("/dev/null", "r", stdin);
+                freopen("/dev/null", "w", stderr);
+            }
+
+            /////////////////////////////////////////////////
+            // Call execve or one of it's wrappers
+            /////////////////////////////////////////////////
+            if (envp) {
+                print_debug("calling execve\n");
+                execve(cmd->argv[0], cmd->argv, envp);
+            }
+            else {
+                print_debug("calling execv\n");
+                execv(cmd->argv[0], cmd->argv);
+            }
+
+            fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
+            exit(127);                  // exec shouldn't return ever
+            break;
+        default:                        // parent process
+            return pid;
     }
-    else {
-        if ((pid = waitpid(pid, &status, 0)) == -1) // parent
-            perror("lusush: waitpid");
-    } 
 }
 
 int is_builtin_cmd(const char *cmdname)
@@ -137,7 +229,6 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             global_cleanup();
             exit(EXIT_SUCCESS);
             break;
-
         case BUILTIN_CMD_HELP:
             if (cmd->argv[1] && *cmd->argv[1]) {
                 help(cmd->argv[1]);
@@ -146,16 +237,13 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 help((char *)NULL);
             }
             break;
-
         case BUILTIN_CMD_CD:
             if (cmd->argv[1])
                 cd(cmd->argv[1]);
             break;
-
         case BUILTIN_CMD_PWD:
             pwd();
             break;
-
         case BUILTIN_CMD_HISTORY:
 #if defined( USING_READLINE )
             history();
@@ -163,7 +251,6 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             history(cmd);
 #endif
             break;
-
         case BUILTIN_CMD_SETENV:
             if (cmd->argc != 3) {
                 fprintf(stderr, "lusush: setenv: takes two arguments\n");
@@ -174,7 +261,6 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 }
             }
             break;
-
         case BUILTIN_CMD_UNSETENV:
             if (cmd->argc != 2) {
                 fprintf(stderr, "lusush: unsetenv: takes one argument\n");

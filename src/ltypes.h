@@ -23,9 +23,11 @@ typedef enum { false = 0, true = 1 } bool;
 struct _CMD
 {
     int hist_offset;            // place in command history
+    int fd[2];                  // pipe filedescriptors
     char buf[MAXLINE];          // null terminated user input
     int argc;                   // argument count
     char timestamp[60];         // timestamp
+    bool pipe;                  // pipe flag
     bool background;            // background process flag
     bool in_redirect;           // input redirection flag
     bool out_redirect;          // output redirection flag
