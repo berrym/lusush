@@ -1,3 +1,7 @@
+8/30/2009
+    * Output redirection supports appending to file using >> instead of >.
+    * Support for pipes has been added.
+
 8/25/2009
     * Commands can be chained with a semicolon, history is correctly preserved.
 

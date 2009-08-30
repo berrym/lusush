@@ -109,9 +109,10 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
                 return -1;
             }
 
-            if (j && (j % 2) && j < 3) {
+            if (j && j % 2 && j < 3) {
                 print_debug("****do pipe %s\n", subtok);
                 cmd->prev->pipe = true;
+                cmd->prev->pchain_master = true;
                 pipe = true;
             }
 

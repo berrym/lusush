@@ -21,6 +21,7 @@ int parse_cmd(CMD *cmd, char *line)
     bool in_redirect, out_redirect, read_reg, in_quote;
     char c;
 
+    // Make sure our line is not empty
     if (!line)
         return -1;
     if (!*line)
@@ -30,14 +31,17 @@ int parse_cmd(CMD *cmd, char *line)
     i = j = lpos = wpos = 0;
     in_redirect = out_redirect = read_reg = in_quote = false;
 
-    /*
-     * Loop through line character at a time and place words, seperated by
-     * whitespace, into individual elements in an array of strings.
-     */
+    // Loop through line character at a time and place words, seperated by
+    // whitespace, into individual elements in an array of strings.
     for (i = 0; i < strlen(line); i++) {
         c = line[i];
 
         switch (c) {
+
+            /////////////////////////////////////////////////
+            // Special Characters
+            /////////////////////////////////////////////////
+
             case '&':
                 cmd->background = true;         // flag as background process
                 cmd->argv[lpos][wpos]='\0';
@@ -50,34 +54,45 @@ int parse_cmd(CMD *cmd, char *line)
             case '>':
                 cmd->out_redirect = true;       // flag output redirection
                 out_redirect = true;
+                if (line[i+1] && line[i+1] == '>') {
+                    cmd->oredir_append = true;
+                    i++;
+                }
                 cmd->argv[lpos][wpos] = '\0';
                 break;
-            case '"':
-                if (in_quote)
-                    in_quote = false;
-                else
-                    in_quote = true;
+            case '"':                           // quotaion
+                if (in_quote)                   // outside
+                    in_quote = false;           // turn off flag.
+                else                            // inside
+                    in_quote = true;            // turn on flag
                 break;
+
+            /////////////////////////////////////////////////
+            // Whitespace characters
+            /////////////////////////////////////////////////
+
             case ' ':
             case '\t':
             case '\n':
             case '\r':
+                // If inside a quote we do not ignore spaces
                 if (in_quote && !in_redirect && !out_redirect) {
                     cmd->argv[lpos][wpos] = c;
                     wpos++;
                     break;
                 }
 
-                do {
+                // Ignore all characters untill first non-whitespace
+                while (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
                     i++;
                     c = line[i];
                 }
-                while (c == ' ' || c == '\t' || c == '\n' || c == '\r');
-                i--;    // decrement i to not skip the next regular character
+                i--;        // decrement i to not skip non-space character
 
                 if (!lpos && !read_reg)
                     break;
 
+                // Write to appropriate buffer
                 if (in_redirect) {
                     cmd->in_filename[wpos] = '\0';
                     in_redirect = false;
@@ -89,8 +104,10 @@ int parse_cmd(CMD *cmd, char *line)
                 else {
                     cmd->argv[lpos][wpos] = '\0';   // terminate string
                 }
-                lpos++;                             // increment line index
-                wpos = 0;                           // reset character index
+
+                lpos++;                             // increment line offset
+                wpos = 0;                           // reset character offset
+
                 // Allocate room on the heap for the next string
                 cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
                 if (cmd->argv[lpos] == (char *)NULL) {
@@ -104,9 +121,14 @@ int parse_cmd(CMD *cmd, char *line)
                 cmd->argv[lpos][wpos] = '\0';       // initialize with NULL
                 cmd->argc++;
                 break;
+
+            /////////////////////////////////////////////////
+            // Normal characters
+            /////////////////////////////////////////////////
+
             default:
                 if (!read_reg)
-                    read_reg = true;
+                read_reg = true;                // normal char read in
 
                 // copy the character
                 if (cmd->in_redirect && in_redirect) {
@@ -124,8 +146,8 @@ int parse_cmd(CMD *cmd, char *line)
     }
 
     lpos++;
-    cmd->argv[lpos] = (char *)NULL;
-    cmd->argc = lpos;
+    cmd->argv[lpos] = (char *)NULL;     // Make sure last element is NULL
+    cmd->argc = lpos;                   // set cmd->argc equal to lpos
 
-    return lpos;
+    return lpos;                        // return number of lines parsed
 }

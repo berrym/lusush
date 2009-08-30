@@ -17,11 +17,11 @@
 
 int exec_cmd(CMD *cmd, int cnt)
 {
-    register int i;
-    int ret, status;
-    char *cmdpath;
-    int pids[cnt];
-    CMD *psave1, *psave2;
+    register int i;             // loop variable
+    int ret, status;            // return value, waitpid status
+    char *cmdpath;              // full path to command
+    int pids[cnt];              // array of pids to wait on
+    CMD *psave1, *psave2;       // place holders in command history
 
     psave1 = cmd;               // save current position in command history
 
@@ -29,12 +29,21 @@ int exec_cmd(CMD *cmd, int cnt)
         pids[i] = 0;
     }
 
+    /////////////////////////////////////////////////
+    //  Execute (cnt) number of chained commands
+    /////////////////////////////////////////////////
+
     for (i = 0; i < cnt; i++) {
+        // Allocate memory on heap for the string holding full path to command
         if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
             perror("lusush: calloc");
             global_cleanup();
             exit(EXIT_FAILURE);
         }
+
+        /////////////////////////////////////////////////
+        // Execute a builtin command
+        /////////////////////////////////////////////////
 
         if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
             if (cmd->pipe) {
@@ -44,7 +53,13 @@ int exec_cmd(CMD *cmd, int cnt)
             pids[i] = 0;
             exec_builtin_cmd(ret, cmd);
         }
+
+        /////////////////////////////////////////////////
+        // Execute an external command
+        /////////////////////////////////////////////////
+
         else {
+            // Find the absolute path name to cmd->argv[0]
             cmdpath = path_to_cmd(cmd->argv[0]);
             if (cmdpath && strcmp(cmdpath, "S_ISDIR") == 0) {
                 print_debug("lusush: %s is a directory.\n",
@@ -61,10 +76,13 @@ int exec_cmd(CMD *cmd, int cnt)
                 printf("lusush: command not found.\n");
                 return i;
             }
+            // Free memory used by command path
             if (cmdpath)
                 free(cmdpath);
             cmdpath = (char *)NULL;
         }
+
+        // Move to next command in chain
         if (cmd->next)
             cmd = cmd->next;
         else
@@ -73,6 +91,10 @@ int exec_cmd(CMD *cmd, int cnt)
 
     psave2 = cmd;                       // save last place in command history
     cmd = psave1;                       // restore to inital offset
+
+    /////////////////////////////////////////////////
+    // Wait for processes to finish
+    /////////////////////////////////////////////////
 
     for (i = 0; i < cnt; i++) {
         if (pids[i]) {
@@ -103,7 +125,6 @@ int exec_external_cmd(CMD *cmd, char **envp)
 {
     int status,j;
     pid_t pid;
-    CMD *tmp;
 
     // Check for invalid strings at the end of vector,
     // give back to free pool, they will mess up redirections
@@ -116,6 +137,17 @@ int exec_external_cmd(CMD *cmd, char **envp)
     }
 
     /////////////////////////////////////////////////
+    // Create a pipe
+    /////////////////////////////////////////////////
+
+    if (cmd->pipe) {
+        if (cmd->next && cmd->next->pipe) {
+            print_debug("*** Creating pipe\n");
+            pipe(cmd->fd);
+        }
+    }
+
+    /////////////////////////////////////////////////
     // Spawn a new process
     /////////////////////////////////////////////////
 
@@ -123,41 +155,28 @@ int exec_external_cmd(CMD *cmd, char **envp)
     switch (pid) {
         case -1:                    // fork error
             perror("lusush: fork");
-            return;
+            return -1;
         case 0:                     // child process
+
+            /////////////////////////////////////////////////
+            // Configure pipe plumbing
+            /////////////////////////////////////////////////
+
             if (cmd->pipe) {
-
-                /////////////////////////////////////////////////
-                // Configure a pipe
-                /////////////////////////////////////////////////
-
+                // There was a previous command in pipe chain
                 if (cmd->prev && cmd->prev->pipe) {
-                    print_debug("*** Setting up pipe\n");
-                    tmp = cmd->prev;
-                    close(tmp->fd[1]);
-                    if (tmp->fd[0] != STDIN_FILENO) {
-                        if (dup2(tmp->fd[0], STDIN_FILENO) != STDIN_FILENO) {
-                            fprintf(stderr, "lusush: dup2\n");
-                            return -1;
-                        }
-                    }
-                    close(tmp->fd[0]);
+                    print_debug("*** Reading from parent pipe\n");
+                    dup2(cmd->prev->fd[0], STDIN_FILENO);
+                    close(cmd->prev->fd[0]);
+                    close(cmd->prev->fd[1]);
                 }
 
-                /////////////////////////////////////////////////
-                // Create a pipe
-                /////////////////////////////////////////////////
-
+                // There is a future command in pipe chain
                 if (cmd->next && cmd->next->pipe) {
-                    tmp = cmd->next;
-                    print_debug("**** Creating pipe\n");
-                    pipe(cmd->fd);
-                    if (cmd->fd[1] != STDOUT_FILENO) {
-                        if (dup2(cmd->fd[1], STDOUT_FILENO) != STDOUT_FILENO) {
-                            fprintf(stderr, "lusus: dup2\n");
-                            return -1;
-                        }
-                    }
+                    print_debug("*** Writing to child pipe\n");
+                    close(cmd->fd[0]);
+                    dup2(cmd->fd[1], STDOUT_FILENO);
+                    close(cmd->fd[1]);
                 }
             }
 
@@ -176,8 +195,13 @@ int exec_external_cmd(CMD *cmd, char **envp)
 
             if (cmd->out_redirect && !cmd->pipe) {
                 close(STDOUT_FILENO);
-                freopen(cmd->out_filename, "w", stdout);
+                freopen(cmd->out_filename,
+                        cmd->oredir_append ? "a" : "w", stdout);
             }
+
+            /////////////////////////////////////////////////
+            // Background operation
+            /////////////////////////////////////////////////
 
             // Close stdin and stdout if executing in the background
             // and then redirect them to /dev/null
@@ -192,6 +216,7 @@ int exec_external_cmd(CMD *cmd, char **envp)
             /////////////////////////////////////////////////
             // Call execve or one of it's wrappers
             /////////////////////////////////////////////////
+
             if (envp) {
                 print_debug("calling execve\n");
                 execve(cmd->argv[0], cmd->argv, envp);
@@ -205,10 +230,23 @@ int exec_external_cmd(CMD *cmd, char **envp)
             exit(127);                  // exec shouldn't return ever
             break;
         default:                        // parent process
-            return pid;
+            // Close old pipe ends
+            if (cmd->pipe && !cmd->pchain_master) {
+                if (cmd->prev && cmd->prev->pipe) {
+                    print_debug("*** Closing old/unused pipe ends\n");
+                    close(cmd->prev->fd[0]);
+                    close(cmd->prev->fd[1]);
+                }
+            }
+            return pid;                 // return the pid of to wait for
     }
 }
 
+/**
+ * is_builtin_cmd:
+ *      compare (cmdname) to elements is array of strings
+ *      builtins, if it matches return the index of the element.
+ */
 int is_builtin_cmd(const char *cmdname)
 {
     register int i;
@@ -221,6 +259,10 @@ int is_builtin_cmd(const char *cmdname)
     return -1;
 }
 
+/**
+ * exec_builtin_cmd:
+ *      execute builtin command number (cmdno) with the data in (cmd)
+ */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
     switch (cmdno) {
@@ -299,9 +341,9 @@ char *path_to_cmd(char *cmd)
         print_debug("\t%s: stat: %s\n", full_cmd, strerror(errno));
     }
     else {
-        if (S_ISREG(cmd_st.st_mode))
+        if (S_ISREG(cmd_st.st_mode))            // Is regular file
             return cmd;
-        else if (S_ISDIR(cmd_st.st_mode))
+        else if (S_ISDIR(cmd_st.st_mode))       // Is directory
             return isdir;
     }
 

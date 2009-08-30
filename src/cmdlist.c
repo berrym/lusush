@@ -31,9 +31,12 @@ int cmdalloc(CMD *cmd)
     }
 
     // Make sure everything is zero/null
-    cmd->hist_offset = cmd->argc = 0;
+    cmd->hist_offset = 0;
+    cmd->argc = 0;
     cmd->fd[0] = cmd->fd[1] = 0;
-    cmd->pipe = cmd->background = cmd->in_redirect = cmd->out_redirect = false;
+    cmd->pipe = cmd->pchain_master = false;
+    cmd->background = 0;
+    cmd->in_redirect = cmd->out_redirect = cmd->oredir_append = false;
     *cmd->in_filename = *cmd->out_filename = '\0';
 
     return 0;
@@ -109,11 +112,15 @@ void display_cmd(CMD *cmd)
     printf("\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
+    printf("\tpchain_master->%s\n", cmd->pchain_master
+            ? "true" : "false");
     printf("\tbackground->%s\n", cmd->background
             ? "true" : "false");
     printf("\tin_redirect->%s\n", cmd->in_redirect
             ? "true" : "false");
     printf("\tout_redirect->%s\n", cmd->out_redirect
+            ? "true" : "false");
+    printf("\toredir_append->%s\n", cmd->oredir_append
             ? "true" : "false");
     printf("\tin_filename->%s\n", cmd->in_filename
             ? cmd->in_filename : "empty");

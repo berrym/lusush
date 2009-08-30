@@ -12,6 +12,9 @@ LUSUSH
     is however a lightweight alternative to shells with those features, and
     does it's job well.
 
+    It should be noted that new features are being added all the time, and
+    support for some of the mentioned missing features is already under way.
+
     Should anybody find lusush or it's source code useful, perhaps as a How
     Not To guide, please let me know.
 
@@ -28,7 +31,8 @@ LUSUSH
     Optionally configure can take some arguments that you may want to set.
     For example you may want to tell it where to look for libraries.
     On my NetBSD machine I would give it something that looked like this so
-    that I can link readline into lusush.
+    that I can link readline into lusush.  This assumes you have installed
+    the readline development libraries and they can be found in /usr/pkg/lib.
 
     ./configure LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
 
@@ -65,6 +69,12 @@ LUSUSH
     NOT  /home/you% ls > tmp
          /home/you% cat < tmp > tmp2
 
+    For output redirection you can choose to append to a file as an alternative
+    to overwriting if you wish by using the >> operator instead of >.
+
+    e.g. /home/you% echo 1 >testfile            # this will overwrite testfile
+         /home/you% echo 2 >>testfile           # this will append to testfile
+
     To set an environment variable use the setenv command.
 
     e.g. /home/you% setenv MYVAR testing123
@@ -79,6 +89,18 @@ LUSUSH
 
     e.g /home/you% echo 1; echo 2 ; echo 3 ;echo 4;echo 5
 
-    Control-C (SIGINT) is ignored by default to allow normal operation.
+    The output of a command can be piped into the input of another by using
+    pipes.
+
+    e.g. /home/you% ps ax | grep init
+
+    Chained pipes are allowed, and like the semicolon above there are no
+    spacing rules when using pipes.
+
+    e.g /home/you% ps ax|grep init | more
+        /home/you% ls -alF |less
+
+    Control-C (SIGINT) is ignored by default to allow for normal operation
+    of external programs executed by lusush, use exit to leace the shell.
 
 Luny Lususnaturae <trismegustis@gmail.com>
