@@ -15,7 +15,8 @@
 #include "parse.h"
 
 #if defined( USING_READLINE )
-static char *line_read = (char *)NULL;
+
+static char *line_read = (char *)NULL;      // storage for readline
 
 /**
  * rl_gets:
@@ -47,24 +48,36 @@ char *rl_gets(const char *prompt)
  *      is parsed and the information is stored in doubly linked listed
  *      of commands, that is a CMDLIST of CMD's.
  */
-int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
+int do_line(FILE *in, CMDLIST *cmdl, CMD *cmd)
 {
-    unsigned int cnt = 0;
-    int ret = 0, i = 0, j = 0;
-    bool pipe = false;
+    unsigned int cnt = 0;               // Number of commands parsed
+    int ret = 0;                        // Storage for return values
+    int i = 0, j = 0;                   // loop variables
+    bool pipe = false;                  // pipe chain flag
+
+    // Storage for first tier of tokens (";")
     char *tok = (char *)NULL, *ptr1 = (char *)NULL, *savep1 = (char *)NULL;
+    // Storage for secondary tier of tokens ("|")
     char *subtok = (char *)NULL, *ptr2 = (char *)NULL, *savep2 = (char *)NULL;
-    char tmp[MAXLINE] = { '\0' };
-#if defined( USING_READLINE )
-    char *buf = (char *)NULL;
-#else
-    char buf[MAXLINE] = { '\0' };
-#endif
+
+    char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
+    char *rbuf = (char *)NULL;          // buffer for rl_gets
+    char buf[MAXLINE] = { '\0' };       // buffer for fgets
 
 #if defined( USING_READLINE )
-    if ((buf = rl_gets((ENV_PROMPT = getenv("PROMPT"))
-                        ? ENV_PROMPT : "% ")) == (char *)NULL)
-        return -1;
+    if (SHELL_TYPE != NORMAL_SHELL) {
+        if ((rbuf = rl_gets((ENV_PROMPT = getenv("PROMPT"))
+                        ? ENV_PROMPT : "% ")) == (char *)NULL) {
+            return -1;
+        }
+    }
+    else {
+        if (fgets(buf, MAXLINE, in) == (char *)NULL)
+            return -1;
+
+        if (buf[strlen(buf) - 1] == '\n')
+            buf[strlen(buf) - 1] = '\0';
+    }
 #else
     if (fgets(buf, MAXLINE, in) == (char *)NULL)
         return -1;
@@ -73,7 +86,7 @@ int get_input(FILE *in, CMDLIST *cmdl, CMD *cmd)
         buf[strlen(buf) - 1] = '\0';
 #endif
 
-    strncpy(tmp, buf, MAXLINE);
+    strncpy(tmp, rbuf ? rbuf : buf, MAXLINE);
     cmdl->size++;
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = NULL) {

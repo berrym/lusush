@@ -1,3 +1,7 @@
+8/31/2009
+    * Lusush has basic scripting support.
+    * Parser is comment aware.
+
 8/30/2009
     * Output redirection supports appending to file using >> instead of >.
     * Support for pipes has been added.

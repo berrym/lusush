@@ -100,7 +100,13 @@ LUSUSH
     e.g /home/you% ps ax|grep init | more
         /home/you% ls -alF |less
 
+    Lusush can read from a file with commands in it and execute those commands.
+    This is a basic form of scripting but it works.  To do it, invoke lusush
+    with script as a parameter
+
+    e.g /home/you/lab% lusush scriptfile
+
     Control-C (SIGINT) is ignored by default to allow for normal operation
-    of external programs executed by lusush, use exit to leace the shell.
+    of external programs executed by lusush, use exit to leave the shell.
 
 Luny Lususnaturae <trismegustis@gmail.com>

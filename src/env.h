@@ -22,8 +22,9 @@ extern int SHELL_TYPE;
 extern void env_init(char **);
 
 enum {
-    SHELL_TYPE_LOGIN=1,
-    SHELL_TYPE_INTERACTIVE
+    LOGIN_SHELL=1,
+    INTERACTIVE_SHELL,
+    NORMAL_SHELL
 };
 
 #endif

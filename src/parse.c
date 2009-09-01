@@ -42,23 +42,77 @@ int parse_cmd(CMD *cmd, char *line)
             // Special Characters
             /////////////////////////////////////////////////
 
+            case '#':                           // comment, ignore rest of line
+                // Make sure we are not inside quotations
+                if (!in_quote) {
+                    if (in_redirect) {
+                        cmd->in_filename[wpos] = '\0';
+                    }
+                    else if (out_redirect) {
+                        cmd->out_filename[wpos] = '\0';
+                    }
+                    else {
+                        cmd->argv[lpos][wpos] = '\0';
+                    }
+                    goto done;
+                }
+
+                // Make sure we are not redirecting
+                if (in_redirect || out_redirect) {
+                    fprintf(stderr, "lusush: error near character "\
+                            "%u --> '%c'\n", i, c);
+                    return -1;
+                }
+
+                // Copy the character
+                cmd->argv[lpos][wpos] = c;
+                wpos++;
+                break;
             case '&':
-                cmd->background = true;         // flag as background process
-                cmd->argv[lpos][wpos]='\0';
+                // Make sure we are not inside quatations
+                if (!in_quote) {
+                    cmd->background = true;     // flag as background process
+                    cmd->argv[lpos][wpos]='\0';
+                    lpos--;                     // fix count
+                    goto done;
+                }
+
+                // Make sure we are not redirecting
+                if (in_redirect || out_redirect) {
+                    fprintf(stderr, "lusush: error near character " \
+                            "%u --> '%c'\n", i, c);
+                    return -1;
+                }
+
+                // Copy the character
+                cmd->argv[lpos][wpos] = c;
+                wpos++;
                 break;
             case '<':
-                cmd->in_redirect = true;        // flag input redirection
-                in_redirect = true;
-                cmd->argv[lpos][wpos] = '\0';
+                if (!in_quote) {
+                    cmd->in_redirect = true;    // flag input redirection
+                    in_redirect = true;
+                    cmd->argv[lpos][wpos] = '\0';
+                }
+                else {
+                    cmd->argv[lpos][wpos] = c;
+                    wpos++;
+                }
                 break;
             case '>':
-                cmd->out_redirect = true;       // flag output redirection
-                out_redirect = true;
-                if (line[i+1] && line[i+1] == '>') {
-                    cmd->oredir_append = true;
-                    i++;
+                if (!in_quote) {
+                    cmd->out_redirect = true;   // flag output redirection
+                    out_redirect = true;
+                    if (line[i+1] && line[i+1] == '>') {
+                        cmd->oredir_append = true;
+                        i++;
+                    }
+                    cmd->argv[lpos][wpos] = '\0';
                 }
-                cmd->argv[lpos][wpos] = '\0';
+                else {
+                    cmd->argv[lpos][wpos] = c;
+                    wpos++;
+                }
                 break;
             case '"':                           // quotaion
                 if (in_quote)                   // outside
@@ -145,6 +199,7 @@ int parse_cmd(CMD *cmd, char *line)
         }
     }
 
+done:
     lpos++;
     cmd->argv[lpos] = (char *)NULL;     // Make sure last element is NULL
     cmd->argc = lpos;                   // set cmd->argc equal to lpos

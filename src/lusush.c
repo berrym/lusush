@@ -22,10 +22,11 @@ int main(int argc, char **argv)
     bool bActive = true;
     register int i = 0;
     int ret = 0;
+    FILE *in = (FILE *)NULL;
     CMDLIST cmdhist;
 
     // Perform startup tasks
-    init(argv);
+    init(argc, argv);
 
     // Initialize doubly linked list of commands
     cmdhist.head.next = (CMD *)NULL;
@@ -34,6 +35,17 @@ int main(int argc, char **argv)
 
     // Point cmd to list head
     cmd = &cmdhist.head;
+
+    // Open input stream
+    if (SHELL_TYPE == NORMAL_SHELL) {
+        if ((in = fopen(argv[1], "r")) == (FILE *)NULL) {
+            perror("lusush: fopen");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        in = stdin;
+    }
 
     //////////////////////////////////////////////////
     // Main loop
@@ -46,11 +58,13 @@ int main(int argc, char **argv)
 
         // If not using readline print the prompt here
 #if !defined( USING_READLINE )
-        printf("%s", (ENV_PROMPT = getenv("PROMPT")) ? ENV_PROMPT : "% ");
+        if (SHELL_TYPE != NORMAL_SHELL) {
+            printf("%s", (ENV_PROMPT = getenv("PROMPT")) ? ENV_PROMPT : "% ");
+        }
 #endif
 
         // Handle the results of get_input
-        switch (ret = get_input(stdin, &cmdhist, cmd)) {
+        switch (ret = do_line(in, &cmdhist, cmd)) {
             case -1:                    // Error
                 bActive = false;        // Exit program
                 break;
@@ -58,7 +72,7 @@ int main(int argc, char **argv)
                 break;
             default:                    // Processed input
 
-                // Mark this commands place in history
+                // Mark place of first command parsed by get_input 
                 cmd->hist_offset = cmdhist.size;
 
                 // Very verbose printing of command history, only useful
@@ -88,12 +102,15 @@ int main(int argc, char **argv)
     for (i = 0; i < cmdhist.size; i++) {
         print_debug("#%d# ", i+1);
     }
-    printf("\n");
+
+    if (SHELL_TYPE != NORMAL_SHELL) {
+        printf("\n");
+    }
 
     global_cleanup();                   // Free globals, set to zero/NULL
     if (cmdhist.size) {
         free_cmdlist(&cmdhist);         // Free command history
     }
 
-    return 0;
+    return 0;                           // Optimist!
 }

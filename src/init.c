@@ -11,15 +11,19 @@
  * init:
  *     Performs initial tasks at shell startup.
  */
-void init(char **argv)
+void init(int argc, char **argv)
 {
     // Determine the shell type
     if (argv[0][0] == '-') {
-        SHELL_TYPE = SHELL_TYPE_LOGIN;
+        SHELL_TYPE = LOGIN_SHELL;
         print_debug("THIS IS A LOGIN SHELL\n");
     }
+    else if(argc > 1) {
+        SHELL_TYPE = NORMAL_SHELL;
+        print_debug("THIS IS A NORMAL SHELL\n");
+    }
     else {
-        SHELL_TYPE = SHELL_TYPE_INTERACTIVE;
+        SHELL_TYPE = INTERACTIVE_SHELL;
         print_debug("THIS IS AN INTERACTIVE SHELL\n");
     }
 
@@ -53,7 +57,7 @@ void init(char **argv)
 
 /**
  * sig_int:
- *      interupt ^C signal handler, free memory where it can, then exit
+ *      interupt ^C signal handler
  */
 void sig_int(int signo)
 {

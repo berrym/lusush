@@ -8,6 +8,6 @@
 #if defined( USING_READLINE )
 extern char *rl_gets(const char *);
 #endif
-extern int get_input(FILE *, CMDLIST *, CMD *);
+extern int do_line(FILE *, CMDLIST *, CMD *);
 
 #endif
