@@ -31,10 +31,6 @@ extern void help(const char *);
 extern void cd(const char *);
 extern void pwd(void);
 
-#if defined( USING_READLINE )
 extern void history(void);
-#else
-extern void history(CMD *);
-#endif
 
 #endif

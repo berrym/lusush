@@ -1,3 +1,9 @@
+/**
+ * exec.c - execute commands
+ */
+
+// include statements {{{
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,8 +19,15 @@
 #include "builtins.h"
 #include "env.h"
 
-////////////////////////// EXECUTE COMMAND FUNCTIONS /////////////////////////
+// end of include statements }}}
 
+// exec command functions {{{
+
+// function exec_cmd {{{
+/**
+ * exec_cmd:
+ *      wrapper function for exec_builtin_command and exec_external_cmd
+ */
 int exec_cmd(CMD *cmd, int cnt)
 {
     register int i;             // loop variable
@@ -121,6 +134,14 @@ int exec_cmd(CMD *cmd, int cnt)
     return 0;
 }
 
+// end of exec_cmd }}}
+
+// function exec_external_cmd {{{
+
+/**
+ * exec_external_cmd
+ *      execute an external command setting up pipes or redirection.
+ */
 int exec_external_cmd(CMD *cmd, char **envp)
 {
     int status,j;
@@ -241,23 +262,9 @@ int exec_external_cmd(CMD *cmd, char **envp)
             return pid;                 // return the pid of to wait for
     }
 }
+// end of exec_external command }}}
 
-/**
- * is_builtin_cmd:
- *      compare (cmdname) to elements is array of strings
- *      builtins, if it matches return the index of the element.
- */
-int is_builtin_cmd(const char *cmdname)
-{
-    register int i;
-
-    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
-        if (strcmp(cmdname, builtins[i]) == 0)
-            return i;
-    }
-
-    return -1;
-}
+// function exec_builtin_cmd {{{
 
 /**
  * exec_builtin_cmd:
@@ -287,11 +294,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             pwd();
             break;
         case BUILTIN_CMD_HISTORY:
-#if defined( USING_READLINE )
             history();
-#else
-            history(cmd);
-#endif
             break;
         case BUILTIN_CMD_SETENV:
             if (cmd->argc != 3) {
@@ -315,6 +318,32 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             break;
     }
 }
+// end of exec_builtin_command }}}
+
+// end of exec command functions }}}
+
+// function is_builtin_cmd {{{
+
+/**
+ * is_builtin_cmd:
+ *      compare (cmdname) to elements is array of strings
+ *      builtins, if it matches return the index of the element.
+ */
+int is_builtin_cmd(const char *cmdname)
+{
+    register int i;
+
+    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+        if (strcmp(cmdname, builtins[i]) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
+// end of is_builtin_cmd }}}
+
+// function path_to_cmd {{{
 
 /**
  * path_to_cmd:
@@ -380,3 +409,7 @@ char *path_to_cmd(char *cmd)
 
     return (char *)NULL;
 }
+
+// end of path_to_cmd }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

@@ -44,8 +44,9 @@ am__installdirs = "$(DESTDIR)$(lusushprgdir)"
 lusushprgPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(lusushprg_PROGRAMS)
 am_lusush_OBJECTS = builtins.$(OBJEXT) cmdlist.$(OBJEXT) env.$(OBJEXT) \
-	exec.$(OBJEXT) init.$(OBJEXT) input.$(OBJEXT) misc.$(OBJEXT) \
-	parse.$(OBJEXT) lusush.$(OBJEXT)
+	exec.$(OBJEXT) history.$(OBJEXT) init.$(OBJEXT) \
+	input.$(OBJEXT) misc.$(OBJEXT) parse.$(OBJEXT) \
+	lusush.$(OBJEXT)
 lusush_OBJECTS = $(am_lusush_OBJECTS)
 lusush_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -146,7 +147,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lusushprgdir = ../
-lusush_SOURCES = builtins.c cmdlist.c env.c exec.c init.c input.c misc.c parse.c lusush.c
+lusush_SOURCES = builtins.c cmdlist.c env.c exec.c history.c init.c input.c misc.c parse.c lusush.c
 all: all-am
 
 .SUFFIXES:
@@ -217,6 +218,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cmdlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exec.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/history.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/input.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lusush.Po@am__quote@

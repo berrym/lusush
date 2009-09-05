@@ -1,8 +1,18 @@
+/**
+ * env.c - environmentally aware
+ */
+
+// include statements {{{
+
 #include <stdlib.h>
 #include <string.h>
 #include "ldefs.h"
 #include "misc.h"
 #include "env.h"
+
+// end of include statements }}}
+
+// global environment variables {{{
 
 /**
  * Default environment variables
@@ -21,6 +31,10 @@ char *ENV_LOGNAME = (char *)NULL;
 char *ENV_MAIL = (char *)NULL;
 
 int SHELL_TYPE = 0;
+
+// end of global variables }}}
+
+// function env_init {{{
 
 /**
  * env_init:
@@ -52,3 +66,7 @@ void env_init(char **argv)
     // set the user's prompt
     build_prompt();
 }
+
+// End of env_init }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

@@ -1,3 +1,9 @@
+/**
+ * parse.c - command parser
+ */
+
+// Includes {{{
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,6 +11,9 @@
 #include "ltypes.h"
 #include "parse.h"
 
+// End of includes }}}
+
+// parse_cmd - comand parser {{{
 /**
  * parse_cmd:
  *      Given a string of input parse_cmd will seperate words by whitespace
@@ -206,3 +215,7 @@ done:
 
     return lpos;                        // return number of lines parsed
 }
+
+// End of parse command }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

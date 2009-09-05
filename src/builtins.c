@@ -1,14 +1,20 @@
+/**
+ * builtins.c - bultin commands
+ */
+
+// include statements {{{
+
 #include <unistd.h>
 #include <stdio.h>
 #include "ldefs.h"
 #include "ltypes.h"
 #include "builtins.h"
 #include "misc.h"
+#include "history.h"
 
-#if defined( USING_READLINE )
-#include <readline/history.h>
-static HIST_ENTRY **hist_list;
-#endif
+// end of include statements }}}
+
+// macros/globals {{{
 
 /**
  * Builtin commands
@@ -32,7 +38,9 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "unsetenv",     "delete environment variable"
 };
 
-///////////////////////// BUILTIN COMMANDS ///////////////////////////////////
+// end of macros/globals }}}
+
+// function help {{{
 
 void help(const char *cmdname)
 {
@@ -50,12 +58,20 @@ void help(const char *cmdname)
     }
 }
 
+// end of help }}}
+
+// function cd {{{
+
 void cd(const char *path)
 {
     if (chdir(path) < 0)
         perror("lusush: chdir");
     build_prompt();
 }
+
+// end of cd }}}
+
+// function pwd {{{
 
 void pwd(void)
 {
@@ -67,32 +83,27 @@ void pwd(void)
         printf("%s\n", cwd);
 }
 
-#if defined( USING_READLINE )
+// end of pwd }}}
+
+// function history {{{
+
 void history(void)
 {
-    int i;
+    register int i;
+#if defined( USING_READLINE )
     if ((hist_list = history_list())) {
         printf("Command history.\n");
         for (i = 0; hist_list[i]; i++) {
             printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
         }
     }
-}
 #else
-void history(CMD *cmd)
-{
-    int i = 0;
-
-    printf("Command history.\n");
-
-    while (cmd->prev) {
-        cmd = cmd->prev;
+    for (i = 0; i < MAXHIST && *hist_list[i]; i++) {
+        printf("%4d:\t%s\n", 1+i, hist_list[i]);
     }
-
-    while (cmd->next) {
-        printf("%4d:\t%s\n", i, cmd->buf);
-        cmd = cmd->next;
-        i++;
-    }  
-}
 #endif
+}
+
+// end of history }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

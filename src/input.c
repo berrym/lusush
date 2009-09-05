@@ -1,23 +1,33 @@
+/**
+ * input.c - input routines
+ */
+
+// include statements {{{
+
 #include <stdio.h>                  // Needed for readline history to compile
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "ldefs.h"
-
-#if defined( USING_READLINE )
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif
-
 #include "input.h"
 #include "cmdlist.h"
 #include "env.h"
 #include "parse.h"
+#include "history.h"
+
+// end of include statements }}}
+
+// macros/defines/globals {{{
+
+#ifdef USING_READLINE
+static char *line_read = (char *)NULL;      // storage for readline
+#endif
+
+// end of macros/define/globals }}}
+
+// function rl_gets {{{
 
 #if defined( USING_READLINE )
-
-static char *line_read = (char *)NULL;      // storage for readline
-
 /**
  * rl_gets:
  *      Read a string, and return a pointer to it.  Returns NULL on EOF.
@@ -42,13 +52,67 @@ char *rl_gets(const char *prompt)
 }
 #endif
 
+// end of rl_gets }}}
+
+// function get_input {{{
+
 /**
  * get_input:
- *      reads input one line at a time from the stream in.  The line
- *      is parsed and the information is stored in doubly linked listed
- *      of commands, that is a CMDLIST of CMD's.
+ *      return a pointer to a line of user input, store line in history
  */
-int do_line(FILE *in, CMDLIST *cmdl, CMD *cmd)
+char *get_input(FILE *in, const char *prompt)
+{
+    char *buf = (char *)NULL;          // input buffer
+
+#ifdef USING_READLINE
+    if (SHELL_TYPE != NORMAL_SHELL) {
+        if ((buf = rl_gets(prompt)) == (char *)NULL) {
+            return (char *)NULL;
+        }
+    }
+    else {
+        if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+            perror("lusush: calloc");
+            return (char *)NULL;
+        }
+
+        if (fgets(buf, MAXLINE, in) == (char *)NULL)
+            return (char *)NULL;
+
+        if (buf[strlen(buf) - 1] == '\n')
+            buf[strlen(buf) - 1] = '\0';
+    }
+#else
+    if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+        perror("lusush: calloc");
+        return (char *)NULL;
+    }
+
+    printf("%s", prompt);
+
+    if (fgets(buf, MAXLINE, in) == (char *)NULL)
+        return (char *)NULL;
+
+    if (buf[strlen(buf) - 1] == '\n')
+        buf[strlen(buf) - 1] = '\0';
+
+    strcpy(hist_list[hist_size], buf);
+    hist_size++;
+#endif
+
+    return buf;
+}
+
+// end get_input }}}
+
+// function do_line {{{
+
+/**
+ * do_line:
+ *      (line) is parsed and the information is stored in doubly linked list
+ *      of commands, that is a CMDLIST of CMD's. (see ltypes.h)
+ */
+int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
 {
     unsigned int cnt = 0;               // Number of commands parsed
     int ret = 0;                        // Storage for return values
@@ -61,33 +125,14 @@ int do_line(FILE *in, CMDLIST *cmdl, CMD *cmd)
     char *subtok = (char *)NULL, *ptr2 = (char *)NULL, *savep2 = (char *)NULL;
 
     char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
-    char *rbuf = (char *)NULL;          // buffer for rl_gets
-    char buf[MAXLINE] = { '\0' };       // buffer for fgets
 
-#if defined( USING_READLINE )
-    if (SHELL_TYPE != NORMAL_SHELL) {
-        if ((rbuf = rl_gets((ENV_PROMPT = getenv("PROMPT"))
-                        ? ENV_PROMPT : "% ")) == (char *)NULL) {
-            return -1;
-        }
-    }
-    else {
-        if (fgets(buf, MAXLINE, in) == (char *)NULL)
-            return -1;
-
-        if (buf[strlen(buf) - 1] == '\n')
-            buf[strlen(buf) - 1] = '\0';
-    }
-#else
-    if (fgets(buf, MAXLINE, in) == (char *)NULL)
+    if (!line)
         return -1;
+    if (!*line)
+        return 0;
 
-    if (buf[strlen(buf) - 1] == '\n')
-        buf[strlen(buf) - 1] = '\0';
-#endif
-
-    strncpy(tmp, rbuf ? rbuf : buf, MAXLINE);
-    cmdl->size++;
+    strncpy(tmp, line, MAXLINE);        // copy string
+    cmdl->size++;                       // increase cmdl size counter
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = NULL) {
         if (!(tok = strtok_r(ptr1, ";", &savep1))) {
@@ -148,3 +193,8 @@ int do_line(FILE *in, CMDLIST *cmdl, CMD *cmd)
 
     return cnt;
 }
+
+// end of do_line }}}
+
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

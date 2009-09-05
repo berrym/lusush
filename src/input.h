@@ -6,8 +6,11 @@
 #define __INPUT_H__
 
 #if defined( USING_READLINE )
+#include <readline/readline.h>
 extern char *rl_gets(const char *);
 #endif
-extern int do_line(FILE *, CMDLIST *, CMD *);
+
+extern char *get_input(FILE *, const char *);
+extern int do_line(char *, CMDLIST *, CMD *);
 
 #endif

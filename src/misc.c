@@ -1,3 +1,9 @@
+/**
+ * misc.c - various functions that didn't fit anywhere else.
+ */
+
+// Includes {{{
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +12,10 @@
 #include "ldefs.h"
 #include "env.h"
 #include "misc.h"
+
+// End of includes }}}
+
+// print_debug {{{
 
 /**
  * print_debug:
@@ -24,6 +34,10 @@ void print_debug(const char *fmt, ...)
     va_end(args);
 #endif
 }
+
+//}}}
+
+// build_prompt {{{
 
 /**
  * build_prompt:
@@ -46,6 +60,10 @@ void build_prompt(void)
     setenv("PROMPT", ENV_PROMPT, 1);
 }
 
+// End of build_prompt }}} 
+
+// global_cleanup {{{
+
 void global_cleanup(void)
 {
     ENV_LOGNAME = (char *)NULL;
@@ -58,3 +76,7 @@ void global_cleanup(void)
 
     ENV_SHELL = (char *)NULL;
 }
+
+// End of global cleanup }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

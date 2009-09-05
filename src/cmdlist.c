@@ -1,3 +1,9 @@
+/**
+ * cmdlist.c - routines to work with doubly linked list
+ */
+
+// include statements {{{
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +12,11 @@
 #include "ltypes.h"
 #include "cmdlist.h"
 
-///////////////////////// DOUBLY LINKED LIST ////////////////////////////////
+// end of inclkude statements }}}
+
+// DOUBLY LINKED LIST {{{
+
+// function cmdalloc {{{
 
 /**
  * cmdalloc:
@@ -42,6 +52,10 @@ int cmdalloc(CMD *cmd)
     return 0;
 }
 
+// end of cmdalloc }}}
+
+// function cmdfree {{{
+
 /**
  * cmdfree:
  *      free's the memory pointed to by cmd, including recursive 
@@ -72,6 +86,14 @@ void cmdfree(CMD *cmd)
     }
 }
 
+// end of cmdfree }}}
+
+// function free_cmdlist {{{
+
+/**
+ * free_cmdlist
+ *      recursively free nodes in doublt linked list
+ */
 void free_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd, *tmp;
@@ -88,6 +110,14 @@ void free_cmdlist(CMDLIST *cmdl)
     }
 }
 
+// end of free_cmdlist }}}
+
+// function display_cmdlist {{{
+
+/**
+ * display_cmdlist
+ *      display the details of each node in the list by calling display_cmd
+ */
 void display_cmdlist(CMDLIST *cmdl)
 {
     CMD *cmd = &cmdl->head;
@@ -99,6 +129,13 @@ void display_cmdlist(CMDLIST *cmdl)
     }
 }
 
+// end of display_cmdlist }}}
+
+// function display_cmd {{{
+
+/**
+ * display_cmd: display details of a CMD
+ */
 void display_cmd(CMD *cmd)
 {
     register int i;
@@ -128,6 +165,14 @@ void display_cmd(CMD *cmd)
             ? cmd->out_filename : "empty");
 }
 
+// end of display_cmd }}}
+
+// function timestamp_cmd {{{
+
+/**
+ * timestamp_cmd
+ *      create a timestamp and put it in a command
+ */
 void timestamp_cmd(CMD *cmd)
 {
     time_t rawtime;
@@ -138,3 +183,9 @@ void timestamp_cmd(CMD *cmd)
     thetime = asctime(timeinfo);
     strcpy(cmd->timestamp, thetime);
 }
+
+// end of timestamp_cmd }}}
+
+// end of DOUBLY LINKE LIST }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

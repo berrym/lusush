@@ -1,3 +1,9 @@
+/**
+ * init.c - startup and initialization routines
+ */
+
+// include statements {{{
+
 #include <unistd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -6,6 +12,11 @@
 #include "init.h"
 #include "misc.h"
 #include "env.h"
+#include "history.h"
+
+// end of include statement }}}
+
+// function init {{{
 
 /**
  * init:
@@ -44,16 +55,16 @@ void init(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-#if !defined( USING_READLINE )
-    // Set stdout, stdin, and stderr to a non-buffered state
-    setvbuf(stdout, (char *)NULL, _IONBF, 0);
-    setvbuf(stdin, (char *)NULL, _IONBF, 0);
-    setvbuf(stderr, (char *)NULL, _IONBF, 0);
-#endif
-
     // Set the initial environment
     env_init(argv);
+
+    // Initialize history
+    init_history();
 }
+
+// end of inint }}}
+
+// function - SIG_INT signal handler - sig_int {{{
 
 /**
  * sig_int:
@@ -63,6 +74,10 @@ void sig_int(int signo)
 {
     print_debug("\nlusush: caught signal %d.\n", signo);
 }
+
+// end of sig_int }}}
+
+// function - SIG_SEG signal handler - sig_seg {{{
 
 /**
  * NOTE: NECESSARALY FATAL
@@ -76,3 +91,7 @@ void sig_seg(int signo)
     global_cleanup();
     exit(EXIT_FAILURE);
 }
+
+// end of sig_seg }}}
+
+// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4
