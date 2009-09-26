@@ -14,13 +14,14 @@
 #include "env.h"
 #include "parse.h"
 #include "history.h"
+#include "misc.h"
 
 // end of include statements }}}
 
 // macros/defines/globals {{{
 
 #ifdef USING_READLINE
-static char *line_read = (char *)NULL;      // storage for readline
+static char *line_read = (char *)0;      // storage for readline
 #endif
 
 // end of macros/define/globals }}}
@@ -30,7 +31,7 @@ static char *line_read = (char *)NULL;      // storage for readline
 #if defined( USING_READLINE )
 /**
  * rl_gets:
- *      Read a string, and return a pointer to it.  Returns NULL on EOF.
+ *      Read a string, and return a pointer to it.  Returns 0 on EOF.
  */
 char *rl_gets(const char *prompt)
 {
@@ -38,7 +39,7 @@ char *rl_gets(const char *prompt)
     // return the memory to the free pool
     if (line_read) {
         free(line_read);
-        line_read = (char *)NULL;
+        line_read = (char *)0;
     }
 
     // Get a line from the user
@@ -62,36 +63,36 @@ char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in, const char *prompt)
 {
-    char *buf = (char *)NULL;          // input buffer
+    char *buf = (char *)0;          // input buffer
 
 #ifdef USING_READLINE
     if (SHELL_TYPE != NORMAL_SHELL) {
-        if ((buf = rl_gets(prompt)) == (char *)NULL) {
-            return (char *)NULL;
+        if ((buf = rl_gets(prompt)) == (char *)0) {
+            return (char *)0;
         }
     }
     else {
-        if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+        if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)0) {
             perror("lusush: calloc");
-            return (char *)NULL;
+            return (char *)0;
         }
 
-        if (fgets(buf, MAXLINE, in) == (char *)NULL)
-            return (char *)NULL;
+        if (fgets(buf, MAXLINE, in) == (char *)0)
+            return (char *)0;
 
         if (buf[strlen(buf) - 1] == '\n')
             buf[strlen(buf) - 1] = '\0';
     }
 #else
-    if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+    if ((buf = (char *)calloc(MAXLINE, sizeof(char))) == (char *)0) {
         perror("lusush: calloc");
-        return (char *)NULL;
+        return (char *)0;
     }
 
     printf("%s", prompt);
 
-    if (fgets(buf, MAXLINE, in) == (char *)NULL)
-        return (char *)NULL;
+    if (fgets(buf, MAXLINE, in) == (char *)0)
+        return (char *)0;
 
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';
@@ -111,6 +112,10 @@ char *get_input(FILE *in, const char *prompt)
  * do_line:
  *      (line) is parsed and the information is stored in doubly linked list
  *      of commands, that is a CMDLIST of CMD's. (see ltypes.h)
+ *
+ * TODO: currently using strtok_r to split line into seperate commands when
+ *       processing a chained commands.  This is a  bad thing.  Write
+ *       do_line so that the strtok family of functions is not used.
  */
 int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
 {
@@ -120,9 +125,9 @@ int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
     bool pipe = false;                  // pipe chain flag
 
     // Storage for first tier of tokens (";")
-    char *tok = (char *)NULL, *ptr1 = (char *)NULL, *savep1 = (char *)NULL;
+    char *tok = (char *)0, *ptr1 = (char *)0, *savep1 = (char *)0;
     // Storage for secondary tier of tokens ("|")
-    char *subtok = (char *)NULL, *ptr2 = (char *)NULL, *savep2 = (char *)NULL;
+    char *subtok = (char *)0, *ptr2 = (char *)0, *savep2 = (char *)0;
 
     char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
 
@@ -134,7 +139,7 @@ int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
     strncpy(tmp, line, MAXLINE);        // copy string
     cmdl->size++;                       // increase cmdl size counter
 
-    for (i = 0, ptr1 = tmp ;; i++, ptr1 = NULL) {
+    for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
         if (!(tok = strtok_r(ptr1, ";", &savep1))) {
             break;
         }
@@ -146,7 +151,7 @@ int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
             }
         }
 
-        for (j = 0, ptr2 = tok ;; j++, ptr2 = NULL) {
+        for (j = 0, ptr2 = tok ;; j++, ptr2 = 0) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
                 pipe = false;
                 break;
@@ -185,7 +190,7 @@ int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
                 default:
                     cmd->next->prev = cmd;
                     cmd = cmd->next;
-                    cmd->next = (CMD *)NULL;
+                    cmd->next = (CMD *)0;
                     cnt++;
             }
         }

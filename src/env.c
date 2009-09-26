@@ -23,12 +23,12 @@
  *      ENV_LOGNAME     users' login name
  *      ENV_MAIL        users' email address
  */
-char *ENV_HOME = (char *)NULL;
-char *ENV_PATH = (char *)NULL;
-char *ENV_PROMPT = (char *)NULL;
-char *ENV_SHELL = (char *)NULL;
-char *ENV_LOGNAME = (char *)NULL;
-char *ENV_MAIL = (char *)NULL;
+char *ENV_HOME = (char *)0;
+char *ENV_PATH = (char *)0;
+char *ENV_PROMPT = (char *)0;
+char *ENV_SHELL = (char *)0;
+char *ENV_LOGNAME = (char *)0;
+char *ENV_MAIL = (char *)0;
 
 int SHELL_TYPE = 0;
 
@@ -53,7 +53,7 @@ void env_init(char **argv)
 
     // get the user's shell, if it is null then set it.
     ENV_SHELL = getenv("SHELL");
-    if (ENV_SHELL == (char *)NULL) {
+    if (ENV_SHELL == (char *)0) {
         setenv("SHELL", argv[0], 1);
         ENV_SHELL = getenv("SHELL");
     }

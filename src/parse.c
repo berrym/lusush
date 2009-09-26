@@ -173,15 +173,15 @@ int parse_cmd(CMD *cmd, char *line)
 
                 // Allocate room on the heap for the next string
                 cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
-                if (cmd->argv[lpos] == (char *)NULL) {
+                if (cmd->argv[lpos] == (char *)0) {
                     perror("lusush: calloc");
                     for (j = lpos - 1; j >= 0; j--) {
                         free(cmd->argv[j]);
-                        cmd->argv[j] = (char *)NULL;
+                        cmd->argv[j] = (char *)0;
                     }
                     return -1;
                 }
-                cmd->argv[lpos][wpos] = '\0';       // initialize with NULL
+                cmd->argv[lpos][wpos] = '\0';       // initialize with 0
                 cmd->argc++;
                 break;
 
@@ -210,7 +210,7 @@ int parse_cmd(CMD *cmd, char *line)
 
 done:
     lpos++;
-    cmd->argv[lpos] = (char *)NULL;     // Make sure last element is NULL
+    cmd->argv[lpos] = (char *)0;     // Make sure last element is 0
     cmd->argc = lpos;                   // set cmd->argc equal to lpos
 
     return lpos;                        // return number of lines parsed

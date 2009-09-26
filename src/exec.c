@@ -48,7 +48,7 @@ int exec_cmd(CMD *cmd, int cnt)
 
     for (i = 0; i < cnt; i++) {
         // Allocate memory on heap for the string holding full path to command
-        if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+        if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)0) {
             perror("lusush: calloc");
             global_cleanup();
             exit(EXIT_FAILURE);
@@ -81,7 +81,7 @@ int exec_cmd(CMD *cmd, int cnt)
             }
             else if (cmdpath) {
                 strcpy(cmd->argv[0], cmdpath);
-                if ((pids[i] = exec_external_cmd(cmd, (char **)NULL)) == -1) {
+                if ((pids[i] = exec_external_cmd(cmd, (char **)0)) == -1) {
                     return -1;
                 }
             }
@@ -92,7 +92,7 @@ int exec_cmd(CMD *cmd, int cnt)
             // Free memory used by command path
             if (cmdpath)
                 free(cmdpath);
-            cmdpath = (char *)NULL;
+            cmdpath = (char *)0;
         }
 
         // Move to next command in chain
@@ -144,7 +144,7 @@ int exec_cmd(CMD *cmd, int cnt)
  */
 int exec_external_cmd(CMD *cmd, char **envp)
 {
-    int status,j;
+    int j;
     pid_t pid;
 
     // Check for invalid strings at the end of vector,
@@ -153,7 +153,7 @@ int exec_external_cmd(CMD *cmd, char **envp)
         if (!*cmd->argv[j]) {
             cmd->argc--;
             free(cmd->argv[j]);
-            cmd->argv[j] = (char *)NULL;
+            cmd->argv[j] = (char *)0;
         }
     }
 
@@ -283,7 +283,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 help(cmd->argv[1]);
             }
             else {
-                help((char *)NULL);
+                help((char *)0);
             }
             break;
         case BUILTIN_CMD_CD:
@@ -322,45 +322,24 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
 
 // end of exec command functions }}}
 
-// function is_builtin_cmd {{{
-
-/**
- * is_builtin_cmd:
- *      compare (cmdname) to elements is array of strings
- *      builtins, if it matches return the index of the element.
- */
-int is_builtin_cmd(const char *cmdname)
-{
-    register int i;
-
-    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
-        if (strcmp(cmdname, builtins[i]) == 0)
-            return i;
-    }
-
-    return -1;
-}
-
-// end of is_builtin_cmd }}}
-
 // function path_to_cmd {{{
 
 /**
  * path_to_cmd:
  *      path_to_cmd appropriately enough will return a pointer with the absolute
- *      path to a command if it is found in path.  The value NULL is returned
+ *      path to a command if it is found in path.  The value 0 is returned
  *      in the case that cmd is not found.  "S_ISDIR" is returned if the cmd is
  *      found but is a directory and not a regular file.  If the string given is
  *      already the absolute path name then it is returned.
  */
 char *path_to_cmd(char *cmd)
 {
-    char *tok = (char *)NULL, *full_cmd = (char *)NULL, *ptr = (char *)NULL;
+    char *tok = (char *)0, *full_cmd = (char *)0, *ptr = (char *)0;
     struct stat cmd_st;
     char *isdir;
-    if ((isdir = calloc(strlen("S_ISDIR")+1, sizeof(char))) == NULL) {
+    if ((isdir = calloc(strlen("S_ISDIR")+1, sizeof(char))) == 0) {
         perror("lusush: calloc");
-        return (char *)NULL;
+        return (char *)0;
     }
     strcpy(isdir, "S_ISDIR");
     isdir[strlen(isdir)] = '\0';
@@ -381,9 +360,9 @@ char *path_to_cmd(char *cmd)
     print_debug("Searching path for command\n");
 
     while (tok) {
-        if ((full_cmd=(char *)calloc(MAXLINE, sizeof(char))) == (char *)NULL) {
+        if ((full_cmd=(char *)calloc(MAXLINE, sizeof(char))) == (char *)0) {
             perror("calloc");
-            return (char *)NULL;
+            return (char *)0;
         }
         full_cmd[0] = '\0';
         strcpy(full_cmd, tok);
@@ -402,12 +381,12 @@ char *path_to_cmd(char *cmd)
         }
 
         free(full_cmd);
-        full_cmd = (char *)NULL;
+        full_cmd = (char *)0;
 
-        tok = strtok((char *)NULL, ": ");
+        tok = strtok((char *)0, ": ");
     }
 
-    return (char *)NULL;
+    return (char *)0;
 }
 
 // end of path_to_cmd }}}

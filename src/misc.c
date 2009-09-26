@@ -48,7 +48,7 @@ void build_prompt(void)
     char cwd[MAXLINE];
     char ENV_PROMPT[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == (char *)NULL) {
+    if (getcwd(cwd, MAXLINE) == (char *)0) {
         perror("lusush: build_prompt");
         strcpy(ENV_PROMPT, "% ");
     }
@@ -66,15 +66,15 @@ void build_prompt(void)
 
 void global_cleanup(void)
 {
-    ENV_LOGNAME = (char *)NULL;
+    ENV_LOGNAME = (char *)0;
 
-    ENV_HOME = (char *)NULL;
+    ENV_HOME = (char *)0;
 
-    ENV_PATH = (char *)NULL;
+    ENV_PATH = (char *)0;
     
-    ENV_PROMPT = (char *)NULL;
+    ENV_PROMPT = (char *)0;
 
-    ENV_SHELL = (char *)NULL;
+    ENV_SHELL = (char *)0;
 }
 
 // End of global cleanup }}}

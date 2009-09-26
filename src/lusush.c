@@ -23,20 +23,20 @@
 
 int main(int argc, char **argv)
 {
-    CMD *cmd = (CMD *)NULL;
+    CMD *cmd = (CMD *)0;
     bool bActive = true;
     register int i = 1;
     int ret = 0;
-    char *line = (char *)NULL;
-    FILE *in = (FILE *)NULL;
+    char *line = (char *)0;
+    FILE *in = (FILE *)0;
     CMDLIST cmdhist;
 
     // Perform startup tasks
     init(argc, argv);
 
     // Initialize doubly linked list of commands
-    cmdhist.head.next = (CMD *)NULL;
-    cmdhist.head.prev = (CMD *)NULL;
+    cmdhist.head.next = (CMD *)0;
+    cmdhist.head.prev = (CMD *)0;
     cmdhist.size = 0;
 
     // Point cmd to list head
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {
-        if ((in = fopen(argv[1], "r")) == (FILE *)NULL) {
+        if ((in = fopen(argv[1], "r")) == (FILE *)0) {
             perror("lusush: fopen");
             exit(EXIT_FAILURE);
         }
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
         printf("\n");
     }
 
-    global_cleanup();                   // Free globals, set to zero/NULL
+    global_cleanup();                   // Free globals, set to zero/0
     if (cmdhist.size) {
         free_cmdlist(&cmdhist);         // Free command history
     }

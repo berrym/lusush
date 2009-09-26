@@ -27,6 +27,7 @@ enum {  BUILTIN_CMD_EXIT=0,
 
 extern const char *builtins[BUILTIN_CMD_CNT];
 
+extern int is_builtin_cmd(const char *);
 extern void help(const char *);
 extern void cd(const char *);
 extern void pwd(void);

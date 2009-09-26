@@ -20,11 +20,11 @@
 static bool HIST_INITIALIZED = false;
 
 char histfile[MAXLINE] = { '\0' };
-FILE *histfp = (FILE *)NULL;
+FILE *histfp = (FILE *)0;
 
 #ifndef USING_READLINE
 long hist_size = 0;
-char hist_list[MAXHIST][MAXLINE] = { '\0' };
+char hist_list[MAXHIST][MAXLINE] = { "\0" };
 #endif
 
 #ifdef USING_READLINE
@@ -45,18 +45,14 @@ int read_histfile(const char *histfile)
 #else
     register int i = 0;
 
-    if ((histfp = fopen(histfile, "r")) == (FILE *)NULL) {
-        if (errno != ENOENT) {
+    if ((histfp = fopen(histfile, "r")) == (FILE *)0) {
+        if (errno != ENOENT)
             perror("lusush: fopen");
-            return -1;
-        }
-        else {
-            return;
-        }
+        return -1;
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], MAXLINE, histfp) == (char *)NULL) {
+        if (fgets(hist_list[i], MAXLINE, histfp) == (char *)0) {
             break;
         }
 
@@ -66,9 +62,9 @@ int read_histfile(const char *histfile)
     }
 
     fclose(histfp);
+#endif
 
     return 0;
-#endif
 }
 
 // end of read_histfile }}}
@@ -77,8 +73,6 @@ int read_histfile(const char *histfile)
 
 void init_history(void)
 {
-    register int i = 0;
-
     if (HIST_INITIALIZED) {
         fprintf(stderr,"lusush: init_history: history already initialized.\n");
         return;
@@ -88,9 +82,9 @@ void init_history(void)
 
 #ifndef USING_READLINE
     // Set stdout, stdin, and stderr to a non-buffered state
-    setvbuf(stdout, (char *)NULL, _IONBF, 0);
-    setvbuf(stdin, (char *)NULL, _IONBF, 0);
-    setvbuf(stderr, (char *)NULL, _IONBF, 0);
+    setvbuf(stdout, (char *)0, _IONBF, 0);
+    setvbuf(stdin, (char *)0, _IONBF, 0);
+    setvbuf(stderr, (char *)0, _IONBF, 0);
 #else
     using_history();
     stifle_history(MAXHIST);
@@ -121,7 +115,7 @@ void write_histfile(const char *histfile)
 #else
     register int i = 0;
 
-    if ((histfp = fopen(histfile, "a")) == (FILE *)NULL) {
+    if ((histfp = fopen(histfile, "a")) == (FILE *)0) {
         perror("lusush: fopen");
         return;
     }

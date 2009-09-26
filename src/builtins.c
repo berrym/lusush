@@ -6,6 +6,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include "ldefs.h"
 #include "ltypes.h"
 #include "builtins.h"
@@ -45,7 +46,7 @@ const char *builtins[BUILTIN_CMD_CNT] =
 void help(const char *cmdname)
 {
     int i;
-    if (cmdname == (char *)NULL) {
+    if (cmdname == (char *)0) {
         printf("Builtin commands:\n");
         for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
             printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
@@ -59,6 +60,27 @@ void help(const char *cmdname)
 }
 
 // end of help }}}
+
+// function is_builtin_cmd {{{
+
+/**
+ * is_builtin_cmd:
+ *      compare (cmdname) to elements is array of strings
+ *      builtins, if it matches return the index of the element.
+ */
+int is_builtin_cmd(const char *cmdname)
+{
+    register int i;
+
+    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+        if (strcmp(cmdname, builtins[i]) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
+// end of is_builtin_cmd }}}
 
 // function cd {{{
 
@@ -77,7 +99,7 @@ void pwd(void)
 {
     char cwd[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == (char *)NULL)
+    if (getcwd(cwd, MAXLINE) == (char *)0)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);
