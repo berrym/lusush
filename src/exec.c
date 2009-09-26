@@ -32,7 +32,6 @@ int exec_cmd(CMD *cmd, int cnt)
 {
     register int i;             // loop variable
     int ret, status;            // return value, waitpid status
-    char *cmdpath;              // full path to command
     int pids[cnt];              // array of pids to wait on
     CMD *psave1, *psave2;       // place holders in command history
 
@@ -47,12 +46,6 @@ int exec_cmd(CMD *cmd, int cnt)
     /////////////////////////////////////////////////
 
     for (i = 0; i < cnt; i++) {
-        // Allocate memory on heap for the string holding full path to command
-        if ((cmdpath = (char *)calloc(MAXLINE, sizeof(char))) == (char *)0) {
-            perror("lusush: calloc");
-            global_cleanup();
-            exit(EXIT_FAILURE);
-        }
 
         /////////////////////////////////////////////////
         // Execute a builtin command
@@ -72,27 +65,9 @@ int exec_cmd(CMD *cmd, int cnt)
         /////////////////////////////////////////////////
 
         else {
-            // Find the absolute path name to cmd->argv[0]
-            cmdpath = path_to_cmd(cmd->argv[0]);
-            if (cmdpath && strcmp(cmdpath, "S_ISDIR") == 0) {
-                print_debug("lusush: %s is a directory.\n",
-                        cmd->argv[0]);
-                cd(cmd->argv[0]);
+            if ((pids[i] = exec_external_cmd(cmd)) == -1) {
+                return -1;
             }
-            else if (cmdpath) {
-                strcpy(cmd->argv[0], cmdpath);
-                if ((pids[i] = exec_external_cmd(cmd, (char **)0)) == -1) {
-                    return -1;
-                }
-            }
-            else {
-                printf("lusush: command not found.\n");
-                return i;
-            }
-            // Free memory used by command path
-            if (cmdpath)
-                free(cmdpath);
-            cmdpath = (char *)0;
         }
 
         // Move to next command in chain
@@ -142,7 +117,7 @@ int exec_cmd(CMD *cmd, int cnt)
  * exec_external_cmd
  *      execute an external command setting up pipes or redirection.
  */
-int exec_external_cmd(CMD *cmd, char **envp)
+int exec_external_cmd(CMD *cmd)
 {
     int j;
     pid_t pid;
@@ -238,14 +213,8 @@ int exec_external_cmd(CMD *cmd, char **envp)
             // Call execve or one of it's wrappers
             /////////////////////////////////////////////////
 
-            if (envp) {
-                print_debug("calling execve\n");
-                execve(cmd->argv[0], cmd->argv, envp);
-            }
-            else {
-                print_debug("calling execv\n");
-                execv(cmd->argv[0], cmd->argv);
-            }
+            print_debug("calling execvp\n");
+            execvp(cmd->argv[0], cmd->argv);
 
             fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
             exit(127);                  // exec shouldn't return ever
@@ -337,11 +306,11 @@ char *path_to_cmd(char *cmd)
     char *tok = (char *)0, *full_cmd = (char *)0, *ptr = (char *)0;
     struct stat cmd_st;
     char *isdir;
-    if ((isdir = calloc(strlen("S_ISDIR")+1, sizeof(char))) == 0) {
+    if ((isdir = calloc(strlen("S_ISDIR")+1, sizeof(char))) == (char *)0) {
         perror("lusush: calloc");
         return (char *)0;
     }
-    strcpy(isdir, "S_ISDIR");
+    strncpy(isdir, "S_ISDIR", 8);
     isdir[strlen(isdir)] = '\0';
 
     // First check if cmd is already the absolute path.
@@ -365,9 +334,9 @@ char *path_to_cmd(char *cmd)
             return (char *)0;
         }
         full_cmd[0] = '\0';
-        strcpy(full_cmd, tok);
-        strcat(full_cmd, "/");
-        strcat(full_cmd, cmd);
+        strncpy(full_cmd, tok, MAXLINE);
+        strncat(full_cmd, "/", 2);
+        strncat(full_cmd, cmd, MAXLINE);
 
         // call stat
         if (stat(full_cmd, &cmd_st) < 0) {

@@ -41,26 +41,6 @@ const char *builtins[BUILTIN_CMD_CNT] =
 
 // end of macros/globals }}}
 
-// function help {{{
-
-void help(const char *cmdname)
-{
-    int i;
-    if (cmdname == (char *)0) {
-        printf("Builtin commands:\n");
-        for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
-            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-        }
-    }
-    else {
-        if ((i = is_builtin_cmd(cmdname)) != -1) {
-            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-        }
-    }
-}
-
-// end of help }}}
-
 // function is_builtin_cmd {{{
 
 /**
@@ -81,6 +61,26 @@ int is_builtin_cmd(const char *cmdname)
 }
 
 // end of is_builtin_cmd }}}
+
+// function help {{{
+
+void help(const char *cmdname)
+{
+    int i;
+    if (cmdname == (char *)0) {
+        printf("Builtin commands:\n");
+        for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
+        }
+    }
+    else {
+        if ((i = is_builtin_cmd(cmdname)) != -1) {
+            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
+        }
+    }
+}
+
+// end of help }}}
 
 // function cd {{{
 

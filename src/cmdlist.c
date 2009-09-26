@@ -73,7 +73,7 @@ void cmdfree(CMD *cmd)
             }
         }
 
-        strcpy(cmd->buf, "\0");
+        strncpy(cmd->buf, "\0", 1);
         cmd->argc = 0;
 
         if (cmd->next)
@@ -181,7 +181,7 @@ void timestamp_cmd(CMD *cmd)
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     thetime = asctime(timeinfo);
-    strcpy(cmd->timestamp, thetime);
+    strncpy(cmd->timestamp, thetime, strlen(thetime));
 }
 
 // end of timestamp_cmd }}}

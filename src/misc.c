@@ -20,7 +20,7 @@
 /**
  * print_debug:
  *
- *  If MACRO PRINT_DEBUG is defined at compile time then this function
+ *  Ifq MACRO PRINT_DEBUG is defined at compile time then this function
  *  will behave just like printf.  It is used to print degugging
  *  statements without having to go back through all of the code and
  *  comment out unwanted printf statements.
@@ -45,19 +45,21 @@ void print_debug(const char *fmt, ...)
  */
 void build_prompt(void)
 {
-    char cwd[MAXLINE];
+    char *cwd = (char *)NULL;
     char ENV_PROMPT[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == (char *)0) {
+    if ((cwd = getcwd((char *)NULL, 0)) == (char *)NULL) {
         perror("lusush: build_prompt");
         strcpy(ENV_PROMPT, "% ");
     }
-    else
-    {
-        strcpy(ENV_PROMPT, cwd);
+    else {
+        strncpy(ENV_PROMPT, cwd, MAXLINE);
         strcat(ENV_PROMPT, "% ");
     }
     setenv("PROMPT", ENV_PROMPT, 1);
+
+    if (cwd) free(cwd);
+    cwd = (char *)NULL;
 }
 
 // End of build_prompt }}} 

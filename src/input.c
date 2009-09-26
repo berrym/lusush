@@ -97,7 +97,7 @@ char *get_input(FILE *in, const char *prompt)
     if (buf[strlen(buf) - 1] == '\n')
         buf[strlen(buf) - 1] = '\0';
 
-    strcpy(hist_list[hist_size], buf);
+    strncpy(hist_list[hist_size], buf, MAXLINE);
     hist_size++;
 #endif
 
@@ -165,8 +165,8 @@ int do_line(char *line, CMDLIST *cmdl, CMD *cmd)
                 }
             }
 
-            strcpy(cmd->buf, subtok);           // Copy the string
-            timestamp_cmd(cmd);                 // date it
+            strncpy(cmd->buf, subtok, MAXLINE);   // Copy the string
+            timestamp_cmd(cmd);                     // date it
 
             if (cmdalloc(cmd) < 0) {
                 return -1;

@@ -1,9 +1,35 @@
 /**
- * lusush.c - main function
+ * lusush.c - LUSUs' SHell
+ *
+ * Copyright (c) 2009 Michael Berry <trismegustis@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 // Include statements {{{
 
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,20 +49,22 @@
 
 int main(int argc, char **argv)
 {
-    CMD *cmd = (CMD *)0;
+    char ps1[MAXLINE];
+    CMD *cmd = NULL;
     bool bActive = true;
     register int i = 1;
     int ret = 0;
-    char *line = (char *)0;
-    FILE *in = (FILE *)0;
+    char *line = NULL;
+    FILE *in = NULL;
     CMDLIST cmdhist;
+    struct stat st;
 
     // Perform startup tasks
     init(argc, argv);
 
     // Initialize doubly linked list of commands
-    cmdhist.head.next = (CMD *)0;
-    cmdhist.head.prev = (CMD *)0;
+    cmdhist.head.next = NULL;
+    cmdhist.head.prev = NULL;
     cmdhist.size = 0;
 
     // Point cmd to list head
@@ -44,7 +72,15 @@ int main(int argc, char **argv)
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {
-        if ((in = fopen(argv[1], "r")) == (FILE *)0) {
+        // check that argv[1] is a regular file
+        if (stat(argv[1], &st)) {
+            if (!S_ISREG(st.st_mode)) {
+                fprintf(stderr, "Lusush: %s is not a regular file.\n", argv[1]);
+            }
+        }
+
+        // open the file stream with in pointing to it
+        if ((in = fopen(argv[1], "r")) == NULL) {
             perror("lusush: fopen");
             exit(EXIT_FAILURE);
         }
@@ -57,11 +93,13 @@ int main(int argc, char **argv)
     // Main loop
     //////////////////////////////////////////////////
 
+    // Read input one line at a time unitll user exits
+    // or EOF is read from either stdin or input file
     while (bActive) {
-        // Read input one line at a time unitll user exits
-        // or EOF is read from either stdin or input file
-        line = get_input(in, (ENV_PROMPT = getenv("PROMPT"))
-                ? ENV_PROMPT : "% ");
+        // Build our prompt string
+        ENV_PROMPT = getenv("PROMPT");
+        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "%", MAXLINE);
+        line = get_input(in, ps1);
 
         // Handle the results of get_input
         switch (ret = do_line(line, &cmdhist, cmd)) {
@@ -123,6 +161,3 @@ int main(int argc, char **argv)
 }
 
 // End of main }}}
-
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

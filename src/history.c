@@ -93,8 +93,8 @@ void init_history(void)
     // end of ungliness }}}
 
     if (!*histfile) {
-        strcpy(histfile, ENV_HOME);
-        strcat(histfile, "/.lusushist");
+        strncpy(histfile, ENV_HOME, MAXLINE);
+        strncat(histfile, "/.lusushist", 12);
     }
 
     if (read_histfile(histfile) != 0) {
