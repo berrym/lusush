@@ -12,7 +12,7 @@
 #include "ltypes.h"
 #include "cmdlist.h"
 
-// end of inclkude statements }}}
+// end of include statements }}}
 
 // DOUBLY LINKED LIST {{{
 
@@ -41,7 +41,6 @@ int cmdalloc(CMD *cmd)
     }
 
     // Make sure everything is zero/null
-    cmd->hist_offset = 0;
     cmd->argc = 0;
     cmd->fd[0] = cmd->fd[1] = 0;
     cmd->pipe = cmd->pchain_master = false;
@@ -141,7 +140,6 @@ void display_cmd(CMD *cmd)
     register int i;
 
     printf("Processed Command:\n");
-    printf("\thist_offset->%d\n", cmd->hist_offset);
     printf("\targc->%d\n", cmd->argc);
     for (i=0; i < cmd->argc; i++) {
         printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);

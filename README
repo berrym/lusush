@@ -7,16 +7,16 @@ LUSUSH
     more familiarity with programming in a UNIX environment, that is what the
     project remains today.
 
-    Lusush is useless for most people.  It has no job control, no scripting,
-    and basically lacks most features that people require from a shell.  It
-    is however a lightweight alternative to shells with those features, and
-    does it's job well.
+    Lusush is useless for most people.  It has no job control, no scripting
+    language, and basically lacks most features that people require from a
+    shell.  It is however a lightweight alternative to shells with those
+    features, and does it's job well.
 
     It should be noted that new features are being added all the time, and
     support for some of the mentioned missing features is already under way.
 
     Should anybody find lusush or it's source code useful, perhaps as a How
-    Not To guide, please let me know.
+    Not To guide in the world of UNIX programming, please let me know.
 
 ==== INSTALLATION
 
@@ -46,7 +46,7 @@ LUSUSH
 
     e.g. /home/you%
          /%
-         /usr/incude%
+         /usr/include%
     etc.
 
     To see a complete list of builtin commands and their description, run help.

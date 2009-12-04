@@ -109,9 +109,6 @@ int main(int argc, char **argv)
             case 0:                     // Empty input, ignore
                 break;
             default:                    // Processed input
-                // Mark place of first command parsed by get_input 
-                cmd->hist_offset = i;
-
                 // Very verbose printing of command history, only useful
                 // if debugging the program, macro defined in ldefs.h
 #if defined( PRINT_DEBUG_CRAZY )

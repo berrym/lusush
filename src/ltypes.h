@@ -22,14 +22,14 @@ typedef enum { false = 0, true = 1 } bool;
  */
 struct _CMD
 {
-    int hist_offset;            // place in command history
-    int fd[2];                  // pipe filedescriptors
     char buf[MAXLINE];          // null terminated user input
-    int argc;                   // argument count
     char timestamp[60];         // timestamp
+    int argc;                   // argument count
+    char *argv[1024];           // argument vector to pass to exec
+    bool background;            // background process flag
     bool pipe;                  // pipe flag
     bool pchain_master;         // parent command in pipe chain
-    bool background;            // background process flag
+    int fd[2];                  // pipe filedescriptors
     bool in_redirect;           // input redirection flag
     bool out_redirect;          // output redirection flag
     bool oredir_append;         // output redirection opens file to append
@@ -37,7 +37,6 @@ struct _CMD
     char out_filename[MAXLINE]; // output filename - if redirect set
     struct _CMD *next;          // next command
     struct _CMD *prev;          // previous command
-    char *argv[1024];           // argument vector to pass to exec
 };
 typedef struct _CMD CMD;
 
