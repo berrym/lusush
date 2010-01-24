@@ -1,8 +1,6 @@
-/**
+/*
  * builtins.c - bultin commands
  */
-
-// include statements {{{
 
 #include <unistd.h>
 #include <stdio.h>
@@ -13,11 +11,7 @@
 #include "misc.h"
 #include "history.h"
 
-// end of include statements }}}
-
-// macros/globals {{{
-
-/**
+/*
  * Builtin commands
  *      exit        exit program
  *      help        print help
@@ -39,18 +33,14 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "unsetenv",     "delete environment variable"
 };
 
-// end of macros/globals }}}
-
-// function is_builtin_cmd {{{
-
-/**
+/*
  * is_builtin_cmd:
  *      compare (cmdname) to elements is array of strings
  *      builtins, if it matches return the index of the element.
  */
 int is_builtin_cmd(const char *cmdname)
 {
-    register int i;
+    int i;
 
     for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
         if (strcmp(cmdname, builtins[i]) == 0)
@@ -60,14 +50,10 @@ int is_builtin_cmd(const char *cmdname)
     return -1;
 }
 
-// end of is_builtin_cmd }}}
-
-// function help {{{
-
 void help(const char *cmdname)
 {
     int i;
-    if (cmdname == (char *)0) {
+    if (cmdname == NULL) {
         printf("Builtin commands:\n");
         for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
             printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
@@ -80,10 +66,6 @@ void help(const char *cmdname)
     }
 }
 
-// end of help }}}
-
-// function cd {{{
-
 void cd(const char *path)
 {
     if (chdir(path) < 0)
@@ -91,27 +73,20 @@ void cd(const char *path)
     build_prompt();
 }
 
-// end of cd }}}
-
-// function pwd {{{
-
 void pwd(void)
 {
     char cwd[MAXLINE];
 
-    if (getcwd(cwd, MAXLINE) == (char *)0)
+    if (getcwd(cwd, MAXLINE) == NULL)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);
 }
 
-// end of pwd }}}
-
-// function history {{{
-
 void history(void)
 {
-    register int i;
+    int i;
+
 #if defined( USING_READLINE )
     if ((hist_list = history_list())) {
         printf("Command history.\n");
@@ -126,6 +101,3 @@ void history(void)
 #endif
 }
 
-// end of history }}}
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

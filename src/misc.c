@@ -1,8 +1,6 @@
-/**
+/*
  * misc.c - various functions that didn't fit anywhere else.
  */
-
-// Includes {{{
 
 #include <unistd.h>
 #include <stdio.h>
@@ -13,11 +11,7 @@
 #include "env.h"
 #include "misc.h"
 
-// End of includes }}}
-
-// print_debug {{{
-
-/**
+/*
  * print_debug:
  *
  *  Ifq MACRO PRINT_DEBUG is defined at compile time then this function
@@ -35,11 +29,7 @@ void print_debug(const char *fmt, ...)
 #endif
 }
 
-//}}}
-
-// build_prompt {{{
-
-/**
+/*
  * build_prompt:
  *      Builds the user's prompt displaying the current working directory.
  */
@@ -62,23 +52,16 @@ void build_prompt(void)
     cwd = (char *)NULL;
 }
 
-// End of build_prompt }}} 
-
-// global_cleanup {{{
-
 void global_cleanup(void)
 {
-    ENV_LOGNAME = (char *)0;
+    ENV_LOGNAME = NULL;
 
-    ENV_HOME = (char *)0;
+    ENV_HOME = NULL;
 
-    ENV_PATH = (char *)0;
+    ENV_PATH = NULL;
     
-    ENV_PROMPT = (char *)0;
+    ENV_PROMPT = NULL;
 
-    ENV_SHELL = (char *)0;
+    ENV_SHELL = NULL;
 }
 
-// End of global cleanup }}}
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

@@ -1,8 +1,6 @@
-/**
+/*
  * history.c - routines to work with basic history
  */
-
-// include statements {{{
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,10 +10,6 @@
 #include "ltypes.h"
 #include "history.h"
 #include "env.h"
-
-// end of include statements }}}
-
-// macros/defines/globals {{{
 
 static bool HIST_INITIALIZED = false;
 
@@ -31,10 +25,6 @@ char hist_list[MAXHIST][MAXLINE] = { "\0" };
 HIST_ENTRY **hist_list;
 #endif
 
-// end of macros/defines/globals }}}
-
-// function read_histfile {{{
-
 int read_histfile(const char *histfile)
 {
 #ifdef USING_READLINE
@@ -43,7 +33,7 @@ int read_histfile(const char *histfile)
         return errno;
     }
 #else
-    register int i = 0;
+    int i = 0;
 
     if ((histfp = fopen(histfile, "r")) == (FILE *)0) {
         if (errno != ENOENT)
@@ -52,7 +42,7 @@ int read_histfile(const char *histfile)
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], MAXLINE, histfp) == (char *)0) {
+        if (fgets(hist_list[i], MAXLINE, histfp) == NULL) {
             break;
         }
 
@@ -67,10 +57,6 @@ int read_histfile(const char *histfile)
     return 0;
 }
 
-// end of read_histfile }}}
-
-// function init_history {{{
-
 void init_history(void)
 {
     if (HIST_INITIALIZED) {
@@ -82,9 +68,9 @@ void init_history(void)
 
 #ifndef USING_READLINE
     // Set stdout, stdin, and stderr to a non-buffered state
-    setvbuf(stdout, (char *)0, _IONBF, 0);
-    setvbuf(stdin, (char *)0, _IONBF, 0);
-    setvbuf(stderr, (char *)0, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 #else
     using_history();
     stifle_history(MAXHIST);
@@ -104,16 +90,12 @@ void init_history(void)
     HIST_INITIALIZED = true;
 }
 
-// end of init_history }}}
-
-// function write_histfile {{{
-
 void write_histfile(const char *histfile)
 {
 #ifdef USING_READLINE
     write_history(histfile);
 #else
-    register int i = 0;
+    int i = 0;
 
     if ((histfp = fopen(histfile, "a")) == (FILE *)0) {
         perror("lusush: fopen");
@@ -128,7 +110,3 @@ void write_histfile(const char *histfile)
 #endif
 }
 
-// end of write_histfile }}}
-
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

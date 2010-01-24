@@ -1,8 +1,6 @@
-/**
+/*
  * init.c - startup and initialization routines
  */
-
-// include statements {{{
 
 #include <unistd.h>
 #include <signal.h>
@@ -14,11 +12,7 @@
 #include "env.h"
 #include "history.h"
 
-// end of include statement }}}
-
-// function init {{{
-
-/**
+/*
  * init:
  *     Performs initial tasks at shell startup.
  */
@@ -62,11 +56,7 @@ void init(int argc, char **argv)
     init_history();
 }
 
-// end of inint }}}
-
-// function - SIG_INT signal handler - sig_int {{{
-
-/**
+/*
  * sig_int:
  *      interupt ^C signal handler
  */
@@ -75,11 +65,7 @@ void sig_int(int signo)
     print_debug("\nlusush: caught signal %d.\n", signo);
 }
 
-// end of sig_int }}}
-
-// function - SIG_SEG signal handler - sig_seg {{{
-
-/**
+/*
  * NOTE: NECESSARALY FATAL
  * sig_seg:
  *      segmentation fault handler, free memory where it can, then exit
@@ -92,6 +78,3 @@ void sig_seg(int signo)
     exit(EXIT_FAILURE);
 }
 
-// end of sig_seg }}}
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

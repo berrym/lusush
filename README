@@ -38,7 +38,7 @@ LUSUSH
 
 ==== BASIC USAGE
 
-    Lusus can be run as a login shell or interactively.  You type commands
+    Lusush can be run as a login shell or interactively.  You type commands
     and lusush will attempt to locate them, then execute them.
 
     Upon running lusush you will be greeted with a prompt, usually the current

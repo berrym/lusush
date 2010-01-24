@@ -1,8 +1,6 @@
-/**
+/*
  * parse.c - command parser
  */
-
-// Includes {{{
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,10 +9,7 @@
 #include "ltypes.h"
 #include "parse.h"
 
-// End of includes }}}
-
-// parse_cmd - comand parser {{{
-/**
+/*
  * parse_cmd:
  *      Given a string of input parse_cmd will seperate words by whitespace
  *      and place each individual word into it's own string inside of a pointer
@@ -172,12 +167,12 @@ int parse_cmd(CMD *cmd, char *line)
                 wpos = 0;                           // reset character offset
 
                 // Allocate room on the heap for the next string
-                cmd->argv[lpos] = (char *)calloc(MAXLINE, sizeof(char));
-                if (cmd->argv[lpos] == (char *)0) {
+                cmd->argv[lpos] = calloc(MAXLINE, sizeof(char));
+                if (cmd->argv[lpos] == NULL) {
                     perror("lusush: calloc");
                     for (j = lpos - 1; j >= 0; j--) {
                         free(cmd->argv[j]);
-                        cmd->argv[j] = (char *)0;
+                        cmd->argv[j] = NULL;
                     }
                     return -1;
                 }
@@ -210,12 +205,9 @@ int parse_cmd(CMD *cmd, char *line)
 
 done:
     lpos++;
-    cmd->argv[lpos] = (char *)0;     // Make sure last element is 0
+    cmd->argv[lpos] = NULL;             // Make sure last element is 0
     cmd->argc = lpos;                   // set cmd->argc equal to lpos
 
     return lpos;                        // return number of lines parsed
 }
 
-// End of parse command }}}
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

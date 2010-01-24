@@ -20,12 +20,12 @@ typedef enum { false = 0, true = 1 } bool;
  * struct _CMD:
  *      a doubly linked list of commands to pass to exec
  */
-struct _CMD
+typedef struct _CMD
 {
     char buf[MAXLINE];          // null terminated user input
     char timestamp[60];         // timestamp
     int argc;                   // argument count
-    char *argv[1024];           // argument vector to pass to exec
+    char **argv;                // arguments to pass to exec
     bool background;            // background process flag
     bool pipe;                  // pipe flag
     bool pchain_master;         // parent command in pipe chain
@@ -37,18 +37,6 @@ struct _CMD
     char out_filename[MAXLINE]; // output filename - if redirect set
     struct _CMD *next;          // next command
     struct _CMD *prev;          // previous command
-};
-typedef struct _CMD CMD;
-
-/**
- * struct _CMDLIST:
- *      container object for struct _CMD
- */
-struct _CMDLIST
-{
-    int size;
-    CMD head;
-};
-typedef struct _CMDLIST CMDLIST;
+} CMD;
 
 #endif

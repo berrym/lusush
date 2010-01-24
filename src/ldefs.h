@@ -10,7 +10,6 @@
 #define MAXHIST 10000       // maximum length of history
 
 //#define PRINT_DEBUG         // print debugging statements
-//#define PRINT_DEBUG_CRAZY
 
 #ifdef HAVE_LIBREADLINE
 #define USING_READLINE      // use GNU Readline

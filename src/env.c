@@ -1,8 +1,6 @@
-/**
+/*
  * env.c - environmentally aware
  */
-
-// include statements {{{
 
 #include <stdlib.h>
 #include <string.h>
@@ -10,11 +8,7 @@
 #include "misc.h"
 #include "env.h"
 
-// end of include statements }}}
-
-// global environment variables {{{
-
-/**
+/*
  * Default environment variables
  *      ENV_HOME        users' home directory
  *      ENV_PATH        users' path to programs
@@ -23,20 +17,16 @@
  *      ENV_LOGNAME     users' login name
  *      ENV_MAIL        users' email address
  */
-char *ENV_HOME = (char *)0;
-char *ENV_PATH = (char *)0;
-char *ENV_PROMPT = (char *)0;
-char *ENV_SHELL = (char *)0;
-char *ENV_LOGNAME = (char *)0;
-char *ENV_MAIL = (char *)0;
+char *ENV_HOME = NULL;
+char *ENV_PATH = NULL;
+char *ENV_PROMPT = NULL;
+char *ENV_SHELL = NULL;
+char *ENV_LOGNAME = NULL;
+char *ENV_MAIL = NULL;
 
 int SHELL_TYPE = 0;
 
-// end of global variables }}}
-
-// function env_init {{{
-
-/**
+/*
  * env_init:
  *      env_init will initialize some environment/global variables
  *      and set their values, it should only be called once.
@@ -53,7 +43,7 @@ void env_init(char **argv)
 
     // get the user's shell, if it is null then set it.
     ENV_SHELL = getenv("SHELL");
-    if (ENV_SHELL == (char *)0) {
+    if (ENV_SHELL == NULL) {
         setenv("SHELL", argv[0], 1);
         ENV_SHELL = getenv("SHELL");
     }
@@ -67,6 +57,3 @@ void env_init(char **argv)
     build_prompt();
 }
 
-// End of env_init }}}
-
-// vim:filetype=c foldmethod=marker autoindent expandtab shiftwidth=4

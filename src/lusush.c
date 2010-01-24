@@ -1,7 +1,7 @@
-/**
+/*
  * lusush.c - LUSUs' SHell
  *
- * Copyright (c) 2009 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009, 2010 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Include statements {{{
-
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,39 +41,28 @@
 #include "builtins.h"
 #include "misc.h"
 
-// End of includes }}}
-
-// function main {{{
-
 int main(int argc, char **argv)
 {
     char ps1[MAXLINE];
-    CMD *cmd = NULL;
     bool bActive = true;
-    register int i = 1;
+    int i = 1;
     int ret = 0;
     char *line = NULL;
     FILE *in = NULL;
-    CMDLIST cmdhist;
     struct stat st;
+    CMD *cmd = NULL;
 
     // Perform startup tasks
     init(argc, argv);
-
-    // Initialize doubly linked list of commands
-    cmdhist.head.next = NULL;
-    cmdhist.head.prev = NULL;
-    cmdhist.size = 0;
-
-    // Point cmd to list head
-    cmd = &cmdhist.head;
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {
         // check that argv[1] is a regular file
         if (stat(argv[1], &st)) {
             if (!S_ISREG(st.st_mode)) {
-                fprintf(stderr, "Lusush: %s is not a regular file.\n", argv[1]);
+                fprintf(stderr, 
+                        "Lusush: %s is not a regular file.\n",
+                        argv[1]);
             }
         }
 
@@ -96,13 +83,22 @@ int main(int argc, char **argv)
     // Read input one line at a time unitll user exits
     // or EOF is read from either stdin or input file
     while (bActive) {
+        // Allocate memory for doubly linked list of commands
+        if ((cmdhist = calloc(1, sizeof(CMD))) == NULL) {
+            perror("lusush: calloc");
+            global_cleanup();
+            exit(EXIT_FAILURE);
+        }
+
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
         strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "%", MAXLINE);
         line = get_input(in, ps1);
 
+        cmd = cmdhist;
+
         // Handle the results of get_input
-        switch (ret = do_line(line, &cmdhist, cmd)) {
+        switch (ret = do_line(line, cmd)) {
             case -1:                    // Error
                 bActive = false;        // Exit program
                 break;
@@ -111,27 +107,22 @@ int main(int argc, char **argv)
             default:                    // Processed input
                 // Very verbose printing of command history, only useful
                 // if debugging the program, macro defined in ldefs.h
-#if defined( PRINT_DEBUG_CRAZY )
-                display_cmdlist(&cmdhist);
-#elif defined ( PRINT_DEBUG )
+#ifdef PRINT_DEBUG
                 display_cmd(cmd);
 #endif
                 print_debug("ret (at) main --> %d\n", ret);
 
                 // Execute the number of commands parsed by get_input (ret)
                 if (exec_cmd(cmd, ret) < ret) {
-                    while (cmd->next) {         // If an error occured find the
-                        cmd = cmd->next;        // end of the command history
+                    while (cmd->next) {     // If an error occured find the
+                        cmd = cmd->next;    // end of the command history
                     }
                 }
-                else {
-                    cmd = cmd->next;            // Point cmd to next (empty)
-                }
 
-                free_cmdlist(&cmdhist);
-                cmd = &cmdhist.head;
+                free_cmdlist(cmdhist);
                 break;
         }
+
         i++;
     }
 
@@ -141,20 +132,12 @@ int main(int argc, char **argv)
 
     write_histfile(histfile);
 
-    for (i = 0; i < cmdhist.size; i++) {
-        print_debug("#%d# ", i+1);
-    }
-
     if (SHELL_TYPE != NORMAL_SHELL) {
         printf("\n");
     }
 
     global_cleanup();                   // Free globals, set to zero/0
-    if (cmdhist.size) {
-        free_cmdlist(&cmdhist);         // Free command history
-    }
 
     return 0;                           // Optimist!
 }
 
-// End of main }}}
