@@ -44,7 +44,7 @@ int cmdalloc(CMD *cmd)
     cmd->argc = 0;
     cmd->fd[0] = cmd->fd[1] = 0;
     cmd->pipe = cmd->pchain_master = false;
-    cmd->background = 0;
+    cmd->background = false;
     cmd->in_redirect = cmd->out_redirect = cmd->oredir_append = false;
     *cmd->buf = '\0';
     *cmd->in_filename = *cmd->out_filename = '\0';
@@ -150,8 +150,8 @@ void display_cmd(CMD *cmd)
 void timestamp_cmd(CMD *cmd)
 {
     time_t rawtime;
-    struct tm *timeinfo;
-    char *thetime;
+    struct tm *timeinfo = NULL;
+    char *thetime = NULL;
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     thetime = asctime(timeinfo);

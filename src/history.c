@@ -11,18 +11,15 @@
 #include "history.h"
 #include "env.h"
 
+static FILE *histfp = NULL;
+static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
-char histfile[MAXLINE] = { '\0' };
-FILE *histfp = (FILE *)0;
-
-#ifndef USING_READLINE
+#ifdef USING_READLINE
+HIST_ENTRY **hist_list = NULL;
+#else
 long hist_size = 0;
 char hist_list[MAXHIST][MAXLINE] = { "\0" };
-#endif
-
-#ifdef USING_READLINE
-HIST_ENTRY **hist_list;
 #endif
 
 int read_histfile(const char *histfile)
@@ -35,7 +32,7 @@ int read_histfile(const char *histfile)
 #else
     int i = 0;
 
-    if ((histfp = fopen(histfile, "r")) == (FILE *)0) {
+    if ((histfp = fopen(histfile, "r")) == NULL) {
         if (errno != ENOENT)
             perror("lusush: fopen");
         return -1;
@@ -59,24 +56,24 @@ int read_histfile(const char *histfile)
 
 void init_history(void)
 {
+    char *ENV_HOME = NULL;
+
     if (HIST_INITIALIZED) {
         fprintf(stderr,"lusush: init_history: history already initialized.\n");
         return;
     }
 
-    // Ugly non buffered I/O and readline history stuff {{{
-
-#ifndef USING_READLINE
+#ifdef USING_READLINE
+    using_history();
+    stifle_history(MAXHIST);
+#else
     // Set stdout, stdin, and stderr to a non-buffered state
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
-#else
-    using_history();
-    stifle_history(MAXHIST);
 #endif
 
-    // end of ungliness }}}
+    ENV_HOME = getenv("HOME");
 
     if (!*histfile) {
         strncpy(histfile, ENV_HOME, MAXLINE);
@@ -88,6 +85,8 @@ void init_history(void)
     }
 
     HIST_INITIALIZED = true;
+
+    ENV_HOME = NULL;
 }
 
 void write_histfile(const char *histfile)
@@ -110,3 +109,11 @@ void write_histfile(const char *histfile)
 #endif
 }
 
+/*
+ * histfilename
+ *      return the name of the history file
+ */
+char *histfilename(void)
+{
+    return histfile;
+}

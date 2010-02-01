@@ -43,7 +43,8 @@
 
 int main(int argc, char **argv)
 {
-    char ps1[MAXLINE];
+    char *ENV_PROMPT = NULL;
+    char ps1[MAXLINE] = { '\0' };
     bool bActive = true;
     int i = 1;
     int ret = 0;
@@ -84,9 +85,8 @@ int main(int argc, char **argv)
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
-        if ((cmdhist = calloc(1, sizeof(CMD))) == NULL) {
+        if ((cmd = calloc(1, sizeof(CMD))) == NULL) {
             perror("lusush: calloc");
-            global_cleanup();
             exit(EXIT_FAILURE);
         }
 
@@ -95,32 +95,30 @@ int main(int argc, char **argv)
         strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "%", MAXLINE);
         line = get_input(in, ps1);
 
-        cmd = cmdhist;
-
         // Handle the results of get_input
         switch (ret = do_line(line, cmd)) {
-            case -1:                    // Error
-                bActive = false;        // Exit program
-                break;
-            case 0:                     // Empty input, ignore
-                break;
-            default:                    // Processed input
-                // Very verbose printing of command history, only useful
-                // if debugging the program, macro defined in ldefs.h
+        case -1:                    // Error
+            bActive = false;        // Exit program
+            break;
+        case 0:                     // Empty input, ignore
+            break;
+        default:                    // Processed input
+            // Very verbose printing of command history, only useful
+            // if debugging the program, macro defined in ldefs.h
 #ifdef PRINT_DEBUG
-                display_cmd(cmd);
+            display_cmd(cmd);
 #endif
-                print_debug("ret (at) main --> %d\n", ret);
+            print_debug("ret (at) main --> %d\n", ret);
 
-                // Execute the number of commands parsed by get_input (ret)
-                if (exec_cmd(cmd, ret) < ret) {
-                    while (cmd->next) {     // If an error occured find the
-                        cmd = cmd->next;    // end of the command history
-                    }
+            // Execute the number of commands parsed by get_input (ret)
+            if (exec_cmd(cmd, ret) < ret) {
+                while (cmd->next) {     // If an error occured find the
+                    cmd = cmd->next;    // end of the command history
                 }
+            }
 
-                free_cmdlist(cmdhist);
-                break;
+            free_cmdlist(cmd);
+            break;
         }
 
         i++;
@@ -130,13 +128,11 @@ int main(int argc, char **argv)
     // Cleanup/Pre-Exit Tasks 
     //////////////////////////////////////////////////
 
-    write_histfile(histfile);
+    write_histfile(histfilename());
 
     if (SHELL_TYPE != NORMAL_SHELL) {
         printf("\n");
     }
-
-    global_cleanup();                   // Free globals, set to zero/0
 
     return 0;                           // Optimist!
 }

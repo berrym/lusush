@@ -13,15 +13,14 @@
 
 /*
  * print_debug:
- *
- *  Ifq MACRO PRINT_DEBUG is defined at compile time then this function
- *  will behave just like printf.  It is used to print degugging
- *  statements without having to go back through all of the code and
- *  comment out unwanted printf statements.
+ *      If MACRO PRINT_DEBUG is defined at compile time then this function
+ *      will behave just like printf.  It is used to print degugging
+ *      statements without having to go back through all of the code and
+ *      comment out unwanted printf statements.
  */
 void print_debug(const char *fmt, ...)
 {
-#if defined( PRINT_DEBUG )
+#ifdef PRINT_DEBUG
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
@@ -35,33 +34,22 @@ void print_debug(const char *fmt, ...)
  */
 void build_prompt(void)
 {
-    char *cwd = (char *)NULL;
-    char ENV_PROMPT[MAXLINE];
+    char *cwd = NULL;
+    char prompt[MAXLINE];
 
-    if ((cwd = getcwd((char *)NULL, 0)) == (char *)NULL) {
+    if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: build_prompt");
-        strcpy(ENV_PROMPT, "% ");
+        strcpy(prompt, "% ");
     }
     else {
-        strncpy(ENV_PROMPT, cwd, MAXLINE);
-        strcat(ENV_PROMPT, "% ");
+        strncpy(prompt, cwd, MAXLINE);
+        strcat(prompt, "% ");
     }
-    setenv("PROMPT", ENV_PROMPT, 1);
+    setenv("PROMPT", prompt, 1);
 
-    if (cwd) free(cwd);
-    cwd = (char *)NULL;
-}
+    if (cwd)
+        free(cwd);
 
-void global_cleanup(void)
-{
-    ENV_LOGNAME = NULL;
-
-    ENV_HOME = NULL;
-
-    ENV_PATH = NULL;
-    
-    ENV_PROMPT = NULL;
-
-    ENV_SHELL = NULL;
+    cwd = NULL;
 }
 

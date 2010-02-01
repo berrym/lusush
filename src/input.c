@@ -15,8 +15,6 @@
 #include "history.h"
 #include "misc.h"
 
-CMD *cmdhist = NULL;
-
 static char *line_read = NULL;      // storage for readline and fgets
 
 #ifdef USING_READLINE
@@ -40,7 +38,7 @@ char *rl_gets(const char *prompt)
     if (line_read && *line_read)
         add_history(line_read);
 
-    return (line_read);
+    return line_read;
 }
 #endif
 
@@ -105,7 +103,7 @@ char *get_input(FILE *in, const char *prompt)
  */
 int do_line(char *line, CMD *cmd)
 {
-    size_t cnt = 0;               // Number of commands parsed
+    size_t cnt = 0;                     // Number of commands parsed
     int ret = 0;                        // Storage for return values
     int i = 0, j = 0;                   // loop variables
     bool pipe = false;                  // pipe chain flag
@@ -143,9 +141,9 @@ int do_line(char *line, CMD *cmd)
 
             // Remove trailing whitespace
             if (strlen(subtok) >= 1 &&
-                    isspace((int)subtok[strlen(subtok) - 1])) {
+                isspace((int)subtok[strlen(subtok) - 1])) {
                 while (strlen(subtok) >= 1 &&
-                        isspace((int)subtok[strlen(subtok) - 1])) {
+                       isspace((int)subtok[strlen(subtok) - 1])) {
                     subtok[strlen(subtok) - 1] = '\0';
                 }
             }
@@ -167,14 +165,14 @@ int do_line(char *line, CMD *cmd)
                 cmd->pipe = true;
 
             switch (ret = parse_cmd(cmd, subtok)) {
-                case -1:
-                case 0:
-                    return ret;
-                default:
-                    cmd->next->prev = cmd;
-                    cmd = cmd->next;
-                    cmd->next = NULL;
-                    cnt++;
+            case -1:
+            case 0:
+                return ret;
+            default:
+                cmd->next->prev = cmd;
+                cmd = cmd->next;
+                cmd->next = NULL;
+                cnt++;
             }
         }
     }

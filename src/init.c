@@ -39,13 +39,11 @@ void init(int argc, char **argv)
      */
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "lusush: signal error: %d\n", SIGINT);
-        global_cleanup();
         exit(EXIT_FAILURE);
     }
 
     if (signal(SIGSEGV, sig_seg) == SIG_ERR) {
         fprintf(stderr, "lusush: signal error: %d\n", SIGSEGV);
-        global_cleanup();
         exit(EXIT_FAILURE);
     }
 
@@ -74,7 +72,6 @@ void sig_seg(int signo)
 {
     fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
     fprintf(stderr, "\tAnd fix your damn code.\n");
-    global_cleanup();
     exit(EXIT_FAILURE);
 }
 

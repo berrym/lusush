@@ -138,86 +138,86 @@ int exec_external_cmd(CMD *cmd)
 
     pid = fork();
     switch (pid) {
-        case -1:                    // fork error
-            perror("lusush: fork");
-            return -1;
-        case 0:                     // child process
+    case -1:                    // fork error
+        perror("lusush: fork");
+        return -1;
+    case 0:                     // child process
 
-            /////////////////////////////////////////////////
-            // Configure pipe plumbing
-            /////////////////////////////////////////////////
+        /////////////////////////////////////////////////
+        // Configure pipe plumbing
+        /////////////////////////////////////////////////
 
-            if (cmd->pipe) {
-                // There was a previous command in pipe chain
-                if (cmd->prev && cmd->prev->pipe) {
-                    print_debug("*** Reading from parent pipe\n");
-                    dup2(cmd->prev->fd[0], STDIN_FILENO);
-                    close(cmd->prev->fd[0]);
-                    close(cmd->prev->fd[1]);
-                }
-
-                // There is a future command in pipe chain
-                if (cmd->next && cmd->next->pipe) {
-                    print_debug("*** Writing to child pipe\n");
-                    close(cmd->fd[0]);
-                    dup2(cmd->fd[1], STDOUT_FILENO);
-                    close(cmd->fd[1]);
-                }
+        if (cmd->pipe) {
+            // There was a previous command in pipe chain
+            if (cmd->prev && cmd->prev->pipe) {
+                print_debug("*** Reading from parent pipe\n");
+                dup2(cmd->prev->fd[0], STDIN_FILENO);
+                close(cmd->prev->fd[0]);
+                close(cmd->prev->fd[1]);
             }
 
-            /////////////////////////////////////////////////
-            // Input redirection
-            /////////////////////////////////////////////////
+            // There is a future command in pipe chain
+            if (cmd->next && cmd->next->pipe) {
+                print_debug("*** Writing to child pipe\n");
+                close(cmd->fd[0]);
+                dup2(cmd->fd[1], STDOUT_FILENO);
+                close(cmd->fd[1]);
+            }
+        }
 
-            if (cmd->in_redirect && !cmd->prev->pipe) {
+        /////////////////////////////////////////////////
+        // Input redirection
+        /////////////////////////////////////////////////
+
+        if (cmd->in_redirect && !cmd->prev->pipe) {
+            close(STDIN_FILENO);
+            freopen(cmd->in_filename, "r", stdin);
+        }
+
+        /////////////////////////////////////////////////
+        // Output redirection
+        /////////////////////////////////////////////////
+
+        if (cmd->out_redirect && !cmd->pipe) {
+            close(STDOUT_FILENO);
+            freopen(cmd->out_filename,
+                    cmd->oredir_append ? "a" : "w", stdout);
+        }
+
+        /////////////////////////////////////////////////
+        // Background operation
+        /////////////////////////////////////////////////
+
+        // Close stdin and stdout if executing in the background
+        // and then redirect them to /dev/null
+        if (cmd->background && !cmd->out_redirect && !cmd->pipe) {
+            if (!cmd->in_redirect)
                 close(STDIN_FILENO);
-                freopen(cmd->in_filename, "r", stdin);
+            close(STDOUT_FILENO);
+            freopen("/dev/null", "r", stdin);
+            freopen("/dev/null", "w", stderr);
+        }
+
+        /////////////////////////////////////////////////
+        // Call execve or one of it's wrappers
+        /////////////////////////////////////////////////
+
+        print_debug("calling execvp\n");
+        execvp(cmd->argv[0], cmd->argv);
+
+        fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
+        exit(127);                  // exec shouldn't return ever
+        break;
+    default:                        // parent process
+        // Close old pipe ends
+        if (cmd->pipe && !cmd->pchain_master) {
+            if (cmd->prev && cmd->prev->pipe) {
+                print_debug("*** Closing old/unused pipe ends\n");
+                close(cmd->prev->fd[0]);
+                close(cmd->prev->fd[1]);
             }
-
-            /////////////////////////////////////////////////
-            // Output redirection
-            /////////////////////////////////////////////////
-
-            if (cmd->out_redirect && !cmd->pipe) {
-                close(STDOUT_FILENO);
-                freopen(cmd->out_filename,
-                        cmd->oredir_append ? "a" : "w", stdout);
-            }
-
-            /////////////////////////////////////////////////
-            // Background operation
-            /////////////////////////////////////////////////
-
-            // Close stdin and stdout if executing in the background
-            // and then redirect them to /dev/null
-            if (cmd->background && !cmd->out_redirect && !cmd->pipe) {
-                if (!cmd->in_redirect)
-                    close(STDIN_FILENO);
-                close(STDOUT_FILENO);
-                freopen("/dev/null", "r", stdin);
-                freopen("/dev/null", "w", stderr);
-            }
-
-            /////////////////////////////////////////////////
-            // Call execve or one of it's wrappers
-            /////////////////////////////////////////////////
-
-            print_debug("calling execvp\n");
-            execvp(cmd->argv[0], cmd->argv);
-
-            fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
-            exit(127);                  // exec shouldn't return ever
-            break;
-        default:                        // parent process
-            // Close old pipe ends
-            if (cmd->pipe && !cmd->pchain_master) {
-                if (cmd->prev && cmd->prev->pipe) {
-                    print_debug("*** Closing old/unused pipe ends\n");
-                    close(cmd->prev->fd[0]);
-                    close(cmd->prev->fd[1]);
-                }
-            }
-            return pid;                 // return the pid of to wait for
+        }
+        return pid;                 // return the pid of to wait for
     }
 }
 
@@ -228,49 +228,48 @@ int exec_external_cmd(CMD *cmd)
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
     switch (cmdno) {
-        case BUILTIN_CMD_EXIT:
-            printf("Goodbye!\n");
-            global_cleanup();
-            exit(EXIT_SUCCESS);
-            break;
-        case BUILTIN_CMD_HELP:
-            if (cmd->argv[1] && *cmd->argv[1]) {
-                help(cmd->argv[1]);
+    case BUILTIN_CMD_EXIT:
+        printf("Goodbye!\n");
+        exit(EXIT_SUCCESS);
+        break;
+    case BUILTIN_CMD_HELP:
+        if (cmd->argv[1] && *cmd->argv[1]) {
+            help(cmd->argv[1]);
+        }
+        else {
+            help(NULL);
+        }
+        break;
+    case BUILTIN_CMD_CD:
+        if (cmd->argv[1])
+            cd(cmd->argv[1]);
+        break;
+    case BUILTIN_CMD_PWD:
+        pwd();
+        break;
+    case BUILTIN_CMD_HISTORY:
+        history();
+        break;
+    case BUILTIN_CMD_SETENV:
+        if (cmd->argc != 3) {
+            fprintf(stderr, "lusush: setenv: takes two arguments\n");
+        }
+        else {
+            if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
+                perror("lusush: setenv");
             }
-            else {
-                help(NULL);
+        }
+        break;
+    case BUILTIN_CMD_UNSETENV:
+        if (cmd->argc != 2) {
+            fprintf(stderr, "lusush: unsetenv: takes one argument\n");
+        }
+        else {
+            if (unsetenv(cmd->argv[1]) < 0) {
+                perror("lusush: unsetenv");
             }
-            break;
-        case BUILTIN_CMD_CD:
-            if (cmd->argv[1])
-                cd(cmd->argv[1]);
-            break;
-        case BUILTIN_CMD_PWD:
-            pwd();
-            break;
-        case BUILTIN_CMD_HISTORY:
-            history();
-            break;
-        case BUILTIN_CMD_SETENV:
-            if (cmd->argc != 3) {
-                fprintf(stderr, "lusush: setenv: takes two arguments\n");
-            }
-            else {
-                if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
-                    perror("lusush: setenv");
-                }
-            }
-            break;
-        case BUILTIN_CMD_UNSETENV:
-            if (cmd->argc != 2) {
-                fprintf(stderr, "lusush: unsetenv: takes one argument\n");
-            }
-            else {
-                if (unsetenv(cmd->argv[1]) < 0) {
-                    perror("lusush: unsetenv");
-                }
-            }
-            break;
+        }
+        break;
     }
 }
 

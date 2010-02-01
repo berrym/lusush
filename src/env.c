@@ -10,19 +10,19 @@
 
 /*
  * Default environment variables
- *      ENV_HOME        users' home directory
- *      ENV_PATH        users' path to programs
- *      ENV_PROMPT      users' shell prompt
- *      ENV_SHELL       users' login shell
- *      ENV_LOGNAME     users' login name
- *      ENV_MAIL        users' email address
+ *      HOME        users' home directory
+ *      PATH        users' path to programs
+ *      PROMPT      users' shell prompt
+ *      SHELL       users' login shell
+ *      LOGNAME     users' login name
+ *      MAIL        users' email address
  */
-char *ENV_HOME = NULL;
-char *ENV_PATH = NULL;
-char *ENV_PROMPT = NULL;
-char *ENV_SHELL = NULL;
-char *ENV_LOGNAME = NULL;
-char *ENV_MAIL = NULL;
+static char *ENV_HOME = NULL;
+static char *ENV_PATH = NULL;
+static char *ENV_PROMPT = NULL;
+static char *ENV_SHELL = NULL;
+static char *ENV_LOGNAME = NULL;
+static char *ENV_MAIL = NULL;
 
 int SHELL_TYPE = 0;
 
@@ -55,5 +55,12 @@ void env_init(char **argv)
 
     // set the user's prompt
     build_prompt();
+
+    // Set everything back to NULL
+    ENV_LOGNAME = NULL;
+    ENV_HOME = NULL;
+    ENV_PATH = NULL;
+    ENV_PROMPT = NULL;
+    ENV_SHELL = NULL;
 }
 
