@@ -9,11 +9,14 @@
 #include <ctype.h>
 #include "ldefs.h"
 #include "input.h"
+#include "expand.h"
 #include "cmdlist.h"
 #include "env.h"
 #include "parse.h"
 #include "history.h"
 #include "misc.h"
+
+#define DBGSTR "DEBUG: input.c: "
 
 static char *line_read = NULL;      // storage for readline and fgets
 
@@ -48,6 +51,8 @@ char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in, const char *prompt)
 {
+    char tmp[MAXLINE] = {'\0'};
+
     if (line_read) {
         free(line_read);
         line_read = NULL;
@@ -70,6 +75,18 @@ char *get_input(FILE *in, const char *prompt)
         if (line_read[strlen(line_read) - 1] == '\n')
             line_read[strlen(line_read) - 1] = '\0';
     }
+
+    strncpy(tmp, line_read, MAXLINE);
+    expand(tmp);
+    print_debug("%sexpanded_line=%s\n", DBGSTR, tmp);
+    if (strcmp(tmp, line_read) != 0) {
+        free(line_read);
+        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
+            perror("lusush: calloc");
+            return NULL;
+        }
+        strncpy(line_read, tmp, MAXLINE);
+    }
 #else
     if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: calloc");
@@ -87,6 +104,9 @@ char *get_input(FILE *in, const char *prompt)
 
     strncpy(hist_list[hist_size], line_read, MAXLINE);
     hist_size++;
+
+    expand(line_read);
+    print_debug("%sexpanded_line=%s\n", DBGSTR, line_read);
 #endif
 
     return line_read;
@@ -95,7 +115,7 @@ char *get_input(FILE *in, const char *prompt)
 /*
  * do_line:
  *      (line) is parsed and the information is stored in doubly linked list
- *      of commands, that is a CMDLIST of CMD's. (see ltypes.h)
+ *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
  *
  * TODO: currently using strtok_r to split line into seperate commands when
  *       processing a chained commands.  This is a  bad thing.  Write
@@ -179,4 +199,3 @@ int do_line(char *line, CMD *cmd)
 
     return cnt;
 }
-

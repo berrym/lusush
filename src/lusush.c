@@ -33,7 +33,9 @@
 #include <string.h>
 #include "ltypes.h"
 #include "init.h"
+#include "alias.h"
 #include "env.h"
+#include "expand.h"
 #include "history.h"
 #include "input.h"
 #include "cmdlist.h"
@@ -55,6 +57,7 @@ int main(int argc, char **argv)
 
     // Perform startup tasks
     init(argc, argv);
+
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {

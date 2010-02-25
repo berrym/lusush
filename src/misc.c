@@ -39,11 +39,11 @@ void build_prompt(void)
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: build_prompt");
-        strcpy(prompt, "% ");
+        strncpy(prompt, "% ", MAXLINE);
     }
     else {
         strncpy(prompt, cwd, MAXLINE);
-        strcat(prompt, "% ");
+        strncat(prompt, "% ", 3);
     }
     setenv("PROMPT", prompt, 1);
 

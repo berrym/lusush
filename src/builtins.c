@@ -20,6 +20,8 @@
  *      history     print command history
  *      setenv      set environment variable
  *      unsetenv    unset environment variable
+ *      alias       set an alias
+ *      unalias     unset an alias
  */
 
 const char *builtins[BUILTIN_CMD_CNT] =
@@ -30,7 +32,9 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "pwd",          "print working directory",
     "history",      "print command history",
     "setenv",       "set environment variable",
-    "unsetenv",     "delete environment variable"
+    "unsetenv",     "delete environment variable",
+    "alias",        "set an alias",
+    "unalias",      "unset an alias"
 };
 
 /*
@@ -87,7 +91,7 @@ void history(void)
 {
     int i;
 
-#if defined( USING_READLINE )
+#ifdef USING_READLINE
     if ((hist_list = history_list())) {
         printf("Command history.\n");
         for (i = 0; hist_list[i]; i++) {

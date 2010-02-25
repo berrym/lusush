@@ -13,16 +13,21 @@
  *      history     print command history
  *      setenv      set environment variable
  *      unsetenv    unset environment variable
+ *      alias       set an alias
+ *      unalias     unset an alias
  */
 
-enum {  BUILTIN_CMD_EXIT=0,
+enum {
+        BUILTIN_CMD_EXIT=0,
         BUILTIN_CMD_HELP=2,
         BUILTIN_CMD_CD=4,
         BUILTIN_CMD_PWD=6,
         BUILTIN_CMD_HISTORY=8,
         BUILTIN_CMD_SETENV=10,
         BUILTIN_CMD_UNSETENV=12,
-        BUILTIN_CMD_CNT=14
+        BUILTIN_CMD_ALIAS=14,
+        BUILTIN_CMD_UNALIAS=16,
+        BUILTIN_CMD_CNT=18
 };
 
 extern const char *builtins[BUILTIN_CMD_CNT];

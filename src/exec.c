@@ -16,6 +16,7 @@
 #include "misc.h"
 #include "builtins.h"
 #include "env.h"
+#include "alias.h"
 
 /*
  * exec_cmd:
@@ -23,7 +24,7 @@
  */
 int exec_cmd(CMD *cmd, int cnt)
 {
-    int i;             // loop variable
+    int i;                      // loop variable
     int ret, status;            // return value, waitpid status
     int pids[cnt];              // array of pids to wait on
     CMD *psave1, *psave2;       // place holders in command history
@@ -227,6 +228,9 @@ int exec_external_cmd(CMD *cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
+    char tmp[MAXLINE] = { '\0' };
+    size_t i = 0;
+
     switch (cmdno) {
     case BUILTIN_CMD_EXIT:
         printf("Goodbye!\n");
@@ -268,6 +272,32 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             if (unsetenv(cmd->argv[1]) < 0) {
                 perror("lusush: unsetenv");
             }
+        }
+        break;
+    case BUILTIN_CMD_ALIAS:
+        if (cmd->argc == 1) {
+            print_alias();
+        }
+        else if (cmd->argc < 3) {
+            fprintf(stderr, "lusush: alias: alias word replacement text\n");
+        }
+        else {
+            strncpy(tmp, cmd->argv[2], MAXLINE);
+            strncat(tmp, " ", 2);
+            for (i=3; cmd->argv[i]; i++) {
+                strncat(tmp, cmd->argv[i], MAXLINE);
+                strncat(tmp, " ", 2);
+            }
+            set_alias(cmd->argv[1], &tmp);
+            strncpy(tmp, "\0", 1);
+        }
+        break;
+    case BUILTIN_CMD_UNALIAS:
+        if (cmd->argc != 2) {
+            fprintf(stderr, "lusush: unalias: unalias alias\n");
+        }
+        else {
+            unset_alias(cmd->argv[1]);
         }
         break;
     }

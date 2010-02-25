@@ -8,22 +8,6 @@
 #include "misc.h"
 #include "env.h"
 
-/*
- * Default environment variables
- *      HOME        users' home directory
- *      PATH        users' path to programs
- *      PROMPT      users' shell prompt
- *      SHELL       users' login shell
- *      LOGNAME     users' login name
- *      MAIL        users' email address
- */
-static char *ENV_HOME = NULL;
-static char *ENV_PATH = NULL;
-static char *ENV_PROMPT = NULL;
-static char *ENV_SHELL = NULL;
-static char *ENV_LOGNAME = NULL;
-static char *ENV_MAIL = NULL;
-
 int SHELL_TYPE = 0;
 
 /*
@@ -33,6 +17,22 @@ int SHELL_TYPE = 0;
  */
 void env_init(char **argv)
 {
+    /*
+     * Default environment variables
+     *      HOME        users' home directory
+     *      PATH        users' path to programs
+     *      PROMPT      users' shell prompt
+     *      SHELL       users' login shell
+     *      LOGNAME     users' login name
+     *      MAIL        users' email address
+     */
+    char *ENV_HOME = NULL;
+    char *ENV_PATH = NULL;
+    char *ENV_PROMPT = NULL;
+    char *ENV_SHELL = NULL;
+    char *ENV_LOGNAME = NULL;
+    char *ENV_MAIL = NULL;
+
     // get the user's home directory
     ENV_HOME = getenv("HOME");
     print_debug("*** HOME IS SET\n%s\n\n", ENV_HOME);
@@ -53,8 +53,15 @@ void env_init(char **argv)
     ENV_LOGNAME = getenv("LOGNAME");
     print_debug("*** LOGNAME IS SET\n%s\n\n", ENV_LOGNAME);
 
-    // set the user's prompt
+    // get the users mail directory
+    ENV_MAIL = getenv("MAIL");
+    print_debug("*** MAIL IS SET\n%s\n\n", ENV_MAIL);
+
+    // set the users prompt
     build_prompt();
+    // get the users prompt
+    ENV_PROMPT = getenv("PROMPT");
+    print_debug("*** PROMPT IS SET\n%s\n\n", ENV_PROMPT);
 
     // Set everything back to NULL
     ENV_LOGNAME = NULL;
@@ -62,5 +69,6 @@ void env_init(char **argv)
     ENV_PATH = NULL;
     ENV_PROMPT = NULL;
     ENV_SHELL = NULL;
+    ENV_MAIL = NULL;
 }
 

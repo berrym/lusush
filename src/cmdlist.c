@@ -12,8 +12,8 @@
 
 /*
  * cmdalloc:
- *      alloc's room on the heap for a struct _CMD pointed to by cmd, and
- *      alloc's room for the pointer to pointer char argv in a struct _CMD.
+ *      allocs room on the heap for a struct _CMD pointed to by cmd, and
+ *      allocs room for the pointer to pointer char argv in a struct _CMD.
  */
 int cmdalloc(CMD *cmd)
 {
@@ -54,8 +54,8 @@ int cmdalloc(CMD *cmd)
 
 /*
  * cmdfree:
- *      free's the memory pointed to by cmd, including recursive 
- *      free'ing of the strings in cmd->argv.
+ *      frees the memory pointed to by cmd, including recursive 
+ *      freeing of the strings in cmd->argv.
  */
 void cmdfree(CMD *cmd)
 {

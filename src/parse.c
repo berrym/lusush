@@ -9,6 +9,11 @@
 #include "ltypes.h"
 #include "parse.h"
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// TODO: The parsing routine has gotten ridiculus. REFACTOR REFACTOR REFACTOR //
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 /*
  * parse_cmd:
  *      Given a string of input parse_cmd will seperate words by whitespace
@@ -17,13 +22,15 @@
  *      parse_cmd __DOES NOT__ alloc cmd->argv, only additional strings.
  *      Special characters like &, <, and > have special cases and are dealt
  *      with according to their meaning, setting appropriate flags and filling
- *      appropriate buffers with information.
+ *      appropriate buffers with information.  Individual words are also
+ *      checked for expansions such as alias expansion.
  */
 int parse_cmd(CMD *cmd, char *line)
 {
     unsigned int i, j, lpos, wpos;
     bool in_redirect, out_redirect, read_reg, in_quote;
     char c;
+    char *home = NULL;
 
     // Make sure our line is not empty
     if (!line)
@@ -35,8 +42,10 @@ int parse_cmd(CMD *cmd, char *line)
     i = j = lpos = wpos = 0;
     in_redirect = out_redirect = read_reg = in_quote = false;
 
+    ///////////////////////////////////////////////////////////////////////////
     // Loop through line character at a time and place words, seperated by
     // whitespace, into individual elements in an array of strings.
+    ///////////////////////////////////////////////////////////////////////////
     for (i = 0; i < strlen(line); i++) {
         c = line[i];
 
@@ -124,7 +133,18 @@ int parse_cmd(CMD *cmd, char *line)
             else                            // inside
                 in_quote = true;            // turn on flag
             break;
-
+        case '~':
+            if (!(home = getenv("HOME"))) {
+                cmd->argv[lpos][wpos] = c;
+                wpos++;
+            }
+            else {
+                strncat(cmd->argv[lpos], home, strlen(home));
+                wpos += strlen(home);
+            }
+            home = NULL;
+            break;
+            
             /////////////////////////////////////////////////
             // Whitespace characters
             /////////////////////////////////////////////////
