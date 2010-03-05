@@ -8,8 +8,8 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
-#AC_PROG_CC_C99
-AC_PROG_CC
+AC_PROG_CC_C99
+# AC_PROG_CC
 
 # Checks for libraries.
 AC_CHECK_LIB(readline, readline)

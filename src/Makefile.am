@@ -11,6 +11,8 @@ lusush_SOURCES=\
 	       init.c \
 	       input.c \
 	       misc.c \
+	       opts.c \
 	       parse.c \
+	       prompt.c \
 	       lusush.c
 

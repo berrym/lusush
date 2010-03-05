@@ -1,0 +1,221 @@
+/*
+ * prompt.c - prompt string
+ */
+
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include "ldefs.h"
+#include "prompt.h"
+#include "env.h"
+#include "opts.h"
+#include "misc.h"
+
+static const char *RESET = "\x1b[0m";
+static char colors[14] = { '\0' };
+
+static FG_COLOR fg_color = WHITE;
+static BG_COLOR bg_color = BG_BLUE;
+static COLOR_ATTRIB attr = OFF;
+
+struct opt_pair {
+    char key[15];
+    int val;
+};
+
+static const struct opt_pair fg_opts[] = {
+    { "BLACK",      BLACK       },
+    { "RED",        RED         },
+    { "GREEN",      GREEN       },
+    { "YELLOW",     YELLOW      },
+    { "BLUE",       BLUE        },
+    { "MAGENTA",    MAGENTA     },
+    { "CYAN",       CYAN        },
+    { "WHITE",      WHITE       }
+};
+
+static const struct opt_pair bg_opts[] = {
+    { "BLACK",      BG_BLACK    },
+    { "RED",        BG_RED      },
+    { "GREEN",      BG_GREEN    },
+    { "YELLOW",     BG_YELLOW   },
+    { "BLUE",       BG_BLUE     },
+    { "MAGENTA",    BG_MAGENTA  },
+    { "CYAN",       BG_CYAN     },
+    { "WHITE",      BG_WHITE    }
+};
+
+static const struct opt_pair attr_opts[] = {
+    { "OFF",        OFF         },
+    { "BOLD",       BOLD        },
+    { "UNDERSCORE", UNDERSCORE  },
+    { "BLINK",      BLINK       },
+    { "REVERSE",    REVERSE     },
+    { "CONCEALED",  CONCEALED   }
+};
+
+/*
+ * setprompt_usage
+ *      print usage information for builtin command setprompt
+ */
+static void setprompt_usage(void)
+{
+    fprintf(stderr, "usage:\n\t-h\t\tThis help\n\t");
+    fprintf(stderr, "-a ATTRIBUTE\tset attribute for prompt\n\t");
+    fprintf(stderr, "-f COLOR\tset prompt foreground color\n\t");
+    fprintf(stderr, "-b COLOR\tset prompt background color\n\t");
+    fprintf(stderr, "-v\t\tshow valid colors and attributes\n");
+}
+
+/*
+ * build_colors
+ *      build ANSI escape sequence to set prompt colors
+ */
+static void build_colors(void)
+{
+    snprintf(&colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
+}
+
+/*
+ * set_prompt_fg
+ *      set prompt foreground color
+ */
+void set_prompt_fg(FG_COLOR fg)
+{
+    fg_color = fg;
+}
+
+/*
+ * set_prompt_bg
+ *      set prompt background color
+ */
+void set_prompt_bg(BG_COLOR bg)
+{
+    bg_color = bg;
+}
+
+/*
+ * set_prompt_attrib
+ *      set text attributes for prompt
+ */
+void set_prompt_attr(COLOR_ATTRIB ca)
+{
+    attr = ca;
+}
+
+void set_prompt(int argc, char **argv)
+{
+    int i = 0;
+    // next option
+    int nopt = 0;
+    // string of valid short options
+    const char *sopts = "ha:f:b:v";
+    // array describing valid long options
+    const struct option lopts[] = {
+        { "help",       0, NULL, 'h' },
+        { "attributes", 1, NULL, 'a' },
+        { "foreground", 1, NULL, 'f' },
+        { "background", 1, NULL, 'b' },
+        { "valid-opts", 1, NULL, 'v' },
+        { NULL,         0, NULL,  0  }
+    };
+
+    optind = 1;
+
+    if (argc < 2) {
+        setprompt_usage();
+        return;
+    }
+ 
+    do {
+        nopt = getopt_long(argc, argv, sopts, lopts, NULL);
+
+        switch (nopt) {
+        case 'h':
+            setprompt_usage();
+            break;
+        case 'a':
+            for (i = 0; i < 6; i++) {
+                if (strncmp(optarg, attr_opts[i].key,
+                            strlen(attr_opts[i].key)) == 0) {
+                    set_prompt_attr(attr_opts[i].val);
+                    build_prompt();
+                }
+            }
+            break;
+
+            for (i = 0; i < 8; i++) {
+                if (strncmp(optarg, fg_opts[i].key,
+                            strlen(fg_opts[i].key)) == 0) {
+                    set_prompt_fg(fg_opts[i].val);
+                    build_prompt();
+                }
+            }
+            break;
+        case 'b':
+            for (i = 0; i < 8; i++) {
+                if (strncmp(optarg, bg_opts[i].key,
+                            strlen(bg_opts[i].key)) == 0) {
+                    set_prompt_bg(bg_opts[i].val);
+                    build_prompt();
+                }
+            }
+            break;
+        case 'v':
+            printf("VALID COLORS:\n");
+            for (i = 0; i < 8; i++) {
+                printf("\t%s\n", fg_opts[i].key);
+            }
+            printf("VALID ATTRIBUTES:\n");
+            for (i = 0; i < 6; i++) {
+                printf("\t%s\n", attr_opts[i].key);
+            }
+            break;
+        case '?':
+            setprompt_usage();
+            break;
+        case -1:
+            break;
+        default:
+            abort();
+        }
+    } while (nopt != -1);
+}
+
+/*
+ * build_prompt:
+ *      Builds the user's prompt displaying the current working directory.
+ */
+void build_prompt(void)
+{
+    char *cwd = NULL;
+    char prompt[MAXLINE];
+
+    if ((cwd = getcwd(NULL, 0)) == NULL) {
+        perror("lusush: build_prompt");
+        strncpy(prompt, "% ", MAXLINE);
+    }
+    else {
+        if (opt_is_set(COLOR_PROMPT)) {
+            build_colors();
+            strncpy(prompt, colors, MAXLINE);
+            strncat(prompt, cwd, MAXLINE);
+            strncat(prompt, RESET, MAXLINE);
+            strncat(prompt, "\n", MAXLINE);
+            strncat(prompt, "% ", 3);
+        }
+        else {
+            strncpy(prompt, cwd, MAXLINE);
+            strncat(prompt, "% ", 3);
+        }
+    }
+    setenv("PROMPT", prompt, 1);
+
+    if (cwd)
+        free(cwd);
+
+    cwd = NULL;
+}
+

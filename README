@@ -106,6 +106,38 @@ LUSUSH
 
     e.g /home/you/lab% lusush scriptfile
 
+    Lusush supports aliased commands
+
+    e.g. alias say-hi echo Hello, Mike!
+
+    which can be removed using the command unalias
+
+    e.g. unalias say-hi
+
+    CAVEAT on using aliases, aliases are not recursively expanded.  So if you alias
+    a command such as ls to expand to ls -aF, then alias ll ls -l, you will not get
+    alias ls -alF when executing ll.
+
+    Lusush supports modifiable runtime behavior via command line switches at startup,
+    or the use of the setopt command.  For a complete list of switches run lusush -h.
+
+    To turn an option on
+
+        setopt OPTION
+
+    To turn an option off
+
+        unsetopt OPTION
+ 
+    Lusush can have a color prompt on terminals that support it.
+
+    e.g. setopt COLOR_PROMPT
+
+    or by giving the command line switch -c at startup.  The prompt colors can be
+    modified using the setprompt command
+
+    e.g. setprompt -f GREEN -b BLACK -a BOLD
+
     Control-C (SIGINT) is ignored by default to allow for normal operation
     of external programs executed by lusush, use exit to leave the shell.
 

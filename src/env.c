@@ -7,6 +7,7 @@
 #include "ldefs.h"
 #include "misc.h"
 #include "env.h"
+#include "prompt.h"
 
 int SHELL_TYPE = 0;
 

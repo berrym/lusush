@@ -27,7 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,6 +41,7 @@
 #include "exec.h"
 #include "builtins.h"
 #include "misc.h"
+#include "opts.h"
 
 int main(int argc, char **argv)
 {
@@ -50,26 +50,17 @@ int main(int argc, char **argv)
     bool bActive = true;
     int i = 1;
     int ret = 0;
+    int optind = 0;
     char *line = NULL;
     FILE *in = NULL;
-    struct stat st;
+
     CMD *cmd = NULL;
 
     // Perform startup tasks
-    init(argc, argv);
-
+    optind = init(argc, argv);
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {
-        // check that argv[1] is a regular file
-        if (stat(argv[1], &st)) {
-            if (!S_ISREG(st.st_mode)) {
-                fprintf(stderr, 
-                        "Lusush: %s is not a regular file.\n",
-                        argv[1]);
-            }
-        }
-
         // open the file stream with in pointing to it
         if ((in = fopen(argv[1], "r")) == NULL) {
             perror("lusush: fopen");
@@ -84,7 +75,7 @@ int main(int argc, char **argv)
     // Main loop
     //////////////////////////////////////////////////
 
-    // Read input one line at a time unitll user exits
+    // Read input one line at a time untill user exits
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
@@ -95,7 +86,7 @@ int main(int argc, char **argv)
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
-        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "%", MAXLINE);
+        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
         line = get_input(in, ps1);
 
         // Handle the results of get_input
@@ -106,11 +97,9 @@ int main(int argc, char **argv)
         case 0:                     // Empty input, ignore
             break;
         default:                    // Processed input
-            // Very verbose printing of command history, only useful
-            // if debugging the program, macro defined in ldefs.h
-#ifdef PRINT_DEBUG
-            display_cmd(cmd);
-#endif
+            if (opt_is_set(VERBOSE_PRINT))
+                display_cmd(cmd);
+
             print_debug("ret (at) main --> %d\n", ret);
 
             // Execute the number of commands parsed by get_input (ret)
@@ -139,4 +128,3 @@ int main(int argc, char **argv)
 
     return 0;                           // Optimist!
 }
-

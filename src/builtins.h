@@ -15,6 +15,9 @@
  *      unsetenv    unset environment variable
  *      alias       set an alias
  *      unalias     unset an alias
+ *      setopt      turn on an option
+ *      unsetopt    turn off an option
+ *      setprompt   set prompt colors
  */
 
 enum {
@@ -27,7 +30,10 @@ enum {
         BUILTIN_CMD_UNSETENV=12,
         BUILTIN_CMD_ALIAS=14,
         BUILTIN_CMD_UNALIAS=16,
-        BUILTIN_CMD_CNT=18
+        BUILTIN_CMD_SETOPT=18,
+        BUILTIN_CMD_UNSETOPT=20,
+        BUILTIN_CMD_SETPROMPT=22,
+        BUILTIN_CMD_CNT=24
 };
 
 extern const char *builtins[BUILTIN_CMD_CNT];

@@ -17,6 +17,8 @@
 #include "builtins.h"
 #include "env.h"
 #include "alias.h"
+#include "opts.h"
+#include "prompt.h"
 
 /*
  * exec_cmd:
@@ -245,8 +247,9 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
         }
         break;
     case BUILTIN_CMD_CD:
-        if (cmd->argv[1])
+        if (cmd->argv[1]) {
             cd(cmd->argv[1]);
+        }
         break;
     case BUILTIN_CMD_PWD:
         pwd();
@@ -300,6 +303,34 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             unset_alias(cmd->argv[1]);
         }
         break;
+    case BUILTIN_CMD_SETOPT:
+        if (cmd->argc != 2) {
+            fprintf(stderr, "lusush: setopt: setopt option\n");
+        }
+        else {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0) {
+                set_bool_opt(VERBOSE_PRINT, true);
+            }
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0) {
+                set_bool_opt(COLOR_PROMPT, true);
+            }
+        }
+        break;
+    case BUILTIN_CMD_UNSETOPT:
+        if (cmd->argc != 2) {
+            fprintf(stderr, "lusush: unsetopt: unsetopt option\n");
+        }
+        else {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0) {
+                set_bool_opt(VERBOSE_PRINT, false);
+            }
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0) {
+                set_bool_opt(COLOR_PROMPT, false);
+            }
+        }
+        break;
+    case BUILTIN_CMD_SETPROMPT:
+            set_prompt(cmd->argc, cmd->argv);
     }
 }
 

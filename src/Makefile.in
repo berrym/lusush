@@ -48,8 +48,8 @@ PROGRAMS = $(lusushprg_PROGRAMS)
 am_lusush_OBJECTS = alias.$(OBJEXT) builtins.$(OBJEXT) \
 	cmdlist.$(OBJEXT) env.$(OBJEXT) exec.$(OBJEXT) \
 	expand.$(OBJEXT) history.$(OBJEXT) init.$(OBJEXT) \
-	input.$(OBJEXT) misc.$(OBJEXT) parse.$(OBJEXT) \
-	lusush.$(OBJEXT)
+	input.$(OBJEXT) misc.$(OBJEXT) opts.$(OBJEXT) parse.$(OBJEXT) \
+	prompt.$(OBJEXT) lusush.$(OBJEXT)
 lusush_OBJECTS = $(am_lusush_OBJECTS)
 lusush_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -162,7 +162,9 @@ lusush_SOURCES = \
 	       init.c \
 	       input.c \
 	       misc.c \
+	       opts.c \
 	       parse.c \
+	       prompt.c \
 	       lusush.c
 
 all: all-am
@@ -257,7 +259,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/input.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lusush.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/misc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/opts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prompt.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

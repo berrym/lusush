@@ -10,6 +10,7 @@
 #include "builtins.h"
 #include "misc.h"
 #include "history.h"
+#include "prompt.h"
 
 /*
  * Builtin commands
@@ -22,6 +23,9 @@
  *      unsetenv    unset environment variable
  *      alias       set an alias
  *      unalias     unset an alias
+ *      setopt      turn on an option
+ *      unsetopt    turn off an option
+ *      setprompt   set prompt colors
  */
 
 const char *builtins[BUILTIN_CMD_CNT] =
@@ -34,7 +38,10 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "setenv",       "set environment variable",
     "unsetenv",     "delete environment variable",
     "alias",        "set an alias",
-    "unalias",      "unset an alias"
+    "unalias",      "unset an alias",
+    "setopt",       "turn on an option",
+    "unsetopt",     "turn off an option",
+    "setprompt",    "setp prompt colors"
 };
 
 /*
@@ -104,4 +111,3 @@ void history(void)
     }
 #endif
 }
-
