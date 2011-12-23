@@ -10,10 +10,11 @@
 #include "ldefs.h"
 #include "init.h"
 #include "misc.h"
-#include "env.h"
 #include "history.h"
 #include "opts.h"
 #include "prompt.h"
+
+int SHELL_TYPE = 0;
 
 /*
  * init:
@@ -81,8 +82,6 @@ int init(int argc, char **argv)
         print_v("THIS IS AN INTERACTIVE SHELL\n");
     }
 
-    // Set the initial environment
-    env_init(argv);
 
     // Initialize history
     init_history();

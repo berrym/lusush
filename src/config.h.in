@@ -1,4 +1,7 @@
-/* config.h.in.  Generated from configure.ac by autoheader.  */
+/* src/config.h.in.  Generated from configure.in by autoheader.  */
+
+/* Define to 1 if you have the `dup2' function. */
+#undef HAVE_DUP2
 
 /* Define to 1 if you have the `fork' function. */
 #undef HAVE_FORK
@@ -15,6 +18,9 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
+/* Define to 1 if you have the `memset' function. */
+#undef HAVE_MEMSET
+
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
 
@@ -26,12 +32,6 @@
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
-
-/* Define to 1 if you have the `strdup' function. */
-#undef HAVE_STRDUP
-
-/* Define to 1 if you have the `strerror' function. */
-#undef HAVE_STRERROR
 
 /* Define to 1 if you have the <strings.h> header file. */
 #undef HAVE_STRINGS_H
@@ -78,6 +78,9 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -89,6 +92,9 @@
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
 
 /* Define as `fork' if `vfork' does not work. */
 #undef vfork

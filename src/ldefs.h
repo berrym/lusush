@@ -1,4 +1,4 @@
-#include "../config.h"
+#include "config.h"
 
 #ifndef __LDEFS_H__
 #define __LDEFS_H__

@@ -15,7 +15,6 @@
 #include "exec.h"
 #include "misc.h"
 #include "builtins.h"
-#include "env.h"
 #include "alias.h"
 #include "opts.h"
 #include "prompt.h"

@@ -9,7 +9,6 @@
 #include "ldefs.h"
 #include "ltypes.h"
 #include "history.h"
-#include "env.h"
 
 static FILE *histfp = NULL;
 static char histfile[MAXLINE] = { '\0' };

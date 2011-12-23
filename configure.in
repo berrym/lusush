@@ -1,15 +1,14 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.63])
-AC_INIT(lusush, 0.1, trismegustis@gmail.com)
-AC_CONFIG_SRCDIR([src/lusush.c])
-AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE
+AC_PREREQ([2.65])
+AC_INIT([lusush], [0.0.1], [trismegustis@gmail.com])
+AM_INIT_AUTOMAKE([subdir-objects])
+AC_CONFIG_SRCDIR([src])
+AC_CONFIG_HEADERS([src/config.h])
 
 # Checks for programs.
 AC_PROG_CC_C99
-# AC_PROG_CC
 
 # Checks for libraries.
 AC_CHECK_LIB(readline, readline)
@@ -20,11 +19,11 @@ AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_TYPE_PID_T
+AC_TYPE_SIZE_T
 
 # Checks for library functions.
 AC_FUNC_FORK
-AC_CHECK_FUNCS([getcwd setenv strdup strerror])
+AC_CHECK_FUNCS([dup2 getcwd memset setenv])
 
-AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

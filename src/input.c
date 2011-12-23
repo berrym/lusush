@@ -11,7 +11,7 @@
 #include "input.h"
 #include "expand.h"
 #include "cmdlist.h"
-#include "env.h"
+#include "init.h"
 #include "parse.h"
 #include "history.h"
 #include "misc.h"

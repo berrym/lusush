@@ -9,7 +9,6 @@
 #include <getopt.h>
 #include "ldefs.h"
 #include "prompt.h"
-#include "env.h"
 #include "opts.h"
 #include "misc.h"
 

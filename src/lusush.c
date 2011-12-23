@@ -32,14 +32,10 @@
 #include <string.h>
 #include "ltypes.h"
 #include "init.h"
-#include "alias.h"
-#include "env.h"
-#include "expand.h"
 #include "history.h"
 #include "input.h"
 #include "cmdlist.h"
 #include "exec.h"
-#include "builtins.h"
 #include "misc.h"
 #include "opts.h"
 
@@ -71,10 +67,6 @@ int main(int argc, char **argv)
         in = stdin;
     }
 
-    //////////////////////////////////////////////////
-    // Main loop
-    //////////////////////////////////////////////////
-
     // Read input one line at a time untill user exits
     // or EOF is read from either stdin or input file
     while (bActive) {
@@ -104,8 +96,8 @@ int main(int argc, char **argv)
 
             // Execute the number of commands parsed by get_input (ret)
             if (exec_cmd(cmd, ret) < ret) {
-                while (cmd->next) {     // If an error occured find the
-                    cmd = cmd->next;    // end of the command history
+                while (cmd->next) {
+                    cmd = cmd->next;
                 }
             }
 
@@ -116,15 +108,11 @@ int main(int argc, char **argv)
         i++;
     }
 
-    //////////////////////////////////////////////////
-    // Cleanup/Pre-Exit Tasks 
-    //////////////////////////////////////////////////
-
     write_histfile(histfilename());
 
     if (SHELL_TYPE != NORMAL_SHELL) {
         printf("\n");
     }
 
-    return 0;                           // Optimist!
+    return 0;
 }

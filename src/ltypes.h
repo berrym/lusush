@@ -1,13 +1,12 @@
 #include "ldefs.h"
-#include "../config.h"
+#include "config.h"
+
 #ifdef HAVE__BOOL
 #include <stdbool.h>
 #endif
 
 #ifndef __LTYPES_H__
 #define __LTYPES_H__
-
-///////////////////////// TYPES /////////////////////////////////////////////
 
 /**
  * enum bool
