@@ -130,7 +130,7 @@ int exec_external_cmd(CMD *cmd)
 
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            print_debug("*** Creating pipe\n");
+            print_v("*** Creating pipe\n");
             pipe(cmd->fd);
         }
     }
@@ -153,7 +153,7 @@ int exec_external_cmd(CMD *cmd)
         if (cmd->pipe) {
             // There was a previous command in pipe chain
             if (cmd->prev && cmd->prev->pipe) {
-                print_debug("*** Reading from parent pipe\n");
+                print_v("*** Reading from parent pipe\n");
                 dup2(cmd->prev->fd[0], STDIN_FILENO);
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
@@ -161,7 +161,7 @@ int exec_external_cmd(CMD *cmd)
 
             // There is a future command in pipe chain
             if (cmd->next && cmd->next->pipe) {
-                print_debug("*** Writing to child pipe\n");
+                print_v("*** Writing to child pipe\n");
                 close(cmd->fd[0]);
                 dup2(cmd->fd[1], STDOUT_FILENO);
                 close(cmd->fd[1]);
@@ -205,7 +205,7 @@ int exec_external_cmd(CMD *cmd)
         // Call execve or one of it's wrappers
         /////////////////////////////////////////////////
 
-        print_debug("calling execvp\n");
+        print_v("calling execvp\n");
         execvp(cmd->argv[0], cmd->argv);
 
         fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
@@ -215,7 +215,7 @@ int exec_external_cmd(CMD *cmd)
         // Close old pipe ends
         if (cmd->pipe && !cmd->pchain_master) {
             if (cmd->prev && cmd->prev->pipe) {
-                print_debug("*** Closing old/unused pipe ends\n");
+                print_v("*** Closing old/unused pipe ends\n");
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
             }

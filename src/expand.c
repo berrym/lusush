@@ -47,16 +47,17 @@ void expand(char *line)
     while (tok) {
         if (*prv && (strncmp(prv, "unalias", 8) == 0)) {
             ;
-        }
-        ea = expand_alias(tok);
-        print_debug("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
-        strncat(expanded, ea ? ea : tok, MAXLINE);
-        strncat(expanded, " ", 2);
-        strncpy(prv, tok, MAXLINE);
+        } else {
+            ea = expand_alias(tok);
+            print_v("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
+            strncat(expanded, ea ? ea : tok, MAXLINE);
+            strncat(expanded, " ", 2);
+            strncpy(prv, tok, MAXLINE);
+        };
         tok = strtok(NULL, " ");
     }
 
-    print_debug("%sexpand: expanded=%s\n", DBGSTR, expanded);
+    print_v("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
     strncpy(line, expanded, MAXLINE);
 }

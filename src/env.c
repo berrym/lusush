@@ -36,11 +36,11 @@ void env_init(char **argv)
 
     // get the user's home directory
     ENV_HOME = getenv("HOME");
-    print_debug("*** HOME IS SET\n%s\n\n", ENV_HOME);
+    print_v("*** HOME IS SET\n%s\n\n", ENV_HOME);
 
     // get the user's PATH string
     ENV_PATH = getenv("PATH");
-    print_debug("*** PATH IS SET\n%s\n\n", ENV_PATH);
+    print_v("*** PATH IS SET\n%s\n\n", ENV_PATH);
 
     // get the user's shell, if it is null then set it.
     ENV_SHELL = getenv("SHELL");
@@ -48,21 +48,21 @@ void env_init(char **argv)
         setenv("SHELL", argv[0], 1);
         ENV_SHELL = getenv("SHELL");
     }
-    print_debug("*** SHELL IS SET\n%s\n\n", ENV_SHELL);
+    print_v("*** SHELL IS SET\n%s\n\n", ENV_SHELL);
 
     // get the users login name
     ENV_LOGNAME = getenv("LOGNAME");
-    print_debug("*** LOGNAME IS SET\n%s\n\n", ENV_LOGNAME);
+    print_v("*** LOGNAME IS SET\n%s\n\n", ENV_LOGNAME);
 
     // get the users mail directory
     ENV_MAIL = getenv("MAIL");
-    print_debug("*** MAIL IS SET\n%s\n\n", ENV_MAIL);
+    print_v("*** MAIL IS SET\n%s\n\n", ENV_MAIL);
 
     // set the users prompt
     build_prompt();
     // get the users prompt
     ENV_PROMPT = getenv("PROMPT");
-    print_debug("*** PROMPT IS SET\n%s\n\n", ENV_PROMPT);
+    print_v("*** PROMPT IS SET\n%s\n\n", ENV_PROMPT);
 
     // Set everything back to NULL
     ENV_LOGNAME = NULL;

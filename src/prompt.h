@@ -32,9 +32,6 @@ typedef enum {
     CONCEALED = 8
 } COLOR_ATTRIB;
 
-extern void set_prompt_fg(FG_COLOR);
-extern void set_prompt_bg(BG_COLOR);
-extern void set_prompt_attr(COLOR_ATTRIB);
 extern void set_prompt(int, char **);
 extern void build_prompt(void);
 

@@ -28,7 +28,7 @@ static ALIAS **alias_list = NULL;
 static int alloc_alias_list(void)
 {
     if (alias_list) {
-        print_debug("%salloc_alias_list: alias_list ALREADY allocd\n", DBGSTR);
+        print_v("%salloc_alias_list: alias_list ALREADY allocd\n", DBGSTR);
         return -1;
     }
 
@@ -36,7 +36,7 @@ static int alloc_alias_list(void)
         perror("lusush: alias.c: alloc_alias_list");
         return -1;
     }
-    print_debug("%salloc_alias_list: alias_list allocd\n", DBGSTR);
+    print_v("%salloc_alias_list: alias_list allocd\n", DBGSTR);
 
     return 0;
 }
@@ -62,7 +62,7 @@ static ALIAS *alloc_alias(void)
             perror("lusush: alias.c: alloc_alias");
             return NULL;
         }
-        print_debug("%salloc_alias: *alias_list allocd\n", DBGSTR);
+        print_v("%salloc_alias: *alias_list allocd\n", DBGSTR);
         ++initialized;
     }
     else {
@@ -77,7 +77,7 @@ static ALIAS *alloc_alias(void)
             return NULL;
         }
 
-        print_debug("%salloc_alias: *(alias_list + i) allocd\n", DBGSTR);
+        print_v("%salloc_alias: *(alias_list + i) allocd\n", DBGSTR);
     }
 
     ++alias_cnt;
@@ -92,7 +92,7 @@ static ALIAS *alloc_alias(void)
 static void free_alias(ALIAS *alias)
 {
     if (!alias) {
-        print_debug("%sunset_alias: bad pointer\n", DBGSTR);
+        print_v("%sunset_alias: bad pointer\n", DBGSTR);
         return;
     }
 
@@ -111,21 +111,21 @@ static ALIAS *lookup_alias(char *key)
     size_t i = 0;
 
     if (!initialized) {
-        print_debug("%slookup_alias: aliases not initialized\n", DBGSTR);
+        print_v("%slookup_alias: aliases not initialized\n", DBGSTR);
         return NULL;
     }
 
     for (i = 0; i < MAX_ALIAS; i++) {
         if (*(alias_list + i)) {
             if (strncmp(alias_list[i]->key, key, MAXLINE) == 0) {
-                print_debug("%slookup_alias: found alias for %s\n",
+                print_v("%slookup_alias: found alias for %s\n",
                         DBGSTR, key);
                 return *(alias_list + i);
             }
         }
     }
 
-    print_debug("%slookup_alias: did not find alias for %s\n", DBGSTR, key);
+    print_v("%slookup_alias: did not find alias for %s\n", DBGSTR, key);
 
     return NULL;
 }
@@ -141,12 +141,12 @@ char *expand_alias(char *key)
     alias = lookup_alias(key);
 
     if (!alias) {
-        print_debug("%sexpand_alias: unable to expand key=%s\n",
+        print_v("%sexpand_alias: unable to expand key=%s\n",
                 DBGSTR, key);
         return NULL;
     }
 
-    print_debug("%sexpand_alias: expanded %s to %s\n",
+    print_v("%sexpand_alias: expanded %s to %s\n",
             DBGSTR, alias->key, alias->val);
 
     return alias->val;
@@ -165,7 +165,7 @@ int set_alias(char *key, char *val)
         alias = alloc_alias();
 
     if (!alias) {
-        print_debug("%sset_alias: alias creation failed!\n", DBGSTR);
+        print_v("%sset_alias: alias creation failed!\n", DBGSTR);
         return -1;
     }
 
@@ -173,7 +173,7 @@ int set_alias(char *key, char *val)
     strncpy(alias->key, key, strlen(key));
     strncpy(alias->val, val, strlen(val));
 
-    print_debug("%sset_alias: key=%s val=%s\n",
+    print_v("%sset_alias: key=%s val=%s\n",
             DBGSTR, alias->key, alias->val);
 
     return 0;

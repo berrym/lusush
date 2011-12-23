@@ -49,7 +49,7 @@ int init(int argc, char **argv)
     // Determine the shell type
     if (argv[0][0] == '-') {
         SHELL_TYPE = LOGIN_SHELL;
-        print_debug("THIS IS A LOGIN SHELL\n");
+        print_v("THIS IS A LOGIN SHELL\n");
     }
     else if (optind) {
         // check that argv[1] is a regular file
@@ -61,24 +61,24 @@ int init(int argc, char **argv)
                             argv[1]);
                     optind = 0;
                     SHELL_TYPE = INTERACTIVE_SHELL;
-                    print_debug("THIS IS AN INTERACTIVE SHELL\n");
+                    print_v("THIS IS AN INTERACTIVE SHELL\n");
                 }
                 else {
                     SHELL_TYPE = NORMAL_SHELL;
-                    print_debug("THIS IS A NORMAL SHELL\n");
+                    print_v("THIS IS A NORMAL SHELL\n");
                 }
             }
         }
         else {
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
-            print_debug("THIS IS AN INTERACTIVE SHELL\n");
+            print_v("THIS IS AN INTERACTIVE SHELL\n");
         }
     }
     else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
-        print_debug("THIS IS AN INTERACTIVE SHELL\n");
+        print_v("THIS IS AN INTERACTIVE SHELL\n");
     }
 
     // Set the initial environment
@@ -96,7 +96,7 @@ int init(int argc, char **argv)
  */
 void sig_int(int signo)
 {
-    print_debug("\nlusush: caught signal %d.\n", signo);
+    print_v("\nlusush: caught signal %d.\n", signo);
 }
 
 /*

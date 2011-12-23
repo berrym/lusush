@@ -100,7 +100,7 @@ int main(int argc, char **argv)
             if (opt_is_set(VERBOSE_PRINT))
                 display_cmd(cmd);
 
-            print_debug("ret (at) main --> %d\n", ret);
+            print_v("ret (at) main --> %d\n", ret);
 
             // Execute the number of commands parsed by get_input (ret)
             if (exec_cmd(cmd, ret) < ret) {

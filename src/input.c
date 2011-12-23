@@ -78,7 +78,7 @@ char *get_input(FILE *in, const char *prompt)
 
     strncpy(tmp, line_read, MAXLINE);
     expand(tmp);
-    print_debug("%sexpanded_line=%s\n", DBGSTR, tmp);
+    print_v("%sexpanded_line=%s\n", DBGSTR, tmp);
     if (strcmp(tmp, line_read) != 0) {
         free(line_read);
         if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
@@ -106,7 +106,7 @@ char *get_input(FILE *in, const char *prompt)
     hist_size++;
 
     expand(line_read);
-    print_debug("%sexpanded_line=%s\n", DBGSTR, line_read);
+    print_v("%sexpanded_line=%s\n", DBGSTR, line_read);
 #endif
 
     return line_read;
@@ -175,7 +175,7 @@ int do_line(char *line, CMD *cmd)
             timestamp_cmd(cmd);                     // date it
 
             if (j == 1) {
-                print_debug("****do pipe %s\n", subtok);
+                print_v("****do pipe %s\n", subtok);
                 cmd->prev->pipe = true;
                 cmd->prev->pchain_master = true;
                 pipe = true;

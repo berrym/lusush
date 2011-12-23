@@ -1,5 +1,5 @@
 /*
- * prompt.c - prompt string
+ * prompt.c - routines to build a prompt string
  */
 
 #include <unistd.h>
@@ -13,8 +13,10 @@
 #include "opts.h"
 #include "misc.h"
 
+#define DBGSTR "lusush: prompt.c: "
+
 static const char *RESET = "\x1b[0m";
-static char colors[14] = { '\0' };
+static char *colors      = NULL;
 
 static FG_COLOR fg_color = WHITE;
 static BG_COLOR bg_color = BG_BLUE;
@@ -75,14 +77,21 @@ static void setprompt_usage(void)
  */
 static void build_colors(void)
 {
-    snprintf(&colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
+    if (!colors) {
+        if ((colors = calloc(14, sizeof(char))) == NULL) {
+            perror("lusush: prompt.c: build_colors: calloc");
+            fprintf(stderr, "%s: unseting option COLOR_PROMPT\n", DBGSTR);
+            set_bool_opt(COLOR_PROMPT, false);
+        }
+    }
+    snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
 }
 
 /*
  * set_prompt_fg
  *      set prompt foreground color
  */
-void set_prompt_fg(FG_COLOR fg)
+static void set_prompt_fg(FG_COLOR fg)
 {
     fg_color = fg;
 }
@@ -91,7 +100,7 @@ void set_prompt_fg(FG_COLOR fg)
  * set_prompt_bg
  *      set prompt background color
  */
-void set_prompt_bg(BG_COLOR bg)
+static void set_prompt_bg(BG_COLOR bg)
 {
     bg_color = bg;
 }
@@ -100,7 +109,7 @@ void set_prompt_bg(BG_COLOR bg)
  * set_prompt_attrib
  *      set text attributes for prompt
  */
-void set_prompt_attr(COLOR_ATTRIB ca)
+static void set_prompt_attr(COLOR_ATTRIB ca)
 {
     attr = ca;
 }
@@ -146,6 +155,7 @@ void set_prompt(int argc, char **argv)
             }
             break;
 
+        case 'f':
             for (i = 0; i < 8; i++) {
                 if (strncmp(optarg, fg_opts[i].key,
                             strlen(fg_opts[i].key)) == 0) {
@@ -217,5 +227,10 @@ void build_prompt(void)
         free(cwd);
 
     cwd = NULL;
+
+    if (colors)
+        free(colors);
+
+    colors = NULL;
 }
 
