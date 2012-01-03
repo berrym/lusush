@@ -10,13 +10,13 @@
 #include "ltypes.h"
 #include "history.h"
 
-static FILE *histfp = NULL;
 static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
 #ifdef USING_READLINE
 HIST_ENTRY **hist_list = NULL;
 #else
+static FILE *histfp = NULL;
 long hist_size = 0;
 char hist_list[MAXHIST][MAXLINE] = { "\0" };
 #endif

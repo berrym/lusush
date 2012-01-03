@@ -51,14 +51,14 @@ char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in, const char *prompt)
 {
-    char tmp[MAXLINE] = {'\0'};
-
     if (line_read) {
         free(line_read);
         line_read = NULL;
     }
 
 #ifdef USING_READLINE
+    char *tmp = calloc(MAXLINE, sizeof(char*));
+    
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL)
             return NULL;
@@ -86,6 +86,12 @@ char *get_input(FILE *in, const char *prompt)
             return NULL;
         }
         strncpy(line_read, tmp, MAXLINE);
+    }
+
+    if (tmp) {
+        memset(tmp, '\0', MAXLINE);
+        free(tmp);
+        tmp = NULL;
     }
 #else
     if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
@@ -133,7 +139,8 @@ int do_line(char *line, CMD *cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
 
-    char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
+    //char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
+    char *tmp = calloc(MAXLINE, sizeof(char*));
 
     if (!line)
         return -1;
@@ -195,6 +202,12 @@ int do_line(char *line, CMD *cmd)
                 cnt++;
             }
         }
+    }
+
+    if (tmp) {
+        memset(tmp, '\0', MAXLINE);
+        free(tmp);
+        tmp = NULL;
     }
 
     return cnt;

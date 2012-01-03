@@ -172,7 +172,6 @@ int exec_external_cmd(CMD *cmd)
         /////////////////////////////////////////////////
 
         if (cmd->in_redirect && !cmd->prev->pipe) {
-            close(STDIN_FILENO);
             freopen(cmd->in_filename, "r", stdin);
         }
 
@@ -181,7 +180,6 @@ int exec_external_cmd(CMD *cmd)
         /////////////////////////////////////////////////
 
         if (cmd->out_redirect && !cmd->pipe) {
-            close(STDOUT_FILENO);
             freopen(cmd->out_filename,
                     cmd->oredir_append ? "a" : "w", stdout);
         }
@@ -229,7 +227,8 @@ int exec_external_cmd(CMD *cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    char tmp[MAXLINE] = { '\0' };
+    //char tmp[MAXLINE] = { '\0' };
+    char *tmp = calloc(MAXLINE, sizeof(char*));
     size_t i = 0;
 
     switch (cmdno) {
@@ -290,7 +289,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 strncat(tmp, cmd->argv[i], MAXLINE);
                 strncat(tmp, " ", 2);
             }
-            set_alias(cmd->argv[1], &tmp);
+            set_alias(cmd->argv[1], tmp);
             strncpy(tmp, "\0", 1);
         }
         break;
@@ -331,5 +330,9 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
     case BUILTIN_CMD_SETPROMPT:
             set_prompt(cmd->argc, cmd->argv);
     }
+
+    memset(tmp, '\0', MAXLINE);
+    free(tmp);
+    tmp = NULL;
 }
 
