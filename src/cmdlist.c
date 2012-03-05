@@ -45,9 +45,9 @@ int cmdalloc(CMD *cmd)
     cmd->fd[0] = cmd->fd[1] = 0;
     cmd->pipe = cmd->pchain_master = false;
     cmd->background = false;
-    cmd->in_redirect = cmd->out_redirect = cmd->oredir_append = false;
+    cmd->iredir = cmd->oredir = cmd->oredir_append = false;
     *cmd->buf = '\0';
-    *cmd->in_filename = *cmd->out_filename = '\0';
+    *cmd->ifname = *cmd->ofname = '\0';
 
     return 0;
 }
@@ -131,16 +131,16 @@ void display_cmd(CMD *cmd)
             ? "true" : "false");
     printf("\tbackground->%s\n", cmd->background
             ? "true" : "false");
-    printf("\tin_redirect->%s\n", cmd->in_redirect
+    printf("\tiredir->%s\n", cmd->iredir
             ? "true" : "false");
-    printf("\tout_redirect->%s\n", cmd->out_redirect
+    printf("\toredir->%s\n", cmd->oredir
             ? "true" : "false");
     printf("\toredir_append->%s\n", cmd->oredir_append
             ? "true" : "false");
-    printf("\tin_filename->%s\n", cmd->in_filename
-            ? cmd->in_filename : "empty");
-    printf("\tout_filename->%s\n", cmd->out_filename
-            ? cmd->out_filename : "empty");
+    printf("\tifname->%s\n", cmd->ifname
+            ? cmd->ifname : "empty");
+    printf("\tofname->%s\n", cmd->ofname
+            ? cmd->ofname : "empty");
 }
 
 /*

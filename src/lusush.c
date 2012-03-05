@@ -46,14 +46,13 @@ int main(int argc, char **argv)
     bool bActive = true;
     int i = 1;
     int ret = 0;
-    int optind = 0;
     char *line = NULL;
     FILE *in = NULL;
 
     CMD *cmd = NULL;
 
     // Perform startup tasks
-    optind = init(argc, argv);
+    init(argc, argv);
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {

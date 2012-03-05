@@ -9,16 +9,15 @@
 #include "ltypes.h"
 #include "parse.h"
 
-static int ret_level = 0;
 static unsigned int i = 0;
 static unsigned int j = 0;
 static unsigned int lpos = 0;
 static unsigned int wpos = 0;
 
-static bool in_redirect = false;
-static bool out_redirect = false;
-static bool read_reg = false;
-static bool in_quote = false;
+static bool iredir = false;
+static bool oredir = false;
+static bool readreg = false;
+static bool inquote = false;
 
 static char *line = NULL;
 static CMD *cmd = NULL;
@@ -62,12 +61,12 @@ int do_magic(char c)
 
     switch (c) {
     case '#':
-        if (!in_quote) {
-            if (in_redirect) {
-                cmd->in_filename[wpos] = '\0';
+        if (!inquote) {
+            if (iredir) {
+                cmd->ifname[wpos] = '\0';
             }
-            else if (out_redirect) {
-                cmd->out_filename[wpos] = '\0';
+            else if (oredir) {
+                cmd->ofname[wpos] = '\0';
             }
             else {
                 cmd->argv[lpos][wpos] = '\0';
@@ -75,7 +74,7 @@ int do_magic(char c)
             goto done;
         }
 
-        if (in_redirect || out_redirect) {
+        if (iredir || oredir) {
             fprintf(stderr, "lusush: error near character " \
                     "%u --> '%c'\n", i, c);
             return -1;
@@ -84,16 +83,15 @@ int do_magic(char c)
         cmd->argv[lpos][wpos] = c;
         wpos++;
         break;
-
     case '&':
-        if (!in_quote) {
+        if (!inquote) {
             cmd->background = true;
             cmd->argv[lpos][wpos] = '\0';
             lpos--;
             goto done;
         }
 
-        if (in_redirect || out_redirect) {
+        if (iredir || oredir) {
             fprintf(stderr, "lusush: error near character " \
                     "%u --> '%c'\n", i, c);
             return -1;
@@ -102,11 +100,10 @@ int do_magic(char c)
         cmd->argv[lpos][wpos] = c;
         wpos++;
         break;
-
     case '<':
-        if (!in_quote) {
-            cmd->in_redirect = true;
-            in_redirect = true;
+        if (!inquote) {
+            cmd->iredir = true;
+            iredir = true;
             cmd->argv[lpos][wpos] = '\0';
         }
         else {
@@ -114,11 +111,10 @@ int do_magic(char c)
             wpos++;
         }
         break;
-
     case '>':
-        if (!in_quote) {
-            cmd->out_redirect = true;
-            out_redirect = true;
+        if (!inquote) {
+            cmd->oredir = true;
+            oredir = true;
             if (line[i+1] && line[i+1] == '>') {
                 cmd->oredir_append = true;
                 i++;
@@ -131,10 +127,10 @@ int do_magic(char c)
         }
         break;
     case '"':
-        if (in_quote)
-            in_quote = false;
+        if (inquote)
+            inquote = false;
         else
-            in_quote = true;
+            inquote = true;
         break;
     case '~':
         if (!(home = getenv("HOME"))) {
@@ -166,7 +162,7 @@ int do_whspc(char c)
     case '\t':
     case '\n':
     case '\r':
-        if (in_quote && !in_redirect && !out_redirect) {
+        if (inquote && !iredir && !oredir) {
             cmd->argv[lpos][wpos] = c;
             wpos++;
             break;
@@ -178,16 +174,16 @@ int do_whspc(char c)
         }
         i--;
 
-        if (!lpos && !read_reg)
+        if (!lpos && !readreg)
             break;
 
-        if (in_redirect) {
-            cmd->in_filename[wpos] = '\0';
-            in_redirect = false;
+        if (iredir) {
+            cmd->ifname[wpos] = '\0';
+            iredir = false;
         }
-        else if (out_redirect) {
-            cmd->out_filename[wpos] = '\0';
-            out_redirect = false;
+        else if (oredir) {
+            cmd->ofname[wpos] = '\0';
+            oredir = false;
         }
         else {
             cmd->argv[lpos][wpos] = '\0';
@@ -198,7 +194,7 @@ int do_whspc(char c)
         cmd->argv[lpos] = calloc(MAXLINE, sizeof(char));
         if (cmd->argv[lpos] == NULL) {
             perror("lusush: calloc");
-            for (j = lpos - 1; j >= 0; j--) {
+            for (j = lpos - 1; ; j--) {
                 free(cmd->argv[j]);
                 cmd->argv[j] = NULL;
             }
@@ -208,6 +204,8 @@ int do_whspc(char c)
         cmd->argc++;
         break;
     }
+
+    return c;
 }
 
 /*
@@ -215,19 +213,21 @@ int do_whspc(char c)
  */
 int do_nchar(char c)
 {
-    if (!read_reg)
-        read_reg = true;
+    if (!readreg)
+        readreg = true;
 
-    if (cmd->in_redirect && in_redirect) {
-        cmd->in_filename[wpos] = c;
+    if (cmd->iredir && iredir) {
+        cmd->ifname[wpos] = c;
     }
-    else if (cmd->out_redirect && out_redirect) {
-        cmd->out_filename[wpos] = c;
+    else if (cmd->oredir && oredir) {
+        cmd->ofname[wpos] = c;
     }
     else {
         cmd->argv[lpos][wpos] = c;
     }
     wpos++;
+
+    return c;
 }
 
 /*
@@ -254,20 +254,26 @@ int parse_cmd(CMD *cmd_ptr, char *line_ptr)
         return 0;
 
     i = j = lpos = wpos = 0;
-    in_redirect = out_redirect = read_reg = in_quote = false;
+    iredir = oredir = readreg = inquote = false;
 
     for (i = 0; i < strlen(line); i++) {
         c = line[i];
 
         switch (char_type(c)) {
         case IS_MAGIC:
-            ret = do_magic(c);
+            if ((ret = do_magic(c)) == -1) {
+                return ret;
+            }
             break;
         case IS_WHSPC:
-            ret = do_whspc(c);
+            if ((ret = do_whspc(c)) == -1) {
+                return ret;
+            }
             break;
         case IS_NCHAR:
-            ret  = do_nchar(c);
+            if ((ret = do_nchar(c)) == -1) {
+                return ret;
+            }
             break;
         default:
             break;

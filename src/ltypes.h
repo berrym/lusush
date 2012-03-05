@@ -16,8 +16,7 @@ typedef enum { false = 0, true = 1 } bool;
 #endif
 
 /**
- * struct _CMD:
- *      a doubly linked list of commands to pass to exec
+ * Doubly linked list of commands to pass to exec
  */
 typedef struct _CMD
 {
@@ -29,11 +28,11 @@ typedef struct _CMD
     bool pipe;                  // pipe flag
     bool pchain_master;         // parent command in pipe chain
     int fd[2];                  // pipe filedescriptors
-    bool in_redirect;           // input redirection flag
-    bool out_redirect;          // output redirection flag
+    bool iredir;           // input redirection flag
+    bool oredir;          // output redirection flag
     bool oredir_append;         // output redirection opens file to append
-    char in_filename[MAXLINE];  // input filename - if redirect set
-    char out_filename[MAXLINE]; // output filename - if redirect set
+    char ifname[MAXLINE];  // input filename - if redirect set
+    char ofname[MAXLINE]; // output filename - if redirect set
     struct _CMD *next;          // next command
     struct _CMD *prev;          // previous command
 } CMD;

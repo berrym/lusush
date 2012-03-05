@@ -28,7 +28,7 @@ int exec_cmd(CMD *cmd, int cnt)
     int i;                      // loop variable
     int ret, status;            // return value, waitpid status
     int pids[cnt];              // array of pids to wait on
-    CMD *psave1, *psave2;       // place holders in command history
+    CMD *psave1;                // place holders in command history
 
     psave1 = cmd;               // save current position in command history
 
@@ -72,7 +72,6 @@ int exec_cmd(CMD *cmd, int cnt)
             break;
     }
 
-    psave2 = cmd;                       // save last place in command history
     cmd = psave1;                       // restore to inital offset
 
     /////////////////////////////////////////////////
@@ -96,10 +95,9 @@ int exec_cmd(CMD *cmd, int cnt)
                 }
             } 
         }
-        cmd = cmd->next;
+        if (cmd->next != NULL)
+            cmd = cmd->next;
     }
-
-    cmd = psave2;                   // restore to final postion
 
     return 0;
 }
@@ -171,16 +169,18 @@ int exec_external_cmd(CMD *cmd)
         // Input redirection
         /////////////////////////////////////////////////
 
-        if (cmd->in_redirect && !cmd->prev->pipe) {
-            freopen(cmd->in_filename, "r", stdin);
+        if (cmd->iredir) {
+            if (cmd->prev != NULL && cmd->prev->pipe) {
+                freopen(cmd->ifname, "r", stdin);
+            }
         }
 
         /////////////////////////////////////////////////
         // Output redirection
         /////////////////////////////////////////////////
 
-        if (cmd->out_redirect && !cmd->pipe) {
-            freopen(cmd->out_filename,
+        if (cmd->oredir && !cmd->pipe) {
+            freopen(cmd->ofname,
                     cmd->oredir_append ? "a" : "w", stdout);
         }
 
@@ -190,8 +190,8 @@ int exec_external_cmd(CMD *cmd)
 
         // Close stdin and stdout if executing in the background
         // and then redirect them to /dev/null
-        if (cmd->background && !cmd->out_redirect && !cmd->pipe) {
-            if (!cmd->in_redirect)
+        if (cmd->background && !cmd->oredir && !cmd->pipe) {
+            if (!cmd->iredir)
                 close(STDIN_FILENO);
             close(STDOUT_FILENO);
             freopen("/dev/null", "r", stdin);
@@ -203,7 +203,9 @@ int exec_external_cmd(CMD *cmd)
         /////////////////////////////////////////////////
 
         print_v("calling execvp\n");
-        execvp(cmd->argv[0], cmd->argv);
+        if (*cmd->argv != NULL) {
+            execvp(cmd->argv[0], cmd->argv);
+        }
 
         fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
         exit(127);                  // exec shouldn't return ever
@@ -227,7 +229,6 @@ int exec_external_cmd(CMD *cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    //char tmp[MAXLINE] = { '\0' };
     char *tmp = calloc(MAXLINE, sizeof(char*));
     size_t i = 0;
 
@@ -335,4 +336,3 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
     free(tmp);
     tmp = NULL;
 }
-

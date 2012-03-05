@@ -4,7 +4,6 @@
 #define __PARSE_H__
 
 extern int char_type(char);
-extern int do_char(char);
 extern int do_magic(char);
 extern int do_whspc(char);
 extern int do_nchar(char);
