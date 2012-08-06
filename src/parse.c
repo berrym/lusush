@@ -190,7 +190,7 @@ int do_whspc(char c)
         }
         lpos++;
         wpos = 0;
-
+        
         cmd->argv[lpos] = calloc(MAXLINE, sizeof(char));
         if (cmd->argv[lpos] == NULL) {
             perror("lusush: calloc");
@@ -201,7 +201,7 @@ int do_whspc(char c)
             return -1;
         }
         cmd->argv[lpos][wpos] = '\0';
-        cmd->argc++;
+        cmd->argc = lpos+1;
         break;
     }
 

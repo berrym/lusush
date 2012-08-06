@@ -41,12 +41,12 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "unalias",      "unset an alias",
     "setopt",       "turn on an option",
     "unsetopt",     "turn off an option",
-    "setprompt",    "setp prompt colors"
+    "setprompt",    "set prompt colors"
 };
 
 /*
  * is_builtin_cmd:
- *      compare (cmdname) to elements is array of strings
+ *      compare (cmdname) to elements in array of strings
  *      builtins, if it matches return the index of the element.
  */
 int is_builtin_cmd(const char *cmdname)

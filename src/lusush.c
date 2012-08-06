@@ -44,7 +44,6 @@ int main(int argc, char **argv)
     char *ENV_PROMPT = NULL;
     char ps1[MAXLINE] = { '\0' };
     bool bActive = true;
-    int i = 1;
     int ret = 0;
     char *line = NULL;
     FILE *in = NULL;
@@ -103,8 +102,6 @@ int main(int argc, char **argv)
             free_cmdlist(cmd);
             break;
         }
-
-        i++;
     }
 
     write_histfile(histfilename());
