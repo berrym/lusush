@@ -1,12 +1,11 @@
-/*
+/**
  * expand.c - input expansion routines for lusush
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "expand.h"
 #include "alias.h"
 #include "builtins.h"
@@ -16,10 +15,14 @@
 
 static char *expanded = NULL;
 
+/**
+ * expand:
+ *      perform word expansion
+ */
 void expand(char *line)
 {
-    char tmp[MAXLINE] = { '\0' };
-    char prv[MAXLINE] = { '\0' };
+    char tmp[BUFSIZ] = { '\0' };
+    char prv[BUFSIZ] = { '\0' };
     char *tok = NULL;
     char *ea = NULL;
 
@@ -30,13 +33,13 @@ void expand(char *line)
         free(expanded);
     }
 
-    if ((expanded = calloc(MAXLINE, sizeof(char))) == NULL) {
+    if ((expanded = calloc(BUFSIZ, sizeof(char))) == NULL) {
         perror("lusush: expand.c: expand");
         return;
     }
     *expanded = '\0';
 
-    strncpy(tmp, line, MAXLINE);
+    strncpy(tmp, line, BUFSIZ);
 
     if (!(tok = strtok(tmp, " ")))
         return;
@@ -49,15 +52,15 @@ void expand(char *line)
             ;
         } else {
             ea = expand_alias(tok);
-            print_v("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
-            strncat(expanded, ea ? ea : tok, MAXLINE);
+            vprint("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
+            strncat(expanded, ea ? ea : tok, BUFSIZ);
             strncat(expanded, " ", 2);
-            strncpy(prv, tok, MAXLINE);
+            strncpy(prv, tok, BUFSIZ);
         };
         tok = strtok(NULL, " ");
     }
 
-    print_v("%sexpand: expanded=%s\n", DBGSTR, expanded);
+    vprint("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
-    strncpy(line, expanded, MAXLINE);
+    strncpy(line, expanded, BUFSIZ);
 }

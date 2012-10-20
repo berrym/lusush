@@ -1,4 +1,4 @@
-#include "ltypes.h"
+#include "lusush.h"
 
 #ifndef __OPTS_H__
 #define __OPTS_H__

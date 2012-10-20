@@ -1,4 +1,4 @@
-/*
+/**
  * misc.c - various functions that didn't fit anywhere else.
  */
 
@@ -9,11 +9,11 @@
 #include "misc.h"
 #include "opts.h"
 
-/*
- * print_v
+/**
+ * vprint:
  *      print messages if VERBOSE_PRINT option is set
  */
-void print_v(const char *fmt, ...)
+void vprint(const char *fmt, ...)
 {
     if (opt_is_set(VERBOSE_PRINT)) {
         va_list args;

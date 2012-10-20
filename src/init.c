@@ -1,4 +1,4 @@
-/*
+/**
  * init.c - startup and initialization routines
  */
 
@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "ldefs.h"
+#include "lusush.h"
 #include "init.h"
 #include "misc.h"
 #include "history.h"
@@ -16,9 +16,9 @@
 
 int SHELL_TYPE = 0;
 
-/*
+/**
  * init:
- *     Performs initial tasks at shell startup.
+ *      Performs initial tasks at shell startup.
  */
 int init(int argc, char **argv)
 {
@@ -50,7 +50,7 @@ int init(int argc, char **argv)
     // Determine the shell type
     if (argv[0][0] == '-') {
         SHELL_TYPE = LOGIN_SHELL;
-        print_v("THIS IS A LOGIN SHELL\n");
+        vprint("THIS IS A LOGIN SHELL\n");
     }
     else if (optind) {
         // check that argv[1] is a regular file
@@ -62,24 +62,24 @@ int init(int argc, char **argv)
                             argv[1]);
                     optind = 0;
                     SHELL_TYPE = INTERACTIVE_SHELL;
-                    print_v("THIS IS AN INTERACTIVE SHELL\n");
+                    vprint("THIS IS AN INTERACTIVE SHELL\n");
                 }
                 else {
                     SHELL_TYPE = NORMAL_SHELL;
-                    print_v("THIS IS A NORMAL SHELL\n");
+                    vprint("THIS IS A NORMAL SHELL\n");
                 }
             }
         }
         else {
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
-            print_v("THIS IS AN INTERACTIVE SHELL\n");
+            vprint("THIS IS AN INTERACTIVE SHELL\n");
         }
     }
     else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
-        print_v("THIS IS AN INTERACTIVE SHELL\n");
+        vprint("THIS IS AN INTERACTIVE SHELL\n");
     }
 
 
@@ -89,19 +89,19 @@ int init(int argc, char **argv)
     return optind;
 }
 
-/*
+/**
  * sig_int:
  *      interupt ^C signal handler
  */
 void sig_int(int signo)
 {
-    print_v("\nlusush: caught signal %d.\n", signo);
+    vprint("\nlusush: caught signal %d.\n", signo);
 }
 
-/*
+/**
  * NOTE: NECESSARALY FATAL
  * sig_seg:
- *      segmentation fault handler, free memory where it can, then exit
+ *      segmentation fault handler, insult programmer then abort
  */
 void sig_seg(int signo)
 {

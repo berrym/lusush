@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
+
 #ifdef USING_READLINE
 #include <readline/history.h>
 #endif
@@ -12,7 +12,7 @@
 extern HIST_ENTRY **hist_list;
 #else
 extern long hist_size;
-extern char hist_list[MAXHIST][MAXLINE];
+extern char hist_list[MAXHIST][BUFSIZ];
 #endif
 
 extern int read_histfile(const char *);

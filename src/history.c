@@ -1,16 +1,15 @@
-/*
- * history.c - routines to work with basic history
+/**
+ * history.c - routines to work with cpmmand input history
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "history.h"
 
-static char histfile[MAXLINE] = { '\0' };
+static char histfile[BUFSIZ] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
 #ifdef USING_READLINE
@@ -18,9 +17,13 @@ HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
 long hist_size = 0;
-char hist_list[MAXHIST][MAXLINE] = { "\0" };
+char hist_list[MAXHIST][BUFSIZ] = { "\0" };
 #endif
 
+/**
+ * read_histfile:
+ *      read stored commands from history file
+ */
 int read_histfile(const char *histfile)
 {
 #ifdef USING_READLINE
@@ -38,7 +41,7 @@ int read_histfile(const char *histfile)
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], MAXLINE, histfp) == NULL) {
+        if (fgets(hist_list[i], BUFSIZ, histfp) == NULL) {
             break;
         }
 
@@ -53,6 +56,10 @@ int read_histfile(const char *histfile)
     return 0;
 }
 
+/**
+ * init_history:
+ *      create/read history file
+ */
 void init_history(void)
 {
     char *ENV_HOME = NULL;
@@ -75,7 +82,7 @@ void init_history(void)
     ENV_HOME = getenv("HOME");
 
     if (!*histfile) {
-        strncpy(histfile, ENV_HOME, MAXLINE);
+        strncpy(histfile, ENV_HOME, BUFSIZ);
         strncat(histfile, "/.lusushist", 12);
     }
 
@@ -88,6 +95,10 @@ void init_history(void)
     ENV_HOME = NULL;
 }
 
+/**
+ * write_histfile:
+ *      write runtime command history into histfile
+ */
 void write_histfile(const char *histfile)
 {
 #ifdef USING_READLINE
@@ -108,8 +119,8 @@ void write_histfile(const char *histfile)
 #endif
 }
 
-/*
- * histfilename
+/**
+ * histfilename:
  *      return the name of the history file
  */
 char *histfilename(void)

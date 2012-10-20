@@ -1,11 +1,11 @@
-/*
+/**
  * opts.c - runtime option parsing and configuration
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include "ldefs.h"
+#include "lusush.h"
 #include "opts.h"
 #include "prompt.h"
 
@@ -13,6 +13,10 @@
 
 static bool OPTIONS[OPT_CNT] = { false };
 
+/**
+ * usage:
+ *      command line switches
+ */
 static void usage(int ret) {
     fprintf(stderr, "Usage:\n\t-h Help\n\t");
     fprintf(stderr, "-c Color prompt\n\t");
@@ -20,6 +24,10 @@ static void usage(int ret) {
     exit(ret);
 }
 
+/**
+ * set_bool_opt:
+ *      set boolean option to moddify runtime behaviour
+ */
 bool set_bool_opt(unsigned int opt, bool val)
 {
     switch (opt) {
@@ -38,11 +46,19 @@ bool set_bool_opt(unsigned int opt, bool val)
     return true;
 }
 
+/**
+ * opt_is_set:
+ *     returns boolean value for runtime options
+ */
 bool opt_is_set(int index)
 {
     return OPTIONS[index];
 }
 
+/**
+ * parse_opts:
+ *      parse command line switches using getopt framework
+ */
 int parse_opts(int argc, char **argv)
 {
     // next option

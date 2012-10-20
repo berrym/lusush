@@ -1,4 +1,4 @@
-/*
+/**
  * lusush.c - LUSUs' SHell
  *
  * Copyright (c) 2009, 2010 Michael Berry <trismegustis@gmail.com>
@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ltypes.h"
+#include "lusush.h"
 #include "init.h"
 #include "history.h"
 #include "input.h"
@@ -39,10 +39,14 @@
 #include "misc.h"
 #include "opts.h"
 
+/**
+ * main:
+ *      program entry point, let the magic begin!
+ */
 int main(int argc, char **argv)
 {
     char *ENV_PROMPT = NULL;
-    char ps1[MAXLINE] = { '\0' };
+    char ps1[BUFSIZ] = { '\0' };
     bool bActive = true;
     int ret = 0;
     char *line = NULL;
@@ -76,7 +80,7 @@ int main(int argc, char **argv)
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
-        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
+        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", BUFSIZ);
         line = get_input(in, ps1);
 
         // Handle the results of get_input
@@ -90,7 +94,7 @@ int main(int argc, char **argv)
             if (opt_is_set(VERBOSE_PRINT))
                 display_cmd(cmd);
 
-            print_v("ret (at) main --> %d\n", ret);
+            vprint("ret (at) main --> %d\n", ret);
 
             // Execute the number of commands parsed by get_input (ret)
             if (exec_cmd(cmd, ret) < ret) {

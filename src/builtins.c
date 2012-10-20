@@ -1,19 +1,18 @@
-/*
- * builtins.c - bultin commands
+/**
+ * builtins.c - builtin commands
  */
 
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "builtins.h"
 #include "misc.h"
 #include "history.h"
 #include "prompt.h"
 
-/*
- * Builtin commands
+/**
+ * Builtin commands:
  *      exit        exit program
  *      help        print help
  *      cd          change directory
@@ -44,7 +43,7 @@ const char *builtins[BUILTIN_CMD_CNT] =
     "setprompt",    "set prompt colors"
 };
 
-/*
+/**
  * is_builtin_cmd:
  *      compare (cmdname) to elements in array of strings
  *      builtins, if it matches return the index of the element.
@@ -61,6 +60,11 @@ int is_builtin_cmd(const char *cmdname)
     return -1;
 }
 
+/**
+ * help:
+ *    display list of builtin commands with a brief description
+ *    of it's function
+ */
 void help(const char *cmdname)
 {
     int i;
@@ -77,6 +81,10 @@ void help(const char *cmdname)
     }
 }
 
+/**
+ * cd:
+ *    change working directory
+ */
 void cd(const char *path)
 {
     if (chdir(path) < 0)
@@ -84,16 +92,24 @@ void cd(const char *path)
     build_prompt();
 }
 
+/**
+ * pwd:
+ *    print working directory
+ */
 void pwd(void)
 {
-    char cwd[MAXLINE];
+    char cwd[BUFSIZ];
 
-    if (getcwd(cwd, MAXLINE) == NULL)
+    if (getcwd(cwd, BUFSIZ) == NULL)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);
 }
 
+/**
+ * history:
+ *    display a list of stored user inputed commands
+ */
 void history(void)
 {
     int i;

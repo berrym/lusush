@@ -1,4 +1,4 @@
-/*
+/**
  * input.c - input routines
  */
 #ifdef USING_READLINE
@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "ldefs.h"
+#include "lusush.h"
 #include "input.h"
 #include "expand.h"
 #include "cmdlist.h"
@@ -21,7 +21,7 @@
 static char *line_read = NULL;      // storage for readline and fgets
 
 #ifdef USING_READLINE
-/*
+/**
  * rl_gets:
  *      Read a string, and return a pointer to it.  Returns 0 on EOF.
  */
@@ -45,7 +45,7 @@ char *rl_gets(const char *prompt)
 }
 #endif
 
-/*
+/**
  * get_input:
  *      return a pointer to a line of user input, store line in history
  */
@@ -57,44 +57,44 @@ char *get_input(FILE *in, const char *prompt)
     }
 
 #ifdef USING_READLINE
-    char *tmp = calloc(MAXLINE, sizeof(char*));
+    char *tmp = calloc(BUFSIZ, sizeof(char*));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL)
             return NULL;
     }
     else {
-        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
+        if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
             perror("lusush: calloc");
             return NULL;
         }
 
-        if (fgets(line_read, MAXLINE, in) == NULL)
+        if (fgets(line_read, BUFSIZ, in) == NULL)
             return NULL;
 
         if (line_read[strlen(line_read) - 1] == '\n')
             line_read[strlen(line_read) - 1] = '\0';
     }
 
-    strncpy(tmp, line_read, MAXLINE);
+    strncpy(tmp, line_read, BUFSIZ);
     expand(tmp);
-    print_v("%sexpanded_line=%s\n", DBGSTR, tmp);
+    vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
     if (strcmp(tmp, line_read) != 0) {
         free(line_read);
-        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
+        if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
             perror("lusush: calloc");
             return NULL;
         }
-        strncpy(line_read, tmp, MAXLINE);
+        strncpy(line_read, tmp, BUFSIZ);
     }
 
     if (tmp) {
-        memset(tmp, '\0', MAXLINE);
+        memset(tmp, '\0', BUFSIZ);
         free(tmp);
         tmp = NULL;
     }
 #else
-    if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
+    if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
         perror("lusush: calloc");
         return NULL;
     }
@@ -102,30 +102,26 @@ char *get_input(FILE *in, const char *prompt)
     if (SHELL_TYPE != NORMAL_SHELL)
         printf("%s", prompt);
 
-    if (fgets(line_read, MAXLINE, in) == NULL)
+    if (fgets(line_read, BUFSIZ, in) == NULL)
         return NULL;
 
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    strncpy(hist_list[hist_size], line_read, MAXLINE);
+    strncpy(hist_list[hist_size], line_read, BUFSIZ);
     hist_size++;
 
     expand(line_read);
-    print_v("%sexpanded_line=%s\n", DBGSTR, line_read);
+    vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
 #endif
 
     return line_read;
 }
 
-/*
+/**
  * do_line:
  *      (line) is parsed and the information is stored in doubly linked list
  *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
- *
- * TODO: currently using strtok_r to split line into seperate commands when
- *       processing a chained commands.  This is a  bad thing.  Write
- *       do_line so that the strtok family of functions is not used.
  */
 int do_line(char *line, CMD *cmd)
 {
@@ -139,15 +135,15 @@ int do_line(char *line, CMD *cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
 
-    //char tmp[MAXLINE] = { '\0' };       // copy of line to mangle with strtok_r
-    char *tmp = calloc(MAXLINE, sizeof(char*));
+    //char tmp[BUFSIZ] = { '\0' };       // copy of line to mangle with strtok_r
+    char *tmp = calloc(BUFSIZ, sizeof(char*));
 
     if (!line)
         return -1;
     if (!*line)
         return 0;
 
-    strncpy(tmp, line, MAXLINE);        // copy string
+    strncpy(tmp, line, BUFSIZ);        // copy string
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
@@ -178,13 +174,13 @@ int do_line(char *line, CMD *cmd)
             if (cmdalloc(cmd) < 0)
                 return -1;
 
-            strncpy(cmd->buf, subtok, MAXLINE);     // Copy the string
+            strncpy(cmd->buf, subtok, BUFSIZ);     // Copy the string
             timestamp_cmd(cmd);                     // date it
 
             if (j == 1) {
-                print_v("****do pipe %s\n", subtok);
+                vprint("****do pipe %s\n", subtok);
                 cmd->prev->pipe = true;
-                cmd->prev->pchain_master = true;
+                cmd->prev->pipe_head = true;
                 pipe = true;
             }
 
@@ -205,7 +201,7 @@ int do_line(char *line, CMD *cmd)
     }
 
     if (tmp) {
-        memset(tmp, '\0', MAXLINE);
+        memset(tmp, '\0', BUFSIZ);
         free(tmp);
         tmp = NULL;
     }

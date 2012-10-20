@@ -1,4 +1,4 @@
-/*
+/**
  * cmdlist.c - routines to work with doubly linked list
  */
 
@@ -6,11 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "cmdlist.h"
 
-/*
+/**
  * cmdalloc:
  *      allocs room on the heap for a struct _CMD pointed to by cmd, and
  *      allocs room for the pointer to pointer char argv in a struct _CMD.
@@ -32,7 +31,7 @@ int cmdalloc(CMD *cmd)
     *cmd->argv = NULL;
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL) {
+    if ((*cmd->argv = calloc(BUFSIZ, sizeof(char))) == NULL) {
         perror("lusush: calloc");
         return -1;
     }
@@ -43,7 +42,7 @@ int cmdalloc(CMD *cmd)
     // Make sure everything is zero/null
     cmd->argc = 0;
     cmd->fd[0] = cmd->fd[1] = 0;
-    cmd->pipe = cmd->pchain_master = false;
+    cmd->pipe = cmd->pipe_head = false;
     cmd->background = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = false;
     *cmd->buf = '\0';
@@ -52,7 +51,7 @@ int cmdalloc(CMD *cmd)
     return 0;
 }
 
-/*
+/**
  * cmdfree:
  *      frees the memory pointed to by cmd, including recursive 
  *      freeing of the strings in cmd->argv.
@@ -84,7 +83,7 @@ void cmdfree(CMD *cmd)
     }
 }
 
-/*
+/**
  * free_cmdlist
  *      recursively free nodes in doubly linked list
  */
@@ -112,8 +111,9 @@ void free_cmdlist(CMD *cmd)
 
 }
 
-/*
- * display_cmd: display details of a CMD
+/**
+ * display_cmd:
+ *      display details of a CMD
  */
 void display_cmd(CMD *cmd)
 {
@@ -127,7 +127,7 @@ void display_cmd(CMD *cmd)
     printf("\tbuf->%s\n", cmd->buf);
     printf("\ttimestamp->%s", cmd->timestamp);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
-    printf("\tpchain_master->%s\n", cmd->pchain_master
+    printf("\tpipe_head->%s\n", cmd->pipe_head
             ? "true" : "false");
     printf("\tbackground->%s\n", cmd->background
             ? "true" : "false");
@@ -143,8 +143,8 @@ void display_cmd(CMD *cmd)
             ? cmd->ofname : "empty");
 }
 
-/*
- * timestamp_cmd
+/**
+ * timestamp_cmd:
  *      create a timestamp and put it in a command
  */
 void timestamp_cmd(CMD *cmd)

@@ -1,29 +1,32 @@
-/*
+/**
  * parse.c - command parser
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "parse.h"
 
+// loop and counter variable
 static unsigned int i = 0;
 static unsigned int j = 0;
 static unsigned int lpos = 0;
 static unsigned int wpos = 0;
 
+// CMD flags effecting parser behavior
 static bool iredir = false;
 static bool oredir = false;
 static bool readreg = false;
 static bool inquote = false;
 
+// input buffers
 static char *line = NULL;
 static CMD *cmd = NULL;
 
-/*
- * Identify what type of character we are dealing with.
+/**
+ * char_type:
+ *       Identify what type of character we are dealing with.
  */
 int char_type(char c)
 {
@@ -52,8 +55,9 @@ int char_type(char c)
     return chtype;
 }
 
-/*
- * Handle magic characters.
+/**
+ * do_magic:
+ *       Handle magic characters.
  */
 int do_magic(char c)
 {
@@ -152,8 +156,9 @@ int do_magic(char c)
     return lpos;  
 }
 
-/*
- * Process whitespace.
+/**
+ * do_whspc
+ *       Process whitespace.
  */
 int do_whspc(char c)
 {
@@ -191,7 +196,7 @@ int do_whspc(char c)
         lpos++;
         wpos = 0;
         
-        cmd->argv[lpos] = calloc(MAXLINE, sizeof(char));
+        cmd->argv[lpos] = calloc(BUFSIZ, sizeof(char));
         if (cmd->argv[lpos] == NULL) {
             perror("lusush: calloc");
             for (j = lpos - 1; ; j--) {
@@ -208,8 +213,9 @@ int do_whspc(char c)
     return c;
 }
 
-/*
- * Process normal character.
+/**
+ * do_nchar:
+ *       Process normal character.
  */
 int do_nchar(char c)
 {
@@ -230,15 +236,16 @@ int do_nchar(char c)
     return c;
 }
 
-/*
- * Given a string of input parse_cmd will seperate words by whitespace
- * and place each individual word into it's own string inside of a pointer
- * to pointer char, called argv, which should already be initialized.
- * parse_cmd __DOES NOT__ alloc cmd->argv, only additional strings.
- * Special characters like &, <, and > have special cases and are dealt
- * with according to their meaning, setting appropriate flags and filling
- * appropriate buffers with information.  Individual words are also
- * checked for expansions such as alias expansion.
+/**
+ * parse_cmd:
+ *       Given a string of input parse_cmd will seperate words by whitespace
+ *       and place each individual word into it's own string inside of a pointer
+ *       to pointer char, called argv, which should already be initialized.
+ *       parse_cmd __DOES NOT__ alloc cmd->argv, only additional strings.
+ *       Special characters like &, <, and > have special cases and are dealt
+ *       with according to their meaning, setting appropriate flags and filling
+ *       appropriate buffers with information.  Individual words are also
+ *       checked for expansions such as alias expansion.
  */
 int parse_cmd(CMD *cmd_ptr, char *line_ptr)
 {

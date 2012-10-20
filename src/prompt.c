@@ -1,4 +1,4 @@
-/*
+/**
  * prompt.c - routines to build a prompt string
  */
 
@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include "ldefs.h"
+#include "lusush.h"
 #include "prompt.h"
 #include "opts.h"
 #include "misc.h"
@@ -57,8 +57,8 @@ static const struct opt_pair attr_opts[] = {
     { "CONCEALED",  CONCEALED   }
 };
 
-/*
- * setprompt_usage
+/**
+ * setprompt_usage:
  *      print usage information for builtin command setprompt
  */
 static void setprompt_usage(void)
@@ -70,8 +70,8 @@ static void setprompt_usage(void)
     fprintf(stderr, "-v\t\tshow valid colors and attributes\n");
 }
 
-/*
- * build_colors
+/**
+ * build_colors:
  *      build ANSI escape sequence to set prompt colors
  */
 static void build_colors(void)
@@ -86,8 +86,8 @@ static void build_colors(void)
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
 }
 
-/*
- * set_prompt_fg
+/**
+ * set_prompt_fg:
  *      set prompt foreground color
  */
 static void set_prompt_fg(FG_COLOR fg)
@@ -95,8 +95,8 @@ static void set_prompt_fg(FG_COLOR fg)
     fg_color = fg;
 }
 
-/*
- * set_prompt_bg
+/**
+ * set_prompt_bg:
  *      set prompt background color
  */
 static void set_prompt_bg(BG_COLOR bg)
@@ -104,8 +104,8 @@ static void set_prompt_bg(BG_COLOR bg)
     bg_color = bg;
 }
 
-/*
- * set_prompt_attrib
+/**
+ * set_prompt_attrib:
  *      set text attributes for prompt
  */
 static void set_prompt_attr(COLOR_ATTRIB ca)
@@ -113,6 +113,10 @@ static void set_prompt_attr(COLOR_ATTRIB ca)
     attr = ca;
 }
 
+/**
+ * set_prompt
+ *      create the command prompt
+ */
 void set_prompt(int argc, char **argv)
 {
     int i = 0;
@@ -193,30 +197,30 @@ void set_prompt(int argc, char **argv)
     } while (nopt != -1);
 }
 
-/*
+/**
  * build_prompt:
  *      Builds the user's prompt displaying the current working directory.
  */
 void build_prompt(void)
 {
     char *cwd = NULL;
-    char prompt[MAXLINE];
+    char prompt[BUFSIZ];
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: build_prompt");
-        strncpy(prompt, "% ", MAXLINE);
+        strncpy(prompt, "% ", BUFSIZ);
     }
     else {
         if (opt_is_set(COLOR_PROMPT)) {
             build_colors();
-            strncpy(prompt, colors, MAXLINE);
-            strncat(prompt, cwd, MAXLINE);
-            strncat(prompt, RESET, MAXLINE);
-            strncat(prompt, "\n", MAXLINE);
+            strncpy(prompt, colors, BUFSIZ);
+            strncat(prompt, cwd, BUFSIZ);
+            strncat(prompt, RESET, BUFSIZ);
+            strncat(prompt, "\n", BUFSIZ);
             strncat(prompt, "% ", 3);
         }
         else {
-            strncpy(prompt, cwd, MAXLINE);
+            strncpy(prompt, cwd, BUFSIZ);
             strncat(prompt, "% ", 3);
         }
     }

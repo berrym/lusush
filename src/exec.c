@@ -1,4 +1,4 @@
-/*
+/**
  * exec.c - execute commands
  */
 
@@ -10,8 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #include "exec.h"
 #include "misc.h"
 #include "builtins.h"
@@ -19,7 +18,7 @@
 #include "opts.h"
 #include "prompt.h"
 
-/*
+/**
  * exec_cmd:
  *      wrapper function for exec_builtin_command and exec_external_cmd
  */
@@ -72,7 +71,7 @@ int exec_cmd(CMD *cmd, int cnt)
             break;
     }
 
-    cmd = psave1;                       // restore to inital offset
+    cmd = psave1;               // restore to inital offset
 
     /////////////////////////////////////////////////
     // Wait for processes to finish
@@ -102,7 +101,7 @@ int exec_cmd(CMD *cmd, int cnt)
     return 0;
 }
 
-/*
+/**
  * exec_external_cmd:
  *      execute an external command setting up pipes or redirection.
  */
@@ -127,7 +126,7 @@ int exec_external_cmd(CMD *cmd)
 
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            print_v("*** Creating pipe\n");
+            vprint("*** Creating pipe\n");
             pipe(cmd->fd);
         }
     }
@@ -150,7 +149,7 @@ int exec_external_cmd(CMD *cmd)
         if (cmd->pipe) {
             // There was a previous command in pipe chain
             if (cmd->prev && cmd->prev->pipe) {
-                print_v("*** Reading from parent pipe\n");
+                vprint("*** Reading from parent pipe\n");
                 dup2(cmd->prev->fd[0], STDIN_FILENO);
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
@@ -158,7 +157,7 @@ int exec_external_cmd(CMD *cmd)
 
             // There is a future command in pipe chain
             if (cmd->next && cmd->next->pipe) {
-                print_v("*** Writing to child pipe\n");
+                vprint("*** Writing to child pipe\n");
                 close(cmd->fd[0]);
                 dup2(cmd->fd[1], STDOUT_FILENO);
                 close(cmd->fd[1]);
@@ -202,7 +201,7 @@ int exec_external_cmd(CMD *cmd)
         // Call execve or one of it's wrappers
         /////////////////////////////////////////////////
 
-        print_v("calling execvp\n");
+        vprint("calling execvp\n");
         if (*cmd->argv != NULL) {
             execvp(cmd->argv[0], cmd->argv);
         }
@@ -212,9 +211,9 @@ int exec_external_cmd(CMD *cmd)
         break;
     default:                        // parent process
         // Close old pipe ends
-        if (cmd->pipe && !cmd->pchain_master) {
+        if (cmd->pipe && !cmd->pipe_head) {
             if (cmd->prev && cmd->prev->pipe) {
-                print_v("*** Closing old/unused pipe ends\n");
+                vprint("*** Closing old/unused pipe ends\n");
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
             }
@@ -223,13 +222,13 @@ int exec_external_cmd(CMD *cmd)
     }
 }
 
-/*
+/**
  * exec_builtin_cmd:
  *      execute builtin command number (cmdno) with the data in (cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    char *tmp = calloc(MAXLINE, sizeof(char*));
+    char *tmp = calloc(BUFSIZ, sizeof(char*));
     size_t i = 0;
 
     switch (cmdno) {
@@ -284,10 +283,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: alias: alias word replacement text\n");
         }
         else {
-            strncpy(tmp, cmd->argv[2], MAXLINE);
+            strncpy(tmp, cmd->argv[2], BUFSIZ);
             strncat(tmp, " ", 2);
             for (i=3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], MAXLINE);
+                strncat(tmp, cmd->argv[i], BUFSIZ);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
@@ -307,10 +306,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: setopt: setopt option\n");
         }
         else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0) {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZ) == 0) {
                 set_bool_opt(VERBOSE_PRINT, true);
             }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZ) == 0) {
                 set_bool_opt(COLOR_PROMPT, true);
             }
         }
@@ -320,10 +319,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: unsetopt: unsetopt option\n");
         }
         else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0) {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZ) == 0) {
                 set_bool_opt(VERBOSE_PRINT, false);
             }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZ) == 0) {
                 set_bool_opt(COLOR_PROMPT, false);
             }
         }
@@ -332,7 +331,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             set_prompt(cmd->argc, cmd->argv);
     }
 
-    memset(tmp, '\0', MAXLINE);
+    memset(tmp, '\0', BUFSIZ);
     free(tmp);
     tmp = NULL;
 }

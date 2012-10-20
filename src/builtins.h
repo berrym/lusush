@@ -1,5 +1,4 @@
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 
 #ifndef __BUILTINS_H__
 #define __BUILTINS_H__

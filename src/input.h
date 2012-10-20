@@ -1,6 +1,5 @@
 #include <stdio.h>
-#include "ldefs.h"
-#include "ltypes.h"
+#include "lusush.h"
 #ifdef USING_READLINE
 #include <readline/readline.h>
 #endif
