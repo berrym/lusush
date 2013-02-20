@@ -60,18 +60,35 @@ char *get_input(FILE *in, const char *prompt)
     char *tmp = calloc(BUFSIZ, sizeof(char*));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
-        if ((line_read = rl_gets(prompt)) == NULL)
+        if ((line_read = rl_gets(prompt)) == NULL) {
+            if (tmp) {
+                memset(tmp, '\0', BUFSIZ);
+                free(tmp);
+                tmp = NULL;
+            }
             return NULL;
+        }
     }
     else {
         if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
             perror("lusush: calloc");
+            if (tmp) {
+                memset(tmp, '\0', BUFSIZ);
+                free(tmp);
+                tmp = NULL;
+            }
             return NULL;
         }
 
-        if (fgets(line_read, BUFSIZ, in) == NULL)
+        if (fgets(line_read, BUFSIZ, in) == NULL) {            
+            if (tmp) {
+                memset(tmp, '\0', BUFSIZ);
+                free(tmp);
+                tmp = NULL;
+            }
             return NULL;
-
+        }
+        
         if (line_read[strlen(line_read) - 1] == '\n')
             line_read[strlen(line_read) - 1] = '\0';
     }
@@ -138,10 +155,23 @@ int do_line(char *line, CMD *cmd)
     //char tmp[BUFSIZ] = { '\0' };       // copy of line to mangle with strtok_r
     char *tmp = calloc(BUFSIZ, sizeof(char*));
 
-    if (!line)
+    if (!line) {
+        if (tmp) {
+            memset(tmp, '\0', BUFSIZ);
+            free(tmp);
+            tmp = NULL;
+        }
         return -1;
-    if (!*line)
+    }
+    
+    if (!*line) {
+        if (tmp) {
+            memset(tmp, '\0', BUFSIZ);
+            free(tmp);
+            tmp = NULL;
+        }
         return 0;
+    }
 
     strncpy(tmp, line, BUFSIZ);        // copy string
 
@@ -171,10 +201,16 @@ int do_line(char *line, CMD *cmd)
                 }
             }
 
-            if (cmdalloc(cmd) < 0)
+            if (cmdalloc(cmd) < 0) {
+                if (ptr1) {
+                    memset(ptr1, '\0', BUFSIZ);
+                    free(ptr1);
+                    ptr1 = NULL;
+                }
                 return -1;
+            }
 
-            strncpy(cmd->buf, subtok, BUFSIZ);     // Copy the string
+            strncpy(cmd->buf, subtok, strlen(cmd->buf));     // Copy the string
             timestamp_cmd(cmd);                     // date it
 
             if (j == 1) {

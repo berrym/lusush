@@ -8,7 +8,7 @@
 #include "lusush.h"
 #include "parse.h"
 
-// loop and counter variable
+// loop and counter variables
 static unsigned int i = 0;
 static unsigned int j = 0;
 static unsigned int lpos = 0;
