@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include "lusush.h"
 #include "cmdlist.h"
 
@@ -90,7 +89,7 @@ void cmdfree(CMD *cmd)
 void free_cmdlist(CMD *cmd)
 {
     CMD *tmp = NULL;
-
+    
     while (cmd->next) {
         cmd = cmd->next;
     }
@@ -117,7 +116,7 @@ void free_cmdlist(CMD *cmd)
  */
 void display_cmd(CMD *cmd)
 {
-    int i;
+    int i = 0;
 
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);
@@ -141,19 +140,4 @@ void display_cmd(CMD *cmd)
             ? cmd->ifname : "empty");
     printf("\tofname->%s\n", cmd->ofname
             ? cmd->ofname : "empty");
-}
-
-/**
- * timestamp_cmd:
- *      create a timestamp and put it in a command
- */
-void timestamp_cmd(CMD *cmd)
-{
-    time_t rawtime;
-    struct tm *timeinfo = NULL;
-    char *thetime = NULL;
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    thetime = asctime(timeinfo);
-    strncpy(cmd->timestamp, thetime, strlen(thetime));
 }

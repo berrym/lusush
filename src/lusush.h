@@ -9,10 +9,6 @@
 #define MAXLINE 4096        // maximum string length
 #define MAXHIST 10000       // maximum length of history
 
-#ifdef HAVE_LIBREADLINE
-#define USING_READLINE      // use GNU Readline
-#endif
-
 #ifdef HAVE__BOOL
 #include <stdbool.h>
 #else
@@ -30,7 +26,7 @@ typedef struct _CMD
     char **argv;                // arguments to pass to exec
     bool background;            // background process flag
     bool pipe;                  // pipe flag
-    bool pipe_head;             // parent command in pipe chain
+    bool pipe_head;             // head node in pipe chain
     int fd[2];                  // pipe filedescriptors
     bool iredir;                // input redirection flag
     bool oredir;                // output redirection flag

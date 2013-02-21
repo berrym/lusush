@@ -1,7 +1,7 @@
 /**
  * input.c - input routines
  */
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 #include <stdio.h>                  // Needed for readline history to compile
 #endif
 #include <stdlib.h>
@@ -20,7 +20,7 @@
 
 static char *line_read = NULL;      // storage for readline and fgets
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 /**
  * rl_gets:
  *      Read a string, and return a pointer to it.  Returns 0 on EOF.
@@ -56,7 +56,7 @@ char *get_input(FILE *in, const char *prompt)
         line_read = NULL;
     }
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
     char *tmp = calloc(BUFSIZ, sizeof(char*));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
@@ -143,7 +143,7 @@ char *get_input(FILE *in, const char *prompt)
 int do_line(char *line, CMD *cmd)
 {
     size_t cnt = 0;                     // Number of commands parsed
-    int ret = 0;                        // Storage for return values
+    int err = 0;                        // error code
     int i = 0, j = 0;                   // loop variables
     bool pipe = false;                  // pipe chain flag
 
@@ -151,26 +151,17 @@ int do_line(char *line, CMD *cmd)
     char *tok = NULL, *ptr1 = NULL, *savep1 = NULL;
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
-
-    //char tmp[BUFSIZ] = { '\0' };       // copy of line to mangle with strtok_r
+    // buffer for a copy of line to mangle with strtok_r
     char *tmp = calloc(BUFSIZ, sizeof(char*));
 
     if (!line) {
-        if (tmp) {
-            memset(tmp, '\0', BUFSIZ);
-            free(tmp);
-            tmp = NULL;
-        }
-        return -1;
+        err = -1;
+        goto cleanup;
     }
     
     if (!*line) {
-        if (tmp) {
-            memset(tmp, '\0', BUFSIZ);
-            free(tmp);
-            tmp = NULL;
-        }
-        return 0;
+        err = 0;
+        goto cleanup;
     }
 
     strncpy(tmp, line, BUFSIZ);        // copy string
@@ -202,16 +193,11 @@ int do_line(char *line, CMD *cmd)
             }
 
             if (cmdalloc(cmd) < 0) {
-                if (ptr1) {
-                    memset(ptr1, '\0', BUFSIZ);
-                    free(ptr1);
-                    ptr1 = NULL;
-                }
-                return -1;
+                err = -1;
+                goto cleanup;
             }
 
             strncpy(cmd->buf, subtok, strlen(cmd->buf));     // Copy the string
-            timestamp_cmd(cmd);                     // date it
 
             if (j == 1) {
                 vprint("****do pipe %s\n", subtok);
@@ -223,10 +209,10 @@ int do_line(char *line, CMD *cmd)
             if (pipe)
                 cmd->pipe = true;
 
-            switch (ret = parse_cmd(cmd, subtok)) {
+            switch (err = parse_cmd(cmd, subtok)) {
             case -1:
             case 0:
-                return ret;
+                goto cleanup;
             default:
                 cmd->next->prev = cmd;
                 cmd = cmd->next;
@@ -236,11 +222,30 @@ int do_line(char *line, CMD *cmd)
         }
     }
 
+ cleanup:
     if (tmp) {
         memset(tmp, '\0', BUFSIZ);
         free(tmp);
         tmp = NULL;
     }
 
-    return cnt;
+    if (ptr1) {
+        memset(ptr1, '\0', BUFSIZ);
+        free(ptr1);
+        ptr1 = NULL;
+    }
+
+    if (ptr2) {
+        memset(ptr2, '\0', BUFSIZ);
+        free(ptr2);
+        ptr2 = NULL;
+    }
+
+    switch (err) {
+    case -1:
+    case 0:
+        return err;
+    default:
+        return cnt;
+    }
 }

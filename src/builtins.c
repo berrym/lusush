@@ -114,7 +114,7 @@ void history(void)
 {
     int i;
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
     if ((hist_list = history_list())) {
         printf("Command history.\n");
         for (i = 0; hist_list[i]; i++) {

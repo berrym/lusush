@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include "lusush.h"
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
 #endif
 
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 extern char *rl_gets(const char *);
 #endif
 

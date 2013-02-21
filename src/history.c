@@ -12,7 +12,7 @@
 static char histfile[BUFSIZ] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
@@ -26,7 +26,7 @@ char hist_list[MAXHIST][BUFSIZ] = { "\0" };
  */
 int read_histfile(const char *histfile)
 {
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
     if (read_history(histfile) != 0) {
         perror("lusush: read_hist");
         return errno;
@@ -69,7 +69,7 @@ void init_history(void)
         return;
     }
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
     using_history();
     stifle_history(MAXHIST);
 #else
@@ -101,7 +101,7 @@ void init_history(void)
  */
 void write_histfile(const char *histfile)
 {
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
     write_history(histfile);
 #else
     int i = 0;

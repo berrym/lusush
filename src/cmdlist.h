@@ -7,6 +7,5 @@ extern int cmdalloc(CMD *);
 extern void cmdfree(CMD *);
 extern void free_cmdlist(CMD *);
 extern void display_cmd(CMD *);
-extern void timestamp_cmd(CMD *);
 
 #endif

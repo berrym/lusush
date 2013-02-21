@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include "lusush.h"
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 #include <readline/history.h>
 #endif
 
 #ifndef __HISTORY_H__
 #define __HISTORY_H__
 
-#ifdef USING_READLINE
+#ifdef HAVE_LIBREADLINE
 extern HIST_ENTRY **hist_list;
 #else
 extern long hist_size;
