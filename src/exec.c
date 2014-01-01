@@ -228,7 +228,7 @@ int exec_external_cmd(CMD *cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    char *tmp = calloc(BUFSIZ, sizeof(char*));
+    char *tmp = calloc(BUFSIZ, sizeof(char));
     size_t i = 0;
 
     switch (cmdno) {

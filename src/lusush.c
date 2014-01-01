@@ -51,7 +51,6 @@ int main(int argc, char **argv)
     int ret = 0;
     char *line = NULL;
     FILE *in = NULL;
-
     CMD *cmd = NULL;
 
     // Perform startup tasks

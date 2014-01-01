@@ -57,7 +57,7 @@ char *get_input(FILE *in, const char *prompt)
     }
 
 #ifdef HAVE_LIBREADLINE
-    char *tmp = calloc(BUFSIZ, sizeof(char*));
+    char *tmp = calloc(BUFSIZ, sizeof(char));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL) {
@@ -137,10 +137,10 @@ char *get_input(FILE *in, const char *prompt)
 
 /**
  * do_line:
- *      (line) is parsed and the information is stored in doubly linked list
+ *      (line) is parsed and the information is stored in a doubly linked list
  *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
  */
-int do_line(char *line, CMD *cmd)
+int do_line(char *restrict line, CMD *restrict cmd)
 {
     size_t cnt = 0;                     // Number of commands parsed
     int err = 0;                        // error code
@@ -152,7 +152,7 @@ int do_line(char *line, CMD *cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
     // buffer for a copy of line to mangle with strtok_r
-    char *tmp = calloc(BUFSIZ, sizeof(char*));
+    char *tmp = calloc(BUFSIZ, sizeof(char));
 
     if (!line) {
         err = -1;
@@ -229,11 +229,11 @@ int do_line(char *line, CMD *cmd)
         tmp = NULL;
     }
 
-    if (ptr1) {
-        memset(ptr1, '\0', BUFSIZ);
-        free(ptr1);
-        ptr1 = NULL;
-    }
+    /* if (ptr1) { */
+    /*     memset(ptr1, '\0', BUFSIZ); */
+    /*     free(ptr1); */
+    /*     ptr1 = NULL; */
+    /* } */
 
     if (ptr2) {
         memset(ptr2, '\0', BUFSIZ);

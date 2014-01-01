@@ -22,6 +22,7 @@ LUSUSH
 
     Basic installation can be achieved with the following commands.
 
+    ./autogen.sh
     ./configure
     make install
 

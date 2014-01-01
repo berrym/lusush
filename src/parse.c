@@ -13,6 +13,7 @@ static unsigned int i = 0;
 static unsigned int j = 0;
 static unsigned int lpos = 0;
 static unsigned int wpos = 0;
+static unsigned int qcnt = 0;
 
 // CMD flags effecting parser behavior
 static bool iredir = false;
@@ -62,6 +63,7 @@ int char_type(char c)
 int do_magic(char c)
 {
     char *home = NULL;
+    readreg = false;
 
     switch (c) {
     case '#':
@@ -131,11 +133,13 @@ int do_magic(char c)
         }
         break;
     case '"':
-        if (inquote)
+        if (inquote) {
             inquote = false;
-        else
+	}
+        else {
             inquote = true;
-        break;
+	}
+	return lpos;
     case '~':
         if (!(home = getenv("HOME"))) {
             cmd->argv[lpos][wpos] = c;
@@ -149,7 +153,6 @@ int do_magic(char c)
         break;
     }
  done:
-    lpos++;
     cmd->argv[lpos] = NULL;
     cmd->argc = lpos;
 
@@ -219,8 +222,7 @@ int do_whspc(char c)
  */
 int do_nchar(char c)
 {
-    if (!readreg)
-        readreg = true;
+    if (!readreg) readreg = true;
 
     if (cmd->iredir && iredir) {
         cmd->ifname[wpos] = c;
@@ -229,7 +231,7 @@ int do_nchar(char c)
         cmd->ofname[wpos] = c;
     }
     else {
-        cmd->argv[lpos][wpos] = c;
+	cmd->argv[lpos][wpos] = c;
     }
     wpos++;
 
