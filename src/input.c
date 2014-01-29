@@ -1,6 +1,32 @@
 /**
  * input.c - input routines
+ *
+ * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifdef HAVE_LIBREADLINE
 #include <stdio.h>                  // Needed for readline history to compile
 #endif
@@ -49,7 +75,7 @@ char *rl_gets(const char *prompt)
  * get_input:
  *      return a pointer to a line of user input, store line in history
  */
-char *get_input(FILE *in, const char *prompt)
+char *get_input(FILE *const restrict in, const char *const restrict prompt)
 {
     if (line_read) {
         free(line_read);
@@ -140,7 +166,7 @@ char *get_input(FILE *in, const char *prompt)
  *      (line) is parsed and the information is stored in a doubly linked list
  *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
  */
-int do_line(char *restrict line, CMD *restrict cmd)
+int do_line(const char *const restrict line, CMD *restrict cmd)
 {
     size_t cnt = 0;                     // Number of commands parsed
     int err = 0;                        // error code
