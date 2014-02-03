@@ -29,6 +29,7 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,9 @@ int init(int argc, char **argv)
     if (!argv) {
         exit(EXIT_FAILURE);
     }
+
+    // Set all locales according to environment
+    setlocale(LC_ALL, "");
 
     /*
      * Set up signal handlers
