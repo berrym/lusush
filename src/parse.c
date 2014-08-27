@@ -37,8 +37,8 @@
 // loop and counter variables
 static unsigned int i = 0;
 static unsigned int j = 0;
-static unsigned int lpos = 0;
 static unsigned int wpos = 0;
+static unsigned int cpos = 0;
 static unsigned int qcnt = 0;
 
 // CMD flags effecting parser behavior
@@ -57,7 +57,7 @@ static CMD *cmd = NULL;
  */
 int char_type(char c)
 {
-    int chtype = 0;
+    static int chtype = 0;
 
     switch (c) {
     case '#':
@@ -97,13 +97,13 @@ int do_magic(char c)
     case '#':
         if (!inquote) {
             if (iredir) {
-                cmd->ifname[wpos] = '\0';
+                cmd->ifname[cpos] = '\0';
             }
             else if (oredir) {
-                cmd->ofname[wpos] = '\0';
+                cmd->ofname[cpos] = '\0';
             }
             else {
-                cmd->argv[lpos][wpos] = '\0';
+                cmd->argv[wpos][cpos] = '\0';
             }
             goto done;
         }
@@ -114,14 +114,14 @@ int do_magic(char c)
             return -1;
         }
 
-        cmd->argv[lpos][wpos] = c;
-        wpos++;
+        cmd->argv[wpos][cpos] = c;
+        cpos++;
         break;
     case '&':
         if (!inquote) {
             cmd->background = true;
-            cmd->argv[lpos][wpos] = '\0';
-            lpos--;
+            cmd->argv[wpos][cpos] = '\0';
+            wpos--;
             goto done;
         }
 
@@ -131,18 +131,18 @@ int do_magic(char c)
             return -1;
         }
 
-        cmd->argv[lpos][wpos] = c;
-        wpos++;
+        cmd->argv[wpos][cpos] = c;
+        cpos++;
         break;
     case '<':
         if (!inquote) {
             cmd->iredir = true;
             iredir = true;
-            cmd->argv[lpos][wpos] = '\0';
+            cmd->argv[wpos][cpos] = '\0';
         }
         else {
-            cmd->argv[lpos][wpos] = c;
-            wpos++;
+            cmd->argv[wpos][cpos] = c;
+            cpos++;
         }
         break;
     case '>':
@@ -153,11 +153,11 @@ int do_magic(char c)
                 cmd->oredir_append = true;
                 i++;
             }
-            cmd->argv[lpos][wpos] = '\0';
+            cmd->argv[wpos][cpos] = '\0';
         }
         else {
-            cmd->argv[lpos][wpos] = c;
-            wpos++;
+            cmd->argv[wpos][cpos] = c;
+            cpos++;
         }
         break;
     case '"':
@@ -167,24 +167,24 @@ int do_magic(char c)
         else {
             inquote = true;
 	}
-	return lpos;
+	return wpos;
     case '~':
         if (!(home = getenv("HOME"))) {
-            cmd->argv[lpos][wpos] = c;
-            wpos++;
+            cmd->argv[wpos][cpos] = c;
+            cpos++;
         }
         else {
-            strncat(cmd->argv[lpos], home, strlen(home));
-            wpos += strlen(home);
+            strncat(cmd->argv[wpos], home, strlen(home));
+            cpos += strlen(home);
         }
         home = NULL;
         break;
     }
  done:
-    cmd->argv[lpos] = NULL;
-    cmd->argc = lpos;
+    cmd->argv[wpos] = NULL;
+    cmd->argc = wpos;
 
-    return lpos;  
+    return wpos;  
 }
 
 /**
@@ -199,8 +199,8 @@ int do_whspc(char c)
     case '\n':
     case '\r':
         if (inquote && !iredir && !oredir) {
-            cmd->argv[lpos][wpos] = c;
-            wpos++;
+            cmd->argv[wpos][cpos] = c;
+            cpos++;
             break;
         }
 
@@ -210,34 +210,34 @@ int do_whspc(char c)
         }
         i--;
 
-        if (!lpos && !readreg)
+        if (!wpos && !readreg)
             break;
 
         if (iredir) {
-            cmd->ifname[wpos] = '\0';
+            cmd->ifname[cpos] = '\0';
             iredir = false;
         }
         else if (oredir) {
-            cmd->ofname[wpos] = '\0';
+            cmd->ofname[cpos] = '\0';
             oredir = false;
         }
         else {
-            cmd->argv[lpos][wpos] = '\0';
+            cmd->argv[wpos][cpos] = '\0';
         }
-        lpos++;
-        wpos = 0;
+        wpos++;
+        cpos = 0;
         
-        cmd->argv[lpos] = calloc(BUFSIZ, sizeof(char));
-        if (cmd->argv[lpos] == NULL) {
+        cmd->argv[wpos] = calloc(BUFSIZ, sizeof(char));
+        if (cmd->argv[wpos] == NULL) {
             perror("lusush: calloc");
-            for (j = lpos - 1; ; j--) {
+            for (j = wpos - 1; ; j--) {
                 free(cmd->argv[j]);
                 cmd->argv[j] = NULL;
             }
             return -1;
         }
-        cmd->argv[lpos][wpos] = '\0';
-        cmd->argc = lpos+1;
+        cmd->argv[wpos][cpos] = '\0';
+        cmd->argc = wpos+1;
         break;
     }
 
@@ -253,15 +253,15 @@ int do_nchar(char c)
     if (!readreg) readreg = true;
 
     if (cmd->iredir && iredir) {
-        cmd->ifname[wpos] = c;
+        cmd->ifname[cpos] = c;
     }
     else if (cmd->oredir && oredir) {
-        cmd->ofname[wpos] = c;
+        cmd->ofname[cpos] = c;
     }
     else {
-	cmd->argv[lpos][wpos] = c;
+	cmd->argv[wpos][cpos] = c;
     }
-    wpos++;
+    cpos++;
 
     return c;
 }
@@ -290,7 +290,7 @@ int parse_cmd(CMD *cmd_ptr, char *const line_ptr)
     if (!*line)
         return 0;
 
-    i = j = lpos = wpos = 0;
+    i = j = wpos = cpos = 0;
     iredir = oredir = readreg = inquote = false;
 
     for (i = 0; i < strlen(line); i++) {
