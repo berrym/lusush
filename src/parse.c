@@ -193,53 +193,46 @@ int do_magic(char c)
  */
 int do_whspc(char c)
 {
-    switch (c) {
-    case ' ':
-    case '\t':
-    case '\n':
-    case '\r':
-        if (inquote && !iredir && !oredir) {
-            cmd->argv[wpos][cpos] = c;
-            cpos++;
-            break;
-        }
-
-        while (isspace((int)c)) {
-            i++;
-            c = line[i];
-        }
-        i--;
-
-        if (!wpos && !readreg)
-            break;
-
-        if (iredir) {
-            cmd->ifname[cpos] = '\0';
-            iredir = false;
-        }
-        else if (oredir) {
-            cmd->ofname[cpos] = '\0';
-            oredir = false;
-        }
-        else {
-            cmd->argv[wpos][cpos] = '\0';
-        }
-        wpos++;
-        cpos = 0;
-        
-        cmd->argv[wpos] = calloc(BUFSIZ, sizeof(char));
-        if (cmd->argv[wpos] == NULL) {
-            perror("lusush: calloc");
-            for (j = wpos - 1; ; j--) {
-                free(cmd->argv[j]);
-                cmd->argv[j] = NULL;
-            }
-            return -1;
-        }
-        cmd->argv[wpos][cpos] = '\0';
-        cmd->argc = wpos+1;
-        break;
+    if (inquote && !iredir && !oredir) {
+	cmd->argv[wpos][cpos] = c;
+	cpos++;
+	return c;
     }
+
+    while (isspace((int)c)) {
+	i++;
+	c = line[i];
+    }
+    i--;
+
+    if (!wpos && !readreg)
+	return 0;
+
+    if (iredir) {
+	cmd->ifname[cpos] = '\0';
+	iredir = false;
+    }
+    else if (oredir) {
+	cmd->ofname[cpos] = '\0';
+	oredir = false;
+    }
+    else {
+	cmd->argv[wpos][cpos] = '\0';
+    }
+    wpos++;
+    cpos = 0;
+        
+    cmd->argv[wpos] = calloc(BUFSIZ, sizeof(char));
+    if (cmd->argv[wpos] == NULL) {
+	perror("lusush: calloc");
+	for (j = wpos - 1; ; j--) {
+	    free(cmd->argv[j]);
+	    cmd->argv[j] = NULL;
+	}
+	return -1;
+    }
+    cmd->argv[wpos][cpos] = '\0';
+    cmd->argc = wpos+1;
 
     return c;
 }
