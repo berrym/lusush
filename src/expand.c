@@ -46,8 +46,8 @@ static char *expanded = NULL;
  */
 void expand(char *const line)
 {
-    char tmp[BUFSIZ] = { '\0' };
-    char prv[BUFSIZ] = { '\0' };
+    char tmp[BUFSIZE] = { '\0' };
+    char prv[BUFSIZE] = { '\0' };
     char *tok = NULL;
     char *ea = NULL;
 
@@ -58,13 +58,13 @@ void expand(char *const line)
         free(expanded);
     }
 
-    if ((expanded = calloc(BUFSIZ, sizeof(char))) == NULL) {
+    if ((expanded = calloc(BUFSIZE, sizeof(char))) == NULL) {
         perror("lusush: expand.c: expand");
         return;
     }
     *expanded = '\0';
 
-    strncpy(tmp, line, BUFSIZ);
+    strncpy(tmp, line, BUFSIZE);
 
     if (!(tok = strtok(tmp, " ")))
         return;
@@ -78,14 +78,14 @@ void expand(char *const line)
         } else {
             ea = expand_alias(tok);
             vprint("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
-            strncat(expanded, ea ? ea : tok, BUFSIZ);
+            strncat(expanded, ea ? ea : tok, BUFSIZE);
             strncat(expanded, " ", 2);
-            strncpy(prv, tok, BUFSIZ);
+            strncpy(prv, tok, BUFSIZE);
         };
         tok = strtok(NULL, " ");
     }
 
     vprint("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
-    strncpy(line, expanded, BUFSIZ);
+    strncpy(line, expanded, BUFSIZE);
 }

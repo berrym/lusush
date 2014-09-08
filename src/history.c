@@ -34,7 +34,7 @@
 #include "lusush.h"
 #include "history.h"
 
-static char histfile[BUFSIZ] = { '\0' };
+static char histfile[BUFSIZE] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
 #ifdef HAVE_LIBREADLINE
@@ -42,7 +42,7 @@ HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
 long hist_size = 0;
-char hist_list[MAXHIST][BUFSIZ] = { "\0" };
+char hist_list[MAXHIST][BUFSIZE] = { "\0" };
 #endif
 
 /**
@@ -66,7 +66,7 @@ int read_histfile(const char *const histfile)
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], BUFSIZ, histfp) == NULL) {
+        if (fgets(hist_list[i], BUFSIZE, histfp) == NULL) {
             break;
         }
 
@@ -107,7 +107,7 @@ void init_history(void)
     ENV_HOME = getenv("HOME");
 
     if (!*histfile) {
-        strncpy(histfile, ENV_HOME, BUFSIZ);
+        strncpy(histfile, ENV_HOME, BUFSIZE);
         strncat(histfile, "/.lusushist", 12);
     }
 

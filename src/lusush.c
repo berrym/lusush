@@ -46,7 +46,7 @@
 int main(int argc, char **argv)
 {
     char *ENV_PROMPT = NULL;
-    char ps1[BUFSIZ] = { '\0' };
+    char ps1[BUFSIZE] = { '\0' };
     bool bActive = true;
     int ret = 0;
     char *restrict line = NULL;
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
-        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", BUFSIZ);
+        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", BUFSIZE);
         line = get_input(in, ps1);
 
         // Handle the results of get_input

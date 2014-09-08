@@ -222,7 +222,7 @@ int do_whspc(char c)
     wpos++;
     cpos = 0;
         
-    cmd->argv[wpos] = calloc(BUFSIZ, sizeof(char));
+    cmd->argv[wpos] = calloc(BUFSIZE, sizeof(char));
     if (cmd->argv[wpos] == NULL) {
 	perror("lusush: calloc");
 	for (j = wpos - 1; ; j--) {

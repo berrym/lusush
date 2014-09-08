@@ -228,23 +228,23 @@ void set_prompt(int argc, char **argv)
 void build_prompt(void)
 {
     char *cwd = NULL;
-    char prompt[BUFSIZ];
+    char prompt[BUFSIZE];
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: build_prompt");
-        strncpy(prompt, "% ", BUFSIZ);
+        strncpy(prompt, "% ", BUFSIZE);
     }
     else {
         if (opt_is_set(COLOR_PROMPT)) {
             build_colors();
-            strncpy(prompt, colors, BUFSIZ);
-            strncat(prompt, cwd, BUFSIZ);
-            strncat(prompt, RESET, BUFSIZ);
-            strncat(prompt, "\n", BUFSIZ);
+            strncpy(prompt, colors, BUFSIZE);
+            strncat(prompt, cwd, BUFSIZE);
+            strncat(prompt, RESET, BUFSIZE);
+            strncat(prompt, "\n", BUFSIZE);
             strncat(prompt, "% ", 3);
         }
         else {
-            strncpy(prompt, cwd, BUFSIZ);
+            strncpy(prompt, cwd, BUFSIZE);
             strncat(prompt, "% ", 3);
         }
     }

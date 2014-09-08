@@ -83,12 +83,12 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     }
 
 #ifdef HAVE_LIBREADLINE
-    char *tmp = calloc(BUFSIZ, sizeof(char));
+    char *tmp = calloc(BUFSIZE, sizeof(char));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL) {
             if (tmp) {
-                memset(tmp, '\0', BUFSIZ);
+                memset(tmp, '\0', BUFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -96,19 +96,19 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         }
     }
     else {
-        if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
+        if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
             perror("lusush: calloc");
             if (tmp) {
-                memset(tmp, '\0', BUFSIZ);
+                memset(tmp, '\0', BUFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
             return NULL;
         }
 
-        if (fgets(line_read, BUFSIZ, in) == NULL) {            
+        if (fgets(line_read, BUFSIZE, in) == NULL) {            
             if (tmp) {
-                memset(tmp, '\0', BUFSIZ);
+                memset(tmp, '\0', BUFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -119,25 +119,25 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
             line_read[strlen(line_read) - 1] = '\0';
     }
 
-    strncpy(tmp, line_read, BUFSIZ);
+    strncpy(tmp, line_read, BUFSIZE);
     expand(tmp);
     vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
     if (strcmp(tmp, line_read) != 0) {
         free(line_read);
-        if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
+        if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
             perror("lusush: calloc");
             return NULL;
         }
-        strncpy(line_read, tmp, BUFSIZ);
+        strncpy(line_read, tmp, BUFSIZE);
     }
 
     if (tmp) {
-        memset(tmp, '\0', BUFSIZ);
+        memset(tmp, '\0', BUFSIZE);
         free(tmp);
         tmp = NULL;
     }
 #else
-    if ((line_read = calloc(BUFSIZ, sizeof(char))) == NULL) {
+    if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
         perror("lusush: calloc");
         return NULL;
     }
@@ -145,13 +145,13 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (SHELL_TYPE != NORMAL_SHELL)
         printf("%s", prompt);
 
-    if (fgets(line_read, BUFSIZ, in) == NULL)
+    if (fgets(line_read, BUFSIZE, in) == NULL)
         return NULL;
 
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    strncpy(hist_list[hist_size], line_read, BUFSIZ);
+    strncpy(hist_list[hist_size], line_read, BUFSIZE);
     hist_size++;
 
     expand(line_read);
@@ -178,7 +178,7 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
     // buffer for a copy of line to mangle with strtok_r
-    char *tmp = calloc(BUFSIZ, sizeof(char));
+    char *tmp = calloc(BUFSIZE, sizeof(char));
 
     if (!line) {
         err = -1;
@@ -190,7 +190,7 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
         goto cleanup;
     }
 
-    strncpy(tmp, line, BUFSIZ);        // copy string
+    strncpy(tmp, line, BUFSIZE);        // copy string
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
@@ -250,19 +250,19 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
 
  cleanup:
     if (tmp) {
-        memset(tmp, '\0', BUFSIZ);
+        memset(tmp, '\0', BUFSIZE);
         free(tmp);
         tmp = NULL;
     }
 
     /* if (ptr1) { */
-    /*     memset(ptr1, '\0', BUFSIZ); */
+    /*     memset(ptr1, '\0', BUFSIZE); */
     /*     free(ptr1); */
     /*     ptr1 = NULL; */
     /* } */
 
     if (ptr2) {
-        memset(ptr2, '\0', BUFSIZ);
+        memset(ptr2, '\0', BUFSIZE);
         free(ptr2);
         ptr2 = NULL;
     }

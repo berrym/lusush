@@ -142,9 +142,9 @@ void cd(const char *path)
  */
 void pwd(void)
 {
-    char cwd[BUFSIZ];
+    char cwd[BUFSIZE];
 
-    if (getcwd(cwd, BUFSIZ) == NULL)
+    if (getcwd(cwd, BUFSIZE) == NULL)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);

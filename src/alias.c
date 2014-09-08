@@ -37,8 +37,8 @@
 #define DBGSTR "DEBUG: alias.c: "
 
 typedef struct _alias {
-    char key[BUFSIZ];
-    char val[BUFSIZ];
+    char key[BUFSIZE];
+    char val[BUFSIZE];
 } ALIAS;
 
 static size_t MAX_ALIAS = 50;
@@ -121,8 +121,8 @@ static void free_alias(ALIAS *alias)
         return;
     }
 
-    memset(alias->key, 0, BUFSIZ);
-    memset(alias->key, 0, BUFSIZ);
+    memset(alias->key, 0, BUFSIZE);
+    memset(alias->key, 0, BUFSIZE);
     free(alias);
     alias = NULL;
 }
@@ -142,7 +142,7 @@ static ALIAS *lookup_alias(char *key)
 
     for (i = 0; i < MAX_ALIAS; i++) {
         if (*(alias_list + i)) {
-            if (strncmp(alias_list[i]->key, key, BUFSIZ) == 0) {
+            if (strncmp(alias_list[i]->key, key, BUFSIZE) == 0) {
                 vprint("%slookup_alias: found alias for %s\n",
                         DBGSTR, key);
                 return *(alias_list + i);

@@ -253,7 +253,7 @@ int exec_external_cmd(CMD *cmd)
  */
 void exec_builtin_cmd(int cmdno, CMD *cmd)
 {
-    char *tmp = calloc(BUFSIZ, sizeof(char));
+    char *tmp = calloc(BUFSIZE, sizeof(char));
     size_t i = 0;
 
     switch (cmdno) {
@@ -308,10 +308,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: alias: alias word replacement text\n");
         }
         else {
-            strncpy(tmp, cmd->argv[2], BUFSIZ);
+            strncpy(tmp, cmd->argv[2], BUFSIZE);
             strncat(tmp, " ", 2);
             for (i=3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], BUFSIZ);
+                strncat(tmp, cmd->argv[i], BUFSIZE);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
@@ -331,10 +331,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: setopt: setopt option\n");
         }
         else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZ) == 0) {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZE) == 0) {
                 set_bool_opt(VERBOSE_PRINT, true);
             }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZ) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZE) == 0) {
                 set_bool_opt(COLOR_PROMPT, true);
             }
         }
@@ -344,10 +344,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: unsetopt: unsetopt option\n");
         }
         else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZ) == 0) {
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZE) == 0) {
                 set_bool_opt(VERBOSE_PRINT, false);
             }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZ) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZE) == 0) {
                 set_bool_opt(COLOR_PROMPT, false);
             }
         }
@@ -356,7 +356,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             set_prompt(cmd->argc, cmd->argv);
     }
 
-    memset(tmp, '\0', BUFSIZ);
+    memset(tmp, '\0', BUFSIZE);
     free(tmp);
     tmp = NULL;
 }

@@ -55,7 +55,7 @@ int cmdalloc(CMD *cmd)
     *cmd->argv = NULL;
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(BUFSIZ, sizeof(char))) == NULL) {
+    if ((*cmd->argv = calloc(BUFSIZE, sizeof(char))) == NULL) {
         perror("lusush: calloc");
         return -1;
     }
