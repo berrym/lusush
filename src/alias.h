@@ -30,9 +30,21 @@
 #ifndef __ALIAS_H__
 #define __ALIAS_H__
 
+typedef struct _alias {
+    char key[BUFSIZE];
+    char val[BUFSIZE];
+    struct _alias *prev;
+    struct _alias *next;
+} ALIAS;
+
+int init_alias_list(void);
+ALIAS *alloc_alias();
+extern ALIAS *find_end(void);
+extern ALIAS *lookup_alias(char *);
 extern int set_alias(char *, char *);
 extern void unset_alias(char *);
 extern char *expand_alias(char *);
+
 extern void set_max_alias(size_t);
 extern void print_alias(void);
 

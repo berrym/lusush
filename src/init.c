@@ -39,11 +39,12 @@
 #include "history.h"
 #include "opts.h"
 #include "prompt.h"
+#include "alias.h"
 
 int SHELL_TYPE = 0;
 
 /**
- * init:
+ * init:i
  *      Performs initial tasks at shell startup.
  */
 int init(int argc, char **argv)
@@ -71,6 +72,13 @@ int init(int argc, char **argv)
     if (signal(SIGSEGV, sig_seg) == SIG_ERR) {
         fprintf(stderr, "lusush: signal error: %d\n", SIGSEGV);
         exit(EXIT_FAILURE);
+    }
+
+    // Set up aliases
+    int err;
+    if ((err = init_alias_list()) < 0) {
+	fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n",err);
+	exit(EXIT_FAILURE);
     }
 
     // Process command options

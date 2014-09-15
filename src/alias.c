@@ -36,215 +36,134 @@
 
 #define DBGSTR "DEBUG: alias.c: "
 
-typedef struct _alias {
-    char key[BUFSIZE];
-    char val[BUFSIZE];
-} ALIAS;
+static ALIAS *root_node = NULL;
+bool initialized = false;
 
-static size_t MAX_ALIAS = 50;
-static size_t alias_cnt = 0;
-static bool  initialized = false;
-static ALIAS **alias_list = NULL;
-
-/**
- * alloc_alias_list:
- *      allocate room on heap for alias_list
- */
-static int alloc_alias_list(void)
+int init_alias_list(void)
 {
-    if (alias_list) {
-        vprint("%salloc_alias_list: alias_list ALREADY allocd\n", DBGSTR);
-        return -1;
+    if (initialized)
+	return 0;
+
+    if ((root_node = alloc_alias()) == NULL) {
+	perror("lusuh: alias.c: alloc_alias_list");
+	return -1;
     }
 
-    if ((alias_list = calloc(MAX_ALIAS, sizeof(ALIAS *))) == NULL) {
-        perror("lusush: alias.c: alloc_alias_list");
-        return -1;
-    }
-    vprint("%salloc_alias_list: alias_list allocd\n", DBGSTR);
+    set_alias("h", "help");
+    print_alias();
+    vprint("%s init_alias_list: successful init_alias_list call\n", DBGSTR);
+    initialized = true;
 
     return 0;
 }
 
-/**
- * alloc_alias:
- *      allocate room on heap for aliases, using first availiable location
- */
-static ALIAS *alloc_alias(void)
+ALIAS *alloc_alias()
 {
-    size_t i = 0;
+    ALIAS *a, *last;
 
-    // check that memory has been allocated for list of aliases
-    if (!initialized) {
-        if (!alias_list) {
-            if (alloc_alias_list() < 0) {
-                return NULL;
-            }
-        }
-
-        *alias_list = calloc(1, sizeof(ALIAS));
-        if (!*alias_list) {
-            perror("lusush: alias.c: alloc_alias");
-            return NULL;
-        }
-        vprint("%salloc_alias: *alias_list allocd\n", DBGSTR);
-        initialized = true;
-    }
-    else {
-        for (i = 0; i < MAX_ALIAS; i++) {
-            if (!*(alias_list + i))
-                break;
-        }
-
-        // allocate memory for new alias
-        if ((*(alias_list + i) = calloc(1, sizeof(ALIAS))) == NULL) {
-            perror("lusush: alias.c");
-            return NULL;
-        }
-
-        vprint("%salloc_alias: *(alias_list + i) allocd\n", DBGSTR);
+    if ((a = calloc(1, sizeof(ALIAS))) == NULL) {
+	perror("lusush: alloc_alias: calloc");
+	return NULL;
     }
 
-    ++alias_cnt;
+    last = find_end();
 
-    return *(alias_list + i);
+    if (a != last)
+	a->prev = last;
+    else
+	a->prev = NULL;
+
+    a->next = NULL;
+
+    return a;
 }
 
-/**
- * free_alias:
- *      free memory allocated by an alias
- */
-static void free_alias(ALIAS *alias)
+/* int set_alias(ALIAS *a, char *key, char *val) */
+/* { */
+/*     strncpy(a->key, key, BUFSIZE); */
+/*     strncpy(a->val, val, BUFSIZE); */
+
+/*     a->next = calloc(1, sizeof(ALIAS)); */
+/*     b = find_end(); */
+/*     a->prev = b->next; */
+
+/*     return 0; */
+/* } */
+
+ALIAS *find_end(void)
 {
-    if (!alias) {
-        vprint("%sunset_alias: bad pointer\n", DBGSTR);
-        return;
+    ALIAS *a = root_node;
+
+    if (!root_node)
+      return NULL;
+
+    while (a->next) {
+	a = a->next;
     }
 
-    memset(alias->key, 0, BUFSIZE);
-    memset(alias->key, 0, BUFSIZE);
-    free(alias);
-    alias = NULL;
+    return a;
 }
 
-/**
- * lookup_alias:
- *      find an alias by it's key and return a pointer to it
- */
-static ALIAS *lookup_alias(char *key)
+ALIAS *lookup_alias(char *key)
 {
-    size_t i = 0;
-
-    if (!initialized) {
-        vprint("%slookup_alias: aliases not initialized\n", DBGSTR);
-        return NULL;
-    }
-
-    for (i = 0; i < MAX_ALIAS; i++) {
-        if (*(alias_list + i)) {
-            if (strncmp(alias_list[i]->key, key, BUFSIZE) == 0) {
-                vprint("%slookup_alias: found alias for %s\n",
-                        DBGSTR, key);
-                return *(alias_list + i);
-            }
-        }
-    }
-
-    vprint("%slookup_alias: did not find alias for %s\n", DBGSTR, key);
+    ALIAS *a = root_node;
+    do {
+	if (strcmp(a->key, key) == 0) {
+	    return a;
+	}
+	/* else { */
+	/*     return NULL; */
+	/* } */
+    } while (a->next);
 
     return NULL;
 }
 
-/**
- * expand_alias:
- *      return the expanded alias string value associated with key
- */
 char *expand_alias(char *key)
 {
-    ALIAS *alias = NULL;
-
-    alias = lookup_alias(key);
-
-    if (!alias) {
-        vprint("%sexpand_alias: unable to expand key=%s\n",
-                DBGSTR, key);
-        return NULL;
+    ALIAS *a;
+    if ((a = lookup_alias(key)) == NULL) {
+	return NULL;
     }
 
-    vprint("%sexpand_alias: expanded %s to %s\n",
-            DBGSTR, alias->key, alias->val);
-
-    return alias->val;
+    return a->val;
 }
 
-/**
- * set_alias:
- *    define a new alias
- */
 int set_alias(char *key, char *val)
 {
-    ALIAS *alias = NULL;
+    ALIAS *a;
 
-    if ((!key || !*key) || (!val || !*val)) {
-        fprintf(stderr, "lusush: set_alias: invalid paramter(s).\n");
-        return -1;
+    if ((a = lookup_alias(key)) != NULL) {
+	strncpy(key, a->key, BUFSIZE);
+	strncpy(val, a->val, BUFSIZE);
+	return 0;
     }
 
-    if (!(alias = lookup_alias(key)))
-        alias = alloc_alias();
-
-    if (!alias) {
-        vprint("%sset_alias: alias creation failed!\n", DBGSTR);
-        return -1;
+    a  = find_end();
+    ALIAS *newalias;;
+    if ((newalias = calloc(1, sizeof(ALIAS))) == NULL) {
+	perror("lusush: set_alias: calloc");
+	return -1;
     }
 
-    // set the new alias
-    strncpy(alias->key, key, strlen(key));
-    strncpy(alias->val, val, strlen(val));
-
-    vprint("%sset_alias: key=%s val=%s\n",
-            DBGSTR, alias->key, alias->val);
+    strncpy(newalias->key, key, BUFSIZE);
+    strncpy(newalias->val, val, BUFSIZE);
+    newalias->prev = a;
+    a->next = newalias;
+    vprint("%sset_alias: new alias set!\n", DBGSTR);
 
     return 0;
 }
 
-/**
- * unset_alias:
- *    remove an existing alias
- */
 void unset_alias(char *key)
 {
-    ALIAS *alias = NULL;
-
-    if (!key || !*key)
-        return;
-
-    if (!(alias = lookup_alias(key)))
-        return;
-
-    free_alias(alias);
 }
 
-/**
- * print_alias:
- *    display all existing alias
- */
-void print_alias(void)
+void print_alias ()
 {
-    int i = 0;
-
-    for (i = 0; i < MAX_ALIAS; i++) {
-        if (alias_list[i]) {
-            printf("\t%-16s\t%s\n", alias_list[i]->key, alias_list[i]->val);
-        }
+    ALIAS *a = root_node;
+    printf("aliases:\n");
+    while (a->next) {	printf("%s->%16s\n", a->key, a->val);
+	a = a->next;
     }
-}
-
-/**
- * set_max_alias:
- *    set the maximum number of definable aliases for runtime
- */
-void set_max_alias(size_t new_max)
-{
-    MAX_ALIAS = new_max;
 }
