@@ -41,18 +41,16 @@ bool initialized = false;
 
 int init_alias_list(void)
 {
-    if (initialized)
+    if (root_node)
 	return 0;
 
     if ((root_node = alloc_alias()) == NULL) {
-	perror("lusuh: alias.c: alloc_alias_list");
+	perror("lusush: alias.c: alloc_alias_list");
 	return -1;
     }
 
     set_alias("h", "help");
-    print_alias();
-    vprint("%s init_alias_list: successful init_alias_list call\n", DBGSTR);
-    initialized = true;
+    vprint("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
 
     return 0;
 }
@@ -78,18 +76,6 @@ ALIAS *alloc_alias()
     return a;
 }
 
-/* int set_alias(ALIAS *a, char *key, char *val) */
-/* { */
-/*     strncpy(a->key, key, BUFSIZE); */
-/*     strncpy(a->val, val, BUFSIZE); */
-
-/*     a->next = calloc(1, sizeof(ALIAS)); */
-/*     b = find_end(); */
-/*     a->prev = b->next; */
-
-/*     return 0; */
-/* } */
-
 ALIAS *find_end(void)
 {
     ALIAS *a = root_node;
@@ -97,8 +83,10 @@ ALIAS *find_end(void)
     if (!root_node)
       return NULL;
 
-    while (a->next) {
-	a = a->next;
+    if (a->next) {
+	while (a->next) {
+	    a = a->next;
+	}
     }
 
     return a;
@@ -107,14 +95,19 @@ ALIAS *find_end(void)
 ALIAS *lookup_alias(char *key)
 {
     ALIAS *a = root_node;
-    do {
-	if (strcmp(a->key, key) == 0) {
-	    return a;
-	}
-	/* else { */
-	/*     return NULL; */
-	/* } */
-    } while (a->next);
+    if (a && (a == root_node)) {
+	vprint("looking up aliases\n");
+	do {
+	    if (strcmp(a->key, key) == 0) {
+		return a;
+	    }
+	    if (a->next)
+		a = a->next;
+	} while (a->next);
+    }
+    else {
+	printf("%s: lookup_alias: not at root node\n", DBGSTR);
+    }
 
     return NULL;
 }
@@ -133,14 +126,22 @@ int set_alias(char *key, char *val)
 {
     ALIAS *a;
 
-    if ((a = lookup_alias(key)) != NULL) {
-	strncpy(key, a->key, BUFSIZE);
-	strncpy(val, a->val, BUFSIZE);
+    if (root_node && !initialized) {
+	vprint("%sset_alias: setting root alias node\n", DBGSTR);
+	strncpy(root_node->key, key, BUFSIZE);
+	strncpy(root_node->val, val, BUFSIZE);
+	initialized = true;
 	return 0;
     }
 
-    a  = find_end();
-    ALIAS *newalias;;
+    if ((a = lookup_alias(key))) {
+	vprint("%sset_alias: re-setting alias\n", DBGSTR);
+	strncpy(a->key, key, BUFSIZE);
+	strncpy(a->val, val, BUFSIZE);
+	return 0;
+    }
+
+    ALIAS *newalias;
     if ((newalias = calloc(1, sizeof(ALIAS))) == NULL) {
 	perror("lusush: set_alias: calloc");
 	return -1;
@@ -148,6 +149,8 @@ int set_alias(char *key, char *val)
 
     strncpy(newalias->key, key, BUFSIZE);
     strncpy(newalias->val, val, BUFSIZE);
+
+    a  = find_end();
     newalias->prev = a;
     a->next = newalias;
     vprint("%sset_alias: new alias set!\n", DBGSTR);
@@ -159,11 +162,12 @@ void unset_alias(char *key)
 {
 }
 
-void print_alias ()
+void print_alias()
 {
     ALIAS *a = root_node;
     printf("aliases:\n");
-    while (a->next) {	printf("%s->%16s\n", a->key, a->val);
+    do {
+	printf("%s->%16s\n", a->key, a->val);
 	a = a->next;
-    }
+    } while (a->next);
 }

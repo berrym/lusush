@@ -1,5 +1,5 @@
 /**
- * cmdlist.c - routines to work with doubly linked list
+ * cmdlist.c - routines to work with a doubly linked list of struct _CMD's.
  *
  * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -149,7 +149,6 @@ void display_cmd(CMD *cmd)
         printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
     }
     printf("\tbuf->%s\n", cmd->buf);
-    printf("\ttimestamp->%s", cmd->timestamp);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
     printf("\tpipe_head->%s\n", cmd->pipe_head
             ? "true" : "false");
