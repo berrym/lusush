@@ -32,14 +32,14 @@
 #ifndef __LUSUSH_H__
 #define __LUSUSH_H__
 
-#define BUFSIZE 4096		// size for internal buffers
+#define BUFSIZE 4096                // size for internal buffers
 
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4096        	// maximum string length
+#define MAXLINE 4096                // maximum string length
 
-#define MAXHIST 10000       	// maximum length of history
+#define MAXHIST 10000               // maximum length of history
 
 
 #ifdef HAVE__BOOL

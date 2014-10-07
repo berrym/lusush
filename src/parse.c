@@ -163,11 +163,11 @@ int do_magic(char c)
     case '"':
         if (inquote) {
             inquote = false;
-	}
+        }
         else {
             inquote = true;
-	}
-	return wpos;
+        }
+        return wpos;
     case '~':
         if (!(home = getenv("HOME"))) {
             cmd->argv[wpos][cpos] = c;
@@ -194,42 +194,42 @@ int do_magic(char c)
 int do_whspc(char c)
 {
     if (inquote && !iredir && !oredir) {
-	cmd->argv[wpos][cpos] = c;
-	cpos++;
-	return c;
+        cmd->argv[wpos][cpos] = c;
+        cpos++;
+        return c;
     }
 
     while (isspace((int)c)) {
-	i++;
-	c = line[i];
+        i++;
+        c = line[i];
     }
     i--;
 
     if (!wpos && !readreg)
-	return 0;
+        return 0;
 
     if (iredir) {
-	cmd->ifname[cpos] = '\0';
-	iredir = false;
+        cmd->ifname[cpos] = '\0';
+        iredir = false;
     }
     else if (oredir) {
-	cmd->ofname[cpos] = '\0';
-	oredir = false;
+        cmd->ofname[cpos] = '\0';
+        oredir = false;
     }
     else {
-	cmd->argv[wpos][cpos] = '\0';
+        cmd->argv[wpos][cpos] = '\0';
     }
     wpos++;
     cpos = 0;
         
     cmd->argv[wpos] = calloc(BUFSIZE, sizeof(char));
     if (cmd->argv[wpos] == NULL) {
-	perror("lusush: calloc");
-	for (j = wpos - 1; ; j--) {
-	    free(cmd->argv[j]);
-	    cmd->argv[j] = NULL;
-	}
-	return -1;
+        perror("lusush: calloc");
+        for (j = wpos - 1; ; j--) {
+            free(cmd->argv[j]);
+            cmd->argv[j] = NULL;
+        }
+        return -1;
     }
     cmd->argv[wpos][cpos] = '\0';
     cmd->argc = wpos+1;
@@ -252,7 +252,7 @@ int do_nchar(char c)
         cmd->ofname[cpos] = c;
     }
     else {
-	cmd->argv[wpos][cpos] = c;
+        cmd->argv[wpos][cpos] = c;
     }
     cpos++;
 

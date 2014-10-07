@@ -77,8 +77,8 @@ int init(int argc, char **argv)
     // Set up aliases
     int err;
     if ((err = init_alias_list()) < 0) {
-	fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n",err);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n",err);
+        exit(EXIT_FAILURE);
     }
 
     // Process command options

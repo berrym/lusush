@@ -302,7 +302,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
         break;
     case BUILTIN_CMD_ALIAS:
         if (cmd->argc == 1) {
-            print_alias();
+            print_alias_list();
         }
         else if (cmd->argc < 3) {
             fprintf(stderr, "lusush: alias: alias word replacement text\n");
@@ -314,6 +314,7 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 strncat(tmp, cmd->argv[i], BUFSIZE);
                 strncat(tmp, " ", 2);
             }
+            set_alias(cmd->argv[1], tmp);
             set_alias(cmd->argv[1], tmp);
             strncpy(tmp, "\0", 1);
         }
