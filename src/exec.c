@@ -315,7 +315,6 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
-            set_alias(cmd->argv[1], tmp);
             strncpy(tmp, "\0", 1);
         }
         break;

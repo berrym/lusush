@@ -144,12 +144,13 @@ int set_alias(char *key, char *val)
         return 0;
     }
 
-    ALIAS *newalias;
-    if ((newalias = calloc(1, sizeof(ALIAS))) == NULL) {
+    ALIAS *newalias = find_end();
+    if ((newalias->next = calloc(1, sizeof(ALIAS))) == NULL) {
         perror("lusush: set_alias: calloc");
         return -1;
     }
 
+    newalias = newalias->next;
     strncpy(newalias->key, key, BUFSIZE);
     strncpy(newalias->val, val, BUFSIZE);
 
