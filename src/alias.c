@@ -94,25 +94,15 @@ ALIAS *find_end(void)
 
 ALIAS *lookup_alias(char *key)
 {
-    if (!root_node)
-        return NULL;
+    ALIAS *curr, *prev = NULL;
 
-    ALIAS *a = root_node;
-    if (a && (a == root_node)) {
-        vprint("looking up aliases\n");
-        do {
-            if (strcmp(a->key, key) == 0) {
-                return a;
-            }
-            if (a->next)
-                a = a->next;
-        } while (a->next);
-    }
-    else {
-        printf("%s: lookup_alias: not at root node\n", DBGSTR);
+    for (curr = root_node; curr != NULL; prev = curr, curr = curr->next) {
+        if (strncmp(curr->key, key, BUFSIZE) == 0) {
+            return curr;
+        }
     }
 
-    return NULL;
+    return NULL;,
 }
 
 char *expand_alias(char *key)
