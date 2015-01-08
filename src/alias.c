@@ -36,16 +36,15 @@
 
 #define DBGSTR "DEBUG: alias.c: "
 
-static ALIAS *root_node = NULL;
-bool initialized = false;
+static ALIAS *head = NULL, *tail = NULL;
+static bool initialized = false;
 
 int init_alias_list(void)
 {
-    if (root_node)
+    if (head)
         return 0;
 
-    if ((root_node = alloc_alias()) == NULL) {
-        perror("lusush: alias.c: alloc_alias_list");
+    if ((head = alloc_alias()) == NULL) {
         return -1;
     }
 
@@ -57,96 +56,83 @@ int init_alias_list(void)
 
 ALIAS *alloc_alias()
 {
-    ALIAS *a, *last;
+    tail = find_end();
 
-    if ((a = calloc(1, sizeof(ALIAS))) == NULL) {
+    if ((tail = calloc(1, sizeof(ALIAS))) == NULL) {
         perror("lusush: alloc_alias: calloc");
         return NULL;
     }
 
-    last = find_end();
-
-    if (a != last)
-        a->prev = last;
-    else
-        a->prev = NULL;
-
-    a->next = NULL;
-
-    return a;
+    return tail;
 }
 
 ALIAS *find_end(void)
 {
-    if (!root_node)
+    if (!head)
         return NULL;
 
-    ALIAS *a = root_node;
+    ALIAS *curr = head;
 
-    if (a->next) {
-        while (a->next) {
-            a = a->next;
+    if (curr->next) {
+        while (curr->next) {
+            curr = curr->next;
         }
     }
 
-    return a;
+    return curr;
 }
 
 ALIAS *lookup_alias(char *key)
 {
-    ALIAS *curr, *prev = NULL;
+    ALIAS *curr = NULL, *prev = NULL;
 
-    for (curr = root_node; curr != NULL; prev = curr, curr = curr->next) {
+    for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
         if (strncmp(curr->key, key, BUFSIZE) == 0) {
             return curr;
         }
     }
 
-    return NULL;,
+    return NULL;
 }
 
 char *expand_alias(char *key)
 {
-    ALIAS *a;
-    if ((a = lookup_alias(key)) == NULL) {
+    ALIAS *curr;
+
+    if ((curr = lookup_alias(key)) == NULL) {
         return NULL;
     }
 
-    return a->val;
+    return curr->val;
 }
 
 int set_alias(char *key, char *val)
 {
-    ALIAS *a;
+    ALIAS *curr = NULL;
 
-    if (root_node && !initialized) {
-        vprint("%sset_alias: setting root alias node\n", DBGSTR);
-        strncpy(root_node->key, key, BUFSIZE);
-        strncpy(root_node->val, val, BUFSIZE);
+    if (head && !initialized) {
+        printf("%sset_alias: setting root alias node\n", DBGSTR);
+        strncpy(head->key, key, BUFSIZE);
+        strncpy(head->val, val, BUFSIZE);
         initialized = true;
         return 0;
     }
 
-    if ((a = lookup_alias(key))) {
-        vprint("%sset_alias: re-setting alias\n", DBGSTR);
-        strncpy(a->key, key, BUFSIZE);
-        strncpy(a->val, val, BUFSIZE);
+    if ((curr = lookup_alias(key))) {
+        printf("%sset_alias: re-setting alias\n", DBGSTR);
+        strncpy(curr->key, key, BUFSIZE);
+        strncpy(curr->val, val, BUFSIZE);
         return 0;
     }
 
-    ALIAS *newalias = find_end();
-    if ((newalias->next = calloc(1, sizeof(ALIAS))) == NULL) {
-        perror("lusush: set_alias: calloc");
+    curr = find_end();
+    if ((curr->next = alloc_alias()) == NULL) {
+        fprintf(stderr, "Unable to allocate newalias!\n");
         return -1;
     }
-
-    newalias = newalias->next;
-    strncpy(newalias->key, key, BUFSIZE);
-    strncpy(newalias->val, val, BUFSIZE);
-
-    a  = find_end();
-    newalias->prev = a;
-    a->next = newalias;
+    curr = curr->next;
+    strncpy(curr->key, key, BUFSIZE);
+    strncpy(curr->val, val, BUFSIZE);
     vprint("%sset_alias: new alias set!\n", DBGSTR);
 
     return 0;
@@ -154,14 +140,30 @@ int set_alias(char *key, char *val)
 
 void unset_alias(char *key)
 {
+    ALIAS *curr = NULL, *prev = NULL;
+
+    for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
+        if (strncmp(curr->key, key, BUFSIZE) == 0) {
+            if (prev == NULL) {
+                head = curr->next;
+            }
+            else {
+                prev->next = curr->next;
+            }
+
+            free(curr);
+
+            return;
+        }
+    }
 }
 
 void print_alias_list()
 {
-    ALIAS *a = root_node;
+    ALIAS *curr = head;
     printf("aliases:\n");
     do {
-        printf("%s->%16s\n", a->key, a->val);
-        a = a->next;
-    } while (a->next);
+        printf("%s->%16s\n", curr->key, curr->val);
+        curr = curr->next;
+    } while (curr->next);
 }
