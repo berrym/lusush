@@ -111,7 +111,7 @@ int set_alias(char *key, char *val)
     ALIAS *curr = NULL;
 
     if (head && !initialized) {
-        printf("%sset_alias: setting root alias node\n", DBGSTR);
+        vprint("%sset_alias: setting root alias node\n", DBGSTR);
         strncpy(head->key, key, BUFSIZE);
         strncpy(head->val, val, BUFSIZE);
         initialized = true;
@@ -119,7 +119,7 @@ int set_alias(char *key, char *val)
     }
 
     if ((curr = lookup_alias(key))) {
-        printf("%sset_alias: re-setting alias\n", DBGSTR);
+        vprint("%sset_alias: re-setting alias\n", DBGSTR);
         strncpy(curr->key, key, BUFSIZE);
         strncpy(curr->val, val, BUFSIZE);
         return 0;
