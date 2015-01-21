@@ -162,8 +162,8 @@ void print_alias_list()
 {
     ALIAS *curr = head;
     printf("aliases:\n");
-    do {
+    while (curr) {
         printf("%s->%16s\n", curr->key, curr->val);
         curr = curr->next;
-    } while (curr->next);
+    }
 }

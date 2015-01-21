@@ -285,6 +285,7 @@ int parse_cmd(CMD *cmd_ptr, char *const line_ptr)
 
     i = j = wpos = cpos = 0;
     iredir = oredir = readreg = inquote = false;
+    cmd->argc = 1;
 
     for (i = 0; i < strlen(line); i++) {
         c = line[i];
