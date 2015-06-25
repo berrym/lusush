@@ -1,7 +1,7 @@
 /**
  * init.c - startup and initialization routines
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,9 +52,8 @@ int init(int argc, char **argv)
     struct stat st;
     int optind = 0;
 
-    if (!argv) {
+    if (!argv)
         exit(EXIT_FAILURE);
-    }
 
     // Set all locales according to environment
     setlocale(LC_ALL, "");
@@ -77,7 +76,7 @@ int init(int argc, char **argv)
     // Set up aliases
     int err;
     if ((err = init_alias_list()) < 0) {
-        fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n",err);
+        fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n", err);
         exit(EXIT_FAILURE);
     }
 

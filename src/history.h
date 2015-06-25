@@ -1,7 +1,7 @@
 /**
  * history.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,6 @@
 
 #include <stdio.h>
 #include "lusush.h"
-
 #ifdef HAVE_LIBEDIT
 #include <editline/readline.h>
 #elif HAVE_LIBREADLINE
@@ -43,7 +42,7 @@
 extern HIST_ENTRY **hist_list;
 #else
 extern long hist_size;
-extern char hist_list[MAXHIST][BUFSIZE];
+extern char hist_list[MAXHIST][BUFFSIZE];
 #endif
 
 extern int read_histfile(const char *const);

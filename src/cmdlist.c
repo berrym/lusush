@@ -1,7 +1,7 @@
 /**
  * cmdlist.c - routines to work with a doubly linked list of struct _CMD's.
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,33 +35,30 @@
 
 /**
  * cmdalloc:
- *      allocs room on the heap for a struct _CMD pointed to by cmd, and
- *      allocs room for the pointer to pointer char argv in a struct _CMD.
+ *      allocates room on the heap for a struct command pointed to by cmd, and
+ *      allocates room for the pointer to pointer char argv in a struct command.
  */
-int cmdalloc(CMD *cmd)
+int cmdalloc(struct command *cmd)
 {
     // Allocate the next node
-    if ((cmd->next = calloc(1, sizeof(CMD))) == NULL) {
-        perror("lusush: calloc");
+    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL) {
+        perror("lusush: cmdlist.c: cmdalloc: calloc");
         return -1;
     }
 
     // Allocate pointer to pointer char
     if ((cmd->argv = calloc(1024, sizeof(char *))) == NULL) {
-        perror("lusush: calloc");
+        perror("lusush: cmdlist.c: cmdalloc: calloc");
         return -1;
     }
-
     *cmd->argv = NULL;
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(BUFSIZE, sizeof(char))) == NULL) {
-        perror("lusush: calloc");
+    if ((*cmd->argv = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+        perror("lusush: cmlist.c: cmdalloc: calloc");
         return -1;
     }
-    else {
-       **cmd->argv = '\0';  // initialize with null character
-    }
+    **cmd->argv = '\0';  // initialize with null character
 
     // Make sure everything is zero/null
     cmd->argc = 0;
@@ -80,7 +77,7 @@ int cmdalloc(CMD *cmd)
  *      frees the memory pointed to by cmd, including recursive 
  *      freeing of the strings in cmd->argv.
  */
-void cmdfree(CMD *cmd)
+void cmdfree(struct command *cmd)
 {
     int i;
 
@@ -111,13 +108,12 @@ void cmdfree(CMD *cmd)
  * free_cmdlist
  *      recursively free nodes in doubly linked list
  */
-void free_cmdlist(CMD *cmd)
+void free_cmdlist(struct command *cmd)
 {
-    CMD *tmp = NULL;
+    struct command *tmp = NULL;
     
-    while (cmd->next) {
+    while (cmd->next)
         cmd = cmd->next;
-    }
 
     while (cmd) {
         if (cmd->prev)
@@ -137,17 +133,16 @@ void free_cmdlist(CMD *cmd)
 
 /**
  * display_cmd:
- *      display details of a CMD
+ *      display details of a struct command
  */
-void display_cmd(CMD *cmd)
+void display_cmd(struct command *cmd)
 {
     int i = 0;
 
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);
-    for (i=0; i < cmd->argc; i++) {
+    for (i=0; i < cmd->argc; i++)
         printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
-    }
     printf("\tbuf->%s\n", cmd->buf);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
     printf("\tpipe_head->%s\n", cmd->pipe_head

@@ -47,12 +47,12 @@
  * exec_cmd:
  *      wrapper function for exec_builtin_command and exec_external_cmd
  */
-int exec_cmd(CMD *cmd, int cnt)
+int exec_cmd(struct command *cmd, int cnt)
 {
     int i;                      // loop variable
     int ret, status;            // return value, waitpid status
     int pids[cnt];              // array of pids to wait on
-    CMD *psave1;                // place holders in command history
+    struct command *psave1;                // place holders in command history
 
     psave1 = cmd;               // save current position in command history
 
@@ -130,7 +130,7 @@ int exec_cmd(CMD *cmd, int cnt)
  * exec_external_cmd:
  *      execute an external command setting up pipes or redirection.
  */
-int exec_external_cmd(CMD *cmd)
+int exec_external_cmd(struct command *cmd)
 {
     int j;
     pid_t pid;
@@ -163,7 +163,7 @@ int exec_external_cmd(CMD *cmd)
     pid = fork();
     switch (pid) {
     case -1:                    // fork error
-        perror("lusush: fork");
+        perror("lusush: exec.c: exec_external_command: fork");
         return -1;
     case 0:                     // child process
 
@@ -193,20 +193,16 @@ int exec_external_cmd(CMD *cmd)
         // Input redirection
         /////////////////////////////////////////////////
 
-        if (cmd->iredir) {
-            if (cmd->prev != NULL && cmd->prev->pipe) {
+        if (cmd->iredir)
+            if (cmd->prev != NULL && cmd->prev->pipe)
                 freopen(cmd->ifname, "r", stdin);
-            }
-        }
 
         /////////////////////////////////////////////////
         // Output redirection
         /////////////////////////////////////////////////
 
-        if (cmd->oredir && !cmd->pipe) {
-            freopen(cmd->ofname,
-                    cmd->oredir_append ? "a" : "w", stdout);
-        }
+        if (cmd->oredir && !cmd->pipe)
+            freopen(cmd->ofname, cmd->oredir_append ? "a" : "w", stdout);
 
         /////////////////////////////////////////////////
         // Background operation
@@ -227,9 +223,8 @@ int exec_external_cmd(CMD *cmd)
         /////////////////////////////////////////////////
 
         vprint("calling execvp\n");
-        if (*cmd->argv != NULL) {
+        if (*cmd->argv != NULL)
             execvp(cmd->argv[0], cmd->argv);
-        }
 
         fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
         exit(127);                  // exec shouldn't return ever
@@ -243,7 +238,8 @@ int exec_external_cmd(CMD *cmd)
                 close(cmd->prev->fd[1]);
             }
         }
-        return pid;                 // return the pid of to wait for
+
+        return pid;                 // return the pid to wait for
     }
 }
 
@@ -251,9 +247,9 @@ int exec_external_cmd(CMD *cmd)
  * exec_builtin_cmd:
  *      execute builtin command number (cmdno) with the data in (cmd)
  */
-void exec_builtin_cmd(int cmdno, CMD *cmd)
+void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
-    char *tmp = calloc(BUFSIZE, sizeof(char));
+    char *tmp = calloc(BUFFSIZE, sizeof(char));
     size_t i = 0;
 
     switch (cmdno) {
@@ -262,17 +258,14 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
         exit(EXIT_SUCCESS);
         break;
     case BUILTIN_CMD_HELP:
-        if (cmd->argv[1] && *cmd->argv[1]) {
+        if (cmd->argv[1] && *cmd->argv[1])
             help(cmd->argv[1]);
-        }
-        else {
+        else
             help(NULL);
-        }
         break;
     case BUILTIN_CMD_CD:
-        if (cmd->argv[1]) {
+        if (cmd->argv[1])
             cd(cmd->argv[1]);
-        }
         break;
     case BUILTIN_CMD_PWD:
         pwd();
@@ -281,24 +274,18 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
         history();
         break;
     case BUILTIN_CMD_SETENV:
-        if (cmd->argc != 3) {
+        if (cmd->argc != 3)
             fprintf(stderr, "lusush: setenv: takes two arguments\n");
-        }
-        else {
-            if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
+        else
+            if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0)
                 perror("lusush: setenv");
-            }
-        }
         break;
     case BUILTIN_CMD_UNSETENV:
-        if (cmd->argc != 2) {
+        if (cmd->argc != 2)
             fprintf(stderr, "lusush: unsetenv: takes one argument\n");
-        }
-        else {
-            if (unsetenv(cmd->argv[1]) < 0) {
+        else
+            if (unsetenv(cmd->argv[1]) < 0)
                 perror("lusush: unsetenv");
-            }
-        }
         break;
     case BUILTIN_CMD_ALIAS:
         if (cmd->argc == 1) {
@@ -308,10 +295,10 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
             fprintf(stderr, "lusush: alias: alias word replacement text\n");
         }
         else {
-            strncpy(tmp, cmd->argv[2], BUFSIZE);
+            strncpy(tmp, cmd->argv[2], BUFFSIZE);
             strncat(tmp, " ", 2);
             for (i=3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], BUFSIZE);
+                strncat(tmp, cmd->argv[i], BUFFSIZE);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
@@ -319,44 +306,34 @@ void exec_builtin_cmd(int cmdno, CMD *cmd)
         }
         break;
     case BUILTIN_CMD_UNALIAS:
-        if (cmd->argc != 2) {
+        if (cmd->argc != 2)
             fprintf(stderr, "lusush: unalias: unalias alias\n");
-        }
-        else {
+        else
             unset_alias(cmd->argv[1]);
-        }
         break;
     case BUILTIN_CMD_SETOPT:
-        if (cmd->argc != 2) {
+        if (cmd->argc != 2)
             fprintf(stderr, "lusush: setopt: setopt option\n");
-        }
-        else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZE) == 0) {
+        else
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
                 set_bool_opt(VERBOSE_PRINT, true);
-            }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZE) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFFSIZE) == 0)
                 set_bool_opt(COLOR_PROMPT, true);
-            }
-        }
         break;
     case BUILTIN_CMD_UNSETOPT:
-        if (cmd->argc != 2) {
+        if (cmd->argc != 2)
             fprintf(stderr, "lusush: unsetopt: unsetopt option\n");
-        }
-        else {
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFSIZE) == 0) {
+        else
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
                 set_bool_opt(VERBOSE_PRINT, false);
-            }
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFSIZE) == 0) {
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFFSIZE) == 0)
                 set_bool_opt(COLOR_PROMPT, false);
-            }
-        }
         break;
     case BUILTIN_CMD_SETPROMPT:
             set_prompt(cmd->argc, cmd->argv);
     }
 
-    memset(tmp, '\0', BUFSIZE);
+    memset(tmp, '\0', BUFFSIZE);
     free(tmp);
     tmp = NULL;
 }

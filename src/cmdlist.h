@@ -1,7 +1,7 @@
 /**
  * cmdlist.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,9 +32,9 @@
 #ifndef __CMDLIST_H__
 #define __CMDLIST_H__
 
-extern int cmdalloc(CMD *);
-extern void cmdfree(CMD *);
-extern void free_cmdlist(CMD *);
-extern void display_cmd(CMD *);
+extern int cmdalloc(struct command *);
+extern void cmdfree(struct command *);
+extern void free_cmdlist(struct command *);
+extern void display_cmd(struct command *);
 
 #endif

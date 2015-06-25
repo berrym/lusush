@@ -1,7 +1,7 @@
 /**
  * prompt.c - routines to build a prompt string
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,7 @@ static FG_COLOR fg_color = WHITE;
 static BG_COLOR bg_color = BG_BLUE;
 static COLOR_ATTRIB attr = OFF;
 
-struct opt_pair {
+static struct opt_pair {
     char key[15];
     int val;
 };
@@ -202,13 +202,12 @@ void set_prompt(int argc, char **argv)
             break;
         case 'v':
             printf("VALID COLORS:\n");
-            for (i = 0; i < 8; i++) {
+            for (i = 0; i < 8; i++)
                 printf("\t%s\n", fg_opts[i].key);
-            }
+
             printf("VALID ATTRIBUTES:\n");
-            for (i = 0; i < 6; i++) {
+            for (i = 0; i < 6; i++)
                 printf("\t%s\n", attr_opts[i].key);
-            }
             break;
         case '?':
             setprompt_usage();
@@ -228,23 +227,23 @@ void set_prompt(int argc, char **argv)
 void build_prompt(void)
 {
     char *cwd = NULL;
-    char prompt[BUFSIZE];
+    char prompt[BUFFSIZE];
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
-        perror("lusush: build_prompt");
-        strncpy(prompt, "% ", BUFSIZE);
+        perror("lusush: prompt.c: build_prompt");
+        strncpy(prompt, "% ", BUFFSIZE);
     }
     else {
         if (opt_is_set(COLOR_PROMPT)) {
             build_colors();
-            strncpy(prompt, colors, BUFSIZE);
-            strncat(prompt, cwd, BUFSIZE);
-            strncat(prompt, RESET, BUFSIZE);
-            strncat(prompt, "\n", BUFSIZE);
+            strncpy(prompt, colors, BUFFSIZE);
+            strncat(prompt, cwd, BUFFSIZE);
+            strncat(prompt, RESET, BUFFSIZE);
+            strncat(prompt, "\n", BUFFSIZE);
             strncat(prompt, "% ", 3);
         }
         else {
-            strncpy(prompt, cwd, BUFSIZE);
+            strncpy(prompt, cwd, BUFFSIZE);
             strncat(prompt, "% ", 3);
         }
     }

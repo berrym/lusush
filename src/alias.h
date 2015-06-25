@@ -11,7 +11,7 @@
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  *
-v * 2. Redistributions in binary form must reproduce the above copyright
+ * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
@@ -30,16 +30,16 @@ v * 2. Redistributions in binary form must reproduce the above copyright
 #ifndef __ALIAS_H__
 #define __ALIAS_H__
 
-typedef struct _alias {
-    char key[BUFSIZE];
-    char val[BUFSIZE];
-    struct _alias *next;
-} ALIAS;
+struct alias {
+    char key[BUFFSIZE];
+    char val[BUFFSIZE];
+    struct alias *next;
+};
 
 extern int init_alias_list(void);
-extern ALIAS *alloc_alias();
-extern ALIAS *find_end(void);
-extern ALIAS *lookup_alias(char *);
+extern struct alias *alloc_alias();
+extern struct alias *find_end(void);
+extern struct alias *lookup_alias(char *);
 extern int set_alias(char *, char *);
 extern void unset_alias(char *);
 extern char *expand_alias(char *);

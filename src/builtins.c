@@ -96,10 +96,9 @@ int is_builtin_cmd(const char *cmdname)
 {
     int i;
 
-    for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+    for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
         if (strcmp(cmdname, builtins[i]) == 0)
             return i;
-    }
 
     return -1;
 }
@@ -114,14 +113,12 @@ void help(const char *cmdname)
     int i;
     if (cmdname == NULL) {
         printf("Builtin commands:\n");
-        for (i = 0; i < BUILTIN_CMD_CNT; i += 2) {
+        for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
             printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-        }
     }
     else {
-        if ((i = is_builtin_cmd(cmdname)) != -1) {
+        if ((i = is_builtin_cmd(cmdname)) != -1)
             printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-        }
     }
 }
 
@@ -142,9 +139,9 @@ void cd(const char *path)
  */
 void pwd(void)
 {
-    char cwd[BUFSIZE];
+    char cwd[BUFFSIZE];
 
-    if (getcwd(cwd, BUFSIZE) == NULL)
+    if (getcwd(cwd, BUFFSIZE) == NULL)
         perror("lusush: getcwd");
     else
         printf("%s\n", cwd);
@@ -161,13 +158,11 @@ void history(void)
 #ifdef HAVE_LIBREADLINE
     if ((hist_list = history_list())) {
         printf("Command history.\n");
-        for (i = 0; hist_list[i]; i++) {
+        for (i = 0; hist_list[i]; i++)
             printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
-        }
     }
 #else
-    for (i = 0; i < MAXHIST && *hist_list[i]; i++) {
+    for (i = 0; i < MAXHIST && *hist_list[i]; i++)
         printf("%4d:\t%s\n", 1+i, hist_list[i]);
-    }
 #endif
 }

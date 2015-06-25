@@ -1,7 +1,7 @@
 /**
  * history.c - routines to work with cpmmand input history
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
 #include "lusush.h"
 #include "history.h"
 
-static char histfile[BUFSIZE] = { '\0' };
+static char histfile[BUFFSIZE] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
 #ifdef HAVE_LIBREADLINE
@@ -42,7 +42,7 @@ HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
 long hist_size = 0;
-char hist_list[MAXHIST][BUFSIZE] = { "\0" };
+char hist_list[MAXHIST][BUFFSIZE] = { "\0" };
 #endif
 
 /**
@@ -66,13 +66,11 @@ int read_histfile(const char *const histfile)
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], BUFSIZE, histfp) == NULL) {
+        if (fgets(hist_list[i], BUFFSIZE, histfp) == NULL)
             break;
-        }
 
-        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n') {
+        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
             hist_list[i][strlen(hist_list[i]) - 1] = '\0';
-        }
     }
 
     fclose(histfp);
@@ -107,13 +105,12 @@ void init_history(void)
     ENV_HOME = getenv("HOME");
 
     if (!*histfile) {
-        strncpy(histfile, ENV_HOME, BUFSIZE);
+        strncpy(histfile, ENV_HOME, BUFFSIZE);
         strncat(histfile, "/.lusushist", 12);
     }
 
-    if (read_histfile(histfile) != 0) {
+    if (read_histfile(histfile) != 0)
         return;
-    }
 
     HIST_INITIALIZED = true;
 
@@ -136,9 +133,8 @@ void write_histfile(const char *const histfile)
         return;
     }
 
-    for (i = 0; hist_list[i] && *hist_list[i]; i++) {
+    for (i = 0; hist_list[i] && *hist_list[i]; i++)
         fprintf(histfp, "%s\n", hist_list[i]);
-    }
 
     fclose(histfp);
 #endif

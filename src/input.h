@@ -1,7 +1,7 @@
 /**
  * input.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,6 @@
 extern char *rl_gets(const char *);
 #endif
 extern char *get_input(FILE *const restrict, const char *const restrict);
-extern int do_line(const char *const restrict, CMD *restrict);
+extern int do_line(const char *const restrict, struct command *restrict);
 
 #endif

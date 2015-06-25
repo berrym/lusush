@@ -1,7 +1,7 @@
 /**
  * input.c - input routines
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,12 +83,12 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     }
 
 #ifdef HAVE_LIBREADLINE
-    char *tmp = calloc(BUFSIZE, sizeof(char));
+    char *tmp = calloc(BUFFSIZE, sizeof(char));
     
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL) {
             if (tmp) {
-                memset(tmp, '\0', BUFSIZE);
+                memset(tmp, '\0', BUFFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -96,19 +96,19 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         }
     }
     else {
-        if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
-            perror("lusush: calloc");
+        if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+            perror("lusush: input.c: get_input: calloc");
             if (tmp) {
-                memset(tmp, '\0', BUFSIZE);
+                memset(tmp, '\0', BUFFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
             return NULL;
         }
 
-        if (fgets(line_read, BUFSIZE, in) == NULL) {            
+        if (fgets(line_read, BUFFSIZE, in) == NULL) {            
             if (tmp) {
-                memset(tmp, '\0', BUFSIZE);
+                memset(tmp, '\0', BUFFSIZE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -119,39 +119,39 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
             line_read[strlen(line_read) - 1] = '\0';
     }
 
-    strncpy(tmp, line_read, BUFSIZE);
+    strncpy(tmp, line_read, BUFFSIZE);
     expand(tmp);
     vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
     if (strcmp(tmp, line_read) != 0) {
         free(line_read);
-        if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
-            perror("lusush: calloc");
+        if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+            perror("lusush: input.c: get_input: calloc");
             return NULL;
         }
-        strncpy(line_read, tmp, BUFSIZE);
+        strncpy(line_read, tmp, BUFFSIZE);
     }
 
     if (tmp) {
-        memset(tmp, '\0', BUFSIZE);
+        memset(tmp, '\0', BUFFSIZE);
         free(tmp);
         tmp = NULL;
     }
 #else
-    if ((line_read = calloc(BUFSIZE, sizeof(char))) == NULL) {
-        perror("lusush: calloc");
+    if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+        perror("lusush: input.c: get_input: calloc");
         return NULL;
     }
 
     if (SHELL_TYPE != NORMAL_SHELL)
         printf("%s", prompt);
 
-    if (fgets(line_read, BUFSIZE, in) == NULL)
+    if (fgets(line_read, BUFFSIZE, in) == NULL)
         return NULL;
 
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    strncpy(hist_list[hist_size], line_read, BUFSIZE);
+    strncpy(hist_list[hist_size], line_read, BUFFSIZE);
     hist_size++;
 
     expand(line_read);
@@ -166,7 +166,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
  *      (line) is parsed and the information is stored in a doubly linked list
  *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
  */
-int do_line(const char *const restrict line, CMD *restrict cmd)
+int do_line(const char *const restrict line, struct command *restrict cmd)
 {
     size_t cnt = 0;                     // Number of commands parsed
     int err = 0;                        // error code
@@ -178,7 +178,7 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
     // buffer for a copy of line to mangle with strtok_r
-    char *tmp = calloc(BUFSIZE, sizeof(char));
+    char *tmp = calloc(BUFFSIZE, sizeof(char));
 
     if (!line) {
         err = -1;
@@ -190,18 +190,16 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
         goto cleanup;
     }
 
-    strncpy(tmp, line, BUFSIZE);        // copy string
+    strncpy(tmp, line, BUFFSIZE);        // copy string
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
             break;
 
         // Remove trailing whitespace
-        if (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1])) {
-            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1])) {
+        if (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]))
+            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]))
                 tok[strlen(tok) - 1] = '\0';
-            }
-        }
 
         for (j = 0, ptr2 = tok ;; j++, ptr2 = 0) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
@@ -213,9 +211,8 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
             if (strlen(subtok) >= 1 &&
                 isspace((int)subtok[strlen(subtok) - 1])) {
                 while (strlen(subtok) >= 1 &&
-                       isspace((int)subtok[strlen(subtok) - 1])) {
+                       isspace((int)subtok[strlen(subtok) - 1]))
                     subtok[strlen(subtok) - 1] = '\0';
-                }
             }
 
             if (cmdalloc(cmd) < 0) {
@@ -250,19 +247,19 @@ int do_line(const char *const restrict line, CMD *restrict cmd)
 
  cleanup:
     if (tmp) {
-        memset(tmp, '\0', BUFSIZE);
+        memset(tmp, '\0', BUFFSIZE);
         free(tmp);
         tmp = NULL;
     }
 
     /* if (ptr1) { */
-    /*     memset(ptr1, '\0', BUFSIZE); */
+    /*     memset(ptr1, '\0', BUFFSIZE); */
     /*     free(ptr1); */
     /*     ptr1 = NULL; */
     /* } */
 
     if (ptr2) {
-        memset(ptr2, '\0', BUFSIZE);
+        memset(ptr2, '\0', BUFFSIZE);
         free(ptr2);
         ptr2 = NULL;
     }

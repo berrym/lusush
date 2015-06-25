@@ -32,7 +32,10 @@
 #ifndef __LUSUSH_H__
 #define __LUSUSH_H__
 
-#define BUFSIZE 4096                // size for internal buffers
+#ifdef BUFFSIZE
+#undef BUFFSIZE
+#endif
+#define BUFFSIZE 4096                // size for internal buffers
 
 #ifdef MAXLINE
 #undef MAXLINE
@@ -51,7 +54,7 @@ typedef enum { false = 0, true = 1 } bool;
 /**
  * Doubly linked list of commands to pass to exec
  */
-typedef struct _CMD
+struct command
 {
     char buf[MAXLINE];          // null terminated user input
     char timestamp[60];         // timestamp
@@ -66,8 +69,8 @@ typedef struct _CMD
     bool oredir_append;         // output redirection opens file to append
     char ifname[MAXLINE];       // input filename - if redirect set
     char ofname[MAXLINE];       // output filename - if redirect set
-    struct _CMD *next;          // next command
-    struct _CMD *prev;          // previous command
-} CMD;
+    struct command *next;       // next command
+    struct command *prev;       // previous command
+};
 
 #endif

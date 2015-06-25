@@ -1,7 +1,7 @@
 /**
  * lusush.c - LUSUs' SHell
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,21 +46,21 @@
 int main(int argc, char **argv)
 {
     char *ENV_PROMPT = NULL;
-    char ps1[BUFSIZE] = { '\0' };
+    char ps1[BUFFSIZE] = { '\0' };
     bool bActive = true;
     int ret = 0;
     char *restrict line = NULL;
     FILE *restrict in = NULL;
-    CMD *restrict cmd = NULL;
+    struct command *restrict cmd = NULL;
 
     // Perform startup tasks
     init(argc, argv);
 
     // Open input stream
     if (SHELL_TYPE == NORMAL_SHELL) {
-        // open the file stream with in pointing to it
+        // Open the file stream with in pointing to it
         if ((in = fopen(argv[1], "r")) == NULL) {
-            perror("lusush: fopen");
+            perror("lusush: lusush.c: main: fopen");
             exit(EXIT_FAILURE);
         }
     }
@@ -72,14 +72,14 @@ int main(int argc, char **argv)
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
-        if ((cmd = calloc(1, sizeof(CMD))) == NULL) {
-            perror("lusush: calloc");
+        if ((cmd = calloc(1, sizeof(struct command))) == NULL) {
+            perror("lusush: lusush.c: main: calloc");
             exit(EXIT_FAILURE);
         }
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
-        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", BUFSIZE);
+        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", BUFFSIZE);
         line = get_input(in, ps1);
 
         // Handle the results of get_input
@@ -96,11 +96,9 @@ int main(int argc, char **argv)
             vprint("ret (at) main --> %d\n", ret);
 
             // Execute the number of commands parsed by get_input (ret)
-            if (exec_cmd(cmd, ret) < ret) {
-                while (cmd->next) {
+            if (exec_cmd(cmd, ret) < ret)
+                while (cmd->next)
                     cmd = cmd->next;
-                }
-            }
 
             free_cmdlist(cmd);
             break;
@@ -109,9 +107,8 @@ int main(int argc, char **argv)
 
     write_histfile(histfilename());
 
-    if (SHELL_TYPE != NORMAL_SHELL) {
+    if (SHELL_TYPE != NORMAL_SHELL)
         printf("\n");
-    }
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }

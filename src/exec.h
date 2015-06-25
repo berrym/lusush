@@ -1,7 +1,7 @@
 /**
  * exec.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@
 #ifndef __EXEC_H__
 #define __EXEC_H__
 
-extern int exec_cmd(CMD *, int);
-extern int exec_external_cmd(CMD *);
-extern void exec_builtin_cmd(int, CMD *);
+extern int exec_cmd(struct command *, int);
+extern int exec_external_cmd(struct command *);
+extern void exec_builtin_cmd(int, struct command *);
 
 #endif

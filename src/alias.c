@@ -1,7 +1,7 @@
 /**
  * alias.c - alias implementation routines
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 
 #define DBGSTR "DEBUG: alias.c: "
 
-static ALIAS *head = NULL, *tail = NULL;
+static struct alias *head = NULL, *tail = NULL;
 static bool initialized = false;
 
 int init_alias_list(void)
@@ -44,9 +44,8 @@ int init_alias_list(void)
     if (head)
         return 0;
 
-    if ((head = alloc_alias()) == NULL) {
+    if ((head = alloc_alias()) == NULL)
         return -1;
-    }
 
     set_alias("h", "help");
     vprint("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
@@ -54,11 +53,11 @@ int init_alias_list(void)
     return 0;
 }
 
-ALIAS *alloc_alias()
+struct alias *alloc_alias()
 {
     tail = find_end();
 
-    if ((tail = calloc(1, sizeof(ALIAS))) == NULL) {
+    if ((tail = calloc(1, sizeof(struct alias))) == NULL) {
         perror("lusush: alloc_alias: calloc");
         return NULL;
     }
@@ -66,73 +65,66 @@ ALIAS *alloc_alias()
     return tail;
 }
 
-ALIAS *find_end(void)
+struct alias *find_end(void)
 {
     if (!head)
         return NULL;
 
-    ALIAS *curr = head;
+    struct alias *curr = head;
 
-    if (curr->next) {
-        while (curr->next) {
+    if (curr->next)
+        while (curr->next)
             curr = curr->next;
-        }
-    }
 
     return curr;
 }
 
-ALIAS *lookup_alias(char *key)
+struct alias *lookup_alias(char *key)
 {
-    ALIAS *curr = NULL, *prev = NULL;
+    struct alias *curr = NULL, *prev = NULL;
 
-    for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
-        if (strncmp(curr->key, key, BUFSIZE) == 0) {
+    for (curr = head; curr != NULL; prev = curr, curr = curr->next)
+        if (strncmp(curr->key, key, BUFFSIZE) == 0)
             return curr;
-        }
-    }
 
     return NULL;
 }
 
 char *expand_alias(char *key)
 {
-    ALIAS *curr;
+    struct alias *curr = NULL;
 
-    if ((curr = lookup_alias(key)) == NULL) {
+    if ((curr = lookup_alias(key)) == NULL)
         return NULL;
-    }
 
     return curr->val;
 }
 
 int set_alias(char *key, char *val)
 {
-    ALIAS *curr = NULL;
+    struct alias *curr = NULL;
 
     if (head && !initialized) {
         vprint("%sset_alias: setting root alias node\n", DBGSTR);
-        strncpy(head->key, key, BUFSIZE);
-        strncpy(head->val, val, BUFSIZE);
+        strncpy(head->key, key, BUFFSIZE);
+        strncpy(head->val, val, BUFFSIZE);
         initialized = true;
         return 0;
     }
 
     if ((curr = lookup_alias(key))) {
         vprint("%sset_alias: re-setting alias\n", DBGSTR);
-        strncpy(curr->key, key, BUFSIZE);
-        strncpy(curr->val, val, BUFSIZE);
+        strncpy(curr->key, key, BUFFSIZE);
+        strncpy(curr->val, val, BUFFSIZE);
         return 0;
     }
 
     curr = find_end();
-    if ((curr->next = alloc_alias()) == NULL) {
-        fprintf(stderr, "Unable to allocate newalias!\n");
+    if ((curr->next = alloc_alias()) == NULL)
         return -1;
-    }
     curr = curr->next;
-    strncpy(curr->key, key, BUFSIZE);
-    strncpy(curr->val, val, BUFSIZE);
+    strncpy(curr->key, key, BUFFSIZE);
+    strncpy(curr->val, val, BUFFSIZE);
     vprint("%sset_alias: new alias set!\n", DBGSTR);
 
     return 0;
@@ -140,19 +132,17 @@ int set_alias(char *key, char *val)
 
 void unset_alias(char *key)
 {
-    ALIAS *curr = NULL, *prev = NULL;
+    struct alias *curr = NULL, *prev = NULL;
 
     for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
-        if (strncmp(curr->key, key, BUFSIZE) == 0) {
-            if (prev == NULL) {
+        if (strncmp(curr->key, key, BUFFSIZE) == 0) {
+            if (prev == NULL)
                 head = curr->next;
-            }
-            else {
+            else
                 prev->next = curr->next;
-            }
 
             free(curr);
-
+	    curr = NULL;
             return;
         }
     }
@@ -160,7 +150,8 @@ void unset_alias(char *key)
 
 void print_alias_list()
 {
-    ALIAS *curr = head;
+    struct alias *curr = head;
+
     printf("aliases:\n");
     while (curr) {
         printf("%s->%16s\n", curr->key, curr->val);

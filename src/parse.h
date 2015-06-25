@@ -1,7 +1,7 @@
 /**
  * parse.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@ extern int char_type(char);
 extern int do_magic(char);
 extern int do_whspc(char);
 extern int do_nchar(char);
-extern int parse_cmd(CMD *, char *const);
+extern int parse_cmd(struct command *, char *const);
 
 enum {
     IS_MAGIC,                   /* magic character */

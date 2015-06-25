@@ -1,7 +1,7 @@
 /**
  * parse.c - command parser
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ static unsigned int wpos = 0;
 static unsigned int cpos = 0;
 static unsigned int qcnt = 0;
 
-// CMD flags effecting parser behavior
+// command flags effecting parser behavior
 static bool iredir = false;
 static bool oredir = false;
 static bool readreg = false;
@@ -49,7 +49,7 @@ static bool inquote = false;
 
 // input buffers
 static char *line = NULL;
-static CMD *cmd = NULL;
+static struct command *cmd = NULL;
 
 /**
  * char_type:
@@ -95,18 +95,15 @@ int do_magic(char c)
 
     switch (c) {
     case '#':
-        if (!inquote) {
-            if (iredir) {
+	if (!inquote) {
+            if (iredir)
                 cmd->ifname[cpos] = '\0';
-            }
-            else if (oredir) {
+            else if (oredir)
                 cmd->ofname[cpos] = '\0';
-            }
-            else {
+            else
                 cmd->argv[wpos][cpos] = '\0';
-            }
             goto done;
-        }
+	}
 
         if (iredir || oredir) {
             fprintf(stderr, "lusush: error near character " \
@@ -161,12 +158,10 @@ int do_magic(char c)
         }
         break;
     case '"':
-        if (inquote) {
+        if (inquote)
             inquote = false;
-        }
-        else {
+        else
             inquote = true;
-        }
         return wpos;
     case '~':
         if (!(home = getenv("HOME"))) {
@@ -222,7 +217,7 @@ int do_whspc(char c)
     wpos++;
     cpos = 0;
         
-    cmd->argv[wpos] = calloc(BUFSIZE, sizeof(char));
+    cmd->argv[wpos] = calloc(BUFFSIZE, sizeof(char));
     if (cmd->argv[wpos] == NULL) {
         perror("lusush: calloc");
         for (j = wpos - 1; ; j--) {
@@ -243,17 +238,16 @@ int do_whspc(char c)
  */
 int do_nchar(char c)
 {
-    if (!readreg) readreg = true;
+    if (!readreg)
+	readreg = true;
 
-    if (cmd->iredir && iredir) {
+    if (cmd->iredir && iredir)
         cmd->ifname[cpos] = c;
-    }
-    else if (cmd->oredir && oredir) {
+    else if (cmd->oredir && oredir)
         cmd->ofname[cpos] = c;
-    }
-    else {
+    else
         cmd->argv[wpos][cpos] = c;
-    }
+
     cpos++;
 
     return c;
@@ -264,13 +258,13 @@ int do_nchar(char c)
  *       Given a string of input parse_cmd will seperate words by whitespace
  *       and place each individual word into it's own string inside of a pointer
  *       to pointer char, called argv, which should already be initialized.
- *       parse_cmd __DOES NOT__ alloc cmd->argv, only additional strings.
+ *       parse_cmd __DOES NOT__ call alloc on cmd->argv, only additional strings.
  *       Special characters like &, <, and > have special cases and are dealt
  *       with according to their meaning, setting appropriate flags and filling
  *       appropriate buffers with information.  Individual words are also
  *       checked for expansions such as alias expansion.
  */
-int parse_cmd(CMD *cmd_ptr, char *const line_ptr)
+int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 {
     int ret = 0;
     char c;
@@ -292,20 +286,16 @@ int parse_cmd(CMD *cmd_ptr, char *const line_ptr)
 
         switch (char_type(c)) {
         case IS_MAGIC:
-            if ((ret = do_magic(c)) == -1) {
+            if ((ret = do_magic(c)) == -1)
                 return ret;
-            }
             break;
         case IS_WHSPC:
-            if ((ret = do_whspc(c)) == -1) {
+            if ((ret = do_whspc(c)) == -1)
                 return ret;
-            }
             break;
         case IS_NCHAR:
-            if ((ret = do_nchar(c)) == -1) {
+            if ((ret = do_nchar(c)) == -1)
                 return ret;
-            }
-            break;
         default:
             break;
         }

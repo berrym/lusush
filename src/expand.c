@@ -1,7 +1,7 @@
 /**
  * expand.c - input expansion routines for lusush
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,25 +46,24 @@ static char *expanded = NULL;
  */
 void expand(char *const line)
 {
-    char tmp[BUFSIZE] = { '\0' };
-    char prv[BUFSIZE] = { '\0' };
+    char tmp[BUFFSIZE] = { '\0' };
+    char prv[BUFFSIZE] = { '\0' };
     char *tok = NULL;
     char *ea = NULL;
 
     if (!line || !*line)
         return;
 
-    if (expanded) {
+    if (expanded)
         free(expanded);
-    }
 
-    if ((expanded = calloc(BUFSIZE, sizeof(char))) == NULL) {
-        perror("lusush: expand.c: expand");
+    if ((expanded = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+        perror("lusush: expand.c: expand: calloc");
         return;
     }
     *expanded = '\0';
 
-    strncpy(tmp, line, BUFSIZE);
+    strncpy(tmp, line, BUFFSIZE);
 
     if (!(tok = strtok(tmp, " ")))
         return;
@@ -78,14 +77,14 @@ void expand(char *const line)
         } else {
             ea = expand_alias(tok);
             vprint("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
-            strncat(expanded, ea ? ea : tok, BUFSIZE);
+            strncat(expanded, ea ? ea : tok, BUFFSIZE);
             strncat(expanded, " ", 2);
-            strncpy(prv, tok, BUFSIZE);
+            strncpy(prv, tok, BUFFSIZE);
         };
         tok = strtok(NULL, " ");
     }
 
     vprint("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
-    strncpy(line, expanded, BUFSIZE);
+    strncpy(line, expanded, BUFFSIZE);
 }
