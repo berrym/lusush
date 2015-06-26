@@ -1,7 +1,7 @@
 /**
  * exec.c - execute commands
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,8 @@
 #include "opts.h"
 #include "prompt.h"
 
+#define WAITFLAGS(cmd) cmd->background ? WNOHANG : 0
+
 /**
  * exec_cmd:
  *      wrapper function for exec_builtin_command and exec_external_cmd
@@ -52,13 +54,12 @@ int exec_cmd(struct command *cmd, int cnt)
     int i;                      // loop variable
     int ret, status;            // return value, waitpid status
     int pids[cnt];              // array of pids to wait on
-    struct command *psave1;                // place holders in command history
+    struct command *psave1;     // place holders in command history
 
     psave1 = cmd;               // save current position in command history
 
-    for (i = 0; i < cnt; i++) {
+    for (i = 0; i < cnt; i++)
         pids[i] = 0;
-    }
 
     /////////////////////////////////////////////////
     //  Execute (cnt) number of chained commands
@@ -84,16 +85,15 @@ int exec_cmd(struct command *cmd, int cnt)
         /////////////////////////////////////////////////
 
         else {
-            if ((pids[i] = exec_external_cmd(cmd)) == -1) {
+            if ((pids[i] = exec_external_cmd(cmd)) == -1)
                 return -1;
-            }
         }
 
         // Move to next command in chain
         if (cmd->next)
             cmd = cmd->next;
         else
-            break;
+            continue;
     }
 
     cmd = psave1;               // restore to inital offset
@@ -106,19 +106,12 @@ int exec_cmd(struct command *cmd, int cnt)
         if (pids[i]) {
             // If executing the command in the background, call waitpid with
             // the WNOHANG option, otherwise pass 0 to block.
-            if (cmd->background) {
-                if ((pids[i]= waitpid(pids[i], &status, WNOHANG)) == -1) {
-                    perror("lusush: waitpid");
-                    return -1;
-                }
-            }
-            else {
-                if ((pids[i] = waitpid(pids[i], &status, 0)) == -1) {
-                    perror("lusush: waitpid");
-                    return -1;
-                }
-            } 
+	    if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
+		perror("lusush: exec.c: exec_cmd: waitpid");
+		return -1;
+	    } 
         }
+
         if (cmd->next != NULL)
             cmd = cmd->next;
     }
@@ -249,7 +242,7 @@ int exec_external_cmd(struct command *cmd)
  */
 void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
-    char *tmp = calloc(BUFFSIZE, sizeof(char));
+    char tmp[BUFFSIZE] = { '\0' };
     size_t i = 0;
 
     switch (cmdno) {
@@ -278,21 +271,21 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
             fprintf(stderr, "lusush: setenv: takes two arguments\n");
         else
             if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0)
-                perror("lusush: setenv");
+                perror("lusush: exec.c: exec_builtin_cmd: setenv");
         break;
     case BUILTIN_CMD_UNSETENV:
         if (cmd->argc != 2)
-            fprintf(stderr, "lusush: unsetenv: takes one argument\n");
+            fprintf(stderr, "usage: unsetenv variable\n");
         else
             if (unsetenv(cmd->argv[1]) < 0)
-                perror("lusush: unsetenv");
+                perror("lusush: exec.c: exec_builtin_cmd: unsetenv");
         break;
     case BUILTIN_CMD_ALIAS:
         if (cmd->argc == 1) {
             print_alias_list();
         }
         else if (cmd->argc < 3) {
-            fprintf(stderr, "lusush: alias: alias word replacement text\n");
+            fprintf(stderr, "usage: alias word replacement text\n");
         }
         else {
             strncpy(tmp, cmd->argv[2], BUFFSIZE);
@@ -307,13 +300,13 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         break;
     case BUILTIN_CMD_UNALIAS:
         if (cmd->argc != 2)
-            fprintf(stderr, "lusush: unalias: unalias alias\n");
+            fprintf(stderr, "usage: unalias alias\n");
         else
             unset_alias(cmd->argv[1]);
         break;
     case BUILTIN_CMD_SETOPT:
         if (cmd->argc != 2)
-            fprintf(stderr, "lusush: setopt: setopt option\n");
+            fprintf(stderr, "usage: setopt option\n");
         else
             if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
                 set_bool_opt(VERBOSE_PRINT, true);
@@ -322,7 +315,7 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         break;
     case BUILTIN_CMD_UNSETOPT:
         if (cmd->argc != 2)
-            fprintf(stderr, "lusush: unsetopt: unsetopt option\n");
+            fprintf(stderr, "usage: unsetopt option\n");
         else
             if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
                 set_bool_opt(VERBOSE_PRINT, false);
@@ -330,10 +323,8 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
                 set_bool_opt(COLOR_PROMPT, false);
         break;
     case BUILTIN_CMD_SETPROMPT:
-            set_prompt(cmd->argc, cmd->argv);
+	set_prompt(cmd->argc, cmd->argv);
+    deafult:
+	break;
     }
-
-    memset(tmp, '\0', BUFFSIZE);
-    free(tmp);
-    tmp = NULL;
 }

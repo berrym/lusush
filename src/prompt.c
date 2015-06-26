@@ -41,12 +41,11 @@
 
 static const char *RESET = "\x1b[0m";
 static char *colors      = NULL;
-
 static FG_COLOR fg_color = WHITE;
 static BG_COLOR bg_color = BG_BLUE;
 static COLOR_ATTRIB attr = OFF;
 
-static struct opt_pair {
+struct opt_pair {
     char key[15];
     int val;
 };
