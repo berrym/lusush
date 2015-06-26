@@ -42,7 +42,7 @@
 extern HIST_ENTRY **hist_list;
 #else
 extern long hist_size;
-extern char hist_list[MAXHIST][BUFFSIZE];
+extern char hist_list[MAXHIST][MAXLINE];
 #endif
 
 extern int read_histfile(const char *const);

@@ -84,7 +84,7 @@ struct alias *lookup_alias(char *key)
     struct alias *curr = NULL, *prev = NULL;
 
     for (curr = head; curr != NULL; prev = curr, curr = curr->next)
-        if (strncmp(curr->key, key, BUFFSIZE) == 0)
+        if (strncmp(curr->key, key, MAXLINE) == 0)
             return curr;
 
     return NULL;
@@ -106,16 +106,16 @@ int set_alias(char *key, char *val)
 
     if (head && !initialized) {
         vprint("%sset_alias: setting root alias node\n", DBGSTR);
-        strncpy(head->key, key, BUFFSIZE);
-        strncpy(head->val, val, BUFFSIZE);
+        strncpy(head->key, key, MAXLINE);
+        strncpy(head->val, val, MAXLINE);
         initialized = true;
         return 0;
     }
 
     if ((curr = lookup_alias(key))) {
         vprint("%sset_alias: re-setting alias\n", DBGSTR);
-        strncpy(curr->key, key, BUFFSIZE);
-        strncpy(curr->val, val, BUFFSIZE);
+        strncpy(curr->key, key, MAXLINE);
+        strncpy(curr->val, val, MAXLINE);
         return 0;
     }
 
@@ -123,8 +123,8 @@ int set_alias(char *key, char *val)
     if ((curr->next = alloc_alias()) == NULL)
         return -1;
     curr = curr->next;
-    strncpy(curr->key, key, BUFFSIZE);
-    strncpy(curr->val, val, BUFFSIZE);
+    strncpy(curr->key, key, MAXLINE);
+    strncpy(curr->val, val, MAXLINE);
     vprint("%sset_alias: new alias set!\n", DBGSTR);
 
     return 0;
@@ -135,7 +135,7 @@ void unset_alias(char *key)
     struct alias *curr = NULL, *prev = NULL;
 
     for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
-        if (strncmp(curr->key, key, BUFFSIZE) == 0) {
+        if (strncmp(curr->key, key, MAXLINE) == 0) {
             if (prev == NULL)
                 head = curr->next;
             else
@@ -154,7 +154,7 @@ void print_alias_list()
 
     printf("aliases:\n");
     while (curr) {
-        printf("%s->%16s\n", curr->key, curr->val);
+        printf("%s->\t%s\n", curr->key, curr->val);
         curr = curr->next;
     }
 }

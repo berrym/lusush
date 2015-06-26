@@ -83,12 +83,17 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     }
 
 #ifdef HAVE_LIBREADLINE
-    char *tmp = calloc(BUFFSIZE, sizeof(char));
+    char *tmp = NULL;
+
+    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
+	perror("lusush: input.c: get_input: calloc");
+	return NULL;
+    }
     
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL) {
             if (tmp) {
-                memset(tmp, '\0', BUFFSIZE);
+                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -96,19 +101,19 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         }
     }
     else {
-        if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
             perror("lusush: input.c: get_input: calloc");
             if (tmp) {
-                memset(tmp, '\0', BUFFSIZE);
+                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
             return NULL;
         }
 
-        if (fgets(line_read, BUFFSIZE, in) == NULL) {            
+        if (fgets(line_read, MAXLINE, in) == NULL) {            
             if (tmp) {
-                memset(tmp, '\0', BUFFSIZE);
+                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -119,25 +124,25 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
             line_read[strlen(line_read) - 1] = '\0';
     }
 
-    strncpy(tmp, line_read, BUFFSIZE);
+    strncpy(tmp, line_read, MAXLINE);
     expand(tmp);
     vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
     if (strcmp(tmp, line_read) != 0) {
         free(line_read);
-        if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
             perror("lusush: input.c: get_input: calloc");
             return NULL;
         }
-        strncpy(line_read, tmp, BUFFSIZE);
+        strncpy(line_read, tmp, MAXLINE);
     }
 
     if (tmp) {
-        memset(tmp, '\0', BUFFSIZE);
+        memset(tmp, '\0', MAXLINE);
         free(tmp);
         tmp = NULL;
     }
 #else
-    if ((line_read = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+    if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: input.c: get_input: calloc");
         return NULL;
     }
@@ -145,13 +150,13 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (SHELL_TYPE != NORMAL_SHELL)
         printf("%s", prompt);
 
-    if (fgets(line_read, BUFFSIZE, in) == NULL)
+    if (fgets(line_read, MAXLINE, in) == NULL)
         return NULL;
 
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    strncpy(hist_list[hist_size], line_read, BUFFSIZE);
+    strncpy(hist_list[hist_size], line_read, MAXLINE);
     hist_size++;
 
     expand(line_read);
@@ -178,7 +183,12 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
     // buffer for a copy of line to mangle with strtok_r
-    char *tmp = calloc(BUFFSIZE, sizeof(char));
+    char *tmp = NULL;
+
+    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
+	perror("lusush: input.c: do_line: calloc");
+	return -1;
+    }
 
     if (!line) {
         err = -1;
@@ -190,7 +200,7 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
         goto cleanup;
     }
 
-    strncpy(tmp, line, BUFFSIZE);        // copy string
+    strncpy(tmp, line, MAXLINE);        // copy string
 
     for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
@@ -247,19 +257,19 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
 
  cleanup:
     if (tmp) {
-        memset(tmp, '\0', BUFFSIZE);
+        memset(tmp, '\0', MAXLINE);
         free(tmp);
         tmp = NULL;
     }
 
     /* if (ptr1) { */
-    /*     memset(ptr1, '\0', BUFFSIZE); */
+    /*     memset(ptr1, '\0', MAXLINE); */
     /*     free(ptr1); */
     /*     ptr1 = NULL; */
     /* } */
 
     if (ptr2) {
-        memset(ptr2, '\0', BUFFSIZE);
+        memset(ptr2, '\0', MAXLINE);
         free(ptr2);
         ptr2 = NULL;
     }

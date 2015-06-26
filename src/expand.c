@@ -46,8 +46,8 @@ static char *expanded = NULL;
  */
 void expand(char *const line)
 {
-    char tmp[BUFFSIZE] = { '\0' };
-    char prv[BUFFSIZE] = { '\0' };
+    char tmp[MAXLINE] = { '\0' };
+    char prv[MAXLINE] = { '\0' };
     char *tok = NULL;
     char *ea = NULL;
 
@@ -57,13 +57,13 @@ void expand(char *const line)
     if (expanded)
         free(expanded);
 
-    if ((expanded = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+    if ((expanded = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: expand.c: expand: calloc");
         return;
     }
     *expanded = '\0';
 
-    strncpy(tmp, line, BUFFSIZE);
+    strncpy(tmp, line, MAXLINE);
 
     if (!(tok = strtok(tmp, " ")))
         return;
@@ -77,14 +77,14 @@ void expand(char *const line)
         } else {
             ea = expand_alias(tok);
             vprint("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
-            strncat(expanded, ea ? ea : tok, BUFFSIZE);
+            strncat(expanded, ea ? ea : tok, MAXLINE);
             strncat(expanded, " ", 2);
-            strncpy(prv, tok, BUFFSIZE);
+            strncpy(prv, tok, MAXLINE);
         };
         tok = strtok(NULL, " ");
     }
 
     vprint("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
-    strncpy(line, expanded, BUFFSIZE);
+    strncpy(line, expanded, MAXLINE);
 }

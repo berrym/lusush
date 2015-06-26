@@ -1,7 +1,7 @@
 /**
  * lusush.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,11 +31,6 @@
 
 #ifndef __LUSUSH_H__
 #define __LUSUSH_H__
-
-#ifdef BUFFSIZE
-#undef BUFFSIZE
-#endif
-#define BUFFSIZE 4096                // size for internal buffers
 
 #ifdef MAXLINE
 #undef MAXLINE

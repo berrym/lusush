@@ -1,7 +1,7 @@
 /**
  * alias.h
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,8 @@
 #define __ALIAS_H__
 
 struct alias {
-    char key[BUFFSIZE];
-    char val[BUFFSIZE];
+    char key[MAXLINE];
+    char val[MAXLINE];
     struct alias *next;
 };
 

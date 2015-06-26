@@ -1,5 +1,5 @@
 /**
- * cmdlist.c - routines to work with a doubly linked list of struct _CMD's.
+ * cmdlist.c - routines to work with a doubly linked list of struct command.
  *
  * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -54,7 +54,7 @@ int cmdalloc(struct command *cmd)
     *cmd->argv = NULL;
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(BUFFSIZE, sizeof(char))) == NULL) {
+    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: cmlist.c: cmdalloc: calloc");
         return -1;
     }
@@ -88,6 +88,7 @@ void cmdfree(struct command *cmd)
                 cmd->argv[i] = NULL;
             }
             free(cmd->argv);
+	    cmd->argv = NULL;
         }
 
         strncpy(cmd->buf, "\0", 1);

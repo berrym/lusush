@@ -242,7 +242,7 @@ int exec_external_cmd(struct command *cmd)
  */
 void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
-    char tmp[BUFFSIZE] = { '\0' };
+    char tmp[MAXLINE] = { '\0' };
     size_t i = 0;
 
     switch (cmdno) {
@@ -288,10 +288,10 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
             fprintf(stderr, "usage: alias word replacement text\n");
         }
         else {
-            strncpy(tmp, cmd->argv[2], BUFFSIZE);
+            strncpy(tmp, cmd->argv[2], MAXLINE);
             strncat(tmp, " ", 2);
             for (i=3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], BUFFSIZE);
+                strncat(tmp, cmd->argv[i], MAXLINE);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
@@ -308,18 +308,18 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         if (cmd->argc != 2)
             fprintf(stderr, "usage: setopt option\n");
         else
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
                 set_bool_opt(VERBOSE_PRINT, true);
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFFSIZE) == 0)
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0)
                 set_bool_opt(COLOR_PROMPT, true);
         break;
     case BUILTIN_CMD_UNSETOPT:
         if (cmd->argc != 2)
             fprintf(stderr, "usage: unsetopt option\n");
         else
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", BUFFSIZE) == 0)
+            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
                 set_bool_opt(VERBOSE_PRINT, false);
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", BUFFSIZE) == 0)
+            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0)
                 set_bool_opt(COLOR_PROMPT, false);
         break;
     case BUILTIN_CMD_SETPROMPT:

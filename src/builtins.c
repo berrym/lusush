@@ -1,7 +1,7 @@
 /**
  * builtins.c - builtin commands
  *
- * Copyright (c) 2009-2014 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,7 +97,7 @@ int is_builtin_cmd(const char *cmdname)
     int i;
 
     for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
-        if (strcmp(cmdname, builtins[i]) == 0)
+      if (strncmp(cmdname, builtins[i], strlen(cmdname)) == 0)
             return i;
 
     return -1;
@@ -129,7 +129,7 @@ void help(const char *cmdname)
 void cd(const char *path)
 {
     if (chdir(path) < 0)
-        perror("lusush: chdir");
+        perror("lusush: builtins.c: cd: chdir");
     build_prompt();
 }
 
@@ -139,10 +139,10 @@ void cd(const char *path)
  */
 void pwd(void)
 {
-    char cwd[BUFFSIZE];
+    char cwd[MAXLINE];
 
-    if (getcwd(cwd, BUFFSIZE) == NULL)
-        perror("lusush: getcwd");
+    if (getcwd(cwd, MAXLINE) == NULL)
+        perror("lusush: builtins.c: pwd: getcwd");
     else
         printf("%s\n", cwd);
 }
@@ -159,10 +159,10 @@ void history(void)
     if ((hist_list = history_list())) {
         printf("Command history.\n");
         for (i = 0; hist_list[i]; i++)
-            printf("%4d:\t%s\n", i+history_base, hist_list[i]->line);
+            printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
     }
 #else
     for (i = 0; i < MAXHIST && *hist_list[i]; i++)
-        printf("%4d:\t%s\n", 1+i, hist_list[i]);
+        printf("%4d:\t%s\n", 1 + i, hist_list[i]);
 #endif
 }
