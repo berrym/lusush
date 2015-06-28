@@ -51,6 +51,7 @@
  *      unsetopt    turn off an option
  *      setprompt   set prompt colors
  */
+
 /* typedef struct { */
 /*     char *name; */
 /*     char *doc; */
@@ -111,6 +112,7 @@ int is_builtin_cmd(const char *cmdname)
 void help(const char *cmdname)
 {
     int i;
+
     if (cmdname == NULL) {
         printf("Builtin commands:\n");
         for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
@@ -130,6 +132,7 @@ void cd(const char *path)
 {
     if (chdir(path) < 0)
         perror("lusush: builtins.c: cd: chdir");
+
     build_prompt();
 }
 

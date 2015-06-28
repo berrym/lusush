@@ -37,7 +37,7 @@ struct alias {
 };
 
 extern int init_alias_list(void);
-extern struct alias *alloc_alias();
+extern struct alias *alloc_alias(void);
 extern struct alias *find_end(void);
 extern struct alias *lookup_alias(char *);
 extern int set_alias(char *, char *);

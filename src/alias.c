@@ -36,9 +36,13 @@
 
 #define DBGSTR "DEBUG: alias.c: "
 
-static struct alias *head = NULL, *tail = NULL;
+static struct alias *head = NULL;
 static bool initialized = false;
 
+/**
+ * init_alias_list:
+ *    allocate memory for the linked list
+ */
 int init_alias_list(void)
 {
     if (head)
@@ -47,38 +51,51 @@ int init_alias_list(void)
     if ((head = alloc_alias()) == NULL)
         return -1;
 
-    set_alias("h", "help");
     vprint("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
 
     return 0;
 }
 
-struct alias *alloc_alias()
+/**
+ * alloc_alias:
+ *    allocate memory for a struct alias at the end of the list
+ */
+struct alias *alloc_alias(void)
 {
-    tail = find_end();
+    struct alias *curr = NULL;
 
-    if ((tail = calloc(1, sizeof(struct alias))) == NULL) {
-        perror("lusush: alloc_alias: calloc");
+    curr = find_end();
+
+    if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
+        perror("lusush: alias.c: alloc_alias: calloc");
         return NULL;
     }
-
-    return tail;
-}
-
-struct alias *find_end(void)
-{
-    if (!head)
-        return NULL;
-
-    struct alias *curr = head;
-
-    if (curr->next)
-        while (curr->next)
-            curr = curr->next;
 
     return curr;
 }
 
+/**
+ * find_end:
+ *    traverse the list until the end is reached and return a pointer to that
+ *    location
+ */
+struct alias *find_end(void)
+{
+    struct alias *curr = head;
+
+    if (!head)
+        return NULL;
+
+    while (curr->next)
+	curr = curr->next;
+
+    return curr;
+}
+
+/**
+ * lookup_alias:
+ *    find a  node in the list by key lookup and return a pointer to it
+ */
 struct alias *lookup_alias(char *key)
 {
     struct alias *curr = NULL, *prev = NULL;
@@ -90,6 +107,10 @@ struct alias *lookup_alias(char *key)
     return NULL;
 }
 
+/**
+ * expand_alias:
+ *    lookup an alias by key and return it's associated value
+ */
 char *expand_alias(char *key)
 {
     struct alias *curr = NULL;
@@ -100,9 +121,17 @@ char *expand_alias(char *key)
     return curr->val;
 }
 
+/**
+ * set_alias:
+ *    create a new node in the list or replace an existing one
+ */
 int set_alias(char *key, char *val)
 {
     struct alias *curr = NULL;
+
+    if (!head)
+	if (init_alias_list() == -1)
+	    return -1;
 
     if (head && !initialized) {
         vprint("%sset_alias: setting root alias node\n", DBGSTR);
@@ -130,6 +159,10 @@ int set_alias(char *key, char *val)
     return 0;
 }
 
+/**
+ * unset_alias:
+ *    remove a node in the list
+ */
 void unset_alias(char *key)
 {
     struct alias *curr = NULL, *prev = NULL;
@@ -143,12 +176,19 @@ void unset_alias(char *key)
 
             free(curr);
 	    curr = NULL;
-            return;
+            break;
         }
     }
+
+    if (!head)
+	initialized = false;
 }
 
-void print_alias_list()
+/**
+ * print_alias_list:
+ *    display the key->val mappings of the list
+ */
+void print_alias_list(void)
 {
     struct alias *curr = head;
 
