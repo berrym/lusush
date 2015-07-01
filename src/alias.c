@@ -62,9 +62,7 @@ int init_alias_list(void)
  */
 struct alias *alloc_alias(void)
 {
-    struct alias *curr = NULL;
-
-    curr = find_end();
+    struct alias *curr = find_end();
 
     if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
         perror("lusush: alias.c: alloc_alias: calloc");

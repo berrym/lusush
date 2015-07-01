@@ -93,7 +93,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL) {
             if (tmp) {
-                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -104,7 +103,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
             perror("lusush: input.c: get_input: calloc");
             if (tmp) {
-                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -113,7 +111,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
 
         if (fgets(line_read, MAXLINE, in) == NULL) {            
             if (tmp) {
-                memset(tmp, '\0', MAXLINE);
                 free(tmp);
                 tmp = NULL;
             }
@@ -137,7 +134,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     }
 
     if (tmp) {
-        memset(tmp, '\0', MAXLINE);
         free(tmp);
         tmp = NULL;
     }
@@ -168,8 +164,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
 
 /**
  * do_line:
- *      (line) is parsed and the information is stored in a doubly linked list
- *      of commands, that is a CMDLIST of CMDs. (see ltypes.h)
+ *      parse a line and fill struct command with data
  */
 int do_line(const char *const restrict line, struct command *restrict cmd)
 {
@@ -194,43 +189,38 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
         err = -1;
         goto cleanup;
     }
-    
+
     if (!*line) {
         err = 0;
         goto cleanup;
     }
 
-    strncpy(tmp, line, MAXLINE);        // copy string
+    strncpy(tmp, line, MAXLINE); // copy string
 
-    for (i = 0, ptr1 = tmp ;; i++, ptr1 = 0) {
+    for (i = 0, ptr1 = tmp; ; i++, ptr1 = NULL) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
             break;
 
         // Remove trailing whitespace
-        if (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]))
-            while (strlen(tok) >= 1 && isspace((int)tok[strlen(tok) - 1]))
-                tok[strlen(tok) - 1] = '\0';
+	while (strlen(tok) && isspace((int)tok[strlen(tok) - 1]))
+	    tok[strlen(tok) - 1] = '\0';
 
-        for (j = 0, ptr2 = tok ;; j++, ptr2 = 0) {
+        for (j = 0, ptr2 = tok; ; j++, ptr2 = NULL) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
                 pipe = false;
                 break;
             }
 
             // Remove trailing whitespace
-            if (strlen(subtok) >= 1 &&
-                isspace((int)subtok[strlen(subtok) - 1])) {
-                while (strlen(subtok) >= 1 &&
-                       isspace((int)subtok[strlen(subtok) - 1]))
-                    subtok[strlen(subtok) - 1] = '\0';
-            }
+	    while (strlen(subtok) && isspace((int)subtok[strlen(subtok) - 1]))
+		subtok[strlen(subtok) - 1] = '\0';
 
             if (cmdalloc(cmd) < 0) {
                 err = -1;
                 goto cleanup;
             }
 
-            strncpy(cmd->buf, subtok, strlen(cmd->buf));     // Copy the string
+            strncpy(cmd->buf, subtok, strlen(cmd->buf)); // Copy the string
 
             if (j == 1) {
                 vprint("****do pipe %s\n", subtok);
@@ -257,19 +247,16 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
 
  cleanup:
     if (tmp) {
-        memset(tmp, '\0', MAXLINE);
         free(tmp);
         tmp = NULL;
     }
 
-    /* if (ptr1) { */
-    /*     memset(ptr1, '\0', MAXLINE); */
-    /*     free(ptr1); */
-    /*     ptr1 = NULL; */
-    /* } */
+    if (ptr1) {
+        free(ptr1);
+        ptr1 = NULL;
+    }
 
     if (ptr2) {
-        memset(ptr2, '\0', MAXLINE);
         free(ptr2);
         ptr2 = NULL;
     }
