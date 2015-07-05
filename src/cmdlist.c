@@ -66,15 +66,14 @@ int cmdalloc(struct command *cmd)
     cmd->pipe = cmd->pipe_head = false;
     cmd->background = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = false;
-    *cmd->buf = '\0';
-    *cmd->ifname = *cmd->ofname = '\0';
+    *cmd->buf = *cmd->ifname = *cmd->ofname = '\0';
 
     return 0;
 }
 
 /**
  * cmdfree:
- *      frees the memory pointed to by cmd, including recursive 
+ *      frees the memory pointed to by cmd, including recursive
  *      freeing of the strings in cmd->argv.
  */
 void cmdfree(struct command *cmd)
@@ -88,7 +87,7 @@ void cmdfree(struct command *cmd)
                 cmd->argv[i] = NULL;
             }
             free(cmd->argv);
-	    cmd->argv = NULL;
+            cmd->argv = NULL;
         }
 
         strncpy(cmd->buf, "\0", 1);
@@ -112,7 +111,7 @@ void cmdfree(struct command *cmd)
 void free_cmdlist(struct command *cmd)
 {
     struct command *tmp = NULL;
-    
+
     while (cmd->next)
         cmd = cmd->next;
 
@@ -129,7 +128,6 @@ void free_cmdlist(struct command *cmd)
         else
             cmd = NULL;
     }
-
 }
 
 /**
@@ -142,7 +140,7 @@ void display_cmd(struct command *cmd)
 
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);
-    for (i=0; i < cmd->argc; i++)
+    for (i = 0; i < cmd->argc; i++)
         printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
     printf("\tbuf->%s\n", cmd->buf);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");

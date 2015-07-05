@@ -43,7 +43,7 @@
 #include "opts.h"
 #include "prompt.h"
 
-#define WAITFLAGS(cmd) cmd->background ? WNOHANG : 0
+#define WAITFLAGS(command) command->background ? WNOHANG : 0
 
 /**
  * exec_cmd:
@@ -106,10 +106,10 @@ int exec_cmd(struct command *cmd, int cnt)
         if (pids[i]) {
             // If executing the command in the background, call waitpid with
             // the WNOHANG option, otherwise pass 0 to block.
-	    if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
-		perror("lusush: exec.c: exec_cmd: waitpid");
-		return -1;
-	    } 
+            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
+                perror("lusush: exec.c: exec_cmd: waitpid");
+                return -1;
+            } 
         }
 
         if (cmd->next != NULL)
@@ -323,8 +323,8 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
                 set_bool_opt(COLOR_PROMPT, false);
         break;
     case BUILTIN_CMD_SETPROMPT:
-	set_prompt(cmd->argc, cmd->argv);
+        set_prompt(cmd->argc, cmd->argv);
     deafult:
-	break;
+        break;
     }
 }

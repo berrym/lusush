@@ -86,8 +86,8 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     char *tmp = NULL;
 
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-	perror("lusush: input.c: get_input: calloc");
-	return NULL;
+        perror("lusush: input.c: get_input: calloc");
+        return NULL;
     }
     
     if (SHELL_TYPE != NORMAL_SHELL) {
@@ -181,8 +181,8 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
     char *tmp = NULL;
 
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-	perror("lusush: input.c: do_line: calloc");
-	return -1;
+        perror("lusush: input.c: do_line: calloc");
+        return -1;
     }
 
     if (!line) {
@@ -202,8 +202,8 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
             break;
 
         // Remove trailing whitespace
-	while (strlen(tok) && isspace((int)tok[strlen(tok) - 1]))
-	    tok[strlen(tok) - 1] = '\0';
+        while (strlen(tok) && isspace((int)tok[strlen(tok) - 1]))
+            tok[strlen(tok) - 1] = '\0';
 
         for (j = 0, ptr2 = tok; ; j++, ptr2 = NULL) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
@@ -212,8 +212,8 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
             }
 
             // Remove trailing whitespace
-	    while (strlen(subtok) && isspace((int)subtok[strlen(subtok) - 1]))
-		subtok[strlen(subtok) - 1] = '\0';
+            while (strlen(subtok) && isspace((int)subtok[strlen(subtok) - 1]))
+                subtok[strlen(subtok) - 1] = '\0';
 
             if (cmdalloc(cmd) < 0) {
                 err = -1;
@@ -245,20 +245,10 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
         }
     }
 
- cleanup:
+cleanup:
     if (tmp) {
         free(tmp);
         tmp = NULL;
-    }
-
-    if (ptr1) {
-        free(ptr1);
-        ptr1 = NULL;
-    }
-
-    if (ptr2) {
-        free(ptr2);
-        ptr2 = NULL;
     }
 
     switch (err) {

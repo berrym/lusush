@@ -12,6 +12,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
+
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
@@ -53,7 +54,8 @@ static struct command *cmd = NULL;
 
 /**
  * char_type:
- *       Identify what type of character we are dealing with.
+ *      Identify the classification of a character, one of (magic,
+ *      whitespace,  or normal), returning it's enumerated value.
  */
 int char_type(char c)
 {
@@ -86,7 +88,7 @@ int char_type(char c)
 
 /**
  * do_magic:
- *       Handle magic characters.
+ *      Process characters with special syntatic significance.
  */
 int do_magic(char c)
 {
@@ -95,15 +97,16 @@ int do_magic(char c)
 
     switch (c) {
     case '#':
-	if (!inquote) {
+        if (!inquote) {
             if (iredir)
                 cmd->ifname[cpos] = '\0';
             else if (oredir)
                 cmd->ofname[cpos] = '\0';
             else
                 cmd->argv[wpos][cpos] = '\0';
+
             goto done;
-	}
+        }
 
         if (iredir || oredir) {
             fprintf(stderr, "lusush: error near character " \
@@ -123,9 +126,10 @@ int do_magic(char c)
         }
 
         if (iredir || oredir) {
-            fprintf(stderr, "lusush: error near character " \
+            fprintf(stderr, "lusush: parse error near character at " \
                     "%u --> '%c'\n", i, c);
-            return -1;
+
+            return 0;
         }
 
         cmd->argv[wpos][cpos] = c;
@@ -135,6 +139,14 @@ int do_magic(char c)
         if (!inquote) {
             cmd->iredir = true;
             iredir = true;
+
+            if (line[i + 1] && line[i + 1] == '<') {
+                fprintf(stderr, "lusush: parse error near '<<': " \
+                        "invalid operator\n");
+
+                return 0;
+            }
+
             cmd->argv[wpos][cpos] = '\0';
         }
         else {
@@ -146,10 +158,19 @@ int do_magic(char c)
         if (!inquote) {
             cmd->oredir = true;
             oredir = true;
-            if (line[i+1] && line[i+1] == '>') {
+
+            if (line[i + 1] && line[i + 1] == '>') {
                 cmd->oredir_append = true;
                 i++;
             }
+
+            if (line[i + 1] && line[i + 1] == '>') {
+                fprintf(stderr, "lusush: parse error near '>>>': " \
+                        "invalid operator\n");
+
+                return 0;
+            }
+
             cmd->argv[wpos][cpos] = '\0';
         }
         else {
@@ -162,6 +183,7 @@ int do_magic(char c)
             inquote = false;
         else
             inquote = true;
+
         return wpos;
     case '~':
         if (!(home = getenv("HOME"))) {
@@ -172,25 +194,28 @@ int do_magic(char c)
             strncat(cmd->argv[wpos], home, strlen(home));
             cpos += strlen(home);
         }
+
         home = NULL;
         break;
     }
- done:
+
+done:
     cmd->argv[wpos] = NULL;
     cmd->argc = wpos;
 
-    return wpos;  
+    return wpos;
 }
 
 /**
  * do_whspc
- *       Process whitespace.
+ *      Process whitespace.
  */
 int do_whspc(char c)
 {
     if (inquote && !iredir && !oredir) {
         cmd->argv[wpos][cpos] = c;
         cpos++;
+
         return c;
     }
 
@@ -216,29 +241,32 @@ int do_whspc(char c)
     }
     wpos++;
     cpos = 0;
-        
+
     if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: calloc");
+
         for (j = wpos - 1; ; j--) {
             free(cmd->argv[j]);
             cmd->argv[j] = NULL;
         }
+
         return -1;
     }
+
     cmd->argv[wpos][cpos] = '\0';
-    cmd->argc = wpos+1;
+    cmd->argc = wpos + 1;
 
     return c;
 }
 
 /**
  * do_nchar:
- *       Process normal character.
+ *      Process normal character.
  */
 int do_nchar(char c)
 {
     if (!readreg)
-	readreg = true;
+        readreg = true;
 
     if (cmd->iredir && iredir)
         cmd->ifname[cpos] = c;
@@ -254,14 +282,10 @@ int do_nchar(char c)
 
 /**
  * parse_cmd:
- *       Given a string of input parse_cmd will seperate words by whitespace
- *       and place each individual word into it's own string inside of a pointer
- *       to pointer char, called argv, which should already be initialized.
- *       parse_cmd __DOES NOT__ call alloc on cmd->argv, only additional strings.
- *       Special characters like &, <, and > have special cases and are dealt
- *       with according to their meaning, setting appropriate flags and filling
- *       appropriate buffers with information.  Individual words are also
- *       checked for expansions such as alias expansion.
+ *      Parse a string one character at a time, determine what class of
+ *      character it is, one of (magic, whitespace or normal), then call
+ *      the appropriate function to process the character that fills
+ *      relevant data into the fields of a struct command for execution.
  */
 int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 {
@@ -273,6 +297,7 @@ int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 
     if (!line)
         return -1;
+
     if (!*line)
         return 0;
 

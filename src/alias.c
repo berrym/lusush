@@ -85,7 +85,7 @@ struct alias *find_end(void)
         return NULL;
 
     while (curr->next)
-	curr = curr->next;
+        curr = curr->next;
 
     return curr;
 }
@@ -128,8 +128,8 @@ int set_alias(char *key, char *val)
     struct alias *curr = NULL;
 
     if (!head)
-	if (init_alias_list() == -1)
-	    return -1;
+        if (init_alias_list() == -1)
+            return -1;
 
     if (head && !initialized) {
         vprint("%sset_alias: setting root alias node\n", DBGSTR);
@@ -173,13 +173,13 @@ void unset_alias(char *key)
                 prev->next = curr->next;
 
             free(curr);
-	    curr = NULL;
+            curr = NULL;
             break;
         }
     }
 
     if (!head)
-	initialized = false;
+        initialized = false;
 }
 
 /**

@@ -74,13 +74,15 @@ void expand(char *const line)
     while (tok) {
         if (*prv && (strncmp(prv, "unalias", 8) == 0)) {
             ;
-        } else {
+        }
+        else {
             ea = expand_alias(tok);
             vprint("%sexpand: tok=%s ea=%s\n", DBGSTR, tok, ea);
             strncat(expanded, ea ? ea : tok, MAXLINE);
             strncat(expanded, " ", 2);
             strncpy(prv, tok, MAXLINE);
-        };
+        }
+
         tok = strtok(NULL, " ");
     }
 
