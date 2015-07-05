@@ -46,6 +46,12 @@
 
 static char *line_read = NULL;      // storage for readline and fgets
 
+static void strip_trailing_whspc(char *s)
+{
+    while (strlen(s) && isspace((int)s[strlen(s) - 1]))
+        s[strlen(s) - 1] = '\0';
+}
+
 #ifdef HAVE_LIBREADLINE
 /**
  * rl_gets:
@@ -201,9 +207,7 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
             break;
 
-        // Remove trailing whitespace
-        while (strlen(tok) && isspace((int)tok[strlen(tok) - 1]))
-            tok[strlen(tok) - 1] = '\0';
+        strip_trailing_whspc(tok);
 
         for (j = 0, ptr2 = tok; ; j++, ptr2 = NULL) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
@@ -211,9 +215,7 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
                 break;
             }
 
-            // Remove trailing whitespace
-            while (strlen(subtok) && isspace((int)subtok[strlen(subtok) - 1]))
-                subtok[strlen(subtok) - 1] = '\0';
+            strip_trailing_whspc(subtok);
 
             if (cmdalloc(cmd) < 0) {
                 err = -1;
