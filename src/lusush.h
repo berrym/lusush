@@ -52,12 +52,11 @@ typedef enum { false = 0, true = 1 } bool;
 struct command
 {
     char buf[MAXLINE];          // null terminated user input
-    char timestamp[60];         // timestamp
     int argc;                   // argument count
     char **argv;                // arguments to pass to exec
     bool background;            // background process flag
     bool pipe;                  // pipe flag
-    bool pipe_head;             // head node in pipe chain
+    bool pipe_head;             // head node in pipe chain flag
     int fd[2];                  // pipe filedescriptors
     bool iredir;                // input redirection flag
     bool oredir;                // output redirection flag
