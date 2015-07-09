@@ -12,7 +12,6 @@
  *    notice, this list of conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright
-
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
@@ -93,7 +92,6 @@ int char_type(char c)
 int do_magic(char c)
 {
     char *home = NULL;
-    readreg = false;
 
     switch (c) {
     case '#':
@@ -104,6 +102,8 @@ int do_magic(char c)
                 cmd->ofname[cpos] = '\0';
             else
                 cmd->argv[wpos][cpos] = '\0';
+
+            line[i] = '\0';
 
             goto done;
         }
@@ -119,16 +119,26 @@ int do_magic(char c)
         break;
     case '&':
         if (!inquote) {
+            if (line[i + 1] && line[i + 1] == '&') {
+                fprintf(stderr, "lusush: parse error near '&&': " \
+                        "invalid operator.\n");
+                return 0;
+            }
+
             cmd->background = true;
-            cmd->argv[wpos][cpos] = '\0';
-            wpos--;
+
+            if (cmd->argv[wpos])
+                cmd->argv[wpos][cpos] = '\0';
+
+            if (wpos)
+                wpos--;
+
             goto done;
         }
 
         if (iredir || oredir) {
             fprintf(stderr, "lusush: parse error near character at " \
                     "%u --> '%c'\n", i, c);
-
             return 0;
         }
 
@@ -137,17 +147,16 @@ int do_magic(char c)
         break;
     case '<':
         if (!inquote) {
-            cmd->iredir = true;
-            iredir = true;
+            iredir = cmd->iredir = true;
 
             if (line[i + 1] && line[i + 1] == '<') {
                 fprintf(stderr, "lusush: parse error near '<<': " \
                         "invalid operator\n");
-
                 return 0;
             }
 
-            cmd->argv[wpos][cpos] = '\0';
+            if (cmd->argv[wpos])
+                cmd->argv[wpos][cpos] = '\0';
         }
         else {
             cmd->argv[wpos][cpos] = c;
@@ -156,22 +165,23 @@ int do_magic(char c)
         break;
     case '>':
         if (!inquote) {
-            cmd->oredir = true;
-            oredir = true;
+            oredir = cmd->oredir = true;
 
             if (line[i + 1] && line[i + 1] == '>') {
                 cmd->oredir_append = true;
                 i++;
             }
 
-            if (line[i + 1] && line[i + 1] == '>') {
-                fprintf(stderr, "lusush: parse error near '>>>': " \
-                        "invalid operator\n");
-
-                return 0;
+            if (cmd->oredir_append) {
+                if (line[i + 1] && line[i + 1] == '>') {
+                    fprintf(stderr, "lusush: parse error near '>>>': "  \
+                            "invalid operator\n");
+                    return 0;
+                }
             }
 
-            cmd->argv[wpos][cpos] = '\0';
+            if (cmd->argv[wpos])
+                cmd->argv[wpos][cpos] = '\0';
         }
         else {
             cmd->argv[wpos][cpos] = c;
@@ -196,10 +206,12 @@ int do_magic(char c)
         }
 
         home = NULL;
+    default:
         break;
     }
 
 done:
+    readreg = false;
     cmd->argv[wpos] = NULL;
     cmd->argc = wpos;
 
@@ -268,9 +280,9 @@ int do_nchar(char c)
     if (!readreg)
         readreg = true;
 
-    if (cmd->iredir && iredir)
+    if (iredir)
         cmd->ifname[cpos] = c;
-    else if (cmd->oredir && oredir)
+    else if (oredir)
         cmd->ofname[cpos] = c;
     else
         cmd->argv[wpos][cpos] = c;
@@ -289,7 +301,7 @@ int do_nchar(char c)
  */
 int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 {
-    int ret = 0;
+    int ret;
     char c;
 
     line = line_ptr;
@@ -310,15 +322,15 @@ int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 
         switch (char_type(c)) {
         case IS_MAGIC:
-            if ((ret = do_magic(c)) == -1)
+            if (!(ret = do_magic(c)))
                 return ret;
             break;
         case IS_WHSPC:
-            if ((ret = do_whspc(c)) == -1)
+            if (!(ret = do_whspc(c)))
                 return ret;
             break;
         case IS_NCHAR:
-            if ((ret = do_nchar(c)) == -1)
+            if (!(ret = do_nchar(c)))
                 return ret;
         default:
             break;
