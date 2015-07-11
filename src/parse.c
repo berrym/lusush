@@ -34,6 +34,17 @@
 #include "lusush.h"
 #include "parse.h"
 
+#define PARSER_ERROR_ABORT -1
+#define PARSER_ERROR_BREAK 0
+#define PARSER_CONTINUE_ON 1
+
+// character classifications
+enum {
+    IS_MAGIC,                   /* magic character */
+    IS_WHSPC,                   /* whitespace */
+    IS_NCHAR                    /* normal character */
+};
+
 // loop and counter variables
 static unsigned int i = 0;
 static unsigned int j = 0;
@@ -56,7 +67,7 @@ static struct command *cmd = NULL;
  *      Identify the classification of a character, one of (magic,
  *      whitespace,  or normal), returning it's enumerated value.
  */
-int char_type(char c)
+static int char_type(char c)
 {
     static int chtype = 0;
 
@@ -86,149 +97,221 @@ int char_type(char c)
 }
 
 /**
- * do_magic:
- *      Process characters with special syntatic significance.
+ * do_pound:
+ *      Process the pound (comment) character.
  */
-int do_magic(char c)
+static int do_pound(void)
+{
+    if (!inquote) {
+        if (iredir)
+            cmd->ifname[cpos] = '\0';
+        else if (oredir)
+            cmd->ofname[cpos] = '\0';
+        else
+            cmd->argv[wpos][cpos] = '\0';
+
+        line[i] = '\0';
+
+        return PARSER_CONTINUE_ON;
+    }
+
+    if (iredir || oredir) {
+        fprintf(stderr, "lusush: parse error near character '#'\n");
+        return PARSER_ERROR_BREAK;
+    }
+
+    cmd->argv[wpos][cpos] = '#';
+    cpos++;
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_ampersand:
+ *      Process the ampersand character which signals that a command
+ *      should be executed as a background process.
+ */
+static int do_ampersand(void)
+{
+    if (!inquote) {
+        if (line[i + 1] && line[i + 1] == '&') {
+            fprintf(stderr, "lusush: parse error near '&&': " \
+                    "invalid operator.\n");
+            return PARSER_ERROR_BREAK;
+        }
+
+        cmd->background = true;
+
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = '\0';
+
+        if (wpos)
+            wpos--;
+
+        return PARSER_CONTINUE_ON;
+    }
+
+    if (iredir || oredir) {
+        fprintf(stderr, "lusush: parse error near '&'\n");
+        return PARSER_ERROR_BREAK;
+    }
+
+    cmd->argv[wpos][cpos] = '&';
+    cpos++;
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_lessthan:
+ *      Process the character '<' which denotes input redirection. 
+ */
+static int do_lessthan(void)
+{
+    if (!inquote) {
+        iredir = cmd->iredir = true;
+
+        if (line[i + 1] && line[i + 1] == '<') {
+            fprintf(stderr, "lusush: parse error near '<<': " \
+                    "invalid operator\n");
+            return PARSER_ERROR_BREAK;
+        }
+
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = '\0';
+    }
+    else {
+        cmd->argv[wpos][cpos] = '<';
+        cpos++;
+    }
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_greaterthan():
+ *      Process the '>' character which denotes output redirection.
+ */
+static int do_greaterthan(void)
+{
+    if (!inquote) {
+        oredir = cmd->oredir = true;
+
+        if (line[i + 1] && line[i + 1] == '>') {
+            cmd->oredir_append = true;
+            i++;
+        }
+
+        if (cmd->oredir_append) {
+            if (line[i + 1] && line[i + 1] == '>') {
+                fprintf(stderr, "lusush: parse error near '>>>': "  \
+                        "invalid operator\n");
+                return PARSER_ERROR_BREAK;
+            }
+        }
+
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = '\0';
+    }
+    else {
+        cmd->argv[wpos][cpos] = '>';
+        cpos++;
+    }
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_doublequote:
+ *      Process the double quote character that delimits strings.
+ */
+static int do_doublequote(void)
+{
+    if (inquote)
+        inquote = false;
+    else
+        inquote = true;
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_tilde:
+ *      Process the tilde character which expands to user's home directory.
+ */
+static int do_tilde(void)
 {
     char *home = NULL;
 
+    if (!(home = getenv("HOME"))) {
+        cmd->argv[wpos][cpos] = '~';
+        cpos++;
+    }
+    else {
+        strncat(cmd->argv[wpos], home, strlen(home));
+        cpos += strlen(home);
+    }
+
+    home = NULL;
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_magic:
+ *      Process characters with special syntatic significance.
+ */
+static int do_magic(char c)
+{
+    int ret;
+
     switch (c) {
     case '#':
-        if (!inquote) {
-            if (iredir)
-                cmd->ifname[cpos] = '\0';
-            else if (oredir)
-                cmd->ofname[cpos] = '\0';
-            else
-                cmd->argv[wpos][cpos] = '\0';
-
-            line[i] = '\0';
-
-            goto done;
-        }
-
-        if (iredir || oredir) {
-            fprintf(stderr, "lusush: error near character " \
-                    "%u --> '%c'\n", i, c);
-            return -1;
-        }
-
-        cmd->argv[wpos][cpos] = c;
-        cpos++;
+        ret = do_pound();
         break;
     case '&':
-        if (!inquote) {
-            if (line[i + 1] && line[i + 1] == '&') {
-                fprintf(stderr, "lusush: parse error near '&&': " \
-                        "invalid operator.\n");
-                return 0;
-            }
-
-            cmd->background = true;
-
-            if (cmd->argv[wpos])
-                cmd->argv[wpos][cpos] = '\0';
-
-            if (wpos)
-                wpos--;
-
-            goto done;
-        }
-
-        if (iredir || oredir) {
-            fprintf(stderr, "lusush: parse error near character at " \
-                    "%u --> '%c'\n", i, c);
-            return 0;
-        }
-
-        cmd->argv[wpos][cpos] = c;
-        cpos++;
+        ret = do_ampersand();
         break;
     case '<':
-        if (!inquote) {
-            iredir = cmd->iredir = true;
-
-            if (line[i + 1] && line[i + 1] == '<') {
-                fprintf(stderr, "lusush: parse error near '<<': " \
-                        "invalid operator\n");
-                return 0;
-            }
-
-            if (cmd->argv[wpos])
-                cmd->argv[wpos][cpos] = '\0';
-        }
-        else {
-            cmd->argv[wpos][cpos] = c;
-            cpos++;
-        }
+        ret = do_lessthan();
         break;
     case '>':
-        if (!inquote) {
-            oredir = cmd->oredir = true;
-
-            if (line[i + 1] && line[i + 1] == '>') {
-                cmd->oredir_append = true;
-                i++;
-            }
-
-            if (cmd->oredir_append) {
-                if (line[i + 1] && line[i + 1] == '>') {
-                    fprintf(stderr, "lusush: parse error near '>>>': "  \
-                            "invalid operator\n");
-                    return 0;
-                }
-            }
-
-            if (cmd->argv[wpos])
-                cmd->argv[wpos][cpos] = '\0';
-        }
-        else {
-            cmd->argv[wpos][cpos] = c;
-            cpos++;
-        }
+        ret = do_greaterthan();
         break;
     case '"':
-        if (inquote)
-            inquote = false;
-        else
-            inquote = true;
-
-        return wpos;
+        ret = do_doublequote();
+        break;
     case '~':
-        if (!(home = getenv("HOME"))) {
-            cmd->argv[wpos][cpos] = c;
-            cpos++;
-        }
-        else {
-            strncat(cmd->argv[wpos], home, strlen(home));
-            cpos += strlen(home);
-        }
-
-        home = NULL;
+        ret = do_tilde();
     default:
         break;
     }
 
-done:
-    readreg = false;
-    cmd->argv[wpos] = NULL;
-    cmd->argc = wpos;
+    switch (ret) {
+    case PARSER_ERROR_ABORT:
+    case PARSER_ERROR_BREAK:
+        break;
+    default:
+        readreg = false;
+        cmd->argv[wpos] = NULL;
+        cmd->argc = wpos;
+        break;
+    }
 
-    return wpos;
+    return ret;
 }
 
 /**
- * do_whspc
+ * do_whspc:
  *      Process whitespace.
  */
-int do_whspc(char c)
+static int do_whspc(char c)
 {
     if (inquote && !iredir && !oredir) {
         cmd->argv[wpos][cpos] = c;
         cpos++;
 
-        return c;
+        return PARSER_CONTINUE_ON;
     }
 
     while (isspace((int)c)) {
@@ -238,7 +321,7 @@ int do_whspc(char c)
     i--;
 
     if (!wpos && !readreg)
-        return 0;
+        return PARSER_ERROR_BREAK;
 
     if (iredir) {
         cmd->ifname[cpos] = '\0';
@@ -255,27 +338,27 @@ int do_whspc(char c)
     cpos = 0;
 
     if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: calloc");
+        perror("lusush: parse.c: do_whspc: calloc");
 
         for (j = wpos - 1; ; j--) {
             free(cmd->argv[j]);
             cmd->argv[j] = NULL;
         }
 
-        return -1;
+        return PARSER_ERROR_ABORT;
     }
 
     cmd->argv[wpos][cpos] = '\0';
     cmd->argc = wpos + 1;
 
-    return c;
+    return PARSER_CONTINUE_ON;
 }
 
 /**
  * do_nchar:
  *      Process normal character.
  */
-int do_nchar(char c)
+static int do_nchar(char c)
 {
     if (!readreg)
         readreg = true;
@@ -289,7 +372,7 @@ int do_nchar(char c)
 
     cpos++;
 
-    return c;
+    return PARSER_CONTINUE_ON;
 }
 
 /**
@@ -308,10 +391,10 @@ int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
     cmd = cmd_ptr;
 
     if (!line)
-        return -1;
+        return PARSER_ERROR_ABORT;
 
     if (!*line)
-        return 0;
+        return PARSER_ERROR_BREAK;
 
     i = j = wpos = cpos = 0;
     iredir = oredir = readreg = inquote = false;

@@ -46,6 +46,10 @@
 
 static char *line_read = NULL;      // storage for readline and fgets
 
+/**
+ * strip_trailing_whspc:
+ *      Remove whitespace at the end of a string.
+ */
 static void strip_trailing_whspc(char *s)
 {
     while (strlen(s) && isspace((int)s[strlen(s) - 1]))
@@ -201,7 +205,7 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
         goto cleanup;
     }
 
-    strncpy(tmp, line, MAXLINE); // copy string
+    strncpy(tmp, line, MAXLINE); // make a copy of line to mangle
 
     for (i = 0, ptr1 = tmp; ; i++, ptr1 = NULL) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))

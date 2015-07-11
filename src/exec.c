@@ -49,23 +49,26 @@
  * exec_cmd:
  *      wrapper function for exec_builtin_command and exec_external_cmd
  */
-int exec_cmd(struct command *cmd, int cnt)
+int exec_cmd(struct command *cmd, int n)
 {
     int i;                      // loop variable
     int ret, status;            // return value, waitpid status
-    int pids[cnt];              // array of pids to wait on
+    int pids[n];            // array of pids to wait on
     struct command *psave1;     // place holders in command history
 
     psave1 = cmd;               // save current position in command history
 
-    for (i = 0; i < cnt; i++)
+    if (!*cmd->argv[0])
+        return 0;
+
+    for (i = 0; i < n; i++)
         pids[i] = 0;
 
     /////////////////////////////////////////////////
-    //  Execute (cnt) number of chained commands
+    //  Execute (n) number of chained commands
     /////////////////////////////////////////////////
 
-    for (i = 0; i < cnt; i++) {
+    for (i = 0; i < n; i++) {
 
         /////////////////////////////////////////////////
         // Execute a builtin command
@@ -102,14 +105,14 @@ int exec_cmd(struct command *cmd, int cnt)
     // Wait for processes to finish
     /////////////////////////////////////////////////
 
-    for (i = 0; i < cnt; i++) {
+    for (i = 0; i < n; i++) {
         if (pids[i]) {
             // If executing the command in the background, call waitpid with
             // the WNOHANG option, otherwise pass 0 to block.
             if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
                 perror("lusush: exec.c: exec_cmd: waitpid");
                 return -1;
-            } 
+            }
         }
 
         if (cmd->next != NULL)
@@ -295,7 +298,7 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
-            strncpy(tmp, "\0", 1);
+            strncpy(tmp, "\0", MAXLINE);
         }
         break;
     case BUILTIN_CMD_UNALIAS:

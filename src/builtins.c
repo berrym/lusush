@@ -97,8 +97,11 @@ int is_builtin_cmd(const char *cmdname)
 {
     int i;
 
+    if (!cmdname || !*cmdname)
+        return -1;
+
     for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
-      if (strncmp(cmdname, builtins[i], strlen(cmdname)) == 0)
+        if (strncmp(cmdname, builtins[i], strlen(cmdname)) == 0)
             return i;
 
     return -1;

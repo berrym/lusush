@@ -44,7 +44,7 @@
 int SHELL_TYPE = 0;
 
 /**
- * init:i
+ * init:
  *      Performs initial tasks at shell startup.
  */
 int init(int argc, char **argv)
@@ -74,9 +74,8 @@ int init(int argc, char **argv)
     }
 
     // Set up aliases
-    int err;
-    if ((err = init_alias_list()) < 0) {
-        fprintf(stderr, "lusush: ALIAS subroutines failed to init: %d\n", err);
+    if (init_alias_list() < 0) {
+        fprintf(stderr, "lusush: init_alias_list_failed\n");
         exit(EXIT_FAILURE);
     }
 
