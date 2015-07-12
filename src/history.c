@@ -1,5 +1,5 @@
 /**
- * history.c - routines to work with cpmmand input history
+ * history.c - routines to work with command input history
  *
  * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -38,11 +38,11 @@ static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;
 
 #ifdef HAVE_LIBREADLINE
-HIST_ENTRY **hist_list = NULL;
+static HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
-long hist_size = 0;
-char hist_list[MAXHIST][MAXLINE] = { "\0" };
+static long hist_size = 0;
+static char hist_list[MAXHIST][MAXLINE] = { "\0" };
 #endif
 
 /**
@@ -61,7 +61,7 @@ int read_histfile(const char *const histfile)
 
     if ((histfp = fopen(histfile, "r")) == NULL) {
         if (errno != ENOENT)
-            perror("lusush: fopen");
+            perror("lusush: history.c: read_histfile: fopen");
         return -1;
     }
 
@@ -81,7 +81,7 @@ int read_histfile(const char *const histfile)
 
 /**
  * init_history:
- *      create/read history file
+ *      Create or read the history file.
  */
 void init_history(void)
 {
@@ -111,6 +111,20 @@ void init_history(void)
 
     ENV_HOME = NULL;
 }
+
+#ifndef HAVE_LIBREADLINE
+/**
+ * push_history:
+ *      Add a line of history to hist_list.
+ */
+void add_history(const char *const line)
+{
+    if (hist_size < MAXHIST) {
+        strncpy(hist_list[hist_size], line, MAXLINE);
+        hist_size++;
+    }
+}
+#endif
 
 /**
  * write_histfile:
@@ -142,4 +156,24 @@ void write_histfile(const char *const histfile)
 char *histfilename(void)
 {
     return histfile;
+}
+
+/**
+ * history:
+ *    display a list of stored user inputed commands
+ */
+void history(void)
+{
+    int i;
+
+#ifdef HAVE_LIBREADLINE
+    if ((hist_list = history_list())) {
+        printf("Command history.\n");
+        for (i = 0; hist_list[i]; i++)
+            printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
+    }
+#else
+    for (i = 0; i < MAXHIST && *hist_list[i]; i++)
+        printf("%4d:\t%s\n", 1 + i, hist_list[i]);
+#endif
 }

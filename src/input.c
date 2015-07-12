@@ -44,7 +44,7 @@
 
 #define DBGSTR "DEBUG: input.c: "
 
-static char *line_read = NULL;      // storage for readline and fgets
+static char *line_read = NULL;  // storage for readline and fgets
 
 /**
  * strip_trailing_whspc:
@@ -61,15 +61,8 @@ static void strip_trailing_whspc(char *s)
  * rl_gets:
  *      Read a string, and return a pointer to it.  Returns 0 on EOF.
  */
-char *rl_gets(const char *prompt)
+static char *rl_gets(const char *prompt)
 {
-    // If the buffer has already been allocated,
-    // return the memory to the free pool
-    if (line_read) {
-        free(line_read);
-        line_read = NULL;
-    }
-
     // Get a line from the user
     line_read = readline(prompt);
 
@@ -83,10 +76,11 @@ char *rl_gets(const char *prompt)
 
 /**
  * get_input:
- *      return a pointer to a line of user input, store line in history
+ *      Return a pointer to a line of user input, store the line in history.
  */
 char *get_input(FILE *const restrict in, const char *const restrict prompt)
 {
+    // If the buffer has been previously allocated free it
     if (line_read) {
         free(line_read);
         line_read = NULL;
@@ -95,53 +89,35 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
 #ifdef HAVE_LIBREADLINE
     char *tmp = NULL;
 
-    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: input.c: get_input: calloc");
-        return NULL;
-    }
-    
+    // Read a line from either a file or standard input
     if (SHELL_TYPE != NORMAL_SHELL) {
-        if ((line_read = rl_gets(prompt)) == NULL) {
-            if (tmp) {
-                free(tmp);
-                tmp = NULL;
-            }
+        if ((line_read = rl_gets(prompt)) == NULL)
             return NULL;
-        }
     }
     else {
         if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
             perror("lusush: input.c: get_input: calloc");
-            if (tmp) {
-                free(tmp);
-                tmp = NULL;
-            }
             return NULL;
         }
 
-        if (fgets(line_read, MAXLINE, in) == NULL) {            
-            if (tmp) {
-                free(tmp);
-                tmp = NULL;
-            }
+        if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;
-        }
-        
+
         if (line_read[strlen(line_read) - 1] == '\n')
             line_read[strlen(line_read) - 1] = '\0';
+    }
+
+    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
+        perror("lusush: input.c: get_input: calloc");
+        return NULL;
     }
 
     strncpy(tmp, line_read, MAXLINE);
     expand(tmp);
     vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
-    if (strcmp(tmp, line_read) != 0) {
-        free(line_read);
-        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
-            perror("lusush: input.c: get_input: calloc");
-            return NULL;
-        }
+
+    if (strcmp(tmp, line_read) != 0)
         strncpy(line_read, tmp, MAXLINE);
-    }
 
     if (tmp) {
         free(tmp);
@@ -162,8 +138,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    strncpy(hist_list[hist_size], line_read, MAXLINE);
-    hist_size++;
+    add_history(line_read);
 
     expand(line_read);
     vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
@@ -174,7 +149,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
 
 /**
  * do_line:
- *      parse a line and fill struct command with data
+ *      Parse a line and fill a struct command with data.
  */
 int do_line(const char *const restrict line, struct command *restrict cmd)
 {
@@ -227,7 +202,7 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
             }
 
             if (j == 1) {
-                vprint("****do pipe %s\n", subtok);
+                vprint("**** Do pipe %s\n", subtok);
                 cmd->prev->pipe = true;
                 cmd->prev->pipe_head = true;
                 pipe = true;

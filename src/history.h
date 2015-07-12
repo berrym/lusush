@@ -38,15 +38,12 @@
 #ifndef __HISTORY_H__
 #define __HISTORY_H__
 
-#ifdef HAVE_LIBREADLINE
-extern HIST_ENTRY **hist_list;
-#else
-extern long hist_size;
-extern char hist_list[MAXHIST][MAXLINE];
-#endif
-
 extern int read_histfile(const char *const);
 extern void init_history(void);
+#ifndef HAVE_LIBREADLINE
+extern void add_history(const char *const);
+#endif
 extern void write_histfile(const char *const);
 extern char *histfilename(void);
+extern void history(void);
 #endif

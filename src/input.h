@@ -38,9 +38,6 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
-#ifdef HAVE_LIBREADLINE
-extern char *rl_gets(const char *);
-#endif
 extern char *get_input(FILE *const restrict, const char *const restrict);
 extern int do_line(const char *const restrict, struct command *restrict);
 

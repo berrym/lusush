@@ -153,22 +153,3 @@ void pwd(void)
         printf("%s\n", cwd);
 }
 
-/**
- * history:
- *    display a list of stored user inputed commands
- */
-void history(void)
-{
-    int i;
-
-#ifdef HAVE_LIBREADLINE
-    if ((hist_list = history_list())) {
-        printf("Command history.\n");
-        for (i = 0; hist_list[i]; i++)
-            printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
-    }
-#else
-    for (i = 0; i < MAXHIST && *hist_list[i]; i++)
-        printf("%4d:\t%s\n", 1 + i, hist_list[i]);
-#endif
-}
