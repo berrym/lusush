@@ -66,7 +66,7 @@ int cmdalloc(struct command *cmd)
     cmd->pipe = cmd->pipe_head = false;
     cmd->background = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = false;
-    *cmd->buf = *cmd->ifname = *cmd->ofname = '\0';
+    *cmd->ifname = *cmd->ofname = '\0';
 
     return 0;
 }
@@ -90,7 +90,6 @@ void cmdfree(struct command *cmd)
             cmd->argv = NULL;
         }
 
-        strncpy(cmd->buf, "\0", 1);
         cmd->argc = 0;
 
         if (cmd->next)
@@ -142,7 +141,6 @@ void display_cmd(struct command *cmd)
     printf("\targc->%d\n", cmd->argc);
     for (i = 0; i < cmd->argc; i++)
         printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
-    printf("\tbuf->%s\n", cmd->buf);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
     printf("\tpipe_head->%s\n", cmd->pipe_head
             ? "true" : "false");

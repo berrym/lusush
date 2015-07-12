@@ -39,7 +39,6 @@
 
 #define MAXHIST 10000               // maximum length of history
 
-
 #ifdef HAVE__BOOL
 #include <stdbool.h>
 #else
@@ -51,7 +50,6 @@ typedef enum { false = 0, true = 1 } bool;
  */
 struct command
 {
-    char buf[MAXLINE];          // null terminated user input
     int argc;                   // argument count
     char **argv;                // arguments to pass to exec
     bool background;            // background process flag

@@ -226,8 +226,6 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
                 goto cleanup;
             }
 
-            strncpy(cmd->buf, subtok, strlen(cmd->buf)); // Copy the string
-
             if (j == 1) {
                 vprint("****do pipe %s\n", subtok);
                 cmd->prev->pipe = true;

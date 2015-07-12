@@ -88,18 +88,13 @@ void init_history(void)
     char *ENV_HOME = NULL;
 
     if (HIST_INITIALIZED) {
-        fprintf(stderr,"lusush: init_history: history already initialized.\n");
+        fprintf(stderr,"lusush: init_history: already initialized.\n");
         return;
     }
 
 #ifdef HAVE_LIBREADLINE
     using_history();
     stifle_history(MAXHIST);
-#else
-    // Set stdout, stdin, and stderr to a non-buffered state
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stdin, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
 #endif
 
     ENV_HOME = getenv("HOME");
