@@ -41,12 +41,12 @@
 
 /**
  * main:
- *      program entry point, let the magic begin!
+ *      Program entry point, let the magic begin!
  */
 int main(int argc, char **argv)
 {
     char *ENV_PROMPT = NULL;
-    char ps1[MAXLINE] = { '\0' };
+    char prompt[MAXLINE] = { '\0' };
     bool bActive = true;
     int ret = 0;
     char *restrict line = NULL;
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
         in = stdin;
     }
 
-    // Read input one line at a time untill user exits
+    // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
@@ -79,8 +79,10 @@ int main(int argc, char **argv)
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
-        strncpy(ps1, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
-        line = get_input(in, ps1);
+        strncpy(prompt, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
+
+        // Read a line of input from the opened stream
+        line = get_input(in, prompt);
 
         // Handle the results of get_input
         switch (ret = do_line(line, cmd)) {
@@ -95,16 +97,16 @@ int main(int argc, char **argv)
 
             vprint("ret (at) main --> %d\n", ret);
 
-            // Execute the number of commands parsed by get_input (ret)
-            if (exec_cmd(cmd, ret) < ret)
-                while (cmd->next)
-                    cmd = cmd->next;
+            // Execute the command(s) parsed by get_input (ret)
+            exec_cmd(cmd, ret);
 
+            // Free command(s)
             free_cmdlist(cmd);
             break;
         }
     }
 
+    // Save command history
     write_histfile(histfilename());
 
     if (SHELL_TYPE != NORMAL_SHELL)

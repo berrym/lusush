@@ -47,13 +47,13 @@
 
 /**
  * exec_cmd:
- *      wrapper function for exec_builtin_command and exec_external_cmd
+ *      Wrapper function for exec_builtin_command and exec_external_cmd.
  */
 int exec_cmd(struct command *cmd, int n)
 {
-    int i;                      // loop variable
+    unsigned int i;             // loop variable
     int ret, status;            // return value, waitpid status
-    int pids[n];            // array of pids to wait on
+    int pids[n];                // array of pids to wait on
     struct command *psave1;     // place holders in command history
 
     psave1 = cmd;               // save current position in command history
@@ -108,7 +108,7 @@ int exec_cmd(struct command *cmd, int n)
     for (i = 0; i < n; i++) {
         if (pids[i]) {
             // If executing the command in the background, call waitpid with
-            // the WNOHANG option, otherwise pass 0 to block.
+            // the WNOHANG option, otherwise pass 0 to block
             if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
                 perror("lusush: exec.c: exec_cmd: waitpid");
                 return -1;
@@ -124,20 +124,20 @@ int exec_cmd(struct command *cmd, int n)
 
 /**
  * exec_external_cmd:
- *      execute an external command setting up pipes or redirection.
+ *      Execute an external command after setting up pipes or redirections.
  */
 int exec_external_cmd(struct command *cmd)
 {
-    int j;
+    unsigned int i;
     pid_t pid;
 
-    // Check for invalid strings at the end of vector,
-    // give back to free pool, they will mess up redirections
-    for (j = 0; cmd->argv[j]; j++) {
-        if (!*cmd->argv[j]) {
+    // Check for invalid strings at the end of the argument vector,
+    // give them back to free pool as they will mess up redirections
+    for (i = 0; cmd->argv[i]; i++) {
+        if (!*cmd->argv[i]) {
             cmd->argc--;
-            free(cmd->argv[j]);
-            cmd->argv[j] = NULL;
+            free(cmd->argv[i]);
+            cmd->argv[i] = NULL;
         }
     }
 
@@ -241,12 +241,12 @@ int exec_external_cmd(struct command *cmd)
 
 /**
  * exec_builtin_cmd:
- *      execute builtin command number (cmdno) with the data in (cmd)
+ *      Execute builtin command number (cmdno) with the data in (cmd).
  */
 void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
     char tmp[MAXLINE] = { '\0' };
-    size_t i = 0;
+    unsigned int i;
 
     switch (cmdno) {
     case BUILTIN_CMD_EXIT:
@@ -293,7 +293,7 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         else {
             strncpy(tmp, cmd->argv[2], MAXLINE);
             strncat(tmp, " ", 2);
-            for (i=3; cmd->argv[i]; i++) {
+            for (i = 3; cmd->argv[i]; i++) {
                 strncat(tmp, cmd->argv[i], MAXLINE);
                 strncat(tmp, " ", 2);
             }

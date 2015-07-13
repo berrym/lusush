@@ -126,7 +126,7 @@ int init(int argc, char **argv)
 
 /**
  * sig_int:
- *      interupt ^C signal handler
+ *      Interrupt ^C signal handler, ignore it for now.
  */
 void sig_int(int signo)
 {
@@ -136,7 +136,7 @@ void sig_int(int signo)
 /**
  * NOTE: NECESSARALY FATAL
  * sig_seg:
- *      segmentation fault handler, insult programmer then abort
+ *      Segmentation fault handler, insult programmer then abort.
  */
 void sig_seg(int signo)
 {
