@@ -313,8 +313,8 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         else
             if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
                 set_bool_opt(VERBOSE_PRINT, true);
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0)
-                set_bool_opt(COLOR_PROMPT, true);
+            else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+                set_bool_opt(FANCY_PROMPT, true);
         break;
     case BUILTIN_CMD_UNSETOPT:
         if (cmd->argc != 2)
@@ -322,8 +322,8 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
         else
             if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
                 set_bool_opt(VERBOSE_PRINT, false);
-            else if (strncmp(cmd->argv[1], "COLOR_PROMPT", MAXLINE) == 0)
-                set_bool_opt(COLOR_PROMPT, false);
+            else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+                set_bool_opt(FANCY_PROMPT, false);
         break;
     case BUILTIN_CMD_SETPROMPT:
         set_prompt(cmd->argc, cmd->argv);

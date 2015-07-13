@@ -59,8 +59,8 @@ bool set_bool_opt(unsigned int opt, bool val)
     case VERBOSE_PRINT:
         OPTIONS[VERBOSE_PRINT] = val;
         break;
-    case COLOR_PROMPT:
-        OPTIONS[COLOR_PROMPT] = val;
+    case FANCY_PROMPT:
+        OPTIONS[FANCY_PROMPT] = val;
         build_prompt();
         break;
     default:
@@ -106,7 +106,7 @@ int parse_opts(int argc, char **argv)
             usage(EXIT_SUCCESS);
             break;
         case 'c':
-            set_bool_opt(COLOR_PROMPT, true);
+            set_bool_opt(FANCY_PROMPT, true);
             break;
         case 'v':
             set_bool_opt(VERBOSE_PRINT, true);

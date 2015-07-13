@@ -38,7 +38,7 @@ extern int parse_opts(int, char **);
 
 enum {
     VERBOSE_PRINT,
-    COLOR_PROMPT,
+    FANCY_PROMPT,
     OPT_CNT
 };
 

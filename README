@@ -132,7 +132,7 @@ LUSUSH
  
     Lusush can have a color prompt on terminals that support it.
 
-    e.g. setopt COLOR_PROMPT
+    e.g. setopt FANCY_PROMPT
 
     or by giving the command line switch -c at startup.  The prompt colors can be
     modified using the setprompt command

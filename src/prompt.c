@@ -103,8 +103,8 @@ static void build_colors(void)
     if (!colors) {
         if ((colors = calloc(14, sizeof(char))) == NULL) {
             perror("lusush: prompt.c: build_colors: calloc");
-            vprint("%s: unsetting option COLOR_PROMPT\n", DBGSTR);
-            set_bool_opt(COLOR_PROMPT, false);
+            vprint("%s: unsetting option FANCY_PROMPT\n", DBGSTR);
+            set_bool_opt(FANCY_PROMPT, false);
         }
     }
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
@@ -233,7 +233,7 @@ void build_prompt(void)
         strncpy(prompt, "% ", MAXLINE);
     }
     else {
-        if (opt_is_set(COLOR_PROMPT)) {
+        if (opt_is_set(FANCY_PROMPT)) {
             build_colors();
             strncpy(prompt, colors, MAXLINE);
             strncat(prompt, cwd, MAXLINE);
