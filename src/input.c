@@ -89,7 +89,7 @@ static char *rl_gets(const char *prompt)
  * get_input:
  *      Return a pointer to a line of user input, store the line in history.
  */
-char *get_input(FILE *const restrict in, const char *const restrict prompt)
+char *get_input(FILE *in, const char *prompt)
 {
     // If the buffer has been previously allocated free it
     if (line_read) {
@@ -142,7 +142,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
  * do_line:
  *      Parse a line and fill a struct command with data.
  */
-int do_line(const char *const restrict line, struct command *restrict cmd)
+int do_line(const char *line, struct command *cmd)
 {
     size_t cnt = 0;                     // Number of commands parsed
     int err = 0;                        // error code

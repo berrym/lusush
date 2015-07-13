@@ -33,7 +33,7 @@
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
-extern char *get_input(FILE *const restrict, const char *const restrict);
-extern int do_line(const char *const restrict, struct command *restrict);
+extern char *get_input(FILE *, const char *);
+extern int do_line(const char *, struct command *);
 
 #endif
