@@ -27,12 +27,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_LIBREADLINE
-#include <stdio.h>                  // Needed for readline history to compile
-#endif
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef HAVE_LIBREADLINE
+#include <readline/readline.h>
+#endif
 #include "lusush.h"
 #include "input.h"
 #include "expand.h"
@@ -87,8 +88,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     }
 
 #ifdef HAVE_LIBREADLINE
-    char *tmp = NULL;
-
     // Read a line from either a file or standard input
     if (SHELL_TYPE != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL)
@@ -106,23 +105,6 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         if (line_read[strlen(line_read) - 1] == '\n')
             line_read[strlen(line_read) - 1] = '\0';
     }
-
-    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: input.c: get_input: calloc");
-        return NULL;
-    }
-
-    strncpy(tmp, line_read, MAXLINE);
-    expand(tmp);
-    vprint("%sexpanded_line=%s\n", DBGSTR, tmp);
-
-    if (strcmp(tmp, line_read) != 0)
-        strncpy(line_read, tmp, MAXLINE);
-
-    if (tmp) {
-        free(tmp);
-        tmp = NULL;
-    }
 #else
     if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: input.c: get_input: calloc");
@@ -138,12 +120,13 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (line_read[strlen(line_read) - 1] == '\n')
         line_read[strlen(line_read) - 1] = '\0';
 
-    add_history(line_read);
+    if (in == stdin && line_read && *line_read)
+        add_history(line_read);
+#endif
 
     expand(line_read);
     vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
-#endif
-
+    
     return line_read;
 }
 

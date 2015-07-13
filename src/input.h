@@ -29,11 +29,6 @@
 
 #include <stdio.h>
 #include "lusush.h"
-#ifdef HAVE_LIBEDIT
-#include <editline/readline.h>
-#elif HAVE_LIBREADLINE
-#include <readline/readline.h>
-#endif
 
 #ifndef __INPUT_H__
 #define __INPUT_H__

@@ -31,6 +31,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#ifdef HAVE_LIBREADLINE
+#include <readline/history.h>
+#endif
 #include "lusush.h"
 #include "history.h"
 

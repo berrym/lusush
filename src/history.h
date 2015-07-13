@@ -27,14 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include "lusush.h"
-#ifdef HAVE_LIBEDIT
-#include <editline/readline.h>
-#elif HAVE_LIBREADLINE
-#include <readline/history.h>
-#endif
-
 #ifndef __HISTORY_H__
 #define __HISTORY_H__
 
