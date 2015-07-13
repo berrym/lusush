@@ -48,6 +48,16 @@
 static char *line_read = NULL;  // storage for readline and fgets
 
 /**
+ * null_terminate:
+ *      Terminate a string with null character instead of a newline.
+ */
+static void null_terminate(char *s)
+{
+    if (s[strlen(s) - 1] == '\n')
+        s[strlen(s) - 1] = '\0';
+}
+
+/**
  * strip_trailing_whspc:
  *      Remove whitespace at the end of a string.
  */
@@ -67,7 +77,7 @@ static char *rl_gets(const char *prompt)
     // Get a line from the user
     line_read = readline(prompt);
 
-    // If the line has any text in it, save it on the history
+    // If the line has any text in it, save it in history
     if (line_read && *line_read)
         add_history(line_read);
 
@@ -102,8 +112,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
         if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;
 
-        if (line_read[strlen(line_read) - 1] == '\n')
-            line_read[strlen(line_read) - 1] = '\0';
+        null_terminate(line_read);
     }
 #else
     if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
@@ -117,8 +126,7 @@ char *get_input(FILE *const restrict in, const char *const restrict prompt)
     if (fgets(line_read, MAXLINE, in) == NULL)
         return NULL;
 
-    if (line_read[strlen(line_read) - 1] == '\n')
-        line_read[strlen(line_read) - 1] = '\0';
+    null_terminate(line_read);
 
     if (in == stdin && line_read && *line_read)
         add_history(line_read);
@@ -148,19 +156,15 @@ int do_line(const char *const restrict line, struct command *restrict cmd)
     // buffer for a copy of line to mangle with strtok_r
     char *tmp = NULL;
 
+    if (!line)
+        return -1;
+
+    if (!*line)
+        return 0;
+
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: input.c: do_line: calloc");
         return -1;
-    }
-
-    if (!line) {
-        err = -1;
-        goto cleanup;
-    }
-
-    if (!*line) {
-        err = 0;
-        goto cleanup;
     }
 
     strncpy(tmp, line, MAXLINE); // make a copy of line to mangle

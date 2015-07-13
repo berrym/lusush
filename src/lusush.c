@@ -49,9 +49,9 @@ int main(int argc, char **argv)
     char prompt[MAXLINE] = { '\0' };
     bool bActive = true;
     int ret = 0;
-    char *restrict line = NULL;
-    FILE *restrict in = NULL;
-    struct command *restrict cmd = NULL;
+    char *line = NULL;
+    FILE *in = NULL;
+    struct command *cmd = NULL;
 
     // Perform startup tasks
     init(argc, argv);
