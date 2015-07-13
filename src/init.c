@@ -93,7 +93,7 @@ int init(int argc, char **argv)
             if (stat(argv[optind], &st)) {
                 if (!S_ISREG(st.st_mode)) {
                     fprintf(stderr, 
-                            "Lusush: %s is not a regular file.\n",
+                            "lusush: %s is not a regular file.\n",
                             argv[1]);
                     optind = 0;
                     SHELL_TYPE = INTERACTIVE_SHELL;

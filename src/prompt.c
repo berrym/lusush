@@ -103,7 +103,7 @@ static void build_colors(void)
     if (!colors) {
         if ((colors = calloc(14, sizeof(char))) == NULL) {
             perror("lusush: prompt.c: build_colors: calloc");
-            fprintf(stderr, "%s: unseting option COLOR_PROMPT\n", DBGSTR);
+            vprint(stderr, "%s: unsetting option COLOR_PROMPT\n", DBGSTR);
             set_bool_opt(COLOR_PROMPT, false);
         }
     }

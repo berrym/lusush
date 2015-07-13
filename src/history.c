@@ -53,7 +53,7 @@ int read_histfile(const char *const histfile)
 {
 #ifdef HAVE_LIBREADLINE
     if (read_history(histfile) != 0) {
-        perror("lusush: read_hist");
+        perror("lusush: history.c: read_histfile: read_history");
         return errno;
     }
 #else
@@ -114,7 +114,7 @@ void init_history(void)
 
 #ifndef HAVE_LIBREADLINE
 /**
- * push_history:
+ * add_history:
  *      Add a line of history to hist_list.
  */
 void add_history(const char *const line)
