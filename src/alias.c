@@ -40,6 +40,54 @@ static struct alias *head = NULL;
 static bool initialized = false;
 
 /**
+ * find_end:
+ *      Traverse the list until the end is reached.
+ */
+static struct alias *find_end(void)
+{
+    struct alias *curr = head;
+
+    if (!head)
+        return NULL;
+
+    while (curr->next)
+        curr = curr->next;
+
+    return curr;
+}
+
+/**
+ * alloc_alias:
+ *      Allocate memory for a struct alias at the end of the list.
+ */
+static struct alias *alloc_alias(void)
+{
+    struct alias *curr = find_end();
+
+    if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
+        perror("lusush: alias.c: alloc_alias: calloc");
+        return NULL;
+    }
+
+    return curr;
+}
+
+/**
+ * lookup_alias:
+ *      Find a  node in the list by key lookup and return a pointer to it.
+ */
+static struct alias *lookup_alias(char *key)
+{
+    struct alias *curr = NULL, *prev = NULL;
+
+    for (curr = head; curr != NULL; prev = curr, curr = curr->next)
+        if (strncmp(curr->key, key, MAXLINE) == 0)
+            return curr;
+
+    return NULL;
+}
+
+/**
  * init_alias_list:
  *    allocate memory for the linked list
  */
@@ -57,57 +105,8 @@ int init_alias_list(void)
 }
 
 /**
- * alloc_alias:
- *    allocate memory for a struct alias at the end of the list
- */
-struct alias *alloc_alias(void)
-{
-    struct alias *curr = find_end();
-
-    if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
-        perror("lusush: alias.c: alloc_alias: calloc");
-        return NULL;
-    }
-
-    return curr;
-}
-
-/**
- * find_end:
- *    traverse the list until the end is reached and return a pointer to that
- *    location
- */
-struct alias *find_end(void)
-{
-    struct alias *curr = head;
-
-    if (!head)
-        return NULL;
-
-    while (curr->next)
-        curr = curr->next;
-
-    return curr;
-}
-
-/**
- * lookup_alias:
- *    find a  node in the list by key lookup and return a pointer to it
- */
-struct alias *lookup_alias(char *key)
-{
-    struct alias *curr = NULL, *prev = NULL;
-
-    for (curr = head; curr != NULL; prev = curr, curr = curr->next)
-        if (strncmp(curr->key, key, MAXLINE) == 0)
-            return curr;
-
-    return NULL;
-}
-
-/**
  * expand_alias:
- *    lookup an alias by key and return it's associated value
+ *      Lookup an alias by key and return it's associated value.
  */
 char *expand_alias(char *key)
 {
@@ -121,7 +120,7 @@ char *expand_alias(char *key)
 
 /**
  * set_alias:
- *    create a new node in the list or replace an existing one
+ *      Create a new node in the list or replace an existing one.
  */
 int set_alias(char *key, char *val)
 {
@@ -159,7 +158,7 @@ int set_alias(char *key, char *val)
 
 /**
  * unset_alias:
- *    remove a node in the list
+ *      Remove a node in the list.
  */
 void unset_alias(char *key)
 {
@@ -184,7 +183,7 @@ void unset_alias(char *key)
 
 /**
  * print_alias_list:
- *    display the key->val mappings of the list
+ *      Display the key->val mappings of the alias list.
  */
 void print_alias_list(void)
 {
