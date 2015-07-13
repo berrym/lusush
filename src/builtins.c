@@ -72,7 +72,7 @@
 /*     { "setprompt",    "set prompt colors"           } */
 /* }; */
 
-const char *builtins[BUILTIN_CMD_CNT] =
+static const char *builtins[BUILTIN_CMD_CNT] =
 {
     "exit",         "exit program",
     "help",         "display basic help",

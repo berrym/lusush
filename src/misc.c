@@ -36,7 +36,7 @@
 
 /**
  * vprint:
- *      print messages if VERBOSE_PRINT option is set
+ *      Print formatted string if VERBOSE_PRINT option is set.
  */
 void vprint(const char *fmt, ...)
 {

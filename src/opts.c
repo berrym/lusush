@@ -40,7 +40,7 @@ static bool OPTIONS[OPT_CNT] = { false };
 
 /**
  * usage:
- *      command line switches
+ *      Display a description of command line switches.
  */
 static void usage(int ret) {
     fprintf(stderr, "Usage:\n\t-h Help\n\t");
@@ -51,7 +51,7 @@ static void usage(int ret) {
 
 /**
  * set_bool_opt:
- *      set boolean option to moddify runtime behaviour
+ *      Set a boolean option to modify runtime behaviour.
  */
 bool set_bool_opt(unsigned int opt, bool val)
 {
@@ -73,7 +73,7 @@ bool set_bool_opt(unsigned int opt, bool val)
 
 /**
  * opt_is_set:
- *     returns boolean value for runtime options
+ *     Return boolean value for a runtime option.
  */
 bool opt_is_set(int index)
 {
@@ -82,7 +82,7 @@ bool opt_is_set(int index)
 
 /**
  * parse_opts:
- *      parse command line switches using getopt framework
+ *      Parse command line switches using getopt framework.
  */
 int parse_opts(int argc, char **argv)
 {

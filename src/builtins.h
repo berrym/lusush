@@ -27,8 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
-
 #ifndef __BUILTINS_H__
 #define __BUILTINS_H__
 
@@ -63,8 +61,6 @@ enum {
         BUILTIN_CMD_SETPROMPT=22,
         BUILTIN_CMD_CNT=24
 };
-
-extern const char *builtins[BUILTIN_CMD_CNT];
 
 extern int is_builtin_cmd(const char *);
 extern void help(const char *);

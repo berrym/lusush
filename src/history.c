@@ -50,9 +50,9 @@ static char hist_list[MAXHIST][MAXLINE] = { "\0" };
 
 /**
  * read_histfile:
- *      read stored commands from history file
+ *      Read stored commands from the history file.
  */
-int read_histfile(const char *const histfile)
+static int read_histfile(const char *const histfile)
 {
 #ifdef HAVE_LIBREADLINE
     if (read_history(histfile) != 0) {

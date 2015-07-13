@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lusush.h"
 #include "expand.h"
 #include "alias.h"
 #include "builtins.h"
@@ -42,7 +41,7 @@ static char *expanded = NULL;
 
 /**
  * expand:
- *      perform word expansion
+ *      Perform token expansions on a string.
  */
 void expand(char *const line)
 {
@@ -68,7 +67,7 @@ void expand(char *const line)
     if (!(tok = strtok(tmp, " ")))
         return;
 
-    if (strcmp(tok, builtins[BUILTIN_CMD_UNALIAS]) == 0)
+    if (strncmp(tok, "unalias", 8) == 0)
         return;
 
     while (tok) {

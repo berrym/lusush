@@ -27,6 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+
 #ifndef __ALIAS_H__
 #define __ALIAS_H__
 
