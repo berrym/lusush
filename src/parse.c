@@ -33,10 +33,12 @@
 #include <ctype.h>
 #include "lusush.h"
 #include "parse.h"
+#include "cmdlist.h"
+#include "misc.h"
 
-#define PARSER_ERROR_ABORT -1
-#define PARSER_ERROR_BREAK 0
-#define PARSER_CONTINUE_ON 1
+#define PARSER_ERROR_ABORT -1   /* major error, shell should terminate */
+#define PARSER_ERROR_BREAK 0    /* quit parsing line, not serious */
+#define PARSER_CONTINUE_ON 1    /* keep going everything is ok */
 
 // character classifications
 enum {
@@ -61,6 +63,16 @@ static bool inquote = false;
 // input buffers
 static char *line = NULL;
 static struct command *cmd = NULL;
+
+/**
+ * strip_trailing_whspc:
+ *      Remove whitespace at the end of a string.
+ */
+static void strip_trailing_whspc(char *s)
+{
+    while (strlen(s) && isspace((int)s[strlen(s) - 1]))
+        s[strlen(s) - 1] = '\0';
+}
 
 /**
  * char_type:
@@ -263,31 +275,31 @@ static int do_tilde(void)
  */
 static int do_magic(char c)
 {
-    int ret;
+    int err;
 
     switch (c) {
     case '#':
-        ret = do_pound();
+        err = do_pound();
         break;
     case '&':
-        ret = do_ampersand();
+        err = do_ampersand();
         break;
     case '<':
-        ret = do_lessthan();
+        err = do_lessthan();
         break;
     case '>':
-        ret = do_greaterthan();
+        err = do_greaterthan();
         break;
     case '"':
-        ret = do_doublequote();
+        err = do_doublequote();
         break;
     case '~':
-        ret = do_tilde();
+        err = do_tilde();
     default:
         break;
     }
 
-    switch (ret) {
+    switch (err) {
     case PARSER_ERROR_ABORT:
     case PARSER_ERROR_BREAK:
         break;
@@ -298,12 +310,12 @@ static int do_magic(char c)
         break;
     }
 
-    return ret;
+    return err;
 }
 
 /**
  * do_whspc:
- *      Process whitespace.
+ *      Process whitespace, unless inside a quotation ignore it.
  */
 static int do_whspc(char c)
 {
@@ -376,19 +388,19 @@ static int do_nchar(char c)
 }
 
 /**
- * parse_cmd:
+ * do_token:
  *      Parse a string one character at a time, determine what class of
  *      character it is, one of (magic, whitespace or normal), then call
  *      the appropriate function to process the character that fills
  *      relevant data into the fields of a struct command for execution.
  */
-int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
+static int do_token(char *linep, struct command *cmdp)
 {
-    int ret;
+    int err;
     char c;
 
-    line = line_ptr;
-    cmd = cmd_ptr;
+    line = linep;
+    cmd = cmdp;
 
     if (!line)
         return PARSER_ERROR_ABORT;
@@ -405,20 +417,110 @@ int parse_cmd(struct command *cmd_ptr, char *const line_ptr)
 
         switch (char_type(c)) {
         case IS_MAGIC:
-            if (!(ret = do_magic(c)))
-                return ret;
+            if (!(err = do_magic(c)))
+                return err;
             break;
         case IS_WHSPC:
-            if (!(ret = do_whspc(c)))
-                return ret;
+            if (!(err = do_whspc(c)))
+                return err;
             break;
         case IS_NCHAR:
-            if (!(ret = do_nchar(c)))
-                return ret;
+            if (!(err = do_nchar(c)))
+                return err;
         default:
             break;
         }
     }
 
-    return ret;
+    return err;
+}
+
+/**
+ * parse_command:
+ *      Break a line into tokens that are parsed by do_line.
+ */
+int parse_command(const char *linep, struct command *cmdp)
+{
+    size_t count = 0;                   // number of commands parsed
+    int err = 0;                        // error code
+    int k = 0, l = 0;                   // loop variables
+    bool pipe = false;                  // pipe chain flag
+
+    // Storage for first tier of tokens (";")
+    char *tok = NULL, *ptr1 = NULL, *savep1 = NULL;
+    // Storage for secondary tier of tokens ("|")
+    char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
+    // buffer for a copy of linep to mangle with strtok_r
+    char *tmp = NULL;
+
+    if (!linep)
+        return PARSER_ERROR_ABORT;
+
+    if (!*linep)
+        return PARSER_ERROR_BREAK;
+
+    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
+        perror("lusush: input.c: do_linep: calloc");
+        return PARSER_ERROR_ABORT;
+    }
+
+    strncpy(tmp, linep, MAXLINE); // make a copy of linep to mangle
+
+    for (k = 0, ptr1 = tmp; ; k++, ptr1 = NULL) {
+        if (!(tok = strtok_r(ptr1, ";", &savep1)))
+            break;
+
+        strip_trailing_whspc(tok);
+
+        for (l = 0, ptr2 = tok; ; l++, ptr2 = NULL) {
+            if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
+                pipe = false;
+                break;
+            }
+
+            strip_trailing_whspc(subtok);
+
+            if (cmdalloc(cmdp) < 0) {
+                err = -1;
+                goto cleanup;
+            }
+
+            if (l == 1) {
+                vprint("**** Do pipe %s\n", subtok);
+                cmdp->prev->pipe = true;
+                cmdp->prev->pipe_head = true;
+                pipe = true;
+            }
+
+            if (pipe)
+                cmdp->pipe = true;
+
+            switch (err = do_token(subtok, cmdp)) {
+            case PARSER_ERROR_ABORT:
+            case PARSER_ERROR_BREAK:
+                goto cleanup;
+            default:
+                cmdp->next->prev = cmdp;
+                cmdp = cmdp->next;
+                cmdp->next = NULL;
+                count++;
+            }
+        }
+    }
+
+cleanup:
+    if (tmp)
+        free(tmp);
+
+    tmp = NULL;
+
+    switch (err) {
+    case PARSER_ERROR_ABORT:
+    case PARSER_ERROR_BREAK:
+        return err;
+    default:
+        break;
+    }
+
+    return (int)count;
 }

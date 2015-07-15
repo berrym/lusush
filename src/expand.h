@@ -30,6 +30,6 @@
 #ifndef __EXPAND_H__
 #define __EXPAND_H__
 
-extern void expand(char *const);
+extern void expand(char *);
 
 #endif

@@ -34,6 +34,7 @@
 #include "init.h"
 #include "history.h"
 #include "input.h"
+#include "parse.h"
 #include "cmdlist.h"
 #include "exec.h"
 #include "misc.h"
@@ -85,7 +86,7 @@ int main(int argc, char **argv)
         line = get_input(in, prompt);
 
         // Handle the results of get_input
-        switch (ret = do_line(line, cmd)) {
+        switch (ret = parse_command(line, cmd)) {
         case -1:                    // Error
             bActive = false;        // Exit program
             break;
@@ -97,7 +98,7 @@ int main(int argc, char **argv)
 
             vprint("ret (at) main --> %d\n", ret);
 
-            // Execute the command(s) parsed by get_input (ret)
+            // Execute the command(s)
             exec_cmd(cmd, ret);
 
             // Free command(s)

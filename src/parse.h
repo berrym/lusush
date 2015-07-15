@@ -32,6 +32,6 @@
 #ifndef __PARSE_H__
 #define __PARSE_H__
 
-extern int parse_cmd(struct command *, char *const);
+extern int parse_command(const char *, struct command *);
 
 #endif

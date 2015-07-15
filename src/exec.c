@@ -76,7 +76,7 @@ int exec_cmd(struct command *cmd, int n)
 
         if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
             if (cmd->pipe) {
-                printf("lusush: pipes are not supported for builtins\n");
+                fprintf(stderr, "lusush: cannot pipe with builtins\n");
                 return i;
             }
             pids[i] = 0;
@@ -222,7 +222,7 @@ int exec_external_cmd(struct command *cmd)
         if (*cmd->argv != NULL)
             execvp(cmd->argv[0], cmd->argv);
 
-        fprintf(stderr, "Could not execute: %s\n", cmd->argv[0]);
+        fprintf(stderr, "lusush: command not found: %s\n", cmd->argv[0]);
         exit(127);                  // exec shouldn't return ever
         break;
     default:                        // parent process

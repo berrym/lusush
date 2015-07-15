@@ -52,7 +52,7 @@ static char hist_list[MAXHIST][MAXLINE] = { "\0" };
  * read_histfile:
  *      Read stored commands from the history file.
  */
-static int read_histfile(const char *const histfile)
+static int read_histfile(const char *histfile)
 {
 #ifdef HAVE_LIBREADLINE
     if (read_history(histfile) != 0) {
@@ -60,7 +60,7 @@ static int read_histfile(const char *const histfile)
         return errno;
     }
 #else
-    int i = 0;
+    unsigned int i = 0;
 
     if ((histfp = fopen(histfile, "r")) == NULL) {
         if (errno != ENOENT)
@@ -120,7 +120,7 @@ void init_history(void)
  * add_history:
  *      Add a line of history to hist_list.
  */
-void add_history(const char *const line)
+void add_history(const char *line)
 {
     if (hist_size < MAXHIST) {
         strncpy(hist_list[hist_size], line, MAXLINE);
@@ -133,12 +133,12 @@ void add_history(const char *const line)
  * write_histfile:
  *      write runtime command history into histfile
  */
-void write_histfile(const char *const histfile)
+void write_histfile(const char *histfile)
 {
 #ifdef HAVE_LIBREADLINE
     write_history(histfile);
 #else
-    int i = 0;
+    unsigned int i = 0;
 
     if ((histfp = fopen(histfile, "a")) == (FILE *)0) {
         perror("lusush: fopen");
@@ -167,7 +167,7 @@ char *histfilename(void)
  */
 void history(void)
 {
-    int i;
+    unsigned int i;
 
 #ifdef HAVE_LIBREADLINE
     if ((hist_list = history_list())) {
@@ -177,6 +177,6 @@ void history(void)
     }
 #else
     for (i = 0; i < MAXHIST && *hist_list[i]; i++)
-        printf("%4d:\t%s\n", 1 + i, hist_list[i]);
+        printf("%4d:\t%s\n", i + 1, hist_list[i]);
 #endif
 }

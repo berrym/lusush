@@ -32,7 +32,6 @@
 #include <string.h>
 #include "expand.h"
 #include "alias.h"
-#include "builtins.h"
 #include "misc.h"
 
 #define DBGSTR "DEBUG: expand.c: "
@@ -43,7 +42,7 @@ static char *expanded = NULL;
  * expand:
  *      Perform token expansions on a string.
  */
-void expand(char *const line)
+void expand(char *line)
 {
     char tmp[MAXLINE] = { '\0' };
     char prv[MAXLINE] = { '\0' };

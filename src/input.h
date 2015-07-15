@@ -28,12 +28,10 @@
  */
 
 #include <stdio.h>
-#include "lusush.h"
 
 #ifndef __INPUT_H__
 #define __INPUT_H__
 
 extern char *get_input(FILE *, const char *);
-extern int do_line(const char *, struct command *);
 
 #endif
