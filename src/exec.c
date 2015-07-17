@@ -46,87 +46,10 @@
 #define WAITFLAGS(command) command->background ? WNOHANG : 0
 
 /**
- * exec_cmd:
- *      Wrapper function for exec_builtin_command and exec_external_cmd.
- */
-int exec_cmd(struct command *cmd, int n)
-{
-    unsigned int i;             // loop variable
-    int ret, status;            // return value, waitpid status
-    int pids[n];                // array of pids to wait on
-    struct command *psave1;     // place holders in command history
-
-    psave1 = cmd;               // save current position in command history
-
-    if (!*cmd->argv[0])
-        return 0;
-
-    for (i = 0; i < n; i++)
-        pids[i] = 0;
-
-    /////////////////////////////////////////////////
-    //  Execute (n) number of chained commands
-    /////////////////////////////////////////////////
-
-    for (i = 0; i < n; i++) {
-
-        /////////////////////////////////////////////////
-        // Execute a builtin command
-        /////////////////////////////////////////////////
-
-        if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
-            if (cmd->pipe) {
-                fprintf(stderr, "lusush: cannot pipe with builtins\n");
-                return i;
-            }
-            pids[i] = 0;
-            exec_builtin_cmd(ret, cmd);
-        }
-
-        /////////////////////////////////////////////////
-        // Execute an external command
-        /////////////////////////////////////////////////
-
-        else {
-            if ((pids[i] = exec_external_cmd(cmd)) == -1)
-                return -1;
-        }
-
-        // Move to next command in chain
-        if (cmd->next)
-            cmd = cmd->next;
-        else
-            continue;
-    }
-
-    cmd = psave1;               // restore to inital offset
-
-    /////////////////////////////////////////////////
-    // Wait for processes to finish
-    /////////////////////////////////////////////////
-
-    for (i = 0; i < n; i++) {
-        if (pids[i]) {
-            // If executing the command in the background, call waitpid with
-            // the WNOHANG option, otherwise pass 0 to block
-            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
-                perror("lusush: exec.c: exec_cmd: waitpid");
-                return -1;
-            }
-        }
-
-        if (cmd->next != NULL)
-            cmd = cmd->next;
-    }
-
-    return 0;
-}
-
-/**
  * exec_external_cmd:
  *      Execute an external command after setting up pipes or redirections.
  */
-int exec_external_cmd(struct command *cmd)
+static int exec_external_cmd(struct command *cmd)
 {
     unsigned int i;
     pid_t pid;
@@ -243,7 +166,7 @@ int exec_external_cmd(struct command *cmd)
  * exec_builtin_cmd:
  *      Execute builtin command number (cmdno) with the data in (cmd).
  */
-void exec_builtin_cmd(int cmdno, struct command *cmd)
+static void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
     char tmp[MAXLINE] = { '\0' };
     unsigned int i;
@@ -330,4 +253,81 @@ void exec_builtin_cmd(int cmdno, struct command *cmd)
     deafult:
         break;
     }
+}
+
+/**
+ * exec_cmd:
+ *      Wrapper function for exec_builtin_command and exec_external_cmd.
+ */
+int exec_cmd(struct command *cmd, int n)
+{
+    unsigned int i;             // loop variable
+    int ret, status;            // return value, waitpid status
+    int pids[n];                // array of pids to wait on
+    struct command *psave1;     // place holders in command history
+
+    psave1 = cmd;               // save current position in command history
+
+    if (!*cmd->argv[0])
+        return 0;
+
+    for (i = 0; i < n; i++)
+        pids[i] = 0;
+
+    /////////////////////////////////////////////////
+    //  Execute (n) number of chained commands
+    /////////////////////////////////////////////////
+
+    for (i = 0; i < n; i++) {
+
+        /////////////////////////////////////////////////
+        // Execute a builtin command
+        /////////////////////////////////////////////////
+
+        if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+            if (cmd->pipe) {
+                fprintf(stderr, "lusush: cannot pipe with builtins\n");
+                return i;
+            }
+            pids[i] = 0;
+            exec_builtin_cmd(ret, cmd);
+        }
+
+        /////////////////////////////////////////////////
+        // Execute an external command
+        /////////////////////////////////////////////////
+
+        else {
+            if ((pids[i] = exec_external_cmd(cmd)) == -1)
+                return -1;
+        }
+
+        // Move to next command in chain
+        if (cmd->next)
+            cmd = cmd->next;
+        else
+            continue;
+    }
+
+    cmd = psave1;               // restore to inital offset
+
+    /////////////////////////////////////////////////
+    // Wait for processes to finish
+    /////////////////////////////////////////////////
+
+    for (i = 0; i < n; i++) {
+        if (pids[i]) {
+            // If executing the command in the background, call waitpid with
+            // the WNOHANG option, otherwise pass 0 to block
+            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
+                perror("lusush: exec.c: exec_cmd: waitpid");
+                return -1;
+            }
+        }
+
+        if (cmd->next != NULL)
+            cmd = cmd->next;
+    }
+
+    return 0;
 }

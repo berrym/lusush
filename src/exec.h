@@ -33,7 +33,5 @@
 #define __EXEC_H__
 
 extern int exec_cmd(struct command *, int);
-extern int exec_external_cmd(struct command *);
-extern void exec_builtin_cmd(int, struct command *);
 
 #endif

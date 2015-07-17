@@ -48,17 +48,17 @@ enum {
 };
 
 // loop and counter variables
-static unsigned int i = 0;
-static unsigned int j = 0;
-static unsigned int wpos = 0;
-static unsigned int cpos = 0;
-static unsigned int qcnt = 0;
+static unsigned int i;
+static unsigned int j;
+static unsigned int wpos;
+static unsigned int cpos;
+static unsigned int qcnt;
 
 // command flags effecting parser behavior
-static bool iredir = false;
-static bool oredir = false;
-static bool readreg = false;
-static bool inquote = false;
+static bool iredir;
+static bool oredir;
+static bool readreg;
+static bool inquote;
 
 // input buffers
 static char *line = NULL;
@@ -114,26 +114,26 @@ static int char_type(char c)
  */
 static int do_pound(void)
 {
-    if (!inquote) {
-        if (iredir)
-            cmd->ifname[cpos] = '\0';
-        else if (oredir)
-            cmd->ofname[cpos] = '\0';
-        else
-            cmd->argv[wpos][cpos] = '\0';
+    if (inquote) {
+        if (iredir || oredir) {
+            fprintf(stderr, "lusush: parse error near '#'\n");
+            return PARSER_ERROR_BREAK;
+        }
 
-        line[i] = '\0';
+        cmd->argv[wpos][cpos] = '#';
+        cpos++;
 
         return PARSER_CONTINUE_ON;
     }
 
-    if (iredir || oredir) {
-        fprintf(stderr, "lusush: parse error near character '#'\n");
-        return PARSER_ERROR_BREAK;
-    }
+    if (iredir)
+        cmd->ifname[cpos] = '\0';
+    else if (oredir)
+        cmd->ofname[cpos] = '\0';
+    else
+        cmd->argv[wpos][cpos] = '\0';
 
-    cmd->argv[wpos][cpos] = '#';
-    cpos++;
+    line[i] = '\0';
 
     return PARSER_CONTINUE_ON;
 }
@@ -180,22 +180,22 @@ static int do_ampersand(void)
  */
 static int do_lessthan(void)
 {
-    if (!inquote) {
-        iredir = cmd->iredir = true;
-
-        if (line[i + 1] && line[i + 1] == '<') {
-            fprintf(stderr, "lusush: parse error near '<<': " \
-                    "invalid operator\n");
-            return PARSER_ERROR_BREAK;
-        }
-
-        if (cmd->argv[wpos])
-            cmd->argv[wpos][cpos] = '\0';
-    }
-    else {
+    if (inquote) {
         cmd->argv[wpos][cpos] = '<';
         cpos++;
+        return PARSER_CONTINUE_ON;
     }
+
+    iredir = cmd->iredir = true;
+
+    if (line[i + 1] && line[i + 1] == '<') {
+        fprintf(stderr, "lusush: parse error near '<<': " \
+                "invalid operator\n");
+        return PARSER_ERROR_BREAK;
+    }
+
+    if (cmd->argv[wpos])
+        cmd->argv[wpos][cpos] = '\0';
 
     return PARSER_CONTINUE_ON;
 }
@@ -206,29 +206,29 @@ static int do_lessthan(void)
  */
 static int do_greaterthan(void)
 {
-    if (!inquote) {
-        oredir = cmd->oredir = true;
-
-        if (line[i + 1] && line[i + 1] == '>') {
-            cmd->oredir_append = true;
-            i++;
-        }
-
-        if (cmd->oredir_append) {
-            if (line[i + 1] && line[i + 1] == '>') {
-                fprintf(stderr, "lusush: parse error near '>>>': "  \
-                        "invalid operator\n");
-                return PARSER_ERROR_BREAK;
-            }
-        }
-
-        if (cmd->argv[wpos])
-            cmd->argv[wpos][cpos] = '\0';
-    }
-    else {
+    if (inquote) {
         cmd->argv[wpos][cpos] = '>';
         cpos++;
+        return PARSER_CONTINUE_ON;
     }
+
+    oredir = cmd->oredir = true;
+
+    if (line[i + 1] && line[i + 1] == '>') {
+        cmd->oredir_append = true;
+        i++;
+    }
+
+    if (cmd->oredir_append) {
+        if (line[i + 1] && line[i + 1] == '>') {
+            fprintf(stderr, "lusush: parse error near '>>>': "  \
+                    "invalid operator\n");
+            return PARSER_ERROR_BREAK;
+        }
+    }
+
+    if (cmd->argv[wpos])
+        cmd->argv[wpos][cpos] = '\0';
 
     return PARSER_CONTINUE_ON;
 }
@@ -389,17 +389,17 @@ static int do_nchar(char c)
 
 /**
  * do_token:
- *      Parse a string one character at a time, determine what class of
+ *      Parse a token one character at a time, determine what class of
  *      character it is, one of (magic, whitespace or normal), then call
  *      the appropriate function to process the character that fills
  *      relevant data into the fields of a struct command for execution.
  */
-static int do_token(char *linep, struct command *cmdp)
+static int do_token(char *tok, struct command *cmdp)
 {
     int err;
     char c;
 
-    line = linep;
+    line = tok;
     cmd = cmdp;
 
     if (!line)
@@ -437,14 +437,14 @@ static int do_token(char *linep, struct command *cmdp)
 
 /**
  * parse_command:
- *      Break a line into tokens that are parsed by do_line.
+ *      Break a line into tokens that are parsed by do_token.
  */
 int parse_command(const char *linep, struct command *cmdp)
 {
-    size_t count = 0;                   // number of commands parsed
-    int err = 0;                        // error code
-    int k = 0, l = 0;                   // loop variables
-    bool pipe = false;                  // pipe chain flag
+    int err;                    // error code
+    unsigned int k, l;          // loop iterators
+    int count = 0;              // number of commands parsed
+    bool pipe = false;          // pipe flag
 
     // Storage for first tier of tokens (";")
     char *tok = NULL, *ptr1 = NULL, *savep1 = NULL;
@@ -460,7 +460,7 @@ int parse_command(const char *linep, struct command *cmdp)
         return PARSER_ERROR_BREAK;
 
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: input.c: do_linep: calloc");
+        perror("lusush: input.c: do_line: calloc");
         return PARSER_ERROR_ABORT;
     }
 
@@ -522,5 +522,5 @@ cleanup:
         break;
     }
 
-    return (int)count;
+    return count;
 }
