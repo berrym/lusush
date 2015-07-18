@@ -406,6 +406,7 @@ static int do_nchar(char c)
         case 'n':
             c = '\n';
             escaping = false;
+            break;
         default:
             cmd->argv[wpos][cpos] = '\\';
             cpos++;
