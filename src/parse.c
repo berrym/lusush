@@ -371,7 +371,6 @@ static int do_whspc(char c)
     wpos++;
     cpos = 0;
 
-    printf("new wpos\n");
     if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: parse.c: do_whspc: calloc");
 
