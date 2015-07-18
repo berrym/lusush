@@ -490,6 +490,12 @@ int parse_command(const char *linep, struct command *cmdp)
     // Buffer for a copy of linep to mangle with strtok_r
     char *tmp = NULL;
 
+    if (!linep)
+        return PARSER_ERROR_ABORT;
+
+    if (!*linep)
+        return PARSER_ERROR_BREAK;
+
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: input.c: do_line: calloc");
         return PARSER_ERROR_ABORT;
