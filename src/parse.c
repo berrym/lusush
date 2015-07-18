@@ -36,15 +36,15 @@
 #include "cmdlist.h"
 #include "misc.h"
 
-#define PARSER_ERROR_ABORT -1   /* major error, shell should terminate */
-#define PARSER_ERROR_BREAK 0    /* quit parsing line, not serious */
-#define PARSER_CONTINUE_ON 1    /* keep going everything is ok */
+#define PARSER_ERROR_ABORT -1   // major error, shell should terminate
+#define PARSER_ERROR_BREAK 0    // quit parsing line, not serious
+#define PARSER_CONTINUE_ON 1    // keep going everything is ok
 
 // character classifications
 enum {
-    IS_MAGIC,                   /* magic character */
-    IS_WHSPC,                   /* whitespace */
-    IS_NCHAR                    /* normal character */
+    IS_MAGIC,                   // magic character
+    IS_WHSPC,                   // whitespace
+    IS_NCHAR                    // normal character
 };
 
 // loop and counter variables
@@ -52,13 +52,13 @@ static unsigned int i;
 static unsigned int j;
 static unsigned int wpos;
 static unsigned int cpos;
-static unsigned int qcnt;
 
 // command flags effecting parser behavior
 static bool iredir;
 static bool oredir;
 static bool readreg;
 static bool inquote;
+static bool escaping;
 
 // input buffers
 static char *line = NULL;
@@ -90,6 +90,7 @@ static int char_type(char c)
     case '>':
     case '"':
     case '~':
+    case '\\':
         chtype = IS_MAGIC;
         break;
     case ' ':
@@ -114,7 +115,7 @@ static int char_type(char c)
  */
 static int do_pound(void)
 {
-    if (inquote) {
+    if (inquote || escaping) {
         if (iredir || oredir) {
             fprintf(stderr, "lusush: parse error near '#'\n");
             return PARSER_ERROR_BREAK;
@@ -122,6 +123,9 @@ static int do_pound(void)
 
         cmd->argv[wpos][cpos] = '#';
         cpos++;
+
+        if (escaping)
+            escaping = false;
 
         return PARSER_CONTINUE_ON;
     }
@@ -180,7 +184,7 @@ static int do_ampersand(void)
  */
 static int do_lessthan(void)
 {
-    if (inquote) {
+    if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '<';
         cpos++;
         return PARSER_CONTINUE_ON;
@@ -239,6 +243,13 @@ static int do_greaterthan(void)
  */
 static int do_doublequote(void)
 {
+    if (escaping) {
+        cmd->argv[wpos][cpos] = '"';
+        cpos++;
+        escaping = false;
+        return PARSER_CONTINUE_ON;
+    }
+
     if (inquote)
         inquote = false;
     else
@@ -270,6 +281,25 @@ static int do_tilde(void)
 }
 
 /**
+ * do_backslash:
+ *      Process the backslash character as an escape character.
+ */
+static int do_backslash(void)
+{
+    if (escaping) {
+        cmd->argv[wpos][cpos] = '\\';
+        cpos++;
+    }
+
+    if (escaping)
+        escaping = false;
+    else
+        escaping = true;
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
  * do_magic:
  *      Process characters with special syntatic significance.
  */
@@ -295,18 +325,10 @@ static int do_magic(char c)
         break;
     case '~':
         err = do_tilde();
-    default:
         break;
-    }
-
-    switch (err) {
-    case PARSER_ERROR_ABORT:
-    case PARSER_ERROR_BREAK:
-        break;
+    case '\\':
+        err = do_backslash();
     default:
-        readreg = false;
-        cmd->argv[wpos] = NULL;
-        cmd->argc = wpos;
         break;
     }
 
@@ -349,6 +371,7 @@ static int do_whspc(char c)
     wpos++;
     cpos = 0;
 
+    printf("new wpos\n");
     if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: parse.c: do_whspc: calloc");
 
@@ -374,6 +397,23 @@ static int do_nchar(char c)
 {
     if (!readreg)
         readreg = true;
+
+    if (escaping && inquote) {
+        switch(c) {
+        case 't':
+            c = '\t';
+            escaping = false;
+            break;
+        case 'n':
+            c = '\n';
+            escaping = false;
+        default:
+            cmd->argv[wpos][cpos] = '\\';
+            cpos++;
+            escaping = false;
+            break;
+        }
+    }
 
     if (iredir)
         cmd->ifname[cpos] = c;
@@ -402,14 +442,8 @@ static int do_token(char *tok, struct command *cmdp)
     line = tok;
     cmd = cmdp;
 
-    if (!line)
-        return PARSER_ERROR_ABORT;
-
-    if (!*line)
-        return PARSER_ERROR_BREAK;
-
     i = j = wpos = cpos = 0;
-    iredir = oredir = readreg = inquote = false;
+    iredir = oredir = readreg = inquote = escaping = false;
     cmd->argc = 1;
 
     for (i = 0; i < strlen(line); i++) {
@@ -432,7 +466,10 @@ static int do_token(char *tok, struct command *cmdp)
         }
     }
 
-    return err;
+    if (!readreg)
+        return PARSER_ERROR_BREAK;
+
+    return PARSER_CONTINUE_ON;
 }
 
 /**
@@ -450,14 +487,8 @@ int parse_command(const char *linep, struct command *cmdp)
     char *tok = NULL, *ptr1 = NULL, *savep1 = NULL;
     // Storage for secondary tier of tokens ("|")
     char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
-    // buffer for a copy of linep to mangle with strtok_r
+    // Buffer for a copy of linep to mangle with strtok_r
     char *tmp = NULL;
-
-    if (!linep)
-        return PARSER_ERROR_ABORT;
-
-    if (!*linep)
-        return PARSER_ERROR_BREAK;
 
     if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: input.c: do_line: calloc");
@@ -481,7 +512,7 @@ int parse_command(const char *linep, struct command *cmdp)
             strip_trailing_whspc(subtok);
 
             if (cmdalloc(cmdp) < 0) {
-                err = -1;
+                err = PARSER_ERROR_ABORT;
                 goto cleanup;
             }
 
