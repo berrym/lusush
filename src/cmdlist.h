@@ -33,7 +33,6 @@
 #define __CMDLIST_H__
 
 extern int cmdalloc(struct command *);
-extern void cmdfree(struct command *);
 extern void free_cmdlist(struct command *);
 extern void display_cmd(struct command *);
 

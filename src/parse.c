@@ -115,7 +115,7 @@ static int char_type(char c)
  */
 static int do_pound(void)
 {
-    if (inquote || escaping) {
+    if (escaping || inquote) {
         if (iredir || oredir) {
             fprintf(stderr, "lusush: parse error near '#'\n");
             return PARSER_ERROR_BREAK;
@@ -135,7 +135,8 @@ static int do_pound(void)
     else if (oredir)
         cmd->ofname[cpos] = '\0';
     else
-        cmd->argv[wpos][cpos] = '\0';
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = '\0';
 
     line[i] = '\0';
 
@@ -149,7 +150,7 @@ static int do_pound(void)
  */
 static int do_ampersand(void)
 {
-    if (!inquote) {
+    if (!escaping && !inquote) {
         if (line[i + 1] && line[i + 1] == '&') {
             fprintf(stderr, "lusush: parse error near '&&': " \
                     "invalid operator.\n");
@@ -175,6 +176,9 @@ static int do_ampersand(void)
     cmd->argv[wpos][cpos] = '&';
     cpos++;
 
+    if (escaping)
+        escaping = false;
+
     return PARSER_CONTINUE_ON;
 }
 
@@ -187,6 +191,8 @@ static int do_lessthan(void)
     if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '<';
         cpos++;
+        if (escaping)
+            escaping = false;
         return PARSER_CONTINUE_ON;
     }
 
@@ -210,9 +216,11 @@ static int do_lessthan(void)
  */
 static int do_greaterthan(void)
 {
-    if (inquote) {
+    if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '>';
         cpos++;
+        if (escaping)
+            escaping = false;
         return PARSER_CONTINUE_ON;
     }
 
@@ -250,10 +258,7 @@ static int do_doublequote(void)
         return PARSER_CONTINUE_ON;
     }
 
-    if (inquote)
-        inquote = false;
-    else
-        inquote = true;
+    inquote ^= 1;
 
     return PARSER_CONTINUE_ON;
 }
@@ -266,14 +271,19 @@ static int do_tilde(void)
 {
     char *home = NULL;
 
-    if (!(home = getenv("HOME"))) {
+    if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '~';
         cpos++;
+        if (escaping)
+            escaping = false;
+        return PARSER_CONTINUE_ON;
     }
-    else {
-        strncat(cmd->argv[wpos], home, strlen(home));
-        cpos += strlen(home);
-    }
+
+    if (!cmd->argv[wpos] || !(home = getenv("HOME")))
+        return PARSER_ERROR_BREAK;
+
+    strncat(cmd->argv[wpos], home, strlen(home) + 1);
+    cpos += strlen(home);
 
     home = NULL;
 
@@ -291,10 +301,7 @@ static int do_backslash(void)
         cpos++;
     }
 
-    if (escaping)
-        escaping = false;
-    else
-        escaping = true;
+    escaping ^= 1;
 
     return PARSER_CONTINUE_ON;
 }
@@ -305,7 +312,7 @@ static int do_backslash(void)
  */
 static int do_magic(char c)
 {
-    int err;
+    int err = PARSER_CONTINUE_ON;
 
     switch (c) {
     case '#':
@@ -366,7 +373,8 @@ static int do_whspc(char c)
         oredir = false;
     }
     else {
-        cmd->argv[wpos][cpos] = '\0';
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = '\0';
     }
     wpos++;
     cpos = 0;
@@ -420,7 +428,8 @@ static int do_nchar(char c)
     else if (oredir)
         cmd->ofname[cpos] = c;
     else
-        cmd->argv[wpos][cpos] = c;
+        if (cmd->argv[wpos])
+            cmd->argv[wpos][cpos] = c;
 
     cpos++;
 
@@ -550,6 +559,16 @@ cleanup:
         free(tmp);
 
     tmp = NULL;
+
+    if (k && ptr1)
+        free(ptr1);
+
+    ptr1 = NULL;
+
+    if (l && ptr1)
+        free(ptr2);
+
+    ptr2 = NULL;
 
     switch (err) {
     case PARSER_ERROR_ABORT:

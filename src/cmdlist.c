@@ -34,9 +34,37 @@
 #include "cmdlist.h"
 
 /**
+ * cmdfree:
+ *      Frees the memory pointed to by cmd, including recursive
+ *      freeing of the strings in cmd->argv.
+ */
+static void cmdfree(struct command *cmd)
+{
+    if (!cmd || !cmd->argv)
+        return;
+
+    for (; cmd->argc >= 0; cmd->argc--) {
+        free(cmd->argv[cmd->argc]);
+        cmd->argv[cmd->argc] = NULL;
+    }
+
+    free(cmd->argv);
+    cmd->argv = NULL;
+
+    if (cmd->next)
+        cmd->next->prev = cmd->prev;
+
+    if (cmd->prev)
+        cmd->prev->next = cmd->next;
+
+    free(cmd);
+    cmd = NULL;
+}
+
+/**
  * cmdalloc:
- *      allocates room on the heap for a struct command pointed to by cmd, and
- *      allocates room for the pointer to pointer char argv in a struct command.
+ *      Allocates memory a struct command pointed to by cmd, and then
+ *      allocates the argument vector and it's first string.
  */
 int cmdalloc(struct command *cmd)
 {
@@ -72,58 +100,18 @@ int cmdalloc(struct command *cmd)
 }
 
 /**
- * cmdfree:
- *      frees the memory pointed to by cmd, including recursive
- *      freeing of the strings in cmd->argv.
- */
-void cmdfree(struct command *cmd)
-{
-    int i;
-
-    if (cmd) {
-        if (cmd->argv) {
-            for (i = 0; cmd->argv[i]; i++) {
-                free(cmd->argv[i]);
-                cmd->argv[i] = NULL;
-            }
-            free(cmd->argv);
-            cmd->argv = NULL;
-        }
-
-        cmd->argc = 0;
-
-        if (cmd->next)
-            cmd->next->prev = cmd->prev;
-
-        if (cmd->prev)
-            cmd->prev->next = cmd->next;
-
-        free(cmd);
-        cmd = NULL;
-    }
-}
-
-/**
  * free_cmdlist
  *      recursively free nodes in doubly linked list
  */
 void free_cmdlist(struct command *cmd)
 {
-    struct command *tmp = NULL;
-
-    while (cmd->next)
-        cmd = cmd->next;
+    struct command *next = NULL;
 
     while (cmd) {
-        if (cmd->prev)
-            tmp = cmd->prev;
-        else
-            tmp = NULL;
-
+        next = cmd->next;
         cmdfree(cmd);
-
-        if (tmp)
-            cmd = tmp;
+        if (next)
+            cmd = next;
         else
             cmd = NULL;
     }
@@ -135,7 +123,7 @@ void free_cmdlist(struct command *cmd)
  */
 void display_cmd(struct command *cmd)
 {
-    int i = 0;
+    unsigned int i;
 
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);

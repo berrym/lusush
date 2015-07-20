@@ -235,10 +235,10 @@ void build_prompt(void)
     else {
         if (opt_is_set(FANCY_PROMPT)) {
             build_colors();
-            strncpy(prompt, colors, MAXLINE);
-            strncat(prompt, cwd, MAXLINE);
-            strncat(prompt, RESET, MAXLINE);
-            strncat(prompt, "\n", MAXLINE);
+            strncpy(prompt, colors, strlen(colors) + 1);
+            strncat(prompt, cwd, strlen(cwd) + 1);
+            strncat(prompt, RESET, strlen(RESET) + 1);
+            strncat(prompt, "\n", 2);
             strncat(prompt, "% ", 3);
         }
         else {

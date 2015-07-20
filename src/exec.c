@@ -217,7 +217,7 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
             strncpy(tmp, cmd->argv[2], MAXLINE);
             strncat(tmp, " ", 2);
             for (i = 3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], MAXLINE);
+                strncat(tmp, cmd->argv[i], strlen(cmd->argv[i]) + 1);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);

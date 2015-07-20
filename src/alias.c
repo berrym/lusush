@@ -62,7 +62,7 @@ static struct alias *find_end(void)
  */
 static struct alias *alloc_alias(void)
 {
-    struct alias *curr = find_end();
+    struct alias *curr = NULL;
 
     if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
         perror("lusush: alias.c: alloc_alias: calloc");
@@ -78,9 +78,9 @@ static struct alias *alloc_alias(void)
  */
 static struct alias *lookup_alias(char *key)
 {
-    struct alias *curr = NULL, *prev = NULL;
+    struct alias *curr = NULL;
 
-    for (curr = head; curr != NULL; prev = curr, curr = curr->next)
+    for (curr = head; curr != NULL; curr = curr->next)
         if (strncmp(curr->key, key, MAXLINE) == 0)
             return curr;
 
