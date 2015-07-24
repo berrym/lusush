@@ -74,18 +74,6 @@ static void strip_trailing_whspc(char *s)
         s[strlen(s) - 1] = '\0';
 }
 
-static void strip_whspc(char *s)
-{
-    char *i = s, *j = s;
-
-    while (j) {
-        *i = *j++;
-        if (!isspace((int)*i))
-            i++;
-    }
-    *i = '\0';
-}
-
 /**
  * char_type:
  *      Identify the classification of a character, one of (magic,
@@ -127,6 +115,7 @@ static int char_type(char c)
  */
 static int do_pound(void)
 {
+    // Keep the character, do not terminate line
     if (escaping || inquote) {
         if (iredir || oredir) {
             fprintf(stderr, "lusush: parse error near '#'\n");
@@ -142,6 +131,7 @@ static int do_pound(void)
         return PARSER_CONTINUE_ON;
     }
 
+    // Null terminate buffers
     if (iredir)
         cmd->ifname[cpos] = '\0';
     else if (oredir)
@@ -162,18 +152,24 @@ static int do_pound(void)
  */
 static int do_ampersand(void)
 {
+    // Not keeping the character
     if (!escaping && !inquote) {
+        // && not supported
         if (line[i + 1] && line[i + 1] == '&') {
             fprintf(stderr, "lusush: parse error near '&&': " \
                     "invalid operator.\n");
             return PARSER_ERROR_BREAK;
         }
 
+        // Set background flag
         cmd->background = true;
 
+        // Null terminate line
         if (cmd->argv[wpos])
             cmd->argv[wpos][cpos] = '\0';
 
+        // If wpos is not zero we need to decrease it's value by one
+        // or it will index an unallocated string
         if (wpos)
             wpos--;
 
@@ -185,9 +181,11 @@ static int do_ampersand(void)
         return PARSER_ERROR_BREAK;
     }
 
+    // Keep the character
     cmd->argv[wpos][cpos] = '&';
     cpos++;
 
+    // Unset the escaping flag if set
     if (escaping)
         escaping = false;
 
@@ -200,6 +198,7 @@ static int do_ampersand(void)
  */
 static int do_lessthan(void)
 {
+    // Keep the character
     if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '<';
         cpos++;
@@ -208,14 +207,17 @@ static int do_lessthan(void)
         return PARSER_CONTINUE_ON;
     }
 
+    // Set the input redirection flags
     iredir = cmd->iredir = true;
 
+    // << is unsupported syntax
     if (line[i + 1] && line[i + 1] == '<') {
         fprintf(stderr, "lusush: parse error near '<<': " \
                 "invalid operator\n");
         return PARSER_ERROR_BREAK;
     }
 
+    // Null terminate the line
     if (cmd->argv[wpos])
         cmd->argv[wpos][cpos] = '\0';
 
@@ -228,6 +230,7 @@ static int do_lessthan(void)
  */
 static int do_greaterthan(void)
 {
+    // Keep the character
     if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '>';
         cpos++;
@@ -236,13 +239,16 @@ static int do_greaterthan(void)
         return PARSER_CONTINUE_ON;
     }
 
+    // Set output redirection flags
     oredir = cmd->oredir = true;
 
+    // Check if using appended file writes
     if (line[i + 1] && line[i + 1] == '>') {
         cmd->oredir_append = true;
         i++;
     }
 
+    // A third > is unsupported syntax
     if (cmd->oredir_append) {
         if (line[i + 1] && line[i + 1] == '>') {
             fprintf(stderr, "lusush: parse error near '>>>': "  \
@@ -251,11 +257,12 @@ static int do_greaterthan(void)
         }
     }
 
+    // Null terminate line
     if (cmd->argv[wpos])
         cmd->argv[wpos][cpos] = '\0';
 
-    wpos++;
-    cpos = 0;
+    wpos++;                     // increase wpos
+    cpos = 0;                   // reset cpos
 
     return PARSER_CONTINUE_ON;
 }
@@ -266,6 +273,7 @@ static int do_greaterthan(void)
  */
 static int do_doublequote(void)
 {
+    // Keep the double quote
     if (escaping) {
         cmd->argv[wpos][cpos] = '"';
         cpos++;
@@ -273,6 +281,7 @@ static int do_doublequote(void)
         return PARSER_CONTINUE_ON;
     }
 
+    // Flip the flag state
     inquote ^= 1;
 
     return PARSER_CONTINUE_ON;
@@ -286,6 +295,7 @@ static int do_tilde(void)
 {
     char *home = NULL;
 
+    // Keep the character
     if (escaping || inquote) {
         cmd->argv[wpos][cpos] = '~';
         cpos++;
@@ -294,9 +304,15 @@ static int do_tilde(void)
         return PARSER_CONTINUE_ON;
     }
 
-    if (!cmd->argv[wpos] || !(home = getenv("HOME")))
+    // Check that the string has memory allocated
+    if (!cmd->argv[wpos])
         return PARSER_ERROR_BREAK;
 
+    // Get the user's home directory
+    if (!(home = getenv("HOME")))
+        return PARSER_ERROR_BREAK;
+
+    // Expand the tilde to the user's home
     strncat(cmd->argv[wpos], home, strlen(home) + 1);
     cpos += strlen(home);
 
@@ -311,11 +327,13 @@ static int do_tilde(void)
  */
 static int do_backslash(void)
 {
+    // Keep the character
     if (escaping) {
         cmd->argv[wpos][cpos] = '\\';
         cpos++;
     }
 
+    // Flip the flag state
     escaping ^= 1;
 
     return PARSER_CONTINUE_ON;
@@ -363,6 +381,7 @@ static int do_magic(char c)
  */
 static int do_whspc(char c)
 {
+    // Keep the whitespace
     if (inquote && !iredir && !oredir) {
         cmd->argv[wpos][cpos] = c;
         cpos++;
@@ -370,30 +389,33 @@ static int do_whspc(char c)
         return PARSER_CONTINUE_ON;
     }
 
+    // Iterate over line until a non whitespace character is found
     while (isspace((int)c)) {
         i++;
         c = line[i];
     }
     i--;
 
+    // No valid input was ever read, quit parsing
     if (!wpos && !readreg)
         return PARSER_ERROR_BREAK;
 
-    if (iredir && cpos) {
+    if (iredir && cpos) {       // terminate input file name
         cmd->ifname[cpos] = '\0';
         iredir = false;
     }
-    else if (oredir && cpos) {
+    else if (oredir && cpos) {  // terminate output file name
         cmd->ofname[cpos] = '\0';
         oredir = false;
     }
-    else {
+    else {                      // terminate current word
         if (cmd->argv[wpos])
             cmd->argv[wpos][cpos] = '\0';
     }
-    wpos++;
-    cpos = 0;
+    wpos++;                     // increase wpos
+    cpos = 0;                   // reset cpos
 
+    // Allocate next string
     if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: parse.c: do_whspc: calloc");
 
@@ -405,8 +427,9 @@ static int do_whspc(char c)
         return PARSER_ERROR_ABORT;
     }
 
+    // Null terminate line
     cmd->argv[wpos][cpos] = '\0';
-    cmd->argc = wpos + 1;
+    cmd->argc = wpos + 1;       // set argument count
 
     return PARSER_CONTINUE_ON;
 }
@@ -417,9 +440,11 @@ static int do_whspc(char c)
  */
 static int do_nchar(char c)
 {
+    // Set readreg flag
     if (!readreg)
         readreg = true;
 
+    // Do string interpolation
     if (escaping && inquote) {
         switch(c) {
         case 't':
@@ -446,6 +471,7 @@ static int do_nchar(char c)
         }
     }
 
+    // Put c into the proper buffer
     if (iredir)
         cmd->ifname[cpos] = c;
     else if (oredir)
@@ -454,7 +480,7 @@ static int do_nchar(char c)
         if (cmd->argv[wpos])
             cmd->argv[wpos][cpos] = c;
 
-    cpos++;
+    cpos++;                     // increase cpos
 
     return PARSER_CONTINUE_ON;
 }
@@ -474,6 +500,7 @@ static int do_token(char *tok, struct command *cmdp)
     line = tok;
     cmd = cmdp;
 
+    // Set state variables to starting values
     i = j = wpos = cpos = 0;
     iredir = oredir = readreg = inquote = escaping = false;
     cmd->argc = 1;
@@ -498,6 +525,7 @@ static int do_token(char *tok, struct command *cmdp)
         }
     }
 
+    // Check that something was parsed and actually stored
     if (!readreg)
         return PARSER_ERROR_BREAK;
 
@@ -522,9 +550,11 @@ int parse_command(const char *linep, struct command *cmdp)
     // Buffer for a copy of linep to mangle with strtok_r
     char *tmp = NULL;
 
+    // Line not allocated or inaccessible, terminate
     if (!linep)
         return PARSER_ERROR_ABORT;
 
+    // Line is empty or unitialized, quit parsing
     if (!*linep)
         return PARSER_ERROR_BREAK;
 
@@ -535,12 +565,14 @@ int parse_command(const char *linep, struct command *cmdp)
 
     strncpy(tmp, linep, MAXLINE); // make a copy of linep to mangle
 
+    // Break line into major tokens seperated by a semicolon
     for (k = 0, ptr1 = tmp; ; k++, ptr1 = NULL) {
         if (!(tok = strtok_r(ptr1, ";", &savep1)))
             break;
 
         strip_trailing_whspc(tok);
 
+        // Break token into smaller tokens seperated by |
         for (l = 0, ptr2 = tok; ; l++, ptr2 = NULL) {
             if (!(subtok = strtok_r(ptr2, "|", &savep2))) {
                 pipe = false;
@@ -554,6 +586,7 @@ int parse_command(const char *linep, struct command *cmdp)
                 goto cleanup;
             }
 
+            // Check if we are at the head of a pipe chain
             if (l == 1) {
                 vprint("**** Do pipe %s\n", subtok);
                 cmdp->prev->pipe = true;
@@ -564,6 +597,7 @@ int parse_command(const char *linep, struct command *cmdp)
             if (pipe)
                 cmdp->pipe = true;
 
+            // Parse a token into a command struct
             switch (err = do_token(subtok, cmdp)) {
             case PARSER_ERROR_ABORT:
             case PARSER_ERROR_BREAK:
@@ -588,7 +622,7 @@ cleanup:
 
     ptr1 = NULL;
 
-    if (l && ptr1)
+    if (l && ptr2)
         free(ptr2);
 
     ptr2 = NULL;
@@ -601,5 +635,5 @@ cleanup:
         break;
     }
 
-    return count;
+    return count;               // return number of command's parsed
 }

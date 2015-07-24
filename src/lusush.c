@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_LIBREADLINE
+#include <readline/history.h>
+#endif
 #include "lusush.h"
 #include "init.h"
 #include "history.h"
@@ -108,7 +111,7 @@ int main(int argc, char **argv)
     }
 
     // Save command history
-    write_histfile(histfilename());
+    write_history(histfilename());
 
     if (SHELL_TYPE != NORMAL_SHELL)
         printf("\n");

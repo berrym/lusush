@@ -39,7 +39,6 @@
 
 static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;
-
 #ifdef HAVE_LIBREADLINE
 static HIST_ENTRY **hist_list = NULL;
 #else
@@ -47,40 +46,6 @@ static FILE *histfp = NULL;
 static long hist_size = 0;
 static char hist_list[MAXHIST][MAXLINE] = { "\0" };
 #endif
-
-/**
- * read_histfile:
- *      Read stored commands from the history file.
- */
-static int read_histfile(const char *histfile)
-{
-#ifdef HAVE_LIBREADLINE
-    if (read_history(histfile) != 0) {
-        perror("lusush: history.c: read_histfile: read_history");
-        return errno;
-    }
-#else
-    unsigned int i = 0;
-
-    if ((histfp = fopen(histfile, "r")) == NULL) {
-        if (errno != ENOENT)
-            perror("lusush: history.c: read_histfile: fopen");
-        return -1;
-    }
-
-    for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
-            continue;
-
-        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
-            hist_list[i][strlen(hist_list[i]) - 1] = '\0';
-    }
-
-    fclose(histfp);
-#endif
-
-    return 0;
-}
 
 /**
  * init_history:
@@ -107,15 +72,41 @@ void init_history(void)
         strncat(histfile, "/.lusushist", 12);
     }
 
-    if (read_histfile(histfile) != 0)
+    if (read_history(histfile) != 0)
         return;
 
     HIST_INITIALIZED = true;
-
     ENV_HOME = NULL;
 }
 
 #ifndef HAVE_LIBREADLINE
+/**
+ * read_history:
+ *      Read stored commands from the history file.
+ */
+int read_history(const char *histfile)
+{
+    unsigned int i = 0;
+
+    if ((histfp = fopen(histfile, "r")) == NULL) {
+        if (errno != ENOENT)
+            perror("lusush: history.c: read_histfile: fopen");
+        return -1;
+    }
+
+    for (i = 0; i < MAXHIST && hist_list[i]; i++) {
+        if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
+            continue;
+
+        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
+            hist_list[i][strlen(hist_list[i]) - 1] = '\0';
+    }
+
+    fclose(histfp);
+
+    return 0;
+}
+
 /**
  * add_history:
  *      Add a line of history to hist_list.
@@ -130,23 +121,19 @@ void add_history(const char *line)
         hist_size++;
     }
 }
-#endif
 
 /**
- * write_histfile:
- *      write runtime command history into histfile
+ * write_history:
+ *      Write command history to a file.
  */
-void write_histfile(const char *histfile)
+void write_history(const char *fn)
 {
-#ifdef HAVE_LIBREADLINE
-    write_history(histfile);
-#else
     unsigned int i;
 
     if (!HIST_INITIALIZED)
         return;
 
-    if ((histfp = fopen(histfile, "a")) == (FILE *)0) {
+    if ((histfp = fopen(fn, "a")) == (FILE *)0) {
         perror("lusush: fopen");
         return;
     }
@@ -155,8 +142,8 @@ void write_histfile(const char *histfile)
         fprintf(histfp, "%s\n", hist_list[i]);
 
     fclose(histfp);
-#endif
 }
+#endif
 
 /**
  * histfilename:
