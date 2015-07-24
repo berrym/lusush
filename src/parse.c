@@ -74,6 +74,18 @@ static void strip_trailing_whspc(char *s)
         s[strlen(s) - 1] = '\0';
 }
 
+static void strip_whspc(char *s)
+{
+    char *i = s, *j = s;
+
+    while (j) {
+        *i = *j++;
+        if (!isspace((int)*i))
+            i++;
+    }
+    *i = '\0';
+}
+
 /**
  * char_type:
  *      Identify the classification of a character, one of (magic,
@@ -242,6 +254,9 @@ static int do_greaterthan(void)
     if (cmd->argv[wpos])
         cmd->argv[wpos][cpos] = '\0';
 
+    wpos++;
+    cpos = 0;
+
     return PARSER_CONTINUE_ON;
 }
 
@@ -364,11 +379,11 @@ static int do_whspc(char c)
     if (!wpos && !readreg)
         return PARSER_ERROR_BREAK;
 
-    if (iredir) {
+    if (iredir && cpos) {
         cmd->ifname[cpos] = '\0';
         iredir = false;
     }
-    else if (oredir) {
+    else if (oredir && cpos) {
         cmd->ofname[cpos] = '\0';
         oredir = false;
     }
@@ -413,6 +428,14 @@ static int do_nchar(char c)
             break;
         case 'n':
             c = '\n';
+            escaping = false;
+            break;
+        case 'v':
+            c = '\v';
+            escaping = false;
+            break;
+        case 'f':
+            c = '\f';
             escaping = false;
             break;
         default:

@@ -122,6 +122,9 @@ void init_history(void)
  */
 void add_history(const char *line)
 {
+    if (!line || !*line)
+        return;
+
     if (hist_size < MAXHIST) {
         strncpy(hist_list[hist_size], line, MAXLINE);
         hist_size++;
@@ -138,7 +141,10 @@ void write_histfile(const char *histfile)
 #ifdef HAVE_LIBREADLINE
     write_history(histfile);
 #else
-    unsigned int i = 0;
+    unsigned int i;
+
+    if (!HIST_INITIALIZED)
+        return;
 
     if ((histfp = fopen(histfile, "a")) == (FILE *)0) {
         perror("lusush: fopen");
@@ -156,7 +162,7 @@ void write_histfile(const char *histfile)
  * histfilename:
  *      return the name of the history file
  */
-char *histfilename(void)
+const char *histfilename(void)
 {
     return histfile;
 }

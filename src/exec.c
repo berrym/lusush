@@ -43,7 +43,7 @@
 #include "opts.h"
 #include "prompt.h"
 
-#define WAITFLAGS(command) command->background ? WNOHANG : 0
+#define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 
 /**
  * exec_external_cmd:
@@ -112,16 +112,28 @@ static int exec_external_cmd(struct command *cmd)
         // Input redirection
         /////////////////////////////////////////////////
 
-        if (cmd->iredir)
-            if (cmd->prev != NULL && cmd->prev->pipe)
-                freopen(cmd->ifname, "r", stdin);
+        if (cmd->iredir) {
+            if (freopen(cmd->ifname, "r", stdin) == NULL) {
+                fprintf(stderr,
+                        "lusush: error redirecting stdin to %s\n",
+                        cmd->ifname);
+                return 0;
+            }
+        }
 
         /////////////////////////////////////////////////
         // Output redirection
         /////////////////////////////////////////////////
 
-        if (cmd->oredir && !cmd->pipe)
-            freopen(cmd->ofname, cmd->oredir_append ? "a" : "w", stdout);
+        if (cmd->oredir && !cmd->pipe) {
+            if (freopen(cmd->ofname,
+                        cmd->oredir_append ? "a" : "w", stdout) == NULL) {
+                fprintf(stderr,
+                        "lusush: error redirecting stdout to %s\n",
+                        cmd->ofname);
+                return 0;
+            }
+        }
 
         /////////////////////////////////////////////////
         // Background operation
