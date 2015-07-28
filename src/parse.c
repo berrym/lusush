@@ -34,7 +34,10 @@
 #include "lusush.h"
 #include "parse.h"
 #include "cmdlist.h"
+#include "opts.h"
 #include "misc.h"
+
+#define DBGSTR "DEBUG: parse.c: "
 
 #define PARSER_ERROR_ABORT -1   // major error, shell should terminate
 #define PARSER_ERROR_BREAK 0    // quit parsing line, not serious
@@ -53,12 +56,12 @@ static unsigned int j;
 static unsigned int wpos;
 static unsigned int cpos;
 
-// command flags effecting parser behavior
-static bool iredir;
-static bool oredir;
-static bool readreg;
-static bool inquote;
-static bool escaping;
+// state flags effecting parser behavior
+static bool iredir;             // input redirection flag
+static bool oredir;             // output redirection flag
+static bool readreg;            // read normal (regular) character flag
+static bool inquote;            // inside quotation flag
+static bool escaping;           // in an escape sequence flag
 
 // input buffers
 static char *line = NULL;
@@ -396,9 +399,9 @@ static int do_whspc(char c)
     }
     i--;
 
-    // No valid input was ever read, quit parsing
-    if (!wpos && !readreg)
-        return PARSER_ERROR_BREAK;
+    // No valid input has been parsed yet, return
+    if (!wpos && !readreg && !cmd->prev)
+        return PARSER_CONTINUE_ON;
 
     if (iredir && cpos) {       // terminate input file name
         cmd->ifname[cpos] = '\0';
@@ -409,7 +412,9 @@ static int do_whspc(char c)
         oredir = false;
     }
     else {                      // terminate current word
-        if (cmd->argv[wpos])
+        if (!wpos && !readreg)  // unless we are parsing a new token
+            return PARSER_CONTINUE_ON;
+        else
             cmd->argv[wpos][cpos] = '\0';
     }
     wpos++;                     // increase wpos
@@ -497,6 +502,7 @@ static int do_token(char *tok, struct command *cmdp)
     int err;
     char c;
 
+    // Point line and cmd to current token and command being processed
     line = tok;
     cmd = cmdp;
 
@@ -529,6 +535,9 @@ static int do_token(char *tok, struct command *cmdp)
     if (!readreg)
         return PARSER_ERROR_BREAK;
 
+    if (opt_is_set(VERBOSE_PRINT))
+        display_cmd(cmd);
+    
     return PARSER_CONTINUE_ON;
 }
 

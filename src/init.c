@@ -117,7 +117,6 @@ int init(int argc, char **argv)
         vprint("THIS IS AN INTERACTIVE SHELL\n");
     }
 
-
     // Initialize history
     init_history();
 

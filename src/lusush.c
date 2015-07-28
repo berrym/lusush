@@ -45,17 +45,17 @@
 
 /**
  * main:
- *      Program entry point, let the magic begin!
+ *      Program entry point, read-parse-execute loop.
  */
 int main(int argc, char **argv)
 {
-    char *ENV_PROMPT = NULL;
-    char prompt[MAXLINE] = { '\0' };
-    bool bActive = true;
-    int ret = 0;
-    char *line = NULL;
-    FILE *in = NULL;
-    struct command *cmd = NULL;
+    char *ENV_PROMPT = NULL;         // prompt environment variable
+    char prompt[MAXLINE] = { '\0' }; // prompt string
+    bool bActive = true;             // boolean flag to keep running
+    int ret = 0;                     // return status for parse_command
+    char *line = NULL;               // pointer to a line of input read
+    FILE *in = NULL;                 // input file stream pointer
+    struct command *cmd = NULL;      // storage for command details
 
     // Perform startup tasks
     init(argc, argv);
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         // Read a line of input from the opened stream
         line = get_input(in, prompt);
 
-        // Handle the results of get_input
+        // Parse command(s) from line
         switch (ret = parse_command(line, cmd)) {
         case -1:                    // Error
             bActive = false;        // Exit program
@@ -96,9 +96,6 @@ int main(int argc, char **argv)
         case 0:                     // Empty input, ignore
             break;
         default:                    // Processed input
-            if (opt_is_set(VERBOSE_PRINT))
-                display_cmd(cmd);
-
             vprint("ret (at) main --> %d\n", ret);
 
             // Execute the command(s)
