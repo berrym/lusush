@@ -62,18 +62,19 @@ static void cmdfree(struct command *cmd)
 }
 
 /**
+ * TODO:
+ *      This is a misleading name, and the the way command lists
+ *      work is not a very intuitive approach, change the name
+ *      or even better choose a different methodology for implementation.
+ *
  * cmdalloc:
- *      Allocates memory a struct command pointed to by cmd, and then
- *      allocates the argument vector and it's first string.
+ *      The parameter cmd should be an already allocated struct,
+ *      it will allocate the argument vector and it's first string,
+ *      additional strings must be allocated as needed.  Allocates
+ *      the next struct command in the list as well.
  */
 int cmdalloc(struct command *cmd)
 {
-    // Allocate the next node
-    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL) {
-        perror("lusush: cmdlist.c: cmdalloc: calloc");
-        return -1;
-    }
-
     // Allocate pointer to pointer char
     if ((cmd->argv = calloc(1024, sizeof(char *))) == NULL) {
         perror("lusush: cmdlist.c: cmdalloc: calloc");
@@ -86,22 +87,29 @@ int cmdalloc(struct command *cmd)
         perror("lusush: cmlist.c: cmdalloc: calloc");
         return -1;
     }
-    **cmd->argv = '\0';  // initialize with null character
+    **cmd->argv = '\0';         // initialize with null character
 
-    // Make sure everything is zero/null
+    // Make sure everything else is zero/null
     cmd->argc = 0;
     cmd->fd[0] = cmd->fd[1] = 0;
     cmd->pipe = cmd->pipe_head = false;
+    cmd->iredir = false;
+    cmd->oredir = cmd->oredir_append = false;
     cmd->background = false;
-    cmd->iredir = cmd->oredir = cmd->oredir_append = false;
     *cmd->ifname = *cmd->ofname = '\0';
+
+    // Allocate the next node
+    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL) {
+        perror("lusush: cmdlist.c: cmdalloc: calloc");
+        return -1;
+    }
 
     return 0;
 }
 
 /**
- * free_cmdlist
- *      recursively free nodes in doubly linked list
+ * free_cmdlist:
+ *      Recursively free nodes in a doubly linked list of struct commands.
  */
 void free_cmdlist(struct command *cmd)
 {
@@ -119,11 +127,17 @@ void free_cmdlist(struct command *cmd)
 
 /**
  * display_cmd:
- *      display details of a struct command
+ *      Display details of a struct command.
  */
 void display_cmd(struct command *cmd)
 {
     unsigned int i;
+
+    if (!cmd) {
+        fprintf(stderr, "lusush: cmdlist.c: display_cmd: "
+                "no access to cmd, cannot display.\n");
+        return;
+    }
 
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);

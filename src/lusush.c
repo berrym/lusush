@@ -95,7 +95,7 @@ int main(int argc, char **argv)
             break;
         case 0:                     // Empty input, ignore
             break;
-        default:                    // Processed input
+        default:                    // Parsed command(s)
             vprint("ret (at) main --> %d\n", ret);
 
             // Execute the command(s)

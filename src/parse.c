@@ -384,23 +384,20 @@ static int do_magic(char c)
  */
 static int do_whspc(char c)
 {
-    // Keep the whitespace
-    if (inquote && !iredir && !oredir) {
-        cmd->argv[wpos][cpos] = c;
-        cpos++;
-
-        return PARSER_CONTINUE_ON;
-    }
-
     // Iterate over line until a non whitespace character is found
     while (isspace((int)c)) {
+        // Keep the whitespace if inside a double quotation
+        if (inquote) {
+            cmd->argv[wpos][cpos] = c;
+            cpos++;
+        }
         i++;
         c = line[i];
     }
     i--;
 
     // No valid input has been parsed yet, return
-    if (!wpos && !readreg && !cmd->prev)
+    if (!wpos && !readreg)
         return PARSER_CONTINUE_ON;
 
     if (iredir && cpos) {       // terminate input file name
@@ -412,9 +409,7 @@ static int do_whspc(char c)
         oredir = false;
     }
     else {                      // terminate current word
-        if (!wpos && !readreg)  // unless we are parsing a new token
-            return PARSER_CONTINUE_ON;
-        else
+        if (cmd->argv[wpos])
             cmd->argv[wpos][cpos] = '\0';
     }
     wpos++;                     // increase wpos
@@ -454,27 +449,26 @@ static int do_nchar(char c)
         switch(c) {
         case 't':
             c = '\t';
-            escaping = false;
             break;
         case 'n':
             c = '\n';
-            escaping = false;
             break;
         case 'v':
             c = '\v';
-            escaping = false;
             break;
         case 'f':
             c = '\f';
-            escaping = false;
             break;
         default:
             cmd->argv[wpos][cpos] = '\\';
             cpos++;
-            escaping = false;
             break;
         }
     }
+
+    // Can't be in an escape still
+    if (escaping)
+        escaping = false;
 
     // Put c into the proper buffer
     if (iredir)
@@ -535,9 +529,10 @@ static int do_token(char *tok, struct command *cmdp)
     if (!readreg)
         return PARSER_ERROR_BREAK;
 
+    // Print out command structure if VERBOSE_PRINT is enabled
     if (opt_is_set(VERBOSE_PRINT))
         display_cmd(cmd);
-    
+
     return PARSER_CONTINUE_ON;
 }
 
