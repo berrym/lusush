@@ -1,7 +1,7 @@
 /**
  * parse.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 
 #include "lusush.h"
 
-#ifndef __PARSE_H__
-#define __PARSE_H__
+#ifndef PARSE_H
+#define PARSE_H
 
 extern int parse_command(const char *, struct command *);
 

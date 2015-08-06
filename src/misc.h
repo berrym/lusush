@@ -1,7 +1,7 @@
 /**
  * misc.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MISC_H__
-#define __MISC_H__
+#ifndef MISC_H
+#define MISC_H
 
 extern void vprint(const char *, ...);
 

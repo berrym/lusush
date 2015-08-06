@@ -1,7 +1,7 @@
 /**
  * input.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 
 #include <stdio.h>
 
-#ifndef __INPUT_H__
-#define __INPUT_H__
+#ifndef INPUT_H
+#define INPUT_H
 
 extern char *get_input(FILE *, const char *);
 

@@ -1,7 +1,7 @@
 /**
  * opts.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 
 #include "lusush.h"
 
-#ifndef __OPTS_H__
-#define __OPTS_H__
+#ifndef OPTS_H
+#define OPTS_H
 
 extern bool set_bool_opt(unsigned int, bool);
 extern bool opt_is_set(int);

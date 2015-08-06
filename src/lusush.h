@@ -1,7 +1,7 @@
 /**
  * lusush.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 
 #include "config.h"
 
-#ifndef __LUSUSH_H__
-#define __LUSUSH_H__
+#ifndef LUSUSH_H
+#define LUSUSH_H
 
 #ifdef MAXLINE
 #undef MAXLINE

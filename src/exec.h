@@ -1,7 +1,7 @@
 /**
  * exec.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 
 #include "lusush.h"
 
-#ifndef __EXEC_H__
-#define __EXEC_H__
+#ifndef EXEC_H
+#define EXEC_H
 
 extern int exec_cmd(struct command *, int);
 

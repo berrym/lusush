@@ -1,7 +1,7 @@
 /**
  * alias.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,14 +29,8 @@
 
 #include "lusush.h"
 
-#ifndef __ALIAS_H__
-#define __ALIAS_H__
-
-struct alias {
-    char key[MAXLINE];
-    char val[MAXLINE];
-    struct alias *next;
-};
+#ifndef ALIAS_H
+#define ALIAS_H
 
 extern int init_alias_list(void);
 extern int set_alias(char *, char *);

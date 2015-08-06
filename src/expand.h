@@ -1,7 +1,7 @@
 /**
  * expand.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __EXPAND_H__
-#define __EXPAND_H__
+#ifndef EXPAND_H
+#define EXPAND_H
 
 extern void expand(char *);
 

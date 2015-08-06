@@ -1,7 +1,7 @@
 /**
  * prompt.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PROMPT_H__
-#define __PROMPT_H__
+#ifndef PROMPT_H
+#define PROMPT_H
 
 extern void set_prompt(int, char **);
 extern void build_prompt(void);

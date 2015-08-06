@@ -1,7 +1,7 @@
 /**
  * builtins.h
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __BUILTINS_H__
-#define __BUILTINS_H__
+#ifndef BUILTINS_H
+#define BUILTINS_H
 
 /**
  * Builtin commands

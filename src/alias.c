@@ -1,7 +1,7 @@
 /**
  * alias.c - alias implementation routines
  *
- * Copyright (c) 2009-2015 Michael Berry <trismegustis@gmail.com>
+ * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,12 @@
 
 #define DBGSTR "DEBUG: alias.c: "
 
+struct alias {
+    char key[MAXLINE];
+    char val[MAXLINE];
+    struct alias *next;
+};
+
 static struct alias *head = NULL;
 static bool initialized = false;
 
@@ -58,7 +64,7 @@ static struct alias *find_end(void)
 
 /**
  * alloc_alias:
- *      Allocate memory for a struct alias at the end of the list.
+ *      Allocate memory for a struct alias.
  */
 static struct alias *alloc_alias(void)
 {
@@ -89,7 +95,7 @@ static struct alias *lookup_alias(char *key)
 
 /**
  * init_alias_list:
- *    allocate memory for the linked list
+ *      Allocate memory for the linked list.
  */
 int init_alias_list(void)
 {

@@ -136,5 +136,5 @@ LUSUSH
     Control-C (SIGINT) is ignored by default to allow for normal operation
     of external programs executed by lusush, use exit to leave the shell.
 
-Copyright (c) 2009-2015
+Copyright (c) 2015
 Michael Berry <trismegustis@gmail.com>
