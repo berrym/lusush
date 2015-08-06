@@ -86,7 +86,7 @@ void init_history(void)
  */
 int read_history(const char *histfile)
 {
-    unsigned int i = 0;
+    unsigned int i;
 
     if ((histfp = fopen(histfile, "r")) == NULL) {
         if (errno != ENOENT)
@@ -96,7 +96,7 @@ int read_history(const char *histfile)
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
-            continue;
+            break;
 
         if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
             hist_list[i][strlen(hist_list[i]) - 1] = '\0';
@@ -134,7 +134,7 @@ void write_history(const char *fn)
         return;
 
     if ((histfp = fopen(fn, "a")) == (FILE *)0) {
-        perror("lusush: fopen");
+        perror("lusush: history.c: write_history: fopen");
         return;
     }
 
@@ -147,7 +147,7 @@ void write_history(const char *fn)
 
 /**
  * histfilename:
- *      return the name of the history file
+ *      Return the name of the history file.
  */
 const char *histfilename(void)
 {
@@ -156,18 +156,18 @@ const char *histfilename(void)
 
 /**
  * history:
- *    display a list of stored user inputed commands
+ *      Display a the list of lines stored in history.
  */
 void history(void)
 {
     unsigned int i;
 
 #ifdef HAVE_LIBREADLINE
-    if ((hist_list = history_list())) {
-        printf("Command history.\n");
-        for (i = 0; hist_list[i]; i++)
-            printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
-    }
+    if (!(hist_list = history_list()))
+        return;
+
+    for (i = 0; hist_list[i]; i++)
+        printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
 #else
     for (i = 0; i < MAXHIST && *hist_list[i]; i++)
         printf("%4d:\t%s\n", i + 1, hist_list[i]);

@@ -42,11 +42,12 @@ static bool OPTIONS[OPT_CNT] = { false };
  * usage:
  *      Display a description of command line switches.
  */
-static void usage(int ret) {
+static void usage(int err)
+{
     fprintf(stderr, "Usage:\n\t-h Help\n\t");
-    fprintf(stderr, "-c Color prompt\n\t");
+    fprintf(stderr, "-c Fancy prompt\n\t");
     fprintf(stderr, "-v Verbose ouput\n");
-    exit(ret);
+    exit(err);
 }
 
 /**

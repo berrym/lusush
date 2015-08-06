@@ -38,10 +38,40 @@
 #include "misc.h"
 #include "history.h"
 #include "opts.h"
-#include "prompt.h"
 #include "alias.h"
 
-int SHELL_TYPE = 0;
+// The type of shell instance
+static int SHELL_TYPE;
+
+/**
+ * sig_int:
+ *      Interrupt ^C signal handler, ignore it for now.
+ */
+static void sig_int(int signo)
+{
+    vprint("\nlusush: caught signal %d.\n", signo);
+}
+
+/**
+ * NOTE: NECESSARALY FATAL
+ * sig_seg:
+ *      Segmentation fault handler, insult programmer then abort.
+ */
+static void sig_seg(int signo)
+{
+    fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
+    fprintf(stderr, "\tAnd fix your damn code.\n");
+    exit(EXIT_FAILURE);
+}
+
+/**
+ * shell_type:
+ *      Return the value that represents the type of the shell instance.
+ */
+int shell_type(void)
+{
+    return SHELL_TYPE;
+}
 
 /**
  * init:
@@ -49,8 +79,8 @@ int SHELL_TYPE = 0;
  */
 int init(int argc, char **argv)
 {
-    struct stat st;
-    int optind = 0;
+    struct stat st;             // stat  buffer
+    int optind = 0;             // index of option being parsed
 
     if (!argv)
         exit(EXIT_FAILURE);
@@ -60,8 +90,8 @@ int init(int argc, char **argv)
 
     /*
      * Set up signal handlers
-     *      sig_int:        SIGINT handler
-     *      sig_seg:        SIGSEGV handler
+     *  sig_int: SIGINT handler
+     *  sig_seg: SIGSEGV handler
      */
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "lusush: signal error: %d\n", SIGINT);
@@ -83,32 +113,24 @@ int init(int argc, char **argv)
     optind = parse_opts(argc, argv);
 
     // Determine the shell type
-    if (argv[0][0] == '-') {
+    if (**argv == '-') {
         SHELL_TYPE = LOGIN_SHELL;
         vprint("THIS IS A LOGIN SHELL\n");
     }
-    else if (optind) {
-        // check that argv[1] is a regular file
-        if (argv[optind] && *argv[optind]) {
-            if (stat(argv[optind], &st)) {
-                if (!S_ISREG(st.st_mode)) {
-                    fprintf(stderr, 
-                            "lusush: %s is not a regular file.\n",
-                            argv[1]);
-                    optind = 0;
-                    SHELL_TYPE = INTERACTIVE_SHELL;
-                    vprint("THIS IS AN INTERACTIVE SHELL\n");
-                }
-                else {
-                    SHELL_TYPE = NORMAL_SHELL;
-                    vprint("THIS IS A NORMAL SHELL\n");
-                }
-            }
-        }
-        else {
+    else if (optind && argv[optind] && *argv[optind]) {
+        // check that argv[optind] is a regular file
+        stat(argv[optind], &st);
+        if (!S_ISREG(st.st_mode)) {
+            fprintf(stderr,
+                    "lusush: %s is not a regular file.\n",
+                    argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
             vprint("THIS IS AN INTERACTIVE SHELL\n");
+        }
+        else {
+            SHELL_TYPE = NORMAL_SHELL;
+            vprint("THIS IS A NORMAL SHELL\n");
         }
     }
     else {
@@ -121,25 +143,4 @@ int init(int argc, char **argv)
     init_history();
 
     return optind;
-}
-
-/**
- * sig_int:
- *      Interrupt ^C signal handler, ignore it for now.
- */
-void sig_int(int signo)
-{
-    vprint("\nlusush: caught signal %d.\n", signo);
-}
-
-/**
- * NOTE: NECESSARALY FATAL
- * sig_seg:
- *      Segmentation fault handler, insult programmer then abort.
- */
-void sig_seg(int signo)
-{
-    fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
-    fprintf(stderr, "\tAnd fix your damn code.\n");
-    exit(EXIT_FAILURE);
 }

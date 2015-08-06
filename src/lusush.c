@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     init(argc, argv);
 
     // Open input stream
-    if (SHELL_TYPE == NORMAL_SHELL) {
+    if (shell_type() == NORMAL_SHELL) {
         // Open the file stream with in pointing to it
         if ((in = fopen(argv[1], "r")) == NULL) {
             perror("lusush: lusush.c: main: fopen");
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     // Save command history
     write_history(histfilename());
 
-    if (SHELL_TYPE != NORMAL_SHELL)
+    if (shell_type() != NORMAL_SHELL)
         printf("\n");
 
     exit(EXIT_SUCCESS);

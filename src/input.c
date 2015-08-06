@@ -89,7 +89,7 @@ char *get_input(FILE *in, const char *prompt)
 
 #ifdef HAVE_LIBREADLINE
     // Read a line from either a file or standard input
-    if (SHELL_TYPE != NORMAL_SHELL) {
+    if (shell_type() != NORMAL_SHELL) {
         if ((line_read = rl_gets(prompt)) == NULL)
             return NULL;
     }
@@ -110,7 +110,7 @@ char *get_input(FILE *in, const char *prompt)
         return NULL;
     }
 
-    if (SHELL_TYPE != NORMAL_SHELL)
+    if (shell_type() != NORMAL_SHELL)
         printf("%s", prompt);
 
     if (fgets(line_read, MAXLINE, in) == NULL)
