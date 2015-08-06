@@ -42,104 +42,99 @@ LUSUSH
     Lusush can be run as a login shell or interactively.  You type commands
     and lusush will attempt to locate them, then execute them.
 
-    Upon running lusush you will be greeted with a prompt, usually the current
-    directory followed by a percent sign.
+    Upon running lusush you will be greeted with a prompt, unless the
+    environment variable PROMPT is set it will be a percent sign.
 
-    e.g. /home/you%
-         /%
-         /usr/include%
-    etc.
+    %
 
     To see a complete list of builtin commands and their description, run help.
 
-    e.g. /home/you% help
+    % help
 
     You may also run help followed by an optional command you specifically want
     to see some information on.
 
-    e.g. /home/you% help pwd
+    % help pwd
 
-    If you wish to use the redirection feature of lusush, it's the same as
-    typical shell convention except that you are required to leave no space
-    between the redirection symbol and the requisite file name.  This is
-    because of the limited nature of lusush's parser.
+    If you wish to use the I/O redirection features of lusush, it's the same as
+    typical shell convention
 
-    e.g. /home/you% ls >tmp
-         /home/you% cat <tmp >tmp2
+    % ls > tmp
+    % cat < tmp > tmp2
 
-    NOT  /home/you% ls > tmp
-         /home/you% cat < tmp > tmp2
 
     For output redirection you can choose to append to a file as an alternative
     to overwriting if you wish by using the >> operator instead of >.
 
-    e.g. /home/you% echo 1 >testfile            # this will overwrite testfile
-         /home/you% echo 2 >>testfile           # this will append to testfile
+    % echo 1 > testfile            # this will overwrite testfile
+    % echo 2 >> testfile           # this will append to testfile
 
     To set an environment variable use the setenv command.
 
-    e.g. /home/you% setenv MYVAR testing123
+    % setenv MYVAR testing123
 
     And to delete an environment variable use unsetenv.
 
-    e.g. /home/you% unsetenv MYVAR
+    % unsetenv MYVAR
 
     Commands can be chained together so they are executed one after the other
-    by inserting a semicolon between them.  There is no required spacing rule
-    as with the redirection feature.
+    by inserting a semicolon between them.
 
-    e.g /home/you% echo 1; echo 2 ; echo 3 ;echo 4;echo 5
+    % echo 1 ; echo 2 ; echo 3 ; echo 4 ; echo 5
+
+    Note that while the above commands will be executed in order from left
+    to right lusush makes no effort to gaurantee that the commands will
+    finish executing in order.
 
     The output of a command can be piped into the input of another by using
     pipes.
 
-    e.g. /home/you% ps ax | grep init
+    % ps ax | grep sh
 
-    Chained pipes are allowed, and like the semicolon above there are no
-    spacing rules when using pipes.
+    Chained pipes are allowed.
 
-    e.g /home/you% ps ax|grep init | more
-        /home/you% ls -alF |less
+    % ps ax | grep sh | more
+    % ls -alF |less
 
     Lusush can read from a file with commands in it and execute those commands.
     This is a basic form of scripting but it works.  To do it, invoke lusush
-    with script as a parameter
+    with the script as a parameter.
 
-    e.g /home/you/lab% lusush scriptfile
+    % lusush somefile
 
-    Lusush supports aliased commands
+    Lusush supports aliased commands.
 
-    e.g. alias say-hi echo Hello, Mike!
+    % alias say-hi echo Hello, world!
 
-    which can be removed using the command unalias
+    Aliases can be removed using the command unalias.
 
-    e.g. unalias say-hi
+    % unalias say-hi
 
-    CAVEAT on using aliases, aliases are not recursively expanded.  So if you alias
-    a command such as ls to expand to ls -aF, then alias ll ls -l, you will not get
-    alias ls -alF when executing ll.
+    Lusush supports modifiable runtime behavior via command line switches
+    at startup, or the use of the setopt command.  For a complete list of
+    switches run lusush -h.
 
-    Lusush supports modifiable runtime behavior via command line switches at startup,
-    or the use of the setopt command.  For a complete list of switches run lusush -h.
+    Options can be toggled on or off interactively.
 
-    To turn an option on
+    To turn an option on.
 
-        setopt OPTION
+    % setopt OPTION
 
-    To turn an option off
+    To turn an option off.
 
-        unsetopt OPTION
- 
+    % unsetopt OPTION
+
     Lusush can have a color prompt on terminals that support it.
 
-    e.g. setopt FANCY_PROMPT
+    % setopt FANCY_PROMPT
 
-    or by giving the command line switch -c at startup.  The prompt colors can be
-    modified using the setprompt command
+    The fancy prompt can be invoked with the command line switch -c at startup.
+    The prompt colors can be modified using the setprompt command.
 
-    e.g. setprompt -f GREEN -b BLACK -a BOLD
+    % setprompt -f GREEN -b BLACK -a BOLD
 
     Control-C (SIGINT) is ignored by default to allow for normal operation
     of external programs executed by lusush, use exit to leave the shell.
 
-Luny Lususnaturae <trismegustis@gmail.com>
+Copyright (c) 2009-2015
+Michael Berry <trismegustis@gmail.com>

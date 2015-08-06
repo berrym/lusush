@@ -37,6 +37,6 @@ extern void add_history(const char *);
 extern void write_history(const char *);
 #endif
 extern const char *histfilename(void);
-extern void history(void);
+extern void print_history(void);
 
 #endif

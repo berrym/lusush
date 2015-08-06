@@ -155,10 +155,10 @@ const char *histfilename(void)
 }
 
 /**
- * history:
+ * print_history:
  *      Display a the list of lines stored in history.
  */
-void history(void)
+void print_history(void)
 {
     unsigned int i;
 

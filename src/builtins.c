@@ -32,11 +32,8 @@
 #include <string.h>
 #include "lusush.h"
 #include "builtins.h"
-#include "misc.h"
-#include "history.h"
-#include "prompt.h"
 
-/**
+/*
  * Builtin commands:
  *      exit        exit program
  *      help        print help
@@ -90,12 +87,12 @@ static const char *builtins[BUILTIN_CMD_CNT] =
 
 /**
  * is_builtin_cmd:
- *      compare (cmdname) to elements in array of strings
+ *      Compare (cmdname) to elements in array of strings
  *      builtins, if it matches return the index of the element.
  */
 int is_builtin_cmd(const char *cmdname)
 {
-    int i;
+    unsigned int i;
 
     if (!cmdname || !*cmdname)
         return -1;
@@ -109,8 +106,7 @@ int is_builtin_cmd(const char *cmdname)
 
 /**
  * help:
- *    display list of builtin commands with a brief description
- *    of it's function
+ *      Display the list of builtin commands, each  with a brief description.
  */
 void help(const char *cmdname)
 {
@@ -129,23 +125,21 @@ void help(const char *cmdname)
 
 /**
  * cd:
- *    change working directory
+ *      Change working directory.
  */
 void cd(const char *path)
 {
     if (chdir(path) < 0)
         perror("lusush: builtins.c: cd: chdir");
-
-    build_prompt();
 }
 
 /**
  * pwd:
- *    print working directory
+ *      Print working directory.
  */
 void pwd(void)
 {
-    char cwd[MAXLINE];
+    char cwd[MAXLINE] = { '\0' };
 
     if (getcwd(cwd, MAXLINE) == NULL)
         perror("lusush: builtins.c: pwd: getcwd");

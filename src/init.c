@@ -28,7 +28,6 @@
  */
 
 #include <sys/stat.h>
-#include <unistd.h>
 #include <locale.h>
 #include <signal.h>
 #include <stdio.h>
@@ -61,7 +60,7 @@ static void sig_seg(int signo)
 {
     fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
     fprintf(stderr, "\tAnd fix your damn code.\n");
-    exit(EXIT_FAILURE);
+    abort();
 }
 
 /**
@@ -88,11 +87,7 @@ int init(int argc, char **argv)
     // Set all locales according to environment
     setlocale(LC_ALL, "");
 
-    /*
-     * Set up signal handlers
-     *  sig_int: SIGINT handler
-     *  sig_seg: SIGSEGV handler
-     */
+    // Set up signal handlers
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "lusush: signal error: %d\n", SIGINT);
         exit(EXIT_FAILURE);
@@ -109,7 +104,7 @@ int init(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    // Process command options
+    // Parse command line options
     optind = parse_opts(argc, argv);
 
     // Determine the shell type
@@ -118,7 +113,7 @@ int init(int argc, char **argv)
         vprint("THIS IS A LOGIN SHELL\n");
     }
     else if (optind && argv[optind] && *argv[optind]) {
-        // check that argv[optind] is a regular file
+        // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!S_ISREG(st.st_mode)) {
             fprintf(stderr,

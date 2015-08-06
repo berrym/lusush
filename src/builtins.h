@@ -66,6 +66,6 @@ extern int is_builtin_cmd(const char *);
 extern void help(const char *);
 extern void cd(const char *);
 extern void pwd(void);
-extern void history(void);
+extern void print_history(void);
 
 #endif

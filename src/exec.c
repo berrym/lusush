@@ -36,6 +36,7 @@
 #include <string.h>
 #include <errno.h>
 #include "lusush.h"
+#include "history.h"
 #include "exec.h"
 #include "misc.h"
 #include "builtins.h"
@@ -202,7 +203,7 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
         pwd();
         break;
     case BUILTIN_CMD_HISTORY:
-        history();
+        print_history();
         break;
     case BUILTIN_CMD_SETENV:
         if (cmd->argc != 3)

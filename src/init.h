@@ -30,6 +30,7 @@
 #ifndef __INIT_H__
 #define __INIT_H__
 
+// Types of shell instances
 enum {
     LOGIN_SHELL=1,
     INTERACTIVE_SHELL,
@@ -38,7 +39,5 @@ enum {
 
 extern int init(int, char **);
 extern int shell_type(void);
-/* extern void sig_int(int); */
-/* extern void sig_seg(int); */
 
 #endif
