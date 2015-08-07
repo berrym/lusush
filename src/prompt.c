@@ -39,6 +39,7 @@
 
 #define DBGSTR "lusush: prompt.c: "
 
+// ANSI foreground color values
 typedef enum {
     BLACK = 30,
     RED,
@@ -50,6 +51,7 @@ typedef enum {
     WHITE
 } FG_COLOR;
 
+// ANSI background color values
 typedef enum {
     BG_BLACK = 40,
     BG_RED,
@@ -61,8 +63,9 @@ typedef enum {
     BG_WHITE
 } BG_COLOR;
 
+// ANSI text attribute values
 typedef enum {
-    OFF        = 0,
+    NONE       = 0,
     BOLD       = 1,
     UNDERSCORE = 4,
     BLINK      = 5,
@@ -70,17 +73,19 @@ typedef enum {
     CONCEALED  = 8
 } COLOR_ATTRIB;
 
-static const char *RESET = "\x1b[0m";
-static char *colors      = NULL;
-static FG_COLOR fg_color = WHITE;
-static BG_COLOR bg_color = BG_BLUE;
-static COLOR_ATTRIB attr = OFF;
+static const char *RESET = "\x1b[0m"; // ANSI color reset
+static char *colors      = NULL;      // ANSI color sequence
+static FG_COLOR fg_color = WHITE;     // Default foreground color
+static BG_COLOR bg_color = BG_BLUE;   // Default background color
+static COLOR_ATTRIB attr = NONE;      // Default text attributes
 
+// Key->value struct for ANSI codes
 struct opt_pair {
     char key[15];
     int val;
 };
 
+// Key-value table for foreground codes
 static const struct opt_pair fg_opts[] = {
     { "BLACK",      BLACK       },
     { "RED",        RED         },
@@ -92,6 +97,7 @@ static const struct opt_pair fg_opts[] = {
     { "WHITE",      WHITE       }
 };
 
+// Key-value table for background codes
 static const struct opt_pair bg_opts[] = {
     { "BLACK",      BG_BLACK    },
     { "RED",        BG_RED      },
@@ -103,8 +109,9 @@ static const struct opt_pair bg_opts[] = {
     { "WHITE",      BG_WHITE    }
 };
 
+// Key-value table for attribute codes
 static const struct opt_pair attr_opts[] = {
-    { "OFF",        OFF         },
+    { "NONE",       NONE         },
     { "BOLD",       BOLD        },
     { "UNDERSCORE", UNDERSCORE  },
     { "BLINK",      BLINK       },
@@ -114,7 +121,7 @@ static const struct opt_pair attr_opts[] = {
 
 /**
  * setprompt_usage:
- *      print usage information for builtin command setprompt
+ *      Print usage information for builtin command setprompt.
  */
 static void setprompt_usage(void)
 {
@@ -127,7 +134,7 @@ static void setprompt_usage(void)
 
 /**
  * build_colors:
- *      build ANSI escape sequence to set prompt colors
+ *      Build ANSI escape sequence to set prompt colors.
  */
 static void build_colors(void)
 {
@@ -143,7 +150,7 @@ static void build_colors(void)
 
 /**
  * set_prompt_fg:
- *      set prompt foreground color
+ *      Set prompt foreground color.
  */
 static void set_prompt_fg(FG_COLOR fg)
 {
@@ -152,7 +159,7 @@ static void set_prompt_fg(FG_COLOR fg)
 
 /**
  * set_prompt_bg:
- *      set prompt background color
+ *      Set prompt background color.
  */
 static void set_prompt_bg(BG_COLOR bg)
 {
@@ -161,7 +168,7 @@ static void set_prompt_bg(BG_COLOR bg)
 
 /**
  * set_prompt_attrib:
- *      set text attributes for prompt
+ *      Set text attributes for prompt.
  */
 static void set_prompt_attr(COLOR_ATTRIB ca)
 {
@@ -169,8 +176,8 @@ static void set_prompt_attr(COLOR_ATTRIB ca)
 }
 
 /**
- * set_prompt
- *      create the command prompt
+ * set_prompt:
+ *      Create the command prompt.
  */
 void set_prompt(int argc, char **argv)
 {
@@ -257,7 +264,7 @@ void set_prompt(int argc, char **argv)
 void build_prompt(void)
 {
     char *cwd = NULL;
-    char prompt[MAXLINE];
+    char prompt[MAXLINE] = { '\0' };
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: prompt.c: build_prompt");
