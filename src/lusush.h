@@ -27,10 +27,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-
 #ifndef LUSUSH_H
 #define LUSUSH_H
+
+#include "config.h"
 
 #ifdef MAXLINE
 #undef MAXLINE
