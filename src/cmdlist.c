@@ -131,7 +131,7 @@ void free_cmdlist(struct command *cmd)
  */
 void display_cmd(struct command *cmd)
 {
-    unsigned int i;
+    unsigned i;
 
     if (!cmd) {
         fprintf(stderr, "lusush: cmdlist.c: display_cmd: "

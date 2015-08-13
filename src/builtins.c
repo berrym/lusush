@@ -92,7 +92,7 @@ static const char *builtins[BUILTIN_CMD_CNT] =
  */
 int is_builtin_cmd(const char *cmdname)
 {
-    unsigned int i;
+    unsigned i;
 
     if (!cmdname || !*cmdname)
         return -1;

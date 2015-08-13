@@ -30,7 +30,6 @@
 #include "lusush.h"
 #include "input.h"
 #include "expand.h"
-#include "cmdlist.h"
 #include "init.h"
 #include "history.h"
 #include "misc.h"
@@ -51,7 +50,7 @@ static char *line_read = NULL;  // storage for readline and fgets
  * null_terminate:
  *      Terminate a string with null character instead of a newline.
  */
-static void null_terminate(char *s)
+static inline void null_terminate(char *s)
 {
     if (s[strlen(s) - 1] == '\n')
         s[strlen(s) - 1] = '\0';
@@ -77,8 +76,8 @@ static char *rl_gets(const char *prompt)
 
 /**
  * get_input:
- *      Read a line of input, store the line in history.  Return
- *      a pointer to the line read.
+ *      Read a line of input, store the line in history.
+ *      Return a pointer to the line read.
  */
 char *get_input(FILE *in, const char *prompt)
 {

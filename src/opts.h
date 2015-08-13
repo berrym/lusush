@@ -32,8 +32,8 @@
 #ifndef OPTS_H
 #define OPTS_H
 
-extern bool set_bool_opt(unsigned int, bool);
-extern bool opt_is_set(int);
+extern bool set_bool_opt(unsigned, bool);
+extern bool opt_is_set(unsigned);
 extern int parse_opts(int, char **);
 
 enum {

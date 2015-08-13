@@ -51,10 +51,10 @@ enum {
 };
 
 // loop and counter variables
-static unsigned int i;
-static unsigned int j;
-static unsigned int wpos;
-static unsigned int cpos;
+static unsigned i;
+static unsigned j;
+static unsigned wpos;
+static unsigned cpos;
 
 // state flags effecting parser behavior
 static bool iredir;             // input redirection flag
@@ -71,7 +71,7 @@ static struct command *cmd = NULL;
  * strip_trailing_whspc:
  *      Remove whitespace at the end of a string.
  */
-static void strip_trailing_whspc(char *s)
+static inline void strip_trailing_whspc(char *s)
 {
     while (strlen(s) && isspace((int)s[strlen(s) - 1]))
         s[strlen(s) - 1] = '\0';
@@ -543,8 +543,8 @@ static int do_token(char *tok, struct command *cmdp)
 int parse_command(const char *linep, struct command *cmdp)
 {
     int err;                    // error code
-    unsigned int k, l;          // loop iterators
-    int count = 0;              // number of commands parsed
+    unsigned k, l;              // loop iterators
+    size_t count = 0;           // number of commands parsed
     bool pipe = false;          // pipe flag
 
     // Storage for first tier of tokens (";")

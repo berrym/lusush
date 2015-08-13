@@ -52,7 +52,7 @@
  */
 static int exec_external_cmd(struct command *cmd)
 {
-    unsigned int i;
+    unsigned i;
     pid_t pid;
 
     // Check for invalid strings at the end of the argument vector,
@@ -182,7 +182,7 @@ static int exec_external_cmd(struct command *cmd)
 static void exec_builtin_cmd(int cmdno, struct command *cmd)
 {
     char tmp[MAXLINE] = { '\0' };
-    unsigned int i;
+    unsigned i;
 
     switch (cmdno) {
     case BUILTIN_CMD_EXIT:
@@ -274,7 +274,7 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
  */
 int exec_cmd(struct command *cmd, int n)
 {
-    unsigned int i;             // loop variable
+    unsigned i;             // loop variable
     int ret, status;            // return value, waitpid status
     int pids[n];                // array of pids to wait on
     struct command *psave1;     // place holders in command history

@@ -54,7 +54,7 @@ static void usage(int err)
  * set_bool_opt:
  *      Set a boolean option to modify runtime behaviour.
  */
-bool set_bool_opt(unsigned int opt, bool val)
+bool set_bool_opt(unsigned opt, bool val)
 {
     switch (opt) {
     case VERBOSE_PRINT:
@@ -76,7 +76,7 @@ bool set_bool_opt(unsigned int opt, bool val)
  * opt_is_set:
  *     Return boolean value for a runtime option.
  */
-bool opt_is_set(int index)
+bool opt_is_set(unsigned index)
 {
     return OPTIONS[index];
 }

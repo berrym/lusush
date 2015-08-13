@@ -71,13 +71,13 @@ typedef enum {
     BLINK      = 5,
     REVERSE    = 7,
     CONCEALED  = 8
-} COLOR_ATTRIB;
+} TEXT_ATTRIB;
 
 static const char *RESET = "\x1b[0m"; // ANSI color reset
 static char *colors      = NULL;      // ANSI color sequence
 static FG_COLOR fg_color = WHITE;     // Default foreground color
 static BG_COLOR bg_color = BG_BLUE;   // Default background color
-static COLOR_ATTRIB attr = NONE;      // Default text attributes
+static TEXT_ATTRIB attr  = NONE;      // Default text attributes
 
 // Key->value struct for ANSI codes
 struct opt_pair {
@@ -170,9 +170,9 @@ static void set_prompt_bg(BG_COLOR bg)
  * set_prompt_attrib:
  *      Set text attributes for prompt.
  */
-static void set_prompt_attr(COLOR_ATTRIB ca)
+static void set_prompt_attr(TEXT_ATTRIB ta)
 {
-    attr = ca;
+    attr = ta;
 }
 
 /**
