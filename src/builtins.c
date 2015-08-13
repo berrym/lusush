@@ -27,11 +27,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+#include "builtins.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include "lusush.h"
-#include "builtins.h"
 
 /*
  * Builtin commands:

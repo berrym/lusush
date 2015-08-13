@@ -27,17 +27,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/stat.h>
-#include <locale.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "lusush.h"
 #include "init.h"
 #include "misc.h"
 #include "history.h"
 #include "opts.h"
 #include "alias.h"
+#include <sys/stat.h>
+#include <locale.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 // The type of shell instance
 static int SHELL_TYPE;

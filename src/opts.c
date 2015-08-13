@@ -27,12 +27,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <getopt.h>
 #include "lusush.h"
 #include "opts.h"
 #include "prompt.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
 
 #define DBGSTR "lusush: opts.c: "
 

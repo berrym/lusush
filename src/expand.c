@@ -27,12 +27,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "expand.h"
 #include "alias.h"
 #include "misc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define DBGSTR "DEBUG: expand.c: "
 

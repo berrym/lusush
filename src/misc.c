@@ -27,12 +27,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "misc.h"
+#include "opts.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "misc.h"
-#include "opts.h"
 
 /**
  * vprint:

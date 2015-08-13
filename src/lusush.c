@@ -27,12 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/history.h>
-#endif
 #include "lusush.h"
 #include "init.h"
 #include "history.h"
@@ -42,6 +36,12 @@
 #include "exec.h"
 #include "misc.h"
 #include "opts.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifdef HAVE_LIBREADLINE
+#include <readline/history.h>
+#endif
 
 /**
  * main:

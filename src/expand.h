@@ -27,6 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+
 #ifndef EXPAND_H
 #define EXPAND_H
 

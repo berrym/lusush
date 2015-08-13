@@ -27,14 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 #include "lusush.h"
 #include "history.h"
 #include "exec.h"
@@ -43,6 +35,14 @@
 #include "alias.h"
 #include "opts.h"
 #include "prompt.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 

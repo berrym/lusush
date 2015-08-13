@@ -27,13 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/readline.h>
-#endif
 #include "lusush.h"
 #include "input.h"
 #include "expand.h"
@@ -41,6 +34,14 @@
 #include "init.h"
 #include "history.h"
 #include "misc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#ifdef HAVE_LIBREADLINE
+#include <readline/readline.h>
+#include <readline/history.h>
+#endif
 
 #define DBGSTR "DEBUG: input.c: "
 

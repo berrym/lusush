@@ -27,15 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+#include "prompt.h"
+#include "opts.h"
+#include "misc.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include "lusush.h"
-#include "prompt.h"
-#include "opts.h"
-#include "misc.h"
 
 #define DBGSTR "lusush: prompt.c: "
 

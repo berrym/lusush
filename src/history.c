@@ -27,6 +27,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+#include "lusush.h"
+#include "history.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,8 +37,6 @@
 #ifdef HAVE_LIBREADLINE
 #include <readline/history.h>
 #endif
-#include "lusush.h"
-#include "history.h"
 
 static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;
