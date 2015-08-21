@@ -125,11 +125,11 @@ static const struct opt_pair attr_opts[] = {
  */
 static void setprompt_usage(void)
 {
-    fprintf(stderr, "usage:\n\t-h\t\tThis help\n\t");
-    fprintf(stderr, "-a ATTRIBUTE\tset attribute for prompt\n\t");
-    fprintf(stderr, "-f COLOR\tset prompt foreground color\n\t");
-    fprintf(stderr, "-b COLOR\tset prompt background color\n\t");
-    fprintf(stderr, "-v\t\tshow valid colors and attributes\n");
+    printf("usage:\n\t-h\t\tThis help\n\t");
+    printf("-a ATTRIBUTE\tset attribute for prompt\n\t");
+    printf("-f COLOR\tset prompt foreground color\n\t");
+    printf("-b COLOR\tset prompt background color\n\t");
+    printf("-v\t\tshow valid colors and attributes\n");
 }
 
 /**
