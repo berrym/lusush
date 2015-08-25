@@ -32,6 +32,6 @@
 #ifndef EXPAND_H
 #define EXPAND_H
 
-extern void expand(char *);
+extern char *expand(const char *);
 
 #endif

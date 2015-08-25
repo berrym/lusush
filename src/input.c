@@ -63,14 +63,18 @@ static inline void null_terminate(char *s)
  */
 static char *rl_gets(const char *prompt)
 {
+    // A line of input
+    char *s = NULL;
+
     // Get a line from the user
-    line_read = readline(prompt);
+    s = readline(prompt);
 
     // If the line has any text in it, save it in history
-    if (line_read && *line_read)
-        add_history(line_read);
+    if (s && *s)
+        add_history(s);
 
-    return line_read;
+    // Return a copy of s
+    return s;
 }
 #endif
 
@@ -81,6 +85,9 @@ static char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in, const char *prompt)
 {
+    // A pointer to the expanded user input
+    char *expanded = NULL;
+
     // If the buffer has been previously allocated free it
     if (line_read)
         free(line_read);
@@ -122,8 +129,19 @@ char *get_input(FILE *in, const char *prompt)
         add_history(line_read);
 #endif
 
-    expand(line_read);
-    vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
+    expanded = expand(line_read);
+
+    if (strncmp(line_read, expanded, MAXLINE)) {
+        free(line_read);
+        if ((line_read = strndup(expanded, MAXLINE)) == NULL) {
+            perror("lusush: input.c: get_intput: strndup");
+            return NULL;
+        }
+        vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
+    }
+
+    free(expanded);
+    expanded = NULL;
 
     return line_read;
 }

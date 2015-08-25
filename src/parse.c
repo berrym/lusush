@@ -562,12 +562,11 @@ int parse_command(const char *linep, struct command *cmdp)
     if (!*linep)
         return PARSER_ERROR_BREAK;
 
-    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: input.c: do_line: calloc");
+    // Make a copy of linep
+    if ((tmp = strndup(linep, MAXLINE)) == NULL) {
+        perror("lusush: input.c: do_line: strndup");
         return PARSER_ERROR_ABORT;
     }
-
-    strncpy(tmp, linep, MAXLINE); // make a copy of linep to mangle
 
     // Break line into major tokens seperated by a semicolon
     for (k = 0, ptr1 = tmp; ; k++, ptr1 = NULL) {

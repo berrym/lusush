@@ -42,7 +42,7 @@ static char *expanded = NULL;
  * expand:
  *      Perform token expansions on a string.
  */
-void expand(char *line)
+char *expand(const char *line)
 {
     char tmp[MAXLINE] = { '\0' };
     char prv[MAXLINE] = { '\0' };
@@ -50,24 +50,26 @@ void expand(char *line)
     char *ea = NULL;
 
     if (!line || !*line)
-        return;
+        return NULL;
 
     if (expanded)
         free(expanded);
 
+    expanded = NULL;
+
     if ((expanded = calloc(MAXLINE, sizeof(char))) == NULL) {
         perror("lusush: expand.c: expand: calloc");
-        return;
+        return strndup(line, MAXLINE);
     }
     *expanded = '\0';
 
     strncpy(tmp, line, MAXLINE);
 
     if (!(tok = strtok(tmp, " ")))
-        return;
+        return strndup(line, MAXLINE);
 
     if (strncmp(tok, "unalias", 8) == 0)
-        return;
+        return strndup(line, MAXLINE);
 
     while (tok) {
         if (*prv && (strncmp(prv, "unalias", 8) == 0)) {
@@ -86,5 +88,5 @@ void expand(char *line)
 
     vprint("%sexpand: expanded=%s\n", DBGSTR, expanded);
 
-    strncpy(line, expanded, MAXLINE);
+    return strndup(expanded, MAXLINE);
 }
