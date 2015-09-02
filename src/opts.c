@@ -27,7 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
 #include "opts.h"
 #include "prompt.h"
 #include <stdio.h>

@@ -27,9 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
-#include "history.h"
 #include "exec.h"
+#include "history.h"
 #include "misc.h"
 #include "builtins.h"
 #include "alias.h"

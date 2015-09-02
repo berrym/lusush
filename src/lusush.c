@@ -36,7 +36,6 @@
 #include "exec.h"
 #include "misc.h"
 #include "opts.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_LIBREADLINE

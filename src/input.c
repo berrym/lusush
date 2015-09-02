@@ -29,11 +29,9 @@
 
 #include "lusush.h"
 #include "input.h"
-#include "expand.h"
 #include "init.h"
 #include "history.h"
 #include "misc.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -85,9 +83,6 @@ static char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in, const char *prompt)
 {
-    // A pointer to the expanded user input
-    char *expanded = NULL;
-
     // If the buffer has been previously allocated free it
     if (line_read)
         free(line_read);
@@ -128,20 +123,6 @@ char *get_input(FILE *in, const char *prompt)
     if (in == stdin && line_read && *line_read)
         add_history(line_read);
 #endif
-
-    expanded = expand(line_read);
-
-    if (strncmp(line_read, expanded, MAXLINE)) {
-        free(line_read);
-        if ((line_read = strndup(expanded, MAXLINE)) == NULL) {
-            perror("lusush: input.c: get_intput: strndup");
-            return NULL;
-        }
-        vprint("%sexpanded_line=%s\n", DBGSTR, line_read);
-    }
-
-    free(expanded);
-    expanded = NULL;
 
     return line_read;
 }
