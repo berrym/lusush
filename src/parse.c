@@ -73,8 +73,8 @@ static struct command *cmd = NULL;
  */
 static inline void strip_leading_whspc(char *s)
 {
-    char buf[MAXLINE] = { '\0' }; // Buffer to store modified string
-    unsigned k, l;                // Loop counters
+    char buf[MAXLINE] = { '\0' }; // buffer to store modified string
+    unsigned k, l;                // loop counters
 
     // Iterate over leading whitespace ignoring it
     for (k = 0; k < MAXLINE && isspace((int)s[k]); k++);
@@ -130,8 +130,7 @@ static char *tokenize(char **s, struct command *cmdp)
     for (k = 0, c = *s; *c; k++, *c++) {
         switch (*c) {
         case '\\':              // escape, keep ; or |, interpolate later
-            if (esc)
-                tok[k] = *c;
+            tok[k] = *c;
             esc ^= 1;
             break;
         case '"':               // dquote, keep ; or |, interpolate later
@@ -179,8 +178,11 @@ static char *tokenize(char **s, struct command *cmdp)
 
 mangle:
     // Mangle s then return the token
-    if (!*tok)
+    if (!*tok) {
+        free(tok);
+        tok = NULL;
         return NULL;
+    }
 
     *s = c;
 
@@ -648,7 +650,7 @@ static int do_nchar(char c)
     if (!readreg)
         readreg = true;
 
-    // Do string interpolation
+    // Do string interpolation on escape sequences
     if (escaping && inquote) {
         switch(c) {
         case 't':
@@ -662,10 +664,7 @@ static int do_nchar(char c)
             break;
         case 'f':
             c = '\f';
-            break;
         default:
-            cmd->argv[wpos][cpos] = '\\';
-            cpos++;
             break;
         }
     }
@@ -768,7 +767,7 @@ int parse_command(const char *linep, struct command *cmdp)
     // Alias expansions
     expand_line(tmp);
     vprint("EXPANDED LINE ==> (%s)\n", tmp);
-    savep = tmp;
+    savep = tmp;                // save the original pointer offset
 
     while (*tmp) {
         if (cmdp->pipe)
