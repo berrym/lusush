@@ -99,8 +99,8 @@ int read_history(const char *histfile)
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
             break;
 
-        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
-            hist_list[i][strlen(hist_list[i]) - 1] = '\0';
+        if (hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] == '\n')
+            hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] = '\0';
     }
 
     fclose(histfp);

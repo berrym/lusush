@@ -229,7 +229,8 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
             strncpy(tmp, cmd->argv[2], MAXLINE);
             strncat(tmp, " ", 2);
             for (i = 3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i], strlen(cmd->argv[i]) + 1);
+                strncat(tmp, cmd->argv[i],
+                        strnlen(cmd->argv[i], MAXLINE) + 1);
                 strncat(tmp, " ", 2);
             }
             set_alias(cmd->argv[1], tmp);
@@ -262,7 +263,7 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
         break;
     case BUILTIN_CMD_SETPROMPT:
         set_prompt(cmd->argc, cmd->argv);
-    deafult:
+    default:
         break;
     }
 }
@@ -273,12 +274,12 @@ static void exec_builtin_cmd(int cmdno, struct command *cmd)
  */
 int exec_cmd(struct command *cmd, int n)
 {
-    unsigned i;             // loop variable
-    int ret, status;            // return value, waitpid status
-    int pids[n];                // array of pids to wait on
-    struct command *psave1;     // place holders in command history
+    unsigned i;                   // loop variable
+    int ret, status;              // return value, waitpid status
+    int pids[n];                  // array of pids to wait on
+    struct command *psave = NULL; // place holder in command history
 
-    psave1 = cmd;               // save current position in command history
+    psave = cmd;                  // save current position in command history
 
     if (!*cmd->argv[0])
         return 0;
@@ -321,7 +322,7 @@ int exec_cmd(struct command *cmd, int n)
             continue;
     }
 
-    cmd = psave1;               // restore to inital offset
+    cmd = psave;               // restore to inital offset
 
     /////////////////////////////////////////////////
     // Wait for processes to finish
@@ -340,6 +341,8 @@ int exec_cmd(struct command *cmd, int n)
         if (cmd->next != NULL)
             cmd = cmd->next;
     }
+
+    cmd = psave;
 
     return 0;
 }

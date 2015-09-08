@@ -213,7 +213,7 @@ void set_prompt(int argc, char **argv)
         case 'a':
             for (i = 0; i < 6; i++) {
                 if (strncmp(optarg, attr_opts[i].key,
-                            strlen(attr_opts[i].key)) == 0) {
+                            strnlen(attr_opts[i].key, MAXLINE)) == 0) {
                     set_prompt_attr(attr_opts[i].val);
                     build_prompt();
                 }
@@ -222,7 +222,7 @@ void set_prompt(int argc, char **argv)
         case 'f':
             for (i = 0; i < 8; i++) {
                 if (strncmp(optarg, fg_opts[i].key,
-                            strlen(fg_opts[i].key)) == 0) {
+                            strnlen(fg_opts[i].key, MAXLINE)) == 0) {
                     set_prompt_fg(fg_opts[i].val);
                     build_prompt();
                 }
@@ -231,7 +231,7 @@ void set_prompt(int argc, char **argv)
         case 'b':
             for (i = 0; i < 8; i++) {
                 if (strncmp(optarg, bg_opts[i].key,
-                            strlen(bg_opts[i].key)) == 0) {
+                            strnlen(bg_opts[i].key, MAXLINE)) == 0) {
                     set_prompt_bg(bg_opts[i].val);
                     build_prompt();
                 }
@@ -268,14 +268,14 @@ void build_prompt(void)
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
         perror("lusush: prompt.c: build_prompt");
-        strncpy(prompt, "% ", MAXLINE);
+        strncpy(prompt, "% ", 3);
     }
     else {
         if (opt_is_set(FANCY_PROMPT)) {
             build_colors();
-            strncpy(prompt, colors, strlen(colors) + 1);
-            strncat(prompt, cwd, strlen(cwd) + 1);
-            strncat(prompt, RESET, strlen(RESET) + 1);
+            strncpy(prompt, colors, strnlen(colors, MAXLINE) + 1);
+            strncat(prompt, cwd, strnlen(cwd, MAXLINE) + 1);
+            strncat(prompt, RESET, strnlen(RESET, MAXLINE) + 1);
             strncat(prompt, "\n", 2);
             strncat(prompt, "% ", 3);
         }

@@ -100,8 +100,8 @@ static inline void strip_leading_whspc(char *s)
  */
 static inline void strip_trailing_whspc(char *s)
 {
-    while (strlen(s) && isspace((int)s[strlen(s) - 1]))
-        s[strlen(s) - 1] = '\0';
+    while (strnlen(s, MAXLINE) && isspace((int)s[strnlen(s, MAXLINE) - 1]))
+        s[strnlen(s, MAXLINE) - 1] = '\0';
 }
 
 /**
@@ -521,8 +521,8 @@ static int do_tilde(void)
         return PARSER_ERROR_BREAK;
 
     // Expand the tilde to the user's home
-    strncat(cmd->argv[wpos], home, strlen(home) + 1);
-    cpos += strlen(home);
+    strncat(cmd->argv[wpos], home, strnlen(home, MAXLINE) + 1);
+    cpos += strnlen(home, MAXLINE);
 
     home = NULL;
 
@@ -708,7 +708,7 @@ static int do_token(char *tok, struct command *cmdp)
     iredir = oredir = readreg = inquote = escaping = false;
     cmd->argc = 1;
 
-    for (i = 0; i < strlen(line); i++) {
+    for (i = 0; i < strnlen(line, MAXLINE); i++) {
         c = line[i];
 
         switch (char_type(c)) {

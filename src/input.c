@@ -50,8 +50,8 @@ static char *line_read = NULL;  // storage for readline and fgets
  */
 static inline void null_terminate(char *s)
 {
-    if (s[strlen(s) - 1] == '\n')
-        s[strlen(s) - 1] = '\0';
+    if (s[strnlen(s, MAXLINE) - 1] == '\n')
+        s[strnlen(s, MAXLINE) - 1] = '\0';
 }
 
 #ifdef HAVE_LIBREADLINE
