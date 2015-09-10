@@ -48,7 +48,7 @@ static int SHELL_TYPE;
  */
 static void sig_int(int signo)
 {
-    vprint("\nlusush: caught signal %d.\n", signo);
+    vputs("\nlusush: caught signal %d.\n", signo);
 }
 
 /**
@@ -110,7 +110,7 @@ int init(int argc, char **argv)
     // Determine the shell type
     if (**argv == '-') {
         SHELL_TYPE = LOGIN_SHELL;
-        vprint("THIS IS A LOGIN SHELL\n");
+        vputs("THIS IS A LOGIN SHELL\n");
     }
     else if (optind && argv[optind] && *argv[optind]) {
         // Check that argv[optind] is a regular file
@@ -121,17 +121,17 @@ int init(int argc, char **argv)
                     argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
-            vprint("THIS IS AN INTERACTIVE SHELL\n");
+            vputs("THIS IS AN INTERACTIVE SHELL\n");
         }
         else {
             SHELL_TYPE = NORMAL_SHELL;
-            vprint("THIS IS A NORMAL SHELL\n");
+            vputs("THIS IS A NORMAL SHELL\n");
         }
     }
     else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
-        vprint("THIS IS AN INTERACTIVE SHELL\n");
+        vputs("THIS IS AN INTERACTIVE SHELL\n");
     }
 
     // Initialize history

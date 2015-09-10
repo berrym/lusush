@@ -30,6 +30,6 @@
 #ifndef MISC_H
 #define MISC_H
 
-extern void vprint(const char *, ...);
+extern void vputs(const char *, ...);
 
 #endif

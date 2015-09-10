@@ -70,7 +70,7 @@ static int exec_external_cmd(struct command *cmd)
 
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            vprint("*** Creating pipe\n");
+            vputs("*** Creating pipe\n");
             pipe(cmd->fd);
         }
     }
@@ -93,7 +93,7 @@ static int exec_external_cmd(struct command *cmd)
         if (cmd->pipe) {
             // There was a previous command in pipe chain
             if (cmd->prev && cmd->prev->pipe) {
-                vprint("*** Reading from parent pipe\n");
+                vputs("*** Reading from parent pipe\n");
                 dup2(cmd->prev->fd[0], STDIN_FILENO);
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
@@ -101,7 +101,7 @@ static int exec_external_cmd(struct command *cmd)
 
             // There is a future command in pipe chain
             if (cmd->next && cmd->next->pipe) {
-                vprint("*** Writing to child pipe\n");
+                vputs("*** Writing to child pipe\n");
                 close(cmd->fd[0]);
                 dup2(cmd->fd[1], STDOUT_FILENO);
                 close(cmd->fd[1]);
@@ -153,7 +153,7 @@ static int exec_external_cmd(struct command *cmd)
         // Call execve or one of it's wrappers
         /////////////////////////////////////////////////
 
-        vprint("calling execvp\n");
+        vputs("calling execvp\n");
         if (*cmd->argv != NULL)
             execvp(cmd->argv[0], cmd->argv);
 
@@ -164,7 +164,7 @@ static int exec_external_cmd(struct command *cmd)
         // Close old pipe ends
         if (cmd->pipe && !cmd->pipe_head) {
             if (cmd->prev && cmd->prev->pipe) {
-                vprint("*** Closing old/unused pipe ends\n");
+                vputs("*** Closing old/unused pipe ends\n");
                 close(cmd->prev->fd[0]);
                 close(cmd->prev->fd[1]);
             }

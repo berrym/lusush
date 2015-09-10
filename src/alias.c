@@ -105,7 +105,7 @@ int init_alias_list(void)
     if ((head = alloc_alias()) == NULL)
         return -1;
 
-    vprint("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
+    vputs("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
 
     return 0;
 }
@@ -137,7 +137,7 @@ int set_alias(char *key, char *val)
             return -1;
 
     if (head && !initialized) {
-        vprint("%sset_alias: setting root alias node\n", DBGSTR);
+        vputs("%sset_alias: setting root alias node\n", DBGSTR);
         strncpy(head->key, key, MAXLINE);
         strncpy(head->val, val, MAXLINE);
         initialized = true;
@@ -145,7 +145,7 @@ int set_alias(char *key, char *val)
     }
 
     if ((curr = lookup_alias(key))) {
-        vprint("%sset_alias: re-setting alias\n", DBGSTR);
+        vputs("%sset_alias: re-setting alias\n", DBGSTR);
         strncpy(curr->key, key, MAXLINE);
         strncpy(curr->val, val, MAXLINE);
         return 0;
@@ -157,7 +157,7 @@ int set_alias(char *key, char *val)
     curr = curr->next;
     strncpy(curr->key, key, MAXLINE);
     strncpy(curr->val, val, MAXLINE);
-    vprint("%sset_alias: new alias set!\n", DBGSTR);
+    vputs("%sset_alias: new alias set!\n", DBGSTR);
 
     return 0;
 }

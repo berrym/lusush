@@ -33,10 +33,10 @@
 #include <stdarg.h>
 
 /**
- * vprint:
+ * vputs:
  *      Print formatted string if VERBOSE_PRINT option is set.
  */
-void vprint(const char *fmt, ...)
+void vputs(const char *fmt, ...)
 {
     if (opt_is_set(VERBOSE_PRINT)) {
         va_list args;

@@ -111,7 +111,7 @@ static const struct opt_pair bg_opts[] = {
 
 // Key-value table for attribute codes
 static const struct opt_pair attr_opts[] = {
-    { "NONE",       NONE         },
+    { "NONE",       NONE        },
     { "BOLD",       BOLD        },
     { "UNDERSCORE", UNDERSCORE  },
     { "BLINK",      BLINK       },
@@ -141,7 +141,7 @@ static void build_colors(void)
     if (!colors) {
         if ((colors = calloc(14, sizeof(char))) == NULL) {
             perror("lusush: prompt.c: build_colors: calloc");
-            vprint("%s: unsetting option FANCY_PROMPT\n", DBGSTR);
+            vputs("%s: unsetting option FANCY_PROMPT\n", DBGSTR);
             set_bool_opt(FANCY_PROMPT, false);
         }
     }

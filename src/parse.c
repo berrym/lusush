@@ -217,14 +217,14 @@ static inline void expand_token(char *tok, char delim, char *buf)
     // Copy the expanded alias into buf
     strncat(buf, ea, strnlen(ea, MAXLINE));
 
-    vprint("EA ==>\t(%s)\n", ea);
+    vputs("EA ==>\t(%s)\n", ea);
     // Concatenate any data after subtok into buf
     if (strncmp(ea, subtok, MAXLINE) != 0) {
         for (k = strnlen(buf, MAXLINE); k < strnlen(subtok, MAXLINE); k++)
             buf[strnlen(buf, MAXLINE)] = subtok[k];
         buf[strnlen(buf, MAXLINE)] = delim;
     }
-    vprint("BUF ==>\t(%s)\n", buf);
+    vputs("BUF ==>\t(%s)\n", buf);
 }
 
 /**
@@ -766,7 +766,7 @@ int parse_command(const char *linep, struct command *cmdp)
 
     // Alias expansions
     expand_line(tmp);
-    vprint("EXPANDED LINE ==> (%s)\n", tmp);
+    vputs("EXPANDED LINE ==> (%s)\n", tmp);
     savep = tmp;                // save the original pointer offset
 
     while (*tmp) {
@@ -797,7 +797,7 @@ int parse_command(const char *linep, struct command *cmdp)
                 free(tok);
             tok = NULL;
         }
-        vprint("TMP ==> %s\n", tmp);
+        vputs("TMP ==> %s\n", tmp);
         pipe = false;
     }
 
