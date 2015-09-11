@@ -27,9 +27,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+
 #ifndef MISC_H
 #define MISC_H
 
 extern void vputs(const char *, ...);
+
+#ifndef HAVE_STRNLEN
+extern size_t strnlen(const char *, size_t);
+#endif
+
+#ifndef HAVE_STRNDUP
+extern char *strndup(const char *s, size_t);
+#endif
 
 #endif

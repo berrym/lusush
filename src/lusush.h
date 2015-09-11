@@ -45,6 +45,14 @@
 typedef enum { false = 0, true = 1 } bool;
 #endif
 
+#ifndef size_t
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#else
+#include <stddef.h>
+#endif
+#endif
+
 /**
  * Doubly linked list of commands to pass to exec
  */

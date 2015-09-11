@@ -29,6 +29,7 @@
 
 #include "lusush.h"
 #include "builtins.h"
+#include "misc.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>

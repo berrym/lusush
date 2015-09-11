@@ -45,3 +45,39 @@ void vputs(const char *fmt, ...)
         va_end(args);
     }
 }
+
+#ifndef HAVE_STRNLEN
+size_t strnlen(const char *s, size_t maxlen)
+{
+    size_t len;
+
+    for (len = 0; len < maxlen; len++, s++)
+        if (!*s)
+            break;
+
+    return len;
+}
+#endif
+
+#ifndef HAVE_STRNDUP
+#include <stdlib.h>
+#include <string.h>
+
+char *strndup(const char *s, size_t n)
+{
+    char *result = NULL;
+    size_t len = strnlen(s, MAXLINE);
+
+    if (n < len)
+        len = n;
+
+    if ((result = calloc(len + 1, sizeof(char))) == NULL) {
+        perror("lusush: misc.c: strndup: calloc");
+        return NULL;
+    }
+
+    result[len] = '\0';
+
+    return (char *)memcpy(result, s, len);
+}
+#endif
