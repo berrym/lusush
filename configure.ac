@@ -15,10 +15,11 @@ AC_PROG_CC
 AC_CHECK_LIB([readline], [readline])
 
 # Checks for header files.
-AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h stdbool.h stddef.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_HEADER_STDBOOL
+#AC_HEADER_STDBOOL
+#AC_HEADER_STDDEF
 AC_TYPE_PID_T
 AC_C_RESTRICT
 AC_TYPE_SIZE_T

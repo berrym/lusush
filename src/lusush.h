@@ -46,10 +46,12 @@ typedef enum { false = 0, true = 1 } bool;
 #endif
 
 #ifndef size_t
-#ifdef HAVE_SYS_TYPES_H
+#if defined(HAVE_SYS_TYPES_H)
 #include <sys/types.h>
-#else
+#elif defined(HAVE_STDDEF_H)
 #include <stddef.h>
+#else
+typedef unsigned size_t;
 #endif
 #endif
 
