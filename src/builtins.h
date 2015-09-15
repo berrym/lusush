@@ -27,45 +27,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lusush.h"
+
 #ifndef BUILTINS_H
 #define BUILTINS_H
 
-/**
- * Builtin commands
- *      exit        exit program
- *      help        print help
- *      cd          change directory
- *      pwd         print working directory
- *      history     print command history
- *      setenv      set environment variable
- *      unsetenv    unset environment variable
- *      alias       set an alias
- *      unalias     unset an alias
- *      setopt      turn on an option
- *      unsetopt    turn off an option
- *      setprompt   set prompt colors
- */
-
-enum {
-        BUILTIN_CMD_EXIT=0,
-        BUILTIN_CMD_HELP=2,
-        BUILTIN_CMD_CD=4,
-        BUILTIN_CMD_PWD=6,
-        BUILTIN_CMD_HISTORY=8,
-        BUILTIN_CMD_SETENV=10,
-        BUILTIN_CMD_UNSETENV=12,
-        BUILTIN_CMD_ALIAS=14,
-        BUILTIN_CMD_UNALIAS=16,
-        BUILTIN_CMD_SETOPT=18,
-        BUILTIN_CMD_UNSETOPT=20,
-        BUILTIN_CMD_SETPROMPT=22,
-        BUILTIN_CMD_CNT=24
+struct builtin {
+    char *name;
+    char *doc;
+    int  (*func)(struct command *);
 };
 
-extern int is_builtin_cmd(const char *);
-extern void help(const char *);
-extern void cd(const char *);
-extern void pwd(void);
-extern void print_history(void);
+struct builtin *find_builtin(const char *);
 
 #endif

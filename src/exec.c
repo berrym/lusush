@@ -32,8 +32,6 @@
 #include "misc.h"
 #include "builtins.h"
 #include "alias.h"
-#include "opts.h"
-#include "prompt.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -175,109 +173,16 @@ static int exec_external_cmd(struct command *cmd)
 }
 
 /**
- * exec_builtin_cmd:
- *      Execute builtin command number (cmdno) with the data in (cmd).
- */
-static void exec_builtin_cmd(int cmdno, struct command *cmd)
-{
-    char tmp[MAXLINE] = { '\0' };
-    unsigned i;
-
-    switch (cmdno) {
-    case BUILTIN_CMD_EXIT:
-        printf("Goodbye!\n");
-        exit(EXIT_SUCCESS);
-        break;
-    case BUILTIN_CMD_HELP:
-        if (cmd->argv[1] && *cmd->argv[1])
-            help(cmd->argv[1]);
-        else
-            help(NULL);
-        break;
-    case BUILTIN_CMD_CD:
-        if (cmd->argv[1])
-            cd(cmd->argv[1]);
-        break;
-    case BUILTIN_CMD_PWD:
-        pwd();
-        break;
-    case BUILTIN_CMD_HISTORY:
-        print_history();
-        break;
-    case BUILTIN_CMD_SETENV:
-        if (cmd->argc != 3)
-            fprintf(stderr, "lusush: setenv: takes two arguments\n");
-        else
-            if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0)
-                perror("lusush: exec.c: exec_builtin_cmd: setenv");
-        break;
-    case BUILTIN_CMD_UNSETENV:
-        if (cmd->argc != 2)
-            fprintf(stderr, "usage: unsetenv variable\n");
-        else
-            if (unsetenv(cmd->argv[1]) < 0)
-                perror("lusush: exec.c: exec_builtin_cmd: unsetenv");
-        break;
-    case BUILTIN_CMD_ALIAS:
-        if (cmd->argc == 1) {
-            print_alias_list();
-        }
-        else if (cmd->argc < 3) {
-            fprintf(stderr, "usage: alias word replacement text\n");
-        }
-        else {
-            strncpy(tmp, cmd->argv[2], MAXLINE);
-            strncat(tmp, " ", 2);
-            for (i = 3; cmd->argv[i]; i++) {
-                strncat(tmp, cmd->argv[i],
-                        strnlen(cmd->argv[i], MAXLINE) + 1);
-                strncat(tmp, " ", 2);
-            }
-            set_alias(cmd->argv[1], tmp);
-            strncpy(tmp, "\0", MAXLINE);
-        }
-        break;
-    case BUILTIN_CMD_UNALIAS:
-        if (cmd->argc != 2)
-            fprintf(stderr, "usage: unalias alias\n");
-        else
-            unset_alias(cmd->argv[1]);
-        break;
-    case BUILTIN_CMD_SETOPT:
-        if (cmd->argc != 2)
-            fprintf(stderr, "usage: setopt option\n");
-        else
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
-                set_bool_opt(VERBOSE_PRINT, true);
-            else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
-                set_bool_opt(FANCY_PROMPT, true);
-        break;
-    case BUILTIN_CMD_UNSETOPT:
-        if (cmd->argc != 2)
-            fprintf(stderr, "usage: unsetopt option\n");
-        else
-            if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
-                set_bool_opt(VERBOSE_PRINT, false);
-            else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
-                set_bool_opt(FANCY_PROMPT, false);
-        break;
-    case BUILTIN_CMD_SETPROMPT:
-        set_prompt(cmd->argc, cmd->argv);
-    default:
-        break;
-    }
-}
-
-/**
  * exec_cmd:
- *      Wrapper function for exec_builtin_command and exec_external_cmd.
+ *      Execute builtin and external commands.
  */
 int exec_cmd(struct command *cmd, int n)
 {
-    unsigned i;                   // loop variable
-    int ret, status;              // return value, waitpid status
+    size_t i;                     // loop variable
+    int err, status;              // error status, waitpid status
     int pids[n];                  // array of pids to wait on
     struct command *psave = NULL; // place holder in command history
+    struct builtin *bin = NULL;   // built in command
 
     psave = cmd;                  // save current position in command history
 
@@ -297,13 +202,15 @@ int exec_cmd(struct command *cmd, int n)
         // Execute a builtin command
         /////////////////////////////////////////////////
 
-        if ((ret = is_builtin_cmd(cmd->argv[0])) != -1) {
+        if (bin = find_builtin(cmd->argv[0])) {
             if (cmd->pipe) {
                 fprintf(stderr, "lusush: cannot pipe with builtins\n");
                 return i;
             }
             pids[i] = 0;
-            exec_builtin_cmd(ret, cmd);
+            if ((err = bin->func(cmd)) != 0)
+                vputs("BUILTIN (%s) returned a status of %d\n",
+                      bin->name, err);
         }
 
         /////////////////////////////////////////////////

@@ -27,123 +27,269 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
 #include "builtins.h"
 #include "misc.h"
+#include "alias.h"
+#include "history.h"
+#include "opts.h"
+#include "prompt.h"
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-/*
- * Builtin commands:
- *      exit        exit program
- *      help        print help
- *      cd          change directory
- *      pwd         print working directory
- *      history     print command history
- *      setenv      set environment variable
- *      unsetenv    unset environment variable
- *      alias       set an alias
- *      unalias     unset an alias
- *      setopt      turn on an option
- *      unsetopt    turn off an option
- *      setprompt   set prompt colors
- */
+// Built in command functions
+static int bin_exit(struct command *);
+static int bin_help(struct command *);
+static int bin_cd(struct command *);
+static int bin_pwd(struct command *);
+static int bin_history(struct command *);
+static int bin_setenv(struct command *);
+static int bin_unsetenv(struct command *);
+static int bin_alias(struct command *);
+static int bin_unalias(struct command *);
+static int bin_setopt(struct command *);
+static int bin_unsetopt(struct command *);
+static int bin_setprompt(struct command *);
 
-/* typedef struct { */
-/*     char *name; */
-/*     char *doc; */
-/* } BUILTIN; */
-
-/* const BUILTIN builtins[] = { */
-/*     { "exit",         "exit program"                }, */
-/*     { "help",         "display basic help"          }, */
-/*     { "cd",           "change directory"            }, */
-/*     { "pwd",          "print working directory"     }, */
-/*     { "history",      "print command history"       }, */
-/*     { "setenv",       "set environment variable"    }, */
-/*     { "unsetenv",     "delete environment variable" }, */
-/*     { "alias",        "set an alias"                }, */
-/*     { "unalias",      "unset an alias"              }, */
-/*     { "setopt",       "turn on an option"           }, */
-/*     { "unsetopt",     "turn off an option"          }, */
-/*     { "setprompt",    "set prompt colors"           } */
-/* }; */
-
-static const char *builtins[BUILTIN_CMD_CNT] =
-{
-    "exit",         "exit program",
-    "help",         "display basic help",
-    "cd",           "change directory",
-    "pwd",          "print working directory",
-    "history",      "print command history",
-    "setenv",       "set environment variable",
-    "unsetenv",     "delete environment variable",
-    "alias",        "set an alias",
-    "unalias",      "unset an alias",
-    "setopt",       "turn on an option",
-    "unsetopt",     "turn off an option",
-    "setprompt",    "set prompt colors"
+// Built in commands struct table
+static struct builtin builtins[] = {
+    { "exit",      "exit program",               bin_exit      },
+    { "help",      "display help",               bin_help      },
+    { "cd",        "change directory",           bin_cd        },
+    { "pwd",       "print working directory",    bin_pwd       },
+    { "history",   "print command history",      bin_history   },
+    { "setenv",    "set environment variable",   bin_setenv    },
+    { "unsetenv",  "unset environment variable", bin_unsetenv  },
+    { "alias",     "set an alias",               bin_alias     },
+    { "unalias",   "unset an alias",             bin_unalias   },
+    { "setopt",    "turn on a shell option",     bin_setopt    },
+    { "unsetopt",  "turn off a shell option",    bin_unsetopt  },
+    { "setprompt", "set prompt attributes",      bin_setprompt },
+    { NULL,        NULL,                         NULL          }
 };
 
 /**
- * is_builtin_cmd:
- *      Compare (cmdname) to elements in array of strings
- *      builtins, if it matches return the index of the element.
+ * bin_exit:
+ *      Exit the current shell instance.
  */
-int is_builtin_cmd(const char *cmdname)
+static int bin_exit(struct command *ignore)
 {
-    unsigned i;
-
-    if (!cmdname || !*cmdname)
-        return -1;
-
-    for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
-        if (strncmp(cmdname, builtins[i], strnlen(cmdname, MAXLINE)) == 0)
-            return i;
-
-    return -1;
+    printf("Goodbye!\n");
+    exit(EXIT_SUCCESS);
+    return 377;                   // should never happen
 }
 
 /**
- * help:
- *      Display the list of builtin commands, each  with a brief description.
+ * bin_help:
+ *      Display the list of builtin commands, each with a brief description.
  */
-void help(const char *cmdname)
+static int bin_help(struct command *cmd)
 {
-    int i;
+    size_t i;
+    struct builtin *bin = NULL;
 
-    if (cmdname == NULL) {
-        printf("Builtin commands:\n");
-        for (i = 0; i < BUILTIN_CMD_CNT; i += 2)
-            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-    }
-    else {
-        if ((i = is_builtin_cmd(cmdname)) != -1)
-            printf("\t%-10s%-40s\n", builtins[i], builtins[i+1]);
-    }
+    if (!(cmd->argc == 2) || !(bin = find_builtin(cmd->argv[1])))
+        for (i = 0; builtins[i].name; i++)
+            printf("\t%-10s%-40s\n", builtins[i].name, builtins[i].doc);
+    else
+        printf("\t%-10s%-40s\n", bin->name, bin->doc);
+
+    return 0;
 }
 
 /**
- * cd:
+ * bin_cd:
  *      Change working directory.
  */
-void cd(const char *path)
+static int bin_cd(struct command *cmd)
 {
-    if (chdir(path) < 0)
+    if (chdir(cmd->argv[1]) < 0) {
         perror("lusush: builtins.c: cd: chdir");
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
- * pwd:
+ * bin_pwd:
  *      Print working directory.
  */
-void pwd(void)
+static int bin_pwd(struct command *ignore)
 {
     char cwd[MAXLINE] = { '\0' };
 
-    if (getcwd(cwd, MAXLINE) == NULL)
+    if (getcwd(cwd, MAXLINE - 1) == NULL) {
         perror("lusush: builtins.c: pwd: getcwd");
-    else
-        printf("%s\n", cwd);
+        return -1;
+    }
+
+    printf("%s\n", cwd);
+
+    return 0;
+}
+
+/**
+ * bin_history:
+ *      Print the local command history.
+ */
+static int bin_history(struct command *ignore)
+{
+    print_history();
+    return 0;
+}
+
+/**
+ * bin_setenv:
+ *      Set an environment variable.
+ */
+static int bin_setenv(struct command *cmd)
+{
+    if (cmd->argc != 3) {
+        printf("usage: setenv variable value\n");
+        return 1;
+    }
+    else {
+        if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
+            perror("lusush: exec.c: exec_builtin_cmd: setenv");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * bin_unsetenv:
+ *    Unset an environment variable.
+ */
+static int bin_unsetenv(struct command *cmd)
+{
+    if (cmd->argc != 2) {
+        printf("usage: unsetenv variable\n");
+        return 1;
+    }
+    else {
+        if (unsetenv(cmd->argv[1]) < 0) {
+            perror("lusush: exec.c: exec_builtin_cmd: unsetenv");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * bin_alias:
+ *      Set an alias.
+ */
+static int bin_alias(struct command *cmd)
+{
+    size_t i;
+    char tmp[MAXLINE] = { '\0' };
+
+    if (cmd->argc == 1) {
+        print_alias_list();
+    }
+    else if (cmd->argc < 3) {
+        printf("usage: alias word replacement text\n");
+        return 1;
+    }
+    else {
+        strncpy(tmp, cmd->argv[2], MAXLINE);
+        strncat(tmp, " ", 2);
+
+        for (i = 3; cmd->argv[i]; i++) {
+            strncat(tmp, cmd->argv[i], strnlen(cmd->argv[i], MAXLINE) + 1);
+            strncat(tmp, " ", 2);
+        }
+
+        set_alias(cmd->argv[1], tmp);
+        strncpy(tmp, "\0", MAXLINE);
+    }
+
+    return 0;
+}
+
+/**
+ * bin_unalias:
+ *      Unset an alias.
+ */
+static int bin_unalias(struct command *cmd)
+{
+    if (cmd->argc != 2) {
+        printf("usage: unalias alias\n");
+        return 1;
+    }
+    else {
+        unset_alias(cmd->argv[1]);
+    }
+
+    return 0;
+}
+
+/**
+ * bin_setopt:
+ *      Turn on a shell option.
+ */
+static int bin_setopt(struct command *cmd)
+{
+    if (cmd->argc != 2) {
+        printf("usage: setopt option\n");
+        return 1;
+    }
+    else {
+        if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
+            set_bool_opt(VERBOSE_PRINT, true);
+        else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+            set_bool_opt(FANCY_PROMPT, true);
+    }
+
+    return 0;
+}
+
+/**
+ * bin_unsetopt:
+ *      Turn off a shell option.
+ */
+static int bin_unsetopt(struct command *cmd)
+{
+    if (cmd->argc != 2) {
+        printf("usage: unsetopt option\n");
+        return 1;
+    }
+    else {
+        if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
+            set_bool_opt(VERBOSE_PRINT, false);
+        else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+            set_bool_opt(FANCY_PROMPT, false);
+    }
+
+    return 0;
+}
+
+/**
+ * bin_setprompt:
+ *      Set prompt attributes.
+ */
+static int bin_setprompt(struct command *cmd)
+{
+    set_prompt(cmd->argc, cmd->argv);
+    return 0;
+}
+
+/**
+ * find_builtin:
+ *      Return a pointer to a struct builtin.
+ */
+struct builtin *find_builtin(const char *name)
+{
+    size_t i;
+
+    for (i = 0; builtins[i].name; i++)
+        if (strncmp(name, builtins[i].name, MAXLINE) == 0)
+            return &builtins[i];
+
+    return NULL;
 }
