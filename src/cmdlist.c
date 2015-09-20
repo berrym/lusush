@@ -141,7 +141,7 @@ void display_cmd(struct command *cmd)
     printf("Processed Command:\n");
     printf("\targc->%d\n", cmd->argc);
     for (i = 0; i < cmd->argc; i++)
-        printf("\targv->[%4d]->%s\n", i, cmd->argv[i]);
+        printf("\targv->[%4zu]->%s\n", i, cmd->argv[i]);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
     printf("\tpipe_head->%s\n", cmd->pipe_head
             ? "true" : "false");

@@ -64,7 +64,7 @@ bool set_bool_opt(size_t opt, bool val)
         build_prompt();
         break;
     default:
-        fprintf(stderr, "%sset_bool_opt: unknown option %u\n", DBGSTR, opt);
+        fprintf(stderr, "%sset_bool_opt: unknown option %zu\n", DBGSTR, opt);
         return false;
     }
 

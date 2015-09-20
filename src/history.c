@@ -169,9 +169,9 @@ void print_history(void)
         return;
 
     for (i = 0; hist_list[i]; i++)
-        printf("%4d:\t%s\n", i + history_base, hist_list[i]->line);
+        printf("%4zu:\t%s\n", i + history_base, hist_list[i]->line);
 #else
     for (i = 0; i < MAXHIST && *hist_list[i]; i++)
-        printf("%4d:\t%s\n", i + 1, hist_list[i]);
+        printf("%zu:\t%s\n", i + 1, hist_list[i]);
 #endif
 }
