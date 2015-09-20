@@ -88,7 +88,7 @@ void init_history(void)
  */
 int read_history(const char *histfile)
 {
-    unsigned i;
+    size_t i;
 
     if ((histfp = fopen(histfile, "r")) == NULL) {
         if (errno != ENOENT)
@@ -130,7 +130,7 @@ void add_history(const char *line)
  */
 void write_history(const char *fn)
 {
-    unsigned i;
+    size_t i;
 
     if (!HIST_INITIALIZED)
         return;
@@ -162,7 +162,7 @@ const char *histfilename(void)
  */
 void print_history(void)
 {
-    unsigned i;
+    size_t i;
 
 #ifdef HAVE_LIBREADLINE
     if (!(hist_list = history_list()))

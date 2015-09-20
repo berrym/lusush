@@ -49,7 +49,7 @@
  */
 static int exec_external_cmd(struct command *cmd)
 {
-    unsigned i;
+    size_t i;
     pid_t pid;
 
     // Check for invalid strings at the end of the argument vector,

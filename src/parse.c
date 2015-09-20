@@ -51,10 +51,10 @@ enum {
 };
 
 // loop and counter variables
-static unsigned i;
-static unsigned j;
-static unsigned wpos;
-static unsigned cpos;
+static size_t i;
+static size_t j;
+static size_t wpos;
+static size_t cpos;
 
 // state flags effecting parser behavior
 static bool iredir;             // input redirection flag
@@ -74,7 +74,7 @@ static struct command *cmd = NULL;
 static inline void strip_leading_whspc(char *s)
 {
     char buf[MAXLINE] = { '\0' }; // buffer to store modified string
-    unsigned k, l;                // loop counters
+    size_t k, l;                  // loop counters
 
     // Iterate over leading whitespace ignoring it
     for (k = 0; k < MAXLINE && isspace((int)s[k]); k++);
@@ -111,7 +111,7 @@ static inline void strip_trailing_whspc(char *s)
  */
 static char *tokenize(char **s, struct command *cmdp)
 {
-    unsigned k;                   // loop counter
+    size_t k;                     // loop counter
     bool esc = false, iq = false; // in an escape and in a quote flags
     char *c = NULL;               // pointer to iterate over s
     char *tok = NULL;             // storage for the token
@@ -196,7 +196,7 @@ mangle:
 static inline void expand_token(char *tok, char delim, char *buf)
 {
     // Loop iterator
-    unsigned k;
+    size_t k;
     // Storage for the call to strtok_r
     char *subtok = NULL, *ptr = NULL, *savep = NULL;
     // A buffer for an expanded alias
