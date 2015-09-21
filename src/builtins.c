@@ -39,18 +39,18 @@
 #include <string.h>
 
 // Built in command functions
-static int bin_exit(struct command *);
-static int bin_help(struct command *);
-static int bin_cd(struct command *);
-static int bin_pwd(struct command *);
-static int bin_history(struct command *);
-static int bin_setenv(struct command *);
-static int bin_unsetenv(struct command *);
-static int bin_alias(struct command *);
-static int bin_unalias(struct command *);
-static int bin_setopt(struct command *);
-static int bin_unsetopt(struct command *);
-static int bin_setprompt(struct command *);
+static int bin_exit(const struct command *);
+static int bin_help(const struct command *);
+static int bin_cd(const struct command *);
+static int bin_pwd(const struct command *);
+static int bin_history(const struct command *);
+static int bin_setenv(const struct command *);
+static int bin_unsetenv(const struct command *);
+static int bin_alias(const struct command *);
+static int bin_unalias(const struct command *);
+static int bin_setopt(const struct command *);
+static int bin_unsetopt(const struct command *);
+static int bin_setprompt(const struct command *);
 
 // Built in commands struct table
 static struct builtin builtins[] = {
@@ -73,7 +73,7 @@ static struct builtin builtins[] = {
  * bin_exit:
  *      Exit the current shell instance.
  */
-static int bin_exit(struct command *ignore)
+static int bin_exit(const struct command *ignore)
 {
     printf("Goodbye!\n");
     exit(EXIT_SUCCESS);
@@ -84,7 +84,7 @@ static int bin_exit(struct command *ignore)
  * bin_help:
  *      Display the list of builtin commands, each with a brief description.
  */
-static int bin_help(struct command *cmd)
+static int bin_help(const struct command *cmd)
 {
     size_t i;
     struct builtin *bin = NULL;
@@ -102,7 +102,7 @@ static int bin_help(struct command *cmd)
  * bin_cd:
  *      Change working directory.
  */
-static int bin_cd(struct command *cmd)
+static int bin_cd(const struct command *cmd)
 {
     if (chdir(cmd->argv[1]) < 0) {
         perror("lusush: builtins.c: cd: chdir");
@@ -116,7 +116,7 @@ static int bin_cd(struct command *cmd)
  * bin_pwd:
  *      Print working directory.
  */
-static int bin_pwd(struct command *ignore)
+static int bin_pwd(const struct command *ignore)
 {
     char cwd[MAXLINE] = { '\0' };
 
@@ -134,7 +134,7 @@ static int bin_pwd(struct command *ignore)
  * bin_history:
  *      Print the local command history.
  */
-static int bin_history(struct command *ignore)
+static int bin_history(const struct command *ignore)
 {
     print_history();
     return 0;
@@ -144,7 +144,7 @@ static int bin_history(struct command *ignore)
  * bin_setenv:
  *      Set an environment variable.
  */
-static int bin_setenv(struct command *cmd)
+static int bin_setenv(const struct command *cmd)
 {
     if (cmd->argc != 3) {
         printf("usage: setenv variable value\n");
@@ -164,7 +164,7 @@ static int bin_setenv(struct command *cmd)
  * bin_unsetenv:
  *    Unset an environment variable.
  */
-static int bin_unsetenv(struct command *cmd)
+static int bin_unsetenv(const struct command *cmd)
 {
     if (cmd->argc != 2) {
         printf("usage: unsetenv variable\n");
@@ -184,7 +184,7 @@ static int bin_unsetenv(struct command *cmd)
  * bin_alias:
  *      Set an alias.
  */
-static int bin_alias(struct command *cmd)
+static int bin_alias(const struct command *cmd)
 {
     size_t i;
     char tmp[MAXLINE] = { '\0' };
@@ -216,7 +216,7 @@ static int bin_alias(struct command *cmd)
  * bin_unalias:
  *      Unset an alias.
  */
-static int bin_unalias(struct command *cmd)
+static int bin_unalias(const struct command *cmd)
 {
     if (cmd->argc != 2) {
         printf("usage: unalias alias\n");
@@ -233,7 +233,7 @@ static int bin_unalias(struct command *cmd)
  * bin_setopt:
  *      Turn on a shell option.
  */
-static int bin_setopt(struct command *cmd)
+static int bin_setopt(const struct command *cmd)
 {
     if (cmd->argc != 2) {
         printf("usage: setopt option\n");
@@ -253,7 +253,7 @@ static int bin_setopt(struct command *cmd)
  * bin_unsetopt:
  *      Turn off a shell option.
  */
-static int bin_unsetopt(struct command *cmd)
+static int bin_unsetopt(const struct command *cmd)
 {
     if (cmd->argc != 2) {
         printf("usage: unsetopt option\n");
@@ -273,7 +273,7 @@ static int bin_unsetopt(struct command *cmd)
  * bin_setprompt:
  *      Set prompt attributes.
  */
-static int bin_setprompt(struct command *cmd)
+static int bin_setprompt(const struct command *cmd)
 {
     set_prompt(cmd->argc, cmd->argv);
     return 0;
