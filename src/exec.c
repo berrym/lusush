@@ -211,6 +211,9 @@ int exec_cmd(struct command *cmd, int n)
             if ((err = bin->func(cmd)) != 0)
                 vputs("BUILTIN (%s) returned a status of %d\n",
                       bin->name, err);
+
+            free(bin);
+            bin = NULL;
         }
 
         /////////////////////////////////////////////////

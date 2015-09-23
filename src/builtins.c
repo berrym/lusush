@@ -53,7 +53,7 @@ static int bin_unsetopt(const struct command *);
 static int bin_setprompt(const struct command *);
 
 // Built in commands struct table
-static struct builtin builtins[] = {
+static const struct builtin builtins[] = {
     { "exit",      "exit program",               bin_exit      },
     { "help",      "display help",               bin_help      },
     { "cd",        "change directory",           bin_cd        },
@@ -286,10 +286,17 @@ static int bin_setprompt(const struct command *cmd)
 struct builtin *find_builtin(const char *name)
 {
     size_t i;
+    struct builtin *bin = NULL;
 
+    if ((bin = calloc(1, sizeof(struct builtin *))) == NULL) {
+        perror("lusush: builtins.c: find_builtin: calloc");
+        exit(EXIT_FAILURE);
+    }
+    
     for (i = 0; builtins[i].name; i++)
         if (strncmp(name, builtins[i].name, MAXLINE) == 0)
-            return &builtins[i];
+            return (struct builtin *)
+                (memcpy(bin, &builtins[i], sizeof(builtins[i])));
 
     return NULL;
 }
