@@ -294,8 +294,7 @@ struct builtin *find_builtin(const char *name)
                 perror("lusush: builtins.c: find_builtin: calloc");
                 exit(EXIT_FAILURE);
             }            
-            return (struct builtin *)
-                memcpy(bin, &builtins[i], sizeof(builtins[i]));
+            return memcpy(bin, &builtins[i], sizeof(builtins[i]));
         }
     }
 
