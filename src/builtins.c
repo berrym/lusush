@@ -288,15 +288,16 @@ struct builtin *find_builtin(const char *name)
     size_t i;
     struct builtin *bin = NULL;
 
-    if ((bin = calloc(1, sizeof(struct builtin *))) == NULL) {
-        perror("lusush: builtins.c: find_builtin: calloc");
-        exit(EXIT_FAILURE);
-    }
-    
-    for (i = 0; builtins[i].name; i++)
-        if (strncmp(name, builtins[i].name, MAXLINE) == 0)
+    for (i = 0; builtins[i].name; i++) {
+        if (strncmp(name, builtins[i].name, MAXLINE) == 0) {
+            if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) {
+                perror("lusush: builtins.c: find_builtin: calloc");
+                exit(EXIT_FAILURE);
+            }            
             return (struct builtin *)
-                (memcpy(bin, &builtins[i], sizeof(builtins[i])));
+                memcpy(bin, &builtins[i], sizeof(builtins[i]));
+        }
+    }
 
     return NULL;
 }
