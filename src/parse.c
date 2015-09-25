@@ -30,7 +30,7 @@
 #include "parse.h"
 #include "cmdlist.h"
 #include "opts.h"
-#include "misc.h"
+
 #include "alias.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,10 +121,8 @@ static char *tokenize(char **s, struct command *cmdp)
         return NULL;
 
     // Allocate memory for the token
-    if ((tok = calloc(strnlen(*s, MAXLINE), sizeof(char *))) == NULL) {
-        perror("lusush: parse.c: tokenize: calloc");
-        exit(EXIT_FAILURE);
-    }
+    if ((tok = calloc(strnlen(*s, MAXLINE), sizeof(char *))) == NULL)
+        error_syscall("lusush: parse.c: tokenize: calloc");
 
     // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
     for (k = 0, c = *s; *c; k++, *c++) {
@@ -326,7 +324,7 @@ static int do_pound(void)
     // Keep the character, do not terminate line
     if (escaping || inquote) {
         if (iredir || oredir) {
-            fprintf(stderr, "lusush: parse error near '#'\n");
+            error_message("lusush: parse error near '#'\n");
             return PARSER_ERROR_BREAK;
         }
 
@@ -364,8 +362,8 @@ static int do_ampersand(void)
     if (!escaping && !inquote) {
         // && not supported
         if (line[i + 1] && line[i + 1] == '&') {
-            fprintf(stderr, "lusush: parse error near '&&': " \
-                    "invalid operator.\n");
+            error_message("lusush: parse error near '&&': "
+                          "invalid operator.\n");
             return PARSER_ERROR_BREAK;
         }
 
@@ -385,7 +383,7 @@ static int do_ampersand(void)
     }
 
     if (iredir || oredir) {
-        fprintf(stderr, "lusush: parse error near '&'\n");
+        error_message("lusush: parse error near '&'\n");
         return PARSER_ERROR_BREAK;
     }
 
@@ -420,8 +418,8 @@ static int do_lessthan(void)
 
     // << is unsupported syntax
     if (line[i + 1] && line[i + 1] == '<') {
-        fprintf(stderr, "lusush: parse error near '<<': " \
-                "invalid operator\n");
+        error_message("lusush: parse error near '<<': "
+                      "invalid operator\n");
         return PARSER_ERROR_BREAK;
     }
 
@@ -459,8 +457,8 @@ static int do_greaterthan(void)
     // A third > is unsupported syntax
     if (cmd->oredir_append) {
         if (line[i + 1] && line[i + 1] == '>') {
-            fprintf(stderr, "lusush: parse error near '>>>': "  \
-                    "invalid operator\n");
+            error_message("lusush: parse error near '>>>': "
+                          "invalid operator\n");
             return PARSER_ERROR_BREAK;
         }
     }
@@ -622,16 +620,8 @@ static int do_whspc(char c)
     cpos = 0;                   // reset cpos
 
     // Allocate next string
-    if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: parse.c: do_whspc: calloc");
-
-        for (j = wpos - 1; ; j--) {
-            free(cmd->argv[j]);
-            cmd->argv[j] = NULL;
-        }
-
-        return PARSER_ERROR_ABORT;
-    }
+    if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: parse.c: do_whspc: calloc");
 
     // Null terminate line
     cmd->argv[wpos][cpos] = '\0';
@@ -759,10 +749,8 @@ int parse_command(const char *linep, struct command *cmdp)
         return PARSER_ERROR_BREAK;
 
     // Make a copy of linep for mangling
-    if (!(tmp = strndup(linep, MAXLINE))) {
-        perror("lusush: parse.c: parse_command: strndup");
-        return PARSER_ERROR_ABORT;
-    }
+    if (!(tmp = strndup(linep, MAXLINE)))
+        error_syscall("lusush: parse.c: parse_command: strndup");
 
     // Alias expansions
     expand_line(tmp);
@@ -773,7 +761,7 @@ int parse_command(const char *linep, struct command *cmdp)
         if (cmdp->pipe)
             pipe = true;
 
-        if (cmdalloc(cmdp) < 0)
+        if (cmdalloc(cmdp) != 0)
             return PARSER_ERROR_ABORT;
 
         if (pipe)

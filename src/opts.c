@@ -43,9 +43,9 @@ static bool OPTIONS[OPT_CNT] = { false };
  */
 static void usage(int err)
 {
-    fprintf(stderr, "Usage:\n\t-h Help\n\t");
-    fprintf(stderr, "-c Fancy prompt\n\t");
-    fprintf(stderr, "-v Verbose ouput\n");
+    error_message("Usage:\n\t-h Help\n\t"
+                  "-c Fancy prompt\n\t"
+                  "-v Verbose output\n");;
     exit(err);
 }
 
@@ -64,7 +64,7 @@ bool set_bool_opt(size_t opt, bool val)
         build_prompt();
         break;
     default:
-        fprintf(stderr, "%sset_bool_opt: unknown option %zu\n", DBGSTR, opt);
+        error_message("%sset_bool_opt: unknown option %zu\n", DBGSTR, opt);
         return false;
     }
 

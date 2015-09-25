@@ -75,17 +75,15 @@ static void cmdfree(struct command *cmd)
 int cmdalloc(struct command *cmd)
 {
     // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(1024, sizeof(char *))) == NULL) {
-        perror("lusush: cmdlist.c: cmdalloc: calloc");
-        return -1;
-    }
-    *cmd->argv = NULL;
+    if ((cmd->argv = calloc(1024, sizeof(char *))) == NULL)
+        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
+
+    *cmd->argv = NULL;          // initialize to null
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: cmlist.c: cmdalloc: calloc");
-        return -1;
-    }
+    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
+
     **cmd->argv = '\0';         // initialize with null character
 
     // Make sure everything else is zero/null
@@ -98,10 +96,8 @@ int cmdalloc(struct command *cmd)
     *cmd->ifname = *cmd->ofname = '\0';
 
     // Allocate the next node
-    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL) {
-        perror("lusush: cmdlist.c: cmdalloc: calloc");
-        return -1;
-    }
+    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL)
+        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
 
     return 0;
 }
@@ -133,8 +129,8 @@ void display_cmd(struct command *cmd)
     size_t i;
 
     if (!cmd) {
-        fprintf(stderr, "lusush: cmdlist.c: display_cmd: "
-                "no access to cmd, cannot display.\n");
+        error_message("lusush: cmdlist.c: display_cmd: "
+                      "no access to cmd, cannot display.\n");
         return;
     }
 

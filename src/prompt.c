@@ -30,7 +30,6 @@
 #include "lusush.h"
 #include "prompt.h"
 #include "opts.h"
-#include "misc.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,13 +137,10 @@ static void setprompt_usage(void)
  */
 static void build_colors(void)
 {
-    if (!colors) {
-        if ((colors = calloc(14, sizeof(char))) == NULL) {
-            perror("lusush: prompt.c: build_colors: calloc");
-            vputs("%s: unsetting option FANCY_PROMPT\n", DBGSTR);
-            set_bool_opt(FANCY_PROMPT, false);
-        }
-    }
+    if (!colors)
+        if ((colors = calloc(14, sizeof(char))) == NULL)
+            error_syscall("lusush: prompt.c: build_colors: calloc");
+
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
 }
 
@@ -267,7 +263,7 @@ void build_prompt(void)
     char prompt[MAXLINE] = { '\0' };
 
     if ((cwd = getcwd(NULL, 0)) == NULL) {
-        perror("lusush: prompt.c: build_prompt");
+        error_return("lusush: prompt.c: build_prompt");
         strncpy(prompt, "% ", 3);
     }
     else {

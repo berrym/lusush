@@ -75,4 +75,19 @@ struct command
     struct command *prev;       // previous command
 };
 
+extern void vputs(const char *, ...);
+extern void error_return(const char *, ...);
+extern void error_syscall(const char *, ...);
+extern void error_message(const char *, ...);
+extern void error_quit(const char *, ...);
+extern void error_coredump(const char *, ...);
+
+#ifndef HAVE_STRNLEN
+extern size_t strnlen(const char *, size_t);
+#endif
+
+#ifndef HAVE_STRNDUP
+extern char *strndup(const char *, size_t);
+#endif
+
 #endif

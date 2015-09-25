@@ -31,7 +31,6 @@
 #include "input.h"
 #include "init.h"
 #include "history.h"
-#include "misc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -96,10 +95,8 @@ char *get_input(FILE *in, const char *prompt)
             return NULL;
     }
     else {
-        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
-            perror("lusush: input.c: get_input: calloc");
-            return NULL;
-        }
+        if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL)
+            error_syscall("lusush: input.c: get_input: calloc");
 
         if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;
@@ -107,10 +104,8 @@ char *get_input(FILE *in, const char *prompt)
         null_terminate(line_read);
     }
 #else
-    if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL) {
-        perror("lusush: input.c: get_input: calloc");
-        return NULL;
-    }
+    if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: input.c: get_input: calloc");
 
     if (shell_type() != NORMAL_SHELL)
         printf("%s", prompt);

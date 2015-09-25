@@ -30,7 +30,6 @@
 
 #include "lusush.h"
 #include "history.h"
-#include "misc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +57,7 @@ void init_history(void)
     char *ENV_HOME = NULL;
 
     if (HIST_INITIALIZED) {
-        fprintf(stderr,"lusush: init_history: already initialized.\n");
+        error_message("lusush: init_history: already initialized.\n");
         return;
     }
 
@@ -90,11 +89,8 @@ int read_history(const char *histfile)
 {
     size_t i;
 
-    if ((histfp = fopen(histfile, "r")) == NULL) {
-        if (errno != ENOENT)
-            perror("lusush: history.c: read_histfile: fopen");
-        return -1;
-    }
+    if ((histfp = fopen(histfile, "r")) == NULL)
+        error_syscall("lusush: history.c: read_histfile: fopen");
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
@@ -135,8 +131,8 @@ void write_history(const char *fn)
     if (!HIST_INITIALIZED)
         return;
 
-    if ((histfp = fopen(fn, "a")) == (FILE *)0) {
-        perror("lusush: history.c: write_history: fopen");
+    if ((histfp = fopen(fn, "a")) == NULL) {
+        error_return("lusush: history.c: write_history: fopen");
         return;
     }
 

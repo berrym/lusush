@@ -34,7 +34,6 @@
 #include "parse.h"
 #include "cmdlist.h"
 #include "exec.h"
-#include "misc.h"
 #include "opts.h"
 #include <stdlib.h>
 #include <string.h>
@@ -60,25 +59,19 @@ int main(int argc, char **argv)
     init(argc, argv);
 
     // Open input stream
-    if (shell_type() == NORMAL_SHELL) {
+    if (shell_type() == NORMAL_SHELL)
         // Open the file stream with in pointing to it
-        if ((in = fopen(argv[1], "r")) == NULL) {
-            perror("lusush: lusush.c: main: fopen");
-            exit(EXIT_FAILURE);
-        }
-    }
-    else {
+        if ((in = fopen(argv[1], "r")) == NULL)
+            error_syscall("lusush: lusush.c: main: fopen");
+    else
         in = stdin;
-    }
 
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
-        if ((cmd = calloc(1, sizeof(struct command))) == NULL) {
-            perror("lusush: lusush.c: main: calloc");
-            exit(EXIT_FAILURE);
-        }
+        if ((cmd = calloc(1, sizeof(struct command))) == NULL)
+            error_syscall("lusush: lusush.c: main: calloc");
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");

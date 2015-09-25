@@ -29,7 +29,6 @@
 
 #include "lusush.h"
 #include "init.h"
-#include "misc.h"
 #include "history.h"
 #include "opts.h"
 #include "alias.h"
@@ -58,9 +57,8 @@ static void sig_int(int signo)
  */
 static void sig_seg(int signo)
 {
-    fprintf(stderr, "lusush: caught signal %d, terminating.\n", signo);
-    fprintf(stderr, "\tAnd fix your damn code.\n");
-    abort();
+    error_coredump("lusush: caught signal %d, terminating.\n"
+                   "\tAnd fix your damn code.\n", signo);
 }
 
 /**
@@ -88,19 +86,15 @@ int init(int argc, char **argv)
     setlocale(LC_ALL, "");
 
     // Set up signal handlers
-    if (signal(SIGINT, sig_int) == SIG_ERR) {
-        fprintf(stderr, "lusush: signal error: %d\n", SIGINT);
-        exit(EXIT_FAILURE);
-    }
+    if (signal(SIGINT, sig_int) == SIG_ERR)
+        error_syscall( "lusush: signal error");
 
-    if (signal(SIGSEGV, sig_seg) == SIG_ERR) {
-        fprintf(stderr, "lusush: signal error: %d\n", SIGSEGV);
-        exit(EXIT_FAILURE);
-    }
+    if (signal(SIGSEGV, sig_seg) == SIG_ERR)
+        error_syscall( "lusush: signal error");
 
     // Set up aliases
-    if (init_alias_list() < 0) {
-        fprintf(stderr, "lusush: init_alias_list_failed\n");
+    if (init_alias_list() != 0) {
+        error_message("lusush: init_alias_list_failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -116,9 +110,8 @@ int init(int argc, char **argv)
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!S_ISREG(st.st_mode)) {
-            fprintf(stderr,
-                    "lusush: %s is not a regular file.\n",
-                    argv[optind]);
+            error_message("lusush: %s is not a regular file.\n",
+                          argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
             vputs("THIS IS AN INTERACTIVE SHELL\n");

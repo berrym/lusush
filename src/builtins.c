@@ -28,7 +28,6 @@
  */
 
 #include "builtins.h"
-#include "misc.h"
 #include "alias.h"
 #include "history.h"
 #include "opts.h"
@@ -105,7 +104,7 @@ static int bin_help(const struct command *cmd)
 static int bin_cd(const struct command *cmd)
 {
     if (chdir(cmd->argv[1]) < 0) {
-        perror("lusush: builtins.c: cd: chdir");
+        error_return("lusush: builtins.c: cd: chdir");
         return -1;
     }
 
@@ -121,7 +120,7 @@ static int bin_pwd(const struct command *ignore)
     char cwd[MAXLINE] = { '\0' };
 
     if (getcwd(cwd, MAXLINE - 1) == NULL) {
-        perror("lusush: builtins.c: pwd: getcwd");
+        error_return("lusush: builtins.c: pwd: getcwd");
         return -1;
     }
 
@@ -152,7 +151,7 @@ static int bin_setenv(const struct command *cmd)
     }
     else {
         if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
-            perror("lusush: exec.c: exec_builtin_cmd: setenv");
+            error_return("lusush: exec.c: exec_builtin_cmd: setenv");
             return 1;
         }
     }
@@ -172,7 +171,7 @@ static int bin_unsetenv(const struct command *cmd)
     }
     else {
         if (unsetenv(cmd->argv[1]) < 0) {
-            perror("lusush: exec.c: exec_builtin_cmd: unsetenv");
+            error_return("lusush: exec.c: exec_builtin_cmd: unsetenv");
             return 1;
         }
     }
@@ -290,10 +289,9 @@ struct builtin *find_builtin(const char *name)
 
     for (i = 0; builtins[i].name; i++) {
         if (strncmp(name, builtins[i].name, MAXLINE) == 0) {
-            if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) {
-                perror("lusush: builtins.c: find_builtin: calloc");
-                exit(EXIT_FAILURE);
-            }            
+            if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) 
+                error_syscall("lusush: builtins.c: find_builtin: calloc");
+
             return memcpy(bin, &builtins[i], sizeof(builtins[i]));
         }
     }

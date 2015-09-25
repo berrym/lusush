@@ -29,7 +29,6 @@
 
 #include "exec.h"
 #include "history.h"
-#include "misc.h"
 #include "builtins.h"
 #include "alias.h"
 #include <sys/types.h>
@@ -80,8 +79,7 @@ static int exec_external_cmd(struct command *cmd)
     pid = fork();
     switch (pid) {
     case -1:                    // fork error
-        perror("lusush: exec.c: exec_external_command: fork");
-        return -1;
+        error_syscall("lusush: exec.c: exec_external_command: fork");
     case 0:                     // child process
 
         /////////////////////////////////////////////////
@@ -112,9 +110,8 @@ static int exec_external_cmd(struct command *cmd)
 
         if (cmd->iredir) {
             if (freopen(cmd->ifname, "r", stdin) == NULL) {
-                fprintf(stderr,
-                        "lusush: error redirecting stdin to %s\n",
-                        cmd->ifname);
+                error_message("lusush: error redirecting stdin to %s\n",
+                              cmd->ifname);
                 return 0;
             }
         }
@@ -126,9 +123,8 @@ static int exec_external_cmd(struct command *cmd)
         if (cmd->oredir && !cmd->pipe) {
             if (freopen(cmd->ofname,
                         cmd->oredir_append ? "a" : "w", stdout) == NULL) {
-                fprintf(stderr,
-                        "lusush: error redirecting stdout to %s\n",
-                        cmd->ofname);
+                error_message("lusush: error redirecting stdout to %s\n",
+                              cmd->ofname);
                 return 0;
             }
         }
@@ -204,7 +200,7 @@ int exec_cmd(struct command *cmd, int n)
 
         if (bin = find_builtin(cmd->argv[0])) {
             if (cmd->pipe) {
-                fprintf(stderr, "lusush: cannot pipe with builtins\n");
+                error_message("lusush: cannot pipe with builtins\n");
                 return i;
             }
             pids[i] = 0;
@@ -239,14 +235,11 @@ int exec_cmd(struct command *cmd, int n)
     /////////////////////////////////////////////////
 
     for (i = 0; i < n; i++) {
-        if (pids[i]) {
+        if (pids[i])
             // If executing the command in the background, call waitpid with
             // the WNOHANG option, otherwise pass 0 to block
-            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1) {
-                perror("lusush: exec.c: exec_cmd: waitpid");
-                return -1;
-            }
-        }
+            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1)
+                error_syscall("lusush: exec.c: exec_cmd: waitpid");
 
         if (cmd->next != NULL)
             cmd = cmd->next;

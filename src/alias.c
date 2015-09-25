@@ -29,7 +29,6 @@
 
 #include "lusush.h"
 #include "alias.h"
-#include "misc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,10 +69,8 @@ static struct alias *alloc_alias(void)
 {
     struct alias *curr = NULL;
 
-    if ((curr = calloc(1, sizeof(struct alias))) == NULL) {
-        perror("lusush: alias.c: alloc_alias: calloc");
-        return NULL;
-    }
+    if ((curr = calloc(1, sizeof(struct alias))) == NULL)
+        error_syscall("lusush: alias.c: alloc_alias: calloc");
 
     return curr;
 }
@@ -102,9 +99,7 @@ int init_alias_list(void)
     if (head)
         return 0;
 
-    if ((head = alloc_alias()) == NULL)
-        return -1;
-
+    head = alloc_alias();
     vputs("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
 
     return 0;
@@ -133,8 +128,7 @@ int set_alias(char *key, char *val)
     struct alias *curr = NULL;
 
     if (!head)
-        if (init_alias_list() == -1)
-            return -1;
+        init_alias_list();
 
     if (head && !initialized) {
         vputs("%sset_alias: setting root alias node\n", DBGSTR);
@@ -152,8 +146,7 @@ int set_alias(char *key, char *val)
     }
 
     curr = find_end();
-    if ((curr->next = alloc_alias()) == NULL)
-        return -1;
+    curr->next = alloc_alias();
     curr = curr->next;
     strncpy(curr->key, key, MAXLINE);
     strncpy(curr->val, val, MAXLINE);
@@ -176,7 +169,6 @@ void unset_alias(char *key)
                 head = curr->next;
             else
                 prev->next = curr->next;
-
             free(curr);
             curr = NULL;
             break;
