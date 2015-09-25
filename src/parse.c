@@ -121,7 +121,7 @@ static char *tokenize(char **s, struct command *cmdp)
         return NULL;
 
     // Allocate memory for the token
-    if ((tok = calloc(strnlen(*s, MAXLINE), sizeof(char))) == NULL) {
+    if ((tok = calloc(strnlen(*s, MAXLINE), sizeof(char *))) == NULL) {
         perror("lusush: parse.c: tokenize: calloc");
         exit(EXIT_FAILURE);
     }
