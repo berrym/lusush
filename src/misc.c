@@ -135,24 +135,6 @@ size_t strnlen(const char *s, size_t maxlen)
 }
 #endif
 
-#ifndef HAVE_STRNDUP
-char *strndup(const char *s, size_t n)
-{
-    char *result = NULL;
-    size_t len = strnlen(s, MAXLINE);
-
-    if (n < len)
-        len = n;
-
-    if ((result = calloc(len + 1, sizeof(char))) == NULL)
-        error_syscall("lusush: misc.c: strndup: calloc");
-
-    result[len] = '\0';
-
-    return memcpy(result, s, len);
-}
-#endif
-
 /**
  * vputs:
  *      Print formatted string if VERBOSE_PRINT option is set.

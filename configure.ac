@@ -26,7 +26,7 @@ AC_TYPE_SIZE_T
 
 # Checks for library functions.
 AC_FUNC_FORK
-AC_CHECK_FUNCS([dup2 getcwd memset setenv strnlen strndup])
+AC_CHECK_FUNCS([dup2 getcwd memset setenv strnlen])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

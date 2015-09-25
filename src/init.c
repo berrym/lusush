@@ -130,5 +130,6 @@ int init(int argc, char **argv)
     // Initialize history
     init_history();
 
+    atexit(free_alias_list);
     return optind;
 }

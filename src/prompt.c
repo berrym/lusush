@@ -262,9 +262,8 @@ void build_prompt(void)
     char *cwd = NULL;
     char prompt[MAXLINE] = { '\0' };
 
-    if ((cwd = getcwd(NULL, 0)) == NULL) {
-        error_return("lusush: prompt.c: build_prompt");
-        strncpy(prompt, "% ", 3);
+    if (!(cwd = getcwd(NULL, 0))) {
+        error_syscall("lusush: prompt.c: build_prompt: getcwd");
     }
     else {
         if (opt_is_set(FANCY_PROMPT)) {

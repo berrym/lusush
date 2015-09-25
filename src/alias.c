@@ -72,6 +72,8 @@ static struct alias *alloc_alias(void)
     if ((curr = calloc(1, sizeof(struct alias))) == NULL)
         error_syscall("lusush: alias.c: alloc_alias: calloc");
 
+    curr->next = NULL;
+
     return curr;
 }
 
@@ -191,5 +193,23 @@ void print_alias_list(void)
     while (curr) {
         printf("%s->\t%s\n", curr->key, curr->val);
         curr = curr->next;
+    }
+}
+
+/**
+ * free_alias_list:
+ *      Free each node in the alias list.
+ */
+void free_alias_list(void)
+{
+    struct alias *curr = NULL;
+
+    if (!head)
+        return;
+
+    while ((curr = head) != NULL) {
+        head = head->next;
+        free(curr);
+        curr = NULL;
     }
 }

@@ -86,8 +86,4 @@ extern void error_coredump(const char *, ...);
 extern size_t strnlen(const char *, size_t);
 #endif
 
-#ifndef HAVE_STRNDUP
-extern char *strndup(const char *, size_t);
-#endif
-
 #endif

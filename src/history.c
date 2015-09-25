@@ -131,10 +131,8 @@ void write_history(const char *fn)
     if (!HIST_INITIALIZED)
         return;
 
-    if ((histfp = fopen(fn, "a")) == NULL) {
-        error_return("lusush: history.c: write_history: fopen");
-        return;
-    }
+    if ((histfp = fopen(fn, "a")) == NULL)
+        error_syscall("lusush: history.c: write_history: fopen");
 
     for (i = 0; hist_list[i] && *hist_list[i]; i++)
         fprintf(histfp, "%s\n", hist_list[i]);

@@ -749,8 +749,10 @@ int parse_command(const char *linep, struct command *cmdp)
         return PARSER_ERROR_BREAK;
 
     // Make a copy of linep for mangling
-    if (!(tmp = strndup(linep, MAXLINE)))
-        error_syscall("lusush: parse.c: parse_command: strndup");
+    if (!(tmp = calloc(MAXLINE, sizeof(char))))
+        error_syscall("lusush: parse.c: parse_command: calloc");
+
+    strncpy(tmp, linep, MAXLINE);
 
     // Alias expansions
     expand_line(tmp);
