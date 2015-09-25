@@ -32,12 +32,71 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define DBGSTR "lusush: cmdlist.c: "
+
+static struct command *head = NULL;
+
 /**
- * cmdfree:
+ * create_command_list:
+ *      Initialize a struct command list.
+ */
+struct command *create_command_list(void)
+{
+    if (head)
+        return head;
+
+    head = alloc_command(NULL);
+    vputs("%screate_command_list: "
+          "successful creation of command list\n", DBGSTR);
+
+    return head;
+}
+
+/**
+ * alloc_command:
+ *      Allocate memory for a struct command.
+ */
+struct command *alloc_command(struct command *curr)
+{
+    struct command *cmd = NULL;
+
+    if ((cmd = calloc(1, sizeof(struct command))) == NULL)
+        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+
+    // Allocate pointer to pointer char
+    if ((cmd->argv = calloc(4096, sizeof(char *))) == NULL)
+        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+
+    *cmd->argv = NULL;          // initialize to null
+
+    // Allocate room for the first string on the heap
+    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+
+    **cmd->argv = '\0';         // initialize with null character
+
+    // Make sure everything else is zero/null
+    cmd->argc = 0;
+    cmd->fd[0] = cmd->fd[1] = 0;
+    cmd->pipe = cmd->pipe_head = false;
+    cmd->iredir = false;
+    cmd->oredir = cmd->oredir_append = false;
+    cmd->background = false;
+    *cmd->ifname = *cmd->ofname = '\0';
+    cmd->next = NULL;
+    if (curr)
+        cmd->prev = curr;
+
+    vputs("successful alloc_command call\n");
+    return cmd;
+}
+
+/**
+ * free_command:
  *      Frees the memory pointed to by cmd, including recursive
  *      freeing of the strings in cmd->argv.
  */
-static void cmdfree(struct command *cmd)
+static void free_command(struct command *cmd)
 {
     if (!cmd || !cmd->argv)
         return;
@@ -61,70 +120,25 @@ static void cmdfree(struct command *cmd)
 }
 
 /**
- * TODO:
- *      This is a misleading name, and the the way command lists
- *      work is not a very intuitive approach, change the name
- *      or even better choose a different methodology for implementation.
- *
- * cmdalloc:
- *      The parameter cmd should be an already allocated struct,
- *      it will allocate the argument vector and it's first string,
- *      additional strings must be allocated as needed.  Allocates
- *      the next struct command in the list as well.
+ * free_command_list:
+ *      Free nodes in a doubly linked list of struct commands.
  */
-int cmdalloc(struct command *cmd)
+void free_command_list(void)
 {
-    // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(1024, sizeof(char *))) == NULL)
-        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
+    struct command *curr = head;
 
-    *cmd->argv = NULL;          // initialize to null
-
-    // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL)
-        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
-
-    **cmd->argv = '\0';         // initialize with null character
-
-    // Make sure everything else is zero/null
-    cmd->argc = 0;
-    cmd->fd[0] = cmd->fd[1] = 0;
-    cmd->pipe = cmd->pipe_head = false;
-    cmd->iredir = false;
-    cmd->oredir = cmd->oredir_append = false;
-    cmd->background = false;
-    *cmd->ifname = *cmd->ofname = '\0';
-
-    // Allocate the next node
-    if ((cmd->next = calloc(1, sizeof(struct command))) == NULL)
-        error_syscall("lusush: cmdlist.c: cmdalloc: calloc");
-
-    return 0;
-}
-
-/**
- * free_cmdlist:
- *      Recursively free nodes in a doubly linked list of struct commands.
- */
-void free_cmdlist(struct command *cmd)
-{
-    struct command *next = NULL;
-
-    while (cmd) {
-        next = cmd->next;
-        cmdfree(cmd);
-        if (next)
-            cmd = next;
-        else
-            cmd = NULL;
+    while ((curr = head) != NULL) {
+        head = head->next;
+        free_command(curr);
+        curr = NULL;
     }
 }
 
 /**
- * display_cmd:
+ * display_command:
  *      Display details of a struct command.
  */
-void display_cmd(struct command *cmd)
+void display_command(struct command *cmd)
 {
     size_t i;
 

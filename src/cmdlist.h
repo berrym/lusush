@@ -32,8 +32,9 @@
 #ifndef CMDLIST_H
 #define CMDLIST_H
 
-extern int cmdalloc(struct command *);
-extern void free_cmdlist(struct command *);
-extern void display_cmd(struct command *);
+extern struct command *alloc_command(struct command *);
+extern struct command *create_command_list(void);
+extern void free_command_list(void);
+extern void display_command(struct command *);
 
 #endif

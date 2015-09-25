@@ -32,6 +32,7 @@
 #include "history.h"
 #include "opts.h"
 #include "alias.h"
+#include "cmdlist.h"
 #include <sys/stat.h>
 #include <locale.h>
 #include <signal.h>
@@ -131,5 +132,7 @@ int init(int argc, char **argv)
     init_history();
 
     atexit(free_alias_list);
+    atexit(free_command_list);
+
     return optind;
 }

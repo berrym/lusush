@@ -151,7 +151,7 @@ static char *tokenize(char **s, struct command *cmdp)
             *c++;
             goto mangle;
             break;
-        case '|':               // finsish parsing command, build a pipe
+        case '|':               // finsish parsing token, flag a pipe
             if (iq || esc) {
                 tok[k] = *c;
                 if (esc)
@@ -163,7 +163,6 @@ static char *tokenize(char **s, struct command *cmdp)
                 cmdp->pipe = true;
                 if (!cmdp->prev)
                     cmdp->pipe_head = true;
-                cmdp->next->pipe = true;
             }
             *c++;
             goto mangle;
@@ -724,7 +723,7 @@ static int do_token(char *tok, struct command *cmdp)
 
     // Print out command structure if VERBOSE_PRINT is enabled
     if (opt_is_set(VERBOSE_PRINT))
-        display_cmd(cmd);
+        display_command(cmd);
 
     return PARSER_CONTINUE_ON;
 }
@@ -760,13 +759,7 @@ int parse_command(const char *linep, struct command *cmdp)
     savep = tmp;                // save the original pointer offset
 
     while (*tmp) {
-        if (cmdp->pipe)
-            pipe = true;
-
-        if (cmdalloc(cmdp) != 0)
-            return PARSER_ERROR_ABORT;
-
-        if (pipe)
+        if (cmdp->prev && cmdp->prev->pipe)
             cmdp->pipe = true;
 
         if (!(tok = tokenize(&tmp, cmdp)))
@@ -779,6 +772,7 @@ int parse_command(const char *linep, struct command *cmdp)
         case PARSER_ERROR_BREAK:
             return err;
         default:
+            cmdp->next = alloc_command(cmdp);
             cmdp->next->prev = cmdp;
             cmdp = cmdp->next;
             cmdp->next = NULL;
@@ -795,6 +789,7 @@ int parse_command(const char *linep, struct command *cmdp)
         free(savep);
 
     savep = NULL;
+    tmp = NULL;
 
     return count;               // Return number of command's parsed
 }

@@ -70,8 +70,7 @@ int main(int argc, char **argv)
     // or EOF is read from either stdin or input file
     while (bActive) {
         // Allocate memory for doubly linked list of commands
-        if ((cmd = calloc(1, sizeof(struct command))) == NULL)
-            error_syscall("lusush: lusush.c: main: calloc");
+        cmd = create_command_list();
 
         // Build our prompt string
         ENV_PROMPT = getenv("PROMPT");
@@ -94,7 +93,7 @@ int main(int argc, char **argv)
             exec_cmd(cmd, ret);
 
             // Free command(s)
-            free_cmdlist(cmd);
+            free_command_list();
             break;
         }
     }
