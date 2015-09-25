@@ -90,7 +90,8 @@ int read_history(const char *histfile)
     size_t i;
 
     if ((histfp = fopen(histfile, "r")) == NULL)
-        error_syscall("lusush: history.c: read_histfile: fopen");
+        if (opt_is_set(VERBOSE_PRINT)
+            error_message("lusush: history.c: read_histfile: fopen");
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
