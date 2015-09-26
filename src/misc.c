@@ -68,7 +68,7 @@ void error_return(const char *fmt, ...)
 
 /**
  * error_syscall:
- *      Fatal error message related to a system call.
+ *      Fatal error related to a system call.
  *      Print and error message and terminate.
  */
 void error_syscall(const char *fmt, ...)

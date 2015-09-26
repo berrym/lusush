@@ -785,11 +785,11 @@ int parse_command(const char *linep, struct command *cmdp)
         pipe = false;
     }
 
-    if (savep)
-        free(savep);
-
-    savep = NULL;
+    tmp = savep;
+    if (tmp)
+        free(tmp);
     tmp = NULL;
+    savep = NULL;
 
     return count;               // Return number of command's parsed
 }

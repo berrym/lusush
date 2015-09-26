@@ -32,6 +32,7 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-extern char *get_input(FILE *, const char *);
+extern void free_line_read(void);
+extern char *get_input(const char *, FILE *);
 
 #endif

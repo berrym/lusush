@@ -47,46 +47,41 @@
  */
 int main(int argc, char **argv)
 {
+    FILE *in = stdin;                // input file stream pointer
+    bool looping = true;             // boolean flag to keep looping
+    struct command *cmd = NULL;      // storage for command details
     char *ENV_PROMPT = NULL;         // prompt environment variable
     char prompt[MAXLINE] = { '\0' }; // prompt string
-    bool bActive = true;             // boolean flag to keep running
-    int ret = 0;                     // return status for parse_command
     char *line = NULL;               // pointer to a line of input read
-    FILE *in = NULL;                 // input file stream pointer
-    struct command *cmd = NULL;      // storage for command details
+    int ret = 0;                     // return status for parse_command
 
     // Perform startup tasks
-    init(argc, argv);
-
-    // Open input stream
-    if (shell_type() == NORMAL_SHELL)
-        // Open the file stream with in pointing to it
-        if ((in = fopen(argv[1], "r")) == NULL)
-            error_syscall("lusush: lusush.c: main: fopen");
-    else
-        in = stdin;
+    init(argc, argv, &in);
 
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
-    while (bActive) {
+    while (looping) {
         // Allocate memory for doubly linked list of commands
         cmd = create_command_list();
 
-        // Build our prompt string
-        ENV_PROMPT = getenv("PROMPT");
-        strncpy(prompt, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
+        // Build a prompt string if the shell is interactive
+        if (shell_type() != NORMAL_SHELL) {
+            // Build our prompt string
+            ENV_PROMPT = getenv("PROMPT");
+            strncpy(prompt, ENV_PROMPT ? ENV_PROMPT : "% ", MAXLINE);
+        }
 
         // Read a line of input from the opened stream
-        line = get_input(in, prompt);
+        line = get_input(prompt, in);
 
         // Parse command(s) from line
         switch (ret = parse_command(line, cmd)) {
-        case -1:                    // Error
-            bActive = false;        // Exit program
+        case -1:                    // error
+            looping = false;        // exit program
             break;
-        case 0:                     // Empty input, ignore
+        case 0:                     // empty input, ignore
             break;
-        default:                    // Parsed command(s)
+        default:                    // command(s) parsed
             vputs("ret @ main --> %d\n", ret);
 
             // Execute the command(s)

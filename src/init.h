@@ -27,6 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdio.h>
+
 #ifndef INIT_H
 #define INIT_H
 
@@ -37,7 +39,7 @@ enum {
     NORMAL_SHELL
 };
 
-extern int init(int, char **);
+extern int init(int, char **, FILE **);
 extern int shell_type(void);
 
 #endif

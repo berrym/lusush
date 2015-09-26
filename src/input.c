@@ -53,6 +53,18 @@ static inline void null_terminate(char *s)
         s[strnlen(s, MAXLINE) - 1] = '\0';
 }
 
+/**
+ * free_line_read:
+ *      Free memory allocated to line_read.
+ */
+void free_line_read(void)
+{
+    if (line_read)
+        free(line_read);
+
+    line_read = NULL;
+}
+
 #ifdef HAVE_LIBREADLINE
 /**
  * rl_gets:
@@ -80,13 +92,10 @@ static char *rl_gets(const char *prompt)
  *      Read a line of input, store the line in history.
  *      Return a pointer to the line read.
  */
-char *get_input(FILE *in, const char *prompt)
+char *get_input(const char *prompt, FILE *in)
 {
     // If the buffer has been previously allocated free it
-    if (line_read)
-        free(line_read);
-
-    line_read = NULL;
+    free_line_read();
 
 #ifdef HAVE_LIBREADLINE
     // Read a line from either a file or standard input

@@ -33,6 +33,7 @@
 #include "opts.h"
 #include "alias.h"
 #include "cmdlist.h"
+#include "input.h"
 #include <sys/stat.h>
 #include <locale.h>
 #include <signal.h>
@@ -75,7 +76,7 @@ int shell_type(void)
  * init:
  *      Performs initial tasks at shell startup.
  */
-int init(int argc, char **argv)
+int init(int argc, char **argv, FILE **in)
 {
     struct stat st;             // stat  buffer
     int optind = 0;             // index of option being parsed
@@ -120,6 +121,8 @@ int init(int argc, char **argv)
         else {
             SHELL_TYPE = NORMAL_SHELL;
             vputs("THIS IS A NORMAL SHELL\n");
+            if ((*in = fopen(argv[optind], "r")) == NULL)
+                error_syscall("lusush: init.c: init: fopen");
         }
     }
     else {
@@ -131,8 +134,10 @@ int init(int argc, char **argv)
     // Initialize history
     init_history();
 
+    // Set memory cleanup procedures on termination
     atexit(free_alias_list);
     atexit(free_command_list);
+    atexit(free_line_read);
 
     return optind;
 }
