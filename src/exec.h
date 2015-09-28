@@ -32,6 +32,6 @@
 #ifndef EXEC_H
 #define EXEC_H
 
-extern int exec_cmd(struct command *, int);
+extern void exec_cmd(struct command *);
 
 #endif

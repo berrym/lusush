@@ -686,6 +686,7 @@ static int do_token(char *tok, struct command *cmdp)
 {
     int err;                    // error code
     char c;                     // current charater
+    size_t k;                   // loop counter
 
     // Point line and cmd to current token and command being processed
     line = tok;
@@ -719,6 +720,15 @@ static int do_token(char *tok, struct command *cmdp)
     // Check that something was parsed and actually stored
     if (!readreg)
         return PARSER_ERROR_BREAK;
+
+    // Check for invalid strings that were allocated but never initialized
+    for (k = 0; cmd->argv[k]; k++) {
+        if (!*cmd->argv[k]) {
+            cmd->argc--;
+            free(cmd->argv[k]);
+            cmd->argv[k] = NULL;
+        }
+    }
 
     // Print out command structure if VERBOSE_PRINT is enabled
     if (opt_is_set(VERBOSE_PRINT))

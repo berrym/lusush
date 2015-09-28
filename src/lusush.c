@@ -85,7 +85,7 @@ int main(int argc, char **argv)
             vputs("ret @ main --> %d\n", ret);
 
             // Execute the command(s)
-            exec_cmd(cmd, ret);
+            exec_cmd(cmd);
 
             // Free command(s)
             free_command_list();

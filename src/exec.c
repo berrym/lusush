@@ -42,210 +42,199 @@
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 
+static int pfd1[2], pfd2[2];    // pipe file descriptors for parent/child ipc
+
+/**
+ * tell_wait:
+ *      Set up pipes for ipc between parent and child processes.
+ */
+static void tell_wait(void)
+{
+    if (pipe(pfd1) < 0 || pipe(pfd2) < 0)
+        error_syscall("lusush: exec.c: tell_wait: pipe");
+}
+
+/**
+ * tell_parent:
+ *      Write a character 'c' to parent process signaling to quit blocking.
+ */
+static void tell_parent(pid_t pid)
+{
+    if (write(pfd2[1], "c", 1) != 1)
+        error_syscall("lusush: exec.c: tell_parent: write");
+}
+
+/**
+ * wait_child:
+ *      Block until a character 'c' is read from child process.
+ */
+static void wait_child(void)
+{
+    char c;
+
+    if (read(pfd2[0], &c, 1) != 1)
+        error_syscall("lusush: exec.c: wait_child: read");
+
+    if (c != 'c')
+        error_quit("lusush: exec.c: wait_child: incorrect data");
+}
+
+/**
+ * set_pipes:
+ *      Set up pipe file descriptors for command pipe chains.
+ */
+static void set_pipes(struct command * cmd)
+{
+    // There was a previous command in pipe chain
+    if (cmd->prev && cmd->prev->pipe) {
+        vputs("*** Reading from parent pipe\n");
+        if (dup2(cmd->prev->fd[0], STDIN_FILENO) < 0)
+            error_syscall("lusush: exec.c: set_pipes: dup2");
+        if (close(cmd->prev->fd[0]) < 0 || close(cmd->prev->fd[1]) < 0)
+            error_syscall("lusush: exec.c: set_pipes: close");
+    }
+
+    // There is a future command in pipe chain
+    if (cmd->next && cmd->next->pipe) {
+        vputs("*** Writing to child pipe\n");
+        if (close(cmd->fd[0]) < 0)
+            error_syscall("lusush: exec.c: set_pipes: close");
+        if (dup2(cmd->fd[1], STDOUT_FILENO) < 0)
+            error_syscall("lusush: exec.c: set_pipes: dup2");
+        if (close(cmd->fd[1]) < 0)
+            error_syscall("lusush: exec.c: set_pipes: close");
+    }
+}
+
+/**
+ * close_old_pipes:
+ *      Close old unused pipes.
+ */
+static void close_old_pipes(struct command *cmd)
+{
+    if (cmd->prev && cmd->prev->pipe) {
+        vputs("*** Closing old/unused pipe ends\n");
+        if (close(cmd->prev->fd[0]) < 0 || close(cmd->prev->fd[1]) < 0)
+            error_syscall("lusush: exec.c: close_old_pipes: close");
+    }
+}
+
+/**
+ * set_redirections:
+ *     Set up input/output redirections.
+ */
+static void set_redirections(struct command *cmd)
+{
+    // Set up input redirection
+    if (cmd->iredir)
+        if (freopen(cmd->ifname, "r", stdin) == NULL)
+            error_syscall("lusush: exec.c: set_redirections: freopen");
+
+    // Execute in the backgroud
+    if (cmd->background)
+        if (freopen("/dev/null", "w", stdout) == NULL ||
+            freopen("/dev/null", "w", stderr) == NULL)
+            error_syscall("lusush: exec.c: set_redirections: freopen");
+
+    // Set up output redirection
+    if (cmd->oredir)
+        if (freopen(cmd->ofname,
+                    cmd->oredir_append ? "a" : "w", stdout) == NULL)
+            error_syscall("lusush: exec.c: set_redirections: freopen");
+}
+
 /**
  * exec_external_cmd:
  *      Execute an external command after setting up pipes or redirections.
  */
 static int exec_external_cmd(struct command *cmd)
 {
-    size_t i;
-    pid_t pid;
+    pid_t pid;                  // pid return by execvp
 
-    // Check for invalid strings at the end of the argument vector,
-    // give them back to free pool as they will mess up redirections
-    for (i = 0; cmd->argv[i]; i++) {
-        if (!*cmd->argv[i]) {
-            cmd->argc--;
-            free(cmd->argv[i]);
-            cmd->argv[i] = NULL;
-        }
-    }
+    // Setup pipes for parent/child ipc
+    tell_wait();
 
-    /////////////////////////////////////////////////
-    // Create a pipe
-    /////////////////////////////////////////////////
-
+    // Create a pipe if command is in a pipe chain
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
             vputs("*** Creating pipe\n");
-            pipe(cmd->fd);
+            if (pipe(cmd->fd) < 0)
+                error_syscall("lusush: exec.c: exec_external_cmd: pipe");
         }
     }
 
-    /////////////////////////////////////////////////
-    // Spawn a new process
-    /////////////////////////////////////////////////
-
+    // Spawn a new process by calling fork
     pid = fork();
+
     switch (pid) {
     case -1:                    // fork error
         error_syscall("lusush: exec.c: exec_external_command: fork");
     case 0:                     // child process
-
-        /////////////////////////////////////////////////
         // Configure pipe plumbing
-        /////////////////////////////////////////////////
+        if (cmd->pipe)
+            set_pipes(cmd);
 
-        if (cmd->pipe) {
-            // There was a previous command in pipe chain
-            if (cmd->prev && cmd->prev->pipe) {
-                vputs("*** Reading from parent pipe\n");
-                dup2(cmd->prev->fd[0], STDIN_FILENO);
-                close(cmd->prev->fd[0]);
-                close(cmd->prev->fd[1]);
-            }
+        // Configure redirections
+        if (cmd->iredir || cmd->oredir || cmd->background)
+            set_redirections(cmd);
 
-            // There is a future command in pipe chain
-            if (cmd->next && cmd->next->pipe) {
-                vputs("*** Writing to child pipe\n");
-                close(cmd->fd[0]);
-                dup2(cmd->fd[1], STDOUT_FILENO);
-                close(cmd->fd[1]);
-            }
-        }
+        // Signal parent to quit blocking
+        tell_parent(getppid());
 
-        /////////////////////////////////////////////////
-        // Input redirection
-        /////////////////////////////////////////////////
-
-        if (cmd->iredir) {
-            if (freopen(cmd->ifname, "r", stdin) == NULL) {
-                error_message("lusush: error redirecting stdin to %s\n",
-                              cmd->ifname);
-                return 0;
-            }
-        }
-
-        /////////////////////////////////////////////////
-        // Output redirection
-        /////////////////////////////////////////////////
-
-        if (cmd->oredir && !cmd->pipe) {
-            if (freopen(cmd->ofname,
-                        cmd->oredir_append ? "a" : "w", stdout) == NULL) {
-                error_message("lusush: error redirecting stdout to %s\n",
-                              cmd->ofname);
-                return 0;
-            }
-        }
-
-        /////////////////////////////////////////////////
-        // Background operation
-        /////////////////////////////////////////////////
-
-        // Close stdin and stdout if executing in the background
-        // and then redirect them to /dev/null
-        if (cmd->background && !cmd->oredir && !cmd->pipe) {
-            if (!cmd->iredir)
-                close(STDIN_FILENO);
-            close(STDOUT_FILENO);
-            freopen("/dev/null", "r", stdin);
-            freopen("/dev/null", "w", stderr);
-        }
-
-        /////////////////////////////////////////////////
-        // Call execve or one of it's wrappers
-        /////////////////////////////////////////////////
-
+        // Call execvp
         vputs("calling execvp\n");
-        if (*cmd->argv != NULL)
-            execvp(cmd->argv[0], cmd->argv);
-
-        fprintf(stderr, "lusush: command not found: %s\n", cmd->argv[0]);
-        exit(127);                  // exec shouldn't return ever
+        execvp(cmd->argv[0], cmd->argv);
+        error_return("lusush"); // successful execvp shouldn't return
+        exit(127);
         break;
-    default:                        // parent process
-        // Close old pipe ends
-        if (cmd->pipe && !cmd->pipe_head) {
-            if (cmd->prev && cmd->prev->pipe) {
-                vputs("*** Closing old/unused pipe ends\n");
-                close(cmd->prev->fd[0]);
-                close(cmd->prev->fd[1]);
-            }
-        }
+    default:                    // parent process
+        // Block until signaled by child
+        wait_child();
 
-        return pid;                 // return the pid to wait for
+        // Close old pipe ends
+        if (cmd->pipe && !cmd->pipe_head)
+            close_old_pipes(cmd);
+        break;
     }
+
+    return pid;                 // return the pid to wait for
 }
 
 /**
  * exec_cmd:
- *      Execute builtin and external commands.
+ *      Execute built in and external commands.
  */
-int exec_cmd(struct command *cmd, int n)
+void exec_cmd(struct command *cmdp)
 {
-    size_t i;                     // loop variable
-    int err, status;              // error status, waitpid status
-    int pids[n];                  // array of pids to wait on
-    struct command *psave = NULL; // place holder in command history
-    struct builtin *bin = NULL;   // built in command
+    int err, status = 0;        // error status, waitpid status
+    int pid = 0;                // process id returned by execvp
+    struct command *cmd = NULL; // command pointer to iterate over list
+    struct builtin *bin = NULL; // built in command
 
-    psave = cmd;                  // save current position in command history
-
-    if (!*cmd->argv[0])
-        return 0;
-
-    for (i = 0; i < n; i++)
-        pids[i] = 0;
-
-    /////////////////////////////////////////////////
-    //  Execute (n) number of chained commands
-    /////////////////////////////////////////////////
-
-    for (i = 0; i < n; i++) {
-
-        /////////////////////////////////////////////////
-        // Execute a builtin command
-        /////////////////////////////////////////////////
-
-        if (bin = find_builtin(cmd->argv[0])) {
+    // Execute each command in the list
+    for (cmd = cmdp; *cmd->argv[0]; cmd = cmd->next) {
+        if (bin = find_builtin(cmd->argv[0])) { // execute a builtin
             if (cmd->pipe) {
                 error_message("lusush: cannot pipe with builtins\n");
-                return i;
+                break;
             }
-            pids[i] = 0;
-            if ((err = bin->func(cmd)) != 0)
-                vputs("BUILTIN (%s) returned a status of %d\n",
-                      bin->name, err);
 
+            // Call the builtin function
+            err = bin->func(cmd);
+            vputs("BUILTIN (%s) returned a status of %d\n", bin->name, err);
+
+            // Free memory used by bin
             free(bin);
             bin = NULL;
         }
+        else {                  // execute an external command
+            if (!(pid = exec_external_cmd(cmd)))
+                continue;
 
-        /////////////////////////////////////////////////
-        // Execute an external command
-        /////////////////////////////////////////////////
-
-        else {
-            if ((pids[i] = exec_external_cmd(cmd)) == -1)
-                return -1;
-        }
-
-        // Move to next command in chain
-        if (cmd->next)
-            cmd = cmd->next;
-        else
-            continue;
-    }
-
-    cmd = psave;               // restore to inital offset
-
-    /////////////////////////////////////////////////
-    // Wait for processes to finish
-    /////////////////////////////////////////////////
-
-    for (i = 0; i < n; i++) {
-        if (pids[i])
             // If executing the command in the background, call waitpid with
             // the WNOHANG option, otherwise pass 0 to block
-            if ((pids[i] = waitpid(pids[i], &status, WAITFLAGS(cmd))) == -1)
+            if ((pid = waitpid(pid, &status, WAITFLAGS(cmd))) == -1)
                 error_syscall("lusush: exec.c: exec_cmd: waitpid");
-
-        if (cmd->next != NULL)
-            cmd = cmd->next;
+        }
     }
-
-    cmd = psave;
-
-    return 0;
 }
