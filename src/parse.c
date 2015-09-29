@@ -52,9 +52,9 @@ enum {
 // Forward declarations of static functions
 static inline void strip_leading_whspc(char *);
 static inline void strip_trailing_whspc(char *);
-static inline void expand_token(char *, char, char *);
+static void expand_token(char *, char *);
 static void expand_line(char *);
-static char *tokenize(char **, struct command *);
+static char *tokenize(char **, struct command *, bool);
 static int char_type(char);
 static int do_pound(void);
 static int do_ampersand(void);
@@ -126,7 +126,7 @@ static inline void strip_trailing_whspc(char *s)
  * expand_token:
  *      Perform alias expansion on a token.
  */
-static inline void expand_token(char *tok, char delim, char *buf)
+static void expand_token(char *tok, char *buf)
 {
     // Loop iterator
     size_t k;
@@ -142,21 +142,17 @@ static inline void expand_token(char *tok, char delim, char *buf)
         return;
 
     // Check if subtok has an alias expansion
-    ea = expand_alias(subtok);
-
-    if (!ea)
+    if (!(ea = expand_alias(subtok)))
         return;
 
     // Copy the expanded alias into buf
     strncat(buf, ea, strnlen(ea, MAXLINE));
 
     vputs("EA ==>\t(%s)\n", ea);
-    // Concatenate any data after subtok into buf
-    if (strncmp(ea, subtok, MAXLINE) != 0) {
+    // Concatenate any data left in tok after subtok into buf
+    if (strncmp(ea, subtok, MAXLINE) != 0)
         for (k = strnlen(buf, MAXLINE); k < strnlen(subtok, MAXLINE); k++)
             buf[strnlen(buf, MAXLINE)] = subtok[k];
-        buf[strnlen(buf, MAXLINE)] = delim;
-    }
     vputs("BUF ==>\t(%s)\n", buf);
 }
 
@@ -166,61 +162,55 @@ static inline void expand_token(char *tok, char delim, char *buf)
  */
 static void expand_line(char *s)
 {
-    // Storage for first tier of tokens (";")
-    char *tok = NULL, *ptr1 = NULL, *savep1 = NULL;
-    // Storage for secondary tier of tokens ("|")
-    char *subtok = NULL, *ptr2 = NULL, *savep2 = NULL;
-    // Buffer for a copy of s to mangle with strtok_r
-    char tmp[MAXLINE] = { '\0' };
-    // A buffer for the newly expanded line
-    char buf[MAXLINE] = { '\0' };
+    char *tok = NULL;             // storage for tokens
+    char *tmp = NULL;             // buffer for a copy of s to mangle
+    char *savep = NULL;           // pointer offset retainer
+    char buf[MAXLINE] = { '\0' }; // buffer for altered string
 
-    // Make a copy of s
+    // Make a copy of s to mangle
+    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: parse.c: expand_line: calloc");
+
     strncpy(tmp, s, strnlen(s, MAXLINE));
 
-    // Break line into major tokens seperated by a semicolon
-    for (ptr1 = tmp; ; ptr1 = NULL) {
-        if (!(tok = strtok_r(ptr1, ";", &savep1)))
-            break;
+    // Save starting address of tmp
+    savep = tmp;
 
-        strip_trailing_whspc(tok);
-        expand_token(tok, ';', buf);
-
-        // Break token into smaller tokens seperated by |
-        for (ptr2 = tok; ; ptr2 = NULL) {
-            if (!(subtok = strtok_r(ptr2, "|", &savep2)))
-                goto substitute;
-
-            if (strncmp(tok, subtok, MAXLINE) == 0)
-                break;
-
-            strip_trailing_whspc(subtok);
-            expand_token(subtok, '|', buf);
-        }
+    // Tokenize tmp
+    while (tok = tokenize(&tmp, NULL, true)) {
+            strip_trailing_whspc(tok);
+            expand_token(tok, buf);
+            free(tok);
+            tok = NULL;
     }
 
-substitute:
-    // If buf is empty no substitutions were made
-    if (!*buf)
-        return;
+    // Restore tmp
+    tmp = savep;
 
-    // If buf is the same as s no substitutions were made
-    if (strncmp(buf, s, MAXLINE) == 0)
+    // Free tmp
+    if (tmp)
+        free(tmp);
+    tmp = NULL;
+    savep = NULL;
+
+    // If buf is empty or identical to s no substitutions were made
+    if (!*buf || strncmp(buf, s, MAXLINE) == 0)
         return;
 
     strip_trailing_whspc(buf);
 
     // Copy new buf to s
     memset(s, 0, strnlen(s, MAXLINE));
-    strncpy(s, buf, strnlen(buf, MAXLINE) + 1);
+    strncpy(s, buf, strnlen(buf, MAXLINE - 1) + 1);
 }
 
 /**
  * tokenize:
  *      Break a string into tokens, delimited by a ';' or a '|'.
- *      The token is split off the front of the original string.
+ *      The token is split off the front of the original string,
+ *      with the option of keeping the token delimeter.
  */
-static char *tokenize(char **s, struct command *cmdp)
+static char *tokenize(char **s, struct command *cmdp, bool keep_token)
 {
     size_t k;                     // loop counter
     bool esc = false, iq = false; // in an escape and in a quote flags
@@ -249,7 +239,7 @@ static char *tokenize(char **s, struct command *cmdp)
             else
                 iq ^= 1;
             break;
-        case ';':               // finish parsing current command
+        case ';':               // finish parsing token
             if (iq || esc) {
                 tok[k] = *c;
                 if (esc)
@@ -257,12 +247,14 @@ static char *tokenize(char **s, struct command *cmdp)
                 break;
             }
             else {
-                tok[k] = '\0';
+                if (keep_token)
+                    tok[k] = *c;
+                tok[k + 1] = '\0';
             }
             *c++;
             goto mangle;
             break;
-        case '|':               // finsish parsing token, flag a pipe
+        case '|':               // finish parsing token, flag a pipe
             if (iq || esc) {
                 tok[k] = *c;
                 if (esc)
@@ -270,10 +262,15 @@ static char *tokenize(char **s, struct command *cmdp)
                 break;
             }
             else {
-                tok[k] = '\0';
-                cmdp->pipe = true;
-                if (!cmdp->prev)
-                    cmdp->pipe_head = true;
+                if (keep_token)
+                    tok[k] = *c;
+                tok[k + 1] = '\0';
+
+                if (cmdp) {
+                    cmdp->pipe = true;
+                    if (!cmdp->prev)
+                        cmdp->pipe_head = true;
+                }
             }
             *c++;
             goto mangle;
@@ -767,7 +764,7 @@ int parse_command(const char *linep, struct command *cmdp)
     size_t count = 0;           // number of commands parsed
     char *tok = NULL, *tmp = NULL, *savep = NULL;
 
-    // Line not allocated or inaccessible, terminate
+    // Line not allocated or inaccessible, could be EOF was read, terminate
     if (!linep)
         return PARSER_ERROR_ABORT;
 
@@ -790,7 +787,7 @@ int parse_command(const char *linep, struct command *cmdp)
         if (cmdp->prev && cmdp->prev->pipe)
             cmdp->pipe = true;
 
-        if (!(tok = tokenize(&tmp, cmdp)))
+        if (!(tok = tokenize(&tmp, cmdp, false)))
             break;
 
         strip_trailing_whspc(tok);
