@@ -778,7 +778,7 @@ int parse_command(const char *linep, struct command *cmdp)
 
     strncpy(tmp, linep, MAXLINE);
 
-    // Alias expansions
+    // Alias substitutions
     expand_line(tmp);
     vputs("EXPANDED LINE ==> (%s)\n", tmp);
     savep = tmp;                // save the original pointer offset

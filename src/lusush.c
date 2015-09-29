@@ -29,9 +29,9 @@
 
 #include "lusush.h"
 #include "init.h"
+#include "cmdlist.h"
 #include "input.h"
 #include "parse.h"
-#include "cmdlist.h"
 #include "exec.h"
 #include <stdlib.h>
 #include <string.h>

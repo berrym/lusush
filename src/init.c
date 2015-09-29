@@ -29,9 +29,9 @@
 
 #include "lusush.h"
 #include "init.h"
-#include "history.h"
-#include "opts.h"
 #include "alias.h"
+#include "opts.h"
+#include "history.h"
 #include "cmdlist.h"
 #include "input.h"
 #include <sys/stat.h>
