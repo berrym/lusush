@@ -38,31 +38,50 @@
 
 #define DBGSTR "DEBUG: parse.c: "
 
-#define PARSER_ERROR_ABORT -1   // major error, shell should terminate
-#define PARSER_ERROR_BREAK 0    // quit parsing line, not serious
+#define PARSER_ERROR_ABORT -1   // indicate shell should terminate
+#define PARSER_ERROR_BREAK 0    // quit parsing current input
 #define PARSER_CONTINUE_ON 1    // keep going everything is ok
 
-// character classifications
+// Character classifications
 enum {
     IS_MAGIC,                   // magic character
     IS_WHSPC,                   // whitespace
     IS_NCHAR                    // normal character
 };
 
-// loop and counter variables
+// Forward declarations of static functions
+static inline void strip_leading_whspc(char *);
+static inline void strip_trailing_whspc(char *);
+static inline void expand_token(char *, char, char *);
+static void expand_line(char *);
+static char *tokenize(char **, struct command *);
+static int char_type(char);
+static int do_pound(void);
+static int do_ampersand(void);
+static int do_lessthan(void);
+static int do_greaterthan(void);
+static int do_doublequote(void);
+static int do_tilde(void);
+static int do_backslash(void);
+static int do_magic(char);
+static int do_whspc(char);
+static int do_nchar(char);
+static int do_token(char *, struct command *);
+
+// Loop and array offset variables for the do_XXX functions
 static size_t i;
 static size_t j;
 static size_t wpos;
 static size_t cpos;
 
-// state flags effecting parser behavior
+// State flags effecting parser behavior for the do_XXX functions
 static bool iredir;             // input redirection flag
 static bool oredir;             // output redirection flag
 static bool readreg;            // read normal (regular) character flag
 static bool inquote;            // inside quotation flag
 static bool escaping;           // in an escape sequence flag
 
-// input buffers
+// Pointer aliases for the do_XXX functions
 static char *line = NULL;
 static struct command *cmd = NULL;
 
@@ -101,88 +120,6 @@ static inline void strip_trailing_whspc(char *s)
 {
     while (strnlen(s, MAXLINE) && isspace((int)s[strnlen(s, MAXLINE) - 1]))
         s[strnlen(s, MAXLINE) - 1] = '\0';
-}
-
-/**
- * tokenize:
- *      Break a string into tokens, delimited by a ';' or a '|'.
- *      The token is split off the front of the original string.
- */
-static char *tokenize(char **s, struct command *cmdp)
-{
-    size_t k;                     // loop counter
-    bool esc = false, iq = false; // in an escape and in a quote flags
-    char *c = NULL;               // pointer to iterate over s
-    char *tok = NULL;             // storage for the token
-
-    // Check that s is a valid string
-    if (!s || !*s)
-        return NULL;
-
-    // Allocate memory for the token
-    if ((tok = calloc(MAXLINE, sizeof(char))) == NULL)
-        error_syscall("lusush: parse.c: tokenize: calloc");
-
-    // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
-    for (k = 0, c = *s; *c; k++, *c++) {
-        switch (*c) {
-        case '\\':              // escape, keep ; or |, interpolate later
-            tok[k] = *c;
-            esc ^= 1;
-            break;
-        case '"':               // dquote, keep ; or |, interpolate later
-            tok[k] = *c;
-            if (esc)
-                esc = false;
-            else
-                iq ^= 1;
-            break;
-        case ';':               // finish parsing current command
-            if (iq || esc) {
-                tok[k] = *c;
-                if (esc)
-                    esc = false;
-                break;
-            }
-            else {
-                tok[k] = '\0';
-            }
-            *c++;
-            goto mangle;
-            break;
-        case '|':               // finsish parsing token, flag a pipe
-            if (iq || esc) {
-                tok[k] = *c;
-                if (esc)
-                    esc = false;
-                break;
-            }
-            else {
-                tok[k] = '\0';
-                cmdp->pipe = true;
-                if (!cmdp->prev)
-                    cmdp->pipe_head = true;
-            }
-            *c++;
-            goto mangle;
-            break;
-        default:
-            tok[k] = *c;
-            break;
-        }
-    }
-
-mangle:
-    // Mangle s then return the token
-    if (!*tok) {
-        free(tok);
-        tok = NULL;
-        return NULL;
-    }
-
-    *s = c;
-
-    return tok;
 }
 
 /**
@@ -276,6 +213,88 @@ substitute:
     // Copy new buf to s
     memset(s, 0, strnlen(s, MAXLINE));
     strncpy(s, buf, strnlen(buf, MAXLINE) + 1);
+}
+
+/**
+ * tokenize:
+ *      Break a string into tokens, delimited by a ';' or a '|'.
+ *      The token is split off the front of the original string.
+ */
+static char *tokenize(char **s, struct command *cmdp)
+{
+    size_t k;                     // loop counter
+    bool esc = false, iq = false; // in an escape and in a quote flags
+    char *c = NULL;               // pointer to iterate over s
+    char *tok = NULL;             // storage for the token
+
+    // Check that s is a valid string
+    if (!s || !*s)
+        return NULL;
+
+    // Allocate memory for the token
+    if ((tok = calloc(MAXLINE, sizeof(char))) == NULL)
+        error_syscall("lusush: parse.c: tokenize: calloc");
+
+    // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
+    for (k = 0, c = *s; *c; k++, *c++) {
+        switch (*c) {
+        case '\\':              // escape, keep ; or |, interpolate later
+            tok[k] = *c;
+            esc ^= 1;
+            break;
+        case '"':               // dquote, keep ; or |, interpolate later
+            tok[k] = *c;
+            if (esc)
+                esc = false;
+            else
+                iq ^= 1;
+            break;
+        case ';':               // finish parsing current command
+            if (iq || esc) {
+                tok[k] = *c;
+                if (esc)
+                    esc = false;
+                break;
+            }
+            else {
+                tok[k] = '\0';
+            }
+            *c++;
+            goto mangle;
+            break;
+        case '|':               // finsish parsing token, flag a pipe
+            if (iq || esc) {
+                tok[k] = *c;
+                if (esc)
+                    esc = false;
+                break;
+            }
+            else {
+                tok[k] = '\0';
+                cmdp->pipe = true;
+                if (!cmdp->prev)
+                    cmdp->pipe_head = true;
+            }
+            *c++;
+            goto mangle;
+            break;
+        default:
+            tok[k] = *c;
+            break;
+        }
+    }
+
+mangle:
+    // Mangle s then return the token
+    if (!*tok) {
+        free(tok);
+        tok = NULL;
+        return NULL;
+    }
+
+    *s = c;
+
+    return tok;
 }
 
 /**
