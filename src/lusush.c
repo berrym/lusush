@@ -29,17 +29,12 @@
 
 #include "lusush.h"
 #include "init.h"
-#include "history.h"
 #include "input.h"
 #include "parse.h"
 #include "cmdlist.h"
 #include "exec.h"
-#include "opts.h"
 #include <stdlib.h>
 #include <string.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/history.h>
-#endif
 
 /**
  * main:
@@ -92,9 +87,6 @@ int main(int argc, char **argv)
             break;
         }
     }
-
-    // Save command history
-    write_history(histfilename());
 
     if (shell_type() != NORMAL_SHELL)
         printf("\n");

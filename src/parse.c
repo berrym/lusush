@@ -120,7 +120,7 @@ static char *tokenize(char **s, struct command *cmdp)
         return NULL;
 
     // Allocate memory for the token
-    if ((tok = calloc(strnlen(*s, MAXLINE), sizeof(char *))) == NULL)
+    if ((tok = calloc(MAXLINE, sizeof(char))) == NULL)
         error_syscall("lusush: parse.c: tokenize: calloc");
 
     // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
@@ -697,6 +697,7 @@ static int do_token(char *tok, struct command *cmdp)
     iredir = oredir = readreg = inquote = escaping = false;
     cmd->argc = 1;
 
+    // Iterate over line
     for (i = 0; i < strnlen(line, MAXLINE); i++) {
         c = line[i];
 
@@ -746,7 +747,6 @@ int parse_command(const char *linep, struct command *cmdp)
     int err;                    // error code
     size_t count = 0;           // number of commands parsed
     char *tok = NULL, *tmp = NULL, *savep = NULL;
-    bool pipe = false;
 
     // Line not allocated or inaccessible, terminate
     if (!linep)
@@ -791,7 +791,6 @@ int parse_command(const char *linep, struct command *cmdp)
             tok = NULL;
         }
         vputs("TMP ==> %s\n", tmp);
-        pipe = false;
     }
 
     tmp = savep;

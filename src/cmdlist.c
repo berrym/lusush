@@ -64,16 +64,12 @@ struct command *alloc_command(struct command *curr)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(4096, sizeof(char *))) == NULL)
+    if ((cmd->argv = calloc(512, sizeof(char *))) == NULL)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
-
-    *cmd->argv = NULL;          // initialize to null
 
     // Allocate room for the first string on the heap
     if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
-
-    **cmd->argv = '\0';         // initialize with null character
 
     // Make sure everything else is zero/null
     cmd->argc = 0;
@@ -125,7 +121,7 @@ static void free_command(struct command *cmd)
  */
 void free_command_list(void)
 {
-    struct command *curr = head;
+    struct command *curr = NULL;
 
     while ((curr = head) != NULL) {
         head = head->next;

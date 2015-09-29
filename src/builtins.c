@@ -94,6 +94,11 @@ static int bin_help(const struct command *cmd)
     else
         printf("\t%-10s%-40s\n", bin->name, bin->doc);
 
+    if (bin)
+        free(bin);
+
+    bin = NULL;
+
     return 0;
 }
 

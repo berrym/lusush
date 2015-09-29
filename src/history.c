@@ -129,6 +129,9 @@ void write_history(const char *fn)
 {
     size_t i;
 
+    if (fn == NULL)
+        fn = histfilename();
+
     if (!HIST_INITIALIZED)
         return;
 
