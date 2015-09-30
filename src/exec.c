@@ -42,7 +42,7 @@
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 
-static int pfd1[2], pfd2[2]; // pipe file descriptors for parent/child ipc
+static int pfd[2];       // pipe file descriptors for parent/child ipc
 
 /**
  * tell_wait:
@@ -50,7 +50,7 @@ static int pfd1[2], pfd2[2]; // pipe file descriptors for parent/child ipc
  */
 static void tell_wait(void)
 {
-    if (pipe(pfd1) < 0 || pipe(pfd2) < 0)
+    if (pipe(pfd) < 0)
         error_syscall("lusush: exec.c: tell_wait: pipe");
 }
 
@@ -60,7 +60,7 @@ static void tell_wait(void)
  */
 static void tell_parent(pid_t pid)
 {
-    if (write(pfd2[1], "c", 1) != 1)
+    if (write(pfd[1], "c", 1) != 1)
         error_syscall("lusush: exec.c: tell_parent: write");
 }
 
@@ -72,7 +72,7 @@ static void wait_child(void)
 {
     char c;
 
-    if (read(pfd2[0], &c, 1) != 1)
+    if (read(pfd[0], &c, 1) != 1)
         error_syscall("lusush: exec.c: wait_child: read");
 
     if (c != 'c')
@@ -112,15 +112,16 @@ static void set_pipes(struct command * cmd)
  */
 static void close_old_pipes(struct command *cmd)
 {
+    // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         vputs("*** Closing old/unused pipe ends\n");
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
             error_syscall("lusush: exec.c: close_old_pipes: close");
     }
 
-    if (close(pfd1[0]) < 0 || close(pfd1[1]) < 0 ||
-        close(pfd2[0]) < 0 || close(pfd2[1]) < 0)
-            error_syscall("lusush: exec.c: close_old_pipes: close");
+    // Close pipes created by tell_wait
+    if (close(pfd[0]) < 0 || close(pfd[1]) < 0)
+        error_syscall("lusush: exec.c: close_old_pipes: close");
 }
 
 /**
@@ -210,8 +211,8 @@ static int exec_external_cmd(struct command *cmd)
  */
 void exec_cmd(struct command *cmdp)
 {
-    int err, status = 0;        // error status, waitpid status
-    int pid = 0;                // process id returned by execvp
+    int err = 0, status = 0;    // error status, waitpid status
+    int pid = 0;                // process id returned by fork
     struct command *cmd = NULL; // command pointer to iterate over list
     struct builtin *bin = NULL; // built in command
 
@@ -220,6 +221,8 @@ void exec_cmd(struct command *cmdp)
         if (bin = find_builtin(cmd->argv[0])) { // execute a builtin
             if (cmd->pipe) {
                 error_message("lusush: cannot pipe with builtins\n");
+                free(bin);
+                bin = NULL;
                 break;
             }
 

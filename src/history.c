@@ -38,7 +38,7 @@
 #include <readline/history.h>
 #endif
 
-#define MAXHIST 10000               // maximum length of history
+#define MAXHIST 10000           // maximum length of history
 
 static char histfile[MAXLINE] = { '\0' };
 static bool HIST_INITIALIZED = false;

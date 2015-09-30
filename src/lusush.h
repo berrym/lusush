@@ -37,12 +37,14 @@
 #endif
 #define MAXLINE 4096            // maximum string length
 
+// Make sure bool is a defined type
 #ifdef HAVE__BOOL
 #include <stdbool.h>
 #else
 typedef enum { false = 0, true = 1 } bool;
 #endif
 
+// Make sure size_t is a defined type
 #ifndef size_t
 #if defined(HAVE_SYS_TYPES_H)
 #include <sys/types.h>
@@ -53,9 +55,7 @@ typedef unsigned size_t;
 #endif
 #endif
 
-/**
- * Doubly linked list of commands to pass to exec
- */
+// Doubly linked list of commands to pass to exec
 struct command
 {
     int argc;               // argument count
@@ -80,6 +80,7 @@ extern void error_message(const char *, ...);
 extern void error_quit(const char *, ...);
 extern void error_coredump(const char *, ...);
 
+// Make sure strnlen is declared
 #ifndef HAVE_STRNLEN
 extern size_t strnlen(const char *, size_t);
 #endif
