@@ -35,9 +35,7 @@
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4096                // maximum string length
-
-#define MAXHIST 10000               // maximum length of history
+#define MAXLINE 4096            // maximum string length
 
 #ifdef HAVE__BOOL
 #include <stdbool.h>
@@ -60,19 +58,19 @@ typedef unsigned size_t;
  */
 struct command
 {
-    int argc;                   // argument count
-    char **argv;                // arguments to pass to exec
-    bool background;            // background process flag
-    bool pipe;                  // pipe flag
-    bool pipe_head;             // head node in pipe chain flag
-    int fd[2];                  // pipe filedescriptors
-    bool iredir;                // input redirection flag
-    bool oredir;                // output redirection flag
-    bool oredir_append;         // output redirection opens file to append
-    char ifname[MAXLINE];       // input filename - if redirect set
-    char ofname[MAXLINE];       // output filename - if redirect set
-    struct command *next;       // next command
-    struct command *prev;       // previous command
+    int argc;               // argument count
+    char **argv;            // arguments to pass to exec
+    struct command *next;   // next command
+    struct command *prev;   // previous command
+    bool background;        // background process flag
+    bool pipe;              // pipe flag
+    bool pipe_head;         // head node in pipe chain flag
+    bool iredir;            // input redirection flag
+    bool oredir;            // output redirection flag
+    bool oredir_append;     // output redirection opens file to append
+    char ifname[MAXLINE];   // input filename - if redirect set
+    char ofname[MAXLINE];   // output filename - if redirect set
+    int pfd[2];             // pipe filedescriptors
 };
 
 extern void vputs(const char *, ...);

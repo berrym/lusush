@@ -42,7 +42,7 @@
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 
-static int pfd1[2], pfd2[2];    // pipe file descriptors for parent/child ipc
+static int pfd1[2], pfd2[2]; // pipe file descriptors for parent/child ipc
 
 /**
  * tell_wait:
@@ -88,20 +88,20 @@ static void set_pipes(struct command * cmd)
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         vputs("*** Reading from parent pipe\n");
-        if (dup2(cmd->prev->fd[0], STDIN_FILENO) < 0)
+        if (dup2(cmd->prev->pfd[0], STDIN_FILENO) < 0)
             error_syscall("lusush: exec.c: set_pipes: dup2");
-        if (close(cmd->prev->fd[0]) < 0 || close(cmd->prev->fd[1]) < 0)
+        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
             error_syscall("lusush: exec.c: set_pipes: close");
     }
 
     // There is a future command in pipe chain
     if (cmd->next && cmd->next->pipe) {
         vputs("*** Writing to child pipe\n");
-        if (close(cmd->fd[0]) < 0)
+        if (close(cmd->pfd[0]) < 0)
             error_syscall("lusush: exec.c: set_pipes: close");
-        if (dup2(cmd->fd[1], STDOUT_FILENO) < 0)
+        if (dup2(cmd->pfd[1], STDOUT_FILENO) < 0)
             error_syscall("lusush: exec.c: set_pipes: dup2");
-        if (close(cmd->fd[1]) < 0)
+        if (close(cmd->pfd[1]) < 0)
             error_syscall("lusush: exec.c: set_pipes: close");
     }
 }
@@ -114,9 +114,13 @@ static void close_old_pipes(struct command *cmd)
 {
     if (cmd->prev && cmd->prev->pipe) {
         vputs("*** Closing old/unused pipe ends\n");
-        if (close(cmd->prev->fd[0]) < 0 || close(cmd->prev->fd[1]) < 0)
+        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
             error_syscall("lusush: exec.c: close_old_pipes: close");
     }
+
+    if (close(pfd1[0]) < 0 || close(pfd1[1]) < 0 ||
+        close(pfd2[0]) < 0 || close(pfd2[1]) < 0)
+            error_syscall("lusush: exec.c: close_old_pipes: close");
 }
 
 /**
@@ -158,7 +162,7 @@ static int exec_external_cmd(struct command *cmd)
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
             vputs("*** Creating pipe\n");
-            if (pipe(cmd->fd) < 0)
+            if (pipe(cmd->pfd) < 0)
                 error_syscall("lusush: exec.c: exec_external_cmd: pipe");
         }
     }

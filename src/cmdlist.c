@@ -58,13 +58,14 @@ struct command *create_command_list(void)
  */
 struct command *alloc_command(struct command *curr)
 {
-    struct command *cmd = NULL;
+    struct command *cmd = NULL; // pointer to new struct command
 
+    // Allocate struct command
     if ((cmd = calloc(1, sizeof(struct command))) == NULL)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(512, sizeof(char *))) == NULL)
+    if ((cmd->argv = calloc(256, sizeof(char *))) == NULL)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate room for the first string on the heap
@@ -72,18 +73,13 @@ struct command *alloc_command(struct command *curr)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Make sure everything else is zero/null
-    cmd->argc = 0;
-    cmd->fd[0] = cmd->fd[1] = 0;
+    cmd->argc = cmd->pfd[0] = cmd->pfd[1] = 0;
     cmd->pipe = cmd->pipe_head = false;
-    cmd->iredir = false;
-    cmd->oredir = cmd->oredir_append = false;
-    cmd->background = false;
+    cmd->iredir = cmd->oredir = cmd->oredir_append = cmd->background = false;
     *cmd->ifname = *cmd->ofname = '\0';
-    cmd->next = NULL;
-    if (curr)
-        cmd->prev = curr;
 
     vputs("successful alloc_command call\n");
+
     return cmd;
 }
 
@@ -97,20 +93,24 @@ static void free_command(struct command *cmd)
     if (!cmd || !cmd->argv)
         return;
 
+    // Free each argument string
     for (; cmd->argc >= 0; cmd->argc--) {
         free(cmd->argv[cmd->argc]);
         cmd->argv[cmd->argc] = NULL;
     }
 
+    // Free argument vector
     free(cmd->argv);
     cmd->argv = NULL;
 
+    // Fix links
     if (cmd->next)
         cmd->next->prev = cmd->prev;
 
     if (cmd->prev)
         cmd->prev->next = cmd->next;
 
+    // Free command
     free(cmd);
     cmd = NULL;
 }
@@ -123,10 +123,10 @@ void free_command_list(void)
 {
     struct command *curr = NULL;
 
+    // Free each node in the list
     while ((curr = head) != NULL) {
         head = head->next;
         free_command(curr);
-        curr = NULL;
     }
 }
 
@@ -140,7 +140,7 @@ void display_command(struct command *cmd)
 
     if (!cmd) {
         error_message("lusush: cmdlist.c: display_cmd: "
-                      "no access to cmd, cannot display.\n");
+                      "no access to struct command, cannot display.\n");
         return;
     }
 
@@ -149,18 +149,11 @@ void display_command(struct command *cmd)
     for (i = 0; i < cmd->argc; i++)
         printf("\targv->[%4zu]->%s\n", i, cmd->argv[i]);
     printf("\tpipe->%s\n", cmd->pipe ? "true" : "false");
-    printf("\tpipe_head->%s\n", cmd->pipe_head
-            ? "true" : "false");
-    printf("\tbackground->%s\n", cmd->background
-            ? "true" : "false");
-    printf("\tiredir->%s\n", cmd->iredir
-            ? "true" : "false");
-    printf("\toredir->%s\n", cmd->oredir
-            ? "true" : "false");
-    printf("\toredir_append->%s\n", cmd->oredir_append
-            ? "true" : "false");
-    printf("\tifname->%s\n", cmd->ifname
-            ? cmd->ifname : "empty");
-    printf("\tofname->%s\n", cmd->ofname
-            ? cmd->ofname : "empty");
+    printf("\tpipe_head->%s\n", cmd->pipe_head ? "true" : "false");
+    printf("\tbackground->%s\n", cmd->background ? "true" : "false");
+    printf("\tiredir->%s\n", cmd->iredir ? "true" : "false");
+    printf("\toredir->%s\n", cmd->oredir ? "true" : "false");
+    printf("\toredir_append->%s\n", cmd->oredir_append ? "true" : "false");
+    printf("\tifname->%s\n", cmd->ifname ? cmd->ifname : "empty");
+    printf("\tofname->%s\n", cmd->ofname ? cmd->ofname : "empty");
 }
