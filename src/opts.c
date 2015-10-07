@@ -116,7 +116,7 @@ int parse_opts(int argc, char **argv)
         case -1:
             break;
         default:
-            abort();            // Should never happen
+            abort();            // should never happen
         }
     } while (nopt != -1);
 

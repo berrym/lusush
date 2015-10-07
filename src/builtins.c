@@ -240,14 +240,13 @@ static int bin_setopt(const struct command *cmd)
         printf("usage: setopt option\n");
         return 1;
     }
-    else {
-        if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
-            set_bool_opt(VERBOSE_PRINT, true);
-        else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
-            set_bool_opt(FANCY_PROMPT, true);
-        else
-            error_message("setopt: Unknown option %s\n", cmd->argv[1]);
-    }
+
+    if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
+        set_bool_opt(VERBOSE_PRINT, true);
+    else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
+        set_bool_opt(FANCY_PROMPT, true);
+    else
+        error_message("setopt: Unknown option %s\n", cmd->argv[1]);
 
     return 0;
 }
@@ -262,14 +261,13 @@ static int bin_unsetopt(const struct command *cmd)
         printf("usage: unsetopt option\n");
         return 1;
     }
-    else {
-        if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
-            set_bool_opt(VERBOSE_PRINT, false);
-        else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
-            set_bool_opt(FANCY_PROMPT, false);
-        else
-            error_message("setopt: Unknown option %s\n", cmd->argv[1]);
-    }
+
+    if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
+        set_bool_opt(VERBOSE_PRINT, false);
+    else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
+        set_bool_opt(FANCY_PROMPT, false);
+    else
+        error_message("setopt: Unknown option %s\n", cmd->argv[1]);
 
     return 0;
 }

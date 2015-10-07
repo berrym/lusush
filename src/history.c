@@ -70,16 +70,13 @@ void init_history(void)
 
     ENV_HOME = getenv("HOME");
 
-    if (!*histfile) {
-        strncpy(histfile, ENV_HOME, MAXLINE);
-        strncat(histfile, "/.lusushist", 12);
-    }
+    if (!*histfile)
+        snprintf(histfile, MAXLINE, "%s/.lusushist", ENV_HOME);
 
     if (read_history(histfile) != 0)
         return;
 
     HIST_INITIALIZED = true;
-    ENV_HOME = NULL;
 }
 
 #ifndef HAVE_LIBREADLINE
@@ -93,14 +90,14 @@ int read_history(const char *histfile)
 
     if ((histfp = fopen(histfile, "r")) == NULL)
         if (opt_is_set(VERBOSE_PRINT))
-            error_message("lusush: history.c: read_histfile: fopen");
+            error_return("lusush: history.c: read_histfile: fopen");
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
             break;
 
-        if (hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] == '\n')
-            hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] = '\0';
+        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
+            hist_list[i][strlen(hist_list[i]) - 1] = '\0';
     }
 
     fclose(histfp);
@@ -138,7 +135,7 @@ void write_history(const char *fn)
         return;
 
     if ((histfp = fopen(fn, "a")) == NULL)
-        error_syscall("lusush: history.c: write_history: fopen");
+        error_return("lusush: history.c: write_history: fopen");
 
     for (i = 0; hist_list[i] && *hist_list[i]; i++)
         fprintf(histfp, "%s\n", hist_list[i]);
