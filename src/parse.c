@@ -71,8 +71,8 @@ static int do_token(char *, struct command *);
 // Loop and array offset variables for the do_XXX functions
 static size_t i;
 static size_t j;
-static size_t wpos;
-static size_t cpos;
+static size_t wpos;             // row (word) offset
+static size_t cpos;             // column (character) offset
 
 // State flags effecting parser behavior for the do_XXX functions
 static bool iredir;             // input redirection flag
@@ -210,7 +210,7 @@ static void expand_line(char *s)
  *      The token is split off the front of the original string,
  *      with the option of keeping the token delimeter.
  */
-static char *tokenize(char **s, struct command *cmdp, bool keep_token)
+static char *tokenize(char **s, struct command *cmdp, bool keep)
 {
     size_t k;                     // loop counter
     bool esc = false, iq = false; // in an escape and in a quote flags
@@ -247,7 +247,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep_token)
                 break;
             }
             else {
-                if (keep_token)
+                if (keep)
                     tok[k] = *c;
                 tok[k + 1] = '\0';
             }
@@ -262,7 +262,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep_token)
                 break;
             }
             else {
-                if (keep_token)
+                if (keep)
                     tok[k] = *c;
                 tok[k + 1] = '\0';
 
@@ -498,11 +498,10 @@ static int do_doublequote(void)
         cmd->argv[wpos][cpos] = '"';
         cpos++;
         escaping = false;
-        return PARSER_CONTINUE_ON;
     }
-
-    // Flip the flag state
-    inquote ^= 1;
+    else {
+        inquote ^= 1;           // flip the flag state
+    }
 
     return PARSER_CONTINUE_ON;
 }

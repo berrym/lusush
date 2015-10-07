@@ -98,10 +98,7 @@ int init(int argc, char **argv, FILE **in)
         error_syscall( "lusush: signal error");
 
     // Set up aliases
-    if (init_alias_list() != 0) {
-        error_message("lusush: init_alias_list_failed\n");
-        exit(EXIT_FAILURE);
-    }
+    init_alias_list();
 
     // Parse command line options
     optind = parse_opts(argc, argv);

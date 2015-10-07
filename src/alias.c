@@ -94,15 +94,13 @@ static struct alias *lookup_alias(char *key)
  * init_alias_list:
  *      Allocate memory for the linked list.
  */
-int init_alias_list(void)
+void init_alias_list(void)
 {
     if (head)
-        return 0;
+        return;
 
     head = alloc_alias();
     vputs("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
-
-    return 0;
 }
 
 /**
@@ -140,7 +138,6 @@ int set_alias(char *key, char *val)
 
     if ((curr = lookup_alias(key))) {
         vputs("%sset_alias: re-setting alias\n", DBGSTR);
-        strncpy(curr->key, key, MAXLINE);
         strncpy(curr->val, val, MAXLINE);
         return 0;
     }

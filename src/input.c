@@ -82,7 +82,7 @@ static char *rl_gets(const char *prompt)
     if (s && *s)
         add_history(s);
 
-    // Return a copy of s
+    // Return the line
     return s;
 }
 #endif
