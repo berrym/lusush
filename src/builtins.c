@@ -110,7 +110,7 @@ static int bin_cd(const struct command *cmd)
 {
     if (chdir(cmd->argv[1]) < 0) {
         error_return("lusush: builtins.c: cd: chdir");
-        return -1;
+        return 1;
     }
 
     return 0;
@@ -126,7 +126,7 @@ static int bin_pwd(const struct command *ignore)
 
     if (getcwd(cwd, MAXLINE - 1) == NULL) {
         error_return("lusush: builtins.c: pwd: getcwd");
-        return -1;
+        return 1;
     }
 
     printf("%s\n", cwd);
@@ -154,11 +154,10 @@ static int bin_setenv(const struct command *cmd)
         printf("usage: setenv variable value\n");
         return 1;
     }
-    else {
-        if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
-            error_return("lusush: exec.c: exec_builtin_cmd: setenv");
-            return 1;
-        }
+
+    if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
+        error_return("lusush: exec.c: exec_builtin_cmd: setenv");
+        return 1;
     }
 
     return 0;
@@ -174,11 +173,10 @@ static int bin_unsetenv(const struct command *cmd)
         printf("usage: unsetenv variable\n");
         return 1;
     }
-    else {
-        if (unsetenv(cmd->argv[1]) < 0) {
-            error_return("lusush: exec.c: exec_builtin_cmd: unsetenv");
-            return 1;
-        }
+
+    if (unsetenv(cmd->argv[1]) < 0) {
+        error_return("lusush: exec.c: exec_builtin_cmd: unsetenv");
+        return 1;
     }
 
     return 0;
@@ -193,24 +191,24 @@ static int bin_alias(const struct command *cmd)
     size_t i;
     char tmp[MAXLINE] = { '\0' };
 
-    if (cmd->argc == 1) {
+    switch (cmd->argc) {
+    case 1:
         print_alias_list();
-    }
-    else if (cmd->argc < 3) {
+        break;
+    case 2:
         printf("usage: alias word replacement text\n");
         return 1;
-    }
-    else {
-        strncpy(tmp, cmd->argv[2], MAXLINE);
-        strncat(tmp, " ", 2);
+        break;
+    default:
+        for (i = 2; cmd->argv[i]; i++)
+            snprintf(tmp + strlen(tmp),
+                     MAXLINE - strlen(tmp) - 1,
+                     "%s ",
+                     cmd->argv[i]);
 
-        for (i = 3; cmd->argv[i]; i++) {
-            strncat(tmp, cmd->argv[i], strnlen(cmd->argv[i], MAXLINE) + 1);
-            strncat(tmp, " ", 2);
-        }
-
+        tmp[strlen(tmp) - 1] = '\0'; // replace trailing space with null
         set_alias(cmd->argv[1], tmp);
-        strncpy(tmp, "\0", MAXLINE);
+        break;
     }
 
     return 0;
@@ -226,9 +224,8 @@ static int bin_unalias(const struct command *cmd)
         printf("usage: unalias alias\n");
         return 1;
     }
-    else {
-        unset_alias(cmd->argv[1]);
-    }
+
+    unset_alias(cmd->argv[1]);
 
     return 0;
 }
@@ -244,10 +241,12 @@ static int bin_setopt(const struct command *cmd)
         return 1;
     }
     else {
-        if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
+        if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
             set_bool_opt(VERBOSE_PRINT, true);
-        else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+        else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
             set_bool_opt(FANCY_PROMPT, true);
+        else
+            error_message("setopt: Unknown option %s\n", cmd->argv[1]);
     }
 
     return 0;
@@ -264,10 +263,12 @@ static int bin_unsetopt(const struct command *cmd)
         return 1;
     }
     else {
-        if (strncmp(cmd->argv[1], "VERBOSE_PRINT", MAXLINE) == 0)
+        if (strcmp(cmd->argv[1], "VERBOSE_PRINT") == 0)
             set_bool_opt(VERBOSE_PRINT, false);
-        else if (strncmp(cmd->argv[1], "FANCY_PROMPT", MAXLINE) == 0)
+        else if (strcmp(cmd->argv[1], "FANCY_PROMPT") == 0)
             set_bool_opt(FANCY_PROMPT, false);
+        else
+            error_message("setopt: Unknown option %s\n", cmd->argv[1]);
     }
 
     return 0;
@@ -293,7 +294,7 @@ struct builtin *find_builtin(const char *name)
     struct builtin *bin = NULL;
 
     for (i = 0; builtins[i].name; i++) {
-        if (strncmp(name, builtins[i].name, MAXLINE) == 0) {
+        if (strcmp(name, builtins[i].name) == 0) {
             if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) 
                 error_syscall("lusush: builtins.c: find_builtin: calloc");
 

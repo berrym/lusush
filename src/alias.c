@@ -100,7 +100,41 @@ void init_alias_list(void)
         return;
 
     head = alloc_alias();
+
     vputs("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
+}
+
+/**
+ * free_alias_list:
+ *      Free each node in the alias list.
+ */
+void free_alias_list(void)
+{
+    struct alias *curr = NULL;
+
+    if (!head)
+        return;
+
+    while ((curr = head) != NULL) {
+        head = head->next;
+        free(curr);
+        curr = NULL;
+    }
+}
+
+/**
+ * print_alias_list:
+ *      Display the key->val mappings of the alias list.
+ */
+void print_alias_list(void)
+{
+    struct alias *curr = head;
+
+    printf("aliases:\n");
+    while (curr) {
+        printf("%s->\t%s\n", curr->key, curr->val);
+        curr = curr->next;
+    }
 }
 
 /**
@@ -121,7 +155,7 @@ char *expand_alias(char *key)
  * set_alias:
  *      Create a new node in the list or replace an existing one.
  */
-int set_alias(char *key, char *val)
+void set_alias(char *key, char *val)
 {
     struct alias *curr = NULL;
 
@@ -133,13 +167,13 @@ int set_alias(char *key, char *val)
         strncpy(head->key, key, MAXLINE);
         strncpy(head->val, val, MAXLINE);
         initialized = true;
-        return 0;
+        return;
     }
 
     if ((curr = lookup_alias(key))) {
         vputs("%sset_alias: re-setting alias\n", DBGSTR);
         strncpy(curr->val, val, MAXLINE);
-        return 0;
+        return;
     }
 
     curr = find_end();
@@ -148,8 +182,6 @@ int set_alias(char *key, char *val)
     strncpy(curr->key, key, MAXLINE);
     strncpy(curr->val, val, MAXLINE);
     vputs("%sset_alias: new alias set!\n", DBGSTR);
-
-    return 0;
 }
 
 /**
@@ -174,37 +206,4 @@ void unset_alias(char *key)
 
     if (!head)
         initialized = false;
-}
-
-/**
- * print_alias_list:
- *      Display the key->val mappings of the alias list.
- */
-void print_alias_list(void)
-{
-    struct alias *curr = head;
-
-    printf("aliases:\n");
-    while (curr) {
-        printf("%s->\t%s\n", curr->key, curr->val);
-        curr = curr->next;
-    }
-}
-
-/**
- * free_alias_list:
- *      Free each node in the alias list.
- */
-void free_alias_list(void)
-{
-    struct alias *curr = NULL;
-
-    if (!head)
-        return;
-
-    while ((curr = head) != NULL) {
-        head = head->next;
-        free(curr);
-        curr = NULL;
-    }
 }

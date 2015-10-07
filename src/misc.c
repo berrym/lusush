@@ -44,8 +44,10 @@ static void do_error(int errnoflag, int err, const char *fmt, va_list args)
 
     vsnprintf(buf, MAXLINE - 1, fmt, args);
     if (errnoflag)
-        snprintf(buf + strnlen(buf, MAXLINE),
-                 MAXLINE - strnlen(buf, MAXLINE) - 1, ": %s", strerror(err));
+        snprintf(buf + strlen(buf),
+                 MAXLINE - strlen(buf) - 1,
+                 ": %s",
+                 strerror(err));
 
     strncat(buf, "\n", 2);
     fflush(stdout);             // in case stdout and stdin are the same

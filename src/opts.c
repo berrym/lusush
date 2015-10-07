@@ -45,7 +45,7 @@ static void usage(int err)
 {
     error_message("Usage:\n\t-h Help\n\t"
                   "-c Fancy prompt\n\t"
-                  "-v Verbose output\n");;
+                  "-v Verbose output\n");
     exit(err);
 }
 
@@ -116,7 +116,7 @@ int parse_opts(int argc, char **argv)
         case -1:
             break;
         default:
-            abort();
+            abort();            // Should never happen
         }
     } while (nopt != -1);
 
