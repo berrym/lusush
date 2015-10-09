@@ -255,32 +255,31 @@ void set_prompt(int argc, char **argv)
 
 /**
  * build_prompt:
- *      Builds the user's prompt displaying the current working directory.
+ *      Builds the user's prompt, either a fancy colored one with
+ *      the current working directory or a plain '% '.
  */
 void build_prompt(void)
 {
     char *cwd = NULL;
     char prompt[MAXLINE] = { '\0' };
 
-    if (!(cwd = getcwd(NULL, 0))) {
+    // Get current working directory
+    if (!(cwd = getcwd(NULL, 0)))
         error_syscall("lusush: prompt.c: build_prompt: getcwd");
+
+    // Build a prompt string
+    if (opt_is_set(FANCY_PROMPT)) {
+        build_colors();
+        snprintf(prompt, MAXLINE, "%s%s%s\n%% ", colors, cwd, RESET);
     }
     else {
-        if (opt_is_set(FANCY_PROMPT)) {
-            build_colors();
-            strncpy(prompt, colors, strnlen(colors, MAXLINE) + 1);
-            strncat(prompt, cwd, strnlen(cwd, MAXLINE) + 1);
-            strncat(prompt, RESET, strnlen(RESET, MAXLINE) + 1);
-            strncat(prompt, "\n", 2);
-            strncat(prompt, "% ", 3);
-        }
-        else {
-            strncpy(prompt, cwd, MAXLINE);
-            strncat(prompt, "% ", 3);
-        }
+        strncpy(prompt, "% ", 3);
     }
+
+    // Set the PROMPT environment variable
     setenv("PROMPT", prompt, 1);
 
+    // Clean up
     if (cwd)
         free(cwd);
 
