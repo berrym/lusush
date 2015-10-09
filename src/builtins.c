@@ -293,7 +293,7 @@ struct builtin *find_builtin(const char *name)
 
     for (i = 0; builtins[i].name; i++) {
         if (strcmp(name, builtins[i].name) == 0) {
-            if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) 
+            if ((bin = calloc(1, sizeof(builtins[i]))) == NULL)
                 error_syscall("lusush: builtins.c: find_builtin: calloc");
 
             return memcpy(bin, &builtins[i], sizeof(builtins[i]));

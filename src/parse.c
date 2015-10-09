@@ -814,5 +814,5 @@ int parse_command(const char *linep, struct command *cmdp)
     tmp = NULL;
     savep = NULL;
 
-    return count;               // Return number of command's parsed
+    return count;               // return number of command's parsed
 }

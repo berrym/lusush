@@ -72,11 +72,11 @@ typedef enum {
     CONCEALED  = 8
 } TEXT_ATTRIB;
 
-static const char *RESET = "\x1b[0m"; // ANSI color reset
-static char *colors      = NULL;      // ANSI color sequence
-static FG_COLOR fg_color = WHITE;     // Default foreground color
-static BG_COLOR bg_color = BG_BLUE;   // Default background color
-static TEXT_ATTRIB attr  = NONE;      // Default text attributes
+static const char *RESET = "\x1b[0m"; // ansi color reset
+static char *colors      = NULL;      // ansi color sequence
+static FG_COLOR fg_color = WHITE;     // default foreground color
+static BG_COLOR bg_color = BG_BLUE;   // default background color
+static TEXT_ATTRIB attr  = NONE;      // default text attributes
 
 // Key->value struct for ANSI codes
 struct opt_pair {
