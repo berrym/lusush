@@ -178,12 +178,9 @@ static void set_prompt_attr(TEXT_ATTRIB ta)
 void set_prompt(int argc, char **argv)
 {
     int i = 0;
-    // next option
-    int nopt = 0;
-    // string of valid short options
-    const char *sopts = "ha:f:b:v";
-    // array describing valid long options
-    const struct option lopts[] = {
+    int nopt = 0;                   // next option
+    const char *sopts = "ha:f:b:v"; // string of valid short options
+    const struct option lopts[] = { // array describing valid long options
         { "help",       0, NULL, 'h' },
         { "attributes", 1, NULL, 'a' },
         { "foreground", 1, NULL, 'f' },
@@ -203,37 +200,28 @@ void set_prompt(int argc, char **argv)
         nopt = getopt_long(argc, argv, sopts, lopts, NULL);
 
         switch (nopt) {
-        case 'h':
+        case 'h':               // show usage help
             setprompt_usage();
             break;
-        case 'a':
-            for (i = 0; i < 6; i++) {
+        case 'a':               // set fancy prompt text attribute
+            for (i = 0; i < 6; i++)
                 if (strncmp(optarg, attr_opts[i].key,
-                            strnlen(attr_opts[i].key, MAXLINE)) == 0) {
+                            strnlen(attr_opts[i].key, MAXLINE)) == 0)
                     set_prompt_attr(attr_opts[i].val);
-                    build_prompt();
-                }
-            }
             break;
-        case 'f':
-            for (i = 0; i < 8; i++) {
+        case 'f':               // set fancy prompt foreground color
+            for (i = 0; i < 8; i++)
                 if (strncmp(optarg, fg_opts[i].key,
-                            strnlen(fg_opts[i].key, MAXLINE)) == 0) {
+                            strnlen(fg_opts[i].key, MAXLINE)) == 0)
                     set_prompt_fg(fg_opts[i].val);
-                    build_prompt();
-                }
-            }
             break;
-        case 'b':
-            for (i = 0; i < 8; i++) {
+        case 'b':               // set fancy prompt background color
+            for (i = 0; i < 8; i++)
                 if (strncmp(optarg, bg_opts[i].key,
-                            strnlen(bg_opts[i].key, MAXLINE)) == 0) {
+                            strnlen(bg_opts[i].key, MAXLINE)) == 0)
                     set_prompt_bg(bg_opts[i].val);
-                    build_prompt();
-                }
-            }
             break;
-        case 'v':
+        case 'v':               // print valid setprompt options
             printf("VALID COLORS:\n");
             for (i = 0; i < 8; i++)
                 printf("\t%s\n", fg_opts[i].key);
@@ -242,13 +230,10 @@ void set_prompt(int argc, char **argv)
             for (i = 0; i < 6; i++)
                 printf("\t%s\n", attr_opts[i].key);
             break;
-        case '?':
-            setprompt_usage();
-            break;
         case -1:
             break;
         default:
-            abort();
+            abort();            // never reached, hopefully
         }
     } while (nopt != -1);
 }
