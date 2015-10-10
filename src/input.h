@@ -33,6 +33,6 @@
 #define INPUT_H
 
 extern void free_line_read(void);
-extern char *get_input(const char *, FILE *);
+extern char *get_input(FILE *);
 
 #endif

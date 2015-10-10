@@ -30,7 +30,6 @@
 #include "lusush.h"
 #include "init.h"
 #include "cmdlist.h"
-#include "prompt.h"
 #include "input.h"
 #include "parse.h"
 #include "exec.h"
@@ -46,7 +45,6 @@ int main(int argc, char **argv)
     FILE *in = stdin;                // input file stream pointer
     bool looping = true;             // boolean flag to keep looping
     struct command *cmd = NULL;      // storage for command details
-    char *ENV_PROMPT = NULL;         // prompt environment variable
     char *line = NULL;               // pointer to a line of input read
     int ret = 0;                     // return status for parse_command
 
@@ -59,14 +57,8 @@ int main(int argc, char **argv)
         // Allocate memory for doubly linked list of commands
         cmd = create_command_list();
 
-        // Build a prompt string if the shell is interactive
-        if (shell_type() != NORMAL_SHELL) {
-            build_prompt();
-            ENV_PROMPT = getenv("PROMPT");
-        }
-
         // Read a line of input from the opened stream
-        line = get_input(ENV_PROMPT, in);
+        line = get_input(in);
 
         // Parse command(s) from line
         switch (ret = parse_command(line, cmd)) {

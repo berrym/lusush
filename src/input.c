@@ -31,6 +31,7 @@
 #include "input.h"
 #include "init.h"
 #include "history.h"
+#include "prompt.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -92,7 +93,7 @@ static char *rl_gets(const char *prompt)
  *      Read a line of input, store the line in history.
  *      Return a pointer to the line read.
  */
-char *get_input(const char *prompt, FILE *in)
+char *get_input(FILE *in)
 {
     // If the buffer has been previously allocated free it
     free_line_read();
@@ -100,7 +101,8 @@ char *get_input(const char *prompt, FILE *in)
 #ifdef HAVE_LIBREADLINE
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
-        if ((line_read = rl_gets(prompt)) == NULL)
+        build_prompt();
+        if ((line_read = rl_gets(getenv("PROMPT"))) == NULL)
             return NULL;
     }
     else {
@@ -113,12 +115,17 @@ char *get_input(const char *prompt, FILE *in)
         null_terminate(line_read);
     }
 #else
+    // Allocate memory for a line of input
     if ((line_read = calloc(MAXLINE, sizeof(char))) == NULL)
         error_syscall("lusush: input.c: get_input: calloc");
 
-    if (shell_type() != NORMAL_SHELL)
-        printf("%s", prompt);
+    // If the shell is interactive print a prompt string
+    if (shell_type() != NORMAL_SHELL) {
+        build_prompt();
+        printf("%s", getenv("PROMPT"));
+    }
 
+    // Read a line of input
     if (fgets(line_read, MAXLINE, in) == NULL)
         return NULL;
 
