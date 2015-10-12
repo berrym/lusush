@@ -177,7 +177,7 @@ static void expand_line(char *s)
     savep = tmp;
 
     // Tokenize tmp
-    while (tok = tokenize(&tmp, NULL, true)) {
+    while ((tok = tokenize(&tmp, NULL, true))) {
             strip_trailing_whspc(tok);
             expand_token(tok, buf);
             free(tok);
@@ -226,7 +226,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep)
         error_syscall("lusush: parse.c: tokenize: calloc");
 
     // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
-    for (k = 0, c = *s; *c; k++, *c++) {
+    for (k = 0, c = *s; *c; k++, c++) {
         switch (*c) {
         case '\\':              // escape, keep ; or |, interpolate later
             tok[k] = *c;
@@ -251,7 +251,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep)
                     tok[k] = *c;
                 tok[k + 1] = '\0';
             }
-            *c++;
+            c++;
             goto mangle;
             break;
         case '|':               // finish parsing token, flag a pipe
@@ -272,7 +272,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep)
                         cmdp->pipe_head = true;
                 }
             }
-            *c++;
+            c++;
             goto mangle;
             break;
         default:

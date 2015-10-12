@@ -189,7 +189,7 @@ static int exec_external_cmd(struct command *cmd)
         // Call execvp
         vputs("calling execvp\n");
         execvp(cmd->argv[0], cmd->argv);
-        error_return("lusush"); // successful execvp shouldn't return
+        error_return("lusush: %s", cmd->argv[0]);
         exit(127);
         break;
     default:                    // parent process
@@ -218,7 +218,7 @@ void exec_cmd(struct command *cmdp)
 
     // Execute each command in the list
     for (cmd = cmdp; *cmd->argv[0]; cmd = cmd->next) {
-        if (bin = find_builtin(cmd->argv[0])) { // execute a builtin
+        if ((bin = find_builtin(cmd->argv[0]))) { // execute a builtin
             if (cmd->pipe) {
                 error_message("lusush: cannot pipe with builtins\n");
                 free(bin);
