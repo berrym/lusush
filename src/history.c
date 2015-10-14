@@ -88,9 +88,11 @@ int read_history(const char *histfile)
 {
     size_t i;
 
-    if ((histfp = fopen(histfile, "r")) == NULL)
+    if ((histfp = fopen(histfile, "r")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
             error_return("lusush: history.c: read_histfile: fopen");
+        return;
+    }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
         if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
@@ -134,8 +136,11 @@ void write_history(const char *fn)
     if (!HIST_INITIALIZED)
         return;
 
-    if ((histfp = fopen(fn, "a")) == NULL)
-        error_return("lusush: history.c: write_history: fopen");
+    if ((histfp = fopen(fn, "w")) == NULL) {
+        if (opt_is_set(VERBOSE_PRINT))
+            error_return("lusush: history.c: write_history: fopen");
+        return;
+    }
 
     for (i = 0; hist_list[i] && *hist_list[i]; i++)
         fprintf(histfp, "%s\n", hist_list[i]);
