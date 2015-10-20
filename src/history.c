@@ -91,7 +91,7 @@ int read_history(const char *histfile)
     if ((histfp = fopen(histfile, "r")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
             error_return("lusush: history.c: read_histfile: fopen");
-        return;
+        return 1;
     }
 
     for (i = 0; i < MAXHIST && hist_list[i]; i++) {
@@ -113,7 +113,7 @@ int read_history(const char *histfile)
  */
 void add_history(const char *line)
 {
-    if (!line || !*line)
+    if (!HIST_INITIALIZED || !line || !*line)
         return;
 
     if (hist_size < MAXHIST) {
