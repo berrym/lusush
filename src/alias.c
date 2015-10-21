@@ -70,7 +70,7 @@ static struct alias *alloc_alias(void)
     struct alias *curr = NULL;
 
     if ((curr = calloc(1, sizeof(struct alias))) == NULL)
-        error_syscall("lusush: alias.c: alloc_alias: calloc");
+        error_return("lusush: alias.c: alloc_alias: calloc");
 
     return curr;
 }

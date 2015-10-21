@@ -49,7 +49,8 @@ void tty_init(int init_ttystate)
     FILE *fp = NULL;
 
     if (tty_fd >= 0) {
-        close(tty_fd);
+        if (close(tty_fd) < 0)
+            error_return("lusush: tty.c: tty_init: close");
         tty_fd = -1;
     }
 
@@ -79,10 +80,12 @@ void tty_init(int init_ttystate)
     if ((tty_fd = fcntl(fileno(fp), F_DUPFD_CLOEXEC, FDBASE)) < 0)
         error_return("lusush: init.c: tty_init: fcntl");
     else if (init_ttystate)
-        tcgetattr(tty_fd, &tty_state);
+        if (tcgetattr(tty_fd, &tty_state) < 0)
+            error_return("lusush: tty.c: tty_init: tcgetattr");
 
     if (do_close)
-        fclose(fp);
+        if (fclose(fp) == EOF)
+            error_return("lusush: tty.c: tty_init: fclose");
 }
 
 /**
@@ -92,7 +95,8 @@ void tty_init(int init_ttystate)
 void tty_close(void)
 {
     if (tty_fd >= 0) {
-        close(tty_fd);
+        if (close(tty_fd) < 0)
+            error_return("lusush: tty.c: tty_close: close");
         tty_fd = -1;
     }
 }

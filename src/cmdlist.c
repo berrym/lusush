@@ -63,15 +63,15 @@ struct command *alloc_command(struct command *curr)
 
     // Allocate struct command
     if ((cmd = calloc(1, sizeof(struct command))) == NULL)
-        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+        error_return("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate pointer to pointer char
     if ((cmd->argv = calloc(256, sizeof(char *))) == NULL)
-        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+        error_return("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate room for the first string on the heap
     if ((*cmd->argv = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_syscall("lusush: cmdlist.c: alloc_command: calloc");
+        error_return("lusush: cmdlist.c: alloc_command: calloc");
 
     // Make sure everything else is zero/null
     cmd->argc = cmd->pfd[0] = cmd->pfd[1] = -1;

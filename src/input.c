@@ -107,7 +107,7 @@ char *get_input(FILE *in)
     }
     else {
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-            error_syscall("lusush: input.c: get_input: calloc");
+            error_return("lusush: input.c: get_input: calloc");
 
         if (fgets(line_read, MAXLINE + 1, in) == NULL)
             return NULL;
@@ -117,7 +117,7 @@ char *get_input(FILE *in)
 #else
     // Allocate memory for a line of input
     if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_syscall("lusush: input.c: get_input: calloc");
+        error_return("lusush: input.c: get_input: calloc");
 
     // If the shell is interactive print a prompt string
     if (shell_type() != NORMAL_SHELL) {
@@ -126,7 +126,7 @@ char *get_input(FILE *in)
     }
 
     // Read a line of input
-    if (fgets(line_read, MAXLINE + 1, in) == NULL)
+    if (fgets(line_read, MAXLINE, in) == NULL)
         return NULL;
 
     null_terminate(line_read);

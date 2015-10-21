@@ -139,7 +139,7 @@ static void build_colors(void)
 {
     if (!colors)
         if ((colors = calloc(14, sizeof(char))) == NULL)
-            error_syscall("lusush: prompt.c: build_colors: calloc");
+            error_return("lusush: prompt.c: build_colors: calloc");
 
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
 }
@@ -250,7 +250,7 @@ void build_prompt(void)
 
     // Get current working directory
     if (!(cwd = getcwd(NULL, 0)))
-        error_syscall("lusush: prompt.c: build_prompt: getcwd");
+        error_return("lusush: prompt.c: build_prompt: getcwd");
 
     // Build a prompt string
     if (opt_is_set(FANCY_PROMPT)) {
