@@ -46,7 +46,7 @@ static bool HIST_INITIALIZED = false;
 static HIST_ENTRY **hist_list = NULL;
 #else
 static FILE *histfp = NULL;
-static long hist_size = 0;
+static size_t hist_size = 0;
 static char hist_list[MAXHIST][MAXLINE] = { "\0" };
 #endif
 
