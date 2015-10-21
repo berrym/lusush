@@ -29,10 +29,11 @@
 
 #ifndef TTY_H
 
+#include "lusush.h"
 #include <termios.h>
 
 extern int tty_fd;
-extern int tty_devtty;
+extern bool tty_devtty;
 extern struct termios tty_state;
 
 extern void tty_init(int);

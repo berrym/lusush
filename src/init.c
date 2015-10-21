@@ -135,9 +135,6 @@ int init(int argc, char **argv, FILE **in)
     // Initialize history
     init_history();
 
-    if (shell_type() != NORMAL_SHELL)
-        tty_init(true);
-
     // Set memory cleanup procedures on termination
     atexit(free_alias_list);
     atexit(free_command_list);

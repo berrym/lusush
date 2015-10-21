@@ -27,16 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
 #include "tty.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdio.h>
 
-int tty_fd = -1;
-int tty_devtty;
-struct termios tty_state;
+int tty_fd = -1;                // tty file descriptor
+bool tty_devtty;                // flag that we have a tty
+struct termios tty_state;       // tty attributes
 
 /**
  * tty_init:
@@ -48,27 +47,25 @@ void tty_init(int init_ttystate)
     bool do_close = true;
     FILE *fp = NULL;
 
-    if (tty_fd >= 0) {
-        if (close(tty_fd) < 0)
-            error_return("lusush: tty.c: tty_init: close");
-        tty_fd = -1;
-    }
+    // Close old tty descriptor
+    tty_close();
+    tty_devtty = 1;             // we have access to a tty
 
-    tty_devtty = 1;
-
+    // Open the controlling tty, usually /dev/tty
     if ((fp = fopen(ctermid(NULL), "r+")) == NULL) {
         error_return("lusush: init.c: tty_init: fopen");
         tty_devtty = 0;
     }
 
+    // Keep looking for a tty if one wasn't found
     if (fileno(fp) < 0) {
         do_close = false;
 
-        if (isatty(0)) {
-            fp = fdopen(0, "r+");
+        if (isatty(STDIN_FILENO)) {
+            fp = fdopen(STDIN_FILENO, "r+");
         }
-        else if (isatty(2)) {
-            fp = fdopen(2, "r+");
+        else if (isatty(STDERR_FILENO)) {
+            fp = fdopen(STDERR_FILENO, "r+");
         }
         else {
             error_message("lusush: init.c: tty_init: "
@@ -77,12 +74,14 @@ void tty_init(int init_ttystate)
         }
     }
 
+    // Make a duplicate tty file descriptor with close on exec bit set
     if ((tty_fd = fcntl(fileno(fp), F_DUPFD_CLOEXEC, FDBASE)) < 0)
         error_return("lusush: init.c: tty_init: fcntl");
     else if (init_ttystate)
         if (tcgetattr(tty_fd, &tty_state) < 0)
             error_return("lusush: tty.c: tty_init: tcgetattr");
 
+    // Close the tty stream
     if (do_close)
         if (fclose(fp) == EOF)
             error_return("lusush: tty.c: tty_init: fclose");
