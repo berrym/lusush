@@ -34,6 +34,7 @@
 #include "history.h"
 #include "cmdlist.h"
 #include "input.h"
+#include "tty.h"
 #include <sys/stat.h>
 #include <locale.h>
 #include <signal.h>
@@ -134,6 +135,9 @@ int init(int argc, char **argv, FILE **in)
     // Initialize history
     init_history();
 
+    if (shell_type() != NORMAL_SHELL)
+        tty_init(true);
+
     // Set memory cleanup procedures on termination
     atexit(free_alias_list);
     atexit(free_command_list);
@@ -142,6 +146,7 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_history_list);
 #endif
     atexit((void *)write_history);
+    atexit(tty_close);
 
     return optind;
 }

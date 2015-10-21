@@ -37,6 +37,8 @@
 #endif
 #define MAXLINE 4096            // maximum string length
 
+#define FDBASE 10               // first file usable by shell
+
 // Make sure bool is a defined type
 #ifdef HAVE__BOOL
 #include <stdbool.h>
