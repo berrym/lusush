@@ -38,16 +38,12 @@
 #include <readline/history.h>
 #endif
 
-#define MAXHIST 10000           // maximum length of history
-
-static char histfile[MAXLINE] = { '\0' };
-static bool HIST_INITIALIZED = false;
+static size_t MAXHIST = 50;     // maximum length of history
 #ifdef HAVE_LIBREADLINE
 static HIST_ENTRY **hist_list = NULL;
 #else
-static FILE *histfp = NULL;
 static size_t hist_size = 0;
-static char hist_list[MAXHIST][MAXLINE] = { "\0" };
+static char **hist_list = NULL;
 #endif
 
 /**
@@ -56,9 +52,8 @@ static char hist_list[MAXHIST][MAXLINE] = { "\0" };
  */
 void init_history(void)
 {
-    char *ENV_HOME = NULL;
-
-    if (HIST_INITIALIZED) {
+    // Check if the history list is already initialized
+    if (hist_list) {
         error_message("lusush: init_history: already initialized.\n");
         return;
     }
@@ -66,17 +61,14 @@ void init_history(void)
 #ifdef HAVE_LIBREADLINE
     using_history();
     stifle_history(MAXHIST);
+#else
+    if ((hist_list = calloc(MAXHIST, sizeof(char *))) == NULL)
+        error_syscall("lusush: history.c: init_history: calloc");    
 #endif
 
-    ENV_HOME = getenv("HOME");
-
-    if (!*histfile)
-        snprintf(histfile, MAXLINE, "%s/.lusushist", ENV_HOME);
-
-    if (read_history(histfile) != 0)
+    // Read the history file
+    if (read_history() != 0)
         return;
-
-    HIST_INITIALIZED = true;
 }
 
 #ifndef HAVE_LIBREADLINE
@@ -84,25 +76,41 @@ void init_history(void)
  * read_history:
  *      Read stored commands from the history file.
  */
-int read_history(const char *histfile)
+int read_history(void)
 {
-    size_t i;
+    size_t i;                        // loop counter
+    FILE *fp = NULL;                 // file stream pointer
+    const char *fn = histfilename(); // file stream name
 
-    if ((histfp = fopen(histfile, "r")) == NULL) {
+    vputs("Reading history %s\n", fn);
+
+    // Open the history file for reading
+    if ((fp = fopen(fn, "r")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
             error_return("lusush: history.c: read_histfile: fopen");
         return 1;
     }
 
-    for (i = 0; i < MAXHIST && hist_list[i]; i++) {
-        if (fgets(hist_list[i], MAXLINE, histfp) == NULL)
-            break;
+    vputs("File %s is open with descriptor %u\n", fn, fp);
 
-        if (hist_list[i][strlen(hist_list[i]) - 1] == '\n')
-            hist_list[i][strlen(hist_list[i]) - 1] = '\0';
+    // Read the history file one line at a time
+    for (i = 0; i < MAXHIST; i++) {
+        if ((hist_list[i] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+            error_syscall("lusush: history.c: read_history: calloc");
+
+        if (fgets(hist_list[i], MAXLINE + 1, fp) == NULL)
+            break;
+        else
+            if (hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] == '\n')
+                hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] = '\0';
+
+        // Check the stream for errors
+        if (ferror(fp))
+            error_return("lusush: history.c: read_history");
     }
 
-    fclose(histfp);
+    hist_size = i;              // set the history count
+    fclose(fp);                 // close the file stream
 
     return 0;
 }
@@ -113,39 +121,71 @@ int read_history(const char *histfile)
  */
 void add_history(const char *line)
 {
-    if (!HIST_INITIALIZED || !line || !*line)
+    if (!line || !*line)
         return;
 
-    if (hist_size < MAXHIST) {
-        strncpy(hist_list[hist_size], line, MAXLINE);
-        hist_size++;
+    // Max history limit has been reached, grow the array
+    if (hist_size == MAXHIST) {
+        MAXHIST *= 2;
+        if ((hist_list = realloc(hist_list, MAXHIST*sizeof(char *))) == NULL)
+            error_syscall("lusush: history.c: add_history: realloc");
+        vputs("*** GREW HISTORY TO %u\n", MAXHIST);
     }
+
+    // Allocate next input history
+    if ((hist_list[hist_size] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+        error_syscall("lusush: history.c: add_history: calloc");
+
+    // Save the line to the history list
+    strncpy(hist_list[hist_size], line, MAXLINE);
+    hist_size++;
 }
+
 
 /**
  * write_history:
  *      Write command history to a file.
  */
-void write_history(const char *fn)
+void write_history(void)
 {
-    size_t i;
+    size_t i;                        // loop counter
+    FILE *fp = NULL;                 // file stream pointer
+    const char *fn = histfilename(); // filestream name
 
-    if (fn == NULL)
-        fn = histfilename();
-
-    if (!HIST_INITIALIZED)
-        return;
-
-    if ((histfp = fopen(fn, "w")) == NULL) {
+    // Open the history file for writing
+    if ((fp = fopen(fn, "w")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
             error_return("lusush: history.c: write_history: fopen");
         return;
     }
 
+    // Write each history item as a new line
     for (i = 0; hist_list[i] && *hist_list[i]; i++)
-        fprintf(histfp, "%s\n", hist_list[i]);
+        fprintf(fp, "%s\n", hist_list[i]);
 
-    fclose(histfp);
+    // Close the file stream
+    fclose(fp);
+}
+
+
+/**
+ * free_history_list:
+ *      Free the input history.
+ */
+void free_history_list(void)
+{
+    if (!hist_list || !*hist_list)
+        return;
+
+    // Free individual input histories
+    for (; hist_size; hist_size--) {
+        free(hist_list[hist_size]);
+        hist_list[hist_size] == NULL;
+    }
+
+    // Free history array
+    free(hist_list);
+    hist_list = NULL;
 }
 #endif
 
@@ -155,7 +195,12 @@ void write_history(const char *fn)
  */
 const char *histfilename(void)
 {
-    return histfile;
+    static char fn[MAXLINE + 1] = { '\0' };
+
+    if (!*fn)
+        snprintf(fn, MAXLINE, "%s/.lusushist", getenv("HOME"));
+
+    return fn;
 }
 
 /**
@@ -173,7 +218,11 @@ void print_history(void)
     for (i = 0; hist_list[i]; i++)
         printf("%4zu:\t%s\n", i + history_base, hist_list[i]->line);
 #else
-    for (i = 0; i < MAXHIST && *hist_list[i]; i++)
+    if (!hist_list) {
+        error_message("no hist list");
+        return;
+    }
+    for (i = 0; i < hist_size && *hist_list[i]; i++)
         printf("%zu:\t%s\n", i + 1, hist_list[i]);
 #endif
 }

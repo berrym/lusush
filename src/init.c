@@ -138,6 +138,9 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_alias_list);
     atexit(free_command_list);
     atexit(free_line_read);
+#ifndef HAVE_LIBREADLINE
+    atexit(free_history_list);
+#endif
     atexit((void *)write_history);
 
     return optind;

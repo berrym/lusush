@@ -168,7 +168,7 @@ static void expand_line(char *s)
     char buf[MAXLINE] = { '\0' }; // buffer for altered string
 
     // Make a copy of s to mangle
-    if ((tmp = calloc(MAXLINE, sizeof(char))) == NULL)
+    if ((tmp = calloc(MAXLINE + 1, sizeof(char))) == NULL)
         error_syscall("lusush: parse.c: expand_line: calloc");
 
     strncpy(tmp, s, strnlen(s, MAXLINE));
@@ -222,7 +222,7 @@ static char *tokenize(char **s, struct command *cmdp, bool keep)
         return NULL;
 
     // Allocate memory for the token
-    if ((tok = calloc(MAXLINE, sizeof(char))) == NULL)
+    if ((tok = calloc(MAXLINE + 1, sizeof(char))) == NULL)
         error_syscall("lusush: parse.c: tokenize: calloc");
 
     // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
@@ -633,7 +633,7 @@ static int do_whspc(char c)
     cpos = 0;                   // reset cpos
 
     // Allocate next string
-    if ((cmd->argv[wpos] = calloc(MAXLINE, sizeof(char))) == NULL)
+    if ((cmd->argv[wpos] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
         error_syscall("lusush: parse.c: do_whspc: calloc");
 
     // Null terminate line
@@ -772,7 +772,7 @@ int parse_command(const char *linep, struct command *cmdp)
         return PARSER_ERROR_BREAK;
 
     // Make a copy of linep for mangling
-    if (!(tmp = calloc(MAXLINE, sizeof(char))))
+    if (!(tmp = calloc(MAXLINE + 1, sizeof(char))))
         error_syscall("lusush: parse.c: parse_command: calloc");
 
     strncpy(tmp, linep, MAXLINE);

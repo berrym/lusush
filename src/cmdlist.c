@@ -69,7 +69,7 @@ struct command *alloc_command(struct command *curr)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(MAXLINE, sizeof(char))) == NULL)
+    if ((*cmd->argv = calloc(MAXLINE + 1, sizeof(char))) == NULL)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Make sure everything else is zero/null
