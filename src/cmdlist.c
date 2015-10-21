@@ -28,6 +28,7 @@
  */
 
 #include "cmdlist.h"
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,7 +74,7 @@ struct command *alloc_command(struct command *curr)
         error_syscall("lusush: cmdlist.c: alloc_command: calloc");
 
     // Make sure everything else is zero/null
-    cmd->argc = cmd->pfd[0] = cmd->pfd[1] = 0;
+    cmd->argc = cmd->pfd[0] = cmd->pfd[1] = -1;
     cmd->pipe = cmd->pipe_head = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = cmd->background = false;
     *cmd->ifname = *cmd->ofname = '\0';
@@ -102,6 +103,15 @@ static void free_command(struct command *cmd)
     // Free argument vector
     free(cmd->argv);
     cmd->argv = NULL;
+
+    // Close open pipes
+    if (cmd->pfd[0] >= 0)
+        if (close(cmd->pfd[0]) < 0)
+            error_return("lusush: cmdlist.c: free_command: close");
+
+    if (cmd->pfd[1] >= 0)
+        if (close(cmd->pfd[1]) < 0)
+            error_return("lusush: cmdlist.c: free_command: close");
 
     // Fix links
     if (cmd->next)

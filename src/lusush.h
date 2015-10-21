@@ -60,19 +60,19 @@ typedef unsigned size_t;
 // Doubly linked list of commands to pass to exec
 struct command
 {
-    int argc;               // argument count
-    char **argv;            // arguments to pass to exec
-    struct command *next;   // next command
-    struct command *prev;   // previous command
-    bool background;        // background process flag
-    bool pipe;              // pipe flag
-    bool pipe_head;         // head node in pipe chain flag
-    bool iredir;            // input redirection flag
-    bool oredir;            // output redirection flag
-    bool oredir_append;     // output redirection opens file to append
-    char ifname[MAXLINE];   // input filename - if redirect set
-    char ofname[MAXLINE];   // output filename - if redirect set
-    int pfd[2];             // pipe filedescriptors
+    int argc;                   // argument count
+    char **argv;                // arguments to pass to exec
+    struct command *next;       // next command
+    struct command *prev;       // previous command
+    bool background;            // background process flag
+    bool pipe;                  // pipe flag
+    bool pipe_head;             // head node in pipe chain flag
+    bool iredir;                // input redirection flag
+    bool oredir;                // output redirection flag
+    bool oredir_append;         // output redirection opens file to append
+    char ifname[MAXLINE + 1];   // input filename - if redirect set
+    char ofname[MAXLINE + 1];   // output filename - if redirect set
+    int pfd[2];                 // pipe filedescriptors
 };
 
 extern void vputs(const char *, ...);

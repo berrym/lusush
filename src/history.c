@@ -63,7 +63,7 @@ void init_history(void)
     stifle_history(MAXHIST);
 #else
     if ((hist_list = calloc(MAXHIST, sizeof(char *))) == NULL)
-        error_syscall("lusush: history.c: init_history: calloc");    
+        error_syscall("lusush: history.c: init_history: calloc");
 #endif
 
     // Read the history file
@@ -98,7 +98,7 @@ int read_history(void)
         if ((hist_list[i] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
             error_syscall("lusush: history.c: read_history: calloc");
 
-        if (fgets(hist_list[i], MAXLINE + 1, fp) == NULL)
+        if (fgets(hist_list[i], MAXLINE, fp) == NULL)
             break;
         else
             if (hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] == '\n')
@@ -141,7 +141,6 @@ void add_history(const char *line)
     hist_size++;
 }
 
-
 /**
  * write_history:
  *      Write command history to a file.
@@ -152,6 +151,9 @@ void write_history(void)
     FILE *fp = NULL;                 // file stream pointer
     const char *fn = histfilename(); // filestream name
 
+    if (!hist_list || !*hist_list)
+        return;
+
     // Open the history file for writing
     if ((fp = fopen(fn, "w")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
@@ -160,13 +162,12 @@ void write_history(void)
     }
 
     // Write each history item as a new line
-    for (i = 0; hist_list[i] && *hist_list[i]; i++)
+    for (i = 0; i < hist_size; i++)
         fprintf(fp, "%s\n", hist_list[i]);
 
     // Close the file stream
     fclose(fp);
 }
-
 
 /**
  * free_history_list:
@@ -178,9 +179,9 @@ void free_history_list(void)
         return;
 
     // Free individual input histories
-    for (; hist_size; hist_size--) {
+    for (hist_size--; hist_size; hist_size--) {
         free(hist_list[hist_size]);
-        hist_list[hist_size] == NULL;
+        hist_list[hist_size] = NULL;
     }
 
     // Free history array

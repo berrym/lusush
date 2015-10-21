@@ -117,6 +117,7 @@ static void close_old_pipes(struct command *cmd)
         vputs("*** Closing old/unused pipe ends\n");
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
             error_syscall("lusush: exec.c: close_old_pipes: close");
+        cmd->prev->pfd[0] = cmd->prev->pfd[1] = -1;
     }
 
     // Close pipes created by tell_wait
