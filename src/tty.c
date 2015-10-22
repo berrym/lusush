@@ -62,10 +62,12 @@ void tty_init(int init_ttystate)
         do_close = false;
 
         if (isatty(STDIN_FILENO)) {
-            fp = fdopen(STDIN_FILENO, "r+");
+            if ((fp = fdopen(STDIN_FILENO, "r+")) == NULL)
+                error_return("lusush: tty.c: tty_init: fdopen");
         }
         else if (isatty(STDERR_FILENO)) {
-            fp = fdopen(STDERR_FILENO, "r+");
+            if ((fp = fdopen(STDERR_FILENO, "r+")) == NULL)
+                error_return("lusush: tty.c: tty_init: fdopen");
         }
         else {
             error_message("lusush: init.c: tty_init: "
