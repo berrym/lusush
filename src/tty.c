@@ -49,12 +49,12 @@ void tty_init(int init_ttystate)
 
     // Close old tty descriptor
     tty_close();
-    tty_devtty = 1;             // we have access to a tty
+    tty_devtty = true;          // we have access to a tty
 
     // Open the controlling tty, usually /dev/tty
     if ((fp = fopen(ctermid(NULL), "r+")) == NULL) {
         error_return("lusush: init.c: tty_init: fopen");
-        tty_devtty = 0;
+        tty_devtty = false;
     }
 
     // Keep looking for a tty if one wasn't found
