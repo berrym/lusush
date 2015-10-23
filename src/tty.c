@@ -33,41 +33,35 @@
 #include <signal.h>
 #include <stdio.h>
 
-int tty_fd = -1;                // tty file descriptor
+int ttyfd = -1;                 // tty file descriptor
 bool tty_devtty;                // flag that we have a tty
-struct termios tty_state;       // tty attributes
+struct termios ts;              // tty attributes
 
 /**
  * tty_init:
  *       Initialize tty_fd.  Used for saving/reseting tty modes upon
  *       foreground job completion and for setting up tty process group.
  */
-void tty_init(int init_ttystate)
+void tty_init(bool init_ts)
 {
     bool do_close = true;
-    FILE *fp = NULL;
+    int fd;
 
     // Close old tty descriptor
     tty_close();
     tty_devtty = true;          // we have access to a tty
 
     // Open the controlling tty, usually /dev/tty
-    if ((fp = fopen(ctermid(NULL), "r+")) == NULL) {
-        error_return("lusush: init.c: tty_init: fopen");
+    if ((fd = open(ctermid(NULL), O_RDWR, 0)) < 0) {
+        error_return("lusush: init.c: tty_init: open");
         tty_devtty = false;
-    }
-
-    // Keep looking for a tty if one wasn't found
-    if (fileno(fp) < 0) {
         do_close = false;
-
-        if (isatty(STDIN_FILENO)) {
-            if ((fp = fdopen(STDIN_FILENO, "r+")) == NULL)
-                error_return("lusush: tty.c: tty_init: fdopen");
+        // Keep looking for a tty if one wasn't found
+        if (isatty(0)) {
+            fd = 0;
         }
-        else if (isatty(STDERR_FILENO)) {
-            if ((fp = fdopen(STDERR_FILENO, "r+")) == NULL)
-                error_return("lusush: tty.c: tty_init: fdopen");
+        else if (isatty(2)) {
+            fd = 2;
         }
         else {
             error_message("lusush: init.c: tty_init: "
@@ -77,18 +71,16 @@ void tty_init(int init_ttystate)
     }
 
     // Make a duplicate tty file descriptor with close on exec bit set
-    if ((tty_fd = fcntl(fileno(fp), F_DUPFD_CLOEXEC, FDBASE)) < 0)
+    if ((ttyfd = fcntl(fd, F_DUPFD_CLOEXEC, FDBASE)) < 0)
         error_return("lusush: init.c: tty_init: fcntl");
-    else if (init_ttystate)
-        if (tcgetattr(tty_fd, &tty_state) < 0)
+    else if (init_ts)
+        if (tcgetattr(ttyfd, &ts) < 0)
             error_return("lusush: tty.c: tty_init: tcgetattr");
 
     // Close the tty stream
-    if (do_close) {
-        if (fclose(fp) == EOF)
-            error_return("lusush: tty.c: tty_init: fclose");
-        tty_close();
-    }
+    if (do_close)
+        if (close(fd) < 0)
+            error_return("lusush: tty.c: tty_init: close");
 }
 
 /**
@@ -97,9 +89,9 @@ void tty_init(int init_ttystate)
  */
 void tty_close(void)
 {
-    if (tty_fd >= 0) {
-        if (close(tty_fd) < 0)
+    if (ttyfd >= 0) {
+        if (close(ttyfd) < 0)
             error_return("lusush: tty.c: tty_close: close");
-        tty_fd = -1;
+        ttyfd = -1;
     }
 }
