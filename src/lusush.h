@@ -35,7 +35,7 @@
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4096            // maximum string length
+#define MAXLINE 4095            // maximum string length
 
 #define FDBASE 10               // first file usable by shell
 

@@ -32,7 +32,7 @@
 #ifndef CMDLIST_H
 #define CMDLIST_H
 
-extern struct command *alloc_command(struct command *);
+extern struct command *alloc_command(void);
 extern struct command *create_command_list(void);
 extern void free_command_list(void);
 extern void display_command(struct command *);

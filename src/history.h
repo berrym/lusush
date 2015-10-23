@@ -38,4 +38,5 @@ extern void free_history_list(void);
 #endif
 extern const char *histfilename(void);
 extern void print_history(void);
+
 #endif

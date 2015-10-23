@@ -46,7 +46,7 @@ struct command *create_command_list(void)
     if (head)
         return head;
 
-    head = alloc_command(NULL);
+    head = alloc_command();
     vputs("%screate_command_list: "
           "successful creation of command list\n", DBGSTR);
 
@@ -57,7 +57,7 @@ struct command *create_command_list(void)
  * alloc_command:
  *      Allocate memory for a struct command.
  */
-struct command *alloc_command(struct command *curr)
+struct command *alloc_command(void)
 {
     struct command *cmd = NULL; // pointer to new struct command
 
@@ -78,6 +78,7 @@ struct command *alloc_command(struct command *curr)
     cmd->pipe = cmd->pipe_head = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = cmd->background = false;
     *cmd->ifname = *cmd->ofname = '\0';
+    cmd->prev = cmd->next = NULL;
 
     vputs("successful alloc_command call\n");
 
@@ -91,14 +92,14 @@ struct command *alloc_command(struct command *curr)
  */
 static void free_command(struct command *cmd)
 {
+    char **s = NULL;
+
     if (!cmd || !cmd->argv)
         return;
 
     // Free each argument string
-    for (; cmd->argc >= 0; cmd->argc--) {
-        free(cmd->argv[cmd->argc]);
-        cmd->argv[cmd->argc] = NULL;
-    }
+    for (s = cmd->argv; *s; s++)
+        free(*s);
 
     // Free argument vector
     free(cmd->argv);

@@ -796,7 +796,7 @@ int parse_command(const char *linep, struct command *cmdp)
         case PARSER_ERROR_BREAK:
             return err;
         default:
-            cmdp->next = alloc_command(cmdp);
+            cmdp->next = alloc_command();
             cmdp->next->prev = cmdp;
             cmdp = cmdp->next;
             cmdp->next = NULL;

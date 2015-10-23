@@ -138,7 +138,7 @@ static int read_history(void)
         }
     }
 
-    hist_size = i;              // set the history count
+    hist_size = i + 1;          // set the history count
     fclose(fp);                 // close the file stream
 
     return 0;
@@ -175,7 +175,7 @@ void add_history(const char *line)
  */
 void write_history(void)
 {
-    size_t i;                        // loop counter
+    char **s;                        // iterator
     FILE *fp = NULL;                 // file stream pointer
     const char *fn = histfilename(); // filestream name
 
@@ -190,8 +190,8 @@ void write_history(void)
     }
 
     // Write each history item as a new line
-    for (i = 0; i < hist_size; i++)
-        fprintf(fp, "%s\n", hist_list[i]);
+    for (s = hist_list; *s; s++)
+        fprintf(fp, "%s\n", *s);
 
     // Close the file stream
     fclose(fp);
@@ -203,16 +203,14 @@ void write_history(void)
  */
 void free_history_list(void)
 {
+    char **i = NULL;
+
     if (!hist_list || !*hist_list)
         return;
 
-    // Free individual input histories
-    for (hist_size--; hist_size; hist_size--) {
-        free(hist_list[hist_size]);
-        hist_list[hist_size] = NULL;
-    }
+    for (i = hist_list; *i; i++)
+        free(*i);
 
-    // Free history list
     free(hist_list);
     hist_list = NULL;
 }
@@ -251,6 +249,7 @@ void print_history(void)
         error_message("no hist list");
         return;
     }
+
     for (i = 0; i < hist_size && *hist_list[i]; i++)
         printf("%zu:\t%s\n", i + 1, hist_list[i]);
 #endif

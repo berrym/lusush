@@ -84,9 +84,11 @@ void tty_init(int init_ttystate)
             error_return("lusush: tty.c: tty_init: tcgetattr");
 
     // Close the tty stream
-    if (do_close)
+    if (do_close) {
         if (fclose(fp) == EOF)
             error_return("lusush: tty.c: tty_init: fclose");
+        tty_close();
+    }
 }
 
 /**
