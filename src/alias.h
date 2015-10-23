@@ -30,10 +30,9 @@
 #ifndef ALIAS_H
 #define ALIAS_H
 
-extern void init_alias_list(void);
 extern void free_alias_list(void);
 extern void print_alias_list(void);
-extern void set_alias(char *, char *);
+extern void set_alias(const char *, const char *);
 extern void unset_alias(char *);
 extern char *expand_alias(char *);
 

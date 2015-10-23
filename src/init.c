@@ -98,9 +98,6 @@ int init(int argc, char **argv, FILE **in)
     if (signal(SIGSEGV, sig_seg) == SIG_ERR)
         error_syscall( "lusush: signal error");
 
-    // Set up aliases
-    init_alias_list();
-
     // Parse command line options
     optind = parse_opts(argc, argv);
 

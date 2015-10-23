@@ -42,24 +42,6 @@ struct alias {
 };
 
 static struct alias *head = NULL;
-static bool initialized = false;
-
-/**
- * find_end:
- *      Traverse the list until the end is reached.
- */
-static struct alias *find_end(void)
-{
-    struct alias *curr = head;
-
-    if (!head)
-        return NULL;
-
-    while (curr->next)
-        curr = curr->next;
-
-    return curr;
-}
 
 /**
  * alloc_alias:
@@ -67,19 +49,19 @@ static struct alias *find_end(void)
  */
 static struct alias *alloc_alias(void)
 {
-    struct alias *curr = NULL;
+    struct alias *new_alias = NULL;
 
-    if ((curr = calloc(1, sizeof(struct alias))) == NULL)
+    if ((new_alias = calloc(1, sizeof(struct alias))) == NULL)
         error_return("lusush: alias.c: alloc_alias: calloc");
 
-    return curr;
+    return new_alias;
 }
 
 /**
  * lookup_alias:
  *      Find a  node in the list by key lookup and return a pointer to it.
  */
-static struct alias *lookup_alias(char *key)
+static struct alias *lookup_alias(const char *key)
 {
     struct alias *curr = NULL;
 
@@ -88,20 +70,6 @@ static struct alias *lookup_alias(char *key)
             return curr;
 
     return NULL;
-}
-
-/**
- * init_alias_list:
- *      Allocate memory for the linked list.
- */
-void init_alias_list(void)
-{
-    if (head)
-        return;
-
-    head = alloc_alias();
-
-    vputs("%sinit_alias_list: successful init_alias_list call\n", DBGSTR);
 }
 
 /**
@@ -153,35 +121,44 @@ char *expand_alias(char *key)
 
 /**
  * set_alias:
- *      Create a new node in the list or replace an existing one.
+ *      Create and insert new node in the list or replace an existing one.
  */
-void set_alias(char *key, char *val)
+void set_alias(const char *key, const char *val)
 {
-    struct alias *curr = NULL;
+    struct alias *curr = NULL, *new_alias = NULL;
 
-    if (!head)
-        init_alias_list();
-
-    if (head && !initialized) {
-        vputs("%sset_alias: setting root alias node\n", DBGSTR);
-        strncpy(head->key, key, MAXLINE);
-        strncpy(head->val, val, MAXLINE);
-        initialized = true;
-        return;
-    }
-
+    // Replace an existing alias
     if ((curr = lookup_alias(key))) {
         vputs("%sset_alias: re-setting alias\n", DBGSTR);
         strncpy(curr->val, val, MAXLINE);
         return;
     }
 
-    curr = find_end();
-    curr->next = alloc_alias();
-    curr = curr->next;
-    strncpy(curr->key, key, MAXLINE);
-    strncpy(curr->val, val, MAXLINE);
-    vputs("%sset_alias: new alias set!\n", DBGSTR);
+    // Allocate a new alias node
+    if (!(new_alias = alloc_alias()))
+        return;
+
+    // Special case for dealing with the head node
+    if (!head || (strncasecmp(head->key, key, MAXLINE) > 0)) {
+        vputs("%sset_alias: setting root alias node\n", DBGSTR);
+        strncpy(new_alias->key, key, MAXLINE);
+        strncpy(new_alias->val, val, MAXLINE);
+        new_alias->next = head;
+        head = new_alias;
+    }
+    else {
+        // Find the node prior to point of insertion
+        curr = head;
+        while (curr->next && (strncasecmp(key, curr->next->key, MAXLINE) > 0))
+            curr = curr->next;
+
+        // Insert the new node
+        new_alias->next = curr->next;
+        curr->next = new_alias;
+        strncpy(new_alias->key, key, strnlen(key, MAXLINE));
+        strncpy(new_alias->val, val, strnlen(val, MAXLINE));
+        vputs("%sset_alias: new alias set!\n", DBGSTR);
+    }
 }
 
 /**
@@ -203,7 +180,4 @@ void unset_alias(char *key)
             break;
         }
     }
-
-    if (!head)
-        initialized = false;
 }
