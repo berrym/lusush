@@ -44,6 +44,7 @@ static HIST_ENTRY **hist_list = NULL;
 #else
 static size_t hist_size = 0;
 static char **hist_list = NULL;
+static int read_history(void);
 #endif
 
 /**
@@ -54,7 +55,8 @@ void init_history(void)
 {
     // Check if the history list is already initialized
     if (hist_list) {
-        error_message("lusush: init_history: already initialized.\n");
+        error_message("lusush: history.c: init_history: "
+                      "already initialized.\n");
         return;
     }
 
@@ -62,8 +64,10 @@ void init_history(void)
     using_history();
     stifle_history(MAXHIST);
 #else
-    if ((hist_list = calloc(MAXHIST, sizeof(char *))) == NULL)
-        error_syscall("lusush: history.c: init_history: calloc");
+    if ((hist_list = calloc(MAXHIST, sizeof(char *))) == NULL) {
+        error_return("lusush: history.c: init_history: calloc");
+        return;
+    }
 #endif
 
     // Read the history file
@@ -93,7 +97,7 @@ static size_t grow_hist_list(size_t N)
  * read_history:
  *      Read stored commands from the history file.
  */
-int read_history(void)
+static int read_history(void)
 {
     size_t i;                        // loop counter
     FILE *fp = NULL;                 // file stream pointer
@@ -146,10 +150,10 @@ int read_history(void)
  */
 void add_history(const char *line)
 {
-    if (!line || !*line)
+    if (!hist_list || !line || !*line)
         return;
 
-    // Max history limit has been reached, grow the array
+    // Maximum history limit has been reached, grow the array
     if (hist_size == MAXHIST)
         if (!grow_hist_list(50))
             return;

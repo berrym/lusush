@@ -32,7 +32,6 @@
 
 extern void init_history(void);
 #ifndef HAVE_LIBREADLINE
-extern int read_history(void);
 extern void add_history(const char *);
 extern void write_history(void);
 extern void free_history_list(void);
