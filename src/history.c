@@ -73,6 +73,23 @@ void init_history(void)
 
 #ifndef HAVE_LIBREADLINE
 /**
+ * grow_hist_list:
+ *      Grow size of the history table by N elements.
+ */
+static size_t grow_hist_list(size_t N)
+{
+    MAXHIST += N;
+
+    if ((hist_list = realloc(hist_list, MAXHIST * sizeof(char *))) == NULL) {
+        error_return("lusush: history.c: grow_hist_list: realloc");
+        return 0;
+    }
+
+    vputs("*** GREW HISTORY TO %u\n", MAXHIST);
+    return MAXHIST;
+}
+
+/**
  * read_history:
  *      Read stored commands from the history file.
  */
@@ -95,8 +112,14 @@ int read_history(void)
 
     // Read the history file one line at a time
     for (i = 0; i < MAXHIST; i++) {
-        if ((hist_list[i] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-            error_syscall("lusush: history.c: read_history: calloc");
+        if (i == MAXHIST - 1)
+            if (!grow_hist_list(50))
+                return 1;
+
+        if ((hist_list[i] = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
+            error_return("lusush: history.c: read_history: calloc");
+            return 1;
+        }
 
         if (fgets(hist_list[i], MAXLINE, fp) == NULL)
             break;
@@ -105,8 +128,10 @@ int read_history(void)
                 hist_list[i][strnlen(hist_list[i], MAXLINE) - 1] = '\0';
 
         // Check the stream for errors
-        if (ferror(fp))
+        if (ferror(fp)) {
             error_return("lusush: history.c: read_history");
+            return 1;
+        }
     }
 
     hist_size = i;              // set the history count
@@ -125,16 +150,15 @@ void add_history(const char *line)
         return;
 
     // Max history limit has been reached, grow the array
-    if (hist_size == MAXHIST) {
-        MAXHIST *= 2;
-        if ((hist_list = realloc(hist_list, MAXHIST*sizeof(char *))) == NULL)
-            error_syscall("lusush: history.c: add_history: realloc");
-        vputs("*** GREW HISTORY TO %u\n", MAXHIST);
-    }
+    if (hist_size == MAXHIST)
+        if (!grow_hist_list(50))
+            return;
 
     // Allocate next input history
-    if ((hist_list[hist_size] = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_syscall("lusush: history.c: add_history: calloc");
+    if ((hist_list[hist_size] = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
+        error_return("lusush: history.c: add_history: calloc");
+        return;
+    }
 
     // Save the line to the history list
     strncpy(hist_list[hist_size], line, MAXLINE);
@@ -184,7 +208,7 @@ void free_history_list(void)
         hist_list[hist_size] = NULL;
     }
 
-    // Free history array
+    // Free history list
     free(hist_list);
     hist_list = NULL;
 }
@@ -206,7 +230,7 @@ const char *histfilename(void)
 
 /**
  * print_history:
- *      Display a the list of lines stored in history.
+ *      Display a list of the lines stored in hist_list.
  */
 void print_history(void)
 {
