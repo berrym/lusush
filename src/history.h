@@ -30,13 +30,19 @@
 #ifndef HISTORY_H
 #define HISTORY_H
 
-extern void init_history(void);
-#ifndef HAVE_LIBREADLINE
-extern void add_history(const char *);
-extern void write_history(void);
-extern void free_history_list(void);
+#if defined(HAVE_EDITLINE_READLINE_H)
+#include <editline/readline.h>
+#elif defined(HAVE_LIBREADLINE)
+#include <readline/readline.h>
+#include <readline/history.h>
 #endif
-extern const char *histfilename(void);
+
+extern void init_history(void);
 extern void print_history(void);
+extern void save_history(void);
+extern void free_history_list(void);
+#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
+extern void add_history(const char *);
+#endif
 
 #endif

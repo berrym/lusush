@@ -34,18 +34,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/history.h>
+
+#if defined(HAVE_EDITLINE_READLINE_H)
+char *hist_list = NULL;
+#elif defined(HAVE_LIBREADLINE)
+char *hist_list = NULL;
+#else
+static size_t HIST_LIST_SIZE = 50;     // current size of the table
+static size_t hist_size = 0;           // current number of table entries
+static char **hist_list = NULL;
+static size_t grow_hist_list(size_t);
+static int read_history(const char *);
+static void write_history(const char *);
 #endif
 
-static size_t MAXHIST = 50;     // maximum length of history
-#ifdef HAVE_LIBREADLINE
-static HIST_ENTRY **hist_list = NULL;
-#else
-static size_t hist_size = 0;
-static char **hist_list = NULL;
-static int read_history(void);
-#endif
+/**
+ * histfilename:
+ *      Return the name of the history file.
+ */
+static const char *histfilename(void)
+{
+    static char fn[MAXLINE + 1] = { '\0' };
+
+    if (!*fn)
+        snprintf(fn, MAXLINE, "%s/.lusushist", getenv("HOME"));
+
+    return fn;
+}
 
 /**
  * init_history:
@@ -53,6 +68,7 @@ static int read_history(void);
  */
 void init_history(void)
 {
+#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
     // Check if the history list is already initialized
     if (hist_list) {
         error_message("lusush: history.c: init_history: "
@@ -60,48 +76,104 @@ void init_history(void)
         return;
     }
 
-#ifdef HAVE_LIBREADLINE
-    using_history();
-    stifle_history(MAXHIST);
-#else
-    if ((hist_list = calloc(MAXHIST, sizeof(char *))) == NULL) {
+    if ((hist_list = calloc(HIST_LIST_SIZE, sizeof(char *))) == NULL) {
         error_return("lusush: history.c: init_history: calloc");
         return;
     }
+#else
+    using_history();
 #endif
-
     // Read the history file
-    if (read_history() != 0)
+    if (read_history(histfilename()) != 0)
         return;
 }
 
-#ifndef HAVE_LIBREADLINE
+/**
+ * print_history:
+ *      Display a list of the input history.
+ */
+void print_history(void)
+{
+#if defined(HAVE_EDITLINE_READLINE_H)
+    HIST_ENTRY *h = NULL;
+    size_t i = 0;
+
+    for (i = 0; h = history_get(i + history_base); i++)
+        printf("%s\n", h->line);
+#elif defined(HAVE_LIBREADLINE)
+    HIST_ENTRY **hl = NULL;
+    size_t i = 0;
+
+    if (!(hl = history_list()))
+        return;
+
+    for (i = 0; hl[i]; i++)
+        printf("%s\n", hl[i]->line);
+#else
+    char **s = NULL;
+
+    for (s = hist_list; *s; s++)
+        printf("%s\n", *s);
+#endif
+}
+
+/**
+ * save_history:
+ *      Function wrapper around write_history.
+ */
+void save_history(void)
+{
+    write_history(histfilename());
+}
+
+/**
+ * free_history_list:
+ *      Free the input history.
+ */
+void free_history_list(void)
+{
+#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
+    char **i = NULL;
+
+    if (!hist_list || !*hist_list)
+        return;
+
+    for (i = hist_list; *i; i++)
+        free(*i);
+
+    free(hist_list);
+    hist_list = NULL;
+#endif
+}
+
+// Readline functionality reimplementations
+#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
 /**
  * grow_hist_list:
  *      Grow size of the history table by N elements.
  */
 static size_t grow_hist_list(size_t N)
 {
-    MAXHIST += N;
+    HIST_LIST_SIZE += N;
 
-    if ((hist_list = realloc(hist_list, MAXHIST * sizeof(char *))) == NULL) {
+    if ((hist_list = realloc(hist_list,
+                             HIST_LIST_SIZE * sizeof(char *))) == NULL) {
         error_return("lusush: history.c: grow_hist_list: realloc");
         return 0;
     }
 
-    vputs("*** GREW HISTORY TO %u\n", MAXHIST);
-    return MAXHIST;
+    vputs("*** GREW HISTORY TO %u\n", HIST_LIST_SIZE);
+    return HIST_LIST_SIZE;
 }
 
 /**
  * read_history:
  *      Read stored commands from the history file.
  */
-static int read_history(void)
+static int read_history(const char *fn)
 {
     size_t i;                        // loop counter
     FILE *fp = NULL;                 // file stream pointer
-    const char *fn = histfilename(); // file stream name
 
     vputs("Reading history %s\n", fn);
 
@@ -115,8 +187,9 @@ static int read_history(void)
     vputs("File %s is open with descriptor %u\n", fn, fp);
 
     // Read the history file one line at a time
-    for (i = 0; i < MAXHIST; i++) {
-        if (i == MAXHIST - 1)
+    for (i = 0; i < HIST_LIST_SIZE; i++) {
+        // Make sure the table is not full, if it is then enlarge it
+        if (i == HIST_LIST_SIZE - 1)
             if (!grow_hist_list(50))
                 return 1;
 
@@ -153,8 +226,8 @@ void add_history(const char *line)
     if (!hist_list || !line || !*line)
         return;
 
-    // Maximum history limit has been reached, grow the array
-    if (hist_size == MAXHIST)
+    // Table limit has been reached, attempt to grow the array
+    if (hist_size == HIST_LIST_SIZE)
         if (!grow_hist_list(50))
             return;
 
@@ -173,11 +246,10 @@ void add_history(const char *line)
  * write_history:
  *      Write command history to a file.
  */
-void write_history(void)
+static void write_history(const char *fn)
 {
-    char **s;                        // iterator
-    FILE *fp = NULL;                 // file stream pointer
-    const char *fn = histfilename(); // filestream name
+    char **s;                   // iterator
+    FILE *fp = NULL;            // file stream pointer
 
     if (!hist_list || !*hist_list)
         return;
@@ -196,61 +268,4 @@ void write_history(void)
     // Close the file stream
     fclose(fp);
 }
-
-/**
- * free_history_list:
- *      Free the input history.
- */
-void free_history_list(void)
-{
-    char **i = NULL;
-
-    if (!hist_list || !*hist_list)
-        return;
-
-    for (i = hist_list; *i; i++)
-        free(*i);
-
-    free(hist_list);
-    hist_list = NULL;
-}
 #endif
-
-/**
- * histfilename:
- *      Return the name of the history file.
- */
-const char *histfilename(void)
-{
-    static char fn[MAXLINE + 1] = { '\0' };
-
-    if (!*fn)
-        snprintf(fn, MAXLINE, "%s/.lusushist", getenv("HOME"));
-
-    return fn;
-}
-
-/**
- * print_history:
- *      Display a list of the lines stored in hist_list.
- */
-void print_history(void)
-{
-    size_t i;
-
-#ifdef HAVE_LIBREADLINE
-    if (!(hist_list = history_list()))
-        return;
-
-    for (i = 0; hist_list[i]; i++)
-        printf("%4zu:\t%s\n", i + history_base, hist_list[i]->line);
-#else
-    if (!hist_list) {
-        error_message("no hist list");
-        return;
-    }
-
-    for (i = 0; i < hist_size && *hist_list[i]; i++)
-        printf("%zu:\t%s\n", i + 1, hist_list[i]);
-#endif
-}

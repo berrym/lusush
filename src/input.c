@@ -35,10 +35,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif
 
 #define DBGSTR "DEBUG: input.c: "
 
@@ -66,7 +62,7 @@ void free_line_read(void)
     line_read = NULL;
 }
 
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_EDITLINE_READLINE_H) || defined(HAVE_LIBREADLINE)
 /**
  * rl_gets:
  *      Read a string, and return a pointer to it.  Returns 0 on EOF.
@@ -98,7 +94,7 @@ char *get_input(FILE *in)
     // If the buffer has been previously allocated free it
     free_line_read();
 
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_EDITLINE_READLINE_H) || defined(HAVE_LIBREADLINE)
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
         build_prompt();
@@ -109,7 +105,7 @@ char *get_input(FILE *in)
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
             error_return("lusush: input.c: get_input: calloc");
 
-        if (fgets(line_read, MAXLINE + 1, in) == NULL)
+        if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;
 
         null_terminate(line_read);

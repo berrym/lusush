@@ -27,7 +27,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
+//#include "lusush.h"
 #include "init.h"
 #include "tty.h"
 #include "cmdlist.h"

@@ -77,7 +77,7 @@ void tty_init(bool init_ts)
         if (tcgetattr(ttyfd, &ts) < 0)
             error_return("lusush: tty.c: tty_init: tcgetattr");
 
-    // Close the tty stream
+    // Close the tty
     if (do_close)
         if (close(fd) < 0)
             error_return("lusush: tty.c: tty_init: close");

@@ -40,9 +40,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_LIBREADLINE
-#include <readline/history.h>
-#endif
 
 // The type of shell instance
 static int SHELL_TYPE;
@@ -136,11 +133,9 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_alias_list);
     atexit(free_command_list);
     atexit(free_line_read);
-#ifndef HAVE_LIBREADLINE
     atexit(free_history_list);
-#endif
-    atexit((void *)write_history);
     atexit(tty_close);
+    atexit(save_history);
 
     return optind;
 }
