@@ -134,6 +134,7 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_command_list);
     atexit(free_line_read);
     atexit(free_history_list);
+    atexit(close_std_ttys);
     atexit(tty_close);
     atexit(save_history);
 

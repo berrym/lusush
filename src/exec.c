@@ -42,7 +42,7 @@
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 
-static int pfd[2];       // pipe file descriptors for parent/child ipc
+static int pfd[2] = { -1 }; // pipe file descriptors for parent/child ipc
 
 /**
  * tell_wait:
@@ -50,8 +50,11 @@ static int pfd[2];       // pipe file descriptors for parent/child ipc
  */
 static void tell_wait(void)
 {
-    if (pipe(pfd) < 0)
+    // Create a new parent/child ipc pipe
+    if (pipe(pfd) < 0) {
         error_return("lusush: exec.c: tell_wait: pipe");
+        pfd[0] = pfd[1] = -1;
+    }
 }
 
 /**
@@ -113,7 +116,7 @@ static void set_pipes(struct command * cmd)
  * close_old_pipes:
  *      Close old unused pipes.
  */
-static void close_old_pipes(struct command *cmd)
+static void close_old_cmd_pipes(struct command *cmd)
 {
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
@@ -122,10 +125,6 @@ static void close_old_pipes(struct command *cmd)
             error_return("lusush: exec.c: close_old_pipes: close");
         cmd->prev->pfd[0] = cmd->prev->pfd[1] = -1;
     }
-
-    // Close pipes created by tell_wait
-    if (close(pfd[0]) < 0 || close(pfd[1]) < 0)
-        error_return("lusush: exec.c: close_old_pipes: close");
 }
 
 /**
@@ -202,7 +201,19 @@ static int exec_external_cmd(struct command *cmd)
 
         // Close old pipe ends
         if (cmd->pipe && !cmd->pipe_head)
-            close_old_pipes(cmd);
+            close_old_cmd_pipes(cmd);
+
+        if (pfd[0] >= 0) {
+            if (close(pfd[0]) < 0)
+                error_return("lusush: exec.c: tell_wait: close");
+            pfd[0] = -1;
+        }
+
+        if (pfd[1] >= 0) {
+            if (close(pfd[1]) < 0)
+                error_return("lusush: exec.c: tell_wait: close");
+            pfd[1] = -1;
+        }
         break;
     }
 

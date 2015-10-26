@@ -248,7 +248,7 @@ void add_history(const char *line)
  */
 static void write_history(const char *fn)
 {
-    char **s;                   // iterator
+    char **s = NULL;            // iterator
     FILE *fp = NULL;            // file stream pointer
 
     if (!hist_list || !*hist_list)

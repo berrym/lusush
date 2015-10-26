@@ -85,4 +85,6 @@ extern void error_coredump(const char *, ...);
 extern size_t strnlen(const char *, size_t);
 #endif
 
+void close_std_ttys(void);
+
 #endif

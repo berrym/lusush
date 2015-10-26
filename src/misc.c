@@ -28,6 +28,7 @@
  */
 
 #include "opts.h"
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,4 +150,23 @@ void vputs(const char *fmt, ...)
         vprintf(fmt, args);
         va_end(args);
     }
+}
+
+/**
+ * close_std_ttys:
+ *      Close the standard input, output, and error.
+ */
+void close_std_ttys(void)
+{
+    if (isatty(STDIN_FILENO))
+        if (close(STDIN_FILENO) < 0)
+            error_return("lusush: misc.c: close_std_ttys: close");
+
+    if (isatty(STDERR_FILENO))
+        if (close(STDERR_FILENO) < 0)
+            error_return("lusush: misc.c: close_std_ttys: close");
+
+    if (isatty(STDOUT_FILENO))
+        if (close(STDOUT_FILENO) < 0)
+            error_return("lusush: misc.c: close_std_ttys: close");
 }
