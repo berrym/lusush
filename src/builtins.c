@@ -38,6 +38,7 @@
 #include <string.h>
 
 // Built in command functions
+static int bin_exit(const struct command *);
 static int bin_help(const struct command *);
 static int bin_cd(const struct command *);
 static int bin_pwd(const struct command *);
@@ -52,6 +53,7 @@ static int bin_setprompt(const struct command *);
 
 // Built in commands struct table
 static struct builtin builtins[] = {
+    { "exit",      "exit shell",                 bin_exit      },
     { "help",      "display help",               bin_help      },
     { "cd",        "change directory",           bin_cd        },
     { "pwd",       "print working directory",    bin_pwd       },
@@ -65,6 +67,15 @@ static struct builtin builtins[] = {
     { "setprompt", "set prompt attributes",      bin_setprompt },
     { NULL,        NULL,                         NULL          }
 };
+
+/**
+ * bin_exit:
+ *      Wrapper for the exit command, actual exit takes place in caller.
+ */
+static int bin_exit(const struct command *ignore)
+{
+    return 0;
+}
 
 /**
  * bin_help:
