@@ -35,7 +35,7 @@
 struct builtin {
     char *name;
     char *doc;
-    int  (*func)(const struct command *);
+    int  (*func)(struct command *);
 };
 
 struct builtin *find_builtin(const char *);
