@@ -241,6 +241,14 @@ void exec_cmd(struct command *cmdp)
                 break;
             }
 
+            // Special case for the exit command
+            if (strcmp(bin->name, "exit") ==0) {
+                free(bin);
+                bin = NULL;
+                printf("Goodbye!\n");
+                exit(EXIT_SUCCESS);
+            }
+
             // Call the builtin function
             err = bin->func(cmd);
             vputs("BUILTIN (%s) returned a status of %d\n", bin->name, err);

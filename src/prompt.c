@@ -205,20 +205,17 @@ void set_prompt(int argc, char **argv)
             break;
         case 'a':               // set fancy prompt text attribute
             for (i = 0; i < 6; i++)
-                if (strncmp(optarg, attr_opts[i].key,
-                            strnlen(attr_opts[i].key, MAXLINE)) == 0)
+                if (strcmp(optarg, attr_opts[i].key) == 0)
                     set_prompt_attr(attr_opts[i].val);
             break;
         case 'f':               // set fancy prompt foreground color
             for (i = 0; i < 8; i++)
-                if (strncmp(optarg, fg_opts[i].key,
-                            strnlen(fg_opts[i].key, MAXLINE)) == 0)
+                if (strcmp(optarg, fg_opts[i].key) == 0)
                     set_prompt_fg(fg_opts[i].val);
             break;
         case 'b':               // set fancy prompt background color
             for (i = 0; i < 8; i++)
-                if (strncmp(optarg, bg_opts[i].key,
-                            strnlen(bg_opts[i].key, MAXLINE)) == 0)
+                if (strcmp(optarg, bg_opts[i].key) == 0)
                     set_prompt_bg(bg_opts[i].val);
             break;
         case 'v':               // print valid setprompt options
@@ -233,7 +230,8 @@ void set_prompt(int argc, char **argv)
         case -1:
             break;
         default:
-            abort();            // never reached, hopefully
+            setprompt_usage();
+            break;
         }
     } while (nopt != -1);
 }

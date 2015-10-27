@@ -263,7 +263,8 @@ static void write_history(const char *fn)
 
     // Write each history item as a new line
     for (s = hist_list; *s; s++)
-        fprintf(fp, "%s\n", *s);
+        if (**s)
+            fprintf(fp, "%s\n", *s);
 
     // Close the file stream
     fclose(fp);
