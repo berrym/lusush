@@ -32,10 +32,9 @@
 #include "lusush.h"
 #include <termios.h>
 
-#define FDBASE 10               // first file usable by shell
+#define FDBASE 10               // first file descriptor usable by shell
 
 extern int ttyfd;
-extern bool tty_devtty;
 extern struct termios ts;
 
 extern void tty_init(bool);

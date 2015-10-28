@@ -31,6 +31,7 @@
 #include "prompt.h"
 #include "opts.h"
 #include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -243,30 +244,46 @@ void set_prompt(int argc, char **argv)
  */
 void build_prompt(void)
 {
-    char *cwd = NULL;
-    char prompt[MAXLINE] = { '\0' };
-
-    // Get current working directory
-    if (!(cwd = getcwd(NULL, 0)))
-        error_return("lusush: prompt.c: build_prompt: getcwd");
+    char u[LOGIN_NAME_MAX + 1] = { '\0' }; // username
+    char h[HOST_NAME_MAX + 1] = { '\0' };  // hostname
+    char d[PATH_MAX + 1] = { '\0' };       // current workind directory
+    char prompt[MAXLINE + 1] = { '\0' };   // prompt string
 
     // Build a prompt string
     if (opt_is_set(FANCY_PROMPT)) {
+        // Get user's login name
+        if (getlogin_r(u, LOGIN_NAME_MAX) < 0) {
+            error_return("lusush: prompt.c: build_prompt: getlogin_r");
+            goto fancy_error;
+        }
+
+        // Get machine host name
+        if (gethostname(h, HOST_NAME_MAX) < 0) {
+            error_return("lusush: prompt.c: build_prompt: gethostname");
+            goto fancy_error;
+        }
+
+        // Get current working directory
+        if (!(getcwd(d, PATH_MAX))) {
+            error_return("lusush: prompt.c: build_prompt: getcwd");
+            goto fancy_error;
+        }
+
+        // Build text colors, and then the formatted prompt string
         build_colors();
-        snprintf(prompt, MAXLINE, "%s%s%s\n%% ", colors, cwd, RESET);
+        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%% ",
+                 colors, u, h, d, RESET);
     }
     else {
-        strncpy(prompt, "% ", 3);
+fancy_error:
+        if (getuid() > 0)
+            strncpy(prompt, "% ", 3); // normal user prompt
+        else
+            strncpy(prompt, "# ", 3); // root user prompt
     }
 
     // Set the PROMPT environment variable
     setenv("PROMPT", prompt, 1);
-
-    // Clean up
-    if (cwd)
-        free(cwd);
-
-    cwd = NULL;
 
     if (colors)
         free(colors);

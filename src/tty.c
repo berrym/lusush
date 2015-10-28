@@ -34,7 +34,6 @@
 #include <stdio.h>
 
 int ttyfd = -1;                 // tty file descriptor
-bool tty_devtty;                // flag that we have a tty
 struct termios ts;              // tty attributes
 
 /**
@@ -49,12 +48,10 @@ void tty_init(bool init_ts)
 
     // Close old tty descriptor
     tty_close();
-    tty_devtty = true;          // we have access to a tty
 
     // Open the controlling tty, usually /dev/tty
     if ((fd = open(ctermid(NULL), O_RDWR, 0)) < 0) {
         error_return("lusush: init.c: tty_init: open");
-        tty_devtty = false;
         do_close = false;
         // Keep looking for a tty if one wasn't found
         if (isatty(0)) {
