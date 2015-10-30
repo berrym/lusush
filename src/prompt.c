@@ -246,7 +246,7 @@ void build_prompt(void)
 {
     char u[LOGIN_NAME_MAX + 1] = { '\0' }; // username
     char h[HOST_NAME_MAX + 1] = { '\0' };  // hostname
-    char d[PATH_MAX + 1] = { '\0' };       // current workind directory
+    char d[PATH_MAX + 1] = { '\0' };       // current working directory
     char prompt[MAXLINE + 1] = { '\0' };   // prompt string
 
     // Build a prompt string
@@ -271,8 +271,8 @@ void build_prompt(void)
 
         // Build text colors, and then the formatted prompt string
         build_colors();
-        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%% ",
-                 colors, u, h, d, RESET);
+        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%c ",
+                 colors, u, h, d, RESET, (getuid() > 0) ? '%' : '#');
     }
     else {
 fancy_error:
