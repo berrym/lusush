@@ -240,7 +240,7 @@ void set_prompt(int argc, char **argv)
 /**
  * build_prompt:
  *      Builds the user's prompt, either a fancy colored one with
- *      the current working directory or a plain '% '.
+ *      the current working directory or a plain '% or # '.
  */
 void build_prompt(void)
 {

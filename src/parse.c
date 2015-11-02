@@ -178,10 +178,10 @@ static void expand_line(char *s)
 
     // Tokenize tmp
     while ((tok = tokenize(&tmp, NULL, true))) {
-            strip_trailing_whspc(tok);
-            expand_token(tok, buf);
-            free(tok);
-            tok = NULL;
+        strip_trailing_whspc(tok);
+        expand_token(tok, buf);
+        free(tok);
+        tok = NULL;
     }
 
     // Restore tmp

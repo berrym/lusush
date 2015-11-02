@@ -21,6 +21,7 @@ AC_CHECK_HEADERS([fcntl.h \
 		  string.h \
 		  termios.h \
 		  unistd.h \
+		  limits.h \
 		  editline/readline.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -36,6 +37,7 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit \
 		dup2 \
 		getcwd \
+		gethostname \
 		memset \
 		setenv \
 		setlocale \
