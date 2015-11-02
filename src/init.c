@@ -34,7 +34,6 @@
 #include "history.h"
 #include "cmdlist.h"
 #include "input.h"
-#include "tty.h"
 #include <sys/stat.h>
 #include <locale.h>
 #include <signal.h>
@@ -135,7 +134,6 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_line_read);
     atexit(free_history_list);
     atexit(close_std_ttys);
-    atexit(tty_close);
     atexit(save_history);
 
     return optind;

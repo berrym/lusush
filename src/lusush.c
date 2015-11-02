@@ -28,7 +28,6 @@
  */
 
 #include "init.h"
-#include "tty.h"
 #include "cmdlist.h"
 #include "input.h"
 #include "parse.h"
@@ -54,8 +53,6 @@ int main(int argc, char **argv)
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
     while (looping) {
-        tty_init(true);
-
         // Allocate memory for doubly linked list of commands
         cmd = create_command_list();
 
@@ -79,7 +76,6 @@ int main(int argc, char **argv)
             free_command_list();
             break;
         }
-        tty_close();
     }
 
     if (shell_type() != NORMAL_SHELL)
