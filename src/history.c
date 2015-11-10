@@ -94,26 +94,18 @@ void init_history(void)
  */
 void print_history(void)
 {
-#if defined(HAVE_EDITLINE_READLINE_H)
-    HIST_ENTRY *h = NULL;
     size_t i = 0;
+
+#if defined(HAVE_EDITLINE_READLINE_H) || defined(HAVE_LIBREADLINE)
+    HIST_ENTRY *h = NULL;
 
     for (i = 0; h = history_get(i + history_base); i++)
-        printf("%s\n", h->line);
-#elif defined(HAVE_LIBREADLINE)
-    HIST_ENTRY **hl = NULL;
-    size_t i = 0;
-
-    if (!(hl = history_list()))
-        return;
-
-    for (i = 0; hl[i]; i++)
-        printf("%s\n", hl[i]->line);
+        printf("%5u\t%s\n", i + 1, h->line);
 #else
     char **s = NULL;
 
-    for (s = hist_list; *s; s++)
-        printf("%s\n", *s);
+    for (i = 0, s = hist_list; *s; i++, s++)
+        printf("%5u\t%s\n", i + 1, *s);
 #endif
 }
 
