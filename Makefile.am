@@ -1,7 +1,7 @@
 bin_PROGRAMS = lusush
 lusush_SOURCES = src/lusush.c \
 	src/init.c \
-	src/misc.c \
+	src/util.c \
 	src/alias.c \
 	src/opts.c \
 	src/history.c \

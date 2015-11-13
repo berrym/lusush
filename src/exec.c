@@ -61,7 +61,7 @@ static void tell_wait(void)
  * tell_parent:
  *      Write a character 'c' to parent process signaling to quit blocking.
  */
-static void tell_parent(pid_t pid)
+static void tell_parent(void)
 {
     if (write(pfd[1], "c", 1) != 1)
         error_return("lusush: exec.c: tell_parent: write");
@@ -187,7 +187,7 @@ static int exec_external_cmd(struct command *cmd)
             set_redirections(cmd);
 
         // Signal parent to quit blocking
-        tell_parent(getppid());
+        tell_parent();
 
         // Call execvp
         vputs("calling execvp\n");
@@ -242,7 +242,7 @@ void exec_cmd(struct command *cmdp)
             }
 
             // Special case for the exit command
-            if (strcmp(bin->name, "exit") ==0) {
+            if (strcmp(bin->name, "exit") == 0) {
                 free(bin);
                 bin = NULL;
                 printf("Goodbye!\n");

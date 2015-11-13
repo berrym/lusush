@@ -1,5 +1,5 @@
 /**
- * misc.c - various functions that didn't fit anywhere else.
+ * util.c - various utility functions that didn't fit anywhere else.
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -39,7 +39,7 @@
  * do_error:
  *      Print an error message and return to caller.
  */
-static void do_error(int errnoflag, int err, const char *fmt, va_list args)
+static void do_error(bool errnoflag, int err, const char *fmt, va_list args)
 {
     char buf[MAXLINE] = { '\0' };
 
@@ -59,26 +59,26 @@ static void do_error(int errnoflag, int err, const char *fmt, va_list args)
 /**
  * error_return:
  *      Nonfatal error related to a system call.
- *      Print and error message and return.
+ *      Print an error message and return.
  */
 void error_return(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    do_error(1, errno, fmt, args);
+    do_error(true, errno, fmt, args);
     va_end(args);
 }
 
 /**
  * error_syscall:
  *      Fatal error related to a system call.
- *      Print and error message and terminate.
+ *      Print an error message and terminate.
  */
 void error_syscall(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    do_error(1, errno, fmt, args);
+    do_error(true, errno, fmt, args);
     va_end(args);
     exit(EXIT_FAILURE);
 }
@@ -92,7 +92,7 @@ void error_message(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    do_error(0, 0, fmt, args);
+    do_error(false, 0, fmt, args);
     va_end(args);
 }
 
@@ -105,7 +105,7 @@ void error_quit(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    do_error(0, 0, fmt, args);
+    do_error(false, 0, fmt, args);
     va_end(args);
     exit(EXIT_FAILURE);
 }
@@ -119,13 +119,17 @@ void error_coredump(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    do_error(0, 0, fmt, args);
+    do_error(false, 0, fmt, args);
     va_end(args);
     abort();                    // dump core and terminate
     exit(EXIT_FAILURE);         // should never happen
 }
 
 #ifndef HAVE_STRNLEN
+/**
+ * strnlen:
+ *      Count the number of characters in a string up to maxlen.
+ */
 size_t strnlen(const char *s, size_t maxlen)
 {
     size_t len;
