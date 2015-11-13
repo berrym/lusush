@@ -27,14 +27,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "lusush.h"
 #include "input.h"
 #include "init.h"
 #include "history.h"
 #include "prompt.h"
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 
 #define DBGSTR "DEBUG: input.c: "
 

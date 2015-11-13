@@ -27,10 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "exec.h"
-#include "history.h"
-#include "builtins.h"
-#include "alias.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -39,6 +35,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "exec.h"
+#include "history.h"
+#include "builtins.h"
+#include "alias.h"
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : 0)
 

@@ -27,15 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
-#include "prompt.h"
-#include "opts.h"
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "lusush.h"
+#include "prompt.h"
+#include "opts.h"
 
 #define DBGSTR "lusush: prompt.c: "
 
@@ -244,27 +244,27 @@ void set_prompt(int argc, char **argv)
  */
 void build_prompt(void)
 {
-    char u[LOGIN_NAME_MAX + 1] = { '\0' }; // username
-    char h[HOST_NAME_MAX + 1] = { '\0' };  // hostname
-    char d[PATH_MAX + 1] = { '\0' };       // current working directory
-    char prompt[MAXLINE + 1] = { '\0' };   // prompt string
+    char u[_POSIX_LOGIN_NAME_MAX + 1] = { '\0' }; // username
+    char h[_POSIX_HOST_NAME_MAX + 1] = { '\0' };  // hostname
+    char d[_POSIX_PATH_MAX + 1] = { '\0' };       // current working directory
+    char prompt[MAXLINE + 1] = { '\0' };          // prompt string
 
     // Build a prompt string
     if (opt_is_set(FANCY_PROMPT)) {
         // Get user's login name
-        if (getlogin_r(u, LOGIN_NAME_MAX) < 0) {
+        if (getlogin_r(u, _POSIX_LOGIN_NAME_MAX) < 0) {
             error_return("lusush: prompt.c: build_prompt: getlogin_r");
             goto fancy_error;
         }
 
         // Get machine host name
-        if (gethostname(h, HOST_NAME_MAX) < 0) {
+        if (gethostname(h, _POSIX_HOST_NAME_MAX) < 0) {
             error_return("lusush: prompt.c: build_prompt: gethostname");
             goto fancy_error;
         }
 
         // Get current working directory
-        if (!(getcwd(d, PATH_MAX))) {
+        if (!(getcwd(d, _POSIX_PATH_MAX))) {
             error_return("lusush: prompt.c: build_prompt: getcwd");
             goto fancy_error;
         }

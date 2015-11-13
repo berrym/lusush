@@ -27,13 +27,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdlib.h>
+#include <string.h>
 #include "init.h"
 #include "cmdlist.h"
 #include "input.h"
 #include "parse.h"
 #include "exec.h"
-#include <stdlib.h>
-#include <string.h>
 
 /**
  * main:

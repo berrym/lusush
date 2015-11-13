@@ -27,15 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "builtins.h"
 #include "alias.h"
 #include "history.h"
 #include "opts.h"
 #include "prompt.h"
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 // Built in command functions
 static int bin_exit(const struct command *);

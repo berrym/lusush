@@ -27,11 +27,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "lusush.h"
-#include "alias.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lusush.h"
+#include "alias.h"
 
 #define DBGSTR "DEBUG: alias.c: "
 

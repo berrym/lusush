@@ -27,11 +27,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "opts.h"
-#include "prompt.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include "opts.h"
+#include "prompt.h"
 
 #define DBGSTR "lusush: opts.c: "
 
