@@ -81,7 +81,7 @@ static TEXT_ATTRIB attr  = NONE;      // default text attributes
 
 // Key->value struct for ANSI codes
 struct opt_pair {
-    char key[15];
+    char *key;
     int val;
 };
 
