@@ -28,7 +28,6 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
 #include "init.h"
 #include "cmdlist.h"
 #include "input.h"
