@@ -99,7 +99,7 @@ void print_history(void)
 #if defined(HAVE_EDITLINE_READLINE_H) || defined(HAVE_LIBREADLINE)
     HIST_ENTRY *h = NULL;
 
-    for (i = 0; h = history_get(i + history_base); i++)
+    for (i = 0; (h = history_get(i + history_base)); i++)
         printf("%5u\t%s\n", i + 1, h->line);
 #else
     char **s = NULL;
