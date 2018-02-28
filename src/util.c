@@ -111,11 +111,11 @@ void error_quit(const char *fmt, ...)
 }
 
 /**
- * error_coredump:
+ * error_abort:
  *      Fatal error related to a system call.
  *      Print an error message, dump core, and terminate.
  */
-void error_coredump(const char *fmt, ...)
+void error_abort(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);

@@ -35,7 +35,7 @@
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4095            // maximum string length
+#define MAXLINE 4096            // maximum string length
 
 // Make sure bool is a defined type
 #ifdef HAVE__BOOL
@@ -78,7 +78,7 @@ extern void error_return(const char *, ...);
 extern void error_syscall(const char *, ...);
 extern void error_message(const char *, ...);
 extern void error_quit(const char *, ...);
-extern void error_coredump(const char *, ...);
+extern void error_abort(const char *, ...);
 
 // Make sure strnlen is declared
 #ifndef HAVE_STRNLEN

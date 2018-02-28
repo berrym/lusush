@@ -59,7 +59,7 @@ static void sig_int(int signo)
  */
 static void sig_seg(int signo)
 {
-    error_coredump("lusush: caught signal %d, terminating.\n"
+    error_abort("lusush: caught signal %d, terminating.\n"
                    "\tAnd fix your damn code.\n", signo);
 }
 
