@@ -60,7 +60,7 @@ static void sig_int(int signo)
 static void sig_seg(int signo)
 {
     error_abort("lusush: caught signal %d, terminating.\n"
-                   "\tAnd fix your damn code.\n", signo);
+                "\tAnd fix your damn code.\n", signo);
 }
 
 /**
@@ -116,7 +116,7 @@ int init(int argc, char **argv, FILE **in)
             SHELL_TYPE = NORMAL_SHELL;
             vputs("THIS IS A NORMAL SHELL\n");
             if ((*in = fopen(argv[optind], "r")) == NULL)
-                error_syscall("lusush: init.c: init: fopen");
+                error_syscall("init: fopen");
         }
     }
     else {

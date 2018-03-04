@@ -36,8 +36,6 @@
 #include "opts.h"
 #include "alias.h"
 
-#define DBGSTR "DEBUG: parse.c: "
-
 #define PARSER_ERROR_ABORT -1   // indicate shell should terminate
 #define PARSER_ERROR_BREAK 0    // quit parsing current input
 #define PARSER_CONTINUE_ON 1    // keep going everything is ok
@@ -149,10 +147,12 @@ static void expand_token(char *tok, char *buf)
     strncat(buf, ea, strnlen(ea, MAXLINE));
 
     vputs("EA ==>\t(%s)\n", ea);
+
     // Concatenate any data left in tok after subtok into buf
     if (strncmp(ea, subtok, MAXLINE) != 0)
         for (k = strnlen(buf, MAXLINE); k < strnlen(subtok, MAXLINE); k++)
             buf[strnlen(buf, MAXLINE)] = subtok[k];
+
     vputs("BUF ==>\t(%s)\n", buf);
 }
 
@@ -808,11 +808,14 @@ int parse_command(const char *linep, struct command *cmdp)
         vputs("TMP ==> %s\n", tmp);
     }
 
+    // Restore tmp
     tmp = savep;
+
+    // Free tmp
     if (tmp)
         free(tmp);
-    tmp = NULL;
-    savep = NULL;
+
+    tmp = savep = NULL;
 
     return count;               // return number of command's parsed
 }

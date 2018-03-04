@@ -107,7 +107,7 @@ static int bin_help(const struct command *cmd)
 static int bin_cd(const struct command *cmd)
 {
     if (chdir(cmd->argv[1]) < 0) {
-        error_return("lusush: builtins.c: cd: chdir");
+        error_return("cd: chdir");
         return 1;
     }
 
@@ -123,7 +123,7 @@ static int bin_pwd(const struct command *ignore)
     char cwd[MAXLINE] = { '\0' };
 
     if (getcwd(cwd, MAXLINE - 1) == NULL) {
-        error_return("lusush: builtins.c: pwd: getcwd");
+        error_return("pwd: getcwd");
         return 1;
     }
 
@@ -154,7 +154,7 @@ static int bin_setenv(const struct command *cmd)
     }
 
     if (setenv(cmd->argv[1], cmd->argv[2], 1) < 0) {
-        error_return("lusush: exec.c: exec_builtin_cmd: setenv");
+        error_return("exec_builtin_cmd: setenv");
         return 1;
     }
 
@@ -173,7 +173,7 @@ static int bin_unsetenv(const struct command *cmd)
     }
 
     if (unsetenv(cmd->argv[1]) < 0) {
-        error_return("lusush: exec.c: exec_builtin_cmd: unsetenv");
+        error_return("exec_builtin_cmd: unsetenv");
         return 1;
     }
 
@@ -292,7 +292,7 @@ struct builtin *find_builtin(const char *name)
     for (i = 0; builtins[i].name; i++) {
         if (strcmp(name, builtins[i].name) == 0) {
             if ((bin = calloc(1, sizeof(builtins[i]))) == NULL) {
-                error_return("lusush: builtins.c: find_builtin: calloc");
+                error_return("find_builtin: calloc");
                 return NULL;
             }
             return memcpy(bin, &builtins[i], sizeof(builtins[i]));

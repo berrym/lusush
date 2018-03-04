@@ -36,8 +36,6 @@
 #include "history.h"
 #include "prompt.h"
 
-#define DBGSTR "DEBUG: input.c: "
-
 static char *line_read = NULL;  // storage for readline and fgets
 
 /**
@@ -103,7 +101,7 @@ char *get_input(FILE *in)
     }
     else {
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-            error_return("lusush: input.c: get_input: calloc");
+            error_return("get_input: calloc");
 
         if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;
@@ -113,7 +111,7 @@ char *get_input(FILE *in)
 #else
     // Allocate memory for a line of input
     if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_return("lusush: input.c: get_input: calloc");
+        error_return("get_input: calloc");
 
     // If the shell is interactive print a prompt string
     if (shell_type() != NORMAL_SHELL) {

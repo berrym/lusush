@@ -33,8 +33,6 @@
 #include "lusush.h"
 #include "alias.h"
 
-#define DBGSTR "DEBUG: alias.c: "
-
 struct alias {
     char key[MAXLINE];
     char val[MAXLINE];
@@ -129,7 +127,7 @@ void set_alias(const char *key, const char *val)
 
     // Replace an existing alias
     if ((curr = lookup_alias(key))) {
-        vputs("%sset_alias: re-setting alias\n", DBGSTR);
+        vputs("set_alias: re-setting alias\n");
         strncpy(curr->val, val, MAXLINE);
         return;
     }
@@ -140,7 +138,7 @@ void set_alias(const char *key, const char *val)
 
     // Special case for dealing with the head node
     if (!head || (strncasecmp(head->key, key, MAXLINE) > 0)) {
-        vputs("%sset_alias: setting root alias node\n", DBGSTR);
+        vputs("set_alias: setting root alias node\n");
         strncpy(new_alias->key, key, MAXLINE);
         strncpy(new_alias->val, val, MAXLINE);
         new_alias->next = head;
@@ -157,7 +155,7 @@ void set_alias(const char *key, const char *val)
         curr->next = new_alias;
         strncpy(new_alias->key, key, strnlen(key, MAXLINE));
         strncpy(new_alias->val, val, strnlen(val, MAXLINE));
-        vputs("%sset_alias: new alias set!\n", DBGSTR);
+        vputs("set_alias: new alias set!\n");
     }
 }
 

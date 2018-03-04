@@ -71,13 +71,12 @@ void init_history(void)
 #if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
     // Check if the history list is already initialized
     if (hist_list) {
-        error_message("lusush: history.c: init_history: "
-                      "already initialized.\n");
+        error_message("init_history: already initialized.\n");
         return;
     }
 
     if ((hist_list = calloc(HIST_LIST_SIZE, sizeof(char *))) == NULL) {
-        error_return("lusush: history.c: init_history: calloc");
+        error_return("init_history: calloc");
         return;
     }
 #else
@@ -150,11 +149,12 @@ static size_t grow_hist_list(size_t N)
 
     if ((hist_list = realloc(hist_list,
                              HIST_LIST_SIZE * sizeof(char *))) == NULL) {
-        error_return("lusush: history.c: grow_hist_list: realloc");
+        error_return("grow_hist_list: realloc");
         return 0;
     }
 
     vputs("*** GREW HISTORY TO %u\n", HIST_LIST_SIZE);
+
     return HIST_LIST_SIZE;
 }
 
@@ -172,7 +172,7 @@ static int read_history(const char *fn)
     // Open the history file for reading
     if ((fp = fopen(fn, "r")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
-            error_return("lusush: history.c: read_histfile: fopen");
+            error_return("read_histfile: fopen");
         return 1;
     }
 
@@ -186,7 +186,7 @@ static int read_history(const char *fn)
                 return 1;
 
         if ((hist_list[i] = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
-            error_return("lusush: history.c: read_history: calloc");
+            error_return("read_history: calloc");
             return 1;
         }
 
@@ -198,7 +198,7 @@ static int read_history(const char *fn)
 
         // Check the stream for errors
         if (ferror(fp)) {
-            error_return("lusush: history.c: read_history");
+            error_return("read_history");
             return 1;
         }
     }
@@ -225,7 +225,7 @@ void add_history(const char *line)
 
     // Allocate next input history
     if ((hist_list[hist_size] = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
-        error_return("lusush: history.c: add_history: calloc");
+        error_return("add_history: calloc");
         return;
     }
 
@@ -249,7 +249,7 @@ static void write_history(const char *fn)
     // Open the history file for writing
     if ((fp = fopen(fn, "w")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
-            error_return("lusush: history.c: write_history: fopen");
+            error_return("write_history: fopen");
         return;
     }
 

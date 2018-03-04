@@ -33,8 +33,6 @@
 #include "opts.h"
 #include "prompt.h"
 
-#define DBGSTR "lusush: opts.c: "
-
 static bool OPTIONS[OPT_CNT] = { false };
 
 /**
@@ -64,7 +62,7 @@ bool set_bool_opt(size_t opt, bool val)
         build_prompt();
         break;
     default:
-        error_message("%sset_bool_opt: unknown option %zu\n", DBGSTR, opt);
+        error_message("set_bool_opt: unknown option %zu\n", opt);
         return false;
     }
 

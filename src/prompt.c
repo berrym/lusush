@@ -37,8 +37,6 @@
 #include "prompt.h"
 #include "opts.h"
 
-#define DBGSTR "lusush: prompt.c: "
-
 // ANSI foreground color values
 typedef enum {
     BLACK = 30,
@@ -140,7 +138,7 @@ static void build_colors(void)
 {
     if (!colors)
         if ((colors = calloc(14, sizeof(char))) == NULL)
-            error_return("lusush: prompt.c: build_colors: calloc");
+            error_return("build_colors: calloc");
 
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
 }
@@ -253,19 +251,19 @@ void build_prompt(void)
     if (opt_is_set(FANCY_PROMPT)) {
         // Get user's login name
         if (getlogin_r(u, _POSIX_LOGIN_NAME_MAX) < 0) {
-            error_return("lusush: prompt.c: build_prompt: getlogin_r");
+            error_return("build_prompt: getlogin_r");
             goto fancy_error;
         }
 
         // Get machine host name
         if (gethostname(h, _POSIX_HOST_NAME_MAX) < 0) {
-            error_return("lusush: prompt.c: build_prompt: gethostname");
+            error_return("build_prompt: gethostname");
             goto fancy_error;
         }
 
         // Get current working directory
         if (!(getcwd(d, _POSIX_PATH_MAX))) {
-            error_return("lusush: prompt.c: build_prompt: getcwd");
+            error_return("build_prompt: getcwd");
             goto fancy_error;
         }
 
