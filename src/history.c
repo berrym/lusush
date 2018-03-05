@@ -99,12 +99,12 @@ void print_history(void)
     HIST_ENTRY *h = NULL;
 
     for (i = 0; (h = history_get(i + history_base)); i++)
-        printf("%5u\t%s\n", i + 1, h->line);
+        printf("%5zu\t%s\n", i + 1, h->line);
 #else
     char **s = NULL;
 
     for (i = 0, s = hist_list; *s; i++, s++)
-        printf("%5u\t%s\n", i + 1, *s);
+        printf("%5zu\t%s\n", i + 1, *s);
 #endif
 }
 

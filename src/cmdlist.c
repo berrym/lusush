@@ -162,6 +162,12 @@ void display_command(struct command *cmd)
     printf("\tiredir->%s\n", cmd->iredir ? "true" : "false");
     printf("\toredir->%s\n", cmd->oredir ? "true" : "false");
     printf("\toredir_append->%s\n", cmd->oredir_append ? "true" : "false");
-    printf("\tifname->%s\n", cmd->ifname ? cmd->ifname : "empty");
-    printf("\tofname->%s\n", cmd->ofname ? cmd->ofname : "empty");
+    if (strnlen(cmd->ifname, MAXLINE) > 0)
+        printf("\tifname->%s\n", cmd->ifname);
+    else
+        printf("\tifname->empty\n");
+    if (strnlen(cmd->ofname, MAXLINE) > 0)
+        printf("\tofname->%s\n", cmd->ofname);
+    else
+        printf("\tofname->empty\n");
 }
