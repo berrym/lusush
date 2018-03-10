@@ -136,7 +136,7 @@ static void expand_token(char *tok, char *buf)
     strip_leading_whspc(tok);
 
     // Tokenize the first word of the token delimited by whitespace
-    if (!(subtok = strtok_r(tok, "\t\n\r\f\v ", &savep)))
+    if (!(subtok = strtok_r(tok, "\t\n\r\a\f\v ", &savep)))
         return;
 
     // Check if subtok has an alias expansion

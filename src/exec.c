@@ -40,7 +40,7 @@
 #include "builtins.h"
 #include "alias.h"
 
-#define WAITFLAGS(command) (command->background ? WNOHANG : 0)
+#define WAITFLAGS(command) (command->background ? WNOHANG : WUNTRACED)
 
 static int pfd[2] = { -1 }; // pipe file descriptors for parent/child ipc
 

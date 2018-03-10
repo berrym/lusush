@@ -164,16 +164,13 @@ void close_std_ttys(void)
 {
     if (isatty(STDIN_FILENO))
         if (close(STDIN_FILENO) < 0)
-            error_return("lusush: util.c: close_std_ttys: "
-                         "close(STDIN_FILENO)");
+            error_return("close_std_ttys: close(STDIN_FILENO)");
 
     if (isatty(STDERR_FILENO))
         if (close(STDERR_FILENO) < 0)
-            error_return("lusush: util.c: close_std_ttys: "
-                         "close(STDERR_FILENO)");
+            error_return("close_std_ttys: close(STDERR_FILENO)");
 
     if (isatty(STDOUT_FILENO))
         if (close(STDOUT_FILENO) < 0)
-            error_return("lusush: util.c: close_std_ttys: "
-                         "close(STDOUT_FILENO)");
+            error_return("close_std_ttys: close(STDOUT_FILENO)");
 }
