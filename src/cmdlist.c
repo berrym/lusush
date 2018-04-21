@@ -60,15 +60,15 @@ struct command *alloc_command(void)
 
     // Allocate struct command
     if ((cmd = calloc(1, sizeof(struct command))) == NULL)
-        error_return("alloc_command: calloc");
+        error_return("calloc");
 
     // Allocate pointer to pointer char
     if ((cmd->argv = calloc(256, sizeof(char *))) == NULL)
-        error_return("alloc_command: calloc");
+        error_return("calloc");
 
     // Allocate room for the first string on the heap
     if ((*cmd->argv = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_return("alloc_command: calloc");
+        error_return("calloc");
 
     // Make sure everything else is zero/null
     cmd->argc = cmd->pfd[0] = cmd->pfd[1] = -1;
@@ -105,11 +105,11 @@ static void free_command(struct command *cmd)
     // Close open pipes
     if (cmd->pfd[0] >= 0)
         if (close(cmd->pfd[0]) < 0)
-            error_return("free_command: close");
+            error_return("close");
 
     if (cmd->pfd[1] >= 0)
         if (close(cmd->pfd[1]) < 0)
-            error_return("free_command: close");
+            error_return("close");
 
     // Fix links
     if (cmd->next)
@@ -147,7 +147,7 @@ void display_command(struct command *cmd)
     size_t i;
 
     if (!cmd) {
-        error_message("display_cmd: "
+        error_message("lusush: "
                       "no access to struct command, cannot display.\n");
         return;
     }

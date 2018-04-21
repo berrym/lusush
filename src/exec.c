@@ -52,7 +52,7 @@ static void tell_wait(void)
 {
     // Create a new parent/child ipc pipe
     if (pipe(pfd) < 0) {
-        error_return("tell_wait: pipe");
+        error_return("pipe");
         pfd[0] = pfd[1] = -1;
     }
 }
@@ -64,7 +64,7 @@ static void tell_wait(void)
 static void tell_parent(void)
 {
     if (write(pfd[1], "c", 1) != 1)
-        error_return("tell_parent: write");
+        error_return("write");
 }
 
 /**
@@ -76,10 +76,10 @@ static void wait_child(void)
     char c;
 
     if (read(pfd[0], &c, 1) != 1)
-        error_return("wait_child: read");
+        error_return("read");
 
     if (c != 'c')
-        error_message("wait_child: incorrect data");
+        error_message("lusush: child process sent incorrect data");
 }
 
 /**
@@ -90,25 +90,25 @@ static void set_pipes(struct command * cmd)
 {
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        vputs("*** Reading from parent pipe\n");
+        vputs("reading from parent pipe\n");
         if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0)
-            error_return("set_pipes: dup2");
+            error_return("dup2");
 
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
-            error_return("set_pipes: close");
+            error_return("close");
     }
 
     // There is a future command in pipe chain
     if (cmd->next && cmd->next->pipe) {
-        vputs("*** Writing to child pipe\n");
+        vputs("writing to child pipe\n");
         if (close(cmd->pfd[0]) < 0)
-            error_return("set_pipes: close");
+            error_return("close");
 
         if (dup2(cmd->pfd[1], fileno(stdout)) < 0)
-            error_return("set_pipes: dup2");
+            error_return("dup2");
 
         if (close(cmd->pfd[1]) < 0)
-            error_return("set_pipes: close");
+            error_return("close");
     }
 }
 
@@ -120,9 +120,9 @@ static void close_old_cmd_pipes(struct command *cmd)
 {
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        vputs("*** Closing old/unused pipe ends\n");
+        vputs("closing old/unused pipe ends\n");
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
-            error_return("close_old_pipes: close");
+            error_return("close");
         cmd->prev->pfd[0] = cmd->prev->pfd[1] = -1;
     }
 }
@@ -136,19 +136,19 @@ static void set_redirections(struct command *cmd)
     // Set up input redirection
     if (cmd->iredir)
         if (freopen(cmd->ifname, "r", stdin) == NULL)
-            error_return("set_redirections: freopen");
+            error_return("freopen");
 
-    // Execute in the backgroud
-    if (cmd->background)
-        if (freopen("/dev/null", "w", stdout) == NULL ||
-            freopen("/dev/null", "w", stderr) == NULL)
-            error_return("set_redirections: freopen");
+    /* // Execute in the backgroud */
+    /* if (cmd->background) */
+    /*     if (freopen("/dev/null", "w", stdout) == NULL || */
+    /*         freopen("/dev/null", "w", stderr) == NULL) */
+    /*         error_return("freopen"); */
 
     // Set up output redirection
     if (cmd->oredir)
         if (freopen(cmd->ofname,
                     cmd->oredir_append ? "a" : "w", stdout) == NULL)
-            error_return("set_redirections: freopen");
+            error_return("freopen");
 }
 
 /**
@@ -165,9 +165,9 @@ static int exec_external_cmd(struct command *cmd)
     // Create a pipe if command is in a pipe chain
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            vputs("*** Creating pipe\n");
+            vputs("creating pipe\n");
             if (pipe(cmd->pfd) < 0)
-                error_return("exec_external_cmd: pipe");
+                error_return("pipe");
         }
     }
 
@@ -176,14 +176,15 @@ static int exec_external_cmd(struct command *cmd)
 
     switch (pid) {
     case -1:                    // fork error
-        error_return("exec_external_command: fork");
+        error_return("fork");
     case 0:                     // child process
+        vputs("child PID is %ld\n", (long)getpid());
         // Configure pipe plumbing
         if (cmd->pipe)
             set_pipes(cmd);
 
         // Configure redirections
-        if (cmd->iredir || cmd->oredir || cmd->background)
+        if (cmd->iredir || cmd->oredir)
             set_redirections(cmd);
 
         // Signal parent to quit blocking
@@ -205,15 +206,19 @@ static int exec_external_cmd(struct command *cmd)
 
         if (pfd[0] >= 0) {
             if (close(pfd[0]) < 0)
-                error_return("tell_wait: close");
+                error_return("close");
             pfd[0] = -1;
         }
 
         if (pfd[1] >= 0) {
             if (close(pfd[1]) < 0)
-                error_return("tell_wait: close");
+                error_return("close");
             pfd[1] = -1;
         }
+
+        if (cmd->background)
+            kill(pid, SIGSTOP);
+
         break;
     }
 
@@ -251,7 +256,7 @@ void exec_cmd(struct command *cmdp)
 
             // Call the builtin function
             err = bin->func(cmd);
-            vputs("BUILTIN (%s) returned a status of %d\n", bin->name, err);
+            vputs("*** BUILTIN (%s) returned a status of %d\n", bin->name, err);
 
             // Free memory used by bin
             free(bin);
@@ -261,10 +266,20 @@ void exec_cmd(struct command *cmdp)
             if (!(pid = exec_external_cmd(cmd)))
                 continue;
 
-            // If executing the command in the background, call waitpid with
-            // the WNOHANG option, otherwise pass 0 to block
-            if ((pid = waitpid(pid, &status, WAITFLAGS(cmd))) == -1)
-                error_return("exec_cmd: waitpid");
+            do {
+                if ((pid = waitpid(pid, &status, WAITFLAGS(cmd))) == -1)
+                    error_return("waitpid");
+
+                if (WIFEXITED(status)) {
+                    vputs("child exited with status %d\n", WEXITSTATUS(status));
+                } else if (WIFSIGNALED(status)) {
+                    vputs("child killed by signal %d\n", WTERMSIG(status));
+                } else if (WIFSTOPPED(status)) {
+                    vputs("child stopped by signal %d\n", WSTOPSIG(status));
+                } else if (WIFCONTINUED(status)) {
+                    vputs("child continued");
+                }
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
         }
     }
 }
