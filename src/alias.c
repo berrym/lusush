@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lusush.h"
+#include "errors.h"
 #include "alias.h"
 
 struct alias {

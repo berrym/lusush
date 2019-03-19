@@ -1,5 +1,5 @@
 /**
- * util.c - various utility functions that didn't fit anywhere else.
+ * errors.h
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -27,60 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include "errors.h"
-#include "opts.h"
+#ifndef ERRORS_H
+#define ERRORS_H
 
-#ifndef HAVE_STRNLEN
-/**
- * strnlen:
- *      Count the number of characters in a string up to maxlen.
- */
-size_t strnlen(const char *s, size_t maxlen)
-{
-    size_t len;
+extern void error_return(const char *, ...);
+extern void error_syscall(const char *, ...);
+extern void error_message(const char *, ...);
+extern void error_quit(const char *, ...);
+extern void error_abort(const char *, ...);
+extern void sig_int(int);
+extern void sig_seg(int);
 
-    for (len = 0; len < maxlen; len++, s++)
-        if (!*s)
-            break;
-
-    return len;
-}
 #endif
-
-/**
- * vputs:
- *      Print formatted string if VERBOSE_PRINT option is set.
- */
-void vputs(const char *fmt, ...)
-{
-    if (opt_is_set(VERBOSE_PRINT)) {
-        va_list args;
-        va_start(args, fmt);
-        vprintf(fmt, args);
-        va_end(args);
-    }
-}
-
-/**
- * close_std_ttys:
- *      Close the standard input, output, and error.
- */
-void close_std_ttys(void)
-{
-    if (isatty(STDIN_FILENO))
-        if (close(STDIN_FILENO) < 0)
-            error_return("close_std_ttys: close(STDIN_FILENO)");
-
-    if (isatty(STDERR_FILENO))
-        if (close(STDERR_FILENO) < 0)
-            error_return("close_std_ttys: close(STDERR_FILENO)");
-
-    if (isatty(STDOUT_FILENO))
-        if (close(STDOUT_FILENO) < 0)
-            error_return("close_std_ttys: close(STDOUT_FILENO)");
-}

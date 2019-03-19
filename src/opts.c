@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include "errors.h"
 #include "opts.h"
 #include "prompt.h"
 

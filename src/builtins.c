@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "errors.h"
 #include "builtins.h"
 #include "alias.h"
 #include "history.h"

@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "errors.h"
 #include "cmdlist.h"
 
 static struct command *head = NULL; // head node in command list

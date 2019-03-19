@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include "lusush.h"
+#include "errors.h"
 
 /**
  * do_error:
@@ -122,4 +123,24 @@ void error_abort(const char *fmt, ...)
     va_end(args);
     abort();                    // dump core and terminate
     exit(EXIT_FAILURE);         // should never happen
+}
+
+/**
+ * sig_int:
+ *      Interrupt ^C signal handler, ignore it for now.
+ */
+void sig_int(int signo)
+{
+    vputs("\nlusush: caught signal %d.\n", signo);
+}
+
+/**
+ * NOTE: NECESSARALY FATAL
+ * sig_seg:
+ *      Segmentation fault handler, insult programmer then abort.
+ */
+void sig_seg(int signo)
+{
+    error_abort("lusush: caught signal %d, terminating.\n"
+                "\tAnd fix your damn code.\n", signo);
 }

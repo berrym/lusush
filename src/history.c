@@ -32,6 +32,7 @@
 #include <string.h>
 #include <errno.h>
 #include "lusush.h"
+#include "errors.h"
 #include "history.h"
 #include "opts.h"
 

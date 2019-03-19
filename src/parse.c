@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "errors.h"
 #include "parse.h"
 #include "cmdlist.h"
 #include "opts.h"

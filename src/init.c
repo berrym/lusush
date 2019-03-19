@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include "lusush.h"
 #include "init.h"
+#include "errors.h"
 #include "alias.h"
 #include "opts.h"
 #include "history.h"
@@ -42,26 +43,6 @@
 
 // The type of shell instance
 static int SHELL_TYPE;
-
-/**
- * sig_int:
- *      Interrupt ^C signal handler, ignore it for now.
- */
-static void sig_int(int signo)
-{
-    vputs("\nlusush: caught signal %d.\n", signo);
-}
-
-/**
- * NOTE: NECESSARALY FATAL
- * sig_seg:
- *      Segmentation fault handler, insult programmer then abort.
- */
-static void sig_seg(int signo)
-{
-    error_abort("lusush: caught signal %d, terminating.\n"
-                "\tAnd fix your damn code.\n", signo);
-}
 
 /**
  * shell_type:

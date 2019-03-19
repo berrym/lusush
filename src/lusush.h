@@ -74,11 +74,6 @@ struct command
 };
 
 extern void vputs(const char *, ...);
-extern void error_return(const char *, ...);
-extern void error_syscall(const char *, ...);
-extern void error_message(const char *, ...);
-extern void error_quit(const char *, ...);
-extern void error_abort(const char *, ...);
 
 // Make sure strnlen is declared
 #ifndef HAVE_STRNLEN

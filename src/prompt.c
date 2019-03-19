@@ -34,6 +34,7 @@
 #include <string.h>
 #include <getopt.h>
 #include "lusush.h"
+#include "errors.h"
 #include "prompt.h"
 #include "opts.h"
 
