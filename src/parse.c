@@ -51,8 +51,8 @@ enum {
 // Forward declarations of static functions
 static inline void strip_leading_whspc(char *);
 static inline void strip_trailing_whspc(char *);
-static void expand_token(char *, char *);
-static void expand_line(char *);
+static int expand_token(char *, char *);
+static int expand_line(char *);
 static char *tokenize(char **, struct command *, bool);
 static int char_type(char);
 static int do_pound(void);
@@ -125,7 +125,7 @@ static inline void strip_trailing_whspc(char *s)
  * expand_token:
  *      Perform alias expansion on a token.
  */
-static void expand_token(char *tok, char *buf)
+static int expand_token(char *tok, char *buf)
 {
     // Loop iterator
     size_t k;
@@ -138,11 +138,11 @@ static void expand_token(char *tok, char *buf)
 
     // Tokenize the first word of the token delimited by whitespace
     if (!(subtok = strtok_r(tok, "\t\n\r\a\f\v ", &savep)))
-        return;
+        return PARSER_ERROR_BREAK;
 
     // Check if subtok has an alias expansion
     if (!(ea = expand_alias(subtok)))
-        return;
+        return PARSER_ERROR_BREAK;
 
     // Copy the expanded alias into buf
     strncat(buf, ea, strnlen(ea, MAXLINE));
@@ -155,13 +155,15 @@ static void expand_token(char *tok, char *buf)
             buf[strnlen(buf, MAXLINE)] = subtok[k];
 
     vputs("BUF ==>\t(%s)\n", buf);
+
+    return PARSER_CONTINUE_ON;
 }
 
 /**
  * expand_line:
  *      Perform alias substitutions on a string.
  */
-static void expand_line(char *s)
+static int expand_line(char *s)
 {
     char *tok = NULL;             // storage for tokens
     char *tmp = NULL;             // buffer for a copy of s to mangle
@@ -169,8 +171,10 @@ static void expand_line(char *s)
     char buf[MAXLINE] = { '\0' }; // buffer for altered string
 
     // Make a copy of s to mangle
-    if ((tmp = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+    if ((tmp = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
         error_return("lusush: parse.c: expand_line: calloc");
+        return PARSER_ERROR_BREAK;
+    }
 
     strncpy(tmp, s, strnlen(s, MAXLINE));
 
@@ -196,13 +200,15 @@ static void expand_line(char *s)
 
     // If buf is empty or identical to s no substitutions were made
     if (!*buf || strncmp(buf, s, MAXLINE) == 0)
-        return;
+        return PARSER_ERROR_BREAK;
 
     strip_trailing_whspc(buf);
 
     // Copy new buf to s
     memset(s, 0, strnlen(s, MAXLINE));
     strncpy(s, buf, strnlen(buf, MAXLINE - 1) + 1);
+
+    return PARSER_CONTINUE_ON;
 }
 
 /**
@@ -223,8 +229,10 @@ static char *tokenize(char **s, struct command *cmdp, bool keep)
         return NULL;
 
     // Allocate memory for the token
-    if ((tok = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+    if ((tok = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
         error_return("lusush: parse.c: tokenize: calloc");
+        return NULL;
+    }
 
     // Iterate over s and delimit on ';' or '|' unless escaping or in a quote
     for (k = 0, c = *s; *c; k++, c++) {
@@ -773,8 +781,10 @@ int parse_command(const char *linep, struct command *cmdp)
         return PARSER_ERROR_BREAK;
 
     // Make a copy of linep for mangling
-    if (!(tmp = calloc(MAXLINE + 1, sizeof(char))))
+    if ((tmp = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
         error_return("lusush: parse.c: parse_command: calloc");
+        return PARSER_ERROR_BREAK;
+    }
 
     strncpy(tmp, linep, MAXLINE);
 

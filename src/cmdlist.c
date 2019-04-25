@@ -45,7 +45,9 @@ struct command *create_command_list(void)
     if (head)
         return head;
 
-    head = alloc_command();
+    if ((head = alloc_command()) == NULL)
+        return NULL;
+
     vputs("create_command_list: success\n");
 
     return head;
@@ -59,17 +61,31 @@ struct command *alloc_command(void)
 {
     struct command *cmd = NULL; // pointer to new struct command
 
+    cmd = '\0';
+
     // Allocate struct command
-    if ((cmd = calloc(1, sizeof(struct command))) == NULL)
+    if ((cmd = calloc(1, sizeof(struct command))) == NULL) {
         error_return("calloc");
+        return NULL;
+    }
 
     // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(256, sizeof(char *))) == NULL)
-        error_return("calloc");
+    if ((cmd->argv = calloc(128, sizeof(char *))) == NULL) {
+        free(cmd);
+        cmd = NULL;
+        error_message("calloc error on cmd->argv");
+        return NULL;
+    }
 
     // Allocate room for the first string on the heap
-    if ((*cmd->argv = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_return("calloc");
+    if ((*cmd->argv = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
+        free(cmd->argv);
+        cmd->argv = NULL;
+        free(cmd);
+        cmd = NULL;
+        error_message("lusush: calloc error on *cmd->argv\n");
+        return NULL;
+    }
 
     // Make sure everything else is zero/null
     cmd->argc = cmd->pfd[0] = cmd->pfd[1] = -1;
