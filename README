@@ -24,7 +24,10 @@ LUSUSH
     cd lusush
     meson build
     ninja -C build
-    ninja install
+
+    Optionally:
+
+    ninja -C build install
 
 ==== BASIC USAGE
 
