@@ -17,8 +17,10 @@ src = ['src/alias.c',
        'src/prompt.c',
        'src/util.c']
 
+editlinedep = dependency('libedit', required : false)
 readlinedep = dependency('readline',  version : '>=5.2', required : false)
-if readlinedep.found()
+
+if editlinedep.found() or readlinedep.found()
   src += 'src/input-readline.c'
   src += 'src/history-readline.c'
 else
@@ -28,5 +30,5 @@ endif
 
 lusush_exe = executable('lusush',
 			src,
-		        dependencies : readlinedep,
+		        dependencies : [editlinedep, readlinedep],
 			include_directories : inc)
