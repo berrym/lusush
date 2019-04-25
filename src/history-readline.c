@@ -1,5 +1,5 @@
 /**
- * history.h
+ * history.c - routines to work with command input history
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -27,22 +27,73 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HISTORY_H
-#define HISTORY_H
-
-#if defined(HAVE_EDITLINE_READLINE_H)
-#include <editline/readline.h>
-#elif defined(HAVE_LIBREADLINE)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#endif
+#include "lusush.h"
+#include "errors.h"
+#include "history.h"
+#include "opts.h"
 
-extern void init_history(void);
-extern void print_history(void);
-extern void save_history(void);
-extern void free_history_list(void);
-#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
-extern void add_history(const char *);
-#endif
+char *hist_list = NULL;
 
-#endif
+/**
+ * histfilename:
+ *      Return the name of the history file.
+ */
+static const char *histfilename(void)
+{
+    static char fn[MAXLINE + 1] = { '\0' };
+
+    if (!*fn)
+        snprintf(fn, MAXLINE, "%s/.lusushist", getenv("HOME"));
+
+    return fn;
+}
+
+/**
+ * init_history:
+ *      Create or read the history file.
+ */
+void init_history(void)
+{
+    using_history();
+
+    // Read the history file
+    if (read_history(histfilename()) != 0)
+        return;
+}
+
+/**
+ * print_history:
+ *      Display a list of the input history.
+ */
+void print_history(void)
+{
+    size_t i = 0;
+    HIST_ENTRY *h = NULL;
+
+    for (i = 0; (h = history_get(i + history_base)); i++)
+        printf("%5zu\t%s\n", i + 1, h->line);
+}
+
+/**
+ * save_history:
+ *      Function wrapper around write_history.
+ */
+void save_history(void)
+{
+    write_history(histfilename());
+}
+
+/**
+ * free_history_list:
+ *      Free the input history.
+ */
+void free_history_list(void)
+{
+    // place holder
+}

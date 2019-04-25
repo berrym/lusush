@@ -30,30 +30,13 @@
 #ifndef LUSUSH_H
 #define LUSUSH_H
 
-#include "config.h"
-
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
 #define MAXLINE 4096            // maximum string length
 
-// Make sure bool is a defined type
-#ifdef HAVE__BOOL
 #include <stdbool.h>
-#else
-typedef enum { false = 0, true = 1 } bool;
-#endif
-
-// Make sure size_t is a defined type
-#ifndef size_t
-#if defined(HAVE_SYS_TYPES_H)
-#include <sys/types.h>
-#elif defined(HAVE_STDDEF_H)
 #include <stddef.h>
-#else
-typedef unsigned size_t;
-#endif
-#endif
 
 // Doubly linked list of commands to pass to exec
 struct command
@@ -74,11 +57,6 @@ struct command
 };
 
 extern void vputs(const char *, ...);
-
-// Make sure strnlen is declared
-#ifndef HAVE_STRNLEN
-extern size_t strnlen(const char *, size_t);
-#endif
 
 void close_std_ttys(void);
 

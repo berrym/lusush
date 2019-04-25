@@ -36,18 +36,12 @@
 #include "history.h"
 #include "opts.h"
 
-#if defined(HAVE_EDITLINE_READLINE_H)
-char *hist_list = NULL;
-#elif defined(HAVE_LIBREADLINE)
-char *hist_list = NULL;
-#else
 static size_t HIST_LIST_SIZE = 50;     // current size of the table
 static size_t hist_size = 0;           // current number of table entries
 static char **hist_list = NULL;
 static size_t grow_hist_list(size_t);
 static int read_history(const char *);
 static void write_history(const char *);
-#endif
 
 /**
  * histfilename:
@@ -69,7 +63,6 @@ static const char *histfilename(void)
  */
 void init_history(void)
 {
-#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
     // Check if the history list is already initialized
     if (hist_list) {
         error_message("init_history: already initialized.\n");
@@ -80,9 +73,7 @@ void init_history(void)
         error_return("init_history: calloc");
         return;
     }
-#else
-    using_history();
-#endif
+
     // Read the history file
     if (read_history(histfilename()) != 0)
         return;
@@ -95,18 +86,10 @@ void init_history(void)
 void print_history(void)
 {
     size_t i = 0;
-
-#if defined(HAVE_EDITLINE_READLINE_H) || defined(HAVE_LIBREADLINE)
-    HIST_ENTRY *h = NULL;
-
-    for (i = 0; (h = history_get(i + history_base)); i++)
-        printf("%5zu\t%s\n", i + 1, h->line);
-#else
     char **s = NULL;
 
     for (i = 0, s = hist_list; *s; i++, s++)
         printf("%5zu\t%s\n", i + 1, *s);
-#endif
 }
 
 /**
@@ -124,7 +107,6 @@ void save_history(void)
  */
 void free_history_list(void)
 {
-#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
     char **i = NULL;
 
     if (!hist_list || !*hist_list)
@@ -135,11 +117,9 @@ void free_history_list(void)
 
     free(hist_list);
     hist_list = NULL;
-#endif
 }
 
 // Readline functionality reimplementations
-#if !defined(HAVE_EDITLINE_READLINE_H) && !defined(HAVE_LIBREADLINE)
 /**
  * grow_hist_list:
  *      Grow size of the history table by N elements.
@@ -262,4 +242,3 @@ static void write_history(const char *fn)
     // Close the file stream
     fclose(fp);
 }
-#endif

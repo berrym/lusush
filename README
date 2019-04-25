@@ -4,38 +4,27 @@ LUSUSH
 
     Lusush is a shell for the UNIX environment.  It is simple and essentially
     featureless.  Originally developed as an educational experience to gain
-    more familiarity with programming in a UNIX environment, that is what the
+    more familiarity with programming in an UNIX environment, that is what the
     project remains today.
 
     Lusush is useless for most people.  It has no job control, no scripting
     language, and basically lacks most features that people require from a
-    shell.  It is however a lightweight alternative to shells with those
-    features, and does it's job well.
+    shell.
 
-    It should be noted that new features are being added all the time, and
-    support for some of the mentioned missing features is already under way.
-
-    Should anybody find lusush or it's source code useful, perhaps as a How
-    Not To guide in the world of UNIX programming, please let me know.
+    Should anybody find lusush or it's source code useful, perhaps as a `How
+    Not To' guide in the world of UNIX programming, please let me know.
 
 ==== INSTALLATION
 
-    Basic installation can be achieved with the following commands.
+    Lusush now uses the Meson build system.
+    
+    Basic build/installation can be achieved with the following commands.
 
-    ./autogen.sh
-    ./configure
-    make install
-
-    This will put the binary lusush in the top level directory where you can
-    move it to any site specific location you so desire.
-
-    Optionally configure can take some arguments that you may want to set.
-    For example you may want to tell it where to look for libraries.
-    On my NetBSD machine I would give it something that looked like this so
-    that I can link readline into lusush.  This assumes you have installed
-    the readline development libraries and they can be found in /usr/pkg/lib.
-
-    ./configure LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
+    git clone://https://bitbucket.org/berrym/lusush.git
+    cd lusush
+    meson build
+    ninja -C build
+    ninja install
 
 ==== BASIC USAGE
 

@@ -130,7 +130,7 @@ static void expand_token(char *tok, char *buf)
     // Loop iterator
     size_t k;
     // Storage for the call to strtok_r
-    char *subtok = NULL, *ptr = NULL, *savep = NULL;
+    char *subtok = NULL, *savep = NULL;
     // A buffer for an expanded alias
     char *ea = NULL;
 

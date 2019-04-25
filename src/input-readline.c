@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "lusush.h"
 #include "errors.h"
 #include "input.h"
@@ -62,6 +64,26 @@ void free_line_read(void)
 }
 
 /**
+ * rl_gets:
+ *      Read a string, and return a pointer to it.  Returns 0 on EOF.
+ */
+static char *rl_gets(const char *prompt)
+{
+    // A line of input
+    char *s = NULL;
+
+    // Get a line from the user
+    s = readline(prompt);
+
+    // If the line has any text in it, save it in history
+    if (s && *s)
+        add_history(s);
+
+    // Return the line
+    return s;
+}
+
+/**
  * get_input:
  *      Read a line of input, store the line in history.
  *      Return a pointer to the line read.
@@ -71,24 +93,21 @@ char *get_input(FILE *in)
     // If the buffer has been previously allocated free it
     free_line_read();
 
-    // Allocate memory for a line of input
-    if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_return("get_input: calloc");
-
-    // If the shell is interactive print a prompt string
+    // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
         build_prompt();
-        printf("%s", getenv("PROMPT"));
+        if ((line_read = rl_gets(getenv("PROMPT"))) == NULL)
+            return NULL;
     }
+    else {
+        if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+            error_return("get_input: calloc");
 
-    // Read a line of input
-    if (fgets(line_read, MAXLINE, in) == NULL)
-        return NULL;
+        if (fgets(line_read, MAXLINE, in) == NULL)
+            return NULL;
 
-    null_terminate(line_read);
-
-    if (in == stdin && line_read && *line_read)
-        add_history(line_read);
+        null_terminate(line_read);
+    }
 
     return line_read;
 }
