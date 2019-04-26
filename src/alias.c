@@ -50,8 +50,10 @@ static struct alias *alloc_alias(void)
 {
     struct alias *new_alias = NULL;
 
-    if ((new_alias = calloc(1, sizeof(struct alias))) == NULL)
-        error_return("lusush: alias.c: alloc_alias: calloc");
+    if ((new_alias = calloc(1, sizeof(struct alias))) == NULL) {
+        error_return("lusush: alloc_alias error");
+        return NULL;
+    }
 
     return new_alias;
 }
@@ -134,11 +136,11 @@ void set_alias(const char *key, const char *val)
     }
 
     // Allocate a new alias node
-    if (!(new_alias = alloc_alias()))
+    if ((new_alias = alloc_alias()) == NULL)
         return;
 
     // Special case for dealing with the head node
-    if (!head || (strncasecmp(head->key, key, MAXLINE) > 0)) {
+    if (head == NULL || (strncasecmp(head->key, key, MAXLINE) > 0)) {
         vputs("set_alias: setting root alias node\n");
         strncpy(new_alias->key, key, MAXLINE);
         strncpy(new_alias->val, val, MAXLINE);
