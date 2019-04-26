@@ -1,5 +1,5 @@
 /**
- * history.c - routines to work with command input history
+ * history-readline.c - input history usnig GNU readline
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.

@@ -1,5 +1,5 @@
 /**
- * input.c - input routines
+ * input-readline.c - input routines using GNU readline
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
@@ -27,6 +27,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
