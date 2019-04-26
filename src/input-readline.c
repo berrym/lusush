@@ -37,7 +37,7 @@
 #include "errors.h"
 #include "input.h"
 #include "init.h"
-#include "history.h"
+#include "history-readline.h"
 #include "prompt.h"
 
 static char *line_read = NULL;  // storage for readline and fgets
