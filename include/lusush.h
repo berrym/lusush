@@ -57,7 +57,6 @@ struct command
 };
 
 extern void vputs(const char *, ...);
-
-void close_std_ttys(void);
+extern void close_std_ttys(void);
 
 #endif

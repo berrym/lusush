@@ -45,8 +45,10 @@ struct command *create_command_list(void)
     if (head)
         return head;
 
-    if ((head = alloc_command()) == NULL)
+    if ((head = alloc_command()) == NULL) {
+        error_return("lusush: alloc_command error");
         return NULL;
+    }
 
     vputs("create_command_list: success\n");
 
@@ -63,7 +65,7 @@ struct command *alloc_command(void)
 
     // Allocate struct command
     if ((cmd = calloc(1, sizeof(struct command))) == NULL) {
-        error_return("calloc");
+        error_return("lusush: alloc_command error");
         return NULL;
     }
 
@@ -71,7 +73,7 @@ struct command *alloc_command(void)
     if ((cmd->argv = calloc(128, sizeof(char *))) == NULL) {
         free(cmd);
         cmd = NULL;
-        error_message("calloc error on cmd->argv");
+        error_return("lusush: alloc_command cmd->argv error");
         return NULL;
     }
 
@@ -81,7 +83,7 @@ struct command *alloc_command(void)
         cmd->argv = NULL;
         free(cmd);
         cmd = NULL;
-        error_message("lusush: calloc error on *cmd->argv\n");
+        error_return("lusush: alloc_command error on *cmd->argv");
         return NULL;
     }
 
@@ -106,7 +108,7 @@ static void free_command(struct command *cmd)
 {
     char **s = NULL;
 
-    if (!cmd || !cmd->argv)
+    if (cmd == NULL || cmd->argv == NULL)
         return;
 
     // Free each argument string
@@ -161,7 +163,7 @@ void display_command(struct command *cmd)
 {
     size_t i;
 
-    if (!cmd) {
+    if (cmd == NULL) {
         error_message("lusush: "
                       "no access to struct command, cannot display.\n");
         return;
