@@ -61,8 +61,6 @@ struct command *alloc_command(void)
 {
     struct command *cmd = NULL; // pointer to new struct command
 
-    cmd = '\0';
-
     // Allocate struct command
     if ((cmd = calloc(1, sizeof(struct command))) == NULL) {
         error_return("calloc");
