@@ -1,5 +1,6 @@
 project('lusush',
 	'c',
+	default_options : 'c_std=c99',
         version : '0.1.0',
         license : 'BSD2CLAUSE')
 

@@ -35,23 +35,6 @@
 #include "errors.h"
 #include "opts.h"
 
-#ifndef HAVE_STRNLEN
-/**
- * strnlen:
- *      Count the number of characters in a string up to maxlen.
- */
-size_t strnlen(const char *s, size_t maxlen)
-{
-    size_t len;
-
-    for (len = 0; len < maxlen; len++, s++)
-        if (!*s)
-            break;
-
-    return len;
-}
-#endif
-
 /**
  * vputs:
  *      Print formatted string if VERBOSE_PRINT option is set.
