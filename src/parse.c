@@ -438,6 +438,8 @@ static int do_lessthan(void)
 
     // Set the input redirection flags
     iredir = cmd->iredir = true;
+    if (isdigit(line[i - 1]))
+        cmd->ifd = line[i - 1];
 
     // << is unsupported syntax
     if (line[i + 1] && line[i + 1] == '<') {
@@ -470,6 +472,8 @@ static int do_greaterthan(void)
 
     // Set output redirection flags
     oredir = cmd->oredir = true;
+    if (isdigit(line[i - 1]))
+        cmd->ifd = line[i - 1];
 
     // Check if using appended file writes
     if (line[i + 1] && line[i + 1] == '>') {

@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <stdio.h>
@@ -136,21 +137,31 @@ static void close_old_cmd_pipes(struct command *cmd)
 static void set_redirections(struct command *cmd)
 {
     // Set up input redirection
-    if (cmd->iredir)
-        if (freopen(cmd->ifname, "r", stdin) == NULL)
-            error_return("freopen");
-
-    /* // Execute in the backgroud */
-    /* if (cmd->background) */
-    /*     if (freopen("/dev/null", "w", stdout) == NULL || */
-    /*         freopen("/dev/null", "w", stderr) == NULL) */
-    /*         error_return("freopen"); */
+    if (cmd->iredir) {
+        if (cmd->ifd) {
+            close(cmd->ifd);
+            openat(cmd->ifd, cmd->ifname, O_RDONLY);
+        } else {
+            if (freopen(cmd->ifname, "r", stdin) == NULL)
+                error_return("freopen");
+        }
+    }
 
     // Set up output redirection
-    if (cmd->oredir)
-        if (freopen(cmd->ofname,
-                    cmd->oredir_append ? "a" : "w", stdout) == NULL)
-            error_return("freopen");
+    if (cmd->oredir) {
+        if (cmd->ofd) {
+            close(cmd->ofd);
+            if (!cmd->oredir_append)
+                openat(cmd->ofd, cmd->ofname, O_WRONLY);
+            else
+                openat(cmd->ofd, cmd->ofname, O_RDWR);
+        } else {
+            if (freopen(cmd->ofname,
+                        cmd->oredir_append ? "a" : "w", stdout) == NULL) {
+                error_return("freopen");
+            }
+        }
+    }
 }
 
 /**

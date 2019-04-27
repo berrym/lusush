@@ -51,6 +51,8 @@ struct command
     bool iredir;                // input redirection flag
     bool oredir;                // output redirection flag
     bool oredir_append;         // output redirection opens file to append
+    int ifd;                    // input file descriptor - for redirections
+    int ofd;                    // output file descriptor - for redirections
     char ifname[MAXLINE + 1];   // input filename - if redirect set
     char ofname[MAXLINE + 1];   // output filename - if redirect set
     int pfd[2];                 // pipe filedescriptors
