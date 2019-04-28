@@ -92,6 +92,7 @@ struct command *alloc_command(void)
     cmd->pipe = cmd->pipe_head = false;
     cmd->iredir = cmd->oredir = cmd->oredir_append = cmd->background = false;
     *cmd->ifname = *cmd->ofname = '\0';
+    cmd->ifd = cmd->ofd = -1;
     cmd->prev = cmd->next = NULL;
 
     vputs("successful alloc_command call\n");

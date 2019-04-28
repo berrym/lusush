@@ -55,7 +55,7 @@ static void tell_wait(void)
 {
     // Create a new parent/child ipc pipe
     if (pipe(pfd) < 0) {
-        error_return("pipe");
+        error_return("pipe error");
         pfd[0] = pfd[1] = -1;
     }
 }
@@ -67,7 +67,7 @@ static void tell_wait(void)
 static void tell_parent(void)
 {
     if (write(pfd[1], "c", 1) != 1)
-        error_return("write");
+        error_return("write error");
 }
 
 /**
@@ -78,8 +78,10 @@ static void wait_child(void)
 {
     char c;
 
-    if (read(pfd[0], &c, 1) != 1)
-        error_return("read");
+    if (read(pfd[0], &c, 1) != 1) {
+        error_return("read error");
+        return;
+    }
 
     if (c != 'c')
         error_message("lusush: child process sent incorrect data");
@@ -89,79 +91,113 @@ static void wait_child(void)
  * set_pipes:
  *      Set up pipe file descriptors for command pipe chains.
  */
-static void set_pipes(struct command * cmd)
+static int set_pipes(struct command * cmd)
 {
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         vputs("reading from parent pipe\n");
-        if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0)
+        if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0) {
             error_return("dup2");
+            return -1;
+        }
 
-        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
+        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
             error_return("close");
+            return -1;
+        }
     }
 
     // There is a future command in pipe chain
     if (cmd->next && cmd->next->pipe) {
         vputs("writing to child pipe\n");
-        if (close(cmd->pfd[0]) < 0)
-            error_return("close");
+        if (close(cmd->pfd[0]) < 0) {
+            error_return("close error");
+            return -1;
+        }
 
-        if (dup2(cmd->pfd[1], fileno(stdout)) < 0)
-            error_return("dup2");
+        if (dup2(cmd->pfd[1], fileno(stdout)) < 0) {
+            error_return("dup2 error");
+            return -1;
+        }
 
-        if (close(cmd->pfd[1]) < 0)
-            error_return("close");
+        if (close(cmd->pfd[1]) < 0) {
+            error_return("close error");
+            return -1;
+        }
     }
+    return 0;
 }
 
 /**
  * close_old_pipes:
  *      Close old unused pipes.
  */
-static void close_old_cmd_pipes(struct command *cmd)
+static int close_old_cmd_pipes(struct command *cmd)
 {
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         vputs("closing old/unused pipe ends\n");
-        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0)
+        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
             error_return("close");
+            return -1;
+        }
         cmd->prev->pfd[0] = cmd->prev->pfd[1] = -1;
     }
+    return 0;
 }
 
 /**
  * set_redirections:
  *     Set up input/output redirections.
  */
-static void set_redirections(struct command *cmd)
+static int set_redirections(struct command *cmd)
 {
     // Set up input redirection
     if (cmd->iredir) {
-        if (cmd->ifd) {
-            close(cmd->ifd);
-            openat(cmd->ifd, cmd->ifname, O_RDONLY);
+        if (cmd->ifd >= 0) {
+            if ((close(cmd->ifd)) < 0) {
+                error_return("close error");
+                return -1;
+            }
+            if ((openat(cmd->ifd, cmd->ifname, O_RDONLY)) < 0) {
+                error_return("openat error");
+                return -1;
+            }
         } else {
-            if (freopen(cmd->ifname, "r", stdin) == NULL)
+            if (freopen(cmd->ifname, "r", stdin) <= 0) {
                 error_return("freopen");
+                return -1;
+            }
         }
     }
 
     // Set up output redirection
     if (cmd->oredir) {
-        if (cmd->ofd) {
-            close(cmd->ofd);
-            if (!cmd->oredir_append)
-                openat(cmd->ofd, cmd->ofname, O_WRONLY);
-            else
-                openat(cmd->ofd, cmd->ofname, O_RDWR);
+        if (cmd->ofd >= 0) {
+            if ((close(cmd->ofd)) <= 0) {
+                error_return("close error");
+                return -1;
+            }
+            if (!cmd->oredir_append) {
+                if ((openat(cmd->ofd, cmd->ofname, O_WRONLY)) <= 0) {
+                    error_return("openat error");
+                    return -1;
+                } else {
+                    if ((openat(cmd->ofd, cmd->ofname, O_RDWR)) <= 0) {
+                        error_return("openat error");
+                        return -1;
+                    }
+                }
+            }
         } else {
             if (freopen(cmd->ofname,
-                        cmd->oredir_append ? "a" : "w", stdout) == NULL) {
+                        cmd->oredir_append ? "a" : "w", stdout) <= 0) {
                 error_return("freopen");
+                return -1;
             }
         }
     }
+    return 0;
 }
 
 /**
@@ -179,8 +215,10 @@ static int exec_external_cmd(struct command *cmd)
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
             vputs("creating pipe\n");
-            if (pipe(cmd->pfd) < 0)
-                error_return("pipe");
+            if (pipe(cmd->pfd) < 0) {
+                error_return("pipe error");
+                return -1;
+            }
         }
     }
 
@@ -190,15 +228,18 @@ static int exec_external_cmd(struct command *cmd)
     switch (pid) {
     case -1:                    // fork error
         error_return("fork");
+        return -1;
     case 0:                     // child process
         vputs("child PID is %ld\n", (long)getpid());
         // Configure pipe plumbing
         if (cmd->pipe)
-            set_pipes(cmd);
+            if (set_pipes(cmd) < 0)
+                return -1;
 
         // Configure redirections
         if (cmd->iredir || cmd->oredir)
-            set_redirections(cmd);
+            if (set_redirections(cmd) < 0)
+                return -1;
 
         // Signal parent to quit blocking
         tell_parent();
@@ -218,14 +259,18 @@ static int exec_external_cmd(struct command *cmd)
             close_old_cmd_pipes(cmd);
 
         if (pfd[0] >= 0) {
-            if (close(pfd[0]) < 0)
-                error_return("close");
+            if (close(pfd[0]) < 0) {
+                error_return("close error");
+                return -1;
+            }
             pfd[0] = -1;
         }
 
         if (pfd[1] >= 0) {
-            if (close(pfd[1]) < 0)
-                error_return("close");
+            if (close(pfd[1]) < 0) {
+                error_return("close error");
+                return -1;
+            }
             pfd[1] = -1;
         }
 
