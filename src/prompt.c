@@ -27,6 +27,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define _DEFAULT_SOURCE
+
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
