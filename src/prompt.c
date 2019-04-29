@@ -139,13 +139,16 @@ static void setprompt_usage(void)
  * build_colors:
  *      Build ANSI escape sequence to set prompt colors.
  */
-static void build_colors(void)
+static int build_colors(void)
 {
-    if (!colors)
-        if ((colors = calloc(14, sizeof(char))) == NULL)
+    if (!colors) {
+        if ((colors = calloc(14, sizeof(char))) == NULL) {
             error_return("build_colors: calloc");
-
+            return 1;
+        }
+    }
     snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
+    return 0;
 }
 
 /**
@@ -273,7 +276,9 @@ void build_prompt(void)
         }
 
         // Build text colors, and then the formatted prompt string
-        build_colors();
+        if (build_colors() > 0)
+            goto fancy_error;
+
         snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%c ",
                  colors, u, h, d, RESET, (getuid() > 0) ? '%' : '#');
     }
