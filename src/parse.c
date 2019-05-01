@@ -412,6 +412,7 @@ static int do_dollar(void)
         return PARSER_ERROR_BREAK;
     }
     strncpy(cmd->argv[wpos], ev, MAXLINE);
+    cpos += strnlen(ev, MAXLINE);
 
     return PARSER_CONTINUE_ON;
 }
