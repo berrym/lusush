@@ -413,9 +413,6 @@ static int do_dollar(void)
     }
     strncpy(cmd->argv[wpos], ev, MAXLINE);
 
-    wpos++;
-    cpos = 0;
-
     return PARSER_CONTINUE_ON;
 }
 
