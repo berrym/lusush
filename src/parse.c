@@ -60,6 +60,7 @@ static int expand_line(char *);
 static char *tokenize(char **, struct command *, bool);
 static int char_type(char);
 static int do_pound(void);
+static int do_dollar(void);
 static int do_ampersand(void);
 static int do_lessthan(void);
 static int do_greaterthan(void);
@@ -318,6 +319,7 @@ static int char_type(char c)
 
     switch (c) {
     case '#':
+    case '$':
     case '&':
     case '<':
     case '>':
@@ -374,6 +376,45 @@ static int do_pound(void)
             cmd->argv[wpos][cpos] = '\0';
 
     line[i] = '\0';
+
+    return PARSER_CONTINUE_ON;
+}
+
+/**
+ * do_dollar:
+ *      Expand variables to their values.
+ *      Only environment variables are supported here.
+ */
+static int do_dollar(void)
+{
+    // Storage for expanded variable
+    char *ev = NULL;
+
+    // Keep the character, no expansion
+    if (escaping || inquote) {
+        cmd->argv[wpos][cpos] = '$';
+        cpos++;
+        if (escaping)
+            escaping = false;
+        return PARSER_CONTINUE_ON;
+    }
+
+    // Copy the variable sans $
+    do {
+        cmd->argv[wpos][cpos] = line[i + 1];
+        cpos++;
+        i++;
+    } while (isalnum(line[i+1]) && !isspace(line[i + 1]));
+
+    // Expand the variable
+    if (!(ev = getenv(cmd->argv[wpos]))) {
+        error_message("lusush: variable '%s' not found", cmd->argv[wpos]);
+        return PARSER_ERROR_BREAK;
+    }
+    strncpy(cmd->argv[wpos], ev, MAXLINE);
+
+    wpos++;
+    cpos = 0;
 
     return PARSER_CONTINUE_ON;
 }
@@ -586,6 +627,9 @@ static int do_magic(char c)
     switch (c) {
     case '#':
         err = do_pound();
+        break;
+    case '$':
+        err = do_dollar();
         break;
     case '&':
         err = do_ampersand();
