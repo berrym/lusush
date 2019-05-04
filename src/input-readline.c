@@ -103,10 +103,9 @@ char *get_input(FILE *in)
         build_prompt();
         if ((line_read = rl_gets(getenv("PROMPT"))) == NULL)
             return NULL;
-    }
-    else {
+    } else {
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-            error_return("get_input: calloc");
+            error_syscall("get_input: calloc");
 
         if (fgets(line_read, MAXLINE, in) == NULL)
             return NULL;

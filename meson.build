@@ -21,7 +21,10 @@ src = ['src/alias.c',
 editlinedep = dependency('libedit', required : false)
 readlinedep = dependency('readline',  version : '>=5.2', required : false)
 
-if editlinedep.found() or readlinedep.found()
+if editlinedep.found()
+  src += 'src/input-editline.c'
+  src += 'src/history-editline.c'
+elif readlinedep.found()
   src += 'src/input-readline.c'
   src += 'src/history-readline.c'
 else
