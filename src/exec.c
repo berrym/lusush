@@ -297,6 +297,7 @@ void exec_cmd(struct command *cmdp)
     int pid = 0;                // process id returned by fork
     struct command *cmd = NULL; // command pointer to iterate over list
     struct builtin *bin = NULL; // built in command
+    char ret[128] = { '\0' };   // buffer for return status
 
     // Execute each command in the list
     for (cmd = cmdp; *cmd->argv[0]; cmd = cmd->next) {
@@ -305,6 +306,9 @@ void exec_cmd(struct command *cmdp)
                 error_message("lusush: cannot pipe with builtins\n");
                 free(bin);
                 bin = NULL;
+                // Save the process return value
+                snprintf(ret, MAXLINE, "%d", 1);
+                setenv("?", ret, 1);
                 break;
             }
 
@@ -323,8 +327,11 @@ void exec_cmd(struct command *cmdp)
             // Free memory used by bin
             free(bin);
             bin = NULL;
-        }
-        else {                  // execute an external command
+
+            // Save the process return value
+            snprintf(ret, MAXLINE, "%d", err);
+            setenv("?", ret, 1);
+        } else {                // execute an external command
             if (!(pid = exec_external_cmd(cmd)))
                 continue;
 
@@ -342,6 +349,10 @@ void exec_cmd(struct command *cmdp)
                     vputs("child continued");
                 }
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+
+            // Save the process return value
+            snprintf(ret, MAXLINE, "%d", status);
+            setenv("?", ret, 1);
         }
     }
 }
