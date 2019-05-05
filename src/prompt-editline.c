@@ -72,6 +72,7 @@ typedef enum {
 typedef enum {
     ANSI_RESET_ON          = 0,
     ANSI_BOLD_ON           = 1,
+    ANSI_ITALICS_ON        = 3,
     ANSI_UNDERLINE_ON      = 4,
     ANSI_BLINK_ON          = 5,
     ANSI_INVERSE_ON        = 7,
@@ -122,12 +123,17 @@ static const struct opt_pair bg_opts[] = {
 
 // Key-value table for attribute codes
 static const struct opt_pair attr_opts[] = {
-    { "NONE",       ANSI_RESET_ON     },
-    { "BOLD",       ANSI_BOLD_ON      },
-    { "UNDERSCORE", ANSI_UNDERLINE_ON },
-    { "BLINK",      ANSI_BLINK_ON     },
-    { "REVERSE",    ANSI_INVERSE_ON   },
-    { "CONCEALED",  ANSI_CONCEALED_ON }
+    { "NONE",              ANSI_RESET_ON          },
+    { "BOLD",              ANSI_BOLD_ON           },
+    { "UNDERLINE",         ANSI_UNDERLINE_ON      },
+    { "BLINK",             ANSI_BLINK_ON          },
+    { "REVERSE",           ANSI_INVERSE_ON        },
+    { "CONCEALED",         ANSI_CONCEALED_ON      },
+    { "BOLD_OFF",          ANSI_BOLD_OFF          },
+    { "ITALICS_OFF",       ANSI_ITALICS_OFF       },
+    { "UNDERLINE_OFF",     ANSI_UNDERLINE_OFF     },
+    { "INVERSE_OFF",       ANSI_INVERSE_OFF       },
+    { "STRIKETHROUGH_OFF", ANSI_STRIKETHROUGH_OFF }
 };
 
 /**
