@@ -155,7 +155,7 @@ static int bin_history(const struct command *ignore)
 static int bin_setenv(const struct command *cmd)
 {
     if (cmd->argc != 3) {
-        printf("usage: setenv variable value\n");
+        error_message("usage: setenv variable value\n");
         return 1;
     }
 
@@ -174,7 +174,7 @@ static int bin_setenv(const struct command *cmd)
 static int bin_unsetenv(const struct command *cmd)
 {
     if (cmd->argc != 2) {
-        printf("usage: unsetenv variable\n");
+        error_message("usage: unsetenv variable\n");
         return 1;
     }
 
@@ -200,7 +200,7 @@ static int bin_alias(const struct command *cmd)
         print_alias_list();
         break;
     case 2:
-        printf("usage: alias word replacement text\n");
+        error_message("usage: alias word replacement text\n");
         return 1;
         break;
     default:
@@ -225,7 +225,7 @@ static int bin_alias(const struct command *cmd)
 static int bin_unalias(const struct command *cmd)
 {
     if (cmd->argc != 2) {
-        printf("usage: unalias alias\n");
+        error_message("usage: unalias alias\n");
         return 1;
     }
 
@@ -241,7 +241,7 @@ static int bin_unalias(const struct command *cmd)
 static int bin_setopt(const struct command *cmd)
 {
     if (cmd->argc != 2) {
-        printf("usage: setopt option\n");
+        error_message("usage: setopt option\n");
         return 1;
     }
 
@@ -262,7 +262,7 @@ static int bin_setopt(const struct command *cmd)
 static int bin_unsetopt(const struct command *cmd)
 {
     if (cmd->argc != 2) {
-        printf("usage: unsetopt option\n");
+        error_message("usage: unsetopt option\n");
         return 1;
     }
 
