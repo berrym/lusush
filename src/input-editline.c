@@ -76,7 +76,8 @@ static char *rl_gets(const char *prompt)
     char *s = NULL;
 
     // Get a line from the user
-    s = readline(prompt);
+    printf("%s", prompt);
+    s = readline(NULL);
 
     // If the line has any text in it, save it in history
     if (s && *s)

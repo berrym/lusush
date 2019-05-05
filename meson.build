@@ -15,7 +15,6 @@ src = ['src/alias.c',
        'src/lusush.c',
        'src/opts.c',
        'src/parse.c',
-       'src/prompt.c',
        'src/util.c']
 
 editlinedep = dependency('libedit', required: false)
@@ -25,14 +24,17 @@ linedep = []
 if editlinedep.found()
   src += 'src/input-editline.c'
   src += 'src/history-editline.c'
+  src += 'src/prompt-editline.c'
   linedep += editlinedep
 elif readlinedep.found()
   src += 'src/input-readline.c'
   src += 'src/history-readline.c'
+  src += 'src/prompt-readline.c'
   linedep += readlinedep
 else
   src += 'src/input.c'
   src += 'src/history.c'
+  src += 'src/prompt.c'
 endif
 
 lusush_exe = executable('lusush',
