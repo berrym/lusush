@@ -33,7 +33,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include "lusush.h"
 #include "errors.h"
 #include "input.h"

@@ -34,7 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <editline/readline.h>
 #include "lusush.h"
 #include "errors.h"

@@ -1,5 +1,5 @@
 /**
- * history.h
+ * history-readline.h
  *
  * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
  * All rights reserved.
