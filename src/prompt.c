@@ -44,43 +44,51 @@
 
 // ANSI foreground color values
 typedef enum {
-    BLACK = 30,
-    RED,
-    GREEN,
-    YELLOW,
-    BLUE,
-    MAGENTA,
-    CYAN,
-    WHITE
+    ANSI_FG_BLACK   = 30,
+    ANSI_FG_RED     = 31,
+    ANSI_FG_GREEN   = 32,
+    ANSI_FG_YELLOW  = 33,
+    ANSI_FG_BLUE    = 34,
+    ANSI_FG_MAGENTA = 35,
+    ANSI_FG_CYAN    = 36,
+    ANSI_FG_WHITE   = 37,
+    ANSI_FG_DEFAULT = 39,
 } FG_COLOR;
 
 // ANSI background color values
 typedef enum {
-    BG_BLACK = 40,
-    BG_RED,
-    BG_GREEN,
-    BG_YELLOW,
-    BG_BLUE,
-    BG_MAGENTA,
-    BG_CYAN,
-    BG_WHITE
+    ANSI_BG_BLACK   = 40,
+    ANSI_BG_RED     = 41,
+    ANSI_BG_GREEN   = 42,
+    ANSI_BG_YELLOW  = 43,
+    ANSI_BG_BLUE    = 44,
+    ANSI_BG_MAGENTA = 45,
+    ANSI_BG_CYAN    = 46,
+    ANSI_BG_WHITE   = 47,
+    ANSI_BG_DEFAULT = 49,
 } BG_COLOR;
 
 // ANSI text attribute values
 typedef enum {
-    NONE       = 0,
-    BOLD       = 1,
-    UNDERSCORE = 4,
-    BLINK      = 5,
-    REVERSE    = 7,
-    CONCEALED  = 8
+    ANSI_RESET_ON          = 0,
+    ANSI_BOLD_ON           = 1,
+    ANSI_UNDERLINE_ON      = 4,
+    ANSI_BLINK_ON          = 5,
+    ANSI_INVERSE_ON        = 7,
+    ANSI_CONCEALED_ON      = 8,
+    ANSI_STRIKETHROUGH_ON  = 9,
+    ANSI_BOLD_OFF          = 21,
+    ANSI_ITALICS_OFF       = 23,
+    ANSI_UNDERLINE_OFF     = 24,
+    ANSI_INVERSE_OFF       = 27,
+    ANSI_STRIKETHROUGH_OFF = 29,
 } TEXT_ATTRIB;
 
 static const char *RESET = "\x1b[0m"; // ansi color reset
 static char *colors      = NULL;      // ansi color sequence
-static FG_COLOR fg_color = WHITE;     // default foreground color
-static BG_COLOR bg_color = BG_BLUE;   // default background color
-static TEXT_ATTRIB attr  = NONE;      // default text attributes
+static FG_COLOR fg_color = ANSI_FG_WHITE; // default foreground color
+static BG_COLOR bg_color = ANSI_BG_BLUE;  // default background color
+static TEXT_ATTRIB attr  = ANSI_RESET_ON; // default text attributes
 
 // Key->value struct for ANSI codes
 struct opt_pair {
@@ -90,36 +98,36 @@ struct opt_pair {
 
 // Key-value table for foreground codes
 static const struct opt_pair fg_opts[] = {
-    { "BLACK",      BLACK       },
-    { "RED",        RED         },
-    { "GREEN",      GREEN       },
-    { "YELLOW",     YELLOW      },
-    { "BLUE",       BLUE        },
-    { "MAGENTA",    MAGENTA     },
-    { "CYAN",       CYAN        },
-    { "WHITE",      WHITE       }
+    { "BLACK",   ANSI_FG_BLACK   },
+    { "RED",     ANSI_FG_RED     },
+    { "GREEN",   ANSI_FG_GREEN   },
+    { "YELLOW",  ANSI_FG_YELLOW  },
+    { "BLUE",    ANSI_FG_BLUE    },
+    { "MAGENTA", ANSI_FG_MAGENTA },
+    { "CYAN",    ANSI_FG_CYAN    },
+    { "WHITE",   ANSI_FG_WHITE   }
 };
 
 // Key-value table for background codes
 static const struct opt_pair bg_opts[] = {
-    { "BLACK",      BG_BLACK    },
-    { "RED",        BG_RED      },
-    { "GREEN",      BG_GREEN    },
-    { "YELLOW",     BG_YELLOW   },
-    { "BLUE",       BG_BLUE     },
-    { "MAGENTA",    BG_MAGENTA  },
-    { "CYAN",       BG_CYAN     },
-    { "WHITE",      BG_WHITE    }
+    { "BLACK",   ANSI_BG_BLACK   },
+    { "RED",     ANSI_BG_RED     },
+    { "GREEN",   ANSI_BG_GREEN   },
+    { "YELLOW",  ANSI_BG_YELLOW  },
+    { "BLUE",    ANSI_BG_BLUE    },
+    { "MAGENTA", ANSI_BG_MAGENTA },
+    { "CYAN",    ANSI_BG_CYAN    },
+    { "WHITE",   ANSI_BG_WHITE   }
 };
 
 // Key-value table for attribute codes
 static const struct opt_pair attr_opts[] = {
-    { "NONE",       NONE        },
-    { "BOLD",       BOLD        },
-    { "UNDERSCORE", UNDERSCORE  },
-    { "BLINK",      BLINK       },
-    { "REVERSE",    REVERSE     },
-    { "CONCEALED",  CONCEALED   }
+    { "NONE",       ANSI_RESET_ON     },
+    { "BOLD",       ANSI_BOLD_ON      },
+    { "UNDERSCORE", ANSI_UNDERLINE_ON },
+    { "BLINK",      ANSI_BLINK_ON     },
+    { "REVERSE",    ANSI_INVERSE_ON   },
+    { "CONCEALED",  ANSI_CONCEALED_ON }
 };
 
 /**
