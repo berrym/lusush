@@ -32,6 +32,7 @@
 #endif
 
 #include <unistd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -125,9 +126,9 @@ static int bin_cd(const struct command *cmd)
  */
 static int bin_pwd(const struct command *ignore)
 {
-    char cwd[MAXLINE] = { '\0' };
+    char cwd[_POSIX_PATH_MAX + 1] = { '\0' };
 
-    if (getcwd(cwd, MAXLINE - 1) == NULL) {
+    if (getcwd(cwd, _POSIX_PATH_MAX) == NULL) {
         error_return("pwd: getcwd");
         return 1;
     }
