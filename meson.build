@@ -1,8 +1,8 @@
 project('lusush',
 	'c',
-	default_options : 'c_std=c99',
-        version : '0.1.0',
-        license : 'BSD2CLAUSE')
+	default_options: 'c_std=c99',
+        version: '0.1.0',
+        license: 'BSD2CLAUSE')
 
 inc = include_directories('include')
 
@@ -18,15 +18,18 @@ src = ['src/alias.c',
        'src/prompt.c',
        'src/util.c']
 
-editlinedep = dependency('libedit', required : false)
-readlinedep = dependency('readline',  version : '>=5.2', required : false)
+editlinedep = dependency('libedit', required: false)
+readlinedep = dependency('readline',  version: '>=5.2', required: false)
+linedep = []
 
 if editlinedep.found()
   src += 'src/input-editline.c'
   src += 'src/history-editline.c'
+  linedep += editlinedep
 elif readlinedep.found()
   src += 'src/input-readline.c'
   src += 'src/history-readline.c'
+  linedep += readlinedep
 else
   src += 'src/input.c'
   src += 'src/history.c'
@@ -34,5 +37,5 @@ endif
 
 lusush_exe = executable('lusush',
 			src,
-		        dependencies : [editlinedep, readlinedep],
-			include_directories : inc)
+		        dependencies: linedep,
+			include_directories: inc)
