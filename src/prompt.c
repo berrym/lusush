@@ -84,8 +84,8 @@ typedef enum {
     ANSI_STRIKETHROUGH_OFF = 29,
 } TEXT_ATTRIB;
 
-static const char *RESET = "\x1b[0m"; // ansi color reset
-static char *colors      = NULL;      // ansi color sequence
+static const char *RESET = "\x1b[0m";     // ansi color reset
+static char *colors      = NULL;          // ansi color sequence
 static FG_COLOR fg_color = ANSI_FG_WHITE; // default foreground color
 static BG_COLOR bg_color = ANSI_BG_BLUE;  // default background color
 static TEXT_ATTRIB attr  = ANSI_RESET_ON; // default text attributes
@@ -155,7 +155,7 @@ static int build_colors(void)
             return 1;
         }
     }
-    snprintf(colors, 14, "%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
+    snprintf(colors, 15, "\1%c[%u;%u;%um", 0x1b, attr, fg_color, bg_color);
     return 0;
 }
 
@@ -287,7 +287,7 @@ void build_prompt(void)
         if (build_colors() > 0)
             goto fancy_error;
 
-        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%c ",
+        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%c\1 ",
                  colors, u, h, d, RESET, (getuid() > 0) ? '%' : '#');
     }
     else {

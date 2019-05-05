@@ -307,7 +307,7 @@ void exec_cmd(struct command *cmdp)
                 free(bin);
                 bin = NULL;
                 // Save the process return value
-                snprintf(ret, MAXLINE, "%d", 1);
+                snprintf(ret, 128, "%d", 1);
                 setenv("?", ret, 1);
                 break;
             }
@@ -329,7 +329,7 @@ void exec_cmd(struct command *cmdp)
             bin = NULL;
 
             // Save the process return value
-            snprintf(ret, MAXLINE, "%d", err);
+            snprintf(ret, 128, "%d", err);
             setenv("?", ret, 1);
         } else {                // execute an external command
             if (!(pid = exec_external_cmd(cmd)))
@@ -351,7 +351,7 @@ void exec_cmd(struct command *cmdp)
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 
             // Save the process return value
-            snprintf(ret, MAXLINE, "%d", status);
+            snprintf(ret, 128, "%d", status);
             setenv("?", ret, 1);
         }
     }
