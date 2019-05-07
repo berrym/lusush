@@ -38,6 +38,8 @@
 #include "errors.h"
 #include "cmdlist.h"
 
+#define MAX_CMD_VEC 64
+
 static struct command *head = NULL; // head node in command list
 
 /**
@@ -74,7 +76,7 @@ struct command *alloc_command(void)
     }
 
     // Allocate pointer to pointer char
-    if ((cmd->argv = calloc(128, sizeof(char *))) == NULL) {
+    if ((cmd->argv = calloc(MAX_CMD_VEC, sizeof(char *))) == NULL) {
         free(cmd);
         cmd = NULL;
         error_return("lusush: alloc_command cmd->argv error");
@@ -192,4 +194,12 @@ void display_command(struct command *cmd)
         printf("\tofname->%s\n", cmd->ofname);
     else
         printf("\tofname->empty\n");
+    if (cmd->ifd >= 0)
+        printf("\tifd->%d\n", cmd->ifd);
+    else
+        printf("\tifd->none\n");
+    if (cmd->ofd >= 0)
+        printf("\tofd->%d\n", cmd->ofd);
+    else
+        printf("\tofd->none\n");
 }
