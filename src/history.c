@@ -138,8 +138,6 @@ static size_t grow_hist_list(size_t N)
         return 0;
     }
 
-    vputs("*** GREW HISTORY TO %u\n", HIST_LIST_SIZE);
-
     return HIST_LIST_SIZE;
 }
 
@@ -152,16 +150,12 @@ static int read_history(const char *fn)
     size_t i;                        // loop counter
     FILE *fp = NULL;                 // file stream pointer
 
-    vputs("Reading history %s\n", fn);
-
     // Open the history file for reading
     if ((fp = fopen(fn, "r")) == NULL) {
         if (opt_is_set(VERBOSE_PRINT))
             error_return("read_histfile: fopen");
         return 1;
     }
-
-    vputs("File %s is open with descriptor %u\n", fn, fp);
 
     // Read the history file one line at a time
     for (i = 0; i < HIST_LIST_SIZE; i++) {

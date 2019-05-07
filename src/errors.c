@@ -131,7 +131,7 @@ void error_abort(const char *fmt, ...)
  */
 void sig_int(int signo)
 {
-    vputs("\nlusush: caught signal %d.\n", signo);
+    error_message("\nlusush: caught signal %d.\n", signo);
 }
 
 /**

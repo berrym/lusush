@@ -14,8 +14,7 @@ src = ['src/alias.c',
        'src/init.c',
        'src/lusush.c',
        'src/opts.c',
-       'src/parse.c',
-       'src/util.c']
+       'src/parse.c']
 
 editlinedep = dependency('libedit', required: false)
 readlinedep = dependency('readline',  version: '>=5.2', required: false)

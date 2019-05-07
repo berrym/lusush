@@ -56,8 +56,6 @@ struct command *create_command_list(void)
         return NULL;
     }
 
-    vputs("create_command_list: success\n");
-
     return head;
 }
 
@@ -100,8 +98,6 @@ struct command *alloc_command(void)
     *cmd->ifname = *cmd->ofname = '\0';
     cmd->ifd = cmd->ofd = -1;
     cmd->prev = cmd->next = NULL;
-
-    vputs("successful alloc_command call\n");
 
     return cmd;
 }

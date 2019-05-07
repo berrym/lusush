@@ -141,7 +141,6 @@ void set_alias(const char *key, const char *val)
 
     // Replace an existing alias
     if ((curr = lookup_alias(key))) {
-        vputs("set_alias: re-setting alias\n");
         strncpy(curr->val, val, MAX_ALIAS);
         return;
     }
@@ -152,7 +151,6 @@ void set_alias(const char *key, const char *val)
 
     // Special case for dealing with the head node
     if (head == NULL || (strncasecmp(head->key, key, MAX_ALIAS) > 0)) {
-        vputs("set_alias: setting root alias node\n");
         strncpy(new_alias->key, key, MAX_ALIAS);
         null_terminate_line(new_alias->key);
         strncpy(new_alias->val, val, MAX_ALIAS);
@@ -173,7 +171,6 @@ void set_alias(const char *key, const char *val)
         null_terminate_line(new_alias->key);
         strncpy(new_alias->val, val, strnlen(val, MAX_ALIAS));
         null_terminate_line(new_alias->val);
-        vputs("set_alias: new alias set!\n");
     }
 }
 

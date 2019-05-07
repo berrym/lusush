@@ -99,7 +99,6 @@ static int set_pipes(struct command * cmd)
 {
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        vputs("reading from parent pipe\n");
         if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0) {
             error_return("dup2");
             return -1;
@@ -113,7 +112,6 @@ static int set_pipes(struct command * cmd)
 
     // There is a future command in pipe chain
     if (cmd->next && cmd->next->pipe) {
-        vputs("writing to child pipe\n");
         if (close(cmd->pfd[0]) < 0) {
             error_return("close error");
             return -1;
@@ -140,7 +138,6 @@ static int close_old_cmd_pipes(struct command *cmd)
 {
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        vputs("closing old/unused pipe ends\n");
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
             error_return("close");
             return -1;
@@ -218,7 +215,6 @@ static int exec_external_cmd(struct command *cmd)
     // Create a pipe if command is in a pipe chain
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            vputs("creating pipe\n");
             if (pipe(cmd->pfd) < 0) {
                 error_return("pipe error");
                 return -1;
@@ -234,7 +230,6 @@ static int exec_external_cmd(struct command *cmd)
         error_return("fork");
         return -1;
     case 0:                     // child process
-        vputs("child PID is %ld\n", (long)getpid());
         // Configure pipe plumbing
         if (cmd->pipe)
             if (set_pipes(cmd) < 0)
@@ -249,7 +244,6 @@ static int exec_external_cmd(struct command *cmd)
         tell_parent();
 
         // Call execvp
-        vputs("calling execvp\n");
         execvp(cmd->argv[0], cmd->argv);
         error_return("lusush: %s", cmd->argv[0]);
         exit(127);
@@ -322,7 +316,6 @@ void exec_cmd(struct command *cmdp)
 
             // Call the builtin function
             err = bin->func(cmd);
-            vputs("*** BUILTIN (%s) returned a status of %d\n", bin->name, err);
 
             // Free memory used by bin
             free(bin);
@@ -340,13 +333,16 @@ void exec_cmd(struct command *cmdp)
                     error_return("waitpid");
 
                 if (WIFEXITED(status)) {
-                    vputs("child exited with status %d\n", WEXITSTATUS(status));
+                    printf("child exited with status %d\n",
+                           WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                    vputs("child killed by signal %d\n", WTERMSIG(status));
+                    printf("child killed by signal %d\n",
+                           WTERMSIG(status));
                 } else if (WIFSTOPPED(status)) {
-                    vputs("child stopped by signal %d\n", WSTOPSIG(status));
+                    printf("child stopped by signal %d\n",
+                           WSTOPSIG(status));
                 } else if (WIFCONTINUED(status)) {
-                    vputs("child continued");
+                    printf("child continued");
                 }
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 

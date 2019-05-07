@@ -66,8 +66,6 @@ int main(int argc, char **argv)
         case 0:                     // empty input, ignore
             break;
         default:                    // command(s) parsed
-            vputs("ret @ main --> %d\n", ret);
-
             // Execute the command(s)
             exec_cmd(cmd);
 

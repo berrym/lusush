@@ -81,7 +81,6 @@ int init(int argc, char **argv, FILE **in)
     // Determine the shell type
     if (**argv == '-') {
         SHELL_TYPE = LOGIN_SHELL;
-        vputs("THIS IS A LOGIN SHELL\n");
     }
     else if (optind && argv[optind] && *argv[optind]) {
         // Check that argv[optind] is a regular file
@@ -91,11 +90,9 @@ int init(int argc, char **argv, FILE **in)
                           argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
-            vputs("THIS IS AN INTERACTIVE SHELL\n");
         }
         else {
             SHELL_TYPE = NORMAL_SHELL;
-            vputs("THIS IS A NORMAL SHELL\n");
             if ((*in = fopen(argv[optind], "r")) == NULL)
                 error_syscall("init: fopen");
         }
@@ -103,7 +100,6 @@ int init(int argc, char **argv, FILE **in)
     else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
-        vputs("THIS IS AN INTERACTIVE SHELL\n");
     }
 
     // Initialize history
@@ -114,7 +110,6 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_command_list);
     atexit(free_line_read);
     atexit(free_history_list);
-    atexit(close_std_ttys);
     atexit(save_history);
 
     return optind;
