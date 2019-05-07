@@ -33,10 +33,9 @@
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4096            // maximum string length
+#define MAXLINE 4096            // maximum line length
 
 #include <stdbool.h>
-#include <stddef.h>
 
 // Doubly linked list of commands to pass to exec
 struct command
@@ -53,12 +52,9 @@ struct command
     bool oredir_append;         // output redirection opens file to append
     int ifd;                    // input file descriptor - for redirections
     int ofd;                    // output file descriptor - for redirections
+    int pfd[2];                 // pipe file descriptors
     char ifname[MAXLINE + 1];   // input filename - if redirect set
     char ofname[MAXLINE + 1];   // output filename - if redirect set
-    int pfd[2];                 // pipe filedescriptors
 };
-
-extern void vputs(const char *, ...);
-extern void close_std_ttys(void);
 
 #endif
