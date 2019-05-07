@@ -37,6 +37,7 @@
 #include <editline/readline.h>
 #include "lusush.h"
 #include "errors.h"
+#include "opts.h"
 #include "input.h"
 #include "init.h"
 #include "history-readline.h"
@@ -76,8 +77,13 @@ static char *rl_gets(const char *prompt)
     char *s = NULL;
 
     // Get a line from the user
-    printf("%s", prompt);
-    s = readline(NULL);
+    if (opt_is_set(FANCY_PROMPT)) {
+        printf("%s", prompt);
+        s = readline(NULL);
+    } else {
+        s = readline(prompt);
+    }
+        
 
     // If the line has any text in it, save it in history
     if (s && *s)

@@ -300,9 +300,9 @@ void build_prompt(void)
     } else {
 fancy_error:
         if (getuid() > 0)
-            strncpy(prompt, "% ", 3); // normal user prompt
+            strncpy(prompt, "\1% \1", 6); // normal user prompt
         else
-            strncpy(prompt, "# ", 3); // root user prompt
+            strncpy(prompt, "\1# \1", 6); // root user prompt
     }
 
     // Set the PROMPT environment variable

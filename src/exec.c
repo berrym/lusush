@@ -42,6 +42,7 @@
 #include <string.h>
 #include <errno.h>
 #include "errors.h"
+#include "opts.h"
 #include "exec.h"
 #include "history.h"
 #include "builtins.h"
@@ -333,16 +334,20 @@ void exec_cmd(struct command *cmdp)
                     error_return("waitpid");
 
                 if (WIFEXITED(status)) {
-                    printf("child exited with status %d\n",
-                           WEXITSTATUS(status));
+                    if (opt_is_set(VERBOSE_PRINT))
+                        printf("child exited with status %d\n",
+                               WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                    printf("child killed by signal %d\n",
-                           WTERMSIG(status));
+                    if (opt_is_set(VERBOSE_PRINT))
+                        printf("child killed by signal %d\n",
+                               WTERMSIG(status));
                 } else if (WIFSTOPPED(status)) {
-                    printf("child stopped by signal %d\n",
-                           WSTOPSIG(status));
+                    if (opt_is_set(VERBOSE_PRINT))
+                        printf("child stopped by signal %d\n",
+                               WSTOPSIG(status));
                 } else if (WIFCONTINUED(status)) {
-                    printf("child continued");
+                    if (opt_is_set(VERBOSE_PRINT))
+                        printf("child continued");
                 }
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 

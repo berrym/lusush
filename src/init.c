@@ -27,6 +27,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <locale.h>
 #include <signal.h>
@@ -101,6 +107,12 @@ int init(int argc, char **argv, FILE **in)
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
     }
+
+    // Get and set shell's pid in environment
+    pid_t pid = getpid();
+    char spid[128] = { '\0' };
+    snprintf(spid, 128, "%d", pid);
+    setenv("$", spid, 1);
 
     // Initialize history
     init_history();
