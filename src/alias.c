@@ -38,9 +38,16 @@
 #include "errors.h"
 #include "alias.h"
 
+#define MAX_ALIAS 128
+
+static inline void null_terminate_line(char *s)
+{
+    s[strnlen(s, MAX_ALIAS + 1)] = '\0';
+}
+
 struct alias {
-    char key[MAXLINE];
-    char val[MAXLINE];
+    char key[MAX_ALIAS + 1];
+    char val[MAX_ALIAS + 1];
     struct alias *next;
 };
 
@@ -71,7 +78,7 @@ static struct alias *lookup_alias(const char *key)
     struct alias *curr = NULL;
 
     for (curr = head; curr != NULL; curr = curr->next)
-        if (strncmp(curr->key, key, MAXLINE) == 0)
+        if (strncmp(curr->key, key, MAX_ALIAS) == 0)
             return curr;
 
     return NULL;
@@ -135,7 +142,7 @@ void set_alias(const char *key, const char *val)
     // Replace an existing alias
     if ((curr = lookup_alias(key))) {
         vputs("set_alias: re-setting alias\n");
-        strncpy(curr->val, val, MAXLINE);
+        strncpy(curr->val, val, MAX_ALIAS);
         return;
     }
 
@@ -144,24 +151,28 @@ void set_alias(const char *key, const char *val)
         return;
 
     // Special case for dealing with the head node
-    if (head == NULL || (strncasecmp(head->key, key, MAXLINE) > 0)) {
+    if (head == NULL || (strncasecmp(head->key, key, MAX_ALIAS) > 0)) {
         vputs("set_alias: setting root alias node\n");
-        strncpy(new_alias->key, key, MAXLINE);
-        strncpy(new_alias->val, val, MAXLINE);
+        strncpy(new_alias->key, key, MAX_ALIAS);
+        null_terminate_line(new_alias->key);
+        strncpy(new_alias->val, val, MAX_ALIAS);
+        null_terminate_line(new_alias->val);
         new_alias->next = head;
         head = new_alias;
     }
     else {
         // Find the node prior to point of insertion
         curr = head;
-        while (curr->next && (strncasecmp(key, curr->next->key, MAXLINE) > 0))
+        while (curr->next && (strncasecmp(key, curr->next->key, MAX_ALIAS) > 0))
             curr = curr->next;
 
         // Insert the new node
         new_alias->next = curr->next;
         curr->next = new_alias;
-        strncpy(new_alias->key, key, strnlen(key, MAXLINE));
-        strncpy(new_alias->val, val, strnlen(val, MAXLINE));
+        strncpy(new_alias->key, key, strnlen(key, MAX_ALIAS));
+        null_terminate_line(new_alias->key);
+        strncpy(new_alias->val, val, strnlen(val, MAX_ALIAS));
+        null_terminate_line(new_alias->val);
         vputs("set_alias: new alias set!\n");
     }
 }
@@ -175,7 +186,7 @@ void unset_alias(char *key)
     struct alias *curr = NULL, *prev = NULL;
 
     for (curr = head; curr != NULL; prev = curr, curr = curr->next) {
-        if (strncmp(curr->key, key, MAXLINE) == 0) {
+        if (strncmp(curr->key, key, MAX_ALIAS) == 0) {
             if (prev == NULL)
                 head = curr->next;
             else
