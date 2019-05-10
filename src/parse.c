@@ -99,7 +99,7 @@ static inline void strip_leading_whspc(char *s)
     size_t k, l;                  // loop counters
 
     // Iterate over leading whitespace ignoring it
-    for (k = 0; k < MAXLINE && isspace((int)s[k]); k++);
+    for (k = 0; k <= MAXLINE && isspace((int)s[k]); k++);
 
     if (!k)
         return;
