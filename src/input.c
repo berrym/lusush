@@ -75,7 +75,7 @@ char *get_input(FILE *in)
     free_line_read();
 
     // Allocate memory for a line of input
-    if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
+    if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
         error_syscall("get_input: calloc");
 
     // If the shell is interactive print a prompt string

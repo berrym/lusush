@@ -85,12 +85,6 @@ typedef enum {
     ANSI_STRIKETHROUGH_OFF = 29,
 } TEXT_ATTRIB;
 
-static const char *RESET = "\x1b[0m";     // ansi color reset
-static char *colors      = NULL;          // ansi color sequence
-static FG_COLOR fg_color = ANSI_FG_WHITE; // default foreground color
-static BG_COLOR bg_color = ANSI_BG_BLUE;  // default background color
-static TEXT_ATTRIB attr  = ANSI_RESET_ON; // default text attributes
-
 // Key->value struct for ANSI codes
 struct opt_pair {
     char *key;
@@ -136,6 +130,16 @@ static const struct opt_pair attr_opts[] = {
     { "STRIKETHROUGH_OFF", ANSI_STRIKETHROUGH_OFF }
 };
 
+#define NUM_FG_OPTS = 9;
+#define NUM_BG_OPTS = 9;
+#define NUM_TEXT_ATRRIB = 13;
+#define NUM_VALID_ATTRIB = 11;
+
+static const char *RESET = "\x1b[0m";     // ansi color reset
+static char *colors      = NULL;          // ansi color sequence
+static FG_COLOR fg_color = ANSI_FG_WHITE; // default foreground color
+static BG_COLOR bg_color = ANSI_BG_BLUE;  // default background color
+static TEXT_ATTRIB attr  = ANSI_RESET_ON; // default text attributes
 /**
  * setprompt_usage:
  *      Print usage information for builtin command setprompt.
@@ -225,27 +229,27 @@ void set_prompt(int argc, char **argv)
             setprompt_usage();
             break;
         case 'a':               // set fancy prompt text attribute
-            for (i = 0; i < 6; i++)
+            for (i = 0; i <= NUM_TEXT_ATRRIB; i++)
                 if (strcmp(optarg, attr_opts[i].key) == 0)
                     set_prompt_attr(attr_opts[i].val);
             break;
         case 'f':               // set fancy prompt foreground color
-            for (i = 0; i < 8; i++)
+            for (i = 0; i < NUM_FG_OPTS; i++)
                 if (strcmp(optarg, fg_opts[i].key) == 0)
                     set_prompt_fg(fg_opts[i].val);
             break;
         case 'b':               // set fancy prompt background color
-            for (i = 0; i < 8; i++)
+            for (i = 0; i < NUM_BG_OPTS; i++)
                 if (strcmp(optarg, bg_opts[i].key) == 0)
                     set_prompt_bg(bg_opts[i].val);
             break;
         case 'v':               // print valid setprompt options
             printf("VALID COLORS:\n");
-            for (i = 0; i < 8; i++)
+            for (i = 0; i <= NUM_FG_OPTS; i++)
                 printf("\t%s\n", fg_opts[i].key);
 
             printf("VALID ATTRIBUTES:\n");
-            for (i = 0; i < 6; i++)
+            for (i = 0; i <= NUM_VALID_ATTRIB; i++)
                 printf("\t%s\n", attr_opts[i].key);
             break;
         case -1:
