@@ -161,7 +161,8 @@ void set_alias(const char *key, const char *val)
     else {
         // Find the node prior to point of insertion
         curr = head;
-        while (curr->next && (strncasecmp(key, curr->next->key, MAX_ALIAS_LEN) > 0))
+        while (curr->next && (strncasecmp(key,
+                                          curr->next->key, MAX_ALIAS_LEN) > 0))
             curr = curr->next;
 
         // Insert the new node
