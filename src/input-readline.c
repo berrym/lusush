@@ -45,15 +45,6 @@
 
 static char *line_read = NULL;  // storage for readline and fgets
 
-/**
- * null_terminate_line:
- *      Terminate a string with null character instead of a newline.
- */
-static inline void null_terminate_line(char *s)
-{
-    if (s[strnlen(s, MAXLINE) - 1] == '\n')
-        s[strnlen(s, MAXLINE) - 1] = '\0';
-}
 
 /**
  * free_line_read:
