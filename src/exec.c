@@ -49,6 +49,9 @@
 #include "alias.h"
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : WUNTRACED)
+#define TELL_STR "c"
+#define TELL_STR_LEN 1
+#define MAX_PID_SIZE 32768
 
 static int pfd[2] = { -1 }; // pipe file descriptors for parent/child ipc
 
@@ -71,8 +74,8 @@ static void tell_wait(void)
  */
 static void tell_parent(void)
 {
-    if (write(pfd[1], "c", 1) != 1)
-        error_return("write error");
+    if (write(pfd[1], TELL_STR, TELL_STR_LEN) != TELL_STR_LEN)
+        error_return("ipc write error");
 }
 
 /**
@@ -83,13 +86,13 @@ static void wait_child(void)
 {
     char c;
 
-    if (read(pfd[0], &c, 1) != 1) {
-        error_return("read error");
+    if (read(pfd[0], &c, TELL_STR_LEN) != TELL_STR_LEN) {
+        error_return("ipc read error");
         return;
     }
 
-    if (c != 'c')
-        error_message("lusush: child process sent incorrect data");
+    if (c != TELL_STR)
+        error_message("child process sent incorrect data");
 }
 
 /**
@@ -101,12 +104,12 @@ static int set_pipes(struct command * cmd)
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0) {
-            error_return("dup2");
+            error_return("dup2 error");
             return -1;
         }
 
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
-            error_return("close");
+            error_return("close error");
             return -1;
         }
     }
@@ -128,11 +131,12 @@ static int set_pipes(struct command * cmd)
             return -1;
         }
     }
+
     return 0;
 }
 
 /**
- * close_old_pipes:
+ * close_old_cmd_pipes:
  *      Close old unused pipes.
  */
 static int close_old_cmd_pipes(struct command *cmd)
@@ -140,11 +144,12 @@ static int close_old_cmd_pipes(struct command *cmd)
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
         if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
-            error_return("close");
+            error_return("close error");
             return -1;
         }
         cmd->prev->pfd[0] = cmd->prev->pfd[1] = -1;
     }
+
     return 0;
 }
 
@@ -167,7 +172,7 @@ static int set_redirections(struct command *cmd)
             }
         } else {
             if (freopen(cmd->ifname, "r", stdin) <= 0) {
-                error_return("freopen");
+                error_return("freopen error");
                 return -1;
             }
         }
@@ -194,11 +199,12 @@ static int set_redirections(struct command *cmd)
         } else {
             if (freopen(cmd->ofname,
                         cmd->oredir_append ? "a" : "w", stdout) <= 0) {
-                error_return("freopen");
+                error_return("freopen error");
                 return -1;
             }
         }
     }
+
     return 0;
 }
 
@@ -292,7 +298,7 @@ void exec_cmd(struct command *cmdp)
     int pid = 0;                // process id returned by fork
     struct command *cmd = NULL; // command pointer to iterate over list
     struct builtin *bin = NULL; // built in command
-    char ret[128] = { '\0' };   // buffer for return status
+    char ret[MAX_PID_SIZE] = { '\0' };// buffer for return status
 
     // Execute each command in the list
     for (cmd = cmdp; *cmd->argv[0]; cmd = cmd->next) {
@@ -302,7 +308,7 @@ void exec_cmd(struct command *cmdp)
                 free(bin);
                 bin = NULL;
                 // Save the process return value
-                snprintf(ret, 128, "%d", 1);
+                snprintf(ret, MAX_PID_SIZE, "%d", 1);
                 setenv("?", ret, 1);
                 break;
             }
@@ -323,7 +329,7 @@ void exec_cmd(struct command *cmdp)
             bin = NULL;
 
             // Save the process return value
-            snprintf(ret, 128, "%d", err);
+            snprintf(ret, MAX_PID_SIZE, "%d", err);
             setenv("?", ret, 1);
         } else {                // execute an external command
             if (!(pid = exec_external_cmd(cmd)))
@@ -352,7 +358,7 @@ void exec_cmd(struct command *cmdp)
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 
             // Save the process return value
-            snprintf(ret, 128, "%d", status);
+            snprintf(ret, MAX_PID_SIZE, "%d", status);
             setenv("?", ret, 1);
         }
     }
