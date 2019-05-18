@@ -31,27 +31,21 @@
 #define _DEFAULT_SOURCE
 #endif
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include "errors.h"
 #include "opts.h"
 #include "exec.h"
-#include "history.h"
 #include "builtins.h"
-#include "alias.h"
 
 #define WAITFLAGS(command) (command->background ? WNOHANG : WUNTRACED)
-#define TELL_STR "c"
+static const void *TELL_STR_CHR = "c";
 #define TELL_STR_LEN 1
-#define MAX_PID_SIZE 32768
+#define MAX_PID_LEN 6
 
 static int pfd[2] = { -1 }; // pipe file descriptors for parent/child ipc
 
@@ -74,7 +68,7 @@ static void tell_wait(void)
  */
 static void tell_parent(void)
 {
-    if (write(pfd[1], TELL_STR, TELL_STR_LEN) != TELL_STR_LEN)
+    if (write(pfd[1], TELL_STR_CHR, TELL_STR_LEN) != TELL_STR_LEN)
         error_return("ipc write error");
 }
 
@@ -91,7 +85,7 @@ static void wait_child(void)
         return;
     }
 
-    if (c != TELL_STR)
+    if (c != 'c')//TELL_STR_CHR)
         error_message("child process sent incorrect data");
 }
 
@@ -298,7 +292,7 @@ void exec_cmd(struct command *cmdp)
     int pid = 0;                // process id returned by fork
     struct command *cmd = NULL; // command pointer to iterate over list
     struct builtin *bin = NULL; // built in command
-    char ret[MAX_PID_SIZE] = { '\0' };// buffer for return status
+    char ret[MAX_PID_LEN] = { '\0' };// buffer for return status
 
     // Execute each command in the list
     for (cmd = cmdp; *cmd->argv[0]; cmd = cmd->next) {
@@ -308,7 +302,7 @@ void exec_cmd(struct command *cmdp)
                 free(bin);
                 bin = NULL;
                 // Save the process return value
-                snprintf(ret, MAX_PID_SIZE, "%d", 1);
+                snprintf(ret, MAX_PID_LEN, "%d", 1);
                 setenv("?", ret, 1);
                 break;
             }
@@ -329,7 +323,7 @@ void exec_cmd(struct command *cmdp)
             bin = NULL;
 
             // Save the process return value
-            snprintf(ret, MAX_PID_SIZE, "%d", err);
+            snprintf(ret, MAX_PID_LEN, "%d", err);
             setenv("?", ret, 1);
         } else {                // execute an external command
             if (!(pid = exec_external_cmd(cmd)))
@@ -358,7 +352,7 @@ void exec_cmd(struct command *cmdp)
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 
             // Save the process return value
-            snprintf(ret, MAX_PID_SIZE, "%d", status);
+            snprintf(ret, MAX_PID_LEN, "%d", status);
             setenv("?", ret, 1);
         }
     }
