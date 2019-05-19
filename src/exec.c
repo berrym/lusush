@@ -97,12 +97,13 @@ static int set_pipes(struct command * cmd)
 {
     // There was a previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        if (dup2(cmd->prev->pfd[0], fileno(stdin)) < 0) {
+        if (dup2(cmd->prev->pfd[0], fileno(stdin)) == -1) {
             error_return("dup2 error");
             return -1;
         }
 
-        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
+        if (close(cmd->prev->pfd[0]) == -1 ||
+            close(cmd->prev->pfd[1]) == -1) {
             error_return("close error");
             return -1;
         }
@@ -110,17 +111,17 @@ static int set_pipes(struct command * cmd)
 
     // There is a future command in pipe chain
     if (cmd->next && cmd->next->pipe) {
-        if (close(cmd->pfd[0]) < 0) {
+        if (close(cmd->pfd[0]) == -1) {
             error_return("close error");
             return -1;
         }
 
-        if (dup2(cmd->pfd[1], fileno(stdout)) < 0) {
+        if (dup2(cmd->pfd[1], fileno(stdout)) == -1) {
             error_return("dup2 error");
             return -1;
         }
 
-        if (close(cmd->pfd[1]) < 0) {
+        if (close(cmd->pfd[1]) == -1) {
             error_return("close error");
             return -1;
         }
@@ -137,7 +138,8 @@ static int close_old_cmd_pipes(struct command *cmd)
 {
     // Close pipes from previous command in pipe chain
     if (cmd->prev && cmd->prev->pipe) {
-        if (close(cmd->prev->pfd[0]) < 0 || close(cmd->prev->pfd[1]) < 0) {
+        if (close(cmd->prev->pfd[0]) == -1 ||
+            close(cmd->prev->pfd[1]) == -1) {
             error_return("close error");
             return -1;
         }
@@ -156,16 +158,16 @@ static int set_redirections(struct command *cmd)
     // Set up input redirection
     if (cmd->iredir) {
         if (cmd->ifd >= 0) {
-            if ((close(cmd->ifd)) < 0) {
+            if ((close(cmd->ifd)) == -1) {
                 error_return("close error");
                 return -1;
             }
-            if ((openat(cmd->ifd, cmd->ifname, O_RDONLY)) < 0) {
+            if ((openat(cmd->ifd, cmd->ifname, O_RDONLY)) == -1) {
                 error_return("openat error");
                 return -1;
             }
         } else {
-            if (freopen(cmd->ifname, "r", stdin) <= 0) {
+            if (freopen(cmd->ifname, "r", stdin) == NULL) {
                 error_return("freopen error");
                 return -1;
             }
@@ -175,16 +177,17 @@ static int set_redirections(struct command *cmd)
     // Set up output redirection
     if (cmd->oredir) {
         if (cmd->ofd >= 0) {
-            if ((close(cmd->ofd)) <= 0) {
+            if ((close(cmd->ofd)) == -1) {
                 error_return("close error");
                 return -1;
             }
+
             if (!cmd->oredir_append) {
-                if ((openat(cmd->ofd, cmd->ofname, O_WRONLY)) <= 0) {
+                if ((openat(cmd->ofd, cmd->ofname, O_WRONLY)) == -1) {
                     error_return("openat error");
                     return -1;
                 } else {
-                    if ((openat(cmd->ofd, cmd->ofname, O_RDWR)) <= 0) {
+                    if ((openat(cmd->ofd, cmd->ofname, O_RDWR)) == -1) {
                         error_return("openat error");
                         return -1;
                     }
@@ -192,7 +195,7 @@ static int set_redirections(struct command *cmd)
             }
         } else {
             if (freopen(cmd->ofname,
-                        cmd->oredir_append ? "a" : "w", stdout) <= 0) {
+                        cmd->oredir_append ? "a" : "w", stdout) == NULL) {
                 error_return("freopen error");
                 return -1;
             }
@@ -208,7 +211,7 @@ static int set_redirections(struct command *cmd)
  */
 static int exec_external_cmd(struct command *cmd)
 {
-    pid_t pid;                  // pid return by execvp
+    pid_t pid;                  // pid returned by execvp
 
     // Setup pipes for parent/child ipc
     tell_wait();
@@ -216,7 +219,7 @@ static int exec_external_cmd(struct command *cmd)
     // Create a pipe if command is in a pipe chain
     if (cmd->pipe) {
         if (cmd->next && cmd->next->pipe) {
-            if (pipe(cmd->pfd) < 0) {
+            if (pipe(cmd->pfd) == -1) {
                 error_return("pipe error");
                 return -1;
             }
