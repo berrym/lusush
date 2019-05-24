@@ -87,8 +87,7 @@ int init(int argc, char **argv, FILE **in)
     // Determine the shell type
     if (**argv == '-') {
         SHELL_TYPE = LOGIN_SHELL;
-    }
-    else if (optind && argv[optind] && *argv[optind]) {
+    } else if (optind && argv[optind] && *argv[optind]) {
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!S_ISREG(st.st_mode)) {
@@ -96,22 +95,20 @@ int init(int argc, char **argv, FILE **in)
                           argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
-        }
-        else {
+        } else {
             SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL)
-                error_syscall("init: fopen");
+                error_syscall("fopen");
         }
-    }
-    else {
+    } else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
     }
 
     // Get and set shell's pid in environment
     pid_t pid = getpid();
-    char spid[128] = { '\0' };
-    snprintf(spid, 128, "%d", pid);
+    char spid[MAX_PID_LEN] = { '\0' };
+    snprintf(spid, MAX_PID_LEN, "%d", pid);
     setenv("$", spid, 1);
 
     // Initialize history

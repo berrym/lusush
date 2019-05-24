@@ -35,7 +35,12 @@
 #endif
 #define MAXLINE 4096            // maximum line length
 
-#include <stdbool.h>
+#ifdef MAX_PID_LEN
+#undef MAX_PID_LEN
+#endif
+#define MAX_PID_LEN 8           // should be long enough for most 64bit oses
+
+#include <stdbool.h>            // for type bool
 
 // Doubly linked list of commands to pass to exec
 struct command

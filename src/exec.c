@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lusush.h"
 #include "errors.h"
 #include "opts.h"
 #include "exec.h"
@@ -47,7 +48,6 @@
 #define WAITFLAGS(command) (command->background ? WNOHANG : WUNTRACED)
 static const void *TELL_STR_CHR = "c";
 #define TELL_STR_LEN 1
-#define MAX_PID_LEN 6
 
 static int pfd[2] = { -1 }; // pipe file descriptors for parent/child ipc
 
