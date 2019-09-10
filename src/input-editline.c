@@ -96,10 +96,8 @@ char *get_input(FILE *in)
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
         build_prompt();
-        if ((line_read = rl_gets(getenv("PROMPT"))) == NULL) {
-            error_message("error: unable to read line from input.");
+        if ((line_read = rl_gets(getenv("PROMPT"))) == NULL)
             return NULL;
-        }
     }
 
     return line_read;

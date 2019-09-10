@@ -130,10 +130,10 @@ static const struct opt_pair attr_opts[] = {
     { "STRIKETHROUGH_OFF", ANSI_STRIKETHROUGH_OFF }
 };
 
-#define NUM_FG_OPTS = 9;
-#define NUM_BG_OPTS = 9;
-#define NUM_TEXT_ATRRIB = 13;
-#define NUM_VALID_ATTRIB = 11;
+static const unsigned int NUM_FG_OPTS = 9;
+static const unsigned int NUM_BG_OPTS = 9;
+static const unsigned int NUM_TEXT_ATRRIB = 13;
+static const unsigned int NUM_VALID_ATTRIB = 11;
 
 static const char *RESET = "\x1b[0m";     // ansi color reset
 static char *colors      = NULL;          // ansi color sequence
@@ -229,7 +229,7 @@ void set_prompt(int argc, char **argv)
             setprompt_usage();
             break;
         case 'a':               // set fancy prompt text attribute
-            for (i = 0; i <= NUM_TEXT_ATRRIB; i++)
+            for (i = 0; i < NUM_TEXT_ATRRIB; i++)
                 if (strcmp(optarg, attr_opts[i].key) == 0)
                     set_prompt_attr(attr_opts[i].val);
             break;
@@ -245,11 +245,11 @@ void set_prompt(int argc, char **argv)
             break;
         case 'v':               // print valid setprompt options
             printf("VALID COLORS:\n");
-            for (i = 0; i <= NUM_FG_OPTS; i++)
+            for (i = 0; i < NUM_FG_OPTS; i++)
                 printf("\t%s\n", fg_opts[i].key);
 
             printf("VALID ATTRIBUTES:\n");
-            for (i = 0; i <= NUM_VALID_ATTRIB; i++)
+            for (i = 0; i < NUM_VALID_ATTRIB; i++)
                 printf("\t%s\n", attr_opts[i].key);
             break;
         case -1:
@@ -297,10 +297,9 @@ void build_prompt(void)
         if (build_colors() > 0)
             goto fancy_error;
 
-        snprintf(prompt, MAXLINE, "%s%s@%s %s%s\n%c\1 ",
+        snprintf(prompt, MAXLINE, "\1%s%s@%s %s%s\n%c \1",
                  colors, u, h, d, RESET, (getuid() > 0) ? '%' : '#');
-    }
-    else {
+    } else {
 fancy_error:
         if (getuid() > 0)
             strncpy(prompt, "% ", 3); // normal user prompt
