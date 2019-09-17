@@ -75,6 +75,7 @@ int main(int argc, char **argv)
         }
     }
 
+    // Happily exit lusush
     if (shell_type() != NORMAL_SHELL)
         printf("\n");
 
