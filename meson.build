@@ -38,3 +38,6 @@ lusush_exe = executable('lusush',
 			src,
 		        dependencies: linedep,
 			include_directories: inc)
+
+rpm = import('rpm')
+rpm.generate_spec_template()
