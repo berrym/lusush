@@ -41,5 +41,8 @@ enum {
 
 extern int init(int, char **, FILE **);
 extern int shell_type(void);
+void setup_signal_handlers(void);
+void setup_sigint_handler(void);
+void setup_sigsegv_handler(void);
 
 #endif

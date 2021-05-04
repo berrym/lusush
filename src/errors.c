@@ -126,20 +126,11 @@ void error_abort(const char *fmt, ...)
 }
 
 /**
- * sig_int:
- *      Interrupt ^C signal handler, ignore it for now.
- */
-void sig_int(int signo)
-{
-    error_message("\nlusush: caught signal %d.\n", signo);
-}
-
-/**
  * NOTE: NECESSARALY FATAL
- * sig_seg:
+ * sig_segv:
  *      Segmentation fault handler, insult programmer then abort.
  */
-void sig_seg(int signo)
+void sig_segv(int signo)
 {
     error_abort("lusush: caught signal %d, terminating.\n"
                 "\tAnd fix your damn code.\n", signo);

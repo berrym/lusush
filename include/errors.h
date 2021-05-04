@@ -35,7 +35,6 @@ extern void error_syscall(const char *, ...);
 extern void error_message(const char *, ...);
 extern void error_quit(const char *, ...);
 extern void error_abort(const char *, ...);
-extern void sig_int(int);
-extern void sig_seg(int);
+extern void sig_segv(int);
 
 #endif

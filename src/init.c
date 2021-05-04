@@ -65,7 +65,7 @@ int shell_type(void)
  */
 int init(int argc, char **argv, FILE **in)
 {
-    struct stat st;             // stat  buffer
+    struct stat st;             // stat buffer
     int optind = 0;             // index of option being parsed
 
     if (!argv)
@@ -74,12 +74,8 @@ int init(int argc, char **argv, FILE **in)
     // Set all locales according to environment
     setlocale(LC_ALL, "");
 
-    // Set up signal handlers
-    if (signal(SIGINT, sig_int) == SIG_ERR)
-        error_syscall( "lusush: signal error");
-
-    if (signal(SIGSEGV, sig_seg) == SIG_ERR)
-        error_syscall( "lusush: signal error");
+    // Setup signal handlers
+    setup_signal_handlers();
 
     // Parse command line options
     optind = parse_opts(argc, argv);
@@ -122,4 +118,53 @@ int init(int argc, char **argv, FILE **in)
     atexit(save_history);
 
     return optind;
+}
+
+/**
+ * setup_signal_handlers:
+ *      Set signal actions for specific signals.
+ */
+void setup_signal_handlers(void) {
+    setup_sigint_handler();
+    setup_sigsegv_handler();
+}
+
+/**
+ * setup_sigint_handler:
+ *      Handle SIGINT, ignore it completely.
+ */
+void setup_sigint_handler(void) {
+    struct sigaction prev_info, handler;
+
+    if (sigaction(SIGINT, NULL, &prev_info) != -1) {
+        handler.sa_handler = SIG_IGN;
+        sigemptyset(&(handler.sa_mask));
+        handler.sa_flags = 0;
+
+        if (sigaction(SIGINT, &handler, &prev_info) == -1) {
+            error_syscall("lusush: signal error");
+        }
+    } else {
+        error_syscall("lusush: signal error");
+    }
+}
+
+/**
+ * setup_sigsegv_handler:
+ *      Handle SIGSEGV, call sig_segv to abort.
+ */
+void setup_sigsegv_handler(void) {
+    struct sigaction prev_info, handler;
+
+    if (sigaction(SIGSEGV, NULL, &prev_info) != -1) {
+        handler.sa_handler = &sig_segv;
+        sigemptyset(&(handler.sa_mask));
+        handler.sa_flags = 0;
+
+        if (sigaction(SIGSEGV, &handler, &prev_info) == -1) {
+            error_syscall("lusush: signal error");
+        }
+    } else {
+        error_syscall("lusush: signal error");
+    }
 }
