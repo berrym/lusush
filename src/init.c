@@ -151,13 +151,13 @@ void setup_sigint_handler(void) {
 
 /**
  * setup_sigsegv_handler:
- *      Handle SIGSEGV, call sig_segv to abort.
+ *      Handle SIGSEGV, call sigsegv_handler to abort.
  */
 void setup_sigsegv_handler(void) {
     struct sigaction prev_info, handler;
 
     if (sigaction(SIGSEGV, NULL, &prev_info) != -1) {
-        handler.sa_handler = &sig_segv;
+        handler.sa_handler = &sigsegv_handler;
         sigemptyset(&(handler.sa_mask));
         handler.sa_flags = 0;
 
