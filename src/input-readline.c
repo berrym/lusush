@@ -75,9 +75,43 @@ static char *rl_gets(const char *prompt)
 {
     // A line of input
     char *s = NULL;
+    char *tmp = NULL;
 
     // Get a line from the user
-    s = readline(prompt);
+    if (opt_is_set(FANCY_PROMPT)) {
+        fprintf(stderr, "%s", prompt);
+        while (true) {
+            if (!s) {
+                s = readline(NULL);
+                continue;
+            }
+
+            if (s[strlen(s) - 1] == '\\') {
+                tmp = s;
+                s = readline("> ");
+                strcpy(&tmp[strlen(tmp)], s);
+                s = tmp;
+            } else {
+                break;
+            }
+        }
+    } else {
+        while (true) {
+            if (!s) {
+                s = readline(prompt);
+                continue;
+            }
+
+            if (s[strlen(s) - 1] == '\\') {
+                tmp = s;
+                s = readline("> ");
+                strcpy(&tmp[strlen(tmp)], s);
+                s = tmp;
+            } else {
+                break;
+            }
+        }
+    }
 
     // If the line has any text in it, save it in history
     if (s && *s)
