@@ -38,6 +38,7 @@
 #include <readline/history.h>
 #include "lusush.h"
 #include "errors.h"
+#include "opts.h"
 #include "input.h"
 #include "init.h"
 #include "history-readline.h"
