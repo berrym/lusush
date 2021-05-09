@@ -98,12 +98,15 @@ char *get_input(FILE *in)
 
     // Read a line of input
     while ((linelen = getline(&line_read, &linecap, in))) {
+        if (feof(in) || ferror(in))
+            return NULL;
         strncat(buf, line_read, linelen);
         buflen += linelen;
         if (buf[buflen - 2] == '\\') {
             buf[buflen - 2] = '\0';
             buflen -= 2;
-            fprintf(stderr, "> ");
+            if (shell_type() != NORMAL_SHELL)
+                fprintf(stderr, "> ");
         } else {
             break;
         }
