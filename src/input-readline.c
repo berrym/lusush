@@ -147,9 +147,6 @@ char *get_input(FILE *in)
         if ((line_read = rl_gets(getenv("PROMPT"))) == NULL)
             return NULL;
     } else {
-        // If the buffer has been previously allocated free it
-        free_line_read();
-
         // Allocate memory for a line of input
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
             error_syscall("get_input: calloc");
@@ -173,6 +170,7 @@ char *get_input(FILE *in)
         }
     
         null_terminate_line(buf);
+        return buf;
     }
 
     return line_read;
