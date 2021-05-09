@@ -43,7 +43,8 @@
 #include "history-readline.h"
 #include "prompt.h"
 
-static char *line_read = NULL;  // storage for readline and fgets
+static char *line_read = NULL;  // storage for readline and getline
+static char *buf = NULL;        // storage for fully read line
 
 /**
  * null_terminate_line:
@@ -51,8 +52,8 @@ static char *line_read = NULL;  // storage for readline and fgets
  */
 static inline void null_terminate_line(char *s)
 {
-    if (s[strnlen(s, MAXLINE)] == '\n')
-        s[strnlen(s, MAXLINE)] = '\0';
+    if (s[strnlen(s, MAXLINE) - 1] == '\n')
+        s[strnlen(s, MAXLINE) - 1] = '\0';
 }
 
 /**
@@ -64,7 +65,10 @@ void free_line_read(void)
     if (line_read)
         free(line_read);
 
-    line_read = NULL;
+    if (buf)
+        free(buf);
+
+    line_read = buf = NULL;
 }
 
 /**
@@ -128,6 +132,10 @@ static char *rl_gets(const char *prompt)
  */
 char *get_input(FILE *in)
 {
+    size_t buflen = 0;
+    size_t linecap = 0;
+    ssize_t linelen;
+
     // If the buffer has been previously allocated free it
     free_line_read();
 
@@ -141,20 +149,26 @@ char *get_input(FILE *in)
         if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
             error_syscall("get_input: calloc");
 
-        // If the shell is interactive print a prompt string
-        if (shell_type() != NORMAL_SHELL) {
-            build_prompt();
-            printf("%s", getenv("PROMPT"));
-        }
+        // Allocate memory for extended line of input
+        if ((buf = calloc(MAXLINE + 1, sizeof(char))) == NULL)
+            error_syscall("get_input: calloc");
 
         // Read a line of input
-        if (fgets(line_read, MAXLINE, in) == NULL)
-            return NULL;
-
-        null_terminate_line(line_read);
-
-        if (in == stdin && line_read && *line_read)
-            add_history(line_read);
+        while ((linelen = getline(&line_read, &linecap, in))) {
+            if (feof(in) || ferror(in))
+                return NULL;
+            strncat(buf, line_read, linelen);
+            buflen += linelen;
+            if (buf[buflen - 2] == '\\') {
+                buf[buflen - 2] = '\0';
+                buflen -= 2;
+            } else {
+                break;
+            }
+        }
+    
+        null_terminate_line(buf);
+        return buf;
     }
 
     return line_read;
