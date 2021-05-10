@@ -48,13 +48,17 @@ static char *line_read = NULL;  // storage for readline and fgets
 static char *buf = NULL;        // storage for fully read line
 
 /**
- * null_terminate_line:
- *      Terminate a string with null character instead of a newline.
+ * strip_trailing_whspc:
+ *      Remove whitespace at the end of a string.
  */
-static inline void null_terminate_line(char *s)
+static inline size_t strip_trailing_whspc(char *s)
 {
-    if (s[strnlen(s, MAXLINE) - 1] == '\n')
+    size_t i = 0;
+    while (strnlen(s, MAXLINE) && isspace((int)s[strnlen(s, MAXLINE) - 1])) {
         s[strnlen(s, MAXLINE) - 1] = '\0';
+        i++;
+    }
+    return i;
 }
 
 /**
@@ -161,15 +165,15 @@ char *get_input(FILE *in)
                 return NULL;
             strncat(buf, line_read, linelen);
             buflen += linelen;
-            if (buf[buflen - 2] == '\\') {
-                buf[buflen - 2] = '\0';
-                buflen -= 2;
+            buflen -= strip_trailing_whspc(buf);
+            if (buf[buflen - 1] == '\\') {
+                buf[buflen - 1] = '\0';
+                buflen -= 1;
             } else {
                 break;
             }
         }
     
-        null_terminate_line(buf);
         return buf;
     }
 
