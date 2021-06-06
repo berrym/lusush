@@ -1,43 +1,41 @@
 project('lusush',
-	'c',
-	default_options: 'c_std=c99',
+        'c',
+        default_options: 'c_std=c99',
         version: '0.1.0',
-        license: 'BSD2CLAUSE')
+        license: 'MIT')
 
 inc = include_directories('include')
 
-src = ['src/alias.c',
-       'src/builtins.c',
-       'src/cmdlist.c',
-       'src/errors.c',
-       'src/exec.c',
+src = ['src/errors.c',
+       'src/executor.c',
        'src/init.c',
+       'src/input.c',
        'src/lusush.c',
-       'src/opts.c',
-       'src/parse.c',
-       'src/prompt.c']
+       'src/prompt.c',
+       'src/signals.c',
+       'src/strings.c',
+       'src/builtins/alias.c',
+       'src/builtins/builtins.c',
+       'src/builtins/history.c',
+       'src/parser/node.c',
+       'src/parser/parser.c',
+       'src/scanner/scanner.c',
+       'src/symtable/symtable.c',
+       'src/vars.c']
 
 editlinedep = dependency('libedit', required: false)
-readlinedep = dependency('readline',  version: '>=5.2', required: false)
+readlinedep = dependency('readline',  version: '>=5.2', required : false)
 linedep = []
 
 if editlinedep.found()
-  src += 'src/input-editline.c'
-  src += 'src/history-editline.c'
+  add_project_arguments('-DUSING_EDITLINE, -DUSING_EDITLINE_HISTORY', language : 'c')
   linedep += editlinedep
 elif readlinedep.found()
-  src += 'src/input-readline.c'
-  src += 'src/history-readline.c'
+  add_project_arguments('-DUSING_READLINE, -DUSING_READLINE_HISTORY', language : 'c')
   linedep += readlinedep
-else
-  src += 'src/input.c'
-  src += 'src/history.c'
 endif
 
 lusush_exe = executable('lusush',
-			src,
-		        dependencies: linedep,
-			include_directories: inc)
-
-rpm = import('rpm')
-rpm.generate_spec_template()
+                        src,
+                        dependencies: linedep,
+                        include_directories: inc)

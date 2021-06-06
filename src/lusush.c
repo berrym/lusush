@@ -1,50 +1,26 @@
-/**
+/*
  * lusush.c - LUSUs' SHell
- *
- * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include "errors.h"
+#include "executor.h"
 #include "init.h"
-#include "cmdlist.h"
 #include "input.h"
-#include "parse.h"
-#include "exec.h"
+#include "lusush.h"
+#include "node.h"
+#include "parser.h"
+#include "scanner.h"
 
-/**
- * main:
- *      Program entry point, read-parse-execute loop.
- */
 int main(int argc, char **argv)
 {
     FILE *in = stdin;                // input file stream pointer
     bool looping = true;             // boolean flag to keep looping
-    struct command *cmd = NULL;      // storage for command details
     char *line = NULL;               // pointer to a line of input read
-    int ret = 0;                     // return status for parse_command
 
     // Perform startup tasks
     init(argc, argv, &in);
@@ -52,32 +28,86 @@ int main(int argc, char **argv)
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
     while (looping) {
-        // Allocate memory for doubly linked list of commands
-        cmd = create_command_list();
-
         // Read a line of input from the opened stream
         line = get_input(in);
 
-        // Parse command(s) from line
-        switch (ret = parse_command(line, cmd)) {
-        case -1:                    // error
-            looping = false;        // exit program
+        if (!line)
             break;
-        case 0:                     // empty input, ignore
-            break;
-        default:                    // command(s) parsed
-            // Execute the command(s)
-            exec_cmd(cmd);
 
-            // Free command(s)
-            free_command_list();
+        // Create a source structure from input
+        struct source src;
+        src.buf = line;
+        src.bufsize = strnlen(line, MAXLINE);
+        src.pos = INIT_SRC_POS;
+
+        // Parse then execute a command
+        parse_and_execute(&src);
+    }
+}
+
+int parse_and_execute(struct source *src)
+{
+    struct token *old_current_token = dup_token(get_current_token());
+    struct token *old_previous_token = dup_token(get_previous_token());
+
+    skip_whitespace(src);
+
+    src->wstart = src->pos;
+
+    size_t i = src->pos;
+
+    struct token *tok = tokenize(src);
+
+    while (tok->type != TOKEN_EOF) {
+        if(tok->type == TOKEN_COMMENT || tok->type == TOKEN_NEWLINE) {
+            i = src->pos;
+            src->wstart = src->pos;
+            tok = tokenize(tok->src);
+        }
+        else {
+            break;
+        }
+    }
+    
+    if(tok->type == TOKEN_EOF) {
+        free_token(get_current_token());
+        free_token(get_previous_token());
+        set_current_token(old_current_token);
+        set_previous_token(old_previous_token);
+        return 0;
+    }
+
+    if (i < 0)
+        i = 0;
+    
+    while(tok->type != TOKEN_EOF) {
+        if(tok->type == TOKEN_COMMENT || tok->type == TOKEN_NEWLINE) {
+            i = src->pos;
+            src->wstart = src->pos;
+            tok = tokenize(tok->src);
+        } else {
             break;
         }
     }
 
-    // Happily exit lusush
-    if (shell_type() != NORMAL_SHELL)
-        printf("\n");
+    if (tok->type == TOKEN_EOF) {
+        free_token(get_current_token());
+        free_token(get_previous_token());
+        set_current_token(old_current_token);
+        set_previous_token(old_previous_token);
+        return 0;
+    }
 
-    exit(EXIT_SUCCESS);
+    while (tok && tok != &eof_token) {
+        struct node *cmd = parse_command(tok);
+
+        if (!cmd)
+            break;
+
+        do_command(cmd);
+        free_node_tree(cmd);
+        tok = tokenize(src);
+    }
+
+    return 1;
 }

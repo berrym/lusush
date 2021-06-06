@@ -1,35 +1,4 @@
-/**
- * init.c - startup and initialization routines
- *
- * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
+#define _POSIX_C_SOURCE 200809L
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -38,35 +7,33 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "lusush.h"
-#include "init.h"
-#include "errors.h"
+#include <string.h>
+#include <getopt.h>
 #include "alias.h"
-#include "opts.h"
+#include "errors.h"
 #include "history.h"
-#include "cmdlist.h"
+#include "init.h"
 #include "input.h"
+#include "lusush.h"
+#include "signals.h"
+#include "symtable.h"
+
+extern char **environ;
 
 // The type of shell instance
 static int SHELL_TYPE;
 
-/**
- * shell_type:
- *      Return the value that represents the type of the shell instance.
- */
+int parse_opts(int argc, char **argv);
+void usage(int err);
+
 int shell_type(void)
 {
     return SHELL_TYPE;
 }
 
-/**
- * init:
- *      Performs initial tasks at shell startup.
- */
 int init(int argc, char **argv, FILE **in)
 {
     struct stat st;             // stat buffer
-    int optind = 0;             // index of option being parsed
 
     if (!argv)
         exit(EXIT_FAILURE);
@@ -75,10 +42,43 @@ int init(int argc, char **argv, FILE **in)
     setlocale(LC_ALL, "");
 
     // Setup signal handlers
-    setup_signal_handlers();
+    init_signal_handlers();
+
+    // Initialize symbol table
+    init_symtable();
+
+    struct symtable_entry *entry;
+    char **p = environ;
+    char *eq = NULL;
+    size_t len = 0;
+    while (*p) {
+        eq = strchr(*p, '=');
+        if (eq) {
+            len = eq - *p;
+            char name[len + 1];
+
+            strncpy(name, *p, len);
+            name[len] = '\0';
+
+            entry = add_to_symtable(name);
+
+            if (entry) {
+                symtable_entry_setval(entry, eq+1);
+                entry->flags |= FLAG_EXPORT;
+            }
+        } else {
+            entry = add_to_symtable(*p);
+        }
+        p++;
+    }
+
+    entry = add_to_symtable("PS1");
+    symtable_entry_setval(entry, "% ");
+    entry = add_to_symtable("PS2");
+    symtable_entry_setval(entry, "> ");
 
     // Parse command line options
-    optind = parse_opts(argc, argv);
+    size_t optind = parse_opts(argc, argv);
 
     // Determine the shell type
     if (**argv == '-') {
@@ -101,70 +101,69 @@ int init(int argc, char **argv, FILE **in)
         SHELL_TYPE = INTERACTIVE_SHELL;
     }
 
-    // Get and set shell's pid in environment
-    pid_t pid = getpid();
-    char spid[MAX_PID_LEN] = { '\0' };
-    snprintf(spid, MAX_PID_LEN, "%d", pid);
-    setenv("$", spid, 1);
+    // Get and set shell's ppid in environment
+    pid_t ppid = getppid();
+    char ppid_str[10];
+    sprintf(ppid_str, "%u", ppid);
+    setenv("PPID", ppid_str, 1);
+    struct symtable_entry *ppid_entry = add_to_symtable("PPID");
+    symtable_entry_setval(ppid_entry, ppid_str);
+    entry->flags |= FLAG_READONLY;
 
     // Initialize history
     init_history();
+    // Read the history file
+    if (read_history(histfn) != 0)
+        error_message("init: unable to read history");
+
+    // Initialize aliases
+    init_aliases();
 
     // Set memory cleanup procedures on termination
+    atexit(free_global_symtable);
     atexit(free_alias_list);
-    atexit(free_command_list);
-    atexit(free_line_read);
+    #ifndef USING_READLINE
+    atexit(free_input_buffers);
+    #endif
     atexit(free_history_list);
     atexit(save_history);
+
+    return 0;
+}
+
+int parse_opts(int argc, char **argv)
+{
+    // next option
+    int nopt = 0;
+    // string of valid short options
+    const char *sopts = "h";
+    // array describing valid long options
+    const struct option lopts[] = {
+        { "help", 0, NULL, 'h' },
+        { NULL, 0, NULL, 0 }
+    };
+
+    do {
+        nopt = getopt_long(argc, argv, sopts, lopts, NULL);
+
+        switch (nopt) {
+        case 'h':
+            usage(EXIT_SUCCESS);
+            break;
+        case '?':
+            usage(EXIT_FAILURE);
+        case -1:
+            break;
+        default:
+            error_abort("unknown error terminating\n"); // should never happen
+        }
+    } while (nopt != -1);
 
     return optind;
 }
 
-/**
- * setup_signal_handlers:
- *      Set signal actions for specific signals.
- */
-void setup_signal_handlers(void) {
-    setup_sigint_handler();
-    setup_sigsegv_handler();
-}
-
-/**
- * setup_sigint_handler:
- *      Handle SIGINT, ignore it completely.
- */
-void setup_sigint_handler(void) {
-    struct sigaction prev_info, handler;
-
-    if (sigaction(SIGINT, NULL, &prev_info) != -1) {
-        handler.sa_handler = SIG_IGN;
-        sigemptyset(&(handler.sa_mask));
-        handler.sa_flags = 0;
-
-        if (sigaction(SIGINT, &handler, &prev_info) == -1) {
-            error_syscall("lusush: signal error");
-        }
-    } else {
-        error_syscall("lusush: signal error");
-    }
-}
-
-/**
- * setup_sigsegv_handler:
- *      Handle SIGSEGV, call sigsegv_handler to abort.
- */
-void setup_sigsegv_handler(void) {
-    struct sigaction prev_info, handler;
-
-    if (sigaction(SIGSEGV, NULL, &prev_info) != -1) {
-        handler.sa_handler = &sigsegv_handler;
-        sigemptyset(&(handler.sa_mask));
-        handler.sa_flags = 0;
-
-        if (sigaction(SIGSEGV, &handler, &prev_info) == -1) {
-            error_syscall("lusush: signal error");
-        }
-    } else {
-        error_syscall("lusush: signal error");
-    }
+void usage(int err)
+{
+    error_message("Usage:\n\t-h This Help\n");
+    exit(err);
 }

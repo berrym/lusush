@@ -1,36 +1,6 @@
-/**
- * input.c - input routines
- *
- * Copyright (c) 2015 Michael Berry <trismegustis@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+#define _POSIX_C_SOURCE 200809L
 
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -40,88 +10,139 @@
 #include "init.h"
 #include "history.h"
 #include "prompt.h"
+#include "strings.h"
+#include "symtable.h"
 
-static char *line_read = NULL;  // storage for readline and fgets
-static char *buf = NULL;
+char *buf = NULL, *buf2 = NULL;
 
-/**
- * strip_trailing_whspc:
- *      Remove whitespace at the end of a string.
- */
-static inline size_t strip_trailing_whspc(char *s)
+void free_input_buffers(void)
 {
-    size_t i = 0;
-    while (strnlen(s, MAXLINE) && isspace((int)s[strnlen(s, MAXLINE) - 1])) {
-        s[strnlen(s, MAXLINE) - 1] = '\0';
-        i++;
-    }
-    return i;
-}
-
-/**
- * free_line_read:
- *      Free memory allocated to line_read.
- */
-void free_line_read(void)
-{
-    if (line_read)
-        free(line_read);
-
     if (buf)
         free(buf);
 
-    line_read = buf = NULL;
+    if (buf2)
+        free(buf2);
+
+    buf = buf2 = NULL;
 }
 
-/**
- * get_input:
- *      Read a line of input, store the line in history.
- *      Return a pointer to the line read.
- */
+#if  !defined(USING_EDITLINE) && !defined(USING_READLINE)
+
 char *get_input(FILE *in)
 {
     size_t buflen = 0;
     size_t linecap = 0;
     ssize_t linelen;
 
-    // If the buffer has been previously allocated free it
-    free_line_read();
+    // Free input buf2fers
+    free_input_buffers();
 
-    // Allocate memory for a line of input
-    if ((line_read = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_syscall("get_input: calloc");
+    buf = alloc_string(MAXLINE + 1, true);
 
-    // Allocate memory for extended line of input
-    if ((buf = calloc(MAXLINE + 1, sizeof(char))) == NULL)
-        error_syscall("get_input: calloc");
+    buf2 = alloc_string(MAXLINE + 1, true);
 
     // If the shell is interactive print a prompt string
-    if (shell_type() != NORMAL_SHELL) {
-        build_prompt();
-        printf("%s", getenv("PROMPT"));
-    }
+    if (shell_type() != NORMAL_SHELL)
+        printf("%s", get_shell_varp("PS1", ""));
 
     // Read a line of input
-    while ((linelen = getline(&line_read, &linecap, in))) {
+    while ((linelen = getline(&buf, &linecap, in))) {
         if (feof(in) || ferror(in))
             return NULL;
-        strncat(buf, line_read, linelen);
+        strncat(buf2, buf, linelen);
         buflen += linelen;
-        buflen -= strip_trailing_whspc(buf);
-        if (buf[buflen - 1] == '\\') {
-            buf[buflen - 1] = '\0';
+        buflen -= strip_trailing_whspc(buf2);
+        if (buf2[buflen - 1] == '\\') {
+            buf2[buflen - 1] = '\0';
             buflen -= 1;
             if (shell_type() != NORMAL_SHELL)
-                fprintf(stderr, "> ");
+                fprintf(stderr, "%s", get_shell_varp("PS2", ""));
         } else {
             break;
         }
     }
 
     // Add line to command history
-    if (in == stdin && *buf)
-        add_history(buf);
+    if (in == stdin && *buf2)
+        add_to_history(buf2);
 
     // Return full line read
-    return buf;
+    return buf2;
 }
+
+#endif
+
+#if defined(USING_EDITLINE) || defined(USING_READLINE)
+
+char *rl_gets(const char *prompt)
+{
+    // A line of input
+    char *s = NULL;
+    char *tmp = NULL;
+
+    while (true) {
+        if (!s) {
+            s = readline(get_shell_varp("PS1", ""));
+            continue;
+        }
+
+        if (s[strnlen(s, MAXLINE) - 1] == '\\') {
+            s[strnlen(s, MAXLINE) - 1] = '\0';
+            tmp = s;
+            s = readline(get_shell_varp("PS2", ""));
+            strncpy(&tmp[strnlen(tmp, MAXLINE)], s, MAXLINE);
+            s = tmp;
+        } else {
+            break;
+        }
+    }
+
+    // If the line has any text in it, save it in history
+    if (s && *s)
+        add_history(s);
+
+    // Return the line
+    return s;
+}
+
+char *get_input(FILE *in)
+{
+    size_t buflen = 0;
+    size_t linecap = 0;
+    ssize_t linelen;
+
+    // If the buffers have been previously allocated free them
+    free_input_buffers();
+
+    // Read a line from either a file or standard input
+    if (shell_type() != NORMAL_SHELL) {
+        buf2 = rl_gets(get_shell_varp("PS1", ""));
+    } else {
+        // Allocate memory for a line of input
+        buf2 = alloc_string(MAXLINE + 1, true);
+
+        // Allocate memory for extended line of input
+        buf = alloc_string(MAXLINE + 1, true);
+
+        // Read a line of input
+        while ((linelen = getline(&buf2, &linecap, in))) {
+            if (feof(in) || ferror(in))
+                return NULL;
+            strncat(buf, buf2, linelen);
+            buflen += linelen;
+            buflen -= strip_trailing_whspc(buf);
+            if (buf[buflen - 1] == '\\') {
+                buf[buflen - 1] = '\0';
+                buflen -= 1;
+            } else {
+                break;
+            }
+        }
+    
+        return buf;
+    }
+
+    return buf2;
+}
+
+#endif
