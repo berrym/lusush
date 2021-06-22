@@ -19,8 +19,8 @@
 
 char *search_path(char *file)
 {
-    char *PATH = getenv("PATH");
-    char *p    = PATH;
+    char *PATH = get_shell_varp("PATH", "");
+    char *p = PATH;
     char *p2;
 
     while (p && *p) {
@@ -34,10 +34,10 @@ char *search_path(char *file)
             plen = 1;
 
         int  alen = strlen(file);
-        char path[plen+1+alen+1];
+        char path[plen + 1 + alen + 1];
 
-        strncpy(path, p, p2-p);
-        path[p2-p] = '\0';
+        strncpy(path, p, p2 - p);
+        path[p2 - p] = '\0';
 
         if (p2[-1] != '/')
             strncat(path, "/", 2);
@@ -73,10 +73,10 @@ char *search_path(char *file)
 
 int do_exec_cmd(int argc, char **argv)
 {
-    if (strchr(argv[0], '/')) {
-        execv(argv[0], argv);
+    if (strchr(*argv, '/')) {
+        execv(*argv, argv);
     } else {
-        char *path = search_path(argv[0]);
+        char *path = search_path(*argv);
         if (!path)
             return 0;
         execv(path, argv);
@@ -106,7 +106,7 @@ int do_command(struct node *node)
 
     int argc = 0;
     long max_args = 255;
-    char *argv[max_args+1];/* keep 1 for the terminating NULL arg */
+    char *argv[max_args + 1]; /* keep 1 for the terminating NULL arg */
     char *str;
 
     while (child) {
@@ -166,7 +166,7 @@ int do_command(struct node *node)
             break;
         }
     } else if (child_pid < 0) {
-        error_return("error: failed to fork command: %s");
+        error_return("error: failed to fork command");
         return 0;
     }
 

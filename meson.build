@@ -28,10 +28,10 @@ readlinedep = dependency('readline',  version: '>=5.2', required : false)
 linedep = []
 
 if editlinedep.found()
-  add_project_arguments('-DUSING_EDITLINE, -DUSING_EDITLINE_HISTORY', language : 'c')
+  add_project_arguments('-DUSING_EDITLINE -DUSING_EDITLINE_HISTORY', language : 'c')
   linedep += editlinedep
 elif readlinedep.found()
-  add_project_arguments('-DUSING_READLINE, -DUSING_READLINE_HISTORY', language : 'c')
+  add_project_arguments('-DUSING_READLINE -DUSING_READLINE_HISTORY', language : 'c')
   linedep += readlinedep
 endif
 
