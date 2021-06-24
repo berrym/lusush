@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "scanner.h"
 
 #ifndef LUSUSH_H
@@ -5,15 +6,15 @@
 
 #define SHELL_NAME "lusush"
 
+// Maximum line length
+#ifdef _SC_LINE_MAX
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE 4096            // maximum line length
-
-/* #ifdef MAX_PID_LEN */
-/* #undef MAX_PID_LEN */
-/* #endif */
-/* #define MAX_PID_LEN 32          // should be long enough for most 64bit os */
+#define MAXLINE _SC_LINE_MAX
+#else
+#define MAXLINE 4096
+#endif
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
@@ -25,9 +26,9 @@ char *get_malloced_str(char *);
 void free_malloced_str(char *);
 char *get_shell_varp(char *, char *);
 int get_shell_vari(char *, int);
-long  get_shell_varl(char *, int);
-void  set_shell_varp(char *, char *);
-void  set_shell_vari(char *, int);
+long get_shell_varl(char *, int);
+void set_shell_varp(char *, char *);
+void set_shell_vari(char *, int);
 
 #include <sys/types.h>
 
