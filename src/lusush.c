@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "errors.h"
-#include "executor.h"
+#include "exec.h"
 #include "init.h"
 #include "input.h"
 #include "lusush.h"

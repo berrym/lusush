@@ -7,7 +7,7 @@ project('lusush',
 inc = include_directories('include')
 
 src = ['src/errors.c',
-       'src/executor.c',
+       'src/exec.c',
        'src/init.c',
        'src/input.c',
        'src/lusush.c',

@@ -10,7 +10,7 @@
 #include "alias.h"
 #include "builtins.h"
 #include "errors.h"
-#include "executor.h"
+#include "exec.h"
 #include "lusush.h"
 #include "node.h"
 #include "parser.h"
