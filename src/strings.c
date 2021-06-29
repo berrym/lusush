@@ -14,11 +14,13 @@ char *alloc_string(size_t len, bool exitflag)
 {
     char *s = NULL;
 
-    if ((s = calloc(len + 1, sizeof(char))) == NULL) {
-        if (exitflag)
+    if ((s = calloc(len, sizeof(char))) == NULL) {
+        if (exitflag) {
             error_syscall("alloc_string");
-        else
+        } else {
             error_return("alloc_string");
+            return NULL;
+        }
     }
 
     return s;

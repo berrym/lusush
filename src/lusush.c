@@ -47,37 +47,12 @@ int main(int argc, char **argv)
 
 int parse_and_execute(struct source *src)
 {
-    struct token *old_current_token = dup_token(get_current_token());
-    struct token *old_previous_token = dup_token(get_previous_token());
-
     skip_whitespace(src);
-
-    src->wstart = src->pos;
-
-    size_t i = src->pos;
 
     struct token *tok = tokenize(src);
 
-    if (i < 0)
-        i = 0;
-    
-    while (tok->type != TOKEN_EOF) {
-        if (tok->type == TOKEN_COMMENT || tok->type == TOKEN_NEWLINE) {
-            i = src->pos;
-            src->wstart = src->pos;
-            tok = tokenize(tok->src);
-        } else {
-            break;
-        }
-    }
-
-    if (tok->type == TOKEN_EOF) {
-        free_token(get_current_token());
-        free_token(get_previous_token());
-        set_current_token(old_current_token);
-        set_previous_token(old_previous_token);
+    if (tok == &eof_token)
         return 0;
-    }
 
     while (tok && tok != &eof_token) {
         struct node *cmd = parse_command(tok);

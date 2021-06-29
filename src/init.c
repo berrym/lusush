@@ -15,6 +15,7 @@
 #include "init.h"
 #include "input.h"
 #include "lusush.h"
+#include "scanner.h"
 #include "signals.h"
 #include "symtable.h"
 
@@ -120,6 +121,7 @@ int init(int argc, char **argv, FILE **in)
     init_aliases();
 
     // Set memory cleanup procedures on termination
+    atexit(free_tok_buf);
     atexit(free_global_symtable);
     atexit(free_alias_list);
     #ifndef USING_READLINE

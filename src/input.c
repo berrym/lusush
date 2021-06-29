@@ -37,8 +37,6 @@ char *get_input(FILE *in)
     // Free input buf2fers
     free_input_buffers();
 
-    buf = alloc_string(MAXLINE + 1, true);
-
     buf2 = alloc_string(MAXLINE + 1, true);
 
     // If the shell is interactive print a prompt string
@@ -82,14 +80,14 @@ char *rl_gets(const char *prompt)
 
     while (true) {
         if (!s) {
-            s = readline(get_shell_varp("PS1", ""));
+            s = readline(get_shell_varp("PS1", "% "));
             continue;
         }
 
         if (s[strnlen(s, MAXLINE) - 1] == '\\') {
             s[strnlen(s, MAXLINE) - 1] = '\0';
             tmp = s;
-            s = readline(get_shell_varp("PS2", ""));
+            s = readline(get_shell_varp("PS2", "> "));
             strncpy(&tmp[strnlen(tmp, MAXLINE)], s, MAXLINE);
             s = tmp;
         } else {
@@ -116,7 +114,7 @@ char *get_input(FILE *in)
 
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
-        buf2 = rl_gets(get_shell_varp("PS1", ""));
+        buf2 = rl_gets(get_shell_varp("PS1", "% "));
     } else {
         // Allocate memory for a line of input
         buf2 = alloc_string(MAXLINE + 1, true);
@@ -134,6 +132,8 @@ char *get_input(FILE *in)
             if (buf[buflen - 1] == '\\') {
                 buf[buflen - 1] = '\0';
                 buflen -= 1;
+                if (shell_type() != NORMAL_SHELL)
+                    fprintf(stderr, "%s", get_shell_varp("PS2", "> "));
             } else {
                 break;
             }

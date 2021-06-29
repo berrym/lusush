@@ -91,5 +91,6 @@ char prev_char(struct source *);
 void unget_char(struct source *);
 char peek_char(struct source *);
 void skip_whitespace(struct source *);
+void free_tok_buf(void);
 
 #endif

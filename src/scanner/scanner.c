@@ -9,6 +9,7 @@
 #include "errors.h"
 #include "lusush.h"
 #include "scanner.h"
+#include "strings.h"
 
 static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;
@@ -59,7 +60,7 @@ struct token *dup_token(struct token *token)
 
     struct token *token2 = NULL;
     if ((token2 = calloc(1, sizeof(struct token))) == NULL) {
-        error_syscall("dup_token");
+        error_return("dup_token");
         return NULL;
     }
     memcpy(token2, token, sizeof(struct token));
@@ -170,11 +171,9 @@ struct token *tokenize(struct source *src)
         return &eof_token;
 
     if (!tok_buf) {
-        tok_bufsize = MAXLINE + 1;
-        if ((tok_buf = calloc(MAXLINE + 1, sizeof(char))) == NULL) {
-            error_syscall("tokenize: calloc");
+        tok_bufsize = MAXLINE;
+        if ((tok_buf = alloc_string(tok_bufsize, false)) == NULL)
             return &eof_token;
-        }
     }
 
     tok_bufindex = 0;
@@ -246,4 +245,9 @@ void set_current_token(struct token *tok)
 void set_previous_token(struct token *tok)
 {
     prev_tok = tok;
+}
+
+void free_tok_buf(void) {
+    if (tok_buf)
+        free(tok_buf);
 }
