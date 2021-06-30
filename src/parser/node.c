@@ -16,10 +16,8 @@ struct node *new_node(enum node_type type)
 {
     struct node *node = NULL;
 
-    if ((node = calloc(1, sizeof(struct node))) == NULL) {
+    if ((node = calloc(1, sizeof(struct node))) == NULL)
         error_syscall("new_node: calloc");
-        return NULL;
-    }
 
     node->type = type;
 

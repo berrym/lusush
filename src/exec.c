@@ -17,9 +17,9 @@
 #include "scanner.h"
 #include "strings.h"
 
-char *search_path(char *file)
+char *search_path(char *fn)
 {
-    char *PATH = get_shell_varp("PATH", "");
+    char *PATH = getenv("PATH");
     char *p = PATH;
     char *p2;
 
@@ -28,12 +28,12 @@ char *search_path(char *file)
         while (*p2 && *p2 != ':')
             p2++;
 
-        int  plen = p2 - p;
+        int plen = p2 - p;
 
         if (!plen)
             plen = 1;
 
-        int  alen = strlen(file);
+        int alen = strnlen(fn, MAXLINE);
         char path[plen + 1 + alen + 1];
 
         strncpy(path, p, p2 - p);
@@ -42,7 +42,7 @@ char *search_path(char *file)
         if (p2[-1] != '/')
             strncat(path, "/", 2);
 
-        strncat(path, file, MAXLINE);
+        strncat(path, fn, MAXLINE);
 
         struct stat st;
 
