@@ -34,6 +34,15 @@ void print_history(void)
         printf("%5zu\t%s\n", i + 1, h->line);
 }
 
+void free_history_list(void)
+{
+    size_t i = 0;
+    HIST_ENTRY *h = NULL;
+
+    for (i = 0; (h = history_get(i + history_base)); i++)
+        free(h);
+}
+
 #else
 
 struct histable *hist_list = NULL;
@@ -58,7 +67,7 @@ void free_history_list(void)
     struct histentry *curr, *next;
 
     curr = hist_list->head;
-    next = curr->next;
+    next = NULL;
 
     while (curr) {
         if (curr->cmd)
