@@ -41,6 +41,20 @@ int bin_help(int argc, char **argv)
 
 int bin_cd(int argc, char **argv)
 {
+    if (argc == 1) {
+        if (chdir(getenv("HOME")) != 0) {
+            error_return("cd: ");
+            return 1;
+        }
+
+        return 0;
+    }
+
+    if (argc != 2) {
+        error_message("cd: usage: cd pathname");
+        return 1;
+    }
+
     if (chdir(argv[1]) < 0) {
         error_return("cd: chdir");
         return 1;
@@ -51,14 +65,14 @@ int bin_cd(int argc, char **argv)
 
 int bin_pwd(int argc, char **argv)
 {
-    char cwd[_PC_PATH_MAX + 1] = { '\0' };
+    char cwd[MAXLINE] = { '\0' };
 
-    if (getcwd(cwd, _PC_PATH_MAX) == NULL) {
+    if (getcwd(cwd, MAXLINE) == NULL) {
         error_return("pwd: getcwd");
         return 1;
     }
 
-    fprintf(stderr, "%s\n", cwd);
+    printf("%s\n", cwd);
 
     return 0;
 }
