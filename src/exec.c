@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -19,30 +17,28 @@
 
 char *search_path(char *fn)
 {
-    char *PATH = getenv("PATH");
-    char *p = PATH;
-    char *p2;
+    char *PATH = getenv("PATH"), *p = PATH, *p2 = NULL;
 
     while (p && *p) {
         p2 = p;
         while (*p2 && *p2 != ':')
             p2++;
 
-        int plen = p2 - p;
+        size_t plen = p2 - p;
 
         if (!plen)
             plen = 1;
 
-        int alen = strnlen(fn, MAXLINE);
+        size_t alen = strlen(fn);
         char path[plen + 1 + alen + 1];
 
         strncpy(path, p, p2 - p);
         path[p2 - p] = '\0';
 
         if (p2[-1] != '/')
-            strncat(path, "/", 2);
+            strcat(path, "/");
 
-        strncat(path, fn, MAXLINE);
+        strcat(path, fn);
 
         struct stat st;
 
@@ -55,10 +51,10 @@ char *search_path(char *fn)
                 continue;
             }
 
-            if ((p = alloc_string(strlen(path) + 1, false)) == NULL)
+            if (!(p = alloc_str(strlen(path) + 1, false)))
                 return NULL;
 
-            strncpy(p, path, strnlen(path, MAXLINE));
+            strcpy(p, path);
             return p;
         } else {
             p = p2;
@@ -77,15 +73,18 @@ int do_exec_cmd(int argc, char **argv)
         execv(*argv, argv);
     } else {
         char *path = search_path(*argv);
+
         if (!path)
             return 0;
+
         execv(path, argv);
-        free(path);
+        error_return("do_exec_cmd");
     }
+
     return 0;
 }
 
-static inline void free_argv(int argc, char **argv)
+inline void free_argv(int argc, char **argv)
 {
     if (!argc)
         return;
@@ -94,31 +93,30 @@ static inline void free_argv(int argc, char **argv)
         free(argv[argc]);
 }
 
-int do_command(struct node *node)
+int do_command(node_s *n)
 {
-    if (!node)
+    size_t argc = 0, max_args = 255;
+    char *argv[max_args + 1], *str = NULL;
+
+    if (!n)
         return 0;
 
-    struct node *child = node->first_child;
+    node_s *child = n->first_child;
 
     if (!child)
         return 0;
 
-    int argc = 0;
-    long max_args = 255;
-    char *argv[max_args + 1]; /* keep 1 for the terminating NULL arg */
-    char *str;
-
     while (child) {
         str = child->val.str;
-        argv[argc] = alloc_string(strnlen(str, MAXLINE) + 1, false);
+        argv[argc] = alloc_str(strlen(str) + 1, false);
 
-        if(!argv[argc]) {
+        if (!argv[argc]) {
             free_argv(argc, argv);
             return 0;
         }
 
-        strncpy(argv[argc], str, strnlen(str, MAXLINE));
+        strcpy(argv[argc], str);
+        null_terminate_str(argv[argc]);
 
         if (++argc >= max_args)
             break;
@@ -128,21 +126,24 @@ int do_command(struct node *node)
 
     argv[argc] = NULL;
 
-    char *alias = expand_alias(*argv);
+    // Execute an aliased command
+    char *alias = lookup_alias(*argv);
     if (alias) {
         // Create a source structure from input
-        struct source src;
+        source_s src;
         src.buf = alias;
-        src.bufsize = strnlen(alias, MAX_ALIAS_LEN);
+        src.bufsize = strlen(alias);
         src.pos = INIT_SRC_POS;
+
         // Parse then execute a command
         parse_and_execute(&src);
         free_argv(argc, argv);
         return 1;
     }
 
+    // Execute a builtin command
     for (size_t i = 0; i < builtins_count; i++) {
-        if (strncmp(*argv, builtins[i].name, MAXLINE) == 0) {
+        if (strcmp(*argv, builtins[i].name) == 0) {
             builtins[i].func(argc, argv);
             free_argv(argc, argv);
             return 1;
@@ -153,7 +154,8 @@ int do_command(struct node *node)
 
     if ((child_pid = fork()) == 0) {
         do_exec_cmd(argc, argv);
-        error_message("error: failed to execute command: %s\n", strerror(errno));
+        error_return("do_command");
+
         switch (errno) {
         case ENOEXEC:
             exit(126);
@@ -166,7 +168,7 @@ int do_command(struct node *node)
             break;
         }
     } else if (child_pid < 0) {
-        error_return("error: failed to fork command");
+        error_return("do_command");
         return 0;
     }
 

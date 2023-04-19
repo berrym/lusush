@@ -3,9 +3,18 @@
 #ifndef STRINGS_H
 #define STRINGS_H
 
-char *alloc_string(size_t, bool);
-size_t strip_leading_whspc(char *);
-size_t strip_trailing_whspc(char *);
+void init_str_symtable(void);
+char *__get_alloced_str(char *);
+char *get_alloced_str(char *);
+void free_alloced_str(char *s);
+char *alloc_str(size_t, bool);
+void free_str(char *);
+bool strupper(char *);
+bool strlower(char *);
+size_t str_skip_whitespace(char *);
+size_t str_strip_leading_whitespace(char *);
+ssize_t str_strip_trailing_whitespace(char *);
 void null_replace_newline(char *);
+void null_terminate_str(char *);
 
 #endif

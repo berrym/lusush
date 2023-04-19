@@ -4,26 +4,26 @@
 #define SYMTABLE_H
 
 // Type of a symbol table entry's value
-enum symbol_type {
+typedef enum symbol_type_e {
     SYM_STR,
     SYM_FUNC,
-};
+} symbol_type_e;
 
 // the symbol table entry structure
-struct symtable_entry {
+typedef struct symtable_entry_s {
     char *name;
-    enum symbol_type val_type;
+    symbol_type_e val_type;
     char *val;
     unsigned int flags;
-    struct symtable_entry *next;
-    struct node *func_body;
-};
+    struct symtable_entry_s *next;
+    node_s *func_body;
+} symtable_entry_s;
 
 // The symbol table structure
-struct symtable {
-    int level;
-    struct symtable_entry *head, *tail;
-};
+typedef struct symtable_s {
+    size_t level;
+    symtable_entry_s *head, *tail;
+} symtable_s;
 
 // Values for the flags field of struct symtable_entry
 #define FLAG_EXPORT (1 << 0)      // export entry to forked commands
@@ -40,27 +40,27 @@ struct symtable {
 // The symbol table stack structure
 #define MAX_SYMTAB 256
 
-struct symtablestack {
+typedef struct symtable_stack_s {
     size_t symtable_count;
-    struct symtable *symtable_list[MAX_SYMTAB];
-    struct symtable *global_symtable, *local_symtable;
-};
+    symtable_s *symtable_list[MAX_SYMTAB];
+    symtable_s *global_symtable, *local_symtable;
+} symtable_stack_s;
 
 // Function prototypes
-struct symtable *new_symtable(int);
-struct symtable *symtablestack_push(void);
-struct symtable *symtablestack_pop(void);
-int rem_from_symtable(struct symtable_entry *, struct symtable *);
-struct symtable_entry *add_to_symtable(char *);
-struct symtable_entry *do_lookup(const char *, struct symtable *);
-struct symtable_entry *get_symtable_entry(const char *);
-struct symtable *get_local_symtable(void);
-struct symtable *get_global_symtable(void);
-struct symtablestack *get_symtablestack(void);
+symtable_s *new_symtable(size_t);
+symtable_s *symtable_stack_push(void);
+symtable_s *symtable_stack_pop(void);
+int remove_from_symtable(symtable_s *, symtable_entry_s *);
+symtable_entry_s *add_to_symtable(char *);
+symtable_entry_s *lookup_symbol(symtable_s *, const char *);
+symtable_entry_s *get_symtable_entry(const char *);
+symtable_s *get_local_symtable(void);
+symtable_s *get_global_symtable(void);
+symtable_stack_s *get_symtable_stack(void);
 void init_symtable(void);
 void dump_local_symtable(void);
-void free_symtable(struct symtable *);
+void free_symtable(symtable_s *);
 void free_global_symtable(void);
-void symtable_entry_setval(struct symtable_entry *, char *);
+void symtable_entry_setval(symtable_entry_s *, char *);
 
 #endif

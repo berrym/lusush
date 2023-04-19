@@ -14,14 +14,11 @@
  */
 static void do_error(bool errnoflag, int err, const char *fmt, va_list args)
 {
-    char buf[MAXLINE] = { '\0' };
+    char buf[MAXLINE + 1] = { '\0' };
 
-    vsnprintf(buf, MAXLINE - 1, fmt, args);
+    vsprintf(buf, fmt, args);
     if (errnoflag)
-        snprintf(buf + strlen(buf),
-                 MAXLINE - strlen(buf) - 1,
-                 ": %s",
-                 strerror(err));
+        sprintf(buf, ": %s", strerror(err));
 
     strncat(buf, "\n", 2);
     fflush(stdout);             // in case stdout and stdin are the same

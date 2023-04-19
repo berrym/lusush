@@ -6,12 +6,15 @@
 #include "errors.h"
 #include "builtins.h"
 #include "alias.h"
+#include "exec.h"
 #include "history.h"
 #include "lusush.h"
-#include "prompt.h"
+#include "scanner.h"
+#include "strings.h"
 #include "symtable.h"
 
-struct builtin builtins[] = {
+// Table of builtin commands
+builtin builtins[] = {
     { "exit",        "exit shell",                  bin_exit      },
     { "help",        "builtin help",                bin_help      },
     { "cd",          "change directory",            bin_cd        },
@@ -22,14 +25,22 @@ struct builtin builtins[] = {
     { "dump",        "dump symbol table",           bin_dump      },
 };
 
-size_t builtins_count = sizeof(builtins) / sizeof(struct builtin);
+const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
 
+/**
+ * bin_exit:
+ *      Exit the shell.
+ */
 int bin_exit(int argc, char **argv)
 {
     exit(EXIT_SUCCESS);
     return 0;
 }
 
+/**
+ * bin_help:
+ *      Print a list of builtins and their description.
+ */
 int bin_help(int argc, char **argv)
 {
     for (size_t i = 0; i < builtins_count; i++)
@@ -39,11 +50,15 @@ int bin_help(int argc, char **argv)
     return 0;
 }
 
+/**
+ * bin_cd:
+ *      Change working directory.
+ */
 int bin_cd(int argc, char **argv)
 {
     if (argc == 1) {
         if (chdir(getenv("HOME")) != 0) {
-            error_return("cd: ");
+            error_return("cd");
             return 1;
         }
 
@@ -51,24 +66,28 @@ int bin_cd(int argc, char **argv)
     }
 
     if (argc != 2) {
-        error_message("cd: usage: cd pathname");
+        error_message("usage: cd pathname");
         return 1;
     }
 
     if (chdir(argv[1]) < 0) {
-        error_return("cd: chdir");
+        error_return("cd");
         return 1;
     }
 
     return 0;
 }
 
+/**
+ * bin_pwd:
+ *      Print working directory.
+ */
 int bin_pwd(int argc, char **argv)
 {
     char cwd[MAXLINE] = { '\0' };
 
     if (getcwd(cwd, MAXLINE) == NULL) {
-        error_return("pwd: getcwd");
+        error_return("pwd");
         return 1;
     }
 
@@ -77,58 +96,104 @@ int bin_pwd(int argc, char **argv)
     return 0;
 }
 
+/**
+ * bin_history:
+ *      Implementation of a history command.
+ */
 int bin_history(int argc, char **argv)
 {
-    print_history();
+    switch (argc) {
+    case 1:
+        print_history();
+        break;
+    case 2:
+        // Lookup a history entry
+        char *s = lookup_history(argv[1]);
+        if (!s) {
+            history_usage();
+            break;
+        }
+
+        // Create a source struct from history entry
+        source_s src;
+        src.buf = s;
+        src.bufsize = strlen(s);
+        src.pos = INIT_SRC_POS;
+
+        parse_and_execute(&src);
+        break;
+    default:
+        history_usage();
+        break;
+    }
+
     return 0;
 }
 
+/**
+ * bin_alias:
+ *      Create aliased commands, or print alias values.
+ */
 int bin_alias(int argc, char **argv)
 {
-    size_t v = 1, i;
-    char *str = NULL, *eq = NULL;
-    int res = 0, res3;
+    char *src = NULL, *name = NULL, *val = NULL;
 
     switch (argc) {
     case 1:
-        print_alias_list();
+        print_aliases();
+        break;
+    case 2:
+        const char *s = lookup_alias(argv[1]);
+        if (!*s) {
+            alias_usage();
+            return 1;
+        } else {
+            printf("%s=\"%s\"\n", argv[1], s);
+        }
         break;
     default:
-        for (; v < argc; v++) {
-            str = argv[v];
-            eq = strchr(str, '=');
-            if (eq) {
-                i = eq-str;
-                char tmp[i+1];
-                strncpy(tmp, str, i);
-                tmp[i] = '\0';
+        src = src_str_from_argv(argc, argv, " ");
+        if (!src)
+            return 1;
 
-                if(strncmp(tmp, "alias", i) == 0 || strncmp(tmp, "unalias", i) == 0) {
-                    error_message("alias: cannot alias shell keyword: %s\n", tmp);
-                    res = 2;
-                } else {
-                    // Set the alias value, which is the part after the =
-                    res3 = set_alias(tmp, eq+1);
+        name = parse_alias_var_name(src);
+        if (!name) {
+            alias_usage();
+            return 1;
+        }
 
-                    // If error, return an error result
-                    if (res3)
-                        res = res3;
-                }
-            }
-            else {
-                error_message("usage: alias word replacement text\n");
-                break;
+        val = parse_alias_val_dquotes(src);
+        if (!val) {
+            alias_usage();
+            return 1;
+        }
+
+        if (is_builtin(name)) {
+            error_message("alias: cannot alias shell keyword: %s", name);
+            return 1;
+        } else {
+            if (!set_alias(name, val)) {
+                error_message("alias: failed to create alias");
+                return 1;
             }
         }
     }
 
-    return res;
+    free_str(src);
+    free_str(name);
+    free_str(val);
+
+    return 0;
 }
 
+/**
+ * bin_unalias:
+ *      Remove an aliased command.
+ */
 int bin_unalias(int argc, char **argv)
 {
     if (argc < 2) {
-        error_message("alias: not enough arguments");
+        error_message("unalias: not enough arguments");
         return 1;
     }
 
@@ -137,15 +202,32 @@ int bin_unalias(int argc, char **argv)
         unset_alias(argv[1]);
         break;
     default:
-        error_message("usage: unalias word");
+        error_message("usage: unalias name");
         break;
     }
 
     return 0;
 }
 
+/**
+ * bin_dump:
+ *      Print a local symbol table.
+ */
 int bin_dump(int argc, char **argv)
 {
     dump_local_symtable();
     return 0;
+}
+
+/**
+ * is_builtin:
+ *      Check if a command name is a builtin command.
+ */
+bool is_builtin(const char *name)
+{
+    for (size_t i = 0; i < builtins_count; i++)
+        if (strcmp(name, builtins[i].name) == 0)
+            return true;
+
+    return false;
 }

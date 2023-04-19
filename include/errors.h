@@ -1,23 +1,20 @@
-#ifndef ERRORS_H
-#define ERRORS_H
-
 #include <stdarg.h>
 #include "scanner.h"
 
-enum error_code {
+#ifndef ERRORS_H
+#define ERRORS_H
+
+typedef enum error_code_e {
     EXPECTED_TOKEN,
     UNEXPECTED_TOKEN,
-};
+} error_code;
 
-struct error {
-    enum error_code errcode;
+typedef struct error_s {
+    error_code errcode;
     size_t lineno, charno, linestart;
-    struct source *src;
+    source_s *src;
     char *desc;
-};
-
-void print_parser_error(struct error *, char *errstr);
-void raise_parser_error(struct error err);
+} error;
 
 void error_return(const char *, ...);
 void error_syscall(const char *, ...);

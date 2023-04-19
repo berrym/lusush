@@ -3,26 +3,17 @@
 #ifndef ALIAS_H
 #define ALIAS_H
 
-#define MAX_ALIAS_LEN 128
-
-struct alias_entry {
-    char *key;
-    char *val;
-    struct alias_entry *next;
-};
-
-struct alias_list {
-    size_t len;
-    struct alias_entry *head;
-    struct alias_entry *tail;
-};
-
 void init_aliases(void);
-void free_alias_list(void);
-void print_alias_list(void);
+void free_aliases(void);
+char *lookup_alias(const char *);
+void print_aliases(void);
 bool set_alias(const char *, const char *);
 void unset_alias(const char *);
-char *expand_alias(char *);
 bool valid_alias_name(const char *);
+void alias_usage(void);
+void unalias_usage(void);
+char *src_str_from_argv(size_t, char **, const char *);
+char *parse_alias_var_name(char *);
+char *parse_alias_val_dquotes(char *);
 
 #endif

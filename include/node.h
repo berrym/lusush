@@ -1,12 +1,12 @@
 #ifndef NODE_H
 #define NODE_H
 
-enum node_type {
+typedef enum node_type_e {
     NODE_COMMAND,
     NODE_VAR,
-};
+} node_type_e;
 
-enum val_type {
+typedef enum val_type_e {
     VAL_SINT = 1,
     VAL_UINT,
     VAL_SLLONG,
@@ -15,9 +15,9 @@ enum val_type {
     VAL_LDOUBLE,
     VAL_CHR,
     VAL_STR,
-};
+} val_type_e;
 
-union symval {
+typedef union symval_u {
     long sint;
     unsigned long uint;
     long long sllong;
@@ -26,20 +26,20 @@ union symval {
     long double ldouble;
     char chr;
     char *str;
-};
+} symval_u;
 
-struct node {
-    enum node_type type;
-    enum val_type val_type;
-    union symval val;
+typedef struct node_s {
+    node_type_e type;
+    val_type_e val_type;
+    symval_u val;
     size_t children;
-    struct node *first_child;
-    struct node *next_sibling, *prev_sibling;
-};
+    struct node_s *first_child;
+    struct node_s *next_sibling, *prev_sibling;
+} node_s;
 
-struct node *new_node(enum node_type);
-void add_child_node(struct node *, struct node *);
-void free_node_tree(struct node *);
-void set_node_val_str(struct node *, char *);
+node_s *new_node(node_type_e);
+void add_child_node(node_s *, node_s *);
+void free_node_tree(node_s *);
+void set_node_val_str(node_s *, char *);
 
 #endif

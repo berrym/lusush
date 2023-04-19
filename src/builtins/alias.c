@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,166 +6,79 @@
 #include "errors.h"
 #include "lusush.h"
 #include "strings.h"
+#include "alias.h"
+#include "dict.h"
 
-struct alias_list *alias_list = NULL;
+dict_s *aliases = NULL;           // Dictionary for storing aliases
 
+
+/**
+ * init_aliases:
+ *      Initialization code for aliases dictionary, set some aliases.
+ */
 void init_aliases(void)
 {
-    if ((alias_list = calloc(1, sizeof(struct alias_list))) == NULL) {
-        error_syscall("init_aliases");
-        return;
-    }
-
-    alias_list->head = alias_list->tail = NULL;
-    alias_list->len = 0;
+    if (!aliases)
+        aliases = dict_create();
 
     set_alias("ll", "ls -alF");
     set_alias("..", "cd ..");
-    set_alias("...", "cd ../../../");
+    set_alias("...", "cd ../../");
 }
 
-struct alias_entry *alloc_alias(void)
+/**
+ * free_aliases:
+ *      Delete the entire alias dictionary.
+ */
+void free_aliases(void)
 {
-    struct alias_entry *new = NULL;
-
-    if ((new = calloc(1, sizeof(struct alias_entry))) == NULL) {
-        error_syscall("alloc_alias");
-        return NULL;
-    }
-
-    if ((new->key = calloc(MAX_ALIAS_LEN + 1, sizeof(char))) == NULL) {
-        error_syscall("alloc_alias");
-        return NULL;
-    }
-
-    if ((new->val = calloc(MAX_ALIAS_LEN + 1, sizeof(char))) == NULL) {
-        error_syscall("alloc_alias");
-        return NULL;
-    }
-
-    new->next = NULL;
-
-    return new;
+    dict_destroy(aliases);
 }
 
-struct alias_entry *lookup_alias(const char *key)
+/**
+ * lookup_alias:
+ *      Find the alias value associated with a given key name,
+ */
+char *lookup_alias(const char *key)
 {
-    struct alias_entry *curr = NULL;
-
-    for (curr = alias_list->head; curr != NULL; curr = curr->next)
-        if (strncmp(curr->key, key, MAX_ALIAS_LEN) == 0)
-            return curr;
-
-    return NULL;
+    char *val = dict_search(aliases, key);
+    return val;
 }
 
-void free_alias_list(void)
-{
-    if (!alias_list || !alias_list->head)
-        return;
-
-    struct alias_entry *curr, *next;
-
-    curr = alias_list->head;
-    next = curr->next;
-
-    while (curr) {
-        if (curr->key)
-            free(curr->key);
-
-        if (curr->val)
-            free(curr->val);
-
-        next = curr->next;
-
-        if (curr)
-            free(curr);
-
-        curr = next;
-    }
-
-    if (alias_list)
-        free(alias_list);
-}
-
-void print_alias_list(void)
-{
-    if (!alias_list || !alias_list->head)
-        return;
-
-    struct alias_entry *curr = alias_list->head;
-
+/**
+ * print_aliases:
+ *      Print out the entire dictionary table of aliases.
+ */
+void print_aliases(void) {
     printf("aliases:\n");
-    while (curr) {
-        printf("%s=%s\n", curr->key, curr->val);
-        curr = curr->next;
-    }
+    print_dict(aliases);
 }
 
-char *expand_alias(char *key)
-{
-    struct alias_entry *curr = NULL;
-
-    if ((curr = lookup_alias(key)) == NULL)
-        return NULL;
-
-    return curr->val;
-}
-
+/**
+ * set_alias:
+ *      Insert a new key-value pair into the dictionary table.
+ */
 bool set_alias(const char *key, const char *val)
 {
-    struct alias_entry *curr = NULL, *new_alias = NULL;
-
-    if (!valid_alias_name(key)) {
-        error_message("error: invalid alias name");
+    if (!dict_insert(aliases, key, val))
         return false;
-    }
-
-    // Replace an existing alias
-    if ((curr = lookup_alias(key))) { 
-        strncpy(curr->val, val, MAX_ALIAS_LEN);
-        return true;
-    }
-
-    // Allocate a new alias node
-    if ((new_alias = alloc_alias()) == NULL)
-        return false;
-
-    strncpy(new_alias->key, key, strnlen(key, MAX_ALIAS_LEN));
-    strncpy(new_alias->val, val, strnlen(val, MAX_ALIAS_LEN));
-
-    // Special case for dealing with the head node
-    if (!alias_list->head) {
-        alias_list->head = new_alias;
-        alias_list->tail = new_alias;
-    }
-    else {
-        alias_list->tail->next = new_alias;
-        alias_list->tail = new_alias;
-    }
-
-    alias_list->len++;
 
     return true;
 }
 
+/**
+ * unset_alias:
+ *      Remove a record from the dictionary table.
+ */
 void unset_alias(const char *key)
 {
-    struct alias_entry *curr = NULL, *prev = NULL;
-
-    for (curr = alias_list->head; curr != NULL; prev = curr, curr = curr->next) {
-        if (strncmp(curr->key, key, MAX_ALIAS_LEN) == 0) {
-            if (prev == NULL)
-                alias_list->head = curr->next;
-            else
-                prev->next = curr->next;
-            free(curr);
-            curr = NULL;
-            break;
-        }
-    }
+    dict_delete(aliases, key);
 }
 
+/**
+ * valid_alias_name:
+ *      Check that an alias key name consists of valid characters.
+ */
 bool valid_alias_name(const char *key)
 {
     const char *p = key;
@@ -190,4 +101,142 @@ bool valid_alias_name(const char *key)
     }
 
     return true;
+}
+
+/**
+ * alias_usage:
+ *      Print how to use the builtin alias command.
+ */
+void alias_usage(void)
+{
+    fprintf(stderr, "usage:\talias (print a list of all aliases)\n"
+            "\talias name (print the value of an alias)\n"
+            "\talias name=\"replacement text\" (set an alias)\n");
+}
+
+/**
+ * unalias_usage:
+ *      Print how to use the builtin unalias command.
+ */
+void unalias_usage(void)
+{
+    fprintf(stderr, "usage:\tunalias name (unset alias with key name)\n");
+}
+
+/**
+ * src_str_from_argv:
+ *      Convert elements of an argument vector into a single string
+ *      seperating arguments with the string value given in the sep argument.
+ */
+char *src_str_from_argv(size_t argc, char **argv, const char *sep)
+{
+    char *src = NULL;
+
+    src = alloc_str(MAXLINE + 1, false);
+    if (!src) {
+        error_message("error: unable to allocate source string");
+        return NULL;
+    }
+
+    // recreate a single source string
+    for (size_t i = 0; i < argc; i++) {
+        strcat(src, argv[i]);
+        strcat(src, sep);
+    }
+    null_terminate_str(src);
+
+    return src;
+}
+
+/**
+ * parse_alias_var_name:
+ *      Parse the word before an equal sign in a source string that represents the alias key.
+ */
+char *parse_alias_var_name(char *src)
+{
+    char *p = NULL, *sp = NULL, *ep = NULL, *var = NULL;
+    const char delim = '=';
+    char argv[1024][MAXLINE] = { '\0' };
+    size_t tok_count = 0, char_count = 0;
+
+    for (p = src; p; p++) {
+        str_skip_whitespace(p);
+
+        sp = p;
+
+        while (!isspace((int)*p) && *p != delim)
+            argv[tok_count][char_count] = *p, p++, char_count++;
+        null_terminate_str(argv[tok_count]);
+
+        tok_count++, char_count = 0;
+
+        if (*p == delim) {
+            ep = p;
+            p = sp;
+
+            while (p < ep) {
+                if (!isspace((int)*p)) {
+                    argv[tok_count][char_count] = *p;
+                    char_count++, p++;
+                } else {
+                    null_terminate_str(argv[tok_count]);
+                    tok_count++, char_count = 0;
+                    p += str_strip_trailing_whitespace(p);
+                }
+            }
+            null_terminate_str(argv[tok_count]);
+
+            var = strdup(argv[tok_count]);
+            if (!var) {
+                error_message("error: unable to copy alias key name");
+                break;
+            }
+
+            return var;
+        }
+    }
+
+    return NULL;
+}
+
+/**
+ * parse_alias_val_dquotes:
+ *      Parse a substring between two double quotes that represents the alias value.
+ */
+char *parse_alias_val_dquotes(char *src)
+{
+    char *val = NULL, *sp = NULL, *ep = NULL;
+    const char delim = '\"';
+
+    for (char *p = src; *p; p++) {               // for each char in line
+        if (!sp && *p == delim)                  // find 1st delim
+            sp = p, sp++;                        // set start ptr
+        else if (!ep && *p == delim)             // find 2nd delim
+            ep = p;                              // set end ptr
+
+        if (sp && ep) {                          // if both set
+            char substr[ep - sp + 1];            // declare substr
+            p = sp;
+
+            for (size_t i = 0; p < ep; i++, p++) // copy to substr
+                substr[i] = *p;
+            substr[ep - sp] = '\0';              // nul-terminate
+
+            val = alloc_str(strlen(substr) + 1, false);
+            if (!val) {
+                error_message("error: unable to allocate substring");
+                return NULL;
+            }
+            strcpy(val, substr);
+            break;
+        }
+    }
+
+    if (!sp || !ep) {
+        error_message("error: unbalanced double quotes");
+        return NULL;
+    }
+    sp = ep = NULL;
+
+    return val;
 }

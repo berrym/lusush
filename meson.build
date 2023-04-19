@@ -6,7 +6,8 @@ project('lusush',
 
 inc = include_directories('include')
 
-src = ['src/errors.c',
+src = ['src/dict.c',
+       'src/errors.c',
        'src/exec.c',
        'src/init.c',
        'src/input.c',
@@ -17,10 +18,10 @@ src = ['src/errors.c',
        'src/builtins/alias.c',
        'src/builtins/builtins.c',
        'src/builtins/history.c',
-       'src/parser/node.c',
-       'src/parser/parser.c',
-       'src/scanner/scanner.c',
-       'src/symtable/symtable.c',
+       'src/node.c',
+       'src/parser.c',
+       'src/scanner.c',
+       'src/symtable.c',
        'src/vars.c']
 
 editlinedep = dependency('libedit', required: false)

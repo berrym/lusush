@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,7 +46,7 @@ int init(int argc, char **argv, FILE **in)
     // Initialize symbol table
     init_symtable();
 
-    struct symtable_entry *entry;
+    symtable_entry_s *entry;
     char **p = environ;
     char *eq = NULL;
     size_t len = 0;
@@ -88,8 +86,7 @@ int init(int argc, char **argv, FILE **in)
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!S_ISREG(st.st_mode)) {
-            error_message("lusush: %s is not a regular file.\n",
-                          argv[optind]);
+            error_message("lusush: %s is not a regular file", argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
         } else {
@@ -107,15 +104,12 @@ int init(int argc, char **argv, FILE **in)
     char ppid_str[10];
     sprintf(ppid_str, "%u", ppid);
     setenv("PPID", ppid_str, 1);
-    struct symtable_entry *ppid_entry = add_to_symtable("PPID");
+    symtable_entry_s *ppid_entry = add_to_symtable("PPID");
     symtable_entry_setval(ppid_entry, ppid_str);
     entry->flags |= FLAG_READONLY;
 
     // Initialize history
     init_history();
-    // Read the history file
-    if (read_history(histfn) != 0)
-        error_message("init: unable to read history");
 
     // Initialize aliases
     init_aliases();
@@ -123,11 +117,11 @@ int init(int argc, char **argv, FILE **in)
     // Set memory cleanup procedures on termination
     atexit(free_tok_buf);
     atexit(free_global_symtable);
-    atexit(free_alias_list);
+    atexit(free_aliases);
     #ifndef USING_READLINE
     atexit(free_input_buffers);
     #endif
-    atexit(free_history_list);
+    atexit(destroy_history);
     atexit(save_history);
 
     return 0;

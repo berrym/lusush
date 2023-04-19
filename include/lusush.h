@@ -22,8 +22,6 @@
 #define MODE_APPEND (ORDWR | O_CREAT | O_APPEND)
 #define MODE_READ (O_RDONLY)
 
-char *get_malloced_str(char *);
-void free_malloced_str(char *);
 char *get_shell_varp(char *, char *);
 int get_shell_vari(char *, int);
 long get_shell_varl(char *, int);
@@ -98,6 +96,6 @@ int shopt_builtin(int, char **);
 
 int set_optionx(int64_t, int);
 int64_t optionx_index(char *);
-int parse_and_execute(struct source *);
+int parse_and_execute(source_s *);
 
 #endif

@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,17 +13,17 @@ static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;
 static ssize_t tok_bufindex = -1;
 
-struct token eof_token = {
+token_s eof_token = {
     .type = TOKEN_EOF,
     .lineno = 0,
     .charno = 0,
     .text_len = 0,
 };
 
-static struct token *cur_tok  = NULL;
-static struct token *prev_tok = NULL;
+static token_s *cur_tok  = NULL;
+static token_s *prev_tok = NULL;
 
-bool is_seperator_tok(enum token_type type)
+bool is_seperator_tok(token_type_e type)
 {
     switch (type) {
     case TOKEN_LEFT_PAREN:
@@ -53,28 +51,30 @@ bool is_seperator_tok(enum token_type type)
     }
 }
 
-struct token *dup_token(struct token *token)
+token_s *dup_token(token_s *tok)
 {
-    if (!token)
+    token_s *new_tok = NULL;
+
+    if (!tok)
         return NULL;
 
-    struct token *token2 = NULL;
-    if ((token2 = calloc(1, sizeof(struct token))) == NULL) {
+    new_tok = calloc(1, sizeof(token_s));
+    if (!new_tok) {
         error_return("dup_token");
         return NULL;
     }
-    memcpy(token2, token, sizeof(struct token));
+    memcpy(new_tok, tok, sizeof(token_s));
 
-    if (token->text) {
-        token->text_len = strnlen(token->text, strnlen(token->text, MAXLINE));
-        token2->text = get_malloced_str(token->text);
+    if (tok->text) {
+        tok->text_len = strlen(tok->text);
+        new_tok->text = get_alloced_str(tok->text);
     }
-    token2->text_len = token->text_len;
+    new_tok->text_len = tok->text_len;
 
-    return token2;
+    return new_tok;
 }
 
-void unget_char(struct source *src)
+void unget_char(source_s *src)
 {
     if (!src->pos)
         return;
@@ -82,7 +82,7 @@ void unget_char(struct source *src)
     src->pos--;
 }
 
-char next_char(struct source *src)
+char next_char(source_s *src)
 {
     if (src->pos == INIT_SRC_POS)
         src->pos = -1;
@@ -95,7 +95,7 @@ char next_char(struct source *src)
     return src->buf[src->pos];
 }
 
-char peek_char(struct source *src)
+char peek_char(source_s *src)
 {
     ssize_t pos = src->pos;
 
@@ -110,7 +110,7 @@ char peek_char(struct source *src)
     return src->buf[pos];
 }
 
-void skip_whitespace(struct source *src)
+void skip_whitespace(source_s *src)
 {
     char c;
 
@@ -120,11 +120,13 @@ void skip_whitespace(struct source *src)
 
 void add_to_buf(char c)
 {
+    char *tmp = NULL;
+
     tok_buf[tok_bufindex++] = c;
     if (tok_bufindex > tok_bufsize) {
-        char *tmp = NULL;
-        if ((tmp = realloc(tok_buf, tok_bufsize * 2)) == NULL) {
-            error_syscall("add_to_buf: realloc");
+        tmp = realloc(tok_buf, tok_bufsize * 2);
+        if (!tmp) {
+            error_return("add_to_buf");
             return;
         }
         tok_buf = tmp;
@@ -132,38 +134,40 @@ void add_to_buf(char c)
     }
 }
 
-struct token *create_token(char *s)
+token_s *create_token(char *s)
 {
-    struct token *tok = NULL;
+    token_s *tok = NULL;
     char *buf = NULL;
 
-    if ((tok = calloc(1, sizeof(struct token))) == NULL) {
-        error_syscall("create_token: calloc");
+    tok = calloc(1, sizeof(token_s));
+    if (!tok) {
+        error_return("create_token");
         return NULL;
     }
 
-    tok->text_len = strnlen(s, MAXLINE);
+    tok->text_len = strlen(s);
 
-    if ((buf = calloc(strnlen(s, MAXLINE) + 1, sizeof(char))) == NULL) {
-        error_syscall("create_token: calloc");
+    buf = calloc(strlen(s) + 1, sizeof(char));
+    if (!buf) {
+        error_return("create_token");
         return NULL;
     }
 
-    strncpy(buf, s, strnlen(s, MAXLINE));
+    strcpy(buf, s);
     tok->text = buf;
 
     return tok;
 }
 
-void free_token(struct token *tok)
+void free_token(token_s *tok)
 {
     if (tok->text)
-        free(tok->text);
+        free_str(tok->text);
     free(tok);
     tok = NULL;
 }
 
-struct token *tokenize(struct source *src)
+token_s *tokenize(source_s *src)
 {
     bool loop = true;
 
@@ -172,7 +176,7 @@ struct token *tokenize(struct source *src)
 
     if (!tok_buf) {
         tok_bufsize = MAXLINE;
-        if ((tok_buf = alloc_string(tok_bufsize, false)) == NULL)
+        if (!(tok_buf = alloc_str(tok_bufsize, false)))
             return &eof_token;
     }
 
@@ -215,10 +219,9 @@ struct token *tokenize(struct source *src)
 
     tok_buf[tok_bufindex] = '\0';
 
-    struct token *tok = create_token(tok_buf);
+    token_s *tok = create_token(tok_buf);
     if (!tok) {
-        fprintf(stderr, "error: failed to alloc buffer: %s\n",
-                strerror(errno));
+        error_message("tokenize: failed to create new token");
         return &eof_token;
     }
     tok->src = src;
@@ -226,28 +229,28 @@ struct token *tokenize(struct source *src)
     return tok;
 }
 
-struct token *get_current_token(void)
+token_s *get_current_token(void)
 {
     return cur_tok ? : &eof_token;
 }
 
 
-struct token *get_previous_token(void)
+token_s *get_previous_token(void)
 {
     return prev_tok;
 }
 
-void set_current_token(struct token *tok)
+void set_current_token(token_s *tok)
 {
     cur_tok = tok;
 }
 
-void set_previous_token(struct token *tok)
+void set_previous_token(token_s *tok)
 {
     prev_tok = tok;
 }
 
 void free_tok_buf(void) {
     if (tok_buf)
-        free(tok_buf);
+        free_str(tok_buf);
 }

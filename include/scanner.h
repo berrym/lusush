@@ -6,7 +6,7 @@
 #define INIT_SRC_POS -2
 #define ERRCHAR 0
 
-struct source
+typedef struct source_s
 {
     char *buf;
     size_t bufsize;
@@ -16,9 +16,9 @@ struct source
     ssize_t pos;
     ssize_t pos_old;
     size_t wstart;
-};
+} source_s;
 
-enum token_type {
+typedef enum token_type_e {
     TOKEN_EMPTY,
     TOKEN_UNKNOWN,
     TOKEN_COMMENT,
@@ -56,41 +56,41 @@ enum token_type {
     TOKEN_AND_GREAT_GREAT,
     TOKEN_SEMI_SEMI_AND,
     TOKEN_TRIPLELESS,
-};
+} token_type_e;
 
-struct token {
-    enum token_type type;
+typedef struct token_s {
+    token_type_e type;
     size_t lineno;
     size_t charno;
     size_t linestart;
-    struct source *src;
+    source_s *src;
     size_t text_len;
     char *text;
-};
+} token_s;
 
-extern struct token eof_token;
+extern token_s eof_token;
 
-struct token *tokenize(struct source *);
-void free_token(struct token *);
-void set_token_type(struct token *);
+token_s *tokenize(source_s *);
+void free_token(token_s *);
+void set_token_type(token_s *);
 
-char *get_token_description(enum token_type);
-void set_token_type(struct token *);
-struct token *tokenize(struct source *);
-struct token *get_current_token(void);
-struct token *get_previous_token(void);
-struct token *dup_token(struct token *);
-void set_current_token(struct token *);
-void set_previous_token(struct token *);
-void free_token(struct token *);
-int is_token_of_type(struct token *, enum token_type);
+char *get_token_description(token_type_e);
+void set_token_type(token_s *);
+token_s *tokenize(source_s *);
+token_s *get_current_token(void);
+token_s *get_previous_token(void);
+token_s *dup_token(token_s *);
+void set_current_token(token_s *);
+void set_previous_token(token_s *);
+void free_token(token_s *);
+int is_token_of_type(token_s *, token_type_e);
 int is_keyword(char *);
-int is_separator_tok(enum token_type);
-char next_char(struct source *);
-char prev_char(struct source *);
-void unget_char(struct source *);
-char peek_char(struct source *);
-void skip_whitespace(struct source *);
+int is_separator_tok(token_type_e);
+char next_char(source_s *);
+char prev_char(source_s *);
+void unget_char(source_s *);
+char peek_char(source_s *);
+void skip_whitespace(source_s *);
 void free_tok_buf(void);
 
 #endif

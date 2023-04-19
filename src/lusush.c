@@ -2,8 +2,6 @@
  * lusush.c - LUSUs' SHell
  */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -35,9 +33,9 @@ int main(int argc, char **argv)
             break;
 
         // Create a source structure from input
-        struct source src;
+        source_s src;
         src.buf = line;
-        src.bufsize = strnlen(line, MAXLINE);
+        src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
         // Parse then execute a command
@@ -45,17 +43,17 @@ int main(int argc, char **argv)
     }
 }
 
-int parse_and_execute(struct source *src)
+int parse_and_execute(source_s *src)
 {
     skip_whitespace(src);
 
-    struct token *tok = tokenize(src);
+    token_s *tok = tokenize(src);
 
     if (tok == &eof_token)
         return 0;
 
     while (tok && tok != &eof_token) {
-        struct node *cmd = parse_command(tok);
+        node_s *cmd = parse_command(tok);
 
         if (!cmd)
             break;

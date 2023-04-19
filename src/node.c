@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,19 +10,19 @@
 #include "scanner.h"
 #include "strings.h"
 
-struct node *new_node(enum node_type type)
+node_s *new_node(node_type_e type)
 {
-    struct node *node = NULL;
+    node_s *n = NULL;
 
-    if ((node = calloc(1, sizeof(struct node))) == NULL)
-        error_syscall("new_node: calloc");
+    if ((n = calloc(1, sizeof(node_s))) == NULL)
+        error_syscall("new_node");
 
-    node->type = type;
+    n->type = type;
 
-    return node;
+    return n;
 }
 
-void add_child_node(struct node *parent, struct node *child)
+void add_child_node(node_s *parent, node_s *child)
 {
     if (!parent || !child)
         return;
@@ -32,7 +30,7 @@ void add_child_node(struct node *parent, struct node *child)
     if (!parent->first_child) {
         parent->first_child = child;
     } else {
-        struct node *sibling = parent->first_child;
+        node_s *sibling = parent->first_child;
 
         while (sibling->next_sibling)
             sibling = sibling->next_sibling;
@@ -44,12 +42,12 @@ void add_child_node(struct node *parent, struct node *child)
     parent->children++;
 }
 
-void set_token_type(struct token *token)
+void set_token_type(token_s *tok)
 {
-    enum token_type t = TOKEN_EMPTY;
+    token_type_e t = TOKEN_EMPTY;
 
-    if (token->text_len == 1) {
-        switch (*token->text) {
+    if (tok->text_len == 1) {
+        switch (*tok->text) {
         case '(':
             t = TOKEN_LEFT_PAREN;
             break;
@@ -84,7 +82,7 @@ void set_token_type(struct token *token)
             t = TOKEN_SEMI;
             break;
         default:
-            if (isdigit(*token->text)) {
+            if (isdigit(*tok->text)) {
                 t = TOKEN_INTEGER;
             } else {
                 t = TOKEN_WORD;
@@ -93,32 +91,36 @@ void set_token_type(struct token *token)
         }
     }
 
-    token->type = t;
+    tok->type = t;
 }
 
-void set_node_val_str(struct node *node, char *val)
+void set_node_val_str(node_s *node, char *val)
 {
     node->val_type = VAL_STR;
 
     if (!val) {
         node->val.str = NULL;
     } else {
-        char *val2 = NULL;
-        val2 = alloc_string(strnlen(val, MAXLINE) + 1, true);
-        strncpy(val2, val, strnlen(val, MAXLINE));
+        char *val2 = strdup(val);
+        if (!val2) {
+            error_return("set_node_val_str");
+            return;
+        }
         node->val.str = val2;
     }
 }
 
-void free_node_tree(struct node *node)
+void free_node_tree(node_s *node)
 {
-    if(!node)
+    node_s *child = NULL, *next = NULL;
+
+    if (!node)
         return;
 
-    struct node *child = node->first_child;
+    child = node->first_child;
 
     while (child) {
-        struct node *next = child->next_sibling;
+        next = child->next_sibling;
         free_node_tree(child);
         child = next;
     }
@@ -128,4 +130,5 @@ void free_node_tree(struct node *node)
             free(node->val.str);
 
     free(node);
+    node = NULL;
 }

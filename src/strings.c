@@ -1,75 +1,18 @@
-#define _POSIX_C_SOURCE 200809L
-
 #include <sys/types.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "errors.h"
 #include "lusush.h"
 #include "strings.h"
 #include "symtable.h"
 
-char *alloc_string(size_t len, bool exitflag)
-{
-    char *s = NULL;
+// Symbol table for strings
+symtable_s *str_list = NULL;
 
-    if ((s = calloc(len, sizeof(char))) == NULL) {
-        if (exitflag) {
-            error_syscall("alloc_string");
-        } else {
-            error_return("alloc_string");
-            return NULL;
-        }
-    }
-
-    return s;
-}
-
-size_t strip_leading_whspc(char *s)
-{
-    char buf[MAXLINE] = { '\0' }; // buffer to store modified string
-    size_t k, l;                  // loop counters
-
-    // Iterate over leading whitespace ignoring it
-    for (k = 0; k <= MAXLINE && isspace((int)s[k]); k++);
-
-    if (!k)
-        return 0;
-
-    // Copy the rest of the string into buf
-    for (l = 0; s[k]; k++, l++)
-        buf[l] = s[k];
-
-    // If buf differs from s overwrite s with buf
-    if (strncmp(buf, s, MAXLINE) == 0)
-        return 0;
-
-    memset(s, '\0', strnlen(s, MAXLINE));
-    strncpy(s, buf, strnlen(buf, MAXLINE));
-
-    return k;
-}
-
-size_t strip_trailing_whspc(char *s)
-{
-    size_t i = 0;
-    while (strnlen(s, MAXLINE) && isspace((int)s[strnlen(s, MAXLINE) - 1])) {
-        s[strnlen(s, MAXLINE) - 1] = '\0';
-        i++;
-    }
-    return i;
-}
-
-void null_replace_newline(char *s)
-{
-    if (s[strnlen(s, MAXLINE) - 1] == '\n')
-        s[strnlen(s, MAXLINE) - 1] = '\0';
-}
-
-struct symtable *str_list = NULL;
-
-// dummy value for an empty string and a newline string
+// Dummy values for an empty string and a newline string
 char *empty_str = "";
 char *newline_str = "\n";
 
@@ -78,35 +21,170 @@ void init_str_symtable(void)
     str_list = new_symtable(0);
 }
 
-char *__get_malloced_str(char *str)
+char *__get_alloced_str(char *str)
 {
     char *str2 = NULL;
-    str2 = alloc_string(strlen(str) + 1, false);
-    strncpy(str2, str, strnlen(str, MAXLINE));
+    str2 = alloc_str(strlen(str) + 1, false);
+    strcpy(str2, str);
     return str2;
 }
 
-char *get_malloced_str(char *str)
+char *get_alloced_str(char *s)
 {
-    if (!str)
+    if (!s)
         return NULL;
 
-    if (!*str)
+    if (!*s)
         return empty_str;
 
-    if (*str == '\n' && str[1] == '\0')
+    if (*s == '\n' && s[1] == '\0')
         return newline_str;
-    
+
     if (str_list) {
-        struct symtable_entry *entry = get_symtable_entry(str);
+        symtable_entry_s *entry = get_symtable_entry(s);
         if (entry) {
             return entry->name;
         } else {
-            entry = add_to_symtable(str);
+            entry = add_to_symtable(s);
             if (entry)
                 return entry->name;
         }
     }
 
-    return __get_malloced_str(str);
+    return __get_alloced_str(s);
+}
+
+void free_alloced_str(char *s)
+{
+    if (!s || s == empty_str || s == newline_str)
+        return;
+
+    if (str_list) {
+        symtable_entry_s *entry = get_symtable_entry(s);
+        if (entry)
+            remove_from_symtable(str_list, entry);
+
+        return;
+    }
+
+    free_str(s);
+}
+
+char *alloc_str(size_t len, bool exitflag)
+{
+    char *s = NULL;
+
+    s = calloc(len, sizeof(char));
+    if (!s) {
+        if (exitflag) {
+            error_syscall("alloc_str");
+        } else {
+            error_return("alloc_str");
+            return NULL;
+        }
+    }
+
+    return s;
+}
+
+void free_str(char *s)
+{
+    if (!s)
+        return;
+
+    free(s);
+    s = NULL;
+}
+
+bool strupper(char *s)
+{
+    if (!s)
+        return false;
+
+    while (*s) {
+        *s = toupper(*s);
+        s++;
+    }
+
+    return true;
+}
+
+bool strlower(char *s)
+{
+    if (!s)
+        return false;
+
+    while (*s) {
+        *s = tolower(*s);
+        s++;
+    }
+
+    return true;
+}
+
+size_t str_skip_whitespace(char *s)
+{
+    size_t offset = 0;
+    char c;
+
+    while (((c = *s) != EOF) && isspace((int)c)) {
+        s++;
+        offset++;
+    }
+
+    return offset;
+}
+
+size_t str_strip_leading_whitespace(char *s)
+{
+    char buf[MAXLINE + 1] = { '\0' }; // buffer to store modified string
+    size_t offset = 0;                // loop counter
+
+    // Iterate over leading whitespace ignoring it
+    for (offset = 0; offset <= strlen(s) && isspace((int)s[offset]); offset++);
+
+    if (!offset)
+        return 0;
+
+    // Copy the rest of the string into buf
+    for (size_t i = 0; s[offset]; offset++, i++)
+        buf[i] = s[offset];
+
+    if (strcmp(buf, s) == 0)
+        return 0;
+
+    // Overwrite s with buf
+    memset(s, '\0', strlen(s));
+    strcpy(s, buf);
+
+    return offset;
+}
+
+ssize_t str_strip_trailing_whitespace(char *s)
+{
+    ssize_t offset = 0;
+
+    while (strlen(s) && isspace((int)s[strlen(s) - 1])) {
+        s[strlen(s) - 1] = '\0';
+        offset--;
+    }
+
+    return offset;
+}
+
+void null_replace_newline(char *s)
+{
+    if (!*s)
+        return;
+
+    if (s[strlen(s) - 1] == '\n')
+        s[strlen(s) - 1] = '\0';
+}
+
+void null_terminate_str(char *s)
+{
+    if (!*s)
+        return;
+
+    strncat(s, "\0", 1);
 }
