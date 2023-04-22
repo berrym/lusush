@@ -11,7 +11,7 @@
 #define INITIAL_SIZE (128)       // Initial size of the dictionary table
 #define GROWTH_FACTOR (2)        // When increasing table size multiple current size by this
 #define MAX_LOAD_FACTOR (1)      // Used to determine when a table needs to grow
-#define GET_HASH() (fnv1a_hash(key) % d->size)   // Formula to calculate a hash value
+#define GET_HASH() (__fnv1a_hash(key) % d->size) // Formula to calculate a hash value
 #define GET_TABLE_INDEX() (d->table[GET_HASH()]) // Formula for accessing a table index
 
 typedef struct dict_entry_s {
@@ -27,16 +27,16 @@ struct dict_s {                  // This is typedefed to dict_s in dict.h for ex
 };
 
 /**
- * internal_dict_create:
- *      Dictionary initialization code used in both dict_create and internal_dict_grow.
+ * __dict_create:
+ *      Dictionary initialization code used in both dict_create and __dict_grow.
  */
-dict_s *internal_dict_create(size_t size)
+static dict_s *__dict_create(size_t size)
 {
     dict_s *d = NULL;
 
     d = calloc(1, sizeof(*d));
     if (!d) {
-        error_return("internal_dict_create");
+        error_return("__dict_create");
         return NULL;
     }
 
@@ -44,7 +44,7 @@ dict_s *internal_dict_create(size_t size)
     d->len = 0;
     d->table = calloc(d->size, sizeof(dict_entry_s *));
     if (!d->table) {
-        error_return("internal_dict_create");
+        error_return("__dict_create");
         return NULL;
     }
 
@@ -57,7 +57,7 @@ dict_s *internal_dict_create(size_t size)
  */
 dict_s *dict_create(void)
 {
-    return internal_dict_create(INITIAL_SIZE);
+    return __dict_create(INITIAL_SIZE);
 }
 
 /**
@@ -101,10 +101,10 @@ void dict_destroy(dict_s *d)
 }
 
 /**
- * fnv1a_hash:
+ * __fnv1a_hash:
  *      Return a hash key using the 32 bit FNV1A algorithm.
  */
-static uint32_t fnv1a_hash(const char* key) {
+static uint32_t __fnv1a_hash(const char* key) {
     uint32_t h = FNV1A_SEED;
 
     for (const char *p = key; *p; p++) {
@@ -132,30 +132,23 @@ static uint32_t fnv1a_hash(const char* key) {
 // }
 
 /**
- * internal_dict_grow:
+ * __dict_grow:
  *      Grow a dictionary by a factor of two.
  */
-static void internal_dict_grow(dict_s *d)
+static void __dict_grow(dict_s *d)
 {
     dict_s *d2 = NULL;            // New dictionary we'll create
     dict_s swap;                  // Temporary structure for a value swap
     dict_entry_s *e = NULL;
 
-    d2 = internal_dict_create(d->size * GROWTH_FACTOR);
+    d2 = __dict_create(d->size * GROWTH_FACTOR);
 
-    for (size_t i = 0; i < d->size; i++) {
-        for (e = d->table[i]; e; e = e->next) {
-            // note: this recopies everything
-            // a more efficient implementation would
-            // patch out the strdups inside dict_insert
-            // to avoid this problem
+    // Rehash everything into the new dictionary
+    for (size_t i = 0; i < d->size; i++)
+        for (e = d->table[i]; e; e = e->next)
             dict_insert(d2, e->key, e->val);
-        }
-    }
 
-    // the tricky bit
-    // we'll swap the contents of d and d2
-    // then call dict_destoy on d2
+    // Swap the contents of d and d2 then call dict_destoy on d2
     swap = *d;
     *d = *d2;
     *d2 = swap;
@@ -187,6 +180,9 @@ bool dict_insert(dict_s *d, const char *key, const char *val)
     h = GET_HASH();
 
     if (dict_search(d, key)) {  // Replace existing entry if keys are the same
+        free_str(d->table[h]->key);
+        free_str(d->table[h]->val);
+        free(d->table[h]);
         d->table[h] = e;
     } else if (d->table[h]) {   // Chain out entry if hashes are the same
         error_message("dict_insert: hash collision occured, chaining out");
@@ -200,7 +196,7 @@ bool dict_insert(dict_s *d, const char *key, const char *val)
 
     // Grow table if there is not enough room
     if (d->len >= d->size * MAX_LOAD_FACTOR)
-        internal_dict_grow(d);
+        __dict_grow(d);
 
     return true;
 }

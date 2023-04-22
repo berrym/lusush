@@ -11,7 +11,6 @@
 
 dict_s *aliases = NULL;           // Dictionary for storing aliases
 
-
 /**
  * init_aliases:
  *      Initialization code for aliases dictionary, set some aliases.
