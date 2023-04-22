@@ -13,7 +13,8 @@ bool valid_alias_name(const char *);
 void alias_usage(void);
 void unalias_usage(void);
 char *src_str_from_argv(size_t, char **, const char *);
+const char find_opening_quote_type(char *);
 char *parse_alias_var_name(char *);
-char *parse_alias_val_dquotes(char *);
+char *parse_alias_var_value(char *, const char);
 
 #endif

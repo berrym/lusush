@@ -110,8 +110,8 @@ int bin_history(int argc, char **argv)
         // Lookup a history entry
         char *s = lookup_history(argv[1]);
         if (!s) {
-            history_usage();
-            break;
+            error_message("history: unable to find entry %s", argv[1]);
+            return 1;
         }
 
         // Create a source struct from history entry
@@ -120,6 +120,7 @@ int bin_history(int argc, char **argv)
         src.bufsize = strlen(s);
         src.pos = INIT_SRC_POS;
 
+        // Execute the source struct
         parse_and_execute(&src);
         break;
     default:
@@ -139,39 +140,44 @@ int bin_alias(int argc, char **argv)
     char *src = NULL, *name = NULL, *val = NULL;
 
     switch (argc) {
-    case 1:
-        print_aliases();
+    case 1:                     // No arguments given to alias
+        print_aliases();        // Print a list of set aliases
         break;
-    case 2:
-        const char *s = lookup_alias(argv[1]);
-        if (!*s) {
-            alias_usage();
+    case 2:                     // One argument given to alias
+        const char *s = lookup_alias(argv[1]); // Look up an alias given it's key
+        if (!s) {                              // If alias not found
+            alias_usage();                     // Print alias usage information
             return 1;
         } else {
-            printf("%s=\"%s\"\n", argv[1], s);
+            printf("%s='%s'\n", argv[1], s); // Print the alias entry found
         }
         break;
     default:
+        // Reconstruct a source string from argument vector
         src = src_str_from_argv(argc, argv, " ");
         if (!src)
             return 1;
 
+        // Parse the alias name, the part before =
         name = parse_alias_var_name(src);
         if (!name) {
             alias_usage();
             return 1;
         }
 
-        val = parse_alias_val_dquotes(src);
+        // Parse the alias value
+        val = parse_alias_var_value(src, find_opening_quote_type(src));
         if (!val) {
             alias_usage();
             return 1;
         }
 
+        // Can't alias builtin commands or keywords
         if (is_builtin(name)) {
             error_message("alias: cannot alias shell keyword: %s", name);
             return 1;
         } else {
+            // Set a new alias
             if (!set_alias(name, val)) {
                 error_message("alias: failed to create alias");
                 return 1;
@@ -179,6 +185,7 @@ int bin_alias(int argc, char **argv)
         }
     }
 
+    // Free created strings
     free_str(src);
     free_str(name);
     free_str(val);
@@ -192,18 +199,14 @@ int bin_alias(int argc, char **argv)
  */
 int bin_unalias(int argc, char **argv)
 {
-    if (argc < 2) {
-        error_message("unalias: not enough arguments");
-        return 1;
-    }
 
     switch (argc) {
     case 2:
         unset_alias(argv[1]);
         break;
     default:
-        error_message("usage: unalias name");
-        break;
+        unalias_usage();
+        return 1;
     }
 
     return 0;

@@ -4,7 +4,7 @@
 extern const char *histfn;
 
 void init_history(void);
-int read_history(const char *);
+int read_history_file(const char *);
 void print_history(void);
 void save_history(void);
 void destroy_history(void);

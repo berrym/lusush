@@ -111,7 +111,7 @@ void alias_usage(void)
 {
     fprintf(stderr, "usage:\talias (print a list of all aliases)\n"
             "\talias name (print the value of an alias)\n"
-            "\talias name=\"replacement text\" (set an alias)\n");
+            "\talias name='replacement text' (set an alias)\n");
 }
 
 /**
@@ -149,25 +149,38 @@ char *src_str_from_argv(size_t argc, char **argv, const char *sep)
 }
 
 /**
+ * find_opening_quote_type:
+ *      Determine wether a quoted value starts with a single or double quote,
+ *      return then char value found, or NUL byte.
+ */
+const char find_opening_quote_type(char *src)
+{
+    for (char *p = src; *p; p++)
+        if (*p == '\'' || *p == '\"')
+            return (const char)*p;
+
+    return '\0';
+}
+
+/**
  * parse_alias_var_name:
  *      Parse the word before an equal sign in a source string that represents the alias key.
  */
 char *parse_alias_var_name(char *src)
 {
-    char *p = NULL, *sp = NULL, *ep = NULL, *var = NULL;
+    char *sp = NULL, *ep = NULL, *var = NULL;
     const char delim = '=';
     char argv[1024][MAXLINE] = { '\0' };
     size_t tok_count = 0, char_count = 0;
 
-    for (p = src; p; p++) {
+    for (char *p = src; p; p++) {
         str_skip_whitespace(p);
-
         sp = p;
 
         while (!isspace((int)*p) && *p != delim)
             argv[tok_count][char_count] = *p, p++, char_count++;
-        null_terminate_str(argv[tok_count]);
 
+        null_terminate_str(argv[tok_count]);
         tok_count++, char_count = 0;
 
         if (*p == delim) {
@@ -181,10 +194,11 @@ char *parse_alias_var_name(char *src)
                 } else {
                     null_terminate_str(argv[tok_count]);
                     tok_count++, char_count = 0;
-                    p += str_strip_trailing_whitespace(p);
                 }
             }
-            null_terminate_str(argv[tok_count]);
+
+            while (!*argv[tok_count])
+                tok_count--;
 
             var = strdup(argv[tok_count]);
             if (!var) {
@@ -200,13 +214,17 @@ char *parse_alias_var_name(char *src)
 }
 
 /**
- * parse_alias_val_dquotes:
- *      Parse a substring between two double quotes that represents the alias value.
+ * parse_alias_var_value:
+ *      Parse a substring between quotes that represents the alias value.
  */
-char *parse_alias_val_dquotes(char *src)
+char *parse_alias_var_value(char *src, const char delim)
 {
     char *val = NULL, *sp = NULL, *ep = NULL;
-    const char delim = '\"';
+
+    if (!delim) {
+        error_message("alias: not properly quoted");
+        return NULL;
+    }
 
     for (char *p = src; *p; p++) {               // for each char in line
         if (!sp && *p == delim)                  // find 1st delim
@@ -222,18 +240,17 @@ char *parse_alias_val_dquotes(char *src)
                 substr[i] = *p;
             substr[ep - sp] = '\0';              // nul-terminate
 
-            val = alloc_str(strlen(substr) + 1, false);
+            val = strdup(substr);
             if (!val) {
-                error_message("error: unable to allocate substring");
+                error_message("alias: unable to duplicate substring");
                 return NULL;
             }
-            strcpy(val, substr);
             break;
         }
     }
 
-    if (!sp || !ep) {
-        error_message("error: unbalanced double quotes");
+    if (!ep) {
+        error_message("alias: unbalanced quotes");
         return NULL;
     }
     sp = ep = NULL;

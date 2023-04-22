@@ -1,4 +1,3 @@
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -30,6 +29,8 @@ void init_history(void)
     char *fn = NULL;
     char *home = get_shell_varp("HOME", "");
 
+    using_history();
+
     fn = alloc_str(MAXLINE, true);
     sprintf(fn, "%s/%s", home, histfn);
 
@@ -40,14 +41,16 @@ void init_history(void)
 
     // Read the history file
     if (read_history(fn) != 0)
-        error_message("init_history: unable to read history file");
+        error_return("init_history");
+
+    free_str(fn);
 }
 
 /**
- * destroy_history:
- *      Free all history entries then free the list itself.
+ * read_history_file:
+ *      Read the history file adding entries to the history list.
  */
-int read_history(const char *fn)
+int read_history_file(const char *fn)
 {
     FILE *fp = NULL;
     char buf[MAXLINE + 1] = { '\0' };
@@ -84,9 +87,7 @@ void print_history(void)
     HIST_ENTRY *h = NULL;
 
     for (size_t i = 0; (h = history_get(history_base + i)); i++)
-        printf("%-5zu\t%s", i + 1, h->line);
-
-    puts("\n");
+        printf("%-5zu\t%s\n", i + 1, h->line);
 }
 
 /**
@@ -139,7 +140,6 @@ typedef struct hist_entry_s {
 typedef struct hist_list_s {
     size_t len;                 // Number of entries in the list
     hist_entry_s *head;         // First entry in the list
-    hist_entry_s *tail;         // The last entry in the list
 } hist_list_s;
 
 hist_list_s *hist_list = NULL;  // The history list
@@ -174,22 +174,23 @@ void init_history(void)
     hist_list->len = 0;         // Set history length to zero
 
     // Read any stored history
-    if (read_history(fn) != 0)
+    if (read_history_file(fn) != 0)
         error_message("init_history: unable to read history file");
+
+    free_str(fn);
 }
 
 /**
- * read_history:
+ * read_history_file:
  *      Read the history file adding entries to the history list.
  */
-int read_history(const char *fn)
+int read_history_file(const char *fn)
 {
     FILE *fp = NULL;
     char buf[MAXLINE + 1] = { '\0' };
 
     if (!fn || !*fn)
         return 1;
-
 
     // Open the history file for reading
     if ((fp = fopen(fn, "r")) == NULL) {
@@ -251,16 +252,13 @@ void add_history(const char *s)
     if (!s || !*s)
         return;
 
-    // Create storage for a history entry.
+    // Create storage for a history entry and copy s.
     hist_entry_s *new = calloc(1, sizeof(hist_entry_s));
-    new->line = alloc_str(MAXLINE + 1, true);
+    new->line = strdup(s);
     if (!new->line) {
         error_return("add_to_history");
         return;
     }
-
-    // Set the history entry
-    strcpy(new->line, s);
 
     // Update the histpry list
     if (!hist_list->head) {
@@ -281,16 +279,12 @@ void add_history(const char *s)
  */
 void print_history(void)
 {
-    size_t i = 1;
-    hist_entry_s *e = hist_list->head;
+    hist_entry_s *h = hist_list->head;
 
-    while (e) {
-        printf("%-5zu\t%s", i, e->line);
-        e = e->next;
-        i++;
+    for (size_t i = 0; i < hist_list->len; i++) {
+        printf("%-5zu\t%s\n", i + 1, h->line);
+        h = h->next;
     }
-
-    puts("\n");
 }
 
 /**
@@ -299,13 +293,13 @@ void print_history(void)
  */
 static void write_history(const char *fn)
 {
-    hist_entry_s *e = NULL;
+    hist_entry_s *h = NULL;
     FILE *fp = NULL;
 
     if (!hist_list)
         return;
 
-    e = hist_list->head;
+    h = hist_list->head;
     fp = NULL;
 
     // Open the history file for writing
@@ -314,10 +308,10 @@ static void write_history(const char *fn)
         return;
     }
 
-    // Write each history item as a new line
-    while (e) {
-        fprintf(fp, "%s\n", e->line);
-        e = e->next;
+    // Write each history item to the history file
+    while (h) {
+        fprintf(fp, "%s", h->line);
+        h = h->next;
     }
 
     // Close the file stream
@@ -335,7 +329,7 @@ char *lookup_history(char *s)
     sscanf(s, "%zd", &i);
 
     if (i < 1) {
-        error_message("lookup_history: history number must be positive");
+        error_message("lookup_history: history number must be a positive integer");
         return NULL;
     }
 

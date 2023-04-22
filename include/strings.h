@@ -11,6 +11,7 @@ char *alloc_str(size_t, bool);
 void free_str(char *);
 bool strupper(char *);
 bool strlower(char *);
+char *str_strip_whitespace(char *s);
 size_t str_skip_whitespace(char *);
 size_t str_strip_leading_whitespace(char *);
 ssize_t str_strip_trailing_whitespace(char *);

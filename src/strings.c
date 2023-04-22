@@ -122,6 +122,24 @@ bool strlower(char *s)
     return true;
 }
 
+char *str_strip_whitespace(char *s)
+{
+    char *p = NULL, *t = NULL;
+
+    for (p = s; isspace((int)*p); p++);
+
+    if (*p == '\0')
+        return p;
+
+    t = p + strlen(p) - 1;
+    while (t > p && isspace((int)*t))
+        t--;
+
+    *++t = '\0';
+
+    return p;
+}
+
 size_t str_skip_whitespace(char *s)
 {
     size_t offset = 0;

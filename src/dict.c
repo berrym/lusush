@@ -8,7 +8,7 @@
 
 #define FNV1A_PRIME (0x01000193) // 16777619 (32 bit)
 #define FNV1A_SEED (0x811C9DC5)  // 2166136261 (32 bit)
-#define INITIAL_SIZE (1024)      // Initial size of the dictionary table
+#define INITIAL_SIZE (128)       // Initial size of the dictionary table
 #define GROWTH_FACTOR (2)        // When increasing table size multiple current size by this
 #define MAX_LOAD_FACTOR (1)      // Used to determine when a table needs to grow
 #define GET_HASH() (fnv1a_hash(key) % d->size)   // Formula to calculate a hash value
@@ -71,7 +71,7 @@ void print_dict(dict_s *d)
     for (size_t i = 0; i < d->size; i++) {
         for (e = d->table[i]; e; e = next) {
             next = e->next;
-            printf("%s=\"%s\"\n", e->key, e->val);
+            printf("%s='%s'\n", e->key, e->val);
         }
     }
 }
@@ -172,10 +172,7 @@ bool dict_insert(dict_s *d, const char *key, const char *val)
     dict_entry_s *e = NULL;
     size_t h = 0;
 
-    if (!d)
-        return false;
-
-    if (!key || !val)
+    if (!d || !key || !val)
         return false;
 
     e = calloc(1, sizeof(*e));
@@ -189,9 +186,17 @@ bool dict_insert(dict_s *d, const char *key, const char *val)
 
     h = GET_HASH();
 
-    e->next = d->table[h];
-    d->table[h] = e;
-    d->len++;
+    if (dict_search(d, key)) {  // Replace existing entry if keys are the same
+        d->table[h] = e;
+    } else if (d->table[h]) {   // Chain out entry if hashes are the same
+        error_message("dict_insert: hash collision occured, chaining out");
+        e->next = d->table[h];
+        d->table[h] = e;
+        d->len++;
+    } else {                    // Insert a new entry
+        d->table[h] = e;
+        d->len++;
+    }
 
     // Grow table if there is not enough room
     if (d->len >= d->size * MAX_LOAD_FACTOR)
