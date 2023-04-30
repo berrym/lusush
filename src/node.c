@@ -12,14 +12,14 @@
 
 node_s *new_node(node_type_e type)
 {
-    node_s *n = NULL;
+    node_s *node = NULL;
 
-    if ((n = calloc(1, sizeof(node_s))) == NULL)
+    if ((node = calloc(1, sizeof(node_s))) == NULL)
         error_syscall("new_node");
 
-    n->type = type;
+    node->type = type;
 
-    return n;
+    return node;
 }
 
 void add_child_node(node_s *parent, node_s *child)
@@ -127,7 +127,7 @@ void free_node_tree(node_s *node)
 
     if (node->val_type == VAL_STR)
         if (node->val.str)
-            free(node->val.str);
+            free_str(node->val.str);
 
     free(node);
     node = NULL;

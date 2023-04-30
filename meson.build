@@ -6,9 +6,9 @@ project('lusush',
 
 inc = include_directories('include')
 
-src = ['src/dict.c',
-       'src/errors.c',
+src = ['src/errors.c',
        'src/exec.c',
+       'src/ht.c',
        'src/init.c',
        'src/input.c',
        'src/lusush.c',
@@ -23,6 +23,12 @@ src = ['src/dict.c',
        'src/scanner.c',
        'src/symtable.c',
        'src/vars.c']
+
+if host_machine.cpu_family() == 'x86'
+  add_project_arguments('-DX86_32_BIT_CPU', language: 'c')
+elif host_machine.cpu_family() == 'x86_64'
+  add_project_arguments('-DX86_64_BIT_CPU', language: 'c')
+endif
 
 editlinedep = dependency('libedit', required: false)
 readlinedep = dependency('readline',  version: '>=5.2', required : false)

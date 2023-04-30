@@ -137,7 +137,7 @@ void add_to_buf(char c)
 token_s *create_token(char *s)
 {
     token_s *tok = NULL;
-    char *buf = NULL;
+    char *buf = NULL, *tmp = NULL;
 
     tok = calloc(1, sizeof(token_s));
     if (!tok) {
@@ -145,16 +145,23 @@ token_s *create_token(char *s)
         return NULL;
     }
 
-    tok->text_len = strlen(s);
+    tmp = strdup(s);
+    if (!tmp) {
+        error_return("create token");
+        return NULL;
+    }
 
-    buf = calloc(strlen(s) + 1, sizeof(char));
-    if (!buf) {
+    buf = str_strip_whitespace(tmp);
+
+    tok->text_len = strlen(buf);
+    tok->text = strdup(buf);
+    if (!tok->text) {
         error_return("create_token");
         return NULL;
     }
 
-    strcpy(buf, s);
-    tok->text = buf;
+    free_str(tmp);
+    buf = NULL;
 
     return tok;
 }

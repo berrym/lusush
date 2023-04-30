@@ -1,5 +1,5 @@
-#include <ctype.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "alias.h"
@@ -7,18 +7,18 @@
 #include "lusush.h"
 #include "strings.h"
 #include "alias.h"
-#include "dict.h"
+#include "ht.h"
 
-dict_s *aliases = NULL;           // Dictionary for storing aliases
+ht_s *aliases = NULL;           // Hash table for storing aliases
 
 /**
  * init_aliases:
- *      Initialization code for aliases dictionary, set some aliases.
+ *      Initialization code for aliases hash table, set some aliases.
  */
 void init_aliases(void)
 {
     if (!aliases)
-        aliases = dict_create();
+        aliases = ht_create();
 
     set_alias("ll", "ls -alF");
     set_alias("..", "cd ..");
@@ -27,11 +27,11 @@ void init_aliases(void)
 
 /**
  * free_aliases:
- *      Delete the entire alias dictionary.
+ *      Delete the entire alias hash table.
  */
 void free_aliases(void)
 {
-    dict_destroy(aliases);
+    ht_destroy(aliases);
 }
 
 /**
@@ -40,26 +40,26 @@ void free_aliases(void)
  */
 char *lookup_alias(const char *key)
 {
-    char *val = dict_search(aliases, key);
+    char *val = ht_search(aliases, key);
     return val;
 }
 
 /**
  * print_aliases:
- *      Print out the entire dictionary table of aliases.
+ *      Print out the entire hash table of aliases.
  */
 void print_aliases(void) {
     printf("aliases:\n");
-    print_dict(aliases);
+    ht_print(aliases);
 }
 
 /**
  * set_alias:
- *      Insert a new key-value pair into the dictionary table.
+ *      Insert a new key-value pair into the hash table.
  */
 bool set_alias(const char *key, const char *val)
 {
-    if (!dict_insert(aliases, key, val))
+    if (!ht_insert(aliases, key, val))
         return false;
 
     return true;
@@ -67,11 +67,11 @@ bool set_alias(const char *key, const char *val)
 
 /**
  * unset_alias:
- *      Remove a record from the dictionary table.
+ *      Remove an entry from the hash table.
  */
 void unset_alias(const char *key)
 {
-    dict_delete(aliases, key);
+    ht_delete(aliases, key);
 }
 
 /**
@@ -133,7 +133,7 @@ char *src_str_from_argv(size_t argc, char **argv, const char *sep)
 
     src = alloc_str(MAXLINE + 1, false);
     if (!src) {
-        error_message("error: unable to allocate source string");
+        error_message("alias: unable to allocate source string");
         return NULL;
     }
 
@@ -196,12 +196,13 @@ char *parse_alias_var_name(char *src)
                 }
             }
 
+            // Ignore parsed empty string tokens
             while (!*argv[tok_count])
                 tok_count--;
 
             var = strdup(argv[tok_count]);
             if (!var) {
-                error_message("error: unable to copy alias key name");
+                error_message("alias: unable to copy key name");
                 break;
             }
 
@@ -226,9 +227,9 @@ char *parse_alias_var_value(char *src, const char delim)
     }
 
     for (char *p = src; *p; p++) {               // for each char in line
-        if (!sp && *p == delim)                  // find 1st delim
+        if (!sp && *p == delim)                  // find first delimeter
             sp = p, sp++;                        // set start ptr
-        else if (!ep && *p == delim)             // find 2nd delim
+        else if (!ep && *p == delim)             // find second delimeter
             ep = p;                              // set end ptr
 
         if (sp && ep) {                          // if both set
@@ -237,6 +238,7 @@ char *parse_alias_var_value(char *src, const char delim)
 
             for (size_t i = 0; p < ep; i++, p++) // copy to substr
                 substr[i] = *p;
+
             substr[ep - sp] = '\0';              // nul-terminate
 
             val = strdup(substr);
