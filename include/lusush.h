@@ -16,6 +16,8 @@
 #define MAXLINE 4096
 #endif
 
+extern bool exit_flag;
+
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
 #define MODE_WRITE (O_RDWR | O_CREAT | O_TRUNC)

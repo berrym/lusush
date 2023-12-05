@@ -4,7 +4,7 @@ project('lusush',
         version: '0.1.0',
         license: 'MIT')
 
-inc = include_directories('include')
+inc = include_directories('include', 'include/third_party')
 
 src = ['src/errors.c',
        'src/exec.c',
@@ -22,7 +22,9 @@ src = ['src/errors.c',
        'src/parser.c',
        'src/scanner.c',
        'src/symtable.c',
-       'src/vars.c']
+       'src/vars.c',
+       'src/third_party/linenoise.c',
+      ]
 
 if host_machine.cpu_family() == 'x86'
   add_project_arguments('-DX86_32_BIT_CPU', language: 'c')
@@ -30,19 +32,9 @@ elif host_machine.cpu_family() == 'x86_64'
   add_project_arguments('-DX86_64_BIT_CPU', language: 'c')
 endif
 
-editlinedep = dependency('libedit', required: false)
-readlinedep = dependency('readline',  version: '>=5.2', required : false)
-linedep = []
-
-if editlinedep.found()
-  add_project_arguments('-DUSING_EDITLINE -DUSING_EDITLINE_HISTORY', language : 'c')
-  linedep += editlinedep
-elif readlinedep.found()
-  add_project_arguments('-DUSING_READLINE -DUSING_READLINE_HISTORY', language : 'c')
-  linedep += readlinedep
-endif
+add_project_arguments('-D_DEFAULT_SOURCE', language: 'c') 
+add_project_arguments('-D_XOPEN_SOURCE=600', language: 'c')
 
 lusush_exe = executable('lusush',
                         src,
-                        dependencies: linedep,
                         include_directories: inc)

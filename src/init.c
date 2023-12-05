@@ -16,14 +16,17 @@
 #include "scanner.h"
 #include "signals.h"
 #include "symtable.h"
+#include "linenoise.h"
 
 extern char **environ;
+
+bool exit_flag = false;
 
 // The type of shell instance
 static int SHELL_TYPE;
 
-int parse_opts(int argc, char **argv);
-void usage(int err);
+static int parse_opts(int argc, char **argv);
+static void usage(int err);
 
 int shell_type(void)
 {
@@ -118,16 +121,13 @@ int init(int argc, char **argv, FILE **in)
     atexit(free_tok_buf);
     atexit(free_global_symtable);
     atexit(free_aliases);
-    #ifndef USING_READLINE
-    atexit(free_input_buffers);
-    #endif
-    atexit(destroy_history);
-    atexit(save_history);
+    if (exit_flag)
+        atexit(free_input_buffers);
 
     return 0;
 }
 
-int parse_opts(int argc, char **argv)
+static int parse_opts(int argc, char **argv)
 {
     // next option
     int nopt = 0;
@@ -158,7 +158,7 @@ int parse_opts(int argc, char **argv)
     return optind;
 }
 
-void usage(int err)
+static void usage(int err)
 {
     error_message("Usage:\n\t-h This Help\n");
     exit(err);

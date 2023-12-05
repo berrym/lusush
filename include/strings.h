@@ -4,7 +4,7 @@
 #define STRINGS_H
 
 void init_str_symtable(void);
-char *__get_alloced_str(char *);
+char *get_alloced_str_direct(char *);
 char *get_alloced_str(char *);
 void free_alloced_str(char *s);
 char *alloc_str(size_t, bool);

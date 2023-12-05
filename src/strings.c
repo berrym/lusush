@@ -21,7 +21,7 @@ void init_str_symtable(void)
     str_list = new_symtable(0);
 }
 
-char *__get_alloced_str(char *str)
+char *get_alloced_str_direct(char *str)
 {
     char *str2 = NULL;
     str2 = alloc_str(strlen(str) + 1, false);
@@ -51,7 +51,7 @@ char *get_alloced_str(char *s)
         }
     }
 
-    return __get_alloced_str(s);
+    return get_alloced_str_direct(s);
 }
 
 void free_alloced_str(char *s)

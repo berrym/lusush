@@ -33,6 +33,7 @@ const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
  */
 int bin_exit(int argc, char **argv)
 {
+    exit_flag = true;
     exit(EXIT_SUCCESS);
     return 0;
 }
@@ -104,20 +105,26 @@ int bin_history(int argc, char **argv)
 {
     switch (argc) {
     case 1:
-        print_history();
+        history_print();
         break;
     case 2:
         // Lookup a history entry
-        char *s = lookup_history(argv[1]);
-        if (!s) {
+        char *line = history_lookup(argv[1]);
+        if (!line) {
             error_message("history: unable to find entry %s", argv[1]);
             return 1;
         }
 
+        // Add the retrieved command to history
+        if (line && *line) {
+            history_add(line);
+            history_save();
+        }
+
         // Create a source struct from history entry
         source_s src;
-        src.buf = s;
-        src.bufsize = strlen(s);
+        src.buf = line;
+        src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
         // Execute the source struct

@@ -128,7 +128,7 @@ void add_to_buf(char c)
         if (!tmp) {
             error_return("add_to_buf");
             return;
-        }
+        };
         tok_buf = tmp;
         tok_bufsize *= 2;
     }
@@ -154,7 +154,7 @@ token_s *create_token(char *s)
     buf = str_strip_whitespace(tmp);
 
     tok->text_len = strlen(buf);
-    tok->text = strdup(buf);
+    tok->text = strdup(buf);;
     if (!tok->text) {
         error_return("create_token");
         return NULL;
