@@ -15,11 +15,11 @@
  */
 node_s *parse_command(token_s *tok)
 {
-    if (!tok)
+    if (tok == NULL)
         return NULL;
 
     node_s *cmd = new_node(NODE_COMMAND);
-    if (!cmd) {
+    if (cmd == NULL) {
         free_token(tok);
         return NULL;
     }
@@ -33,7 +33,7 @@ node_s *parse_command(token_s *tok)
         }
 
         node_s *word = new_node(NODE_VAR);
-        if (!word) {
+        if (word == NULL) {
             free_node_tree(cmd);
             free_token(tok);
             return NULL;

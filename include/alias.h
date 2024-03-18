@@ -1,7 +1,7 @@
-#include <stdbool.h>
-
 #ifndef ALIAS_H
 #define ALIAS_H
+
+#include <stdbool.h>
 
 void init_aliases(void);
 void free_aliases(void);

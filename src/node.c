@@ -24,10 +24,10 @@ node_s *new_node(node_type_e type)
 
 void add_child_node(node_s *parent, node_s *child)
 {
-    if (!parent || !child)
+    if (parent == NULL || child == NULL)
         return;
 
-    if (!parent->first_child) {
+    if (parent->first_child == NULL) {
         parent->first_child = child;
     } else {
         node_s *sibling = parent->first_child;

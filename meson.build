@@ -1,7 +1,7 @@
 project('lusush',
         'c',
         default_options: 'c_std=c99',
-        version: '0.1.0',
+        version: '0.1.1',
         license: 'MIT')
 
 inc = include_directories('include', 'include/third_party')
@@ -20,9 +20,12 @@ src = ['src/errors.c',
        'src/builtins/history.c',
        'src/node.c',
        'src/parser.c',
+       'src/pattern.c',
        'src/scanner.c',
+       'src/shunt.c',
        'src/symtable.c',
        'src/vars.c',
+       'src/wordexp.c',
        'src/third_party/linenoise.c',
       ]
 
@@ -32,8 +35,10 @@ elif host_machine.cpu_family() == 'x86_64'
   add_project_arguments('-DX86_64_BIT_CPU', language: 'c')
 endif
 
-add_project_arguments('-D_DEFAULT_SOURCE', language: 'c') 
-add_project_arguments('-D_XOPEN_SOURCE=600', language: 'c')
+add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
+add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
+add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
+add_project_arguments('-Dwarning_level=everything', language: 'c')
 
 lusush_exe = executable('lusush',
                         src,

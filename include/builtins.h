@@ -1,7 +1,7 @@
-#include <stdbool.h>
-
 #ifndef BUILTINS_H
 #define BUILTINS_H
+
+#include <stdbool.h>
 
 typedef struct builtin_s {
     const char *name;

@@ -11,8 +11,6 @@
 #include "exec.h"
 #include "lusush.h"
 #include "node.h"
-#include "parser.h"
-#include "scanner.h"
 #include "strings.h"
 
 char *search_path(char *fn)
@@ -74,8 +72,8 @@ int do_exec_cmd(int argc, char **argv)
     } else {
         char *path = search_path(*argv);
 
-        if (!path)
-            return 0;
+        if (path == NULL)
+            return 1;
 
         execv(path, argv);
         error_return("do_exec_cmd");
@@ -95,36 +93,47 @@ inline void free_argv(int argc, char **argv)
 
 int do_command(node_s *n)
 {
-    size_t argc = 0, max_args = 255;
-    char *argv[max_args + 1], *str = NULL;
+    size_t argc = 0, targc = 0;
+    char **argv = NULL, *str = NULL;
 
-    if (!n)
+    if (n == NULL)
         return 0;
 
-    node_s *child = n->first_child;
+    const node_s *child = n->first_child;
 
-    if (!child)
+    if (child == NULL)
         return 0;
 
     while (child) {
         str = child->val.str;
-        argv[argc] = alloc_str(strlen(str) + 1, false);
 
-        if (!argv[argc]) {
-            free_argv(argc, argv);
-            return 0;
+        struct word_s *w = word_expand(str);
+
+        if (w == NULL) {
+            child = child->next_sibling;
+            continue;
         }
 
-        strcpy(argv[argc], str);
-        null_terminate_str(argv[argc]);
+        const struct word_s *w2 = w;
+        while (w2) {
+            if (check_buffer_bounds(&argc, &targc, &argv)) {
+                str = calloc(strlen(w2->data) + 1, sizeof(char));
+                if (str) {
+                    strcpy(str, w2->data);
+                    argv[argc++] = str;
+                }
+            }
+            w2 = w2->next;
+        }
 
-        if (++argc >= max_args)
-            break;
+        free_all_words(w);
 
         child = child->next_sibling;
     }
 
-    argv[argc] = NULL;
+    if (check_buffer_bounds(&argc, &targc, &argv)) {
+        argv[argc] = NULL;
+    }
 
     // Execute an aliased command
     char *alias = lookup_alias(*argv);
@@ -145,7 +154,9 @@ int do_command(node_s *n)
     for (size_t i = 0; i < builtins_count; i++) {
         if (strcmp(*argv, builtins[i].name) == 0) {
             builtins[i].func(argc, argv);
-            free_argv(argc, argv);
+            free_buffer(argc, argv);
+            if (no_expand)
+                no_expand = false;
             return 1;
         }
     }
@@ -167,16 +178,18 @@ int do_command(node_s *n)
             exit(EXIT_FAILURE);
             break;
         }
-    } else if (child_pid < 0) {
+    }
+
+    if (child_pid < 0) {
         error_return("do_command");
+        free_buffer(argc, argv);
         return 0;
     }
 
     int status = 0;
 
     waitpid(child_pid, &status, 0);
-
-    free_argv(argc, argv);
+    free_buffer(argc, argv);
 
     return 1;
 }

@@ -1,22 +1,22 @@
-#include <unistd.h>
-#include "scanner.h"
-
 #ifndef LUSUSH_H
 #define LUSUSH_H
+
+#include <unistd.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <glob.h>
+#include "scanner.h"
 
 #define SHELL_NAME "lusush"
 
 // Maximum line length
-#ifdef _SC_LINE_MAX
 #ifdef MAXLINE
 #undef MAXLINE
 #endif
-#define MAXLINE _SC_LINE_MAX
-#else
 #define MAXLINE 4096
-#endif
 
 extern bool exit_flag;
+extern bool no_expand;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
@@ -29,8 +29,6 @@ int get_shell_vari(char *, int);
 long get_shell_varl(char *, int);
 void set_shell_varp(char *, char *);
 void set_shell_vari(char *, int);
-
-#include <sys/types.h>
 
 extern int64_t optionsx;
 
@@ -99,5 +97,46 @@ int shopt_builtin(int, char **);
 int set_optionx(int64_t, int);
 int64_t optionx_index(char *);
 int parse_and_execute(source_s *);
+
+// struct to represent the words resulting from word expansion
+struct word_s {
+    char *data;
+    size_t len;
+    struct word_s *next;
+};
+
+// word expansion functions
+struct word_s *make_word(char *str);
+void free_all_words(struct word_s *first);
+
+size_t find_closing_quote(char *data);
+size_t find_closing_brace(char *data);
+void delete_char_at(char *str, size_t index);
+char *substitute_str(char *s1, char *s2, size_t start, size_t end);
+char *wordlist_to_str(struct word_s *word);
+
+struct word_s *word_expand(char *orig_word);
+char *word_expand_to_str(char *word);
+char *tilde_expand(char *s);
+char *command_substitute(char *orig_cmd);
+char *var_expand(char *orig_var_name);
+char *pos_params_expand(char *tmp, bool in_double_quotes);
+struct word_s *pathnames_expand(struct word_s *words);
+struct word_s *field_split(char *str);
+void remove_quotes(struct word_s *wordlist);
+
+char *arithm_expand(char *orig_expr);
+
+// some string manipulation functions
+char *strchr_any(char *string, char *chars);
+char *quote_val(char *val, bool add_quotes);
+bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf);
+void free_buffer(size_t len, char **buf);
+
+// pattern matching functions
+bool has_glob_chars(char *p, size_t len);
+size_t match_prefix(const char *pattern, char *str, bool longest);
+size_t match_suffix(const char *pattern, char *str, bool longest);
+char **get_filename_matches(const char *pattern, glob_t *matches);
 
 #endif

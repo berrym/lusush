@@ -102,6 +102,5 @@ void error_abort(const char *fmt, ...)
  */
 void sigsegv_handler(int signo)
 {
-    error_abort("lusush: caught signal %d, terminating.\n"
-                "\tAnd fix your damn code.\n", signo);
+    error_abort("lusush: caught signal %d, terminating.\n\tAnd fix your damn code.\n", signo);
 }

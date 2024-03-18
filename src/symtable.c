@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "lusush.h"
+#include <sys/types.h>
 #include "errors.h"
 #include "node.h"
-#include "parser.h"
 #include "symtable.h"
+#include "strings.h"
 
 symtable_stack_s symtable_stack;
 size_t symtable_level;
@@ -177,7 +177,7 @@ symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str)
     symtable_entry_s *entry = symtable->head;
 
     while (entry) {
-        if (strncmp(entry->name, str, strnlen(str, MAXLINE)) == 0)
+        if (strcmp(entry->name, str) == 0)
             return entry;
         entry = entry->next;
     }
@@ -187,10 +187,9 @@ symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str)
 
 symtable_entry_s *get_symtable_entry(const char *str)
 {
-    size_t i = symtable_stack.symtable_count - 1;
+    ssize_t i = symtable_stack.symtable_count - 1;
 
-    do
-    {
+    do {
         symtable_s *symtable = symtable_stack.symtable_list[i];
         symtable_entry_s *entry = lookup_symbol(symtable, str);
 
@@ -208,16 +207,14 @@ void symtable_entry_setval(symtable_entry_s *entry, char *val)
 
     if (!val) {
         entry->val = NULL;
-    }
-    else
-    {
+    } else {
         char *val2 = NULL;
 
-        val2 = calloc(strnlen(val, MAXLINE) + 1, sizeof(char));
+        val2 = calloc(strlen(val) + 1, sizeof(char));
         if (!val2)
             error_syscall("symtable_entry_setval");
 
-        strncpy(val2, val, strnlen(val, MAXLINE));
+        strcpy(val2, val);
         entry->val = val2;
     }
 }
@@ -240,8 +237,7 @@ symtable_s *symtable_stack_pop(void)
     if (symtable_stack.symtable_count == 0)
         return NULL;
 
-    symtable_s *st = \
-        symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
+    symtable_s *st = symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
 
     symtable_stack.symtable_list[--symtable_stack.symtable_count] = NULL;
     symtable_level--;
@@ -250,8 +246,7 @@ symtable_s *symtable_stack_pop(void)
         symtable_stack.local_symtable  = NULL;
         symtable_stack.global_symtable = NULL;
     } else {
-        symtable_stack.local_symtable = \
-            symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
+        symtable_stack.local_symtable = symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
     }
 
     return st;

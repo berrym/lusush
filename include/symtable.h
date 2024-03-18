@@ -1,7 +1,8 @@
-#include "node.h"
-
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
+
+#include <stddef.h>
+#include "node.h"
 
 // Type of a symbol table entry's value
 typedef enum symbol_type_e {

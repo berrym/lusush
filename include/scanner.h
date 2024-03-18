@@ -1,13 +1,13 @@
-#include <sys/types.h>
-
 #ifndef SCANNER_H
 #define SCANNER_H
+
+#include <stddef.h>
+#include <sys/types.h>
 
 #define INIT_SRC_POS -2
 #define ERRCHAR 0
 
-typedef struct source_s
-{
+typedef struct source_s {
     char *buf;
     size_t bufsize;
     size_t curline;

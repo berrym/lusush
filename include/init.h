@@ -1,7 +1,7 @@
-#include <stdio.h>
-
 #ifndef INIT_H
 #define INIT_H
+
+#include <stdio.h>
 
 // Types of shell instances
 enum {

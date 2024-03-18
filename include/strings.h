@@ -1,7 +1,8 @@
-#include <stdbool.h>
-
 #ifndef STRINGS_H
 #define STRINGS_H
+
+#include <stdbool.h>
+#include <sys/types.h>
 
 void init_str_symtable(void);
 char *get_alloced_str_direct(char *);

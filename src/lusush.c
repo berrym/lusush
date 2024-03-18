@@ -17,7 +17,6 @@
 int main(int argc, char **argv)
 {
     FILE *in = stdin;                // input file stream pointer
-    bool looping = true;             // boolean flag to keep looping
     char *line = NULL;               // pointer to a line of input read
 
     // Perform startup tasks
@@ -25,11 +24,11 @@ int main(int argc, char **argv)
 
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
-    while (looping) {
+    for (;;) {
         // Read a line of input from the opened stream
         line = get_input(in);
 
-        if (!line)
+        if (line == NULL)
             break;
 
         // Create a source structure from input
@@ -55,7 +54,7 @@ int parse_and_execute(source_s *src)
     while (tok && tok != &eof_token) {
         node_s *cmd = parse_command(tok);
 
-        if (!cmd)
+        if (cmd == NULL)
             break;
 
         do_command(cmd);

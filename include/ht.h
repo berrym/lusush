@@ -1,7 +1,7 @@
-#include <stdbool.h>
-
 #ifndef HT_H
 #define HT_H
+
+#include <stdbool.h>
 
 typedef struct ht_s ht_s;
 

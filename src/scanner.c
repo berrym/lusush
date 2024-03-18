@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include "errors.h"
 #include "lusush.h"
 #include "scanner.h"
+#include "lusush.h"
 #include "strings.h"
 
 static char *tok_buf = NULL;
@@ -20,7 +20,7 @@ token_s eof_token = {
     .text_len = 0,
 };
 
-static token_s *cur_tok  = NULL;
+static token_s *cur_tok = NULL;
 static token_s *prev_tok = NULL;
 
 bool is_seperator_tok(token_type_e type)
@@ -55,11 +55,11 @@ token_s *dup_token(token_s *tok)
 {
     token_s *new_tok = NULL;
 
-    if (!tok)
+    if (tok == NULL)
         return NULL;
 
     new_tok = calloc(1, sizeof(token_s));
-    if (!new_tok) {
+    if (new_tok == NULL) {
         error_return("dup_token");
         return NULL;
     }
@@ -125,7 +125,7 @@ void add_to_buf(char c)
     tok_buf[tok_bufindex++] = c;
     if (tok_bufindex > tok_bufsize) {
         tmp = realloc(tok_buf, tok_bufsize * 2);
-        if (!tmp) {
+        if (tmp == NULL) {
             error_return("add_to_buf");
             return;
         };
@@ -140,13 +140,13 @@ token_s *create_token(char *s)
     char *buf = NULL, *tmp = NULL;
 
     tok = calloc(1, sizeof(token_s));
-    if (!tok) {
+    if (tok == NULL) {
         error_return("create_token");
         return NULL;
     }
 
     tmp = strdup(s);
-    if (!tmp) {
+    if (tmp == NULL) {
         error_return("create token");
         return NULL;
     }
@@ -155,7 +155,7 @@ token_s *create_token(char *s)
 
     tok->text_len = strlen(buf);
     tok->text = strdup(buf);;
-    if (!tok->text) {
+    if (tok->text == NULL) {
         error_return("create_token");
         return NULL;
     }
@@ -178,12 +178,13 @@ token_s *tokenize(source_s *src)
 {
     bool loop = true;
 
-    if (!src || !src->buf || !src->bufsize)
+    if (src == NULL || src->buf == NULL || !src->bufsize)
         return &eof_token;
 
-    if (!tok_buf) {
+    if (tok_buf == NULL) {
         tok_bufsize = MAXLINE;
-        if (!(tok_buf = alloc_str(tok_bufsize, false)))
+        tok_buf = alloc_str(tok_bufsize, false);
+        if (tok_buf == NULL)
             return &eof_token;
     }
 
@@ -191,12 +192,55 @@ token_s *tokenize(source_s *src)
     tok_buf[0] = '\0';
 
     char nc = next_char(src);
+    char nc2;
+    size_t i;
 
     if (nc == ERRCHAR || nc == EOF)
         return &eof_token;
 
     do {
         switch (nc) {
+        case  '"':
+        case '\'':
+        case  '`':
+            add_to_buf(nc);
+            i = find_closing_quote(src->buf+src->pos);
+            if (!i) {
+                src->pos = src->bufsize;
+                fprintf(stderr, "error: missing closing quote '%c'\n", nc);
+                return &eof_token;
+            }
+            while (i--) {
+                add_to_buf(next_char(src));
+            }
+            break;
+        case '\\':
+            nc2 = next_char(src);
+            if (nc2 == '\n') {
+                break;
+            }
+            add_to_buf(nc);
+            if (nc2 > 0) {
+                add_to_buf(nc2);
+            }
+            break;
+        case '$':
+            add_to_buf(nc);
+            nc = peek_char(src);
+            if (nc == '{' || nc == '(') {
+                i = find_closing_brace(src->buf+src->pos+1);
+                if (!i) {
+                    src->pos = src->bufsize;
+                    fprintf(stderr, "error: missing closing brace '%c'\n", nc);
+                    return &eof_token;
+                }
+                while (i--) {
+                    add_to_buf(next_char(src));
+                }
+            } else if (isalnum(nc) || nc == '*' || nc == '@' || nc == '#' || nc == '!' || nc == '?' || nc == '$') {
+                add_to_buf(next_char(src));
+            }
+            break;
         case ' ':
         case '\t':
             if (tok_bufindex > 0)
@@ -227,7 +271,7 @@ token_s *tokenize(source_s *src)
     tok_buf[tok_bufindex] = '\0';
 
     token_s *tok = create_token(tok_buf);
-    if (!tok) {
+    if (tok == NULL) {
         error_message("tokenize: failed to create new token");
         return &eof_token;
     }
@@ -257,7 +301,8 @@ void set_previous_token(token_s *tok)
     prev_tok = tok;
 }
 
-void free_tok_buf(void) {
+void free_tok_buf(void)
+{
     if (tok_buf)
         free_str(tok_buf);
 }

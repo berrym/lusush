@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stddef.h>
+#include <sys/types.h>
 #include "lusush.h"
 #include "init.h"
 #include "errors.h"
@@ -12,6 +14,9 @@
 #include "history.h"
 #include "strings.h"
 #include "symtable.h"
+
+ssize_t getline(char **restrict lineptr, size_t *restrict n,
+                FILE *restrict stream);
 
 static char *buf = NULL, *buf2 = NULL; // Input buffers
 
@@ -26,15 +31,17 @@ void free_input_buffers(void)
 
 char *ln_gets(void)
 {
-    char *line = NULL, *tmp = NULL;
+    char *line = NULL, *line2 = NULL;
+
+    line2 = alloc_str(MAXLINE + 1, true);
 
     while (true) {
         errno = 0;
 
-        if (!line)
+        if (line == NULL)
             line = linenoise(get_shell_varp("PS1", "% "));
 
-        if (!line)
+        if (line == NULL)
             return NULL;
 
         if (errno == ENOENT)
@@ -42,19 +49,33 @@ char *ln_gets(void)
                 exit(EXIT_SUCCESS);
 
         // Handle line continuations
+        str_strip_trailing_whitespace(line);
         if (line[strlen(line) - 1] == '\\') {
             line[strlen(line) - 1] = '\0';
-            tmp = line;
+            if (!*line2) {
+                line2 = line;
+            } else {
+                strcat(line2, line);
+            }
+
             line = linenoise(get_shell_varp("PS2", "> "));
-            strcpy(&tmp[strlen(tmp)], line);
-            line = tmp;
+            if (line == NULL)
+                return NULL;
+
+            if (errno == ENOENT)
+                if (shell_type() == INTERACTIVE_SHELL)
+                    exit(EXIT_SUCCESS);
+
+            line2 = realloc(line2, strlen(line2) + strlen(line) + 1);
+            strcat(line2, line);
+            line = line2;
         } else {
             break;
         }
     }
 
     // If the line has any text in it, save it in history
-    if (line && *line) {
+    if (*line) {
         history_add(line);
         history_save();
     }
@@ -65,9 +86,6 @@ char *ln_gets(void)
 
 char *get_input(FILE *in)
 {
-    size_t buflen = 0, linecap = 0;
-    ssize_t linelen = 0;
-
     // If the buffers have been previously allocated free them
     free_input_buffers();
 
@@ -75,24 +93,31 @@ char *get_input(FILE *in)
     if (shell_type() != NORMAL_SHELL) {
         buf2 = ln_gets();
     } else {
-        // Allocate memory for a line of input
-        buf2 = alloc_str(MAXLINE + 1, true);
+        size_t linecap = 0;
+        ssize_t linelen;
 
-        // Allocate memory for extended line of input
         buf = alloc_str(MAXLINE + 1, true);
+        buf2 = alloc_str(MAXLINE + 1, true);
 
         // Read a line of input
         while ((linelen = getline(&buf2, &linecap, in))) {
-            if (feof(in) || ferror(in))
-                return NULL;
+            if (feof(in) || ferror(in)) {
+                error_return("lusush: get_input");
+                exit(EXIT_FAILURE);
+            }
 
-            strncat(buf, buf2, linelen);
-            buflen += linelen;
-            buflen += str_strip_trailing_whitespace(buf);
+            if (!*buf) {
+                char *tmp = buf;
+                buf = buf2;
+                buf2 = tmp;
+            } else {
+                buf = realloc(buf, strlen(buf) + strlen(buf2) + 1);
+                strcat(buf, buf2);
+            }
 
-            if (buf[buflen - 1] == '\\') {
-                buf[buflen - 1] = '\0';
-                buflen--;
+            str_strip_trailing_whitespace(buf);
+            if (buf[strlen(buf) - 1] == '\\') {
+                buf[strlen(buf) - 1] = '\0';
             } else {
                 break;
             }

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <getopt.h>
 #include "alias.h"
 #include "errors.h"
@@ -21,6 +22,7 @@
 extern char **environ;
 
 bool exit_flag = false;
+bool no_expand = false;
 
 // The type of shell instance
 static int SHELL_TYPE;

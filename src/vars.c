@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 200112L
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -34,9 +32,11 @@ void set_shell_varp(char *name, char *val)
 {
     // Get the entry
     symtable_entry_s *entry = get_symtable_entry(name);
+
     // Add to local symbol table
-    if (!entry)
+    if (entry == NULL)
         entry = add_to_symtable(name);
+
     // Set the entry's value
     symtable_entry_setval(entry, val);
 }
