@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdarg.h>
-#include "lusush.h"
-#include "errors.h"
+#include "../include/lusush.h"
+#include "../include/errors.h"
 
 /*
  * do_error:

@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "errors.h"
-#include "builtins.h"
-#include "alias.h"
-#include "exec.h"
-#include "history.h"
-#include "lusush.h"
-#include "scanner.h"
-#include "strings.h"
-#include "symtable.h"
+#include "../../include/errors.h"
+#include "../../include/builtins.h"
+#include "../../include/alias.h"
+#include "../../include/exec.h"
+#include "../../include/history.h"
+#include "../../include/lusush.h"
+#include "../../include/scanner.h"
+#include "../../include/strings.h"
+#include "../../include/symtable.h"
 
 // Table of builtin commands
 builtin builtins[] = {

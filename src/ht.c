@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "ht.h"
-#include "errors.h"
-#include "strings.h"
+#include "../include/ht.h"
+#include "../include/errors.h"
+#include "../include/strings.h"
 
 #define INITIAL_CAPACITY (128)   // Initial capacity of a new hash table
 #define GROWTH_FACTOR (2)        // When increasing table capacity multiply current capacity by this

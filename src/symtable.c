@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include "errors.h"
-#include "node.h"
-#include "symtable.h"
-#include "strings.h"
+#include "../include/errors.h"
+#include "../include/node.h"
+#include "../include/symtable.h"
+#include "../include/strings.h"
 
 symtable_stack_s symtable_stack;
 size_t symtable_level;

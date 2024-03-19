@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "exec.h"
-#include "errors.h"
-#include "history.h"
-#include "lusush.h"
-#include "strings.h"
-#include "linenoise.h"
+#include "../../include/exec.h"
+#include "../../include/errors.h"
+#include "../../include/history.h"
+#include "../../include/lusush.h"
+#include "../../include/strings.h"
+#include "../../include/third_party/linenoise.h"
 
 static const char *histfn = ".lusushist"; // The history filename
 

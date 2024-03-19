@@ -6,14 +6,14 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <sys/types.h>
-#include "lusush.h"
-#include "init.h"
-#include "errors.h"
-#include "input.h"
-#include "linenoise.h"
-#include "history.h"
-#include "strings.h"
-#include "symtable.h"
+#include "../include/lusush.h"
+#include "../include/init.h"
+#include "../include/errors.h"
+#include "../include/input.h"
+#include "../include/third_party/linenoise.h"
+#include "../include/history.h"
+#include "../include/strings.h"
+#include "../include/symtable.h"
 
 ssize_t getline(char **restrict lineptr, size_t *restrict n,
                 FILE *restrict stream);

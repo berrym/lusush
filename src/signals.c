@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <signal.h>
-#include "errors.h"
-#include "signals.h"
+#include "../include/errors.h"
+#include "../include/signals.h"
 
 void init_signal_handlers(void) {
     set_signal_handler(SIGINT, SIG_IGN);

@@ -3,11 +3,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "errors.h"
-#include "lusush.h"
-#include "scanner.h"
-#include "lusush.h"
-#include "strings.h"
+#include "../include/errors.h"
+#include "../include/lusush.h"
+#include "../include/scanner.h"
+#include "../include/lusush.h"
+#include "../include/strings.h"
 
 static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;

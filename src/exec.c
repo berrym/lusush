@@ -5,13 +5,13 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include "alias.h"
-#include "builtins.h"
-#include "errors.h"
-#include "exec.h"
-#include "lusush.h"
-#include "node.h"
-#include "strings.h"
+#include "../include/alias.h"
+#include "../include/builtins.h"
+#include "../include/errors.h"
+#include "../include/exec.h"
+#include "../include/lusush.h"
+#include "../include/node.h"
+#include "../include/strings.h"
 
 char *search_path(char *fn)
 {

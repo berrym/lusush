@@ -5,14 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "errors.h"
-#include "exec.h"
-#include "init.h"
-#include "input.h"
-#include "lusush.h"
-#include "node.h"
-#include "parser.h"
-#include "scanner.h"
+#include "../include/errors.h"
+#include "../include/exec.h"
+#include "../include/init.h"
+#include "../include/input.h"
+#include "../include/lusush.h"
+#include "../include/node.h"
+#include "../include/parser.h"
+#include "../include/scanner.h"
 
 int main(int argc, char **argv)
 {

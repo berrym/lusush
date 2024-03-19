@@ -8,16 +8,16 @@
 #include <string.h>
 #include <stdbool.h>
 #include <getopt.h>
-#include "alias.h"
-#include "errors.h"
-#include "history.h"
-#include "init.h"
-#include "input.h"
-#include "lusush.h"
-#include "scanner.h"
-#include "signals.h"
-#include "symtable.h"
-#include "linenoise.h"
+#include "../include/alias.h"
+#include "../include/errors.h"
+#include "../include/history.h"
+#include "../include/init.h"
+#include "../include/input.h"
+#include "../include/lusush.h"
+#include "../include/scanner.h"
+#include "../include/signals.h"
+#include "../include/symtable.h"
+#include "../include/third_party/linenoise.h"
 
 extern char **environ;
 

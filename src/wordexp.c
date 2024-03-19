@@ -9,12 +9,12 @@
 #include <ctype.h>
 #include <errors.h>
 #include <sys/types.h>
-#include "errors.h"
-#include "strings.h"
-#include "lusush.h"
-#include "symtable.h"
-#include "exec.h"
-#include "builtins.h"
+#include "../include/errors.h"
+#include "../include/strings.h"
+#include "../include/lusush.h"
+#include "../include/symtable.h"
+#include "../include/exec.h"
+#include "../include/builtins.h"
 
 // special value to represent an invalid variable
 #define INVALID_VAR ((char *)-1)

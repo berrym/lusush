@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-#include "lusush.h"
-#include "symtable.h"
+#include "../include/lusush.h"
+#include "../include/symtable.h"
 
 char *get_shell_varp(char *name, char *def_val)
 {

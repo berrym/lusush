@@ -116,7 +116,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include "linenoise.h"
+#include "../../include/third_party/linenoise.h"
 
 #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
 

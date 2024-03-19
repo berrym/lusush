@@ -4,10 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "errors.h"
-#include "lusush.h"
-#include "strings.h"
-#include "symtable.h"
+#include "../include/errors.h"
+#include "../include/lusush.h"
+#include "../include/strings.h"
+#include "../include/symtable.h"
 
 // Symbol table for strings
 symtable_s *str_list = NULL;

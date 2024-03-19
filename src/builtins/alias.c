@@ -2,12 +2,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include "alias.h"
-#include "errors.h"
-#include "lusush.h"
-#include "strings.h"
-#include "alias.h"
-#include "ht.h"
+#include "../../include/alias.h"
+#include "../../include/errors.h"
+#include "../../include/lusush.h"
+#include "../../include/strings.h"
+#include "../../include/alias.h"
+#include "../../include/ht.h"
 
 ht_s *aliases = NULL;           // Hash table for storing aliases
 

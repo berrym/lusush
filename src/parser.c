@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include "errors.h"
-#include "lusush.h"
-#include "node.h"
-#include "parser.h"
-#include "scanner.h"
+#include "../include/errors.h"
+#include "../include/lusush.h"
+#include "../include/node.h"
+#include "../include/parser.h"
+#include "../include/scanner.h"
 
 /**
  * parse_command:

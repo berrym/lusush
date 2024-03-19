@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <sys/types.h>
-#include "symtable.h"
+#include "../include/symtable.h"
 
 void build_prompt(void)
 {

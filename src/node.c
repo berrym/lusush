@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
-#include "errors.h"
-#include "lusush.h"
-#include "node.h"
-#include "scanner.h"
-#include "strings.h"
+#include "../include/errors.h"
+#include "../include/lusush.h"
+#include "../include/node.h"
+#include "../include/scanner.h"
+#include "../include/strings.h"
 
 node_s *new_node(node_type_e type)
 {

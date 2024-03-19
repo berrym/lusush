@@ -34,7 +34,7 @@
 #include <locale.h>
 #include <glob.h>
 #include <sys/stat.h>
-#include "lusush.h"
+#include "../include/lusush.h"
 
 // check if the string *p has any regular expression (regex) characters,
 // which are *, ?, [ and ].

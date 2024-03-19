@@ -50,9 +50,9 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <errors.h>
-#include "errors.h"
-#include "lusush.h"
-#include "symtable.h"
+#include "../include/errors.h"
+#include "../include/lusush.h"
+#include "../include/symtable.h"
 
 #define MAXOPSTACK          64
 #define MAXNUMSTACK         64
