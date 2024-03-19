@@ -17,8 +17,8 @@ void init_symtable(void) {
     symtable_level = 0;
 
     global_symtable = calloc(1, sizeof(symtable_s));
-    if (!global_symtable)
-        error_abort("init_symtable");
+    if (global_symtable == NULL)
+        error_syscall("error: `init_symtable`");
 
     symtable_stack.global_symtable = global_symtable;
     symtable_stack.local_symtable = global_symtable;
@@ -29,8 +29,8 @@ void init_symtable(void) {
 symtable_s *new_symtable(size_t level) {
     symtable_s *symtable = NULL;
     symtable = calloc(1, sizeof(symtable_s));
-    if (!symtable)
-        error_abort("new_symtable");
+    if (symtable == NULL)
+        error_syscall("new_symtable");
     symtable->level = level;
     return symtable;
 }

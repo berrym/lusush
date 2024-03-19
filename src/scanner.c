@@ -114,6 +114,9 @@ void skip_whitespace(source_s *src) {
 void add_to_buf(char c) {
     char *tmp = NULL;
 
+    if (tok_buf == NULL)
+        return;
+
     tok_buf[tok_bufindex++] = c;
     if (tok_bufindex > tok_bufsize) {
         tmp = realloc(tok_buf, tok_bufsize * 2);
@@ -132,13 +135,16 @@ token_s *create_token(char *s) {
 
     tok = calloc(1, sizeof(token_s));
     if (tok == NULL) {
-        error_return("create_token");
+        error_return("error: `create_token`");
         return NULL;
     }
 
     tmp = strdup(s);
     if (tmp == NULL) {
-        error_return("create token");
+        if (tok) {
+            free(tok);
+        }
+        error_return("error: `create token`");
         return NULL;
     }
 
@@ -146,9 +152,12 @@ token_s *create_token(char *s) {
 
     tok->text_len = strlen(buf);
     tok->text = strdup(buf);
-    ;
+
     if (tok->text == NULL) {
-        error_return("create_token");
+        if (tok) {
+            free(tok);
+        }
+        error_return("error: `create_token`");
         return NULL;
     }
 
@@ -172,7 +181,7 @@ token_s *tokenize(source_s *src) {
         return &eof_token;
 
     if (tok_buf == NULL) {
-        tok_bufsize = MAXLINE;
+        tok_bufsize = MAXLINE + 1;
         tok_buf = alloc_str(tok_bufsize, false);
         if (tok_buf == NULL)
             return &eof_token;
@@ -197,7 +206,8 @@ token_s *tokenize(source_s *src) {
             i = find_closing_quote(src->buf + src->pos);
             if (!i) {
                 src->pos = src->bufsize;
-                fprintf(stderr, "error: missing closing quote '%c'\n", nc);
+                error_message("error: `tokenize`: missing closing quote '%c'",
+                              nc);
                 return &eof_token;
             }
             while (i--) {
@@ -221,7 +231,8 @@ token_s *tokenize(source_s *src) {
                 i = find_closing_brace(src->buf + src->pos + 1);
                 if (!i) {
                     src->pos = src->bufsize;
-                    fprintf(stderr, "error: missing closing brace '%c'\n", nc);
+                    error_message(
+                        "error: `tokenize`: missing closing brace '%c'", nc);
                     return &eof_token;
                 }
                 while (i--) {
@@ -263,7 +274,7 @@ token_s *tokenize(source_s *src) {
 
     token_s *tok = create_token(tok_buf);
     if (tok == NULL) {
-        error_message("tokenize: failed to create new token");
+        error_message("error: `tokenize`: failed to create new token");
         return &eof_token;
     }
     tok->src = src;
@@ -280,6 +291,7 @@ void set_current_token(token_s *tok) { cur_tok = tok; }
 void set_previous_token(token_s *tok) { prev_tok = tok; }
 
 void free_tok_buf(void) {
-    if (tok_buf)
+    if (tok_buf) {
         free_str(tok_buf);
+    }
 }
