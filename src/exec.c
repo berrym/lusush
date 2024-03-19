@@ -91,7 +91,7 @@ inline void free_argv(int argc, char **argv)
         free(argv[argc]);
 }
 
-int do_command(node_s *n)
+int do_basic_command(node_s *n)
 {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
@@ -165,7 +165,7 @@ int do_command(node_s *n)
 
     if ((child_pid = fork()) == 0) {
         do_exec_cmd(argc, argv);
-        error_return("do_command");
+        error_return("do_basic_command");
 
         switch (errno) {
         case ENOEXEC:
@@ -181,7 +181,7 @@ int do_command(node_s *n)
     }
 
     if (child_pid < 0) {
-        error_return("do_command");
+        error_return("do_basic_command");
         free_buffer(argc, argv);
         return 0;
     }

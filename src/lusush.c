@@ -57,7 +57,7 @@ int parse_and_execute(source_s *src)
         if (cmd == NULL)
             break;
 
-        do_command(cmd);
+        do_basic_command(cmd);
         free_node_tree(cmd);
         tok = tokenize(src);
     }
