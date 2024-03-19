@@ -3,7 +3,6 @@
  */
 
 #include "../include/lusush.h"
-#include "../include/errors.h"
 #include "../include/exec.h"
 #include "../include/init.h"
 #include "../include/input.h"
@@ -23,12 +22,14 @@ int main(int argc, char **argv) {
 
     // Read input one line at a time until user exits
     // or EOF is read from either stdin or input file
-    for (;;) {
+    while (!exit_flag) {
         // Read a line of input from the opened stream
         line = get_input(in);
 
-        if (line == NULL)
-            break;
+        if (line == NULL) {
+            exit_flag = true;
+            continue;
+        }
 
         // Create a source structure from input
         source_s src;

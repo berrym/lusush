@@ -22,7 +22,7 @@
 extern char **environ;
 
 bool exit_flag = false;
-bool no_expand = false;
+bool no_word_expand = false;
 
 // The type of shell instance
 static int SHELL_TYPE;
@@ -87,14 +87,14 @@ int init(int argc, char **argv, FILE **in) {
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!(S_ISREG(st.st_mode))) {
-            error_message("error: lusush `init`: %s is not a regular file",
+            error_message("error: `init`: %s is not a regular file",
                           argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
         } else {
             SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL)
-                error_syscall("error: lusush `init`: fopen");
+                error_syscall("error: `init`: fopen");
         }
     } else {
         optind = 0;
@@ -120,8 +120,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_tok_buf);
     atexit(free_global_symtable);
     atexit(free_aliases);
-    if (exit_flag)
-        atexit(free_input_buffers);
+    atexit(free_input_buffers);
 
     return 0;
 }

@@ -17,7 +17,8 @@
 ssize_t getline(char **restrict lineptr, size_t *restrict n,
                 FILE *restrict stream);
 
-static char *buf = NULL, *buf2 = NULL; // Input buffers
+// Input buffers
+static char *buf = NULL, *buf2 = NULL;
 
 void free_input_buffers(void) {
     if (buf)
@@ -59,7 +60,8 @@ char *ln_gets(void) {
                 if (shell_type() == INTERACTIVE_SHELL)
                     exit(EXIT_SUCCESS);
 
-            tmp = realloc(line2, strlen(line2) + strlen(line) + 1);
+            tmp = realloc(line2,
+                          (strlen(line2) + strlen(line) + 1) * sizeof(char));
             if (tmp == NULL) {
                 error_syscall("error: `ln_gets`");
             }
@@ -82,12 +84,14 @@ char *ln_gets(void) {
 }
 
 char *get_input(FILE *in) {
+    char *res = NULL;
+
     // If the buffers have been previously allocated free them
     free_input_buffers();
 
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
-        buf2 = ln_gets();
+        res = ln_gets();
     } else {
         size_t linecap = 0;
         ssize_t linelen;
@@ -98,18 +102,17 @@ char *get_input(FILE *in) {
         // Read a line of input
         while ((linelen = getline(&buf2, &linecap, in))) {
             if (feof(in) || ferror(in)) {
-                error_return("lusush: get_input");
-                exit(EXIT_FAILURE);
+                error_syscall("error: `get_input`");
             }
 
             if (!*buf) {
                 strcpy(buf, buf2);
             } else {
-                char *tmp = realloc(buf, strlen(buf) + linelen + 1);
-                if (tmp == NULL) {
+                res = realloc(buf, (strlen(buf) + linelen + 1) * sizeof(char));
+                if (res == NULL) {
                     error_syscall("error: `get_line`");
                 }
-                buf = tmp;
+                buf = res;
                 strcat(buf, buf2);
             }
 
@@ -124,5 +127,5 @@ char *get_input(FILE *in) {
         return buf;
     }
 
-    return buf2;
+    return res;
 }

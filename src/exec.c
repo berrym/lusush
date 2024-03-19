@@ -86,6 +86,8 @@ inline void free_argv(int argc, char **argv) {
 
     while (argc--)
         free(argv[argc]);
+
+    free(argv);
 }
 
 int do_basic_command(node_s *n) {
@@ -95,10 +97,23 @@ int do_basic_command(node_s *n) {
     if (n == NULL)
         return 0;
 
-    const node_s *child = n->first_child;
+    node_s *child = n->first_child;
 
     if (child == NULL)
         return 0;
+
+    // Don't perform expansions on certain builtins like alias
+    if (is_builtin(child->val.str)) {
+        if (strcmp(child->val.str, "alias") == 0) {
+            no_word_expand = true;
+        }
+    }
+
+    // Perform alias expansion now
+    char *alias = lookup_alias(child->val.str);
+    if (alias) {
+        set_node_val_str(child, alias);
+    }
 
     while (child) {
         str = child->val.str;
@@ -127,32 +142,20 @@ int do_basic_command(node_s *n) {
         child = child->next_sibling;
     }
 
-    if (check_buffer_bounds(&argc, &targc, &argv)) {
-        argv[argc] = NULL;
+    // Make sure expansions are turned back on
+    if (no_word_expand) {
+        no_word_expand = false;
     }
 
-    // Execute an aliased command
-    char *alias = lookup_alias(*argv);
-    if (alias) {
-        // Create a source structure from input
-        source_s src;
-        src.buf = alias;
-        src.bufsize = strlen(alias);
-        src.pos = INIT_SRC_POS;
-
-        // Parse then execute a command
-        parse_and_execute(&src);
-        free_argv(argc, argv);
-        return 1;
+    if (check_buffer_bounds(&argc, &targc, &argv)) {
+        argv[argc] = NULL;
     }
 
     // Execute a builtin command
     for (size_t i = 0; i < builtins_count; i++) {
         if (strcmp(*argv, builtins[i].name) == 0) {
             builtins[i].func(argc, argv);
-            free_buffer(argc, argv);
-            if (no_expand)
-                no_expand = false;
+            free_argv(argc, argv);
             return 1;
         }
     }
@@ -178,14 +181,14 @@ int do_basic_command(node_s *n) {
 
     if (child_pid < 0) {
         error_return("do_basic_command");
-        free_buffer(argc, argv);
+        free_argv(argc, argv);
         return 0;
     }
 
     int status = 0;
 
     waitpid(child_pid, &status, 0);
-    free_buffer(argc, argv);
+    free_argv(argc, argv);
 
     return 1;
 }

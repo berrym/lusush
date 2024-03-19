@@ -165,7 +165,7 @@ int bin_alias(int argc, char **argv) {
         // Parse the alias name, the part before =
         name = parse_alias_var_name(src);
         if (name == NULL) {
-            error_message("alias: failed to parse alias name");
+            error_message("error: `alias`: failed to parse alias name");
             alias_usage();
             return 1;
         }
@@ -173,19 +173,20 @@ int bin_alias(int argc, char **argv) {
         // Parse the alias value
         val = parse_alias_var_value(src, find_opening_quote_type(src));
         if (val == NULL) {
-            error_message("alias: failed to parse alias value");
+            error_message("error: `alias`: failed to parse alias value");
             alias_usage();
             return 1;
         }
 
         // Can't alias builtin commands or keywords
         if (is_builtin(name)) {
-            error_message("alias: cannot alias shell keyword: %s", name);
+            error_message("error: `alias`: cannot alias shell keyword: %s",
+                          name);
             return 1;
         }
         // Set a new alias
         if (!set_alias(name, val)) {
-            error_message("alias: failed to create alias");
+            error_message("error: `alias`: failed to create alias");
             return 1;
         }
     }

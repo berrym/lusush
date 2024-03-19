@@ -16,7 +16,7 @@
 #define MAXLINE 4096
 
 extern bool exit_flag;
-extern bool no_expand;
+extern bool no_word_expand;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
