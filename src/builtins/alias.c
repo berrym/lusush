@@ -1,22 +1,20 @@
-#include <stdio.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
 #include "../../include/alias.h"
 #include "../../include/errors.h"
+#include "../../include/ht.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
-#include "../../include/alias.h"
-#include "../../include/ht.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-ht_s *aliases = NULL;           // Hash table for storing aliases
+ht_s *aliases = NULL; // Hash table for storing aliases
 
 /**
  * init_aliases:
  *      Initialization code for aliases hash table, set some aliases.
  */
-void init_aliases(void)
-{
+void init_aliases(void) {
     if (aliases == NULL)
         aliases = ht_create();
 
@@ -29,17 +27,13 @@ void init_aliases(void)
  * free_aliases:
  *      Delete the entire alias hash table.
  */
-void free_aliases(void)
-{
-    ht_destroy(aliases);
-}
+void free_aliases(void) { ht_destroy(aliases); }
 
 /**
  * lookup_alias:
  *      Find the alias value associated with a given key name,
  */
-char *lookup_alias(const char *key)
-{
+char *lookup_alias(const char *key) {
     char *val = ht_search(aliases, key);
     return val;
 }
@@ -57,8 +51,7 @@ void print_aliases(void) {
  * set_alias:
  *      Insert a new key-value pair into the hash table.
  */
-bool set_alias(const char *key, const char *val)
-{
+bool set_alias(const char *key, const char *val) {
     if (!ht_insert(aliases, key, val))
         return false;
 
@@ -69,30 +62,21 @@ bool set_alias(const char *key, const char *val)
  * unset_alias:
  *      Remove an entry from the hash table.
  */
-void unset_alias(const char *key)
-{
-    ht_delete(aliases, key);
-}
+void unset_alias(const char *key) { ht_delete(aliases, key); }
 
 /**
  * valid_alias_name:
  *      Check that an alias key name consists of valid characters.
  */
-bool valid_alias_name(const char *key)
-{
+bool valid_alias_name(const char *key) {
     const char *p = key;
 
     if (!*p)
         return false;
 
     while (*p) {
-        if (isalnum((int)*p)
-            || *p == '.'
-            || *p == '_'
-            || *p == '!'
-            || *p == '%'
-            || *p == ','
-            || *p == '@') {
+        if (isalnum((int)*p) || *p == '.' || *p == '_' || *p == '!' ||
+            *p == '%' || *p == ',' || *p == '@') {
             p++;
         } else {
             return false;
@@ -106,19 +90,17 @@ bool valid_alias_name(const char *key)
  * alias_usage:
  *      Print how to use the builtin alias command.
  */
-void alias_usage(void)
-{
+void alias_usage(void) {
     fprintf(stderr, "usage:\talias (print a list of all aliases)\n"
-            "\talias name (print the value of an alias)\n"
-            "\talias name='replacement text' (set an alias)\n");
+                    "\talias name (print the value of an alias)\n"
+                    "\talias name='replacement text' (set an alias)\n");
 }
 
 /**
  * unalias_usage:
  *      Print how to use the builtin unalias command.
  */
-void unalias_usage(void)
-{
+void unalias_usage(void) {
     fprintf(stderr, "usage:\tunalias name (unset alias with key name)\n");
 }
 
@@ -127,8 +109,7 @@ void unalias_usage(void)
  *       Convert elements of an argument vector into a single string
  *       seperating arguments with the string value given in the sep argument.
  */
-char *src_str_from_argv(size_t argc, char **argv, const char *sep)
-{
+char *src_str_from_argv(size_t argc, char **argv, const char *sep) {
     char *src = NULL;
 
     src = alloc_str(MAXLINE + 1, false);
@@ -152,11 +133,10 @@ char *src_str_from_argv(size_t argc, char **argv, const char *sep)
  *      Determine wether a quoted value starts with a single or double quote,
  *      return then char value found, or NUL byte.
  */
-const char find_opening_quote_type(char *src)
-{
+char find_opening_quote_type(char *src) {
     for (char *p = src; *p; p++)
         if (*p == '\'' || *p == '\"')
-            return (const char)*p;
+            return *p;
 
     return '\0';
 }
@@ -166,19 +146,20 @@ const char find_opening_quote_type(char *src)
  *      Parse the word before an equal sign in a whitespace seperated
  *      token source string that represents the alias name.
  */
-char *parse_alias_var_name(char *src)
-{
+char *parse_alias_var_name(char *src) {
     char *sp = NULL, *ep = NULL, *var = NULL, **argv = NULL;
     size_t argc = 0, targc = 0, cpos = 0;
 
     if (check_buffer_bounds(&argc, &targc, &argv)) {
         argv[argc] = alloc_str(MAXLINE + 1, false);
         if (argv[argc] == NULL) {
-            error_message("error: `alias`: insufficient memory to complete operation");
+            error_message(
+                "error: `alias`: insufficient memory to complete operation");
             return NULL;
         }
     } else {
-        error_message("error: `alias`: insufficient memory to complete operation");
+        error_message(
+            "error: `alias`: insufficient memory to complete operation");
         return NULL;
     }
 
@@ -194,13 +175,15 @@ char *parse_alias_var_name(char *src)
         argc++, cpos = 0;
         if (argc == targc) {
             if (!check_buffer_bounds(&argc, &targc, &argv)) {
-                error_message("error: `alias`: insufficient memory to complete operation");
+                error_message("error: `alias`: insufficient memory to complete "
+                              "operation");
                 return NULL;
             }
         }
         argv[argc] = alloc_str(MAXLINE + 1, false);
         if (argv[argc] == NULL) {
-            error_message("error: `alias`: insufficient memory to complete operation");
+            error_message(
+                "error: `alias`: insufficient memory to complete operation");
             return NULL;
         }
 
@@ -219,13 +202,15 @@ char *parse_alias_var_name(char *src)
                     argc++, cpos = 0;
                     if (argc == targc) {
                         if (!check_buffer_bounds(&argc, &targc, &argv)) {
-                            error_message("error: `alias`: insufficient memory to complete operation");
+                            error_message("error: `alias`: insufficient memory "
+                                          "to complete operation");
                             return NULL;
                         }
                     }
                     argv[argc] = alloc_str(MAXLINE + 1, false);
                     if (argv[argc] == NULL) {
-                        error_message("error: `alias`: insufficient memory to complete operation");
+                        error_message("error: `alias`: insufficient memory to "
+                                      "complete operation");
                         return NULL;
                     }
                 }
@@ -237,7 +222,8 @@ char *parse_alias_var_name(char *src)
 
             var = strdup(argv[argc]);
             if (var == NULL) {
-                error_message("error: `alias`: insufficient memory to complete operation");
+                error_message("error: `alias`: insufficient memory to complete "
+                              "operation");
                 break;
             }
 
@@ -252,10 +238,10 @@ char *parse_alias_var_name(char *src)
 
 /**
  * parse_alias_var_value:
- *      Parse a substring between quotes that represents the alias substitution value.
+ *      Parse a substring between quotes that represents the alias substitution
+ * value.
  */
-char *parse_alias_var_value(char *src, const char delim)
-{
+char *parse_alias_var_value(char *src, const char delim) {
     char *val = NULL, *sp = NULL, *ep = NULL;
 
     if (!delim) {
@@ -263,24 +249,25 @@ char *parse_alias_var_value(char *src, const char delim)
         return NULL;
     }
 
-    for (char *p = src; *p; p++) {               // for each char in line
-        if (sp == NULL && *p == delim)           // find first delimeter
-            sp = p, sp++;                        // set start ptr
-        else if (ep == NULL && *p == delim)      // find second delimeter
-            ep = p;                              // set end ptr
+    for (char *p = src; *p; p++) {          // for each char in line
+        if (sp == NULL && *p == delim)      // find first delimeter
+            sp = p, sp++;                   // set start ptr
+        else if (ep == NULL && *p == delim) // find second delimeter
+            ep = p;                         // set end ptr
 
-        if (sp && ep) {                          // if both set
-            char substr[ep - sp + 1];            // declare substr
+        if (sp && ep) {               // if both set
+            char substr[ep - sp + 1]; // declare substr
             p = sp;
 
             for (size_t i = 0; p < ep; i++, p++) // copy to substr
                 substr[i] = *p;
 
-            substr[ep - sp] = '\0';              // nul-terminate
+            substr[ep - sp] = '\0'; // nul-terminate
 
             val = strdup(substr);
             if (val == NULL) {
-                error_message("error: `alias`: insufficient memory to complete operation");
+                error_message("error: `alias`: insufficient memory to complete "
+                              "operation");
                 return NULL;
             }
             break;

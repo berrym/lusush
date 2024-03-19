@@ -1,20 +1,19 @@
-#include <stdbool.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
+#include "../include/parser.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
-#include "../include/parser.h"
 #include "../include/scanner.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 /**
  * parse_command:
  *      Parse a token into a new command node.
  */
-node_s *parse_command(token_s *tok)
-{
+node_s *parse_command(token_s *tok) {
     if (tok == NULL)
         return NULL;
 

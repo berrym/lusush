@@ -1,17 +1,16 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
+#include "../include/symtable.h"
 #include "../include/errors.h"
 #include "../include/node.h"
-#include "../include/symtable.h"
 #include "../include/strings.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 symtable_stack_s symtable_stack;
 size_t symtable_level;
 
-void init_symtable(void)
-{
+void init_symtable(void) {
     symtable_s *global_symtable = NULL;
 
     symtable_stack.symtable_count = 1;
@@ -27,8 +26,7 @@ void init_symtable(void)
     global_symtable->level = 0;
 }
 
-symtable_s *new_symtable(size_t level)
-{
+symtable_s *new_symtable(size_t level) {
     symtable_s *symtable = NULL;
     symtable = calloc(1, sizeof(symtable_s));
     if (!symtable)
@@ -37,8 +35,7 @@ symtable_s *new_symtable(size_t level)
     return symtable;
 }
 
-void free_symtable(symtable_s *symtable)
-{
+void free_symtable(symtable_s *symtable) {
     symtable_entry_s *entry = NULL, *next = NULL;
 
     if (!symtable)
@@ -64,39 +61,35 @@ void free_symtable(symtable_s *symtable)
     free(symtable);
 }
 
-void free_global_symtable(void)
-{
-    free_symtable(get_global_symtable());
-}
+void free_global_symtable(void) { free_symtable(get_global_symtable()); }
 
-void dump_local_symtable(void)
-{
+void dump_local_symtable(void) {
     symtable_s *symtable = symtable_stack.local_symtable;
     int i = 0;
     int indent = symtable->level * 4;
     fprintf(stderr, "%*sSymbol table [Level %zu]:\r\n", indent, " ",
             symtable->level);
-    fprintf(stderr, "%*s===========================\r\n",
-            indent, " ");
+    fprintf(stderr, "%*s===========================\r\n", indent, " ");
     fprintf(stderr, "%*s  No               Symbol                    Val\r\n",
             indent, " ");
-    fprintf(stderr, "%*s------ -------------------------------- ------------\r\n",
+    fprintf(stderr,
+            "%*s------ -------------------------------- ------------\r\n",
             indent, " ");
 
     symtable_entry_s *entry = symtable->head;
 
     while (entry) {
-        fprintf(stderr, "%*s[%04d] %-32s '%s'\r\n",
-                indent, " ", i++, entry->name, entry->val);
+        fprintf(stderr, "%*s[%04d] %-32s '%s'\r\n", indent, " ", i++,
+                entry->name, entry->val);
         entry = entry->next;
     }
 
-    fprintf(stderr, "%*s------ -------------------------------- ------------\r\n",
+    fprintf(stderr,
+            "%*s------ -------------------------------- ------------\r\n",
             indent, " ");
 }
 
-symtable_entry_s *add_to_symtable(char *symbol)
-{
+symtable_entry_s *add_to_symtable(char *symbol) {
     symtable_s *st = symtable_stack.local_symtable;
     symtable_entry_s *entry = NULL;
 
@@ -127,8 +120,7 @@ symtable_entry_s *add_to_symtable(char *symbol)
     return entry;
 }
 
-int remove_from_symtable(symtable_s *symtable, symtable_entry_s *entry)
-{
+int remove_from_symtable(symtable_s *symtable, symtable_entry_s *entry) {
     int res = 0;
     symtable_entry_s *e = NULL, *p = NULL;
 
@@ -169,8 +161,7 @@ int remove_from_symtable(symtable_s *symtable, symtable_entry_s *entry)
     return res;
 }
 
-symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str)
-{
+symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str) {
     if (!str || !symtable)
         return NULL;
 
@@ -185,23 +176,21 @@ symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str)
     return NULL;
 }
 
-symtable_entry_s *get_symtable_entry(const char *str)
-{
+symtable_entry_s *get_symtable_entry(const char *str) {
     ssize_t i = symtable_stack.symtable_count - 1;
 
     do {
         symtable_s *symtable = symtable_stack.symtable_list[i];
         symtable_entry_s *entry = lookup_symbol(symtable, str);
 
-        if(entry)
+        if (entry)
             return entry;
-    } while(--i >= 0);
+    } while (--i >= 0);
 
     return NULL;
 }
 
-void symtable_entry_setval(symtable_entry_s *entry, char *val)
-{
+void symtable_entry_setval(symtable_entry_s *entry, char *val) {
     if (entry->val)
         free(entry->val);
 
@@ -219,50 +208,40 @@ void symtable_entry_setval(symtable_entry_s *entry, char *val)
     }
 }
 
-void symtable_stack_add(symtable_s *symtable)
-{
+void symtable_stack_add(symtable_s *symtable) {
     symtable_stack.symtable_list[symtable_stack.symtable_count++] = symtable;
     symtable_stack.local_symtable = symtable;
 }
 
-symtable_s *symtable_stack_push(void)
-{
+symtable_s *symtable_stack_push(void) {
     symtable_s *st = new_symtable(++symtable_level);
     symtable_stack_add(st);
     return st;
 }
 
-symtable_s *symtable_stack_pop(void)
-{
+symtable_s *symtable_stack_pop(void) {
     if (symtable_stack.symtable_count == 0)
         return NULL;
 
-    symtable_s *st = symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
+    symtable_s *st =
+        symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
 
     symtable_stack.symtable_list[--symtable_stack.symtable_count] = NULL;
     symtable_level--;
 
     if (symtable_stack.symtable_count == 0) {
-        symtable_stack.local_symtable  = NULL;
+        symtable_stack.local_symtable = NULL;
         symtable_stack.global_symtable = NULL;
     } else {
-        symtable_stack.local_symtable = symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
+        symtable_stack.local_symtable =
+            symtable_stack.symtable_list[symtable_stack.symtable_count - 1];
     }
 
     return st;
 }
 
-symtable_s *get_local_symtable(void)
-{
-    return symtable_stack.local_symtable;
-}
+symtable_s *get_local_symtable(void) { return symtable_stack.local_symtable; }
 
-symtable_s *get_global_symtable(void)
-{
-    return symtable_stack.global_symtable;
-}
+symtable_s *get_global_symtable(void) { return symtable_stack.global_symtable; }
 
-symtable_stack_s *get_symtable_stack(void)
-{
-    return &symtable_stack;
-}
+symtable_stack_s *get_symtable_stack(void) { return &symtable_stack; }

@@ -1,20 +1,20 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include "../include/builtins.h"
+#include "../include/errors.h"
+#include "../include/exec.h"
+#include "../include/lusush.h"
+#include "../include/strings.h"
+#include "../include/symtable.h"
+#include <ctype.h>
+#include <errno.h>
+#include <errors.h>
 #include <limits.h>
 #include <pwd.h>
-#include <errno.h>
-#include <ctype.h>
-#include <errors.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
-#include "../include/errors.h"
-#include "../include/strings.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
-#include "../include/exec.h"
-#include "../include/builtins.h"
+#include <unistd.h>
 
 // special value to represent an invalid variable
 #define INVALID_VAR ((char *)-1)
@@ -22,8 +22,7 @@
 // convert the string *word to a cmd_token struct, so it can be passed to
 // functions such as word_expand().
 // returns the malloc'd cmd_token struct, or NULL if insufficient memory.
-struct word_s *make_word(char *str)
-{
+struct word_s *make_word(char *str) {
     // alloc struct memory
     struct word_s *word = calloc(1, sizeof(struct word_s));
     if (word == NULL) {
@@ -50,8 +49,7 @@ struct word_s *make_word(char *str)
 }
 
 // free the memory used by a list of words.
-void free_all_words(struct word_s *first)
-{
+void free_all_words(struct word_s *first) {
     while (first) {
         struct word_s *del = first;
         first = first->next;
@@ -68,15 +66,14 @@ void free_all_words(struct word_s *first)
 // convert a tree of tokens into a command string (i.e. re-create the original
 // command line from the token tree.
 // returns the malloc'd command string, or NULL if there is an error.
-char *wordlist_to_str(struct word_s *word)
-{
+char *wordlist_to_str(struct word_s *word) {
     if (word == NULL) {
         return NULL;
     }
     size_t len = 0;
     const struct word_s *w = word;
     while (w) {
-        len += w->len+1;
+        len += w->len + 1;
         w = w->next;
     }
     char *str = calloc(len + 1, sizeof(char));
@@ -88,7 +85,7 @@ char *wordlist_to_str(struct word_s *word)
     w = word;
     while (w) {
         sprintf(str2, "%s ", w->data);
-        str2 += w->len+1;
+        str2 += w->len + 1;
         w = w->next;
     }
     // remove the last separator
@@ -97,20 +94,18 @@ char *wordlist_to_str(struct word_s *word)
 }
 
 // delete the character at the given index in the given str.
-void delete_char_at(char *str, size_t index)
-{
-    char *p1 = str+index;
-    char *p2 = p1+1;
+void delete_char_at(char *str, size_t index) {
+    char *p1 = str + index;
+    char *p2 = p1 + 1;
     while ((*p1++ = *p2++)) {
         ;
     }
 }
 
 // check if the given str is a valid name.. POSIX says a names can consist of
-// alphanumeric chars and underscores, and start with an alphabetic char or underscore.
-// returns true if str is a valid name, false otherwise.
-bool is_name(const char *str)
-{
+// alphanumeric chars and underscores, and start with an alphabetic char or
+// underscore. returns true if str is a valid name, false otherwise.
+bool is_name(const char *str) {
     // names start with alpha char or an underscore...
     if (!isalpha(*str) && *str != '_') {
         return false;
@@ -130,8 +125,7 @@ bool is_name(const char *str)
 // (prohibited by POSIX, but allowed in ANSI-C strings).
 // returns the zero-based index of the closing quote.. a return value of 0
 // means we didn't find the closing quote.
-size_t find_closing_quote(char *data)
-{
+size_t find_closing_quote(char *data) {
     // check the type of quote we have
     char quote = data[0];
     if (quote != '\'' && quote != '"' && quote != '`') {
@@ -141,7 +135,7 @@ size_t find_closing_quote(char *data)
     size_t i = 0, len = strlen(data);
     while (++i < len) {
         if (data[i] == quote) {
-            if (data[i-1] == '\\') {
+            if (data[i - 1] == '\\') {
                 if (quote != '\'') {
                     continue;
                 }
@@ -174,7 +168,7 @@ size_t find_closing_brace(char *data) {
     while (++i < len) {
         if ((data[i] == '"') || (data[i] == '\'') || (data[i] == '`')) {
             // skip escaped quotes
-            if (data[i-1] == '\\') {
+            if (data[i - 1] == '\\') {
                 continue;
             }
             // skip quoted substrings
@@ -193,7 +187,7 @@ size_t find_closing_brace(char *data) {
         if (data[i - 1] != '\\') {
             if (data[i] == opening_brace) {
                 ob_count++;
-            } else if(data[i] == closing_brace) {
+            } else if (data[i] == closing_brace) {
                 cb_count++;
             }
         }
@@ -214,10 +208,10 @@ size_t find_closing_brace(char *data) {
 // end should point to the last char to be deleted from s, NOT the
 // char coming after it.
 // returns the malloc'd new string, or NULL on error.
-char *substitute_str(char *s1, char *s2, size_t start, size_t end)
-{
-    if (no_expand)
+char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
+    if (no_expand) {
         return s1;
+    }
 
     // get the prefix (the part before start)
     char before[start + 1];
@@ -234,9 +228,9 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end)
         error_return("substitute_str");
         return NULL;
     }
-    if (!totallen) {       // empty string
+    if (!totallen) { // empty string
         final[0] = '\0';
-    } else {               // concatenate the three parts into one string
+    } else { // concatenate the three parts into one string
         strcpy(final, before);
         strcat(final, s2);
         strcat(final, after);
@@ -245,10 +239,11 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end)
     return final;
 }
 
-int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *), bool add_quotes)
-{
-    if (no_expand)
+int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
+                    bool add_quotes) {
+    if (no_expand) {
         return 0;
+    }
 
     // extract the word to be substituted
     char *tmp = calloc(len + 1, sizeof(char));
@@ -303,10 +298,9 @@ int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *), b
 }
 
 // perform word expansion on a single word, pointed to by orig_word.
-// returns the head of the linked list of the expanded fields and stores the last field
-// in the tail pointer.
-struct word_s *word_expand(char *orig_word)
-{
+// returns the head of the linked list of the expanded fields and stores the
+// last field in the tail pointer.
+struct word_s *word_expand(char *orig_word) {
     if (orig_word == NULL) {
         return NULL;
     }
@@ -348,13 +342,16 @@ struct word_s *word_expand(char *orig_word)
             }
             // expand a tilde prefix only if:
             //- it is the first unquoted char in the string.
-            //- it is part of a variable assignment, and is preceded by the first
+            //- it is part of a variable assignment, and is preceded by the
+            // first
             //  equals sign or a colon.
-            if (p == pstart || (in_var_assign && (p[-1] == ':' || (p[-1] == '=' && var_assign_eq == true)))) {
+            if (p == pstart ||
+                (in_var_assign &&
+                 (p[-1] == ':' || (p[-1] == '=' && var_assign_eq == true)))) {
                 // find the end of the tilde prefix
                 bool tilde_quoted = false;
                 bool endme = false;
-                p2 = p+1;
+                p2 = p + 1;
 
                 while (*p2) {
                     switch (*p2) {
@@ -394,7 +391,8 @@ struct word_s *word_expand(char *orig_word)
 
                 // otherwise, extract the prefix
                 len = p2 - p;
-                substitute_word(&pstart, &p, len, tilde_expand, !in_double_quotes);
+                substitute_word(&pstart, &p, len, tilde_expand,
+                                !in_double_quotes);
                 expanded = true;
             }
             break;
@@ -426,8 +424,8 @@ struct word_s *word_expand(char *orig_word)
 
             // if the string before '=' is a valid var name, we have a variable
             // assignment.. we set in_var_assign to indicate that, and we set
-            // var_assign_eq which indicates this is the first equals sign (we use
-            // this when performing tilde expansion -- see code above).
+            // var_assign_eq which indicates this is the first equals sign (we
+            // use this when performing tilde expansion -- see code above).
             if (is_name(tmp)) {
                 in_var_assign = true;
                 var_assign_eq++;
@@ -509,8 +507,8 @@ struct word_s *word_expand(char *orig_word)
                     break;
                 }
                 // otherwise, extract the expression and substitute its value.
-                // if we have one brace (i == 0), we'll perform command substitution.
-                // otherwise, arithmetic expansion.
+                // if we have one brace (i == 0), we'll perform command
+                // substitution. otherwise, arithmetic expansion.
                 func = i ? arithm_expand : command_substitute;
                 substitute_word(&pstart, &p, len + 2, func, 0);
                 expanded = true;
@@ -524,7 +522,7 @@ struct word_s *word_expand(char *orig_word)
                 if (!isalpha(p[1]) && p[1] != '_') {
                     break;
                 }
-                p2 = p+1;
+                p2 = p + 1;
                 // get the end of the var name
                 while (*p2) {
                     if (!isalnum(*p2) && *p2 != '_') {
@@ -533,7 +531,7 @@ struct word_s *word_expand(char *orig_word)
                     p2++;
                 }
                 // empty name
-                if (p2 == p+1) {
+                if (p2 == p + 1) {
                     break;
                 }
                 // perform variable expansion
@@ -564,7 +562,8 @@ struct word_s *word_expand(char *orig_word)
         words = make_word(pstart);
         // error making word struct
         if (words == NULL) {
-            error_message("error: lusush internal `word_expand`: insufficient memory");
+            error_message(
+                "error: lusush internal `word_expand`: insufficient memory");
             free(pstart);
             return NULL;
         }
@@ -583,8 +582,7 @@ struct word_s *word_expand(char *orig_word)
 
 // perform tilde expansion.
 // returns the malloc'd expansion of the tilde prefix, NULL if expansion failed.
-char *tilde_expand(char *s)
-{
+char *tilde_expand(char *s) {
     if (no_expand) {
         return s;
     }
@@ -600,8 +598,8 @@ char *tilde_expand(char *s)
             home = entry->val;
         } else {
             // POSIX doesn't say what to do if $HOME is null/unset.. we follow
-            // what bash does, which is searching our home directory in the password
-            // database.
+            // what bash does, which is searching our home directory in the
+            // password database.
             const struct passwd *pass = getpwuid(getuid());
             if (pass) {
                 // get the value of home
@@ -610,7 +608,7 @@ char *tilde_expand(char *s)
         }
     } else {
         // we have a login name
-        const struct passwd *pass = getpwnam(s+1);
+        const struct passwd *pass = getpwnam(s + 1);
         if (pass) {
             home = pass->pw_dir;
         }
@@ -638,9 +636,11 @@ char *tilde_expand(char *s)
 // ${var}           Substitute          var             nothing
 // ${var:-thing}    Use Deflt Values    var             thing (var unchanged)
 // ${var:=thing}    Assgn Deflt Values  var             thing (var set to thing)
-// ${var:?message}  Error if NULL/Unset var             print message and exit shell,
-//                                                      (if message is empty, print
-//                                                      "var: parameter not set")
+// ${var:?message}  Error if NULL/Unset var             print message and exit
+// shell,
+//                                                      (if message is empty,
+//                                                      print "var: parameter
+//                                                      not set")
 // ${var:+thing}    Use Alt. Value      thing           nothing
 // ${#var}          Calculate String Length
 // Using the same options in the table above, but without the colon, results in
@@ -654,21 +654,19 @@ char *tilde_expand(char *s)
 //      ${parameter#[word]}      Remove Smallest Prefix Pattern
 //      ${parameter##[word]}     Remove Largest Prefix Pattern
 
-
 // perform variable (parameter) expansion.
 // returns an malloc'd string of the expanded variable value, or NULL if the
 // variable is not defined or the expansion failed.
 // this function should not be called directly by any function outside of this
 // module (hence the double underscores that prefix the function name).
-char *var_expand(char *orig_var_name)
-{
+char *var_expand(char *orig_var_name) {
     if (no_expand) {
         return orig_var_name;
     }
 
     // sanity check
     if (orig_var_name == NULL) {
-       return NULL;
+        return NULL;
     }
 
     // if the var substitution is in the $var format, remove the $.
@@ -684,7 +682,7 @@ char *var_expand(char *orig_var_name)
 
     // check we don't have an empty varname
     if (!*orig_var_name) {
-       return NULL;
+        return NULL;
     }
 
     bool get_length = false;
@@ -692,7 +690,9 @@ char *var_expand(char *orig_var_name)
     if (*orig_var_name == '#') {
         // use of '#' should come with omission of ':'
         if (strchr(orig_var_name, ':')) {
-            error_message("error: lusush internal `var_expand`: invalid variable substitution: %s", orig_var_name);
+            error_message("error: lusush internal `var_expand`: invalid "
+                          "variable substitution: %s",
+                          orig_var_name);
             return INVALID_VAR;
         }
         get_length = true;
@@ -707,8 +707,9 @@ char *var_expand(char *orig_var_name)
     // search for a colon, which we use to separate the variable name from the
     // value or substitution we are going to perform on the variable.
     char *sub = strchr(orig_var_name, ':');
-    if (sub == NULL) {   // we have a substitution without a colon
-        // search for the char that indicates what type of substitution we need to do
+    if (sub == NULL) { // we have a substitution without a colon
+        // search for the char that indicates what type of substitution we need
+        // to do
         sub = strchr_any(orig_var_name, "-=?+%#");
     }
 
@@ -726,7 +727,7 @@ char *var_expand(char *orig_var_name)
     var_name[len] = '\0';
 
     // commence variable substitution.
-    char *empty_val  = "";
+    char *empty_val = "";
     char *tmp = NULL;
     bool setme = false;
 
@@ -739,22 +740,26 @@ char *var_expand(char *orig_var_name)
         if (sub && *sub) {
             // check the substitution operation we need to perform
             switch (sub[0]) {
-            case '-':          // use default value
+            case '-': // use default value
                 tmp = sub + 1;
                 break;
-            case '=':          // assign the variable a value
-                // NOTE: only variables, not positional or special parameters can be
-                // assigned this way (we'll fix this later).
+            case '=': // assign the variable a value
+                // NOTE: only variables, not positional or special parameters
+                // can be assigned this way (we'll fix this later).
                 tmp = sub + 1;
                 // assign the EXPANSION OF tmp, not tmp
                 // itself, to var_name (we'll set the value below).
                 setme = true;
                 break;
-            case '?':          // print error msg if variable is null/unset
+            case '?': // print error msg if variable is null/unset
                 if (sub[1] == '\0') {
-                    error_message("error: lusush internal `var_expand`: %s: parameter not set", var_name);
+                    error_message("error: lusush internal `var_expand`: %s: "
+                                  "parameter not set",
+                                  var_name);
                 } else {
-                    error_message("error: lusush internal `var_expand` failed: %s: %s\n", var_name, sub + 1);
+                    error_message(
+                        "error: lusush internal `var_expand` failed: %s: %s\n",
+                        var_name, sub + 1);
                 }
                 return INVALID_VAR;
             // use alternative value (we don't have alt. value here)//
@@ -765,7 +770,7 @@ char *var_expand(char *orig_var_name)
             case '#':
             case '%':
                 break;
-            default:                // unknown operator
+            default: // unknown operator
                 return INVALID_VAR;
             }
         }
@@ -780,13 +785,13 @@ char *var_expand(char *orig_var_name)
         if (sub && *sub) {
             // check the substitution operation we need to perform
             switch (sub[0]) {
-            case '-':          // use default value
+            case '-': // use default value
                 break;
-            case '=':          // assign the variable a value
+            case '=': // assign the variable a value
                 tmp = sub + 1;
                 setme = true;
                 break;
-            case '?':          // print error msg if variable is null/unset
+            case '?': // print error msg if variable is null/unset
                 break;
             // use alternative value
             case '+':
@@ -795,7 +800,7 @@ char *var_expand(char *orig_var_name)
             // for the prefix and suffix matching routines (below).
             // bash expands the pattern part, but ksh doesn't seem to do
             // the same (as far as the manpage is concerned). we follow ksh.
-            case '%':       // match suffix
+            case '%': // match suffix
                 sub++;
                 // perform word expansion on the value
                 char *p = word_expand_to_str(tmp);
@@ -820,7 +825,7 @@ char *var_expand(char *orig_var_name)
                 }
                 free(p);
                 return p2;
-            case '#':       // match prefix
+            case '#': // match prefix
                 sub++;
                 // perform word expansion on the value
                 p = word_expand_to_str(tmp);
@@ -840,11 +845,11 @@ char *var_expand(char *orig_var_name)
                 // return the match
                 p2 = calloc(strlen(p) - len + 1, sizeof(char));
                 if (p2) {
-                    strcpy(p2, p+len);
+                    strcpy(p2, p + len);
                 }
                 free(p);
                 return p2;
-            default:                // unknown operator
+            default: // unknown operator
                 return INVALID_VAR;
             }
         }
@@ -902,12 +907,12 @@ char *var_expand(char *orig_var_name)
 }
 
 // perform command substitutions.
-// the backquoted flag tells if we are called from a backquoted command substitution:
+// the backquoted flag tells if we are called from a backquoted command
+// substitution:
 //   `command`
 // or a regular one:
 //   $(command)
-char *command_substitute(char *orig_cmd)
-{
+char *command_substitute(char *orig_cmd) {
     if (no_expand) {
         return orig_cmd;
     }
@@ -924,7 +929,8 @@ char *command_substitute(char *orig_cmd)
     const bool backquoted = (*orig_cmd == '`') ? true : false;
 
     // fix cmd in the backquoted version.. we skip the first char (if using the
-    // old, backquoted version), or the first two chars (if using the POSIX version).
+    // old, backquoted version), or the first two chars (if using the POSIX
+    // version).
     char *cmd = calloc(strlen(orig_cmd) + 1, sizeof(char));
     if (cmd == NULL) {
         error_return("error: lusush internal `command_substitute`");
@@ -938,15 +944,16 @@ char *command_substitute(char *orig_cmd)
 
     if (backquoted) {
         // remove the last back quote
-        if (cmd[cmdlen-1] == '`') {
-            cmd[cmdlen-1] = '\0';
+        if (cmd[cmdlen - 1] == '`') {
+            cmd[cmdlen - 1] = '\0';
         }
 
         // fix the backslash-escaped chars
         char *p1 = cmd;
 
         do {
-            if (*p1 == '\\' && (p1[1] == '$' || p1[1] == '`' || p1[1] == '\\')) {
+            if (*p1 == '\\' &&
+                (p1[1] == '$' || p1[1] == '`' || p1[1] == '\\')) {
                 char *p2 = p1, *p3 = p1 + 1;
                 while ((*p2++ = *p3++)) {
                     ;
@@ -955,14 +962,15 @@ char *command_substitute(char *orig_cmd)
         } while (*(++p1));
     } else {
         // remove the last closing brace
-        if (cmd[cmdlen-1] == ')') {
-            cmd[cmdlen-1] = '\0';
+        if (cmd[cmdlen - 1] == ')') {
+            cmd[cmdlen - 1] = '\0';
         }
     }
 
     FILE *fp = popen(cmd2, "r");
     if (fp == NULL) {
-        error_message("error: lusush internal `command_substitute`: failed to open pipe");
+        error_message(
+            "error: lusush internal `command_substitute`: failed to open pipe");
         free(cmd2);
         return NULL;
     }
@@ -1020,7 +1028,8 @@ fin:
     free(cmd2);
 
     if (buf == NULL) {
-        error_message("error: lusush internal `command_substitute`: insufficient memory to perform command substitution");
+        error_message("error: lusush internal `command_substitute`: "
+                      "insufficient memory to perform command substitution");
     }
 
     return buf;
@@ -1028,8 +1037,7 @@ fin:
 
 // check if char c is a valid $IFS character.
 // returns true if char c is an $IFS character, false otherwise.
-static bool is_IFS_char(const char c, const char *IFS)
-{
+static bool is_IFS_char(const char c, const char *IFS) {
     if (!*IFS) {
         return false;
     }
@@ -1044,8 +1052,7 @@ static bool is_IFS_char(const char c, const char *IFS)
 }
 
 // skip all whitespace characters that are part of $IFS.
-void skip_IFS_whitespace(char **str, char *IFS)
-{
+void skip_IFS_whitespace(char **str, char *IFS) {
     char *IFS2 = IFS;
     char *s2 = *str;
 
@@ -1059,9 +1066,10 @@ void skip_IFS_whitespace(char **str, char *IFS)
     *str = s2;
 }
 
-// skip $IFS delimiters, which can be whitespace characters as well as other chars.
-void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i, size_t len)
-{
+// skip $IFS delimiters, which can be whitespace characters as well as other
+// chars.
+void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i,
+                    size_t len) {
     size_t i = *_i;
 
     while ((i < len) && is_IFS_char(str[i], IFS_space)) {
@@ -1081,8 +1089,7 @@ void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i, siz
 
 // convert the words resulting from a word expansion into separate fields.
 // returns a pointer to the first field, NULL if no field splitting was done.
-struct word_s *field_split(char *str)
-{
+struct word_s *field_split(char *str) {
     const symtable_entry_s *entry = get_symtable_entry("IFS");
     char *IFS = entry ? entry->val : NULL;
     char *p;
@@ -1101,14 +1108,14 @@ struct word_s *field_split(char *str)
     char IFS_space[64];
     char IFS_delim[64];
 
-    if (strcmp(IFS, " \t\n") == 0) {   // "standard" IFS
-        IFS_space[0] = ' ' ;
+    if (strcmp(IFS, " \t\n") == 0) { // "standard" IFS
+        IFS_space[0] = ' ';
         IFS_space[1] = '\t';
         IFS_space[2] = '\n';
         IFS_space[3] = '\0';
         IFS_delim[0] = '\0';
-    } else {                          // "custom" IFS
-        p  = IFS;
+    } else { // "custom" IFS
+        p = IFS;
         char *sp = IFS_space;
         char *dp = IFS_delim;
 
@@ -1158,7 +1165,8 @@ struct word_s *field_split(char *str)
                 break;
             }
 
-            if (is_IFS_char(str[i], IFS_space) || is_IFS_char(str[i], IFS_delim)) {
+            if (is_IFS_char(str[i], IFS_space) ||
+                is_IFS_char(str[i], IFS_delim)) {
                 skip_IFS_delim(str, IFS_space, IFS_delim, &i, len);
                 if (i < len) {
                     fields++;
@@ -1213,9 +1221,10 @@ struct word_s *field_split(char *str)
                 break;
             }
 
-            // delimit the field if we have an IFS space or delimiter char, or if
-            // we reached the end of the input string.
-            if (is_IFS_char(str[i], IFS_space) || is_IFS_char(str[i], IFS_delim) || (i == len)) {
+            // delimit the field if we have an IFS space or delimiter char, or
+            // if we reached the end of the input string.
+            if (is_IFS_char(str[i], IFS_space) ||
+                is_IFS_char(str[i], IFS_delim) || (i == len)) {
                 // copy the field text
                 char *tmp = calloc(i - j + 1, sizeof(char));
                 if (tmp == NULL) {
@@ -1234,7 +1243,7 @@ struct word_s *field_split(char *str)
                 }
 
                 fld->data = tmp;
-                fld->len = i-j;
+                fld->len = i - j;
                 fld->next = NULL;
 
                 if (first_field == NULL) {
@@ -1242,7 +1251,7 @@ struct word_s *field_split(char *str)
                 }
 
                 if (cur == NULL) {
-                    cur  = fld;
+                    cur = fld;
                 } else {
                     cur->next = fld;
                     cur = fld;
@@ -1255,7 +1264,7 @@ struct word_s *field_split(char *str)
                 j = i;
 
                 if (i != k && i < len) {
-                    i--;     // go back one step so the loop will work correctly
+                    i--; // go back one step so the loop will work correctly
                 }
             }
             break;
@@ -1266,8 +1275,7 @@ struct word_s *field_split(char *str)
 }
 
 // perform pathname expansion.
-struct word_s *pathnames_expand(struct word_s *words)
-{
+struct word_s *pathnames_expand(struct word_s *words) {
     if (no_expand) {
         return words;
     }
@@ -1297,7 +1305,9 @@ struct word_s *pathnames_expand(struct word_s *words)
 
             for (size_t j = 0; j < glob.gl_pathc; j++) {
                 // skip '..' and '.'
-                if (matches[j][0] == '.' && (matches[j][1] == '.' || matches[j][1] == '\0' || matches[j][1] == '/')) {
+                if (matches[j][0] == '.' &&
+                    (matches[j][1] == '.' || matches[j][1] == '\0' ||
+                     matches[j][1] == '/')) {
                     continue;
                 }
                 // add the path to the list
@@ -1307,7 +1317,9 @@ struct word_s *pathnames_expand(struct word_s *words)
                     tail = head;
                 } else {
                     if (tail == NULL) {
-                        error_message("error: lusush internal `pathnames_expand`: couldn't add to path expansion list, tail is NULL");
+                        error_message("error: lusush internal "
+                                      "`pathnames_expand`: couldn't add to "
+                                      "path expansion list, tail is NULL");
                         return NULL;
                     }
                     // add to the list's tail
@@ -1328,7 +1340,9 @@ struct word_s *pathnames_expand(struct word_s *words)
 
             prev_word = tail;
             if (tail == NULL) {
-                error_message("error: lusush internal `pathnames_expand`: couldn't add to path expansion list, tail is NULL");
+                error_message(
+                    "error: lusush internal `pathnames_expand`: couldn't add "
+                    "to path expansion list, tail is NULL");
                 return NULL;
             }
             tail->next = curr_word->next;
@@ -1404,9 +1418,9 @@ void remove_quotes(struct word_s *wordlist) {
                     switch (p[1]) {
                     // in double quotes, backslash preserves its special quoting
                     // meaning only when followed by one of the following chars.
-                    case  '$':
-                    case  '`':
-                    case  '"':
+                    case '$':
+                    case '`':
+                    case '"':
                     case '\\':
                     case '\n':
                         delete_char_at(p, 0);
@@ -1438,8 +1452,7 @@ void remove_quotes(struct word_s *wordlist) {
 
 // A simple shortcut to perform word-expansions on a string,
 // returning the result as a string.
-char *word_expand_to_str(char *word)
-{
+char *word_expand_to_str(char *word) {
     if (no_expand) {
         return word;
     }

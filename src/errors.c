@@ -1,29 +1,28 @@
+#include "../include/errors.h"
+#include "../include/lusush.h"
 #include <ctype.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <stdarg.h>
-#include "../include/lusush.h"
-#include "../include/errors.h"
 
 /*
  * do_error:
  *      Print an error message and return to caller.
  */
-static void do_error(bool errnoflag, int err, const char *fmt, va_list args)
-{
-    char buf[MAXLINE + 1] = { '\0' };
+static void do_error(bool errnoflag, int err, const char *fmt, va_list args) {
+    char buf[MAXLINE + 1] = {'\0'};
 
     vsprintf(buf, fmt, args);
     if (errnoflag)
         sprintf(buf, ": %s", strerror(err));
 
     strncat(buf, "\n", 2);
-    fflush(stdout);             // in case stdout and stdin are the same
+    fflush(stdout); // in case stdout and stdin are the same
     fputs(buf, stderr);
-    fflush(NULL);               // flush all stdio output streams
+    fflush(NULL); // flush all stdio output streams
 }
 
 /*
@@ -31,8 +30,7 @@ static void do_error(bool errnoflag, int err, const char *fmt, va_list args)
  *      Nonfatal error related to a system call.
  *      Print an error message and return.
  */
-void error_return(const char *fmt, ...)
-{
+void error_return(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     do_error(true, errno, fmt, args);
@@ -44,8 +42,7 @@ void error_return(const char *fmt, ...)
  *      Fatal error related to a system call.
  *      Print an error message and terminate.
  */
-void error_syscall(const char *fmt, ...)
-{
+void error_syscall(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     do_error(true, errno, fmt, args);
@@ -58,8 +55,7 @@ void error_syscall(const char *fmt, ...)
  *      Nonfatal error unrelated to a system call.
  *      Print an error message and return.
  */
-void error_message(const char *fmt, ...)
-{
+void error_message(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     do_error(false, 0, fmt, args);
@@ -71,8 +67,7 @@ void error_message(const char *fmt, ...)
  *      Fatal error unrelated to a system call.
  *      Print an error message and return.
  */
-void error_quit(const char *fmt, ...)
-{
+void error_quit(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     do_error(false, 0, fmt, args);
@@ -85,14 +80,13 @@ void error_quit(const char *fmt, ...)
  *      Fatal error related to a system call.
  *      Print an error message, dump core, and terminate.
  */
-void error_abort(const char *fmt, ...)
-{
+void error_abort(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     do_error(false, 0, fmt, args);
     va_end(args);
-    abort();                    // dump core and terminate
-    exit(EXIT_FAILURE);         // should never happen
+    abort();            // dump core and terminate
+    exit(EXIT_FAILURE); // should never happen
 }
 
 /*
@@ -100,7 +94,8 @@ void error_abort(const char *fmt, ...)
  * sigsegv_handler:
  *      Segmentation fault handler, insult programmer then abort.
  */
-void sigsegv_handler(int signo)
-{
-    error_abort("lusush: caught signal %d, terminating.\n\tAnd fix your damn code.\n", signo);
+void sigsegv_handler(int signo) {
+    error_abort(
+        "lusush: caught signal %d, terminating.\n\tAnd fix your damn code.\n",
+        signo);
 }

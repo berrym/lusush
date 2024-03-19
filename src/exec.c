@@ -1,20 +1,19 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
+#include "../include/exec.h"
 #include "../include/alias.h"
 #include "../include/builtins.h"
 #include "../include/errors.h"
-#include "../include/exec.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/strings.h"
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-char *search_path(char *fn)
-{
+char *search_path(char *fn) {
     char *PATH = getenv("PATH"), *p = PATH, *p2 = NULL;
 
     while (p && *p) {
@@ -65,8 +64,7 @@ char *search_path(char *fn)
     return NULL;
 }
 
-int do_exec_cmd(int argc, char **argv)
-{
+int do_exec_cmd(int argc, char **argv) {
     if (strchr(*argv, '/')) {
         execv(*argv, argv);
     } else {
@@ -82,8 +80,7 @@ int do_exec_cmd(int argc, char **argv)
     return 0;
 }
 
-inline void free_argv(int argc, char **argv)
-{
+inline void free_argv(int argc, char **argv) {
     if (!argc)
         return;
 
@@ -91,8 +88,7 @@ inline void free_argv(int argc, char **argv)
         free(argv[argc]);
 }
 
-int do_basic_command(node_s *n)
-{
+int do_basic_command(node_s *n) {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
 

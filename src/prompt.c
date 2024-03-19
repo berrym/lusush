@@ -1,9 +1,8 @@
-#include <unistd.h>
-#include <sys/types.h>
 #include "../include/symtable.h"
+#include <sys/types.h>
+#include <unistd.h>
 
-void build_prompt(void)
-{
+void build_prompt(void) {
     symtable_entry_s *prompt_entry = add_to_symtable("PS1");
 
     if (getuid() > 0)

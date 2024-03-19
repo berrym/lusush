@@ -1,28 +1,28 @@
-#include <unistd.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "../../include/errors.h"
 #include "../../include/builtins.h"
 #include "../../include/alias.h"
+#include "../../include/errors.h"
 #include "../../include/exec.h"
 #include "../../include/history.h"
 #include "../../include/lusush.h"
 #include "../../include/scanner.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 // Table of builtin commands
 builtin builtins[] = {
-    { "exit",        "exit shell",                  bin_exit      },
-    { "help",        "builtin help",                bin_help      },
-    { "cd",          "change directory",            bin_cd        },
-    { "pwd",         "print working directory",     bin_pwd       },
-    { "history",     "print command history",       bin_history   },
-    { "alias",       "set an alias",                bin_alias     },
-    { "unalias",     "unset an alias",              bin_unalias   },
-    { "dump",        "dump symbol table",           bin_dump      },
+    {"exit", "exit shell", bin_exit},
+    {"help", "builtin help", bin_help},
+    {"cd", "change directory", bin_cd},
+    {"pwd", "print working directory", bin_pwd},
+    {"history", "print command history", bin_history},
+    {"alias", "set an alias", bin_alias},
+    {"unalias", "unset an alias", bin_unalias},
+    {"dump", "dump symbol table", bin_dump},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -31,8 +31,7 @@ const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
  * bin_exit:
  *      Exit the shell.
  */
-int bin_exit(int argc, char **argv)
-{
+int bin_exit(int argc, char **argv) {
     exit_flag = true;
     exit(EXIT_SUCCESS);
     return 0;
@@ -42,11 +41,9 @@ int bin_exit(int argc, char **argv)
  * bin_help:
  *      Print a list of builtins and their description.
  */
-int bin_help(int argc, char **argv)
-{
+int bin_help(int argc, char **argv) {
     for (size_t i = 0; i < builtins_count; i++)
-        fprintf(stderr, "\t%-10s%-40s\n",
-                builtins[i].name, builtins[i].doc);
+        fprintf(stderr, "\t%-10s%-40s\n", builtins[i].name, builtins[i].doc);
 
     return 0;
 }
@@ -55,8 +52,7 @@ int bin_help(int argc, char **argv)
  * bin_cd:
  *      Change working directory.
  */
-int bin_cd(int argc, char **argv)
-{
+int bin_cd(int argc, char **argv) {
     if (argc == 1) {
         if (chdir(getenv("HOME")) != 0) {
             error_return("cd");
@@ -83,9 +79,8 @@ int bin_cd(int argc, char **argv)
  * bin_pwd:
  *      Print working directory.
  */
-int bin_pwd(int argc, char **argv)
-{
-    char cwd[MAXLINE] = { '\0' };
+int bin_pwd(int argc, char **argv) {
+    char cwd[MAXLINE] = {'\0'};
 
     if (getcwd(cwd, MAXLINE) == NULL) {
         error_return("pwd");
@@ -101,8 +96,7 @@ int bin_pwd(int argc, char **argv)
  * bin_history:
  *      Implementation of a history command.
  */
-int bin_history(int argc, char **argv)
-{
+int bin_history(int argc, char **argv) {
     char *line = NULL;
 
     switch (argc) {
@@ -144,19 +138,18 @@ int bin_history(int argc, char **argv)
  * bin_alias:
  *      Create aliased commands, or print alias values.
  */
-int bin_alias(int argc, char **argv)
-{
+int bin_alias(int argc, char **argv) {
     char *src = NULL, *name = NULL, *val = NULL, *s = NULL;
 
     switch (argc) {
-    case 1:                     // No arguments given to alias
-        print_aliases();        // Print a list of set aliases
+    case 1:              // No arguments given to alias
+        print_aliases(); // Print a list of set aliases
         break;
-    case 2:                     // One argument given to alias
+    case 2: // One argument given to alias
         if (strchr(argv[1], '=') == NULL) {
             s = lookup_alias(argv[1]); // Look up an alias given it's key
-            if (s == NULL) {                       // If alias not found
-                alias_usage();                     // Print alias usage information
+            if (s == NULL) {           // If alias not found
+                alias_usage();         // Print alias usage information
                 return 1;
             }
             printf("%s='%s'\n", argv[1], s); // Print the alias entry found
@@ -209,8 +202,7 @@ int bin_alias(int argc, char **argv)
  * bin_unalias:
  *      Remove an aliased command.
  */
-int bin_unalias(int argc, char **argv)
-{
+int bin_unalias(int argc, char **argv) {
 
     switch (argc) {
     case 2:
@@ -228,8 +220,7 @@ int bin_unalias(int argc, char **argv)
  * bin_dump:
  *      Print a local symbol table.
  */
-int bin_dump(int argc, char **argv)
-{
+int bin_dump(int argc, char **argv) {
     dump_local_symtable();
     return 0;
 }
@@ -238,8 +229,7 @@ int bin_dump(int argc, char **argv)
  * is_builtin:
  *      Check if a command name is a builtin command.
  */
-bool is_builtin(const char *name)
-{
+bool is_builtin(const char *name) {
     for (size_t i = 0; i < builtins_count; i++)
         if (strcmp(name, builtins[i].name) == 0)
             return true;

@@ -1,4 +1,4 @@
-// 
+//
 //   Programmed By: Mohammed Isam [mohammed_isam1984@yahoo.com]
 //   Copyright 2020 (c)
 //
@@ -20,28 +20,27 @@
 //
 //   This code has been modified and is being maintained for the lusush shell.
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "../include/lusush.h"
 #include <ctype.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <dirent.h>
 #include <errno.h>
-#include <regex.h>
 #include <fnmatch.h>
-#include <locale.h>
 #include <glob.h>
+#include <locale.h>
+#include <regex.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
-#include "../include/lusush.h"
+#include <unistd.h>
 
 // check if the string *p has any regular expression (regex) characters,
 // which are *, ?, [ and ].
-bool has_glob_chars(char *p, size_t len)
-{
+bool has_glob_chars(char *p, size_t len) {
     char *p2 = p + len;
-    char ob = 0, cb = 0;    // count of opening and closing brackets
+    char ob = 0, cb = 0; // count of opening and closing brackets
     while (p < p2 && *p) {
         switch (*p) {
         case '*':
@@ -53,8 +52,7 @@ bool has_glob_chars(char *p, size_t len)
         case ']':
             cb++;
             break;
-        default:
-            ;
+        default:;
         }
         p++;
     }
@@ -70,8 +68,7 @@ bool has_glob_chars(char *p, size_t len)
 // return value is the index of 1 after the last character
 // in the prefix, i.e. where you should put a '\0' to get
 // the prefix.
-size_t match_prefix(const char *pattern, char *str, bool longest)
-{
+size_t match_prefix(const char *pattern, char *str, bool longest) {
     if (pattern == NULL || str == NULL) {
         return 0;
     }
@@ -113,8 +110,7 @@ size_t match_prefix(const char *pattern, char *str, bool longest)
 // pattern, depending on the value of longest.
 // return value is the index of the first character in the
 // matched suffix.
-size_t match_suffix(const char *pattern, char *str, bool longest)
-{
+size_t match_suffix(const char *pattern, char *str, bool longest) {
     if (pattern == NULL || str == NULL) {
         return 0;
     }
@@ -148,13 +144,13 @@ size_t match_suffix(const char *pattern, char *str, bool longest)
     return 0;
 }
 
-// perform pathname (or filename) expansion, matching files in the given *dir to the
-// given *path, which is treated as a regex pattern that specifies which filename(s)
-// we should match.
-// returns a char ** pointer to the list of matched filenames, or NULL if nothing matched.
-char **get_filename_matches(const char *pattern, glob_t *matches)
-{
-    // to guard our caller from trying to free an unused struct in case of expansion failure
+// perform pathname (or filename) expansion, matching files in the given *dir to
+// the given *path, which is treated as a regex pattern that specifies which
+// filename(s) we should match. returns a char ** pointer to the list of matched
+// filenames, or NULL if nothing matched.
+char **get_filename_matches(const char *pattern, glob_t *matches) {
+    // to guard our caller from trying to free an unused struct in case of
+    // expansion failure
     matches->gl_pathc = 0;
     matches->gl_pathv = NULL;
 

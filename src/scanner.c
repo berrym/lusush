@@ -1,13 +1,12 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
-#include <ctype.h>
+#include "../include/scanner.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
-#include "../include/scanner.h"
-#include "../include/lusush.h"
 #include "../include/strings.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;
@@ -23,8 +22,7 @@ token_s eof_token = {
 static token_s *cur_tok = NULL;
 static token_s *prev_tok = NULL;
 
-bool is_seperator_tok(token_type_e type)
-{
+bool is_seperator_tok(token_type_e type) {
     switch (type) {
     case TOKEN_LEFT_PAREN:
     case TOKEN_RIGHT_PAREN:
@@ -51,8 +49,7 @@ bool is_seperator_tok(token_type_e type)
     }
 }
 
-token_s *dup_token(token_s *tok)
-{
+token_s *dup_token(token_s *tok) {
     token_s *new_tok = NULL;
 
     if (tok == NULL)
@@ -74,16 +71,14 @@ token_s *dup_token(token_s *tok)
     return new_tok;
 }
 
-void unget_char(source_s *src)
-{
+void unget_char(source_s *src) {
     if (!src->pos)
         return;
 
     src->pos--;
 }
 
-char next_char(source_s *src)
-{
+char next_char(source_s *src) {
     if (src->pos == INIT_SRC_POS)
         src->pos = -1;
 
@@ -95,8 +90,7 @@ char next_char(source_s *src)
     return src->buf[src->pos];
 }
 
-char peek_char(source_s *src)
-{
+char peek_char(source_s *src) {
     ssize_t pos = src->pos;
 
     if (pos == INIT_SRC_POS)
@@ -110,16 +104,14 @@ char peek_char(source_s *src)
     return src->buf[pos];
 }
 
-void skip_whitespace(source_s *src)
-{
+void skip_whitespace(source_s *src) {
     char c;
 
     while (((c = peek_char(src)) != EOF) && isspace((int)c))
         next_char(src);
 }
 
-void add_to_buf(char c)
-{
+void add_to_buf(char c) {
     char *tmp = NULL;
 
     tok_buf[tok_bufindex++] = c;
@@ -134,8 +126,7 @@ void add_to_buf(char c)
     }
 }
 
-token_s *create_token(char *s)
-{
+token_s *create_token(char *s) {
     token_s *tok = NULL;
     char *buf = NULL, *tmp = NULL;
 
@@ -154,7 +145,8 @@ token_s *create_token(char *s)
     buf = str_strip_whitespace(tmp);
 
     tok->text_len = strlen(buf);
-    tok->text = strdup(buf);;
+    tok->text = strdup(buf);
+    ;
     if (tok->text == NULL) {
         error_return("create_token");
         return NULL;
@@ -166,16 +158,14 @@ token_s *create_token(char *s)
     return tok;
 }
 
-void free_token(token_s *tok)
-{
+void free_token(token_s *tok) {
     if (tok->text)
         free_str(tok->text);
     free(tok);
     tok = NULL;
 }
 
-token_s *tokenize(source_s *src)
-{
+token_s *tokenize(source_s *src) {
     bool loop = true;
 
     if (src == NULL || src->buf == NULL || !src->bufsize)
@@ -200,11 +190,11 @@ token_s *tokenize(source_s *src)
 
     do {
         switch (nc) {
-        case  '"':
+        case '"':
         case '\'':
-        case  '`':
+        case '`':
             add_to_buf(nc);
-            i = find_closing_quote(src->buf+src->pos);
+            i = find_closing_quote(src->buf + src->pos);
             if (!i) {
                 src->pos = src->bufsize;
                 fprintf(stderr, "error: missing closing quote '%c'\n", nc);
@@ -228,7 +218,7 @@ token_s *tokenize(source_s *src)
             add_to_buf(nc);
             nc = peek_char(src);
             if (nc == '{' || nc == '(') {
-                i = find_closing_brace(src->buf+src->pos+1);
+                i = find_closing_brace(src->buf + src->pos + 1);
                 if (!i) {
                     src->pos = src->bufsize;
                     fprintf(stderr, "error: missing closing brace '%c'\n", nc);
@@ -237,7 +227,8 @@ token_s *tokenize(source_s *src)
                 while (i--) {
                     add_to_buf(next_char(src));
                 }
-            } else if (isalnum(nc) || nc == '*' || nc == '@' || nc == '#' || nc == '!' || nc == '?' || nc == '$') {
+            } else if (isalnum(nc) || nc == '*' || nc == '@' || nc == '#' ||
+                       nc == '!' || nc == '?' || nc == '$') {
                 add_to_buf(next_char(src));
             }
             break;
@@ -280,29 +271,15 @@ token_s *tokenize(source_s *src)
     return tok;
 }
 
-token_s *get_current_token(void)
-{
-    return cur_tok ? : &eof_token;
-}
+token_s *get_current_token(void) { return cur_tok ?: &eof_token; }
 
+token_s *get_previous_token(void) { return prev_tok; }
 
-token_s *get_previous_token(void)
-{
-    return prev_tok;
-}
+void set_current_token(token_s *tok) { cur_tok = tok; }
 
-void set_current_token(token_s *tok)
-{
-    cur_tok = tok;
-}
+void set_previous_token(token_s *tok) { prev_tok = tok; }
 
-void set_previous_token(token_s *tok)
-{
-    prev_tok = tok;
-}
-
-void free_tok_buf(void)
-{
+void free_tok_buf(void) {
     if (tok_buf)
         free_str(tok_buf);
 }

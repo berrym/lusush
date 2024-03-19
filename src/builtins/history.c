@@ -1,21 +1,20 @@
-#include <unistd.h>
-#include <fcntl.h>
+#include "../../include/history.h"
+#include "../../include/errors.h"
+#include "../../include/exec.h"
+#include "../../include/lusush.h"
+#include "../../include/strings.h"
+#include "../../include/third_party/linenoise.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "../../include/exec.h"
-#include "../../include/errors.h"
-#include "../../include/history.h"
-#include "../../include/lusush.h"
-#include "../../include/strings.h"
-#include "../../include/third_party/linenoise.h"
+#include <unistd.h>
 
 static const char *histfn = ".lusushist"; // The history filename
 
-static char *__get_histfilename(void)
-{
+static char *__get_histfilename(void) {
     char *fn = NULL;
     char *home = get_shell_varp("HOME", "");
     if (home == NULL) {
@@ -38,8 +37,7 @@ static char *__get_histfilename(void)
  * init_history:
  *      Initialization code for history.
  */
-void init_history(void)
-{
+void init_history(void) {
     char *fn = __get_histfilename();
     int fd = 0;
 
@@ -63,8 +61,7 @@ void init_history(void)
  * history_add:
  *      Add a line of history to the linenoise history buffer.
  */
-void history_add(const char *line)
-{
+void history_add(const char *line) {
     if (line == NULL)
         return;
 
@@ -75,8 +72,7 @@ void history_add(const char *line)
  * history_save:
  *      Call write_history on a file name.
  */
-void history_save(void)
-{
+void history_save(void) {
     char *fn = __get_histfilename();
     linenoiseHistorySave(fn);
     free_str(fn);
@@ -86,23 +82,20 @@ void history_save(void)
  * history_print:
  *      Print an indexed list of all history entries.
  */
-void history_print(void)
-{
-    linenoiseHistoryPrint();
-}
+void history_print(void) { linenoiseHistoryPrint(); }
 
 /**
  * history_lookup:
  *      Parse a string for the index of a history entry, then return that enrty.
  */
-char *history_lookup(const char *s)
-{
+char *history_lookup(const char *s) {
     char *line = NULL;
     int idx = -1;
 
     idx = atoi(s);
     if (idx < 1) {
-        error_message("error: lusus `history_lookup`: history index must be a positive value");
+        error_message("error: lusus `history_lookup`: history index must be a "
+                      "positive value");
         return NULL;
     }
     idx -= 2;
@@ -122,9 +115,8 @@ char *history_lookup(const char *s)
  * history_usage:
  *      Print usage information for the history command.
  */
-void history_usage(void)
-{
+void history_usage(void) {
     fprintf(stderr, "usage:\n"
-            "history\t\t(print the command history)\n"
-            "history index\t(execute command in history)\n");
+                    "history\t\t(print the command history)\n"
+                    "history index\t(execute command in history)\n");
 }

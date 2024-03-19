@@ -1,17 +1,16 @@
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
-#include <ctype.h>
+#include "../include/node.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
-#include "../include/node.h"
 #include "../include/scanner.h"
 #include "../include/strings.h"
+#include <ctype.h>
+#include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-node_s *new_node(node_type_e type)
-{
+node_s *new_node(node_type_e type) {
     node_s *node = NULL;
 
     if ((node = calloc(1, sizeof(node_s))) == NULL)
@@ -22,8 +21,7 @@ node_s *new_node(node_type_e type)
     return node;
 }
 
-void add_child_node(node_s *parent, node_s *child)
-{
+void add_child_node(node_s *parent, node_s *child) {
     if (parent == NULL || child == NULL)
         return;
 
@@ -42,8 +40,7 @@ void add_child_node(node_s *parent, node_s *child)
     parent->children++;
 }
 
-void set_token_type(token_s *tok)
-{
+void set_token_type(token_s *tok) {
     token_type_e t = TOKEN_EMPTY;
 
     if (tok->text_len == 1) {
@@ -94,8 +91,7 @@ void set_token_type(token_s *tok)
     tok->type = t;
 }
 
-void set_node_val_str(node_s *node, char *val)
-{
+void set_node_val_str(node_s *node, char *val) {
     node->val_type = VAL_STR;
 
     if (!val) {
@@ -110,8 +106,7 @@ void set_node_val_str(node_s *node, char *val)
     }
 }
 
-void free_node_tree(node_s *node)
-{
+void free_node_tree(node_s *node) {
     node_s *child = NULL, *next = NULL;
 
     if (!node)

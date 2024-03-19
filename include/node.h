@@ -1,6 +1,8 @@
 #ifndef NODE_H
 #define NODE_H
 
+#include <stddef.h>
+
 typedef enum node_type_e {
     NODE_COMMAND,
     NODE_VAR,

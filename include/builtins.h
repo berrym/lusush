@@ -2,6 +2,7 @@
 #define BUILTINS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct builtin_s {
     const char *name;

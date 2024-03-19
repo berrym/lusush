@@ -1,7 +1,7 @@
 project('lusush',
         'c',
         default_options: 'c_std=c99',
-        version: '0.1.1',
+        version: '0.1.2',
         license: 'MIT')
 
 inc = include_directories('include', 'include/third_party')

@@ -4,11 +4,7 @@
 #include <stdio.h>
 
 // Types of shell instances
-enum {
-    LOGIN_SHELL,
-    INTERACTIVE_SHELL,
-    NORMAL_SHELL
-};
+enum { LOGIN_SHELL, INTERACTIVE_SHELL, NORMAL_SHELL };
 
 int init(int, char **, FILE **);
 int shell_type(void);

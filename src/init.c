@@ -1,23 +1,23 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <locale.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <getopt.h>
+#include "../include/init.h"
 #include "../include/alias.h"
 #include "../include/errors.h"
 #include "../include/history.h"
-#include "../include/init.h"
 #include "../include/input.h"
 #include "../include/lusush.h"
 #include "../include/scanner.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
 #include "../include/third_party/linenoise.h"
+#include <getopt.h>
+#include <locale.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 extern char **environ;
 
@@ -30,14 +30,10 @@ static int SHELL_TYPE;
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
 
-int shell_type(void)
-{
-    return SHELL_TYPE;
-}
+int shell_type(void) { return SHELL_TYPE; }
 
-int init(int argc, char **argv, FILE **in)
-{
-    struct stat st;             // stat buffer
+int init(int argc, char **argv, FILE **in) {
+    struct stat st; // stat buffer
 
     if (argv == NULL)
         exit(EXIT_FAILURE);
@@ -91,7 +87,8 @@ int init(int argc, char **argv, FILE **in)
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
         if (!(S_ISREG(st.st_mode))) {
-            error_message("error: lusush `init`: %s is not a regular file", argv[optind]);
+            error_message("error: lusush `init`: %s is not a regular file",
+                          argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
         } else {
@@ -129,17 +126,13 @@ int init(int argc, char **argv, FILE **in)
     return 0;
 }
 
-static int parse_opts(int argc, char **argv)
-{
+static int parse_opts(int argc, char **argv) {
     // next option
     int nopt = 0;
     // string of valid short options
     const char *sopts = "h";
     // array describing valid long options
-    const struct option lopts[] = {
-        { "help", 0, NULL, 'h' },
-        { NULL, 0, NULL, 0 }
-    };
+    const struct option lopts[] = {{"help", 0, NULL, 'h'}, {NULL, 0, NULL, 0}};
 
     do {
         nopt = getopt_long(argc, argv, sopts, lopts, NULL);
@@ -160,8 +153,7 @@ static int parse_opts(int argc, char **argv)
     return optind;
 }
 
-static void usage(int err)
-{
+static void usage(int err) {
     error_message("Usage:\n\t-h This Help\n");
     exit(err);
 }

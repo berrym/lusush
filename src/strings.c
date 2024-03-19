@@ -1,13 +1,13 @@
-#include <sys/types.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "../include/strings.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
-#include "../include/strings.h"
 #include "../include/symtable.h"
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 // Symbol table for strings
 symtable_s *str_list = NULL;
@@ -16,21 +16,16 @@ symtable_s *str_list = NULL;
 char *empty_str = "";
 char *newline_str = "\n";
 
-void init_str_symtable(void)
-{
-    str_list = new_symtable(0);
-}
+void init_str_symtable(void) { str_list = new_symtable(0); }
 
-char *get_alloced_str_direct(char *s)
-{
+char *get_alloced_str_direct(char *s) {
     char *s2 = NULL;
     s2 = alloc_str(strlen(s) + 1, false);
     strcpy(s2, s);
     return s2;
 }
 
-char *get_alloced_str(char *s)
-{
+char *get_alloced_str(char *s) {
     if (s == NULL)
         return NULL;
 
@@ -54,8 +49,7 @@ char *get_alloced_str(char *s)
     return get_alloced_str_direct(s);
 }
 
-void free_alloced_str(char *s)
-{
+void free_alloced_str(char *s) {
     if (s == NULL || s == empty_str || s == newline_str)
         return;
 
@@ -70,8 +64,7 @@ void free_alloced_str(char *s)
     free_str(s);
 }
 
-char *alloc_str(size_t len, bool exitflag)
-{
+char *alloc_str(size_t len, bool exitflag) {
     char *s = NULL;
 
     s = calloc(len, sizeof(char));
@@ -87,8 +80,7 @@ char *alloc_str(size_t len, bool exitflag)
     return s;
 }
 
-void free_str(char *s)
-{
+void free_str(char *s) {
     if (s == NULL)
         return;
 
@@ -96,8 +88,7 @@ void free_str(char *s)
     s = NULL;
 }
 
-bool strupper(char *s)
-{
+bool strupper(char *s) {
     if (s == NULL)
         return false;
 
@@ -109,8 +100,7 @@ bool strupper(char *s)
     return true;
 }
 
-bool strlower(char *s)
-{
+bool strlower(char *s) {
     if (s == NULL)
         return false;
 
@@ -122,11 +112,11 @@ bool strlower(char *s)
     return true;
 }
 
-char *str_strip_whitespace(char *s)
-{
+char *str_strip_whitespace(char *s) {
     char *p = NULL, *t = NULL;
 
-    for (p = s; isspace((int)*p); p++);
+    for (p = s; isspace((int)*p); p++)
+        ;
 
     if (*p == '\0')
         return p;
@@ -140,8 +130,7 @@ char *str_strip_whitespace(char *s)
     return p;
 }
 
-size_t str_skip_whitespace(char *s)
-{
+size_t str_skip_whitespace(char *s) {
     size_t offset = 0;
     char c;
 
@@ -153,13 +142,13 @@ size_t str_skip_whitespace(char *s)
     return offset;
 }
 
-size_t str_strip_leading_whitespace(char *s)
-{
-    char buf[MAXLINE + 1] = { '\0' }; // buffer to store modified string
-    size_t offset = 0;                // loop counter
+size_t str_strip_leading_whitespace(char *s) {
+    char buf[MAXLINE + 1] = {'\0'}; // buffer to store modified string
+    size_t offset = 0;              // loop counter
 
     // Iterate over leading whitespace ignoring it
-    for (offset = 0; offset <= strlen(s) && isspace((int)s[offset]); offset++);
+    for (offset = 0; offset <= strlen(s) && isspace((int)s[offset]); offset++)
+        ;
 
     if (!offset)
         return 0;
@@ -178,8 +167,7 @@ size_t str_strip_leading_whitespace(char *s)
     return offset;
 }
 
-ssize_t str_strip_trailing_whitespace(char *s)
-{
+ssize_t str_strip_trailing_whitespace(char *s) {
     ssize_t offset = 0;
 
     while (strlen(s) && isspace((int)s[strlen(s) - 1])) {
@@ -190,8 +178,7 @@ ssize_t str_strip_trailing_whitespace(char *s)
     return offset;
 }
 
-void null_replace_newline(char *s)
-{
+void null_replace_newline(char *s) {
     if (s == NULL || !*s)
         return;
 
@@ -199,8 +186,7 @@ void null_replace_newline(char *s)
         s[strlen(s) - 1] = '\0';
 }
 
-void null_terminate_str(char *s)
-{
+void null_terminate_str(char *s) {
     if (!*s)
         return;
 
@@ -210,8 +196,7 @@ void null_terminate_str(char *s)
 // search string for any one of the passed characters.
 // returns a char pointer to the first occurence of any of the characters,
 // NULL if none found.
-char *strchr_any(char *string, char *chars)
-{
+char *strchr_any(char *string, char *chars) {
     if (string == NULL || chars == NULL) {
         return NULL;
     }
@@ -231,11 +216,9 @@ char *strchr_any(char *string, char *chars)
     return NULL;
 }
 
-
 // return the passed string value, quoted in a format that can
 // be used for reinput to the shell.
-char *quote_val(char *val, bool add_quotes)
-{
+char *quote_val(char *val, bool add_quotes) {
     char *res = NULL;
     size_t len;
     // empty string
@@ -255,9 +238,9 @@ char *quote_val(char *val, bool add_quotes)
     while (*v) {
         switch (*v) {
         case '\\':
-        case  '`':
-        case  '$':
-        case  '"':
+        case '`':
+        case '$':
+        case '"':
             len++;
             break;
         default:
@@ -290,9 +273,9 @@ char *quote_val(char *val, bool add_quotes)
     while (*v) {
         switch (*v) {
         case '\\':
-        case  '`':
-        case  '$':
-        case  '"':
+        case '`':
+        case '$':
+        case '"':
             // add '\' for quoting
             *p++ = '\\';
             // copy char
@@ -313,15 +296,13 @@ char *quote_val(char *val, bool add_quotes)
     return res;
 }
 
-
 // alloc memory for, or extend the host (or user) names buffer if needed..
 // in the first call, the buffer is initialized to 32 entries.. subsequent
 // calls result in the buffer size doubling, so that it becomes 64, 128, ...
 // count is the number of used entries in the buffer, while len is the number
 // of alloc'd entries (size of buffer divided by sizeof(char **)).
 // returns true if the buffer is alloc'd/extended, false otherwise.
-bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf)
-{
+bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf) {
     if (*count >= *len) {
         if ((*buf) == NULL) {
             // first call. alloc memory for the buffer
@@ -344,14 +325,12 @@ bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf)
     return true;
 }
 
-
 // free the memory used to store the strings list pointed to by buf.
-void free_buffer(size_t len, char **buf)
-{
+void free_buffer(size_t len, char **buf) {
     if (!len) {
         return;
     }
-    
+
     while (len--) {
         free(buf[len]);
         buf[len] = NULL;

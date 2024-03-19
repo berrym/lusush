@@ -1,27 +1,25 @@
+#include "../include/input.h"
+#include "../include/errors.h"
+#include "../include/history.h"
+#include "../include/init.h"
+#include "../include/lusush.h"
+#include "../include/strings.h"
+#include "../include/third_party/linenoise.h"
+#include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <stddef.h>
 #include <sys/types.h>
-#include "../include/lusush.h"
-#include "../include/init.h"
-#include "../include/errors.h"
-#include "../include/input.h"
-#include "../include/third_party/linenoise.h"
-#include "../include/history.h"
-#include "../include/strings.h"
-#include "../include/symtable.h"
 
 ssize_t getline(char **restrict lineptr, size_t *restrict n,
                 FILE *restrict stream);
 
 static char *buf = NULL, *buf2 = NULL; // Input buffers
 
-void free_input_buffers(void)
-{
+void free_input_buffers(void) {
     if (buf)
         free_str(buf);
 
@@ -29,11 +27,8 @@ void free_input_buffers(void)
         free_str(buf2);
 }
 
-char *ln_gets(void)
-{
-    char *line = NULL, *line2 = NULL;
-
-    line2 = alloc_str(MAXLINE + 1, true);
+char *ln_gets(void) {
+    char *line = NULL, *line2 = NULL, *tmp = NULL;
 
     while (true) {
         errno = 0;
@@ -52,12 +47,10 @@ char *ln_gets(void)
         str_strip_trailing_whitespace(line);
         if (line[strlen(line) - 1] == '\\') {
             line[strlen(line) - 1] = '\0';
-            if (!*line2) {
-                line2 = line;
-            } else {
-                strcat(line2, line);
+            if (line2 == NULL) {
+                line2 = alloc_str(strlen(line) + 1, true);
+                strcpy(line2, line);
             }
-
             line = linenoise(get_shell_varp("PS2", "> "));
             if (line == NULL)
                 return NULL;
@@ -66,7 +59,11 @@ char *ln_gets(void)
                 if (shell_type() == INTERACTIVE_SHELL)
                     exit(EXIT_SUCCESS);
 
-            line2 = realloc(line2, strlen(line2) + strlen(line) + 1);
+            tmp = realloc(line2, strlen(line2) + strlen(line) + 1);
+            if (tmp == NULL) {
+                error_syscall("error: `ln_gets`");
+            }
+            line2 = tmp;
             strcat(line2, line);
             line = line2;
         } else {
@@ -84,8 +81,7 @@ char *ln_gets(void)
     return line;
 }
 
-char *get_input(FILE *in)
-{
+char *get_input(FILE *in) {
     // If the buffers have been previously allocated free them
     free_input_buffers();
 
@@ -107,11 +103,13 @@ char *get_input(FILE *in)
             }
 
             if (!*buf) {
-                char *tmp = buf;
-                buf = buf2;
-                buf2 = tmp;
+                strcpy(buf, buf2);
             } else {
-                buf = realloc(buf, strlen(buf) + strlen(buf2) + 1);
+                char *tmp = realloc(buf, strlen(buf) + linelen + 1);
+                if (tmp == NULL) {
+                    error_syscall("error: `get_line`");
+                }
+                buf = tmp;
                 strcat(buf, buf2);
             }
 

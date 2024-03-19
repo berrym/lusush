@@ -2,22 +2,21 @@
  * lusush.c - LUSUs' SHell
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include "../include/lusush.h"
 #include "../include/errors.h"
 #include "../include/exec.h"
 #include "../include/init.h"
 #include "../include/input.h"
-#include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/scanner.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
-int main(int argc, char **argv)
-{
-    FILE *in = stdin;                // input file stream pointer
-    char *line = NULL;               // pointer to a line of input read
+int main(int argc, char **argv) {
+    FILE *in = stdin;  // input file stream pointer
+    char *line = NULL; // pointer to a line of input read
 
     // Perform startup tasks
     init(argc, argv, &in);
@@ -42,8 +41,7 @@ int main(int argc, char **argv)
     }
 }
 
-int parse_and_execute(source_s *src)
-{
+int parse_and_execute(source_s *src) {
     skip_whitespace(src);
 
     token_s *tok = tokenize(src);
