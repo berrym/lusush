@@ -52,11 +52,11 @@
 #include "../include/lusush.h"
 #include "../include/symtable.h"
 #include <ctype.h>
-#include <errors.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #define MAXOPSTACK 64
 #define MAXNUMSTACK 64
@@ -68,7 +68,7 @@ struct stack_item_s {
     int type;
 
     union {
-        long val;
+        ssize_t val;
         symtable_entry_s *ptr;
     };
 };
@@ -79,7 +79,7 @@ struct stack_item_s numstack[MAXNUMSTACK];
 int nnumstack = 0;
 bool errflag = false;
 
-long long_value(struct stack_item_s *a) {
+ssize_t long_value(struct stack_item_s *a) {
     if (a->type == ITEM_LONG_INT) {
         return a->val;
     }
@@ -91,101 +91,101 @@ long long_value(struct stack_item_s *a) {
     return 0;
 }
 
-long eval_uminus(struct stack_item_s *a1,
-                 struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_uminus(struct stack_item_s *a1,
+                    struct stack_item_s *a2 __attribute__((unused))) {
     return -long_value(a1);
 }
 
-long eval_uplus(struct stack_item_s *a1,
-                struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_uplus(struct stack_item_s *a1,
+                   struct stack_item_s *a2 __attribute__((unused))) {
     return long_value(a1);
 }
 
-long eval_lognot(struct stack_item_s *a1,
-                 struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_lognot(struct stack_item_s *a1,
+                    struct stack_item_s *a2 __attribute__((unused))) {
     return !long_value(a1);
 }
 
-long eval_bitnot(struct stack_item_s *a1,
-                 struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_bitnot(struct stack_item_s *a1,
+                    struct stack_item_s *a2 __attribute__((unused))) {
     return ~long_value(a1);
 }
 
-long eval_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) * long_value(a2);
 }
 
-long eval_add(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_add(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) + long_value(a2);
 }
 
-long eval_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) - long_value(a2);
 }
 
-long eval_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) << long_value(a2);
 }
 
-long eval_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) >> long_value(a2);
 }
 
-long eval_lt(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_lt(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) < long_value(a2);
 }
 
-long eval_le(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_le(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) <= long_value(a2);
 }
 
-long eval_gt(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_gt(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) > long_value(a2);
 }
 
-long eval_ge(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_ge(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) >= long_value(a2);
 }
 
-long eval_eq(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_eq(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) == long_value(a2);
 }
 
-long eval_ne(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_ne(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) != long_value(a2);
 }
 
-long eval_bitand(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitand(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) & long_value(a2);
 }
 
-long eval_bitxor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitxor(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) ^ long_value(a2);
 }
 
-long eval_bitor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitor(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) | long_value(a2);
 }
 
-long eval_logand(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_logand(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) && long_value(a2);
 }
 
-long eval_logor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_logor(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) || long_value(a2);
 }
 
-long do_eval_exp(long a1, long a2) {
+ssize_t do_eval_exp(ssize_t a1, ssize_t a2) {
     return a2 < 0 ? 0 : (a2 == 0 ? 1 : a1 * do_eval_exp(a1, a2 - 1));
 }
 
-long eval_exp(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_exp(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_exp(long_value(a1), long_value(a2));
 }
 
-long eval_div(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_div(struct stack_item_s *a1, struct stack_item_s *a2) {
     errflag = false;
-    long n2 = long_value(a2);
+    ssize_t n2 = long_value(a2);
     if (!n2) {
         error_message("error: lusush internal `eval_div`: Division by zero");
         errflag = true;
@@ -194,9 +194,9 @@ long eval_div(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) / n2;
 }
 
-long eval_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
     errflag = false;
-    long n2 = long_value(a2);
+    ssize_t n2 = long_value(a2);
     if (!n2) {
         error_message("error: lusush internal `eval_div`: Division by zero");
         errflag = true;
@@ -205,8 +205,8 @@ long eval_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
     return long_value(a1) % n2;
 }
 
-long eval_assign(struct stack_item_s *a1, struct stack_item_s *a2) {
-    long val = long_value(a2);
+ssize_t eval_assign(struct stack_item_s *a1, struct stack_item_s *a2) {
+    ssize_t val = long_value(a2);
     if (a1->type == ITEM_VAR_PTR) {
         char buf[16];
         sprintf(buf, "%ld", val);
@@ -215,10 +215,10 @@ long eval_assign(struct stack_item_s *a1, struct stack_item_s *a2) {
     return val;
 }
 
-long do_eval_assign_ext(long (*f)(struct stack_item_s *a1,
-                                  struct stack_item_s *a2),
-                        struct stack_item_s *a1, struct stack_item_s *a2) {
-    long val = f(a1, a2);
+ssize_t do_eval_assign_ext(ssize_t (*f)(struct stack_item_s *a1,
+                                        struct stack_item_s *a2),
+                           struct stack_item_s *a1, struct stack_item_s *a2) {
+    ssize_t val = f(a1, a2);
     if (a1->type == ITEM_VAR_PTR) {
         char buf[16];
         sprintf(buf, "%ld", val);
@@ -227,48 +227,48 @@ long do_eval_assign_ext(long (*f)(struct stack_item_s *a1,
     return val;
 }
 
-long eval_assign_add(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_add(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_add, a1, a2);
 }
 
-long eval_assign_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_sub, a1, a2);
 }
 
-long eval_assign_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_mult, a1, a2);
 }
 
-long eval_assign_div(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_div(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_div, a1, a2);
 }
 
-long eval_assign_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_mod, a1, a2);
 }
 
-long eval_assign_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_lsh, a1, a2);
 }
 
-long eval_assign_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_rsh, a1, a2);
 }
 
-long eval_assign_and(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_and(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_bitand, a1, a2);
 }
 
-long eval_assign_xor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_xor(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_bitxor, a1, a2);
 }
 
-long eval_assign_or(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_or(struct stack_item_s *a1, struct stack_item_s *a2) {
     return do_eval_assign_ext(eval_bitor, a1, a2);
 }
 
-long do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
-    long val = long_value(a1);
+ssize_t do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
+    ssize_t val = long_value(a1);
     char buf[16];
     if (pre) {
         if (add) {
@@ -291,23 +291,23 @@ long do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
     return val;
 }
 
-long eval_postinc(struct stack_item_s *a1,
-                  struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_postinc(struct stack_item_s *a1,
+                     struct stack_item_s *unused __attribute__((unused))) {
     return do_eval_inc_dec(0, 1, a1);
 }
 
-long eval_postdec(struct stack_item_s *a1,
-                  struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_postdec(struct stack_item_s *a1,
+                     struct stack_item_s *unused __attribute__((unused))) {
     return do_eval_inc_dec(0, 0, a1);
 }
 
-long eval_preinc(struct stack_item_s *a1,
-                 struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_preinc(struct stack_item_s *a1,
+                    struct stack_item_s *unused __attribute__((unused))) {
     return do_eval_inc_dec(1, 1, a1);
 }
 
-long eval_predec(struct stack_item_s *a1,
-                 struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_predec(struct stack_item_s *a1,
+                    struct stack_item_s *unused __attribute__((unused))) {
     return do_eval_inc_dec(1, 0, a1);
 }
 
@@ -358,7 +358,7 @@ struct op_s {
     char unary;
     char chars;
 
-    long (*eval)(struct stack_item_s *a1, struct stack_item_s *a2);
+    ssize_t (*eval)(struct stack_item_s *a1, struct stack_item_s *a2);
 } arithm_ops[] = {{CH_POST_INC, 20, ASSOC_LEFT, 1, 2, eval_postinc},
                   {CH_POST_DEC, 20, ASSOC_LEFT, 1, 2, eval_postdec},
                   {CH_PRE_INC, 19, ASSOC_RIGHT, 1, 2, eval_postinc},
@@ -596,9 +596,9 @@ struct op_s *pop_opstack(void) {
 }
 
 /*
- * push a long numeric operand on the operand stack.
+ * push a ssize_t numeric operand on the operand stack.
  */
-void push_numstackl(long val) {
+void push_numstackl(ssize_t val) {
     if (nnumstack > MAXNUMSTACK - 1) {
         error_message(
             "error: lusush internal `push_numstackl`: Number stack overflow");
@@ -815,11 +815,11 @@ invalid:
  * numbers can be hex constants (preceded by 0x or 0X), octal (preceded by 0),
  * binary (preceded by 0b or 0B), or in any base, given in the format: [base#]n.
  * the number of characters used to get the number is stored in *char_count,
- * while the number itself is return as a long int.
+ * while the number itself is return as a ssize_t int.
  */
-long get_num(char *s, int *char_count) {
+ssize_t get_num(char *s, int *char_count) {
     char *s2 = s;
-    long num = 0;
+    ssize_t num = 0;
     int num2, base = 10;
 
     /* check if we have a predefined base */
@@ -918,7 +918,7 @@ symtable_entry_s *get_var(char *s, int *char_count) {
  * expansion, command substitution, and quote removal.
  *
  * And the rules are:
- *   - Only signed long integer arithmetic is required.
+ *   - Only signed ssize_t integer arithmetic is required.
  *   - Only the decimal-constant, octal-constant, and hexadecimal-constant
  * constants specified in the ISO C standard, Section 6.4.4.1 are required to be
  * recognized as constants.

@@ -5,7 +5,6 @@
 #include "../include/symtable.h"
 #include <ctype.h>
 #include <errno.h>
-#include <errors.h>
 #include <limits.h>
 #include <pwd.h>
 #include <stdbool.h>

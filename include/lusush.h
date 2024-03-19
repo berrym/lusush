@@ -26,7 +26,7 @@ extern bool no_word_expand;
 
 char *get_shell_varp(char *, char *);
 int get_shell_vari(char *, int);
-long get_shell_varl(char *, int);
+ssize_t get_shell_varl(char *, int);
 void set_shell_varp(char *, char *);
 void set_shell_vari(char *, int);
 

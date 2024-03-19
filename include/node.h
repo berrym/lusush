@@ -2,6 +2,8 @@
 #define NODE_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
 
 typedef enum node_type_e {
     NODE_COMMAND,
@@ -20,10 +22,10 @@ typedef enum val_type_e {
 } val_type_e;
 
 typedef union symval_u {
-    long sint;
-    unsigned long uint;
-    long long sllong;
-    unsigned long long ullong;
+    ssize_t sint;
+    size_t uint;
+    int64_t sllong;
+    uint64_t ullong;
     double sfloat;
     long double ldouble;
     char chr;
