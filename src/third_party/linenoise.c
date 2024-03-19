@@ -1357,27 +1357,28 @@ int linenoiseHistoryLoad(const char *filename) {
 void linenoiseHistoryPrint(void)
 {
     for (size_t i = 0; i < history_max_len; i++)
-        printf("%-5zu\t%s\n", i + 1, history[i]);
+        if (history[i])
+            printf("%-5zu\t%s\n", i + 1, history[i]);
 }
 
 char *linenoiseHistoryGet(int index)
 {
     if (index < 0 || index >= history_max_len) {
-        fprintf(stderr, "linenoiseHistoryGet: index %d out of range\n", index);
+        fprintf(stderr, "error: lusus `linenoiseHistoryGet`: index %d out of range\n", index);
         return NULL;
     }
     char *line = NULL;
     if (history) {
         if (history[index]) {
             line = strdup(history[index]);
-            if (!line) {
-                perror("linenoiseHistoryGet");
+            if (line == NULL) {
+                perror("error: lusus `linenoiseHistoryGet`");
                 return NULL;
             }
             line[strlen(history[index])] = '\0';
         }
     } else {
-        fprintf(stderr, "linenoiseHistoryGet: history not initialized\n");
+        fprintf(stderr, "error: lusus `linenoiseHistoryGet`: history not initialized\n");
     }
     return line;
 }

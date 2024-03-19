@@ -39,7 +39,7 @@ int init(int argc, char **argv, FILE **in)
 {
     struct stat st;             // stat buffer
 
-    if (!argv)
+    if (argv == NULL)
         exit(EXIT_FAILURE);
 
     // Set all locales according to environment
@@ -67,7 +67,7 @@ int init(int argc, char **argv, FILE **in)
             entry = add_to_symtable(name);
 
             if (entry) {
-                symtable_entry_setval(entry, eq+1);
+                symtable_entry_setval(entry, eq + 1);
                 entry->flags |= FLAG_EXPORT;
             }
         } else {
@@ -90,14 +90,14 @@ int init(int argc, char **argv, FILE **in)
     } else if (optind && argv[optind] && *argv[optind]) {
         // Check that argv[optind] is a regular file
         stat(argv[optind], &st);
-        if (!S_ISREG(st.st_mode)) {
-            error_message("lusush: %s is not a regular file", argv[optind]);
+        if (!(S_ISREG(st.st_mode))) {
+            error_message("error: lusush `init`: %s is not a regular file", argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
         } else {
             SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL)
-                error_syscall("fopen");
+                error_syscall("error: lusush `init`: fopen");
         }
     } else {
         optind = 0;
