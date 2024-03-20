@@ -101,8 +101,13 @@ char *get_input(FILE *in) {
 
         // Read a line of input
         while ((linelen = getline(&buf2, &linecap, in))) {
-            if (feof(in) || ferror(in)) {
-                error_syscall("error: `get_input`");
+            if (feof(in)) {
+                return NULL;
+            }
+
+            if (ferror(in)) {
+                error_return("error: `get_input`");
+                return NULL;
             }
 
             if (!*buf) {
