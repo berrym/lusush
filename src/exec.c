@@ -102,17 +102,16 @@ int do_basic_command(node_s *n) {
     if (child == NULL)
         return 0;
 
-    // Don't perform expansions on certain builtins like alias
-    if (is_builtin(child->val.str)) {
-        if (strcmp(child->val.str, "alias") == 0) {
-            no_word_expand = true;
-        }
-    }
-
     // Perform alias expansion now
     char *alias = lookup_alias(child->val.str);
     if (alias) {
         set_node_val_str(child, alias);
+    }
+
+    // Parsing aliases allowing for expandable commands
+    // needs a modified expansion process, so set a flag
+    if (strcmp(child->val.str, "alias") == 0) {
+        parsing_alias = true;
     }
 
     while (child) {
@@ -142,9 +141,9 @@ int do_basic_command(node_s *n) {
         child = child->next_sibling;
     }
 
-    // Make sure expansions are turned back on
-    if (no_word_expand) {
-        no_word_expand = false;
+    // Turn back on regular expansion process
+    if (parsing_alias) {
+        parsing_alias = false;
     }
 
     if (check_buffer_bounds(&argc, &targc, &argv)) {

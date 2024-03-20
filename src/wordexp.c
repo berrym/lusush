@@ -239,7 +239,7 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
 
 int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
                     bool add_quotes) {
-    if (no_word_expand) {
+    if (no_word_expand || parsing_alias) {
         return 0;
     }
 
@@ -905,7 +905,7 @@ char *var_expand(char *orig_var_name) {
 // or a regular one:
 //   $(command)
 char *command_substitute(char *orig_cmd) {
-    if (no_word_expand) {
+    if (no_word_expand || parsing_alias) {
         return orig_cmd;
     }
 
@@ -1373,11 +1373,19 @@ void remove_quotes(struct word_s *wordlist) {
         while (*p) {
             switch (*p) {
             case '"':
+                if (parsing_alias) {
+                    p++;
+                    break;
+                }
                 // toggle quote mode
                 in_double_quotes = !in_double_quotes;
                 delete_char_at(p, 0);
                 break;
             case '\'':
+                if (parsing_alias) {
+                    p++;
+                    break;
+                }
                 // don't delete if inside double quotes
                 if (in_double_quotes) {
                     p++;
@@ -1394,6 +1402,10 @@ void remove_quotes(struct word_s *wordlist) {
                 }
                 break;
             case '`':
+                if (parsing_alias) {
+                    p++;
+                    break;
+                }
                 delete_char_at(p, 0);
                 break;
             case '\v':
