@@ -17,7 +17,7 @@ static void do_error(bool errnoflag, int err, const char *fmt, va_list args) {
 
     vsprintf(buf, fmt, args);
     if (errnoflag)
-        sprintf(buf, ": %s", strerror(err));
+        sprintf(buf, "%s: %s", buf, strerror(err));
 
     strncat(buf, "\n", 2);
     fflush(stdout); // in case stdout and stdin are the same
