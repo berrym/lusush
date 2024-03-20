@@ -31,7 +31,8 @@ const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
  * bin_exit:
  *      Exit the shell.
  */
-int bin_exit(int argc, char **argv) {
+int bin_exit(int argc __attribute__((unused)),
+             char **argv __attribute__((unused))) {
     exit_flag = true;
     exit(EXIT_SUCCESS);
     return 0;
@@ -41,7 +42,8 @@ int bin_exit(int argc, char **argv) {
  * bin_help:
  *      Print a list of builtins and their description.
  */
-int bin_help(int argc, char **argv) {
+int bin_help(int argc __attribute__((unused)),
+             char **argv __attribute__((unused))) {
     for (size_t i = 0; i < builtins_count; i++)
         fprintf(stderr, "\t%-10s%-40s\n", builtins[i].name, builtins[i].doc);
 
@@ -52,7 +54,8 @@ int bin_help(int argc, char **argv) {
  * bin_cd:
  *      Change working directory.
  */
-int bin_cd(int argc, char **argv) {
+int bin_cd(int argc __attribute__((unused)),
+           char **argv __attribute__((unused))) {
     if (argc == 1) {
         if (chdir(getenv("HOME")) != 0) {
             error_return("cd");
@@ -79,7 +82,8 @@ int bin_cd(int argc, char **argv) {
  * bin_pwd:
  *      Print working directory.
  */
-int bin_pwd(int argc, char **argv) {
+int bin_pwd(int argc __attribute__((unused)),
+            char **argv __attribute__((unused))) {
     char cwd[MAXLINE] = {'\0'};
 
     if (getcwd(cwd, MAXLINE) == NULL) {
@@ -96,7 +100,8 @@ int bin_pwd(int argc, char **argv) {
  * bin_history:
  *      Implementation of a history command.
  */
-int bin_history(int argc, char **argv) {
+int bin_history(int argc __attribute__((unused)),
+                char **argv __attribute__((unused))) {
     char *line = NULL;
 
     switch (argc) {
@@ -138,57 +143,58 @@ int bin_history(int argc, char **argv) {
  * bin_alias:
  *      Create aliased commands, or print alias values.
  */
-int bin_alias(int argc, char **argv) {
+int bin_alias(int argc __attribute__((unused)),
+              char **argv __attribute__((unused))) {
     char *src = NULL, *name = NULL, *val = NULL, *s = NULL;
 
-    switch (argc) {
-    case 1:              // No arguments given to alias
+    if (argc == 1) {     // No arguments given to alias
         print_aliases(); // Print a list of set aliases
-        break;
-    case 2: // One argument given to alias
-        if (strchr(argv[1], '=') == NULL) {
-            s = lookup_alias(argv[1]); // Look up an alias given it's key
-            if (s == NULL) {           // If alias not found
-                alias_usage();         // Print alias usage information
-                return 1;
-            }
-            printf("%s='%s'\n", argv[1], s); // Print the alias entry found
-            break;
-        }
-    default:
-        // Reconstruct a source string from argument vector
-        src = src_str_from_argv(argc, argv, " ");
+        return 0;
+    }
 
-        if (src == NULL)
+    // Print an alias entry
+    if (strchr(argv[1], '=') == NULL) {
+        s = lookup_alias(argv[1]); // Look up an alias given it's key
+        if (s == NULL) {           // If alias not found
+            alias_usage();         // Print alias usage information
             return 1;
+        }
+        printf("%s='%s'\n", argv[1], s); // Print the alias entry found
+        return 0;
+    }
 
-        // Parse the alias name, the part before =
-        name = parse_alias_var_name(src);
-        if (name == NULL) {
-            error_message("error: `alias`: failed to parse alias name");
-            alias_usage();
-            return 1;
-        }
+    // Create a new alias
+    // Reconstruct a source string from argument vector
+    src = src_str_from_argv(argc, argv, " ");
 
-        // Parse the alias value
-        val = parse_alias_var_value(src, find_opening_quote_type(src));
-        if (val == NULL) {
-            error_message("error: `alias`: failed to parse alias value");
-            alias_usage();
-            return 1;
-        }
+    if (src == NULL)
+        return 1;
 
-        // Can't alias builtin commands or keywords
-        if (is_builtin(name)) {
-            error_message("error: `alias`: cannot alias shell keyword: %s",
-                          name);
-            return 1;
-        }
-        // Set a new alias
-        if (!set_alias(name, val)) {
-            error_message("error: `alias`: failed to create alias");
-            return 1;
-        }
+    // Parse the alias name, the part before =
+    name = parse_alias_var_name(src);
+    if (name == NULL) {
+        error_message("error: `alias`: failed to parse alias name");
+        alias_usage();
+        return 1;
+    }
+
+    // Parse the alias value
+    val = parse_alias_var_value(src, find_opening_quote_type(src));
+    if (val == NULL) {
+        error_message("error: `alias`: failed to parse alias value");
+        alias_usage();
+        return 1;
+    }
+
+    // Can't alias builtin commands or keywords
+    if (is_builtin(name)) {
+        error_message("error: `alias`: cannot alias shell keyword: %s", name);
+        return 1;
+    }
+    // Set a new alias
+    if (!set_alias(name, val)) {
+        error_message("error: `alias`: failed to create alias");
+        return 1;
     }
 
     // Free created strings
@@ -203,7 +209,8 @@ int bin_alias(int argc, char **argv) {
  * bin_unalias:
  *      Remove an aliased command.
  */
-int bin_unalias(int argc, char **argv) {
+int bin_unalias(int argc __attribute__((unused)),
+                char **argv __attribute__((unused))) {
 
     switch (argc) {
     case 2:
@@ -221,7 +228,8 @@ int bin_unalias(int argc, char **argv) {
  * bin_dump:
  *      Print a local symbol table.
  */
-int bin_dump(int argc, char **argv) {
+int bin_dump(int argc __attribute__((unused)),
+             char **argv __attribute__((unused))) {
     dump_local_symtable();
     return 0;
 }

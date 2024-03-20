@@ -1414,9 +1414,9 @@ int linenoiseHistoryLoad(const char *filename) {
 }
 
 void linenoiseHistoryPrint(void) {
-    for (size_t i = 0; i < history_max_len; i++)
+    for (int i = 0; i < history_max_len; i++)
         if (history[i])
-            printf("%-5zu\t%s\n", i + 1, history[i]);
+            printf("%-5d\t%s\n", i + 1, history[i]);
 }
 
 char *linenoiseHistoryGet(int index) {

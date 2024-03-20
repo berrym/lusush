@@ -220,7 +220,7 @@ ssize_t do_eval_assign_ext(ssize_t (*f)(struct stack_item_s *a1,
                            struct stack_item_s *a1, struct stack_item_s *a2) {
     ssize_t val = f(a1, a2);
     if (a1->type == ITEM_VAR_PTR) {
-        char buf[16];
+        char buf[32];
         sprintf(buf, "%ld", val);
         symtable_entry_setval(a1->ptr, buf);
     }
@@ -269,7 +269,7 @@ ssize_t eval_assign_or(struct stack_item_s *a1, struct stack_item_s *a2) {
 
 ssize_t do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
     ssize_t val = long_value(a1);
-    char buf[16];
+    char buf[32];
     if (pre) {
         if (add) {
             val++;

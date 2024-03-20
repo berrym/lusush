@@ -1,6 +1,9 @@
 project('lusush',
         'c',
-        default_options: 'c_std=c99',
+        default_options: ['c_std=c99',
+                          'optimization=1',
+                          'warning_level=1'
+                         ],
         version: '0.1.2',
         license: 'MIT')
 
@@ -38,7 +41,6 @@ endif
 add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
-add_project_arguments('-Dwarning_level=everything', language: 'c')
 
 lusush_exe = executable('lusush',
                         src,

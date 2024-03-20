@@ -107,7 +107,7 @@ symtable_entry_s *add_to_symtable(char *symbol) {
     if (!entry->name)
         error_abort("add_to_symtable");
 
-    strncpy(entry->name, symbol, strlen(symbol) + 1);
+    strcpy(entry->name, symbol);
 
     if (!st->head) {
         st->head = entry;

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;
@@ -282,7 +283,7 @@ token_s *tokenize(source_s *src) {
     return tok;
 }
 
-token_s *get_current_token(void) { return cur_tok ?: &eof_token; }
+token_s *get_current_token(void) { return cur_tok ? cur_tok : &eof_token; }
 
 token_s *get_previous_token(void) { return prev_tok; }
 

@@ -64,7 +64,7 @@ char *search_path(char *fn) {
     return NULL;
 }
 
-int do_exec_cmd(int argc, char **argv) {
+int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     if (strchr(*argv, '/')) {
         execv(*argv, argv);
     } else {
