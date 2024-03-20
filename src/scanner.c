@@ -83,7 +83,7 @@ char next_char(source_s *src) {
     if (src->pos == INIT_SRC_POS)
         src->pos = -1;
 
-    if (++src->pos >= src->bufsize) {
+    if ((size_t)++src->pos >= src->bufsize) {
         src->pos = src->bufsize;
         return EOF;
     }
@@ -99,7 +99,7 @@ char peek_char(source_s *src) {
 
     pos++;
 
-    if (pos >= src->bufsize)
+    if ((size_t)pos >= src->bufsize)
         return EOF;
 
     return src->buf[pos];
@@ -119,7 +119,7 @@ void add_to_buf(char c) {
         return;
 
     tok_buf[tok_bufindex++] = c;
-    if (tok_bufindex > tok_bufsize) {
+    if ((size_t)tok_bufindex > tok_bufsize) {
         tmp = realloc(tok_buf, tok_bufsize * 2);
         if (tmp == NULL) {
             error_return("add_to_buf");
@@ -268,7 +268,7 @@ token_s *tokenize(source_s *src) {
     if (tok_bufindex == 0)
         return &eof_token;
 
-    if (tok_bufindex >= tok_bufsize)
+    if ((size_t)tok_bufindex >= tok_bufsize)
         tok_bufindex--;
 
     tok_buf[tok_bufindex] = '\0';

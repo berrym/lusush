@@ -716,7 +716,7 @@ char *var_expand(char *orig_var_name) {
 
     // copy the varname to a buffer
     char var_name[len + 1];
-    strncpy(var_name, orig_var_name, len);
+    memcpy(var_name, orig_var_name, len);
     var_name[len] = '\0';
 
     // commence variable substitution.

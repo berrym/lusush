@@ -1,8 +1,8 @@
 project('lusush',
         'c',
         default_options: ['c_std=c99',
-                          'optimization=1',
-                          'warning_level=1'
+                          'optimization=3',
+                          'warning_level=2'
                          ],
         version: '0.1.2',
         license: 'MIT')
