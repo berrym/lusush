@@ -1416,6 +1416,16 @@ void remove_quotes(struct word_s *wordlist) {
                         delete_char_at(p, 0);
                         p++;
                         break;
+                    case 'n':
+                        delete_char_at(p, 0);
+                        *p = '\n';
+                        p++;
+                        break;
+                    case 't':
+                        delete_char_at(p, 0);
+                        *p = '\t';
+                        p++;
+                        break;
                     default:
                         p++;
                         break;
