@@ -1,6 +1,6 @@
 #include "../../include/alias.h"
 #include "../../include/errors.h"
-#include "../../include/ht.h"
+#include "../../include/libhashtable/ht.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
 #include <ctype.h>
@@ -8,7 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-ht_s *aliases = NULL; // Hash table for storing aliases
+ht_strstr_t *aliases = NULL;    // alias hash table
+ht_enum_t *aliases_e = NULL;    // alias enumeration object
 
 /**
  * init_aliases:
@@ -16,7 +17,7 @@ ht_s *aliases = NULL; // Hash table for storing aliases
  */
 void init_aliases(void) {
     if (aliases == NULL)
-        aliases = ht_create();
+        aliases = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
 
     set_alias("ll", "ls -alF");
     set_alias("..", "cd ..");
@@ -27,15 +28,15 @@ void init_aliases(void) {
  * free_aliases:
  *      Delete the entire alias hash table.
  */
-void free_aliases(void) { ht_destroy(aliases); }
+void free_aliases(void) { ht_strstr_destroy(aliases); }
 
 /**
  * lookup_alias:
  *      Find the alias value associated with a given key name,
  */
 char *lookup_alias(const char *key) {
-    char *val = ht_search(aliases, key);
-    return val;
+    const char *val = ht_strstr_get(aliases, key);
+    return (char *)val;
 }
 
 /**
@@ -43,8 +44,12 @@ char *lookup_alias(const char *key) {
  *      Print out the entire hash table of aliases.
  */
 void print_aliases(void) {
+    const char *k = NULL, *v = NULL;
+    aliases_e = ht_strstr_enum_create(aliases);
     printf("aliases:\n");
-    ht_print(aliases);
+    while (ht_strstr_enum_next(aliases_e, &k, &v))
+        printf("%s='%s'\n", k, v);
+    ht_strstr_enum_destroy(aliases_e);
 }
 
 /**
@@ -52,9 +57,10 @@ void print_aliases(void) {
  *      Insert a new key-value pair into the hash table.
  */
 bool set_alias(const char *key, const char *val) {
-    if (!ht_insert(aliases, key, val))
+    ht_strstr_insert(aliases, key, val);
+    char *alias = lookup_alias(key);
+    if (alias == NULL)
         return false;
-
     return true;
 }
 
@@ -62,7 +68,7 @@ bool set_alias(const char *key, const char *val) {
  * unset_alias:
  *      Remove an entry from the hash table.
  */
-void unset_alias(const char *key) { ht_delete(aliases, key); }
+void unset_alias(const char *key) { ht_strstr_remove(aliases, key); };
 
 /**
  * valid_alias_name:
