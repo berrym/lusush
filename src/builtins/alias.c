@@ -1,23 +1,26 @@
 #include "../../include/alias.h"
+
 #include "../../include/errors.h"
 #include "../../include/libhashtable/ht.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-ht_strstr_t *aliases = NULL;    // alias hash table
-ht_enum_t *aliases_e = NULL;    // alias enumeration object
+ht_strstr_t *aliases = NULL; // alias hash table
+ht_enum_t *aliases_e = NULL; // alias enumeration object
 
 /**
  * init_aliases:
  *      Initialization code for aliases hash table, set some aliases.
  */
 void init_aliases(void) {
-    if (aliases == NULL)
+    if (aliases == NULL) {
         aliases = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
+    }
 
     set_alias("ll", "ls -alF");
     set_alias("..", "cd ..");
@@ -47,8 +50,9 @@ void print_aliases(void) {
     const char *k = NULL, *v = NULL;
     aliases_e = ht_strstr_enum_create(aliases);
     printf("aliases:\n");
-    while (ht_strstr_enum_next(aliases_e, &k, &v))
+    while (ht_strstr_enum_next(aliases_e, &k, &v)) {
         printf("%s='%s'\n", k, v);
+    }
     ht_strstr_enum_destroy(aliases_e);
 }
 
@@ -59,8 +63,9 @@ void print_aliases(void) {
 bool set_alias(const char *key, const char *val) {
     ht_strstr_insert(aliases, key, val);
     char *alias = lookup_alias(key);
-    if (alias == NULL)
+    if (alias == NULL) {
         return false;
+    }
     return true;
 }
 
@@ -71,22 +76,43 @@ bool set_alias(const char *key, const char *val) {
 void unset_alias(const char *key) { ht_strstr_remove(aliases, key); };
 
 /**
+ * valid_name_char:
+ *      Check that a character is valid for an alias name.
+ */
+bool valid_alias_name_char(char c) {
+    switch (c) {
+    case '.':
+    case '_':
+    case '!':
+    case '%':
+    case ',':
+    case '@':
+        return true;
+    default:
+        if (isalnum((int)c)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+/**
  * valid_alias_name:
  *      Check that an alias key name consists of valid characters.
  */
 bool valid_alias_name(const char *key) {
     const char *p = key;
 
-    if (!*p)
+    if (!*p) {
         return false;
+    }
 
     while (*p) {
-        if (isalnum((int)*p) || *p == '.' || *p == '_' || *p == '!' ||
-            *p == '%' || *p == ',' || *p == '@') {
-            p++;
-        } else {
+        if (!valid_alias_name_char(*p)) {
             return false;
         }
+        p++;
     }
 
     return true;
@@ -140,9 +166,11 @@ char *src_str_from_argv(size_t argc, char **argv, const char *sep) {
  *      return then char value found, or NUL byte.
  */
 char find_opening_quote_type(char *src) {
-    for (char *p = src; *p; p++)
-        if (*p == '\'' || *p == '\"')
+    for (char *p = src; *p; p++) {
+        if (*p == '\'' || *p == '\"') {
             return *p;
+        }
+    }
 
     return '\0';
 }
@@ -174,11 +202,13 @@ char *parse_alias_var_name(char *src) {
         sp = p;
 
         // Fill tokens seperated by whitespace, grow buffer if necessary
-        while (!isspace((int)*p) && *p != '=')
+        while (!isspace((int)*p) && *p != '=') {
             argv[argc][cpos] = *p, p++, cpos++;
+        }
 
         null_terminate_str(argv[argc]);
         argc++, cpos = 0;
+
         if (argc == targc) {
             if (!check_buffer_bounds(&argc, &targc, &argv)) {
                 error_message("error: `alias`: insufficient memory to complete "
@@ -223,8 +253,9 @@ char *parse_alias_var_name(char *src) {
             }
 
             // Ignore parsed empty string tokens
-            while (!*argv[argc])
+            while (!*argv[argc]) {
                 argc--;
+            }
 
             var = strdup(argv[argc]);
             if (var == NULL) {
@@ -255,18 +286,20 @@ char *parse_alias_var_value(char *src, const char delim) {
         return NULL;
     }
 
-    for (char *p = src; *p; p++) {          // for each char in line
-        if (sp == NULL && *p == delim)      // find first delimeter
-            sp = p, sp++;                   // set start ptr
-        else if (ep == NULL && *p == delim) // find second delimeter
-            ep = p;                         // set end ptr
+    for (char *p = src; *p; p++) {              // for each char in line
+        if (sp == NULL && *p == delim) {        // find first delimeter
+            sp = p, sp++;                       // set start ptr
+        } else if (ep == NULL && *p == delim) { // find second delimeter
+            ep = p;                             // set end ptr
+        }
 
         if (sp && ep) {               // if both set
             char substr[ep - sp + 1]; // declare substr
             p = sp;
 
-            for (size_t i = 0; p < ep; i++, p++) // copy to substr
+            for (size_t i = 0; p < ep; i++, p++) { // copy to substr
                 substr[i] = *p;
+            }
 
             substr[ep - sp] = '\0'; // nul-terminate
 

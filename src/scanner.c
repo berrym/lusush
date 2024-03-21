@@ -1,7 +1,9 @@
 #include "../include/scanner.h"
+
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/strings.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -53,8 +55,9 @@ bool is_seperator_tok(token_type_e type) {
 token_s *dup_token(token_s *tok) {
     token_s *new_tok = NULL;
 
-    if (tok == NULL)
+    if (tok == NULL) {
         return NULL;
+    }
 
     new_tok = calloc(1, sizeof(token_s));
     if (new_tok == NULL) {
@@ -73,15 +76,17 @@ token_s *dup_token(token_s *tok) {
 }
 
 void unget_char(source_s *src) {
-    if (!src->pos)
+    if (!src->pos) {
         return;
+    }
 
     src->pos--;
 }
 
 char next_char(source_s *src) {
-    if (src->pos == INIT_SRC_POS)
+    if (src->pos == INIT_SRC_POS) {
         src->pos = -1;
+    }
 
     if ((size_t)++src->pos >= src->bufsize) {
         src->pos = src->bufsize;
@@ -94,13 +99,15 @@ char next_char(source_s *src) {
 char peek_char(source_s *src) {
     ssize_t pos = src->pos;
 
-    if (pos == INIT_SRC_POS)
+    if (pos == INIT_SRC_POS) {
         pos++;
+    }
 
     pos++;
 
-    if ((size_t)pos >= src->bufsize)
+    if ((size_t)pos >= src->bufsize) {
         return EOF;
+    }
 
     return src->buf[pos];
 }
@@ -108,15 +115,17 @@ char peek_char(source_s *src) {
 void skip_whitespace(source_s *src) {
     char c;
 
-    while (((c = peek_char(src)) != EOF) && isspace((int)c))
+    while (((c = peek_char(src)) != EOF) && isspace((int)c)) {
         next_char(src);
+    }
 }
 
 void add_to_buf(char c) {
     char *tmp = NULL;
 
-    if (tok_buf == NULL)
+    if (tok_buf == NULL) {
         return;
+    }
 
     tok_buf[tok_bufindex++] = c;
     if ((size_t)tok_bufindex > tok_bufsize) {
@@ -169,8 +178,9 @@ token_s *create_token(char *s) {
 }
 
 void free_token(token_s *tok) {
-    if (tok->text)
+    if (tok->text) {
         free_str(tok->text);
+    }
     free(tok);
     tok = NULL;
 }
@@ -178,14 +188,16 @@ void free_token(token_s *tok) {
 token_s *tokenize(source_s *src) {
     bool loop = true;
 
-    if (src == NULL || src->buf == NULL || !src->bufsize)
+    if (src == NULL || src->buf == NULL || !src->bufsize) {
         return &eof_token;
+    }
 
     if (tok_buf == NULL) {
         tok_bufsize = MAXLINE + 1;
         tok_buf = alloc_str(tok_bufsize, false);
-        if (tok_buf == NULL)
+        if (tok_buf == NULL) {
             return &eof_token;
+        }
     }
 
     tok_bufindex = 0;
@@ -195,8 +207,9 @@ token_s *tokenize(source_s *src) {
     char nc2;
     size_t i;
 
-    if (nc == ERRCHAR || nc == EOF)
+    if (nc == ERRCHAR || nc == EOF) {
         return &eof_token;
+    }
 
     do {
         switch (nc) {
@@ -246,14 +259,16 @@ token_s *tokenize(source_s *src) {
             break;
         case ' ':
         case '\t':
-            if (tok_bufindex > 0)
+            if (tok_bufindex > 0) {
                 loop = false;
+            }
             break;
         case '\n':
-            if (tok_bufindex > 0)
+            if (tok_bufindex > 0) {
                 unget_char(src);
-            else
+            } else {
                 add_to_buf(nc);
+            }
             loop = false;
             break;
         default:
@@ -261,15 +276,18 @@ token_s *tokenize(source_s *src) {
             break;
         }
 
-        if (!loop)
+        if (!loop) {
             break;
+        }
     } while ((nc = next_char(src)) != EOF);
 
-    if (tok_bufindex == 0)
+    if (tok_bufindex == 0) {
         return &eof_token;
+    }
 
-    if ((size_t)tok_bufindex >= tok_bufsize)
+    if ((size_t)tok_bufindex >= tok_bufsize) {
         tok_bufindex--;
+    }
 
     tok_buf[tok_bufindex] = '\0';
 

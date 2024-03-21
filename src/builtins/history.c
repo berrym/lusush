@@ -1,10 +1,10 @@
 #include "../../include/history.h"
+
 #include "../../include/errors.h"
-#include "../../include/exec.h"
+#include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
-#include "../../include/third_party/linenoise.h"
-#include <errno.h>
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,16 +43,18 @@ void init_history(void) {
 
     // Make sure the history file exists with proper permissions
     fd = open(fn, O_CREAT | O_WRONLY | O_EXCL, S_IRUSR | S_IWUSR);
-    if (fd > 0)
+    if (fd > 0) {
         close(fd);
+    }
     chmod(fn, S_IRUSR | S_IWUSR);
 
     // Set maximum lines of history
     linenoiseHistorySetMaxLen(10000);
 
     // Read the history file
-    if (linenoiseHistoryLoad(fn) != 0)
+    if (linenoiseHistoryLoad(fn) != 0) {
         error_return("init_history");
+    }
 
     free_str(fn);
 }
@@ -62,8 +64,9 @@ void init_history(void) {
  *      Add a line of history to the linenoise history buffer.
  */
 void history_add(const char *line) {
-    if (line == NULL)
+    if (line == NULL) {
         return;
+    }
 
     linenoiseHistoryAdd(line);
 }
@@ -99,8 +102,9 @@ char *history_lookup(const char *s) {
         return NULL;
     }
     idx -= 2;
-    if (idx < 0)
+    if (idx < 0) {
         idx = 0;
+    }
 
     line = linenoiseHistoryGet(idx);
     if (line == NULL) {

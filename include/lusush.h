@@ -2,6 +2,7 @@
 #define LUSUSH_H
 
 #include "scanner.h"
+
 #include <glob.h>
 #include <stdbool.h>
 #include <sys/types.h>

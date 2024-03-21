@@ -3,12 +3,14 @@
  */
 
 #include "../include/lusush.h"
+
 #include "../include/exec.h"
 #include "../include/init.h"
 #include "../include/input.h"
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/scanner.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,14 +49,16 @@ int parse_and_execute(source_s *src) {
 
     token_s *tok = tokenize(src);
 
-    if (tok == &eof_token)
+    if (tok == &eof_token) {
         return 0;
+    }
 
     while (tok && tok != &eof_token) {
         node_s *cmd = parse_command(tok);
 
-        if (cmd == NULL)
+        if (cmd == NULL) {
             break;
+        }
 
         do_basic_command(cmd);
         free_node_tree(cmd);

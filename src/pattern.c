@@ -21,9 +21,8 @@
 //   This code has been modified and is being maintained for the lusush shell.
 
 #include "../include/lusush.h"
-#include <ctype.h>
+
 #include <dirent.h>
-#include <errno.h>
 #include <fnmatch.h>
 #include <glob.h>
 #include <locale.h>

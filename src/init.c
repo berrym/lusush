@@ -1,4 +1,5 @@
 #include "../include/init.h"
+
 #include "../include/alias.h"
 #include "../include/errors.h"
 #include "../include/history.h"
@@ -7,10 +8,9 @@
 #include "../include/scanner.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
-#include "../include/third_party/linenoise.h"
+
 #include <getopt.h>
 #include <locale.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,8 +36,9 @@ int shell_type(void) { return SHELL_TYPE; }
 int init(int argc, char **argv, FILE **in) {
     struct stat st; // stat buffer
 
-    if (argv == NULL)
+    if (argv == NULL) {
         exit(EXIT_FAILURE);
+    }
 
     // Set all locales according to environment
     setlocale(LC_ALL, "");
@@ -94,8 +95,9 @@ int init(int argc, char **argv, FILE **in) {
             SHELL_TYPE = INTERACTIVE_SHELL;
         } else {
             SHELL_TYPE = NORMAL_SHELL;
-            if ((*in = fopen(argv[optind], "r")) == NULL)
+            if ((*in = fopen(argv[optind], "r")) == NULL) {
                 error_syscall("error: `init`: fopen");
+            }
         }
     } else {
         optind = 0;
@@ -132,7 +134,10 @@ static int parse_opts(int argc, char **argv) {
     // string of valid short options
     const char *sopts = "h";
     // array describing valid long options
-    const struct option lopts[] = {{"help", 0, NULL, 'h'}, {NULL, 0, NULL, 0}};
+    const struct option lopts[] = {
+        {"help", 0, NULL, 'h'},
+        {  NULL, 0, NULL,   0}
+    };
 
     do {
         nopt = getopt_long(argc, argv, sopts, lopts, NULL);

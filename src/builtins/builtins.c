@@ -1,13 +1,13 @@
 #include "../../include/builtins.h"
+
 #include "../../include/alias.h"
 #include "../../include/errors.h"
-#include "../../include/exec.h"
 #include "../../include/history.h"
 #include "../../include/lusush.h"
 #include "../../include/scanner.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
-#include <limits.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,14 +15,14 @@
 
 // Table of builtin commands
 builtin builtins[] = {
-    {"exit", "exit shell", bin_exit},
-    {"help", "builtin help", bin_help},
-    {"cd", "change directory", bin_cd},
-    {"pwd", "print working directory", bin_pwd},
-    {"history", "print command history", bin_history},
-    {"alias", "set an alias", bin_alias},
-    {"unalias", "unset an alias", bin_unalias},
-    {"dump", "dump symbol table", bin_dump},
+    {   "exit",              "exit shell",    bin_exit},
+    {   "help",            "builtin help",    bin_help},
+    {     "cd",        "change directory",      bin_cd},
+    {    "pwd", "print working directory",     bin_pwd},
+    {"history",   "print command history", bin_history},
+    {  "alias",            "set an alias",   bin_alias},
+    {"unalias",          "unset an alias", bin_unalias},
+    {   "dump",       "dump symbol table",    bin_dump},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -44,8 +44,9 @@ int bin_exit(int argc __attribute__((unused)),
  */
 int bin_help(int argc __attribute__((unused)),
              char **argv __attribute__((unused))) {
-    for (size_t i = 0; i < builtins_count; i++)
+    for (size_t i = 0; i < builtins_count; i++) {
         fprintf(stderr, "\t%-10s%-40s\n", builtins[i].name, builtins[i].doc);
+    }
 
     return 0;
 }
@@ -156,8 +157,8 @@ int bin_alias(int argc __attribute__((unused)),
     if (strchr(argv[1], '=') == NULL) {
         s = lookup_alias(argv[1]); // Look up an alias given it's key
         if (s == NULL) {           // If alias not found
-            alias_usage();         // Print alias usage information
-            return 1;
+            error_message("error: `alias`: %s is not an alias", argv[1]);
+            return 1; // Return
         }
         printf("%s='%s'\n", argv[1], s); // Print the alias entry found
         return 0;
@@ -167,8 +168,9 @@ int bin_alias(int argc __attribute__((unused)),
     // Reconstruct a source string from argument vector
     src = src_str_from_argv(argc, argv, " ");
 
-    if (src == NULL)
+    if (src == NULL) {
         return 1;
+    }
 
     // Parse the alias name, the part before =
     name = parse_alias_var_name(src);
@@ -186,11 +188,19 @@ int bin_alias(int argc __attribute__((unused)),
         return 1;
     }
 
+    // Check alias is a valid name
+    if (!valid_alias_name(name)) {
+        error_message(
+            "error: `alias`: name cannot contains illegal characters");
+        return 1;
+    }
+
     // Can't alias builtin commands or keywords
     if (is_builtin(name)) {
         error_message("error: `alias`: cannot alias shell keyword: %s", name);
         return 1;
     }
+
     // Set a new alias
     if (!set_alias(name, val)) {
         error_message("error: `alias`: failed to create alias");
@@ -211,7 +221,6 @@ int bin_alias(int argc __attribute__((unused)),
  */
 int bin_unalias(int argc __attribute__((unused)),
                 char **argv __attribute__((unused))) {
-
     switch (argc) {
     case 2:
         unset_alias(argv[1]);
@@ -239,9 +248,11 @@ int bin_dump(int argc __attribute__((unused)),
  *      Check if a command name is a builtin command.
  */
 bool is_builtin(const char *name) {
-    for (size_t i = 0; i < builtins_count; i++)
-        if (strcmp(name, builtins[i].name) == 0)
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strcmp(name, builtins[i].name) == 0) {
             return true;
+        }
+    }
 
     return false;
 }

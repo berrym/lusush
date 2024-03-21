@@ -7,6 +7,7 @@
  */
 
 #include "../../include/libhashtable/ht.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -110,25 +111,29 @@ static void __ht_add_to_bucket(ht_t *ht, const void *key, const void *val,
         if (!rehash) {
             key = ht->callbacks.key_copy(key);
 
-            if (val)
+            if (val) {
                 val = ht->callbacks.val_copy(val);
+            }
         }
 
         ht->buckets[idx].key = key;
         ht->buckets[idx].val = val;
 
-        if (!rehash)
+        if (!rehash) {
             ht->used_buckets++;
+        }
     } else {
         cur = ht->buckets + idx;
 
         do {
             if (ht->keyeq(key, cur->key)) {
-                if (cur->val)
+                if (cur->val) {
                     ht->callbacks.val_free(cur->val);
+                }
 
-                if (!rehash && val)
+                if (!rehash && val) {
                     val = ht->callbacks.val_copy(val);
+                }
 
                 cur->val = val;
                 prev = NULL;
@@ -149,16 +154,18 @@ static void __ht_add_to_bucket(ht_t *ht, const void *key, const void *val,
             if (!rehash) {
                 key = ht->callbacks.key_copy(key);
 
-                if (val)
+                if (val) {
                     val = ht->callbacks.val_copy(val);
+                }
             }
 
             cur->key = key;
             cur->val = val;
             prev->next = cur;
 
-            if (!rehash)
+            if (!rehash) {
                 ht->used_buckets++;
+            }
         }
     }
 }
@@ -174,8 +181,9 @@ static void __ht_rehash(ht_t *ht) {
     size_t capacity;
 
     if (ht->used_buckets + 1 < (size_t)(ht->capacity * MAX_LOAD_FACTOR) ||
-        (ssize_t)ht->capacity >= MAX_CAPACITY)
+        (ssize_t)ht->capacity >= MAX_CAPACITY) {
         return;
+    }
 
     capacity = ht->capacity;
     buckets = ht->buckets;
@@ -187,8 +195,9 @@ static void __ht_rehash(ht_t *ht) {
     }
 
     for (size_t i = 0; i < capacity; i++) {
-        if (!buckets[i].key)
+        if (!buckets[i].key) {
             continue;
+        }
 
         __ht_add_to_bucket(ht, buckets[i].key, buckets[i].val, true);
 
@@ -218,8 +227,9 @@ ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
                 const ht_callbacks_t *callbacks, const unsigned int flags) {
     ht_t *ht = NULL;
 
-    if (!hfunc || !keyeq)
+    if (!hfunc || !keyeq) {
         return NULL;
+    }
 
     ht = calloc(1, sizeof(*ht));
     if (!ht) {
@@ -236,14 +246,18 @@ ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
     ht->callbacks.val_free = __ht_passthrough_destroy;
 
     if (callbacks) {
-        if (callbacks->key_copy)
+        if (callbacks->key_copy) {
             ht->callbacks.key_copy = callbacks->key_copy;
-        if (callbacks->key_free)
+        }
+        if (callbacks->key_free) {
             ht->callbacks.key_free = callbacks->key_free;
-        if (callbacks->val_copy)
+        }
+        if (callbacks->val_copy) {
             ht->callbacks.val_copy = callbacks->val_copy;
-        if (callbacks->val_free)
+        }
+        if (callbacks->val_free) {
             ht->callbacks.val_free = callbacks->val_free;
+        }
     }
 
     ht->capacity = INITIAL_BUCKETS;
@@ -253,10 +267,11 @@ ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
         return NULL;
     }
 
-    if (flags & HT_SEED_RANDOM)
+    if (flags & HT_SEED_RANDOM) {
         __random_seed(ht);
-    else
+    } else {
         __default_seed(ht);
+    }
 
     return ht;
 }
@@ -268,23 +283,27 @@ ht_t *ht_create(const ht_hash hfunc, const ht_keyeq keyeq,
 void ht_destroy(ht_t *ht) {
     ht_bucket_t *next = NULL, *cur = NULL;
 
-    if (!ht)
+    if (!ht) {
         return;
+    }
 
     for (size_t idx = 0; idx < ht->capacity; idx++) {
-        if (!ht->buckets[idx].key)
+        if (!ht->buckets[idx].key) {
             continue;
+        }
 
         ht->callbacks.key_free(ht->buckets[idx].key);
-        if (ht->buckets[idx].val)
+        if (ht->buckets[idx].val) {
             ht->callbacks.val_free(ht->buckets[idx].val);
+        }
 
         next = ht->buckets[idx].next;
         while (next) {
             cur = next;
             ht->callbacks.key_free(cur->key);
-            if (cur->val)
+            if (cur->val) {
                 ht->callbacks.val_free(cur->val);
+            }
             next = cur->next;
             free(cur);
             cur = NULL;
@@ -302,8 +321,9 @@ void ht_destroy(ht_t *ht) {
  *      Insert a key value pair into a table bucket.
  */
 void ht_insert(ht_t *ht, const void *key, const void *val) {
-    if (!ht || !key)
+    if (!ht || !key) {
         return;
+    }
 
     __ht_rehash(ht);
     __ht_add_to_bucket(ht, key, val, false);
@@ -322,32 +342,37 @@ void ht_insert(ht_t *ht, const void *key, const void *val) {
  *            Relink the chain if necessary.
  */
 void ht_remove(ht_t *ht, const void *key) {
-    if (!ht || !key)
+    if (!ht || !key) {
         return;
+    }
 
     ht_bucket_t *cur = NULL, *prev = NULL;
     const size_t idx = __ht_bucket_index(ht, key);
     ;
 
-    if (!ht->buckets[idx].key)
+    if (!ht->buckets[idx].key) {
         return;
+    }
 
     if (ht->keyeq(ht->buckets[idx].key, key)) {
         ht->callbacks.key_free(ht->buckets[idx].key);
-        if (ht->buckets[idx].val)
+        if (ht->buckets[idx].val) {
             ht->callbacks.val_free(ht->buckets[idx].val);
+        }
         ht->buckets[idx].key = NULL;
         ht->buckets[idx].val = NULL;
 
         cur = ht->buckets[idx].next;
         if (cur) {
             ht->buckets[idx].key = ht->callbacks.key_copy(cur->key);
-            if (cur->val)
+            if (cur->val) {
                 ht->buckets[idx].val = ht->callbacks.val_copy(cur->val);
+            }
             ht->buckets[idx].next = cur->next;
             ht->callbacks.key_free(cur->key);
-            if (cur->val)
+            if (cur->val) {
                 ht->callbacks.val_free(cur->val);
+            }
             cur->key = NULL;
             cur->val = NULL;
             free(cur);
@@ -366,8 +391,9 @@ void ht_remove(ht_t *ht, const void *key) {
         if (ht->keyeq(key, cur->key)) {
             prev->next = cur->next;
             ht->callbacks.key_free(cur->key);
-            if (cur->val)
+            if (cur->val) {
                 ht->callbacks.val_free(cur->val);
+            }
             cur->key = NULL;
             cur->val = NULL;
             free(cur);
@@ -387,14 +413,16 @@ void ht_remove(ht_t *ht, const void *key) {
  * value.
  */
 static bool __ht_get(const ht_t *ht, const void *key, void **val) {
-    if (!ht || !key)
+    if (!ht || !key) {
         return false;
+    }
 
     const ht_bucket_t *cur = NULL;
     const size_t idx = __ht_bucket_index(ht, key);
 
-    if (!ht->buckets[idx].key)
+    if (!ht->buckets[idx].key) {
         return false;
+    }
 
     cur = ht->buckets + idx;
     while (cur) {
@@ -425,8 +453,9 @@ void *ht_get(const ht_t *ht, const void *key) {
 ht_enum_t *ht_enum_create(ht_t *ht) {
     ht_enum_t *he = NULL;
 
-    if (!ht)
+    if (!ht) {
         return NULL;
+    }
 
     he = calloc(1, sizeof(*he));
     if (!he) {
@@ -456,21 +485,26 @@ ht_enum_t *ht_enum_create(ht_t *ht) {
 bool ht_enum_next(ht_enum_t *he, const void **key, const void **val) {
     const void *mykey = NULL, *myval = NULL;
 
-    if (!he || he->idx >= he->ht->capacity)
+    if (!he || he->idx >= he->ht->capacity) {
         return false;
+    }
 
-    if (!key)
+    if (!key) {
         key = &mykey;
+    }
 
-    if (!val)
+    if (!val) {
         val = &myval;
+    }
 
     if (!he->cur) {
-        while (he->idx < he->ht->capacity && !he->ht->buckets[he->idx].key)
+        while (he->idx < he->ht->capacity && !he->ht->buckets[he->idx].key) {
             he->idx++;
+        }
 
-        if (he->idx >= he->ht->capacity)
+        if (he->idx >= he->ht->capacity) {
             return false;
+        }
 
         he->cur = he->ht->buckets + he->idx;
         he->idx++;
@@ -488,8 +522,9 @@ bool ht_enum_next(ht_enum_t *he, const void **key, const void **val) {
  *      Destroy an enumeration object.
  */
 void ht_enum_destroy(ht_enum_t *he) {
-    if (!he)
+    if (!he) {
         return;
+    }
 
     free(he);
     he = NULL;

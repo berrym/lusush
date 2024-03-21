@@ -4,12 +4,12 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '0.1.3',
+        version: '0.1.4',
         license: 'MIT')
 
 inc = include_directories('include',
                           'include/libhashtable',
-                          'include/third_party')
+                          'include/linenoise')
 
 src = ['src/builtins/alias.c',
        'src/builtins/builtins.c',
@@ -34,7 +34,7 @@ src = ['src/builtins/alias.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
-       'src/third_party/linenoise.c',
+       'src/linenoise/linenoise.c',
        'src/vars.c',
        'src/wordexp.c',
       ]

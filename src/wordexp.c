@@ -1,11 +1,10 @@
+#include "../include/alias.h"
 #include "../include/errors.h"
-#include "../include/exec.h"
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+
 #include <ctype.h>
-#include <errno.h>
-#include <limits.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -95,9 +94,8 @@ char *wordlist_to_str(struct word_s *word) {
 void delete_char_at(char *str, size_t index) {
     char *p1 = str + index;
     char *p2 = p1 + 1;
-    while ((*p1++ = *p2++)) {
+    while ((*p1++ = *p2++))
         ;
-    }
 }
 
 // check if the given str is a valid name.. POSIX says a names can consist of
@@ -416,10 +414,11 @@ struct word_s *word_expand(char *orig_word) {
             strncpy(tmp, pstart, len);
             tmp[len] = '\0';
 
-            // if the string before '=' is a valid var name, we have a variable
-            // assignment.. we set in_var_assign to indicate that, and we set
-            // var_assign_eq which indicates this is the first equals sign (we
-            // use this when performing tilde expansion -- see code above).
+            // if the string before '=' is a valid var name, we have a
+            // variable assignment.. we set in_var_assign to indicate that,
+            // and we set var_assign_eq which indicates this is the first
+            // equals sign (we use this when performing tilde expansion --
+            // see code above).
             if (is_name(tmp)) {
                 in_var_assign = true;
                 var_assign_eq++;
@@ -438,7 +437,8 @@ struct word_s *word_expand(char *orig_word) {
                 break;
             }
 
-            // if inside double quotes, treat the single quote as a normal char
+            // if inside double quotes, treat the single quote as a normal
+            // char
             if (in_double_quotes) {
                 break;
             }
@@ -476,8 +476,8 @@ struct word_s *word_expand(char *orig_word) {
                     // not found. bail out
                     break;
                 }
-                // calling var_expand() might return an INVALID_VAR result which
-                // makes the following call fail.
+                // calling var_expand() might return an INVALID_VAR
+                // result which makes the following call fail.
                 if (!substitute_word(&pstart, &p, len + 2, var_expand, 0)) {
                     free(pstart);
                     return NULL;
@@ -500,9 +500,10 @@ struct word_s *word_expand(char *orig_word) {
                     // not found. bail out
                     break;
                 }
-                // otherwise, extract the expression and substitute its value.
-                // if we have one brace (i == 0), we'll perform command
-                // substitution. otherwise, arithmetic expansion.
+                // otherwise, extract the expression and substitute its
+                // value. if we have one brace (i == 0), we'll perform
+                // command substitution. otherwise, arithmetic
+                // expansion.
                 func = i ? arithm_expand : command_substitute;
                 substitute_word(&pstart, &p, len + 2, func, 0);
                 expanded = true;
@@ -737,8 +738,9 @@ char *var_expand(char *orig_var_name) {
                 tmp = sub + 1;
                 break;
             case '=': // assign the variable a value
-                // NOTE: only variables, not positional or special parameters
-                // can be assigned this way (we'll fix this later).
+                // NOTE: only variables, not positional or special
+                // parameters can be assigned this way (we'll fix this
+                // later).
                 tmp = sub + 1;
                 // assign the EXPANSION OF tmp, not tmp
                 // itself, to var_name (we'll set the value below).
@@ -947,15 +949,27 @@ char *command_substitute(char *orig_cmd) {
             if (*p1 == '\\' &&
                 (p1[1] == '$' || p1[1] == '`' || p1[1] == '\\')) {
                 char *p2 = p1, *p3 = p1 + 1;
-                while ((*p2++ = *p3++)) {
+                while ((*p2++ = *p3++))
                     ;
-                }
             }
         } while (*(++p1));
     } else {
         // remove the last closing brace
         if (cmd[cmdlen - 1] == ')') {
             cmd[cmdlen - 1] = '\0';
+        }
+    }
+
+    // Perform recursive alias expansion
+    for (;;) {
+        char *alias = lookup_alias(cmd2);
+        if (alias) {
+            char *tmp = realloc(cmd2, (strlen(cmd2) + strlen(alias) + 1) *
+                                          sizeof(char));
+            cmd2 = tmp;
+            strcpy(cmd2, alias);
+        } else {
+            break;
         }
     }
 
@@ -1212,8 +1226,8 @@ struct word_s *field_split(char *str) {
                 break;
             }
 
-            // delimit the field if we have an IFS space or delimiter char, or
-            // if we reached the end of the input string.
+            // delimit the field if we have an IFS space or delimiter char,
+            // or if we reached the end of the input string.
             if (is_IFS_char(str[i], IFS_space) ||
                 is_IFS_char(str[i], IFS_delim) || (i == len)) {
                 // copy the field text
@@ -1255,7 +1269,8 @@ struct word_s *field_split(char *str) {
                 j = i;
 
                 if (i != k && i < len) {
-                    i--; // go back one step so the loop will work correctly
+                    i--; // go back one step so the loop will work
+                         // correctly
                 }
             }
             break;
@@ -1416,10 +1431,11 @@ void remove_quotes(struct word_s *wordlist) {
                 p++;
                 break;
             case '\\':
-                if (in_double_quotes) {
+                if (in_double_quotes || parsing_alias) {
                     switch (p[1]) {
-                    // in double quotes, backslash preserves its special quoting
-                    // meaning only when followed by one of the following chars.
+                    // in double quotes, backslash preserves its special
+                    // quoting meaning only when followed by one of the
+                    // following chars.
                     case '$':
                     case '`':
                     case '"':
@@ -1429,11 +1445,19 @@ void remove_quotes(struct word_s *wordlist) {
                         p++;
                         break;
                     case 'n':
+                        if (parsing_alias) {
+                            p++;
+                            break;
+                        }
                         delete_char_at(p, 0);
                         *p = '\n';
                         p++;
                         break;
                     case 't':
+                        if (parsing_alias) {
+                            p++;
+                            break;
+                        }
                         delete_char_at(p, 0);
                         *p = '\t';
                         p++;

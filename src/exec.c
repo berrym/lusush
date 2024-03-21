@@ -1,10 +1,12 @@
 #include "../include/exec.h"
+
 #include "../include/alias.h"
 #include "../include/builtins.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/strings.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,13 +20,15 @@ char *search_path(char *fn) {
 
     while (p && *p) {
         p2 = p;
-        while (*p2 && *p2 != ':')
+        while (*p2 && *p2 != ':') {
             p2++;
+        }
 
         size_t plen = p2 - p;
 
-        if (!plen)
+        if (!plen) {
             plen = 1;
+        }
 
         size_t alen = strlen(fn);
         char path[plen + 1 + alen + 1];
@@ -32,8 +36,9 @@ char *search_path(char *fn) {
         strncpy(path, p, p2 - p);
         path[p2 - p] = '\0';
 
-        if (p2[-1] != '/')
+        if (p2[-1] != '/') {
             strcat(path, "/");
+        }
 
         strcat(path, fn);
 
@@ -43,20 +48,23 @@ char *search_path(char *fn) {
             if (!S_ISREG(st.st_mode)) {
                 errno = ENOENT;
                 p = p2;
-                if (*p2 == ':')
+                if (*p2 == ':') {
                     p++;
+                }
                 continue;
             }
 
-            if (!(p = alloc_str(strlen(path) + 1, false)))
+            if (!(p = alloc_str(strlen(path) + 1, false))) {
                 return NULL;
+            }
 
             strcpy(p, path);
             return p;
         } else {
             p = p2;
-            if (*p2 == ':')
+            if (*p2 == ':') {
                 p++;
+            }
         }
     }
 
@@ -70,22 +78,25 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     } else {
         char *path = search_path(*argv);
 
-        if (path == NULL)
+        if (path == NULL) {
             return 1;
+        }
 
         execv(path, argv);
-        error_return("do_exec_cmd");
+        error_return("error: `do_exec_cmd`");
     }
 
     return 0;
 }
 
 inline void free_argv(int argc, char **argv) {
-    if (!argc)
+    if (!argc) {
         return;
+    }
 
-    while (argc--)
+    while (argc--) {
         free(argv[argc]);
+    }
 
     free(argv);
 }
@@ -94,18 +105,14 @@ int do_basic_command(node_s *n) {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
 
-    if (n == NULL)
+    if (n == NULL) {
         return 0;
+    }
 
     node_s *child = n->first_child;
 
-    if (child == NULL)
+    if (child == NULL) {
         return 0;
-
-    // Perform alias expansion now
-    char *alias = lookup_alias(child->val.str);
-    if (alias) {
-        set_node_val_str(child, alias);
     }
 
     // Parsing aliases allowing for expandable commands
@@ -115,6 +122,16 @@ int do_basic_command(node_s *n) {
     }
 
     while (child) {
+        // Perform recursive alias expansion now
+        for (;;) {
+            char *alias = lookup_alias(child->val.str);
+            if (alias) {
+                set_node_val_str(child, alias);
+            } else {
+                break;
+            }
+        }
+
         str = child->val.str;
 
         struct word_s *w = word_expand(str);
@@ -163,7 +180,7 @@ int do_basic_command(node_s *n) {
 
     if ((child_pid = fork()) == 0) {
         do_exec_cmd(argc, argv);
-        error_return("do_basic_command");
+        error_return("error: `do_basic_command`");
 
         switch (errno) {
         case ENOEXEC:
@@ -179,7 +196,7 @@ int do_basic_command(node_s *n) {
     }
 
     if (child_pid < 0) {
-        error_return("do_basic_command");
+        error_return("error: `do_basic_command`");
         free_argv(argc, argv);
         return 0;
     }

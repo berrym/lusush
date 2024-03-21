@@ -1,11 +1,12 @@
 #include "../include/input.h"
+
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/init.h"
+#include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
 #include "../include/strings.h"
-#include "../include/third_party/linenoise.h"
-#include <ctype.h>
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,11 +22,13 @@ ssize_t getline(char **restrict lineptr, size_t *restrict n,
 static char *buf = NULL, *buf2 = NULL;
 
 void free_input_buffers(void) {
-    if (buf)
+    if (buf) {
         free_str(buf);
+    }
 
-    if (buf2)
+    if (buf2) {
         free_str(buf2);
+    }
 }
 
 char *ln_gets(void) {
@@ -34,15 +37,19 @@ char *ln_gets(void) {
     while (true) {
         errno = 0;
 
-        if (line == NULL)
+        if (line == NULL) {
             line = linenoise(get_shell_varp("PS1", "% "));
+        }
 
-        if (line == NULL)
+        if (line == NULL) {
             return NULL;
+        }
 
-        if (errno == ENOENT)
-            if (shell_type() == INTERACTIVE_SHELL)
+        if (errno == ENOENT) {
+            if (shell_type() == INTERACTIVE_SHELL) {
                 exit(EXIT_SUCCESS);
+            }
+        }
 
         // Handle line continuations
         str_strip_trailing_whitespace(line);
@@ -53,12 +60,15 @@ char *ln_gets(void) {
                 strcpy(line2, line);
             }
             line = linenoise(get_shell_varp("PS2", "> "));
-            if (line == NULL)
+            if (line == NULL) {
                 return NULL;
+            }
 
-            if (errno == ENOENT)
-                if (shell_type() == INTERACTIVE_SHELL)
+            if (errno == ENOENT) {
+                if (shell_type() == INTERACTIVE_SHELL) {
                     exit(EXIT_SUCCESS);
+                }
+            }
 
             tmp = realloc(line2,
                           (strlen(line2) + strlen(line) + 1) * sizeof(char));

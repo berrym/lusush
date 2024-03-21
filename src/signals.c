@@ -1,5 +1,7 @@
 #include "../include/signals.h"
+
 #include "../include/errors.h"
+
 #include <signal.h>
 #include <unistd.h>
 

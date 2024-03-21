@@ -1,9 +1,8 @@
 #include "../include/parser.h"
-#include "../include/errors.h"
-#include "../include/lusush.h"
+
 #include "../include/node.h"
 #include "../include/scanner.h"
-#include <ctype.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,8 +13,9 @@
  *      Parse a token into a new command node.
  */
 node_s *parse_command(token_s *tok) {
-    if (tok == NULL)
+    if (tok == NULL) {
         return NULL;
+    }
 
     node_s *cmd = new_node(NODE_COMMAND);
     if (cmd == NULL) {

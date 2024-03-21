@@ -51,6 +51,7 @@
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -359,51 +360,53 @@ struct op_s {
     char chars;
 
     ssize_t (*eval)(struct stack_item_s *a1, struct stack_item_s *a2);
-} arithm_ops[] = {{CH_POST_INC, 20, ASSOC_LEFT, 1, 2, eval_postinc},
-                  {CH_POST_DEC, 20, ASSOC_LEFT, 1, 2, eval_postdec},
-                  {CH_PRE_INC, 19, ASSOC_RIGHT, 1, 2, eval_postinc},
-                  {CH_PRE_DEC, 19, ASSOC_RIGHT, 1, 2, eval_postdec},
-                  {CH_MINUS, 19, ASSOC_RIGHT, 1, 1, eval_uminus},
-                  {CH_PLUS, 19, ASSOC_RIGHT, 1, 1, eval_uplus},
-                  {'!', 19, ASSOC_RIGHT, 1, 1, eval_lognot},
-                  {'~', 19, ASSOC_RIGHT, 1, 1, eval_bitnot},
-                  {CH_EXP, 18, ASSOC_RIGHT, 0, 2, eval_exp},
-                  {'*', 17, ASSOC_LEFT, 0, 1, eval_mult},
-                  {'/', 17, ASSOC_LEFT, 0, 1, eval_div},
-                  {'%', 17, ASSOC_LEFT, 0, 1, eval_mod},
-                  {'+', 16, ASSOC_LEFT, 0, 1, eval_add},
-                  {'-', 16, ASSOC_LEFT, 0, 1, eval_sub},
-                  {CH_LSH, 15, ASSOC_LEFT, 0, 2, eval_lsh},
-                  {CH_RSH, 15, ASSOC_LEFT, 0, 2, eval_rsh},
-                  {'<', 14, ASSOC_LEFT, 0, 1, eval_lt},
-                  {CH_LE, 14, ASSOC_LEFT, 0, 2, eval_le},
-                  {'>', 14, ASSOC_LEFT, 0, 1, eval_gt},
-                  {CH_GE, 14, ASSOC_LEFT, 0, 2, eval_ge},
-                  {CH_EQ, 13, ASSOC_LEFT, 0, 2, eval_eq},
-                  {CH_NE, 13, ASSOC_LEFT, 0, 2, eval_ne},
-                  {'&', 12, ASSOC_LEFT, 0, 1, eval_bitand},
-                  {'^', 11, ASSOC_LEFT, 0, 1, eval_bitxor},
-                  {'|', 10, ASSOC_LEFT, 0, 1, eval_bitor},
-                  {CH_AND, 9, ASSOC_LEFT, 0, 2, eval_logand},
-                  {CH_OR, 8, ASSOC_LEFT, 0, 2, eval_logor},
-                  {CH_ASSIGN, 7, ASSOC_RIGHT, 0, 1, eval_assign},
-                  {CH_ASSIGN_PLUS, 7, ASSOC_RIGHT, 0, 2, eval_assign_add},
-                  {CH_ASSIGN_MINUS, 7, ASSOC_RIGHT, 0, 2, eval_assign_sub},
-                  {CH_ASSIGN_MULT, 7, ASSOC_RIGHT, 0, 2, eval_assign_mult},
-                  {CH_ASSIGN_DIV, 7, ASSOC_RIGHT, 0, 2, eval_assign_div},
-                  {CH_ASSIGN_MOD, 7, ASSOC_RIGHT, 0, 2, eval_assign_mod},
-                  {CH_ASSIGN_LSH, 7, ASSOC_RIGHT, 0, 3, eval_assign_lsh},
-                  {CH_ASSIGN_RSH, 7, ASSOC_RIGHT, 0, 3, eval_assign_rsh},
-                  {CH_ASSIGN_AND, 7, ASSOC_RIGHT, 0, 2, eval_assign_and},
-                  {CH_ASSIGN_XOR, 7, ASSOC_RIGHT, 0, 2, eval_assign_xor},
-                  {CH_ASSIGN_OR, 7, ASSOC_RIGHT, 0, 2, eval_assign_or},
+} arithm_ops[] = {
+    {    CH_POST_INC, 20,  ASSOC_LEFT, 1, 2,     eval_postinc},
+    {    CH_POST_DEC, 20,  ASSOC_LEFT, 1, 2,     eval_postdec},
+    {     CH_PRE_INC, 19, ASSOC_RIGHT, 1, 2,     eval_postinc},
+    {     CH_PRE_DEC, 19, ASSOC_RIGHT, 1, 2,     eval_postdec},
+    {       CH_MINUS, 19, ASSOC_RIGHT, 1, 1,      eval_uminus},
+    {        CH_PLUS, 19, ASSOC_RIGHT, 1, 1,       eval_uplus},
+    {            '!', 19, ASSOC_RIGHT, 1, 1,      eval_lognot},
+    {            '~', 19, ASSOC_RIGHT, 1, 1,      eval_bitnot},
+    {         CH_EXP, 18, ASSOC_RIGHT, 0, 2,         eval_exp},
+    {            '*', 17,  ASSOC_LEFT, 0, 1,        eval_mult},
+    {            '/', 17,  ASSOC_LEFT, 0, 1,         eval_div},
+    {            '%', 17,  ASSOC_LEFT, 0, 1,         eval_mod},
+    {            '+', 16,  ASSOC_LEFT, 0, 1,         eval_add},
+    {            '-', 16,  ASSOC_LEFT, 0, 1,         eval_sub},
+    {         CH_LSH, 15,  ASSOC_LEFT, 0, 2,         eval_lsh},
+    {         CH_RSH, 15,  ASSOC_LEFT, 0, 2,         eval_rsh},
+    {            '<', 14,  ASSOC_LEFT, 0, 1,          eval_lt},
+    {          CH_LE, 14,  ASSOC_LEFT, 0, 2,          eval_le},
+    {            '>', 14,  ASSOC_LEFT, 0, 1,          eval_gt},
+    {          CH_GE, 14,  ASSOC_LEFT, 0, 2,          eval_ge},
+    {          CH_EQ, 13,  ASSOC_LEFT, 0, 2,          eval_eq},
+    {          CH_NE, 13,  ASSOC_LEFT, 0, 2,          eval_ne},
+    {            '&', 12,  ASSOC_LEFT, 0, 1,      eval_bitand},
+    {            '^', 11,  ASSOC_LEFT, 0, 1,      eval_bitxor},
+    {            '|', 10,  ASSOC_LEFT, 0, 1,       eval_bitor},
+    {         CH_AND,  9,  ASSOC_LEFT, 0, 2,      eval_logand},
+    {          CH_OR,  8,  ASSOC_LEFT, 0, 2,       eval_logor},
+    {      CH_ASSIGN,  7, ASSOC_RIGHT, 0, 1,      eval_assign},
+    { CH_ASSIGN_PLUS,  7, ASSOC_RIGHT, 0, 2,  eval_assign_add},
+    {CH_ASSIGN_MINUS,  7, ASSOC_RIGHT, 0, 2,  eval_assign_sub},
+    { CH_ASSIGN_MULT,  7, ASSOC_RIGHT, 0, 2, eval_assign_mult},
+    {  CH_ASSIGN_DIV,  7, ASSOC_RIGHT, 0, 2,  eval_assign_div},
+    {  CH_ASSIGN_MOD,  7, ASSOC_RIGHT, 0, 2,  eval_assign_mod},
+    {  CH_ASSIGN_LSH,  7, ASSOC_RIGHT, 0, 3,  eval_assign_lsh},
+    {  CH_ASSIGN_RSH,  7, ASSOC_RIGHT, 0, 3,  eval_assign_rsh},
+    {  CH_ASSIGN_AND,  7, ASSOC_RIGHT, 0, 2,  eval_assign_and},
+    {  CH_ASSIGN_XOR,  7, ASSOC_RIGHT, 0, 2,  eval_assign_xor},
+    {   CH_ASSIGN_OR,  7, ASSOC_RIGHT, 0, 2,   eval_assign_or},
 
-                  /*
-                   * TODO: add the comma ',' and ternary '?:' operators.
-                   */
+ /*
+  * TODO: add the comma ',' and ternary '?:' operators.
+  */
 
-                  {'(', 0, ASSOC_NONE, 0, 1, NULL},
-                  {')', 0, ASSOC_NONE, 0, 1, NULL}};
+    {            '(',  0,  ASSOC_NONE, 0, 1,             NULL},
+    {            ')',  0,  ASSOC_NONE, 0, 1,             NULL}
+};
 
 struct op_s *OP_POST_INC = &arithm_ops[0];
 struct op_s *OP_POST_DEC = &arithm_ops[1];
@@ -1017,74 +1020,72 @@ char *arithm_expand(char *orig_expr) {
                               expr);
                 goto err;
             }
-        } else {
-            if (isspace(*expr)) {
-                expr++;
-            } else if (isdigit(*expr)) {
-                errflag = false;
-                n1 = get_num(tstart, &n2);
-                if (errflag) {
-                    goto err;
-                }
-                push_numstackl(n1);
-                if (errflag) {
-                    goto err;
-                }
-                tstart = NULL;
-                lastop = NULL;
-                expr += n2;
-            } else if (valid_name_char(*expr)) {
-                symtable_entry_s *s1 = get_var(tstart, &n2);
-                if (s1 == NULL) {
-                    error_message("error: lusush internal `arithm_expand`: "
-                                  "Failed to add symbol near: %s",
-                                  tstart);
-                    goto err;
-                }
-                errflag = false;
-                push_numstackv(s1);
-                if (errflag) {
-                    goto err;
-                }
-                tstart = NULL;
-                lastop = NULL;
-                expr += n2;
-            } else if ((op = get_op(expr))) {
-                errflag = false;
-                n1 = get_num(tstart, &n2);
-                if (errflag) {
-                    goto err;
-                }
-                push_numstackl(n1);
-                if (errflag) {
-                    goto err;
-                }
-                tstart = NULL;
-
-                /* fix the pre-post ++/-- dilemma */
-                if (op->op == CH_POST_INC || op->op == CH_POST_DEC) {
-                    /* post ++/-- has higher precedence over pre ++/-- */
-                    if (expr < baseexp + 2 || !valid_name_char(expr[-2])) {
-                        if (op == OP_POST_INC) {
-                            op = OP_PRE_INC;
-                        } else {
-                            op = OP_PRE_DEC;
-                        }
-                    }
-                }
-
-                shunt_op(op);
-                if (errflag) {
-                    goto err;
-                }
-                lastop = op;
-                expr += op->chars;
-            } else {
-                error_message("error: lusush internal `arithm_expand`: Syntax "
-                              "error near: %s",
-                              expr);
+        } else if (isspace(*expr)) {
+            expr++;
+        } else if (isdigit(*expr)) {
+            errflag = false;
+            n1 = get_num(tstart, &n2);
+            if (errflag) {
                 goto err;
             }
+            push_numstackl(n1);
+            if (errflag) {
+                goto err;
+            }
+            tstart = NULL;
+            lastop = NULL;
+            expr += n2;
+        } else if (valid_name_char(*expr)) {
+            symtable_entry_s *s1 = get_var(tstart, &n2);
+            if (s1 == NULL) {
+                error_message("error: lusush internal `arithm_expand`: "
+                              "Failed to add symbol near: %s",
+                              tstart);
+                goto err;
+            }
+            errflag = false;
+            push_numstackv(s1);
+            if (errflag) {
+                goto err;
+            }
+            tstart = NULL;
+            lastop = NULL;
+            expr += n2;
+        } else if ((op = get_op(expr))) {
+            errflag = false;
+            n1 = get_num(tstart, &n2);
+            if (errflag) {
+                goto err;
+            }
+            push_numstackl(n1);
+            if (errflag) {
+                goto err;
+            }
+            tstart = NULL;
+
+            /* fix the pre-post ++/-- dilemma */
+            if (op->op == CH_POST_INC || op->op == CH_POST_DEC) {
+                /* post ++/-- has higher precedence over pre ++/-- */
+                if (expr < baseexp + 2 || !valid_name_char(expr[-2])) {
+                    if (op == OP_POST_INC) {
+                        op = OP_PRE_INC;
+                    } else {
+                        op = OP_PRE_DEC;
+                    }
+                }
+            }
+
+            shunt_op(op);
+            if (errflag) {
+                goto err;
+            }
+            lastop = op;
+            expr += op->chars;
+        } else {
+            error_message("error: lusush internal `arithm_expand`: Syntax "
+                          "error near: %s",
+                          expr);
+            goto err;
         }
     }
 

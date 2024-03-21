@@ -1,7 +1,9 @@
 #include "../include/symtable.h"
+
 #include "../include/errors.h"
 #include "../include/node.h"
 #include "../include/strings.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,8 +19,9 @@ void init_symtable(void) {
     symtable_level = 0;
 
     global_symtable = calloc(1, sizeof(symtable_s));
-    if (global_symtable == NULL)
+    if (global_symtable == NULL) {
         error_syscall("error: `init_symtable`");
+    }
 
     symtable_stack.global_symtable = global_symtable;
     symtable_stack.local_symtable = global_symtable;
@@ -29,8 +32,9 @@ void init_symtable(void) {
 symtable_s *new_symtable(size_t level) {
     symtable_s *symtable = NULL;
     symtable = calloc(1, sizeof(symtable_s));
-    if (symtable == NULL)
+    if (symtable == NULL) {
         error_syscall("new_symtable");
+    }
     symtable->level = level;
     return symtable;
 }
@@ -38,20 +42,24 @@ symtable_s *new_symtable(size_t level) {
 void free_symtable(symtable_s *symtable) {
     symtable_entry_s *entry = NULL, *next = NULL;
 
-    if (!symtable)
+    if (!symtable) {
         return;
+    }
 
     entry = symtable->head;
 
     while (entry) {
-        if (entry->name)
+        if (entry->name) {
             free_str(entry->name);
+        }
 
-        if (entry->val)
+        if (entry->val) {
             free_str(entry->val);
+        }
 
-        if (entry->func_body)
+        if (entry->func_body) {
             free_node_tree(entry->func_body);
+        }
 
         next = entry->next;
         free(entry);
@@ -67,25 +75,27 @@ void dump_local_symtable(void) {
     symtable_s *symtable = symtable_stack.local_symtable;
     int i = 0;
     int indent = symtable->level * 4;
-    fprintf(stderr, "%*sSymbol table [Level %zu]:\r\n", indent, " ",
+
+    fprintf(stderr, "%*sSymbol table [Level %zu]:\n", indent, " ",
             symtable->level);
-    fprintf(stderr, "%*s===========================\r\n", indent, " ");
-    fprintf(stderr, "%*s  No               Symbol                    Val\r\n",
+
+    fprintf(stderr, "%*s===========================\n", indent, " ");
+
+    fprintf(stderr, "%*s  No               Symbol                    Val\n",
             indent, " ");
-    fprintf(stderr,
-            "%*s------ -------------------------------- ------------\r\n",
+
+    fprintf(stderr, "%*s------ -------------------------------- ------------\n",
             indent, " ");
 
     symtable_entry_s *entry = symtable->head;
 
     while (entry) {
-        fprintf(stderr, "%*s[%04d] %-32s '%s'\r\n", indent, " ", i++,
-                entry->name, entry->val);
+        fprintf(stderr, "%*s[%04d] %-32s '%s'\n", indent, " ", i++, entry->name,
+                entry->val);
         entry = entry->next;
     }
 
-    fprintf(stderr,
-            "%*s------ -------------------------------- ------------\r\n",
+    fprintf(stderr, "%*s------ -------------------------------- ------------\n",
             indent, " ");
 }
 
@@ -93,19 +103,23 @@ symtable_entry_s *add_to_symtable(char *symbol) {
     symtable_s *st = symtable_stack.local_symtable;
     symtable_entry_s *entry = NULL;
 
-    if (!symbol || *symbol == '\0')
+    if (!symbol || *symbol == '\0') {
         return NULL;
+    }
 
-    if ((entry = lookup_symbol(st, symbol)))
+    if ((entry = lookup_symbol(st, symbol))) {
         return entry;
+    }
 
     entry = calloc(1, sizeof(symtable_entry_s));
-    if (!entry)
+    if (!entry) {
         error_abort("add_to_symtable");
+    }
 
     entry->name = alloc_str(strlen(symbol) + 1, false);
-    if (!entry->name)
+    if (!entry->name) {
         error_abort("add_to_symtable");
+    }
 
     strcpy(entry->name, symbol);
 
@@ -124,22 +138,27 @@ int remove_from_symtable(symtable_s *symtable, symtable_entry_s *entry) {
     int res = 0;
     symtable_entry_s *e = NULL, *p = NULL;
 
-    if (!symtable)
+    if (!symtable) {
         return 1;
+    }
 
-    if (entry->name)
+    if (entry->name) {
         free_str(entry->name);
+    }
 
-    if (entry->val)
+    if (entry->val) {
         free_str(entry->val);
+    }
 
-    if (entry->func_body)
+    if (entry->func_body) {
         free_node_tree(entry->func_body);
+    }
 
     if (symtable->head == entry) {
         symtable->head = symtable->head->next;
-        if (symtable->tail == entry)
+        if (symtable->tail == entry) {
             symtable->tail = NULL;
+        }
         res = 1;
     } else {
         e = symtable->head;
@@ -162,14 +181,16 @@ int remove_from_symtable(symtable_s *symtable, symtable_entry_s *entry) {
 }
 
 symtable_entry_s *lookup_symbol(symtable_s *symtable, const char *str) {
-    if (!str || !symtable)
+    if (!str || !symtable) {
         return NULL;
+    }
 
     symtable_entry_s *entry = symtable->head;
 
     while (entry) {
-        if (strcmp(entry->name, str) == 0)
+        if (strcmp(entry->name, str) == 0) {
             return entry;
+        }
         entry = entry->next;
     }
 
@@ -183,16 +204,18 @@ symtable_entry_s *get_symtable_entry(const char *str) {
         symtable_s *symtable = symtable_stack.symtable_list[i];
         symtable_entry_s *entry = lookup_symbol(symtable, str);
 
-        if (entry)
+        if (entry) {
             return entry;
+        }
     } while (--i >= 0);
 
     return NULL;
 }
 
 void symtable_entry_setval(symtable_entry_s *entry, char *val) {
-    if (entry->val)
+    if (entry->val) {
         free(entry->val);
+    }
 
     if (!val) {
         entry->val = NULL;
@@ -200,8 +223,9 @@ void symtable_entry_setval(symtable_entry_s *entry, char *val) {
         char *val2 = NULL;
 
         val2 = calloc(strlen(val) + 1, sizeof(char));
-        if (!val2)
+        if (!val2) {
             error_syscall("symtable_entry_setval");
+        }
 
         strcpy(val2, val);
         entry->val = val2;
@@ -220,8 +244,9 @@ symtable_s *symtable_stack_push(void) {
 }
 
 symtable_s *symtable_stack_pop(void) {
-    if (symtable_stack.symtable_count == 0)
+    if (symtable_stack.symtable_count == 0) {
         return NULL;
+    }
 
     symtable_s *st =
         symtable_stack.symtable_list[symtable_stack.symtable_count - 1];

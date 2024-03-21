@@ -7,6 +7,7 @@
  */
 
 #include "../../include/libhashtable/ht.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
@@ -25,8 +26,9 @@ static uint64_t __fnv1a_hash(const void *key, uint64_t seed, bool ignore_case) {
 
     for (unsigned char *p = (unsigned char *)key; *p; p++) {
         c = (uint64_t)(*p);
-        if (ignore_case)
+        if (ignore_case) {
             c = tolower(c);
+        }
         h ^= (uint64_t)c;
         h *= FNV1A_PRIME;
     }

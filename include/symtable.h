@@ -2,6 +2,7 @@
 #define SYMTABLE_H
 
 #include "node.h"
+
 #include <stddef.h>
 
 // Type of a symbol table entry's value

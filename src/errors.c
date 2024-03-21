@@ -1,6 +1,7 @@
 #include "../include/errors.h"
+
 #include "../include/lusush.h"
-#include <ctype.h>
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -14,10 +15,14 @@
  */
 static void do_error(bool errnoflag, int err, const char *fmt, va_list args) {
     char buf[MAXLINE + 1] = {'\0'};
+    char tmp[MAXLINE + 1] = {'\0'};
+
+    strcpy(tmp, buf);
 
     vsprintf(buf, fmt, args);
-    if (errnoflag)
-        sprintf(buf, "%s: %s", buf, strerror(err));
+    if (errnoflag) {
+        sprintf(buf, "%s: %s", tmp, strerror(err));
+    }
 
     strncat(buf, "\n", 2);
     fflush(stdout); // in case stdout and stdin are the same

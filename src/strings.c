@@ -1,7 +1,9 @@
 #include "../include/strings.h"
+
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -26,14 +28,17 @@ char *get_alloced_str_direct(char *s) {
 }
 
 char *get_alloced_str(char *s) {
-    if (s == NULL)
+    if (s == NULL) {
         return NULL;
+    }
 
-    if (!*s)
+    if (!*s) {
         return empty_str;
+    }
 
-    if (*s == '\n' && s[1] == '\0')
+    if (*s == '\n' && s[1] == '\0') {
         return newline_str;
+    }
 
     if (str_list) {
         symtable_entry_s *entry = get_symtable_entry(s);
@@ -41,8 +46,9 @@ char *get_alloced_str(char *s) {
             return entry->name;
         } else {
             entry = add_to_symtable(s);
-            if (entry)
+            if (entry) {
                 return entry->name;
+            }
         }
     }
 
@@ -50,13 +56,15 @@ char *get_alloced_str(char *s) {
 }
 
 void free_alloced_str(char *s) {
-    if (s == NULL || s == empty_str || s == newline_str)
+    if (s == NULL || s == empty_str || s == newline_str) {
         return;
+    }
 
     if (str_list) {
         symtable_entry_s *entry = get_symtable_entry(s);
-        if (entry)
+        if (entry) {
             remove_from_symtable(str_list, entry);
+        }
 
         return;
     }
@@ -81,16 +89,18 @@ char *alloc_str(size_t len, bool exitflag) {
 }
 
 void free_str(char *s) {
-    if (s == NULL)
+    if (s == NULL) {
         return;
+    }
 
     free(s);
     s = NULL;
 }
 
 bool strupper(char *s) {
-    if (s == NULL)
+    if (s == NULL) {
         return false;
+    }
 
     while (*s) {
         *s = toupper(*s);
@@ -101,8 +111,9 @@ bool strupper(char *s) {
 }
 
 bool strlower(char *s) {
-    if (s == NULL)
+    if (s == NULL) {
         return false;
+    }
 
     while (*s) {
         *s = tolower(*s);
@@ -118,12 +129,14 @@ char *str_strip_whitespace(char *s) {
     for (p = s; isspace((int)*p); p++)
         ;
 
-    if (*p == '\0')
+    if (*p == '\0') {
         return p;
+    }
 
     t = p + strlen(p) - 1;
-    while (t > p && isspace((int)*t))
+    while (t > p && isspace((int)*t)) {
         t--;
+    }
 
     *++t = '\0';
 
@@ -150,15 +163,18 @@ size_t str_strip_leading_whitespace(char *s) {
     for (offset = 0; offset <= strlen(s) && isspace((int)s[offset]); offset++)
         ;
 
-    if (!offset)
+    if (!offset) {
         return 0;
+    }
 
     // Copy the rest of the string into buf
-    for (size_t i = 0; s[offset]; offset++, i++)
+    for (size_t i = 0; s[offset]; offset++, i++) {
         buf[i] = s[offset];
+    }
 
-    if (strcmp(buf, s) == 0)
+    if (strcmp(buf, s) == 0) {
         return 0;
+    }
 
     // Overwrite s with buf
     memset(s, '\0', strlen(s));
@@ -179,16 +195,19 @@ ssize_t str_strip_trailing_whitespace(char *s) {
 }
 
 void null_replace_newline(char *s) {
-    if (s == NULL || !*s)
+    if (s == NULL || !*s) {
         return;
+    }
 
-    if (s[strlen(s) - 1] == '\n')
+    if (s[strlen(s) - 1] == '\n') {
         s[strlen(s) - 1] = '\0';
+    }
 }
 
 void null_terminate_str(char *s) {
-    if (!*s)
+    if (!*s) {
         return;
+    }
 
     strncat(s, "\0", 1);
 }

@@ -2,6 +2,7 @@
 #define ERRORS_H
 
 #include "scanner.h"
+
 #include <stdarg.h>
 
 typedef enum error_code_e {

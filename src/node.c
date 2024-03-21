@@ -1,10 +1,10 @@
 #include "../include/node.h"
+
 #include "../include/errors.h"
-#include "../include/lusush.h"
 #include "../include/scanner.h"
 #include "../include/strings.h"
+
 #include <ctype.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,8 +13,9 @@
 node_s *new_node(node_type_e type) {
     node_s *node = NULL;
 
-    if ((node = calloc(1, sizeof(node_s))) == NULL)
+    if ((node = calloc(1, sizeof(node_s))) == NULL) {
         error_syscall("new_node");
+    }
 
     node->type = type;
 
@@ -22,16 +23,18 @@ node_s *new_node(node_type_e type) {
 }
 
 void add_child_node(node_s *parent, node_s *child) {
-    if (parent == NULL || child == NULL)
+    if (parent == NULL || child == NULL) {
         return;
+    }
 
     if (parent->first_child == NULL) {
         parent->first_child = child;
     } else {
         node_s *sibling = parent->first_child;
 
-        while (sibling->next_sibling)
+        while (sibling->next_sibling) {
             sibling = sibling->next_sibling;
+        }
 
         sibling->next_sibling = child;
         child->prev_sibling = sibling;
@@ -109,8 +112,9 @@ void set_node_val_str(node_s *node, char *val) {
 void free_node_tree(node_s *node) {
     node_s *child = NULL, *next = NULL;
 
-    if (!node)
+    if (!node) {
         return;
+    }
 
     child = node->first_child;
 
@@ -120,9 +124,11 @@ void free_node_tree(node_s *node) {
         child = next;
     }
 
-    if (node->val_type == VAL_STR)
-        if (node->val.str)
+    if (node->val_type == VAL_STR) {
+        if (node->val.str) {
             free_str(node->val.str);
+        }
+    }
 
     free(node);
     node = NULL;
