@@ -4,11 +4,9 @@
 
 #include "../include/lusush.h"
 
-#include "../include/exec.h"
 #include "../include/init.h"
 #include "../include/input.h"
 #include "../include/node.h"
-#include "../include/parser.h"
 #include "../include/scanner.h"
 
 #include <stdbool.h>

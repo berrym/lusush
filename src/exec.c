@@ -1,5 +1,3 @@
-#include "../include/exec.h"
-
 #include "../include/alias.h"
 #include "../include/builtins.h"
 #include "../include/errors.h"
@@ -89,18 +87,6 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     return 0;
 }
 
-inline void free_argv(int argc, char **argv) {
-    if (!argc) {
-        return;
-    }
-
-    while (argc--) {
-        free(argv[argc]);
-    }
-
-    free(argv);
-}
-
 int do_basic_command(node_s *n) {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
@@ -134,17 +120,17 @@ int do_basic_command(node_s *n) {
 
         str = child->val.str;
 
-        struct word_s *w = word_expand(str);
+        word_s *w = word_expand(str);
 
         if (w == NULL) {
             child = child->next_sibling;
             continue;
         }
 
-        const struct word_s *w2 = w;
+        const word_s *w2 = w;
         while (w2) {
             if (check_buffer_bounds(&argc, &targc, &argv)) {
-                str = calloc(strlen(w2->data) + 1, sizeof(char));
+                str = alloc_str(strlen(w2->data) + 1, false);
                 if (str) {
                     strcpy(str, w2->data);
                     argv[argc++] = str;

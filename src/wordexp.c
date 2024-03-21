@@ -19,9 +19,9 @@
 // convert the string *word to a cmd_token struct, so it can be passed to
 // functions such as word_expand().
 // returns the malloc'd cmd_token struct, or NULL if insufficient memory.
-struct word_s *make_word(char *str) {
+word_s *make_word(char *str) {
     // alloc struct memory
-    struct word_s *word = calloc(1, sizeof(struct word_s));
+    word_s *word = calloc(1, sizeof(word_s));
     if (word == NULL) {
         return NULL;
     }
@@ -46,9 +46,9 @@ struct word_s *make_word(char *str) {
 }
 
 // free the memory used by a list of words.
-void free_all_words(struct word_s *first) {
+void free_all_words(word_s *first) {
     while (first) {
-        struct word_s *del = first;
+        word_s *del = first;
         first = first->next;
 
         if (del->data) {
@@ -63,12 +63,12 @@ void free_all_words(struct word_s *first) {
 // convert a tree of tokens into a command string (i.e. re-create the original
 // command line from the token tree.
 // returns the malloc'd command string, or NULL if there is an error.
-char *wordlist_to_str(struct word_s *word) {
+char *wordlist_to_str(word_s *word) {
     if (word == NULL) {
         return NULL;
     }
     size_t len = 0;
-    const struct word_s *w = word;
+    const word_s *w = word;
     while (w) {
         len += w->len + 1;
         w = w->next;
@@ -296,7 +296,7 @@ int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
 // perform word expansion on a single word, pointed to by orig_word.
 // returns the head of the linked list of the expanded fields and stores the
 // last field in the tail pointer.
-struct word_s *word_expand(char *orig_word) {
+word_s *word_expand(char *orig_word) {
     if (orig_word == NULL) {
         return NULL;
     }
@@ -552,7 +552,7 @@ struct word_s *word_expand(char *orig_word) {
     } while (*(++p));
 
     // if we performed word expansion, do field splitting
-    struct word_s *words = NULL;
+    word_s *words = NULL;
     if (expanded) {
         words = field_split(pstart);
     }
@@ -1098,7 +1098,7 @@ void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i,
 
 // convert the words resulting from a word expansion into separate fields.
 // returns a pointer to the first field, NULL if no field splitting was done.
-struct word_s *field_split(char *str) {
+word_s *field_split(char *str) {
     const symtable_entry_s *entry = get_symtable_entry("IFS");
     char *IFS = entry ? entry->val : NULL;
     char *p;
@@ -1190,8 +1190,8 @@ struct word_s *field_split(char *str) {
         return NULL;
     }
 
-    struct word_s *first_field = NULL;
-    struct word_s *cur = NULL;
+    word_s *first_field = NULL;
+    word_s *cur = NULL;
 
     // create the fields
     i = 0;
@@ -1245,7 +1245,7 @@ struct word_s *field_split(char *str) {
                 tmp[i - j] = '\0';
 
                 // create a new struct for the field
-                struct word_s *fld = calloc(1, sizeof(struct word_s));
+                word_s *fld = calloc(1, sizeof(word_s));
                 if (fld == NULL) {
                     free(tmp);
                     return first_field;
@@ -1285,13 +1285,13 @@ struct word_s *field_split(char *str) {
 }
 
 // perform pathname expansion.
-struct word_s *pathnames_expand(struct word_s *words) {
+word_s *pathnames_expand(word_s *words) {
     if (no_word_expand) {
         return words;
     }
 
-    struct word_s *curr_word = words;
-    struct word_s *prev_word = NULL;
+    word_s *curr_word = words;
+    word_s *prev_word = NULL;
 
     while (curr_word) {
         char *p = curr_word->data;
@@ -1311,7 +1311,7 @@ struct word_s *pathnames_expand(struct word_s *words) {
             globfree(&glob);
         } else {
             // save the matches
-            struct word_s *head = NULL, *tail = NULL;
+            word_s *head = NULL, *tail = NULL;
 
             for (size_t j = 0; j < glob.gl_pathc; j++) {
                 // skip '..' and '.'
@@ -1374,7 +1374,7 @@ struct word_s *pathnames_expand(struct word_s *words) {
 }
 
 // perform quote removal.
-void remove_quotes(struct word_s *wordlist) {
+void remove_quotes(word_s *wordlist) {
     if (no_word_expand) {
         return;
     }
@@ -1384,7 +1384,7 @@ void remove_quotes(struct word_s *wordlist) {
     }
 
     bool in_double_quotes = false;
-    struct word_s *word = wordlist;
+    word_s *word = wordlist;
     char *p = NULL;
 
     while (word) {
@@ -1497,7 +1497,7 @@ char *word_expand_to_str(char *word) {
         return word;
     }
 
-    struct word_s *w = word_expand(word);
+    word_s *w = word_expand(word);
 
     if (w == NULL) {
         return NULL;

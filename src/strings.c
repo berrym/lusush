@@ -20,6 +20,30 @@ char *newline_str = "\n";
 
 void init_str_symtable(void) { str_list = new_symtable(0); }
 
+char *alloc_str(size_t len, bool exitflag) {
+    char *s = NULL;
+
+    s = calloc(len, sizeof(char));
+    if (s == NULL) {
+        if (exitflag) {
+            error_syscall("error: lusush internal `alloc_str`");
+        } else {
+            error_return("error: lusush internal `alloc_str`");
+            return NULL;
+        }
+    }
+
+    return s;
+}
+
+void free_str(char *s) {
+    if (s == NULL) {
+        return;
+    }
+
+    free(s);
+}
+
 char *get_alloced_str_direct(char *s) {
     char *s2 = NULL;
     s2 = alloc_str(strlen(s) + 1, false);
@@ -70,31 +94,6 @@ void free_alloced_str(char *s) {
     }
 
     free_str(s);
-}
-
-char *alloc_str(size_t len, bool exitflag) {
-    char *s = NULL;
-
-    s = calloc(len, sizeof(char));
-    if (s == NULL) {
-        if (exitflag) {
-            error_syscall("error: lusush internal `alloc_str`");
-        } else {
-            error_return("error: lusush internal `alloc_str`");
-            return NULL;
-        }
-    }
-
-    return s;
-}
-
-void free_str(char *s) {
-    if (s == NULL) {
-        return;
-    }
-
-    free(s);
-    s = NULL;
 }
 
 bool strupper(char *s) {
@@ -333,28 +332,25 @@ bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf) {
         } else {
             // subsequent calls. extend the buffer
             const size_t newlen = (*len) * 2;
-            char **hn2 = realloc(*buf, newlen * sizeof(char **));
-            if (hn2 == NULL) {
+            char **tmp = realloc(*buf, newlen * sizeof(char **));
+            if (tmp == NULL) {
                 return false;
             }
-            *buf = hn2;
+            *buf = tmp;
             *len = newlen;
         }
     }
     return true;
 }
 
-// free the memory used to store the strings list pointed to by buf.
-void free_buffer(size_t len, char **buf) {
-    if (!len) {
+void free_argv(size_t argc, char **argv) {
+    if (!argc) {
         return;
     }
 
-    while (len--) {
-        free(buf[len]);
-        buf[len] = NULL;
+    while (argc--) {
+        free(argv[argc]);
     }
 
-    free(buf);
-    buf = NULL;
+    free(argv);
 }

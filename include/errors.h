@@ -4,6 +4,7 @@
 #include "scanner.h"
 
 #include <stdarg.h>
+#include <stddef.h>
 
 typedef enum error_code_e {
     EXPECTED_TOKEN,

@@ -151,7 +151,7 @@ static int parse_opts(int argc, char **argv) {
         case -1:
             break;
         default:
-            error_abort("unknown error terminating\n"); // should never happen
+            error_abort("unknown error terminating"); // should never happen
         }
     } while (nopt != -1);
 
