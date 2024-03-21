@@ -237,7 +237,7 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
 
 int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
                     bool add_quotes) {
-    if (no_word_expand || parsing_alias) {
+    if (no_word_expand) {
         return 0;
     }
 
@@ -353,6 +353,10 @@ struct word_s *word_expand(char *orig_word) {
                         break;
                     case '"':
                     case '\'':
+                        if (parsing_alias) {
+                            p2++;
+                            break;
+                        }
                         i = find_closing_quote(p2);
                         if (i) {
                             tilde_quoted = true;
