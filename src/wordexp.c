@@ -252,7 +252,7 @@ int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
 
     // and expand it
     char *tmp2;
-    if (func) {
+    if (func  && !parsing_alias) {
         tmp2 = func(tmp);
         if (tmp2 == INVALID_VAR) {
             tmp2 = NULL;
