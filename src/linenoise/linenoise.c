@@ -1383,7 +1383,7 @@ int linenoiseHistoryAdd(const char *line) {
 
     // Search for a duplicate. Remove from history.
     // Note that we are cutting the new array short by one.
-    int len = history_len - 1;
+    int len = history_len - 2;
     for (int i = 1; i < len; i++) {
         if (history[i] == NULL) {
             break;
@@ -1498,7 +1498,7 @@ int linenoiseHistoryLoad(const char *filename) {
 }
 
 void linenoiseHistoryPrint(void) {
-    for (int i = 0; i < history_max_len; i++) {
+    for (int i = 0; i < history_len; i++) {
         if (history[i]) {
             printf("%-5d\t%s\n", i + 1, history[i]);
         }
@@ -1555,7 +1555,7 @@ int linenoiseHistoryDelete(int index) {
 }
 
 int linenoiseHistoryRemoveDups() {
-    int len = history_len - 1;
+    int len = history_len - 2;
     for (int i = 1; i < len; i++) {
         for (int j = i + 1; j < len; j++) {
             if (history[i] == NULL || history[j] == NULL) {
