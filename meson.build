@@ -39,12 +39,6 @@ src = ['src/builtins/alias.c',
        'src/wordexp.c',
       ]
 
-if host_machine.cpu_family() == 'x86'
-  add_project_arguments('-DX86_32_BIT_CPU', language: 'c')
-elif host_machine.cpu_family() == 'x86_64'
-  add_project_arguments('-DX86_64_BIT_CPU', language: 'c')
-endif
-
 add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
