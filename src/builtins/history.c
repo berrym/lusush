@@ -18,13 +18,13 @@ static char *__get_histfilename(void) {
     char *fn = NULL;
     char *home = get_shell_varp("HOME", "");
     if (home == NULL) {
-        error_return("error: lusus `history_save`");
+        error_return("error: `history_save`");
         return NULL;
     }
 
     fn = alloc_str(MAXLINE, true);
     if (fn == NULL) {
-        error_return("error: lusus `__get_histfilename`");
+        error_return("error: `__get_histfilename`");
         return NULL;
     }
 
@@ -49,12 +49,14 @@ void init_history(void) {
     chmod(fn, S_IRUSR | S_IWUSR);
 
     // Set maximum lines of history
-    linenoiseHistorySetMaxLen(10000);
+    linenoiseHistorySetMaxLen(1000);
 
     // Read the history file
     if (linenoiseHistoryLoad(fn) != 0) {
-        error_return("init_history");
+        error_return("error: `init_history`");
     }
+
+    linenoiseHistoryRemoveDups();
 
     free_str(fn);
 }
@@ -97,18 +99,15 @@ char *history_lookup(const char *s) {
 
     idx = atoi(s);
     if (idx < 1) {
-        error_message("error: lusus `history_lookup`: history index must be a "
+        error_message("error: `history_lookup`: history index must be a "
                       "positive value");
         return NULL;
     }
-    idx -= 2;
-    if (idx < 0) {
-        idx = 0;
-    }
+    idx--;
 
     line = linenoiseHistoryGet(idx);
     if (line == NULL) {
-        error_return("error: lusus `history_lookup`");
+        error_return("error: `history_lookup`");
         return NULL;
     }
 

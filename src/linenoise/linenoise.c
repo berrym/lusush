@@ -1381,6 +1381,18 @@ int linenoiseHistoryAdd(const char *line) {
         return 0;
     }
 
+    // Search for a duplicate. Remove from history.
+    // Note that we are cutting the new array short by one.
+    int len = history_len - 1;
+    for (int i = 1; i < len; i++) {
+        if (history[i] == NULL) {
+            break;
+        }
+        if (strcmp(history[i], line) == 0) {
+            linenoiseHistoryDelete(i);
+        }
+    }
+
     /* Add an heap allocated copy of the line in the history.
      * If we reached the max length, remove the older line. */
     linecopy = strdup(line);
@@ -1514,4 +1526,46 @@ char *linenoiseHistoryGet(int index) {
                 "error: `linenoiseHistoryGet`: history not initialized\n");
     }
     return line;
+}
+
+int linenoiseHistoryDelete(int index) {
+    if (index < 0 || index >= history_max_len) {
+        fprintf(stderr, "error: `linenoiseHistoryGet`: index %d out of range\n",
+                index);
+        return -1;
+    }
+
+    if (history[index] == NULL) {
+        return 0;
+    }
+
+    free(history[index]);
+
+    for (int i = index; i < history_max_len; i++) {
+        if ((i + 1) == history_max_len) {
+            history[i] = NULL;
+        } else {
+            history[i] = history[i + 1];
+        }
+    }
+
+    history_len--;
+
+    return 0;
+}
+
+int linenoiseHistoryRemoveDups() {
+    int len = history_len - 1;
+    for (int i = 1; i < len; i++) {
+        for (int j = i + 1; j < len; j++) {
+            if (history[i] == NULL || history[j] == NULL) {
+                continue;
+            }
+            if (strcmp(history[i], history[j]) == 0) {
+                linenoiseHistoryDelete(j);
+            }
+        }
+    }
+
+    return 0;
 }

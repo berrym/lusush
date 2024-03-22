@@ -101,6 +101,8 @@ int linenoiseHistorySave(const char *filename);
 int linenoiseHistoryLoad(const char *filename);
 void linenoiseHistoryPrint(void);
 char *linenoiseHistoryGet(int index);
+int linenoiseHistoryDelete(int index);
+int linenoiseHistoryRemoveDups(void);
 
 /* Other utilities. */
 void linenoiseClearScreen(void);
