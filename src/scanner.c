@@ -574,9 +574,20 @@ token_s *tokenize(source_s *src) {
                 while (i--) {
                     add_to_buf(next_char(src));
                 }
-            } else if (isalnum(nc) || nc == '*' || nc == '@' || nc == '#' ||
-                       nc == '!' || nc == '?' || nc == '$') {
+            } else if (isalnum(nc)) {
                 add_to_buf(next_char(src));
+            } else {
+                switch (nc) {
+                case '*':
+                case '@':
+                case '#':
+                case '!':
+                case '?':
+                case '$':
+                    add_to_buf(next_char(src));
+                default:
+                    ;
+                }
             }
             break;
         case ' ':
