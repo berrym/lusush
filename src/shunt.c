@@ -347,10 +347,8 @@ ssize_t eval_predec(struct stack_item_s *a1,
 
 enum { ASSOC_NONE = 0, ASSOC_LEFT, ASSOC_RIGHT };
 
-/*
- * see this link for C operator precedence:
- * https://en.cppreference.com/w/c/language/operator_precedence
- */
+// see this link for C operator precedence:
+// https://en.cppreference.com/w/c/language/operator_precedence
 
 struct op_s {
     char op;
@@ -400,9 +398,7 @@ struct op_s {
     {  CH_ASSIGN_XOR,  7, ASSOC_RIGHT, 0, 2,  eval_assign_xor},
     {   CH_ASSIGN_OR,  7, ASSOC_RIGHT, 0, 2,   eval_assign_or},
 
- /*
-  * TODO: add the comma ',' and ternary '?:' operators.
-  */
+    // TODO: add the comma ',' and ternary '?:' operators.
 
     {            '(',  0,  ASSOC_NONE, 0, 1,             NULL},
     {            ')',  0,  ASSOC_NONE, 0, 1,             NULL}

@@ -18,8 +18,14 @@ size_t str_strip_leading_whitespace(char *s);
 ssize_t str_strip_trailing_whitespace(char *s);
 void null_replace_newline(char *s);
 void null_terminate_str(char *s);
-char *strchr_any(char *string, char *chars);
+void delete_char_at(char *s, size_t index);
+char *strchr_any(char *s, char *chars);
+char find_opening_quote_type(char *s);
+size_t find_last_quote(char *s);
+size_t find_closing_quote(char *s);
+size_t find_closing_brace(char *s);
 char *quote_val(char *val, bool add_quotes);
+char *substitute_str(char *s1, char *s2, size_t start, size_t end);
 bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf);
 void free_argv(size_t argc, char **argv);
 

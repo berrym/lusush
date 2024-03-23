@@ -22,7 +22,7 @@ static char *__get_histfilename(void) {
         return NULL;
     }
 
-    fn = alloc_str(MAXLINE, true);
+    fn = alloc_str(MAXLINE + 1, true);
     if (fn == NULL) {
         error_return("error: `__get_histfilename`");
         return NULL;

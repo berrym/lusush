@@ -161,21 +161,6 @@ char *src_str_from_argv(size_t argc, char **argv, const char *sep) {
 }
 
 /**
- * find_opening_quote_type:
- *      Determine wether a quoted value starts with a single or double quote,
- *      return then char value found, or NUL byte.
- */
-char find_opening_quote_type(char *src) {
-    for (char *p = src; *p; p++) {
-        if (*p == '\'' || *p == '\"') {
-            return *p;
-        }
-    }
-
-    return '\0';
-}
-
-/**
  * parse_alias_var_name:
  *      Parse the word before an equal sign in a whitespace seperated
  *      token source string that represents the alias name.
@@ -197,7 +182,7 @@ char *parse_alias_var_name(char *src) {
         return NULL;
     }
 
-    for (char *p = src; p; p++) {
+    for (char *p = src; *p; p++) {
         str_skip_whitespace(p);
         sp = p;
 
@@ -264,7 +249,7 @@ char *parse_alias_var_name(char *src) {
                 break;
             }
 
-            free(argv);
+            free_argv(argc, argv);
 
             return var;
         }
@@ -276,47 +261,111 @@ char *parse_alias_var_name(char *src) {
 /**
  * parse_alias_var_value:
  *      Parse a substring between quotes that represents the alias substitution
- * value.
+ *      value.
  */
 char *parse_alias_var_value(char *src, const char delim) {
-    char *val = NULL, *sp = NULL, *ep = NULL;
+    char *val = NULL, *p = NULL, *sp = NULL, *ep = NULL;
 
-    if (!delim) {
-        error_message("error: `alias`: value not properly quoted");
+    if (delim != '\'' && delim != '\"') {
+        error_message("error: `alias`: value not properly quoted `%c'", delim);
         return NULL;
     }
 
-    for (char *p = src; *p; p++) {              // for each char in line
-        if (sp == NULL && *p == delim) {        // find first delimeter
-            sp = p, sp++;                       // set start ptr
-        } else if (ep == NULL && *p == delim) { // find second delimeter
-            ep = p;                             // set end ptr
-        }
-
-        if (sp && ep) {               // if both set
-            char substr[ep - sp + 1]; // declare substr
-            p = sp;
-
-            for (size_t i = 0; p < ep; i++, p++) { // copy to substr
-                substr[i] = *p;
-            }
-
-            substr[ep - sp] = '\0'; // nul-terminate
-
-            val = strdup(substr);
-            if (val == NULL) {
-                error_message("error: `alias`: insufficient memory to complete "
-                              "operation");
-                return NULL;
-            }
+    // find the starting quote
+    for (p = src; *p; p++) { // for each char in line
+        if (*p == delim) {   // find first delimeter
+            sp = p;          // set start ptr
             break;
         }
     }
 
-    if (ep == NULL) {
-        error_message("error: `alias`: missing closing quote");
+    if (*sp != delim) {
+        error_message("error: `alias`: no opening quote found");
         return NULL;
     }
 
+    // find the end quote
+    size_t len = find_last_quote(sp); // find distance to last quote
+    if (!len) {
+        error_message("error: `alias`: no closing quote `%c' found", delim);
+        return NULL;
+    }
+    ep = sp + len; // set the end ptr
+
+    if (*ep != delim) {
+        error_message("error: `alias`: %c does not match delimiter %c", *ep,
+                      delim);
+        return NULL;
+    }
+
+    // declare substr buffer
+    char *substr = alloc_str(ep - sp + 1, false);
+    if (substr == NULL) {
+        error_message(
+            "error: `alias`: insufficient memory to complete operation");
+        return NULL;
+    }
+
+    // move p to start of quoted value
+    p = sp + 1;
+
+    // copy quoted string to substr
+    for (size_t i = 0; p < ep; i++, p++) {
+        substr[i] = *p;
+    }
+    substr[ep - sp] = '\0'; // nul-terminate
+
+    val = substr;
+
     return val;
 }
+
+// /**
+//  * parse_alias_var_value:
+//  *      Parse a substring between quotes that represents the alias
+//  substitution
+//  * value.
+//  */
+// char *parse_alias_var_value(char *src, const char delim) {
+//     char *val = NULL, *sp = NULL, *ep = NULL;
+
+//     if (!delim) {
+//         error_message("error: `alias`: value not properly quoted");
+//         return NULL;
+//     }
+
+//     for (char *p = src; *p; p++) {              // for each char in line
+//         if (sp == NULL && *p == delim) {        // find first delimeter
+//             sp = p, sp++;                       // set start ptr
+//         } else if (ep == NULL && *p == delim) { // find second delimeter
+//             ep = p;                             // set end ptr
+//         }
+
+//         if (sp && ep) {               // if both set
+//             char substr[ep - sp + 1]; // declare substr
+//             p = sp;
+
+//             for (size_t i = 0; p < ep; i++, p++) { // copy to substr
+//                 substr[i] = *p;
+//             }
+
+//             substr[ep - sp] = '\0'; // nul-terminate
+
+//             val = strdup(substr);
+//             if (val == NULL) {
+//                 error_message("error: `alias`: insufficient memory to
+//                 complete "
+//                               "operation");
+//                 return NULL;
+//             }
+//             break;
+//         }
+//     }
+
+//     if (ep == NULL) {
+//         error_message("error: `alias`: missing closing quote");
+//         return NULL;
+//     }
+
+//     return val;
+// }

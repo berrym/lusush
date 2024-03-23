@@ -26,9 +26,9 @@ char *alloc_str(size_t len, bool exitflag) {
     s = calloc(len, sizeof(char));
     if (s == NULL) {
         if (exitflag) {
-            error_syscall("error: lusush internal `alloc_str`");
+            error_syscall("error: `alloc_str`");
         } else {
-            error_return("error: lusush internal `alloc_str`");
+            error_return("error: `alloc_str`");
             return NULL;
         }
     }
@@ -211,27 +211,178 @@ void null_terminate_str(char *s) {
     strncat(s, "\0", 1);
 }
 
-// search string for any one of the passed characters.
-// returns a char pointer to the first occurence of any of the characters,
-// NULL if none found.
-char *strchr_any(char *string, char *chars) {
-    if (string == NULL || chars == NULL) {
+// delete the character at the given index in the given str.
+void delete_char_at(char *s, size_t index) {
+    char *p1 = s + index;
+    char *p2 = p1 + 1;
+    while ((*p1++ = *p2++))
+        ;
+}
+
+/**
+ * strchr_any:
+ *      Search string for any one of the passed characters.
+ *      Returns a char pointer to the first occurence of any of the characters,
+ *      NULL if none found.
+ */
+char *strchr_any(char *s, char *chars) {
+    if (s == NULL || chars == NULL) {
         return NULL;
     }
 
-    char *s = string;
-    while (*s) {
+    char *p = s;
+    while (*p) {
         char *c = chars;
         while (*c) {
-            if (*s == *c) {
-                return s;
+            if (*p == *c) {
+                return p;
             }
             c++;
         }
-        s++;
+        p++;
     }
 
     return NULL;
+}
+
+/**
+ * find_opening_quote_type:
+ *      Determine wether a quoted value starts with a single or double quote,
+ *      return then char value found, or NUL byte.
+ */
+char find_opening_quote_type(char *s) {
+    for (char *p = s; *p; p++) {
+        if (*p == '\'' || *p == '"' || *p == '`') {
+            return *p;
+        }
+    }
+
+    return '\0';
+}
+
+/**
+ * find_last_quote:
+ *      Find the last closing quote that matches the opening quote, which is the
+ *      first char of the data string.
+ *      Returns the zero-based index of the closing quote. Return value of 0
+ *      means we didn't find the closing quote, or the quotes were imbalanced.
+ */
+size_t find_last_quote(char *s) {
+    // check the type of quote we have
+    char quote = s[0];
+    if (quote != '\'' && quote != '"' && quote != '`') {
+        return 0;
+    }
+
+    // find the matching closing quote
+    size_t i = 0, last = 0, count = 1, len = strlen(s);
+    while (++i < len) {
+        if (s[i] == quote) {
+            if (s[i - 1] == '\\') {
+                if (quote != '\'') {
+                    continue;
+                }
+            }
+            last = i;
+            count++;
+        }
+    }
+
+    // if quotes are balanced return the index of the last quote
+    if ((count % 2) == 0) {
+        return last;
+    }
+
+    return 0;
+}
+
+/**
+ * find_closing_quote:
+ *      Find the closing quote that matches the opening quote, which is the
+ *      first char of the data string.
+ *      Returns the zero-based index of the closing quote. Return value of 0
+ *      means we didn't find the closing quote, or the quotes were imbalanced.
+ */
+size_t find_closing_quote(char *s) {
+    // check the type of quote we have
+    char quote = s[0];
+    if (quote != '\'' && quote != '"' && quote != '`') {
+        return 0;
+    }
+    // find the matching closing quote
+    size_t i = 0, len = strlen(s);
+    while (++i < len) {
+        if (s[i] == quote) {
+            if (s[i - 1] == '\\') {
+                if (quote != '\'') {
+                    continue;
+                }
+            }
+            return i;
+        }
+    }
+    return 0;
+}
+
+// find the closing brace that matches the opening brace, which is the first
+// char of the data string.
+// returns the zero-based index of the closing brace.. a return value of 0
+// means we didn't find the closing brace.
+size_t find_closing_brace(char *s) {
+    // check the type of opening brace we have
+    char opening_brace = s[0], closing_brace;
+    if (opening_brace != '{' && opening_brace != '(') {
+        return 0;
+    }
+
+    // determine the closing brace according to the opening brace
+    if (opening_brace == '{') {
+        closing_brace = '}';
+    } else {
+        closing_brace = ')';
+    }
+
+    // find the matching closing brace
+    size_t ob_count = 1, cb_count = 0;
+    size_t i = 0, len = strlen(s);
+    while (++i < len) {
+        if ((s[i] == '"') || (s[i] == '\'') || (s[i] == '`')) {
+            // skip escaped quotes
+            if (s[i - 1] == '\\') {
+                continue;
+            }
+            // skip quoted substrings
+            char quote = s[i];
+            while (++i < len) {
+                if (s[i] == quote && s[i - 1] != '\\') {
+                    break;
+                }
+            }
+            if (i == len) {
+                return 0;
+            }
+            continue;
+        }
+        // keep the count of opening and closing braces
+        if (s[i - 1] != '\\') {
+            if (s[i] == opening_brace) {
+                ob_count++;
+            } else if (s[i] == closing_brace) {
+                cb_count++;
+            }
+        }
+
+        // break when we have a matching number of opening and closing braces
+        if (ob_count == cb_count) {
+            break;
+        }
+    }
+
+    if (ob_count != cb_count) {
+        return 0;
+    }
+
+    return i;
 }
 
 // return the passed string value, quoted in a format that can
@@ -273,8 +424,9 @@ char *quote_val(char *val, bool add_quotes) {
     if (add_quotes) {
         len += 2;
     }
+
     // alloc memory for quoted string
-    res = calloc(len + 1, sizeof(char));
+    res = alloc_str(len + 1, false);
     if (res == NULL) {
         return NULL;
     }
@@ -311,6 +463,7 @@ char *quote_val(char *val, bool add_quotes) {
         *p++ = '"';
     }
     *p = '\0';
+
     return res;
 }
 

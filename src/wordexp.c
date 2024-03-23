@@ -90,14 +90,6 @@ char *wordlist_to_str(word_s *word) {
     return str;
 }
 
-// delete the character at the given index in the given str.
-void delete_char_at(char *str, size_t index) {
-    char *p1 = str + index;
-    char *p2 = p1 + 1;
-    while ((*p1++ = *p2++))
-        ;
-}
-
 // check if the given str is a valid name.. POSIX says a names can consist of
 // alphanumeric chars and underscores, and start with an alphabetic char or
 // underscore. returns true if str is a valid name, false otherwise.
@@ -115,89 +107,6 @@ bool is_name(const char *str) {
     return true;
 }
 
-// find the closing quote that matches the opening quote, which is the first
-// char of the data string.
-// sq_nesting is a flag telling us if we should allow single quote nesting
-// (prohibited by POSIX, but allowed in ANSI-C strings).
-// returns the zero-based index of the closing quote.. a return value of 0
-// means we didn't find the closing quote.
-size_t find_closing_quote(char *data) {
-    // check the type of quote we have
-    char quote = data[0];
-    if (quote != '\'' && quote != '"' && quote != '`') {
-        return 0;
-    }
-    // find the matching closing quote
-    size_t i = 0, len = strlen(data);
-    while (++i < len) {
-        if (data[i] == quote) {
-            if (data[i - 1] == '\\') {
-                if (quote != '\'') {
-                    continue;
-                }
-            }
-            return i;
-        }
-    }
-    return 0;
-}
-
-// find the closing brace that matches the opening brace, which is the first
-// char of the data string.
-// returns the zero-based index of the closing brace.. a return value of 0
-// means we didn't find the closing brace.
-size_t find_closing_brace(char *data) {
-    // check the type of opening brace we have
-    char opening_brace = data[0], closing_brace;
-    if (opening_brace != '{' && opening_brace != '(') {
-        return 0;
-    }
-    // determine the closing brace according to the opening brace
-    if (opening_brace == '{') {
-        closing_brace = '}';
-    } else {
-        closing_brace = ')';
-    }
-    // find the matching closing brace
-    size_t ob_count = 1, cb_count = 0;
-    size_t i = 0, len = strlen(data);
-    while (++i < len) {
-        if ((data[i] == '"') || (data[i] == '\'') || (data[i] == '`')) {
-            // skip escaped quotes
-            if (data[i - 1] == '\\') {
-                continue;
-            }
-            // skip quoted substrings
-            char quote = data[i];
-            while (++i < len) {
-                if (data[i] == quote && data[i - 1] != '\\') {
-                    break;
-                }
-            }
-            if (i == len) {
-                return 0;
-            }
-            continue;
-        }
-        // keep the count of opening and closing braces
-        if (data[i - 1] != '\\') {
-            if (data[i] == opening_brace) {
-                ob_count++;
-            } else if (data[i] == closing_brace) {
-                cb_count++;
-            }
-        }
-        // break when we have a matching number of opening and closing braces
-        if (ob_count == cb_count) {
-            break;
-        }
-    }
-    if (ob_count != cb_count) {
-        return 0;
-    }
-    return i;
-}
-
 // substitute the substring of s1, from character start to character end,
 // with the s2 string.
 // start should point to the first char to be deleted from s1.
@@ -213,17 +122,20 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
     char before[start + 1];
     strncpy(before, s1, start);
     before[start] = '\0';
+
     // get the postfix (the part after end)
     const size_t afterlen = strlen(s1) - end + 1;
     char after[afterlen];
     strcpy(after, s1 + end + 1);
+
     // alloc memory for the new string
     const size_t totallen = start + afterlen + strlen(s2);
-    char *final = calloc(totallen + 1, sizeof(char));
+    char *final = alloc_str(totallen + 1, false);
     if (final == NULL) {
         error_return("error: `substitute_str`");
         return NULL;
     }
+
     if (!totallen) { // empty string
         final[0] = '\0';
     } else { // concatenate the three parts into one string
@@ -231,6 +143,7 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
         strcat(final, s2);
         strcat(final, after);
     }
+
     // return the new string
     return final;
 }
@@ -252,7 +165,7 @@ int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
 
     // and expand it
     char *tmp2;
-    if (func  && !parsing_alias) {
+    if (func && !parsing_alias) {
         tmp2 = func(tmp);
         if (tmp2 == INVALID_VAR) {
             tmp2 = NULL;

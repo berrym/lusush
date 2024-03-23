@@ -154,7 +154,7 @@ int bin_alias(int argc __attribute__((unused)),
     }
 
     // Print an alias entry
-    if (strchr(argv[1], '=') == NULL) {
+    if (argc == 2 && strchr(argv[1], '=') == NULL) {
         s = lookup_alias(argv[1]); // Look up an alias given it's key
         if (s == NULL) {           // If alias not found
             error_message("error: `alias`: %s is not an alias", argv[1]);

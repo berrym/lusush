@@ -56,9 +56,6 @@ typedef struct word {
 word_s *make_word(char *str);
 void free_all_words(word_s *first);
 
-size_t find_closing_quote(char *data);
-size_t find_closing_brace(char *data);
-void delete_char_at(char *str, size_t index);
 char *substitute_str(char *s1, char *s2, size_t start, size_t end);
 char *wordlist_to_str(word_s *word);
 
