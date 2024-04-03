@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         }
 
         // Create a source structure from input
-        source_s src;
+        source_t src;
         src.buf = line;
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
@@ -42,17 +42,17 @@ int main(int argc, char **argv) {
     }
 }
 
-int parse_and_execute(source_s *src) {
+int parse_and_execute(source_t *src) {
     skip_whitespace(src);
 
-    token_s *tok = tokenize(src);
+    token_t *tok = tokenize(src);
 
     if (tok == &eof_token) {
         return 0;
     }
 
     while (tok && tok != &eof_token) {
-        node_s *cmd = parse_command(tok);
+        node_t *cmd = parse_command(tok);
 
         if (cmd == NULL) {
             break;

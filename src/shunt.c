@@ -70,7 +70,7 @@ struct stack_item_s {
 
     union {
         ssize_t val;
-        symtable_entry_s *ptr;
+        symtable_entry_t *ptr;
     };
 };
 
@@ -612,7 +612,7 @@ void push_numstackl(ssize_t val) {
 /*
  * push a shell variable operand on the operand stack.
  */
-void push_numstackv(struct symtable_entry_s *val) {
+void push_numstackv(symtable_entry_t *val) {
     if (nnumstack > MAXNUMSTACK - 1) {
         error_message(
             "error: lusush internal `push_numstackv`: Number stack overflow");
@@ -880,7 +880,7 @@ ssize_t get_num(char *s, int *char_count) {
 /*
  * extract a shell variable name operand from the beginning of chars.
  */
-symtable_entry_s *get_var(char *s, int *char_count) {
+symtable_entry_t *get_var(char *s, int *char_count) {
     char *ss = s;
     if (*ss == '$') {
         ss++; /* var names can begin with '$'. skip it */
@@ -900,7 +900,7 @@ symtable_entry_s *get_var(char *s, int *char_count) {
     strncpy(name, ss, len);
     name[len] = '\0';
     /* get the symbol table entry for that var */
-    symtable_entry_s *e = get_symtable_entry(name);
+    symtable_entry_t *e = get_symtable_entry(name);
     if (e == NULL) {
         e = add_to_symtable(name);
     }
@@ -1032,7 +1032,7 @@ char *arithm_expand(char *orig_expr) {
             lastop = NULL;
             expr += n2;
         } else if (valid_name_char(*expr)) {
-            symtable_entry_s *s1 = get_var(tstart, &n2);
+            symtable_entry_t *s1 = get_var(tstart, &n2);
             if (s1 == NULL) {
                 error_message("error: lusush internal `arithm_expand`: "
                               "Failed to add symbol near: %s",

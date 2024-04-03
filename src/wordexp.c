@@ -19,9 +19,9 @@
 // convert the string *word to a cmd_token struct, so it can be passed to
 // functions such as word_expand().
 // returns the malloc'd cmd_token struct, or NULL if insufficient memory.
-word_s *make_word(char *str) {
+word_t *make_word(char *str) {
     // alloc struct memory
-    word_s *word = calloc(1, sizeof(word_s));
+    word_t *word = calloc(1, sizeof(word_t));
     if (word == NULL) {
         return NULL;
     }
@@ -46,9 +46,9 @@ word_s *make_word(char *str) {
 }
 
 // free the memory used by a list of words.
-void free_all_words(word_s *first) {
+void free_all_words(word_t *first) {
     while (first) {
-        word_s *del = first;
+        word_t *del = first;
         first = first->next;
 
         if (del->data) {
@@ -63,12 +63,12 @@ void free_all_words(word_s *first) {
 // convert a tree of tokens into a command string (i.e. re-create the original
 // command line from the token tree.
 // returns the malloc'd command string, or NULL if there is an error.
-char *wordlist_to_str(word_s *word) {
+char *wordlist_to_str(word_t *word) {
     if (word == NULL) {
         return NULL;
     }
     size_t len = 0;
-    const word_s *w = word;
+    const word_t *w = word;
     while (w) {
         len += w->len + 1;
         w = w->next;
@@ -209,7 +209,7 @@ int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
 // perform word expansion on a single word, pointed to by orig_word.
 // returns the head of the linked list of the expanded fields and stores the
 // last field in the tail pointer.
-word_s *word_expand(char *orig_word) {
+word_t *word_expand(char *orig_word) {
     if (orig_word == NULL) {
         return NULL;
     }
@@ -465,7 +465,7 @@ word_s *word_expand(char *orig_word) {
     } while (*(++p));
 
     // if we performed word expansion, do field splitting
-    word_s *words = NULL;
+    word_t *words = NULL;
     if (expanded) {
         words = field_split(pstart);
     }
@@ -504,7 +504,7 @@ char *tilde_expand(char *s) {
 
     // null tilde prefix. substitute with the value of home
     if (len == 1) {
-        const symtable_entry_s *entry = get_symtable_entry("HOME");
+        const symtable_entry_t *entry = get_symtable_entry("HOME");
         if (entry && entry->val) {
             home = entry->val;
         } else {
@@ -642,7 +642,7 @@ char *var_expand(char *orig_var_name) {
     char *tmp = NULL;
     bool setme = false;
 
-    symtable_entry_s *entry = get_symtable_entry(var_name);
+    symtable_entry_t *entry = get_symtable_entry(var_name);
     tmp = (entry && entry->val && entry->val[0]) ? entry->val : empty_val;
 
     // first case: variable is unset or empty.
@@ -1011,8 +1011,8 @@ void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i,
 
 // convert the words resulting from a word expansion into separate fields.
 // returns a pointer to the first field, NULL if no field splitting was done.
-word_s *field_split(char *str) {
-    const symtable_entry_s *entry = get_symtable_entry("IFS");
+word_t *field_split(char *str) {
+    const symtable_entry_t *entry = get_symtable_entry("IFS");
     char *IFS = entry ? entry->val : NULL;
     char *p;
 
@@ -1103,8 +1103,8 @@ word_s *field_split(char *str) {
         return NULL;
     }
 
-    word_s *first_field = NULL;
-    word_s *cur = NULL;
+    word_t *first_field = NULL;
+    word_t *cur = NULL;
 
     // create the fields
     i = 0;
@@ -1158,7 +1158,7 @@ word_s *field_split(char *str) {
                 tmp[i - j] = '\0';
 
                 // create a new struct for the field
-                word_s *fld = calloc(1, sizeof(word_s));
+                word_t *fld = calloc(1, sizeof(word_t));
                 if (fld == NULL) {
                     free(tmp);
                     return first_field;
@@ -1198,13 +1198,13 @@ word_s *field_split(char *str) {
 }
 
 // perform pathname expansion.
-word_s *pathnames_expand(word_s *words) {
+word_t *pathnames_expand(word_t *words) {
     if (no_word_expand) {
         return words;
     }
 
-    word_s *curr_word = words;
-    word_s *prev_word = NULL;
+    word_t *curr_word = words;
+    word_t *prev_word = NULL;
 
     while (curr_word) {
         char *p = curr_word->data;
@@ -1224,7 +1224,7 @@ word_s *pathnames_expand(word_s *words) {
             globfree(&glob);
         } else {
             // save the matches
-            word_s *head = NULL, *tail = NULL;
+            word_t *head = NULL, *tail = NULL;
 
             for (size_t j = 0; j < glob.gl_pathc; j++) {
                 // skip '..' and '.'
@@ -1287,7 +1287,7 @@ word_s *pathnames_expand(word_s *words) {
 }
 
 // perform quote removal.
-void remove_quotes(word_s *wordlist) {
+void remove_quotes(word_t *wordlist) {
     if (no_word_expand) {
         return;
     }
@@ -1297,7 +1297,7 @@ void remove_quotes(word_s *wordlist) {
     }
 
     bool in_double_quotes = false;
-    word_s *word = wordlist;
+    word_t *word = wordlist;
     char *p = NULL;
 
     while (word) {
@@ -1410,7 +1410,7 @@ char *word_expand_to_str(char *word) {
         return word;
     }
 
-    word_s *w = word_expand(word);
+    word_t *w = word_expand(word);
 
     if (w == NULL) {
         return NULL;

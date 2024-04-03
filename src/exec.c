@@ -87,7 +87,7 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     return 0;
 }
 
-int do_basic_command(node_s *n) {
+int do_basic_command(node_t *n) {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
 
@@ -95,7 +95,7 @@ int do_basic_command(node_s *n) {
         return 0;
     }
 
-    node_s *child = n->first_child;
+    node_t *child = n->first_child;
 
     if (child == NULL) {
         return 0;
@@ -120,14 +120,14 @@ int do_basic_command(node_s *n) {
 
         str = child->val.str;
 
-        word_s *w = word_expand(str);
+        word_t *w = word_expand(str);
 
         if (w == NULL) {
             child = child->next_sibling;
             continue;
         }
 
-        const word_s *w2 = w;
+        const word_t *w2 = w;
         while (w2) {
             if (check_buffer_bounds(&argc, &targc, &argv)) {
                 str = alloc_str(strlen(w2->data) + 1, false);

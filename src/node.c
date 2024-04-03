@@ -1,19 +1,17 @@
 #include "../include/node.h"
 
 #include "../include/errors.h"
-#include "../include/scanner.h"
 #include "../include/strings.h"
 
-#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-node_s *new_node(node_type_e type) {
-    node_s *node = NULL;
+node_t *new_node(node_type_t type) {
+    node_t *node = NULL;
 
-    if ((node = calloc(1, sizeof(node_s))) == NULL) {
+    if ((node = calloc(1, sizeof(node_t))) == NULL) {
         error_syscall("new_node");
     }
 
@@ -22,7 +20,7 @@ node_s *new_node(node_type_e type) {
     return node;
 }
 
-void add_child_node(node_s *parent, node_s *child) {
+void add_child_node(node_t *parent, node_t *child) {
     if (parent == NULL || child == NULL) {
         return;
     }
@@ -30,7 +28,7 @@ void add_child_node(node_s *parent, node_s *child) {
     if (parent->first_child == NULL) {
         parent->first_child = child;
     } else {
-        node_s *sibling = parent->first_child;
+        node_t *sibling = parent->first_child;
 
         while (sibling->next_sibling) {
             sibling = sibling->next_sibling;
@@ -43,7 +41,7 @@ void add_child_node(node_s *parent, node_s *child) {
     parent->children++;
 }
 
-void set_node_val_str(node_s *node, char *val) {
+void set_node_val_str(node_t *node, char *val) {
     node->val_type = VAL_STR;
 
     if (!val) {
@@ -58,8 +56,8 @@ void set_node_val_str(node_s *node, char *val) {
     }
 }
 
-void free_node_tree(node_s *node) {
-    node_s *child = NULL, *next = NULL;
+void free_node_tree(node_t *node) {
+    node_t *child = NULL, *next = NULL;
 
     if (!node) {
         return;

@@ -124,7 +124,7 @@ int bin_history(int argc __attribute__((unused)),
         }
 
         // Create a source struct from history entry
-        source_s src;
+        source_t src;
         src.buf = line;
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;

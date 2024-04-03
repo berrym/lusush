@@ -14,7 +14,7 @@ typedef enum error_code_e {
 typedef struct error_s {
     error_code errcode;
     size_t lineno, charno, linestart;
-    source_s *src;
+    source_t *src;
     char *desc;
 } error;
 

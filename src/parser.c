@@ -10,18 +10,18 @@
  * parse_command:
  *      Parse a token into a new command node.
  */
-node_s *parse_command(token_s *tok) {
+node_t *parse_command(token_t *tok) {
     if (tok == NULL) {
         return NULL;
     }
 
-    node_s *cmd = new_node(NODE_COMMAND);
+    node_t *cmd = new_node(NODE_COMMAND);
     if (cmd == NULL) {
         free_token(tok);
         return NULL;
     }
 
-    source_s *src = tok->src;
+    source_t *src = tok->src;
 
     do {
         if (*tok->text == '\n') {
@@ -29,7 +29,7 @@ node_s *parse_command(token_s *tok) {
             break;
         }
 
-        node_s *word = new_node(NODE_VAR);
+        node_t *word = new_node(NODE_VAR);
         if (word == NULL) {
             free_node_tree(cmd);
             free_token(tok);

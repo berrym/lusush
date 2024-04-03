@@ -62,7 +62,7 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize symbol table
     init_symtable();
 
-    symtable_entry_s *entry;
+    symtable_entry_t *entry;
     char **p = environ;
     char *eq = NULL;
     size_t len = 0;
@@ -122,7 +122,7 @@ int init(int argc, char **argv, FILE **in) {
     char ppid_str[10];
     sprintf(ppid_str, "%u", ppid);
     setenv("PPID", ppid_str, 1);
-    symtable_entry_s *ppid_entry = add_to_symtable("PPID");
+    symtable_entry_t *ppid_entry = add_to_symtable("PPID");
     symtable_entry_setval(ppid_entry, ppid_str);
     entry->flags |= FLAG_READONLY;
 

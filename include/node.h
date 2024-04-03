@@ -5,12 +5,12 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-typedef enum node_type_e {
+typedef enum {
     NODE_COMMAND,
     NODE_VAR,
-} node_type_e;
+} node_type_t;
 
-typedef enum val_type_e {
+typedef enum {
     VAL_SINT = 1,
     VAL_UINT,
     VAL_SLLONG,
@@ -19,31 +19,31 @@ typedef enum val_type_e {
     VAL_LDOUBLE,
     VAL_CHR,
     VAL_STR,
-} val_type_e;
+} val_type_t;
 
-typedef union symval_u {
+typedef union {
     ssize_t sint;
     size_t uint;
     int64_t sllong;
     uint64_t ullong;
     double sfloat;
     long double ldouble;
-    char chr;
+    char ch;
     char *str;
-} symval_u;
+} symval_t;
 
-typedef struct node_s {
-    node_type_e type;
-    val_type_e val_type;
-    symval_u val;
+typedef struct node {
+    node_type_t type;
+    val_type_t val_type;
+    symval_t val;
     size_t children;
-    struct node_s *first_child;
-    struct node_s *next_sibling, *prev_sibling;
-} node_s;
+    struct node *first_child;
+    struct node *next_sibling, *prev_sibling;
+} node_t;
 
-node_s *new_node(node_type_e);
-void add_child_node(node_s *, node_s *);
-void free_node_tree(node_s *);
-void set_node_val_str(node_s *, char *);
+node_t *new_node(node_type_t);
+void add_child_node(node_t *, node_t *);
+void free_node_tree(node_t *);
+void set_node_val_str(node_t *, char *);
 
 #endif

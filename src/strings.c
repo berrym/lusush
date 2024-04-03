@@ -12,7 +12,7 @@
 #include <sys/types.h>
 
 // Symbol table for strings
-symtable_s *str_list = NULL;
+symtable_t *str_list = NULL;
 
 // Dummy values for an empty string and a newline string
 char *empty_str = "";
@@ -65,7 +65,7 @@ char *get_alloced_str(char *s) {
     }
 
     if (str_list) {
-        symtable_entry_s *entry = get_symtable_entry(s);
+        symtable_entry_t *entry = get_symtable_entry(s);
         if (entry) {
             return entry->name;
         } else {
@@ -85,7 +85,7 @@ void free_alloced_str(char *s) {
     }
 
     if (str_list) {
-        symtable_entry_s *entry = get_symtable_entry(s);
+        symtable_entry_t *entry = get_symtable_entry(s);
         if (entry) {
             remove_from_symtable(str_list, entry);
         }

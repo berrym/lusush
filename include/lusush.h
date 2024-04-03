@@ -35,8 +35,8 @@ extern size_t keyword_count;
 extern char *operators[];
 
 // parser functions
-node_s *parse_command(token_s *tok);
-int parse_and_execute(source_s *);
+node_t *parse_command(token_t *tok);
+int parse_and_execute(source_t *);
 
 // symbol table variable functions
 char *get_shell_varp(char *, char *);
@@ -50,24 +50,24 @@ typedef struct word {
     char *data;
     size_t len;
     struct word *next;
-} word_s;
+} word_t;
 
 // word expansion functions
-word_s *make_word(char *str);
-void free_all_words(word_s *first);
+word_t *make_word(char *str);
+void free_all_words(word_t *first);
 
 char *substitute_str(char *s1, char *s2, size_t start, size_t end);
-char *wordlist_to_str(word_s *word);
+char *wordlist_to_str(word_t *word);
 
-word_s *word_expand(char *orig_word);
+word_t *word_expand(char *orig_word);
 char *word_expand_to_str(char *word);
 char *tilde_expand(char *s);
 char *command_substitute(char *orig_cmd);
 char *var_expand(char *orig_var_name);
 char *pos_params_expand(char *tmp, bool in_double_quotes);
-word_s *pathnames_expand(word_s *words);
-word_s *field_split(char *str);
-void remove_quotes(word_s *wordlist);
+word_t *pathnames_expand(word_t *words);
+word_t *field_split(char *str);
+void remove_quotes(word_t *wordlist);
 
 char *arithm_expand(char *orig_expr);
 
@@ -80,6 +80,6 @@ char **get_filename_matches(const char *pattern, glob_t *matches);
 // command execution functions
 char *search_path(char *fn);
 int do_exec_cmd(int argc, char **argv);
-int do_basic_command(node_s *n);
+int do_basic_command(node_t *n);
 
 #endif

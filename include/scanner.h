@@ -8,7 +8,7 @@
 #define INIT_SRC_POS -2
 #define ERRCHAR 0
 
-typedef struct source_s {
+typedef struct {
     char *buf;
     size_t bufsize;
     size_t curline;
@@ -17,9 +17,9 @@ typedef struct source_s {
     ssize_t pos;
     ssize_t pos_old;
     size_t wstart;
-} source_s;
+} source_t;
 
-typedef enum token_type_e {
+typedef enum {
     // general type tokes
     TOKEN_EMPTY,
     TOKEN_UNKNOWN,
@@ -88,40 +88,40 @@ typedef enum token_type_e {
     TOKEN_DSEMI_ESAC_SEMIAND_SEMIOR,
     // unknown keyword
     TOKEN_KEYWORD_NA,
-} token_type_e;
+} token_type_t;
 
-typedef struct token_s {
-    token_type_e type;
+typedef struct {
+    token_type_t type;
     size_t lineno;
     size_t charno;
     size_t linestart;
-    source_s *src;
+    source_t *src;
     size_t text_len;
     char *text;
-} token_s;
+} token_t;
 
-extern token_s eof_token;
+extern token_t eof_token;
 
-token_s *tokenize(source_s *src);
-void free_token(token_s *src);
-void set_token_type(token_s *src);
-void set_token_type(token_s *tok);
-token_s *tokenize(source_s *src);
-token_s *get_current_token(void);
-token_s *get_previous_token(void);
-token_s *dup_token(token_s *tok);
-void set_current_token(token_s *tok);
-void set_previous_token(token_s *tok);
-void free_token(token_s *tok);
-int is_token_of_type(token_s *tok, token_type_e type);
-bool is_separator_tok(token_type_e type);
+token_t *tokenize(source_t *src);
+void free_token(token_t *src);
+void set_token_type(token_t *src);
+void set_token_type(token_t *tok);
+token_t *tokenize(source_t *src);
+token_t *get_current_token(void);
+token_t *get_previous_token(void);
+token_t *dup_token(token_t *tok);
+void set_current_token(token_t *tok);
+void set_previous_token(token_t *tok);
+void free_token(token_t *tok);
+int is_token_of_type(token_t *tok, token_type_t type);
+bool is_separator_tok(token_type_t type);
 int is_keyword(char *str);
-enum token_type_e get_keyword_toktype(int index);
-char next_char(source_s *src);
-char prev_char(source_s *src);
-void unget_char(source_s *src);
-char peek_char(source_s *src);
-void skip_whitespace(source_s *src);
+token_type_t get_keyword_toktype(int index);
+char next_char(source_t *src);
+char prev_char(source_t *src);
+void unget_char(source_t *src);
+char peek_char(source_t *src);
+void skip_whitespace(source_t *src);
 void free_tok_buf(void);
 
 #endif

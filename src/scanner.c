@@ -60,17 +60,17 @@ static char *tok_buf = NULL;
 static size_t tok_bufsize = 0;
 static ssize_t tok_bufindex = -1;
 
-token_s eof_token = {
+token_t eof_token = {
     .type = TOKEN_EOF,
     .lineno = 0,
     .charno = 0,
     .text_len = 0,
 };
 
-static token_s *cur_tok = NULL;
-static token_s *prev_tok = NULL;
+static token_t *cur_tok = NULL;
+static token_t *prev_tok = NULL;
 
-bool is_seperator_tok(token_type_e type) {
+bool is_seperator_tok(token_type_t type) {
     switch (type) {
     case TOKEN_LEFT_PAREN:
     case TOKEN_RIGHT_PAREN:
@@ -124,8 +124,8 @@ int is_keyword(char *str) {
  * Set the type field of the given token, according to the value of
  * the token's text field.
  */
-void set_token_type(struct token_s *tok) {
-    enum token_type_e t = TOKEN_EMPTY;
+void set_token_type(token_t *tok) {
+    token_type_t t = TOKEN_EMPTY;
 
     if (tok->text_len == 1) { // one-char tokens
         switch (tok->text[0]) {
@@ -308,7 +308,7 @@ void set_token_type(struct token_s *tok) {
  * return is the token type describing the indexed keyword. If the
  * index is out of the keywords array bounds, we return TOKEN_KEYWORD_NA.
  */
-token_type_e get_keyword_toktype(int index) {
+token_type_t get_keyword_toktype(int index) {
     switch (index) {
     case 0:
         return TOKEN_KEYWORD_IF;
@@ -374,19 +374,19 @@ token_type_e get_keyword_toktype(int index) {
     return TOKEN_KEYWORD_NA;
 }
 
-token_s *dup_token(token_s *tok) {
-    token_s *new_tok = NULL;
+token_t *dup_token(token_t *tok) {
+    token_t *new_tok = NULL;
 
     if (tok == NULL) {
         return NULL;
     }
 
-    new_tok = calloc(1, sizeof(token_s));
+    new_tok = calloc(1, sizeof(token_t));
     if (new_tok == NULL) {
         error_return("dup_token");
         return NULL;
     }
-    memcpy(new_tok, tok, sizeof(token_s));
+    memcpy(new_tok, tok, sizeof(token_t));
 
     if (tok->text) {
         tok->text_len = strlen(tok->text);
@@ -397,7 +397,7 @@ token_s *dup_token(token_s *tok) {
     return new_tok;
 }
 
-void unget_char(source_s *src) {
+void unget_char(source_t *src) {
     if (!src->pos) {
         return;
     }
@@ -405,7 +405,7 @@ void unget_char(source_s *src) {
     src->pos--;
 }
 
-char next_char(source_s *src) {
+char next_char(source_t *src) {
     if (src->pos == INIT_SRC_POS) {
         src->pos = -1;
     }
@@ -418,7 +418,7 @@ char next_char(source_s *src) {
     return src->buf[src->pos];
 }
 
-char peek_char(source_s *src) {
+char peek_char(source_t *src) {
     ssize_t pos = src->pos;
 
     if (pos == INIT_SRC_POS) {
@@ -434,7 +434,7 @@ char peek_char(source_s *src) {
     return src->buf[pos];
 }
 
-void skip_whitespace(source_s *src) {
+void skip_whitespace(source_t *src) {
     char c;
 
     while (((c = peek_char(src)) != EOF) && isspace((int)c)) {
@@ -461,11 +461,11 @@ void add_to_buf(char c) {
     }
 }
 
-token_s *create_token(char *s) {
-    token_s *tok = NULL;
+token_t *create_token(char *s) {
+    token_t *tok = NULL;
     char *buf = NULL, *tmp = NULL;
 
-    tok = calloc(1, sizeof(token_s));
+    tok = calloc(1, sizeof(token_t));
     if (tok == NULL) {
         error_return("error: `create_token`");
         return NULL;
@@ -499,7 +499,7 @@ token_s *create_token(char *s) {
     return tok;
 }
 
-void free_token(token_s *tok) {
+void free_token(token_t *tok) {
     if (tok->text) {
         free_str(tok->text);
     }
@@ -507,7 +507,7 @@ void free_token(token_s *tok) {
     tok = NULL;
 }
 
-token_s *tokenize(source_s *src) {
+token_t *tokenize(source_t *src) {
     bool loop = true;
 
     if (src == NULL || src->buf == NULL || !src->bufsize) {
@@ -585,8 +585,7 @@ token_s *tokenize(source_s *src) {
                 case '?':
                 case '$':
                     add_to_buf(next_char(src));
-                default:
-                    ;
+                default:;
                 }
             }
             break;
@@ -624,7 +623,7 @@ token_s *tokenize(source_s *src) {
 
     tok_buf[tok_bufindex] = '\0';
 
-    token_s *tok = create_token(tok_buf);
+    token_t *tok = create_token(tok_buf);
     if (tok == NULL) {
         error_message("error: `tokenize`: failed to create new token");
         return &eof_token;
@@ -634,13 +633,13 @@ token_s *tokenize(source_s *src) {
     return tok;
 }
 
-token_s *get_current_token(void) { return cur_tok ? cur_tok : &eof_token; }
+token_t *get_current_token(void) { return cur_tok ? cur_tok : &eof_token; }
 
-token_s *get_previous_token(void) { return prev_tok; }
+token_t *get_previous_token(void) { return prev_tok; }
 
-void set_current_token(token_s *tok) { cur_tok = tok; }
+void set_current_token(token_t *tok) { cur_tok = tok; }
 
-void set_previous_token(token_s *tok) { prev_tok = tok; }
+void set_previous_token(token_t *tok) { prev_tok = tok; }
 
 void free_tok_buf(void) {
     if (tok_buf) {
