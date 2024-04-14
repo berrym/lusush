@@ -4,8 +4,10 @@
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/input.h"
+#include "../include/linenoise/encodings/utf8.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
+#include "../include/prompt.h"
 #include "../include/scanner.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
@@ -25,6 +27,7 @@ extern char **environ;
 bool exit_flag = false;
 bool no_word_expand = false;
 bool parsing_alias = false;
+bool fancy_prompt = true;
 
 // The type of shell instance
 static int SHELL_TYPE;
@@ -62,7 +65,7 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize symbol table
     init_symtable();
 
-    symtable_entry_t *entry;
+    symtable_entry_t *entry = NULL;
     char **p = environ;
     char *eq = NULL;
     size_t len = 0;
@@ -87,10 +90,11 @@ int init(int argc, char **argv, FILE **in) {
         p++;
     }
 
-    entry = add_to_symtable("PS1");
-    symtable_entry_setval(entry, "% ");
-    entry = add_to_symtable("PS2");
-    symtable_entry_setval(entry, "> ");
+    linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
+                                  linenoiseUtf8NextCharLen,
+                                  linenoiseUtf8ReadCode);
+    linenoiseSetMultiLine(1);
+    build_prompt();
 
     // Parse command line options
     size_t optind = parse_opts(argc, argv);

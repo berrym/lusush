@@ -4,6 +4,7 @@
 #include "../../include/errors.h"
 #include "../../include/history.h"
 #include "../../include/lusush.h"
+#include "../../include/prompt.h"
 #include "../../include/scanner.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
@@ -15,14 +16,15 @@
 
 // Table of builtin commands
 builtin builtins[] = {
-    {   "exit",              "exit shell",    bin_exit},
-    {   "help",            "builtin help",    bin_help},
-    {     "cd",        "change directory",      bin_cd},
-    {    "pwd", "print working directory",     bin_pwd},
-    {"history",   "print command history", bin_history},
-    {  "alias",            "set an alias",   bin_alias},
-    {"unalias",          "unset an alias", bin_unalias},
-    {   "dump",       "dump symbol table",    bin_dump},
+    {     "exit",              "exit shell",      bin_exit},
+    {     "help",            "builtin help",      bin_help},
+    {       "cd",        "change directory",        bin_cd},
+    {      "pwd", "print working directory",       bin_pwd},
+    {  "history",   "print command history",   bin_history},
+    {    "alias",            "set an alias",     bin_alias},
+    {  "unalias",          "unset an alias",   bin_unalias},
+    {"setprompt",   "set prompt attributes", bin_setprompt},
+    {     "dump",       "dump symbol table",      bin_dump},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -230,6 +232,16 @@ int bin_unalias(int argc __attribute__((unused)),
         return 1;
     }
 
+    return 0;
+}
+
+/**
+ * bin_setprompt:
+ *      Set prompt attributes.
+ */
+int bin_setprompt(int argc __attribute__((unused)),
+                  char **argv __attribute__((unused))) {
+    set_prompt(argc, argv);
     return 0;
 }
 

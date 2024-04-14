@@ -20,19 +20,13 @@
 extern bool exit_flag;
 extern bool no_word_expand;
 extern bool parsing_alias;
+extern bool fancy_prompt;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
 #define MODE_WRITE (O_RDWR | O_CREAT | O_TRUNC)
 #define MODE_APPEND (ORDWR | O_CREAT | O_APPEND)
 #define MODE_READ (O_RDONLY)
-
-// the shell command language keywords
-extern char *keywords[];
-extern size_t keyword_count;
-
-// shell command language operators
-extern char *operators[];
 
 // parser functions
 node_t *parse_command(token_t *tok);
