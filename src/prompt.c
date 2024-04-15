@@ -24,6 +24,7 @@ typedef enum {
     ANSI_FG_CYAN = 36,
     ANSI_FG_WHITE = 37,
     ANSI_FG_DEFAULT = 39,
+    FG_NONE = 0,
 } FG_COLOR;
 
 // ANSI background color values
@@ -37,6 +38,7 @@ typedef enum {
     ANSI_BG_CYAN = 46,
     ANSI_BG_WHITE = 47,
     ANSI_BG_DEFAULT = 49,
+    BG_NONE = 0,
 } BG_COLOR;
 
 // ANSI text attribute values
@@ -110,7 +112,7 @@ static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 static const char *RESET = "\x1b[0m";     // ansi color reset
 static char *colors = NULL;               // ansi color sequence
 static FG_COLOR fg_color = ANSI_FG_CYAN;  // default foreground color
-static BG_COLOR bg_color = ANSI_BG_BLACK; // default background color
+static BG_COLOR bg_color = BG_NONE; // default background color
 static TEXT_ATTRIB attr = ANSI_BOLD_ON;   // default text attributes
 
 /**
@@ -137,7 +139,7 @@ static int build_colors(void) {
         }
     }
 
-    if (!bg_color) {
+    if (bg_color == BG_NONE) {
         sprintf(colors, "%c[%d;%dm", 0x1b, attr, fg_color);
     } else {
         sprintf(colors, "%c[%d;%d;%dm", 0x1b, attr, fg_color, bg_color);
