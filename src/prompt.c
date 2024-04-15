@@ -74,7 +74,7 @@ static const prompt_opts fg_opts[] = {
     {"magenta", ANSI_FG_MAGENTA},
     {   "cyan",    ANSI_FG_CYAN},
     {  "white",   ANSI_FG_WHITE},
-    {   "none",               0}
+    {   "none",         FG_NONE}
 };
 static const int NUM_FG_OPTS = sizeof(fg_opts) / sizeof(prompt_opts);
 
@@ -88,7 +88,7 @@ static const prompt_opts bg_opts[] = {
     {"magenta", ANSI_BG_MAGENTA},
     {   "cyan",    ANSI_BG_CYAN},
     {  "white",   ANSI_BG_WHITE},
-    {   "none",               0}
+    {   "none",         BG_NONE}
 };
 static const int NUM_BG_OPTS = sizeof(bg_opts) / sizeof(prompt_opts);
 
@@ -96,7 +96,7 @@ static const int NUM_BG_OPTS = sizeof(bg_opts) / sizeof(prompt_opts);
 static const prompt_opts attr_opts[] = {
     {             "none",          ANSI_RESET_ON},
     {             "bold",           ANSI_BOLD_ON},
-    {           "italics",        ANSI_ITALICS_ON},
+    {          "italics",        ANSI_ITALICS_ON},
     {        "underline",      ANSI_UNDERLINE_ON},
     {            "blink",          ANSI_BLINK_ON},
     {          "reverse",        ANSI_INVERSE_ON},
@@ -109,11 +109,11 @@ static const prompt_opts attr_opts[] = {
 };
 static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 
-static const char *RESET = "\x1b[0m";     // ansi color reset
-static char *colors = NULL;               // ansi color sequence
-static FG_COLOR fg_color = ANSI_FG_CYAN;  // default foreground color
-static BG_COLOR bg_color = BG_NONE; // default background color
-static TEXT_ATTRIB attr = ANSI_BOLD_ON;   // default text attributes
+static const char *RESET = "\x1b[0m";    // ansi color reset
+static char *colors = NULL;              // ansi color sequence
+static FG_COLOR fg_color = ANSI_FG_CYAN; // default foreground color
+static BG_COLOR bg_color = BG_NONE;      // default background color
+static TEXT_ATTRIB attr = ANSI_BOLD_ON;  // default text attributes
 
 /**
  * setprompt_usage:
