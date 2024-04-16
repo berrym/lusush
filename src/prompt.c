@@ -317,7 +317,7 @@ void build_prompt(void) {
             goto fancy_error;
         }
 
-        sprintf(prompt, "%s%s@%s in %s%s%c ", colors, u, h, d, RESET,
+        sprintf(prompt, "%s%s@%s in %s%s\n\r%c ", colors, u, h, d, RESET,
                 (getuid() > 0) ? '%' : '#');
     } else if (prompt_style == COLOR_PROMPT) {
         sprintf(prompt, "%s%c%s ", colors, (getuid() > 0) ? '%' : '#', RESET);

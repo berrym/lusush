@@ -135,6 +135,7 @@ static struct termios orig_termios; /* In order to restore at exit.*/
 static int maskmode = 0; /* Show "***" instead of input. For passwords. */
 static int rawmode = 0; /* For atexit() function to check if restore is needed*/
 static int mlmode = 0;  /* Multi line mode. Default is single line. */
+static int promptnewlines = 0;
 static int atexit_registered = 0; /* Register atexit just 1 time. */
 static int history_max_len = LINENOISE_DEFAULT_HISTORY_MAX_LEN;
 static int history_len = 0;
@@ -711,15 +712,28 @@ static size_t promptTextColumnLen(const char *prompt, size_t plen) {
     char buf[LINENOISE_MAX_LINE];
     size_t buf_len = 0;
     size_t off = 0;
+    size_t col = 0;
+    promptnewlines = 0;
     while (off < plen) {
         size_t len;
         if (isAnsiEscape(prompt + off, plen - off, &len)) {
             off += len;
             continue;
         }
+        if (prompt[off] == '\r') {
+            col = 0;
+            off++;
+            continue;
+        }
+        if (prompt[off] == '\n') {
+            promptnewlines++;
+            off++;
+            continue;
+        }
         buf[buf_len++] = prompt[off++];
+        col++;
     }
-    return columnPos(buf, buf_len, buf_len);
+    return columnPos(buf, buf_len, col);
 }
 
 /* Single line low level line refresh.
@@ -802,11 +816,10 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
         (pcollen + l->oldcolpos + l->cols) / l->cols; /* cursor relative row. */
     int rpos2;                                        /* rpos after refresh. */
     int col; /* colum position, zero-based. */
+    l->oldrows = rows + promptnewlines;
     int old_rows = l->oldrows;
     int fd = l->ofd, j;
     struct abuf ab;
-
-    l->oldrows = rows;
 
     /* First step: clear all the lines used before. To do so start by
      * going to the last row. */
