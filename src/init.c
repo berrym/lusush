@@ -27,7 +27,6 @@ extern char **environ;
 bool exit_flag = false;
 bool no_word_expand = false;
 bool parsing_alias = false;
-bool fancy_prompt = true;
 
 // The type of shell instance
 static int SHELL_TYPE;

@@ -20,7 +20,6 @@
 extern bool exit_flag;
 extern bool no_word_expand;
 extern bool parsing_alias;
-extern bool fancy_prompt;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 

@@ -13,6 +13,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Prompt styles
+typedef enum {
+    NORMAL_PROMPT,
+    COLOR_PROMPT,
+    FANCY_PROMPT,
+} PROMPT_STYLE;
+
 // ANSI foreground color values
 typedef enum {
     ANSI_FG_BLACK = 30,
@@ -54,7 +61,9 @@ typedef enum {
     ANSI_BOLD_OFF = 21,
     ANSI_ITALICS_OFF = 23,
     ANSI_UNDERLINE_OFF = 24,
+    ANSI_BLINK_OFF = 25,
     ANSI_INVERSE_OFF = 27,
+    ANSI_CONCEALED_OFF = 28,
     ANSI_STRIKETHROUGH_OFF = 29,
 } TEXT_ATTRIB;
 
@@ -63,6 +72,15 @@ typedef struct {
     const char *key;
     int val;
 } prompt_opts;
+
+// Key-value table for prompt styles
+static const prompt_opts prompt_styles[] = {
+    {"normal", NORMAL_PROMPT},
+    { "color",  COLOR_PROMPT},
+    { "fancy",  FANCY_PROMPT}
+};
+static const int NUM_PROMPT_STYLES =
+    sizeof(prompt_styles) / sizeof(prompt_opts);
 
 // Key-value table for foreground codes
 static const prompt_opts fg_opts[] = {
@@ -74,7 +92,7 @@ static const prompt_opts fg_opts[] = {
     {"magenta", ANSI_FG_MAGENTA},
     {   "cyan",    ANSI_FG_CYAN},
     {  "white",   ANSI_FG_WHITE},
-    {   "none",         FG_NONE}
+    {"default", ANSI_FG_DEFAULT}
 };
 static const int NUM_FG_OPTS = sizeof(fg_opts) / sizeof(prompt_opts);
 
@@ -88,7 +106,7 @@ static const prompt_opts bg_opts[] = {
     {"magenta", ANSI_BG_MAGENTA},
     {   "cyan",    ANSI_BG_CYAN},
     {  "white",   ANSI_BG_WHITE},
-    {   "none",         BG_NONE}
+    {"default", ANSI_BG_DEFAULT}
 };
 static const int NUM_BG_OPTS = sizeof(bg_opts) / sizeof(prompt_opts);
 
@@ -99,21 +117,24 @@ static const prompt_opts attr_opts[] = {
     {          "italics",        ANSI_ITALICS_ON},
     {        "underline",      ANSI_UNDERLINE_ON},
     {            "blink",          ANSI_BLINK_ON},
-    {          "reverse",        ANSI_INVERSE_ON},
+    {          "inverse",        ANSI_INVERSE_ON},
     {        "concealed",      ANSI_CONCEALED_ON},
-    {         "bold_off",          ANSI_BOLD_OFF},
-    {      "italics_off",       ANSI_ITALICS_OFF},
-    {    "underline_off",     ANSI_UNDERLINE_OFF},
-    {      "inverse_off",       ANSI_INVERSE_OFF},
-    {"strikethrough_off", ANSI_STRIKETHROUGH_OFF}
+    {    "strikethrough",  ANSI_STRIKETHROUGH_ON},
+    {         "bold-off",          ANSI_BOLD_OFF},
+    {      "italics-off",       ANSI_ITALICS_OFF},
+    {    "underline-off",     ANSI_UNDERLINE_OFF},
+    {        "blink-off",         ANSI_BLINK_OFF},
+    {      "inverse-off",       ANSI_INVERSE_OFF},
+    {"strikethrough-off", ANSI_STRIKETHROUGH_OFF}
 };
 static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 
-static const char *RESET = "\x1b[0m";    // ansi color reset
-static char *colors = NULL;              // ansi color sequence
-static FG_COLOR fg_color = ANSI_FG_CYAN; // default foreground color
-static BG_COLOR bg_color = BG_NONE;      // default background color
-static TEXT_ATTRIB attr = ANSI_BOLD_ON;  // default text attributes
+static const char *RESET = "\x1b[0m";            // ansi color reset
+static char *colors = NULL;                      // ansi color sequence
+static FG_COLOR fg_color = ANSI_FG_GREEN;        // default foreground color
+static BG_COLOR bg_color = ANSI_BG_DEFAULT;      // default background color
+static TEXT_ATTRIB attr = ANSI_BOLD_ON;          // default text attributes
+static PROMPT_STYLE prompt_style = COLOR_PROMPT; // deafult prompt style
 
 /**
  * setprompt_usage:
@@ -121,10 +142,11 @@ static TEXT_ATTRIB attr = ANSI_BOLD_ON;  // default text attributes
  */
 static void setprompt_usage(void) {
     printf("usage:\n\t-h\t\tThis help\n\t");
+    printf("-s STYLE\tset the prompt style\n\t");
     printf("-a ATTRIBUTE\tset attribute for prompt\n\t");
     printf("-f COLOR\tset prompt foreground color\n\t");
     printf("-b COLOR\tset prompt background color\n\t");
-    printf("-v\t\tshow valid colors and attributes\n");
+    printf("-v\t\tshow valid styles, colors and attributes\n");
 }
 
 /**
@@ -139,11 +161,7 @@ static int build_colors(void) {
         }
     }
 
-    if (bg_color == BG_NONE) {
-        sprintf(colors, "%c[%d;%dm", 0x1b, attr, fg_color);
-    } else {
-        sprintf(colors, "%c[%d;%d;%dm", 0x1b, attr, fg_color, bg_color);
-    }
+    sprintf(colors, "%c[%d;%d;%dm", 0x1b, attr, fg_color, bg_color);
 
     return 0;
 }
@@ -172,15 +190,16 @@ static void set_prompt_attr(TEXT_ATTRIB ta) { attr = ta; }
  */
 void set_prompt(int argc, char **argv) {
     int i = 0;
-    int nopt = 0;                   // next option
-    const char *sopts = "ha:f:b:v"; // string of valid short options
+    int nopt = 0;                     // next option
+    const char *sopts = "hs:f:b:a:v"; // string of valid short options
     // array describing valid long options
     const struct option lopts[] = {
         {      "help", 0, NULL, 'h'},
-        {"attributes", 1, NULL, 'a'},
+        {     "style", 1, NULL, 's'},
         {"foreground", 1, NULL, 'f'},
         {"background", 1, NULL, 'b'},
-        {"valid-opts", 1, NULL, 'v'},
+        {"attributes", 1, NULL, 'a'},
+        {"valid-opts", 0, NULL, 'v'},
         {        NULL, 0, NULL,   0}
     };
 
@@ -198,14 +217,27 @@ void set_prompt(int argc, char **argv) {
         case 'h': // show usage help
             setprompt_usage();
             break;
-        case 'a': // set fancy prompt text attribute
+        case 's': // set prompt style as normal, color or fancy
+            for (i = 0; i < NUM_PROMPT_STYLES; i++) {
+                if (strcmp(optarg, prompt_styles[i].key) == 0) {
+                    if (prompt_styles[i].val == NORMAL_PROMPT) {
+                        prompt_style = NORMAL_PROMPT;
+                    } else if (prompt_styles[i].val == COLOR_PROMPT) {
+                        prompt_style = COLOR_PROMPT;
+                    } else {
+                        prompt_style = FANCY_PROMPT;
+                    }
+                }
+            }
+            break;
+        case 'a': // set prompt text attribute
             for (i = 0; i < NUM_VALID_ATTRIB; i++) {
                 if (strcmp(optarg, attr_opts[i].key) == 0) {
                     set_prompt_attr(attr_opts[i].val);
                 }
             }
             break;
-        case 'f': // set fancy prompt foreground color
+        case 'f': // set prompt foreground color
             for (i = 0; i < NUM_FG_OPTS; i++) {
                 if (strcmp(optarg, fg_opts[i].key) == 0) {
                     set_prompt_fg(fg_opts[i].val);
@@ -220,6 +252,11 @@ void set_prompt(int argc, char **argv) {
             }
             break;
         case 'v': // print valid setprompt options
+            printf("VALID STYLES:\n");
+            for (i = 0; i < NUM_PROMPT_STYLES; i++) {
+                printf("\t%s\n", prompt_styles[i].key);
+            }
+
             printf("VALID COLORS:\n");
             for (i = 0; i < NUM_FG_OPTS; i++) {
                 printf("\t%s\n", fg_opts[i].key);
@@ -252,8 +289,16 @@ void build_prompt(void) {
     char d[_POSIX_PATH_MAX + 1] = {'\0'};       // current working directory
     char prompt[MAXLINE + 1] = {'\0'};          // prompt string
 
-    // Build a prompt string
-    if (fancy_prompt == true) {
+    // Build prompt color sequence
+    if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT) {
+        // Build text colors, and then the formatted prompt string
+        if (build_colors() > 0) {
+            goto fancy_error;
+        }
+    }
+
+    // Build a prompt string based on style set
+    if (prompt_style == FANCY_PROMPT) {
         // Get user's login name
         if (getlogin_r(u, _POSIX_LOGIN_NAME_MAX) < 0) {
             error_return("error: `build_prompt`: getlogin_r");
@@ -272,13 +317,10 @@ void build_prompt(void) {
             goto fancy_error;
         }
 
-        // Build text colors, and then the formatted prompt string
-        if (build_colors() > 0) {
-            goto fancy_error;
-        }
-
         sprintf(prompt, "%s%s@%s in %s%s%c ", colors, u, h, d, RESET,
                 (getuid() > 0) ? '%' : '#');
+    } else if (prompt_style == COLOR_PROMPT) {
+        sprintf(prompt, "%s%c%s ", colors, (getuid() > 0) ? '%' : '#', RESET);
     } else {
     fancy_error:
         if (getuid() > 0) {
