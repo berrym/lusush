@@ -31,7 +31,7 @@ void init_aliases(void) {
     set_alias("la", "ls -a --color=force");
     set_alias("ll", "ls -alF --color=force");
     set_alias("ls", "ls --color=force");
-    set_alias("month", "echo $(date +'%B'");
+    set_alias("month", "echo $(date +'%B')");
     set_alias("time", "echo $(date +'%T')");
     set_alias("year", "echo $(date +'%Y')");
 }
