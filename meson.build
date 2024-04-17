@@ -24,8 +24,8 @@ src = ['src/builtins/alias.c',
        'src/libhashtable/ht_strfloat.c',
        'src/libhashtable/ht_strint.c',
        'src/libhashtable/ht_strstr.c',
-       'src/linenoise/linenoise.c',
        'src/linenoise/encodings/utf8.c',
+       'src/linenoise/linenoise.c',
        'src/lusush.c',
        'src/node.c',
        'src/parser.c',
@@ -44,6 +44,6 @@ add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
-lusush_exe = executable('lusush',
-                        src,
-                        include_directories: inc)
+executable('lusush',
+           src,
+           include_directories: inc)

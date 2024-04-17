@@ -22,9 +22,18 @@ void init_aliases(void) {
         aliases = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
     }
 
-    set_alias("ll", "ls -alF");
-    set_alias("..", "cd ..");
+    // set some example aliases
+    set_alias("..", "cd ../");
     set_alias("...", "cd ../../");
+    set_alias("day", "echo $(date +'%A')");
+    set_alias("hour","echo $(date +'%l%p')");
+    set_alias("l", "echo \"$(day)\t$(time)\n\n$(ls)\n\n$(la)\n\n$(ll)\n\"");
+    set_alias("la", "ls -a --color=force");
+    set_alias("ll", "ls -alF --color=force");
+    set_alias("ls", "ls --color=force");
+    set_alias("month", "echo $(date +'%B'");
+    set_alias("time", "echo $(date +'%T')");
+    set_alias("year", "echo $(date +'%Y')");
 }
 
 /**
