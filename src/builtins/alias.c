@@ -26,8 +26,9 @@ void init_aliases(void) {
     set_alias("..", "cd ../");
     set_alias("...", "cd ../../");
     set_alias("day", "echo $(date +'%A')");
-    set_alias("hour","echo $(date +'%l%p')");
-    set_alias("l", "echo \"$(day)\\t$(time)\\n\\n$(ls)\\n\\n$(la)\\n\\n$(ll)\\n\"");
+    set_alias("hour", "echo $(date +'%l%p')");
+    set_alias("l",
+              "echo \"$(day)\\t$(time)\\n\\n$(ls)\\n\\n$(la)\\n\\n$(ll)\\n\"");
     set_alias("la", "ls -a --color=force");
     set_alias("ll", "ls -alF --color=force");
     set_alias("ls", "ls --color=force");

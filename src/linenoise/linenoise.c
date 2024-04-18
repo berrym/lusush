@@ -711,29 +711,37 @@ static int isAnsiEscape(const char *buf, size_t buf_len, size_t *len) {
 static size_t promptTextColumnLen(const char *prompt, size_t plen) {
     char buf[LINENOISE_MAX_LINE];
     size_t buf_len = 0;
-    size_t off = 0;
-    size_t col = 0;
+    size_t offset = 0;
+    size_t colpos = 0;
+    size_t ret = 0;
     promptnewlines = 0;
-    while (off < plen) {
+    while (offset < plen) {
         size_t len;
-        if (isAnsiEscape(prompt + off, plen - off, &len)) {
-            off += len;
+        if (isAnsiEscape(prompt + offset, plen - offset, &len)) {
+            offset += len;
             continue;
         }
-        if (prompt[off] == '\r') {
-            col = 0;
-            off++;
+        if (prompt[offset] == '\r') {
+            colpos = 0;
+            offset++;
             continue;
         }
-        if (prompt[off] == '\n') {
+        if (prompt[offset] == '\n') {
             promptnewlines++;
-            off++;
+            offset++;
             continue;
         }
-        buf[buf_len++] = prompt[off++];
-        col++;
+        buf[buf_len++] = prompt[offset++];
+        colpos++;
     }
-    return columnPos(buf, buf_len, col);
+    if (promptnewlines) {
+        ret = columnPosForMultiLine(buf, buf_len, colpos,
+                                    getColumns(STDIN_FILENO, STDOUT_FILENO),
+                                    buf_len);
+    } else {
+        ret = columnPos(buf, buf_len, colpos);
+    }
+    return ret;
 }
 
 /* Single line low level line refresh.
@@ -808,18 +816,26 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
     int colpos =
-        columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
+        columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
     int colpos2; /* cursor column position. */
     int rows = (pcollen + colpos + l->cols - 1) /
                l->cols; /* rows used by current buf. */
+    rows += promptnewlines;
     int rpos =
         (pcollen + l->oldcolpos + l->cols) / l->cols; /* cursor relative row. */
+    rpos += promptnewlines;
     int rpos2;                                        /* rpos after refresh. */
     int col; /* colum position, zero-based. */
-    l->oldrows = rows + promptnewlines;
-    int old_rows = l->oldrows;
+    int old_rows;
+    if (promptnewlines) {
+        old_rows = rows;
+    } else {
+        old_rows = l->oldrows;
+    }
     int fd = l->ofd, j;
     struct abuf ab;
+
+    l->oldrows = rows;
 
     /* First step: clear all the lines used before. To do so start by
      * going to the last row. */
@@ -848,7 +864,7 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     }
 
     /* Get column length to cursor position */
-    colpos2 = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
+    colpos2 = columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
@@ -881,6 +897,7 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
         /* Move cursor to right position. */
         rpos2 = (pcollen + colpos2 + l->cols) /
                 l->cols; /* Current cursor relative row */
+        rpos2 += promptnewlines;
         lndebug("rpos2 %d", rpos2);
 
         /* Go up till we reach the expected positon. */
