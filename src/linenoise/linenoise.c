@@ -826,12 +826,12 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     rpos += promptnewlines;
     int rpos2;                                        /* rpos after refresh. */
     int col; /* colum position, zero-based. */
-    int old_rows = l->oldrows;
-    // if (promptnewlines) {
-    //     old_rows = rows;
-    // } else {
-    //     old_rows = l->oldrows;
-    // }
+    int old_rows;
+    if (l->oldrows) {
+        old_rows = l->oldrows;
+    } else {
+        old_rows = rows;
+    }
     int fd = l->ofd, j;
     struct abuf ab;
 
