@@ -816,7 +816,7 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
     int colpos =
-        columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
+        columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
     int colpos2; /* cursor column position. */
     int rows = (pcollen + colpos + l->cols - 1) /
                l->cols; /* rows used by current buf. */
@@ -864,7 +864,7 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     }
 
     /* Get column length to cursor position */
-    colpos2 = columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
+    colpos2 = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
