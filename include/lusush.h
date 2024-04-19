@@ -39,6 +39,7 @@ void set_shell_vari(char *, int);
 
 // shell options
 typedef enum {
+    MULTILINE_EDIT,
     HISTORY_NO_DUPS,
     NO_WORD_EXPAND,
 } BOOL_SHELL_OPTS;

@@ -93,7 +93,7 @@ int init(int argc, char **argv, FILE **in) {
     linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                   linenoiseUtf8NextCharLen,
                                   linenoiseUtf8ReadCode);
-    linenoiseSetMultiLine(1);
+    linenoiseSetMultiLine(get_shell_vari("MULTILINE_EDIT", true));
     build_prompt();
 
     // Parse command line options

@@ -14,6 +14,7 @@ typedef struct {
 
 // Key-value table for bool shell opts
 static const bool_opts bool_shell_opts[] = {
+    { "MULTILINE_EDIT",  MULTILINE_EDIT},
     {"HISTORY_NO_DUPS", HISTORY_NO_DUPS},
     { "NO_WORD_EXPAND",  NO_WORD_EXPAND}
 };
@@ -21,6 +22,7 @@ static const int NUM_BOOL_OPTS = sizeof(bool_shell_opts) / sizeof(bool_opts);
 
 // boolean option flags
 static bool history_no_dups = false;
+static bool multiline_edit = true;
 static bool no_word_expand = false;
 
 static void setopt_usage(void) {
@@ -31,6 +33,7 @@ static void setopt_usage(void) {
 }
 
 void init_shell_opts(void) {
+    set_shell_vari("MULTILINE_EDIT", multiline_edit);
     set_shell_vari("HISTORY_NO_DUPS", history_no_dups);
     set_shell_vari("NO_WORD_EXPAND", no_word_expand);
 }
@@ -66,6 +69,11 @@ void setopt(int argc, char **argv) {
             for (i = 0; i < NUM_BOOL_OPTS; i++) {
                 if (strcmp(optarg, bool_shell_opts[i].opt) == 0) {
                     switch (bool_shell_opts[i].val) {
+                    case MULTILINE_EDIT:
+                        multiline_edit = !multiline_edit;
+                        linenoiseSetMultiLine(multiline_edit);
+                        set_shell_vari("MULTILINE_EDIT", multiline_edit);
+                        break;
                     case HISTORY_NO_DUPS:
                         history_no_dups = !history_no_dups;
                         linenoiseHistoryNoDups(history_no_dups);
@@ -85,6 +93,10 @@ void setopt(int argc, char **argv) {
             for (i = 0; i < NUM_BOOL_OPTS; i++) {
                 if (strcmp(optarg, bool_shell_opts[i].opt) == 0) {
                     switch (bool_shell_opts[i].val) {
+                    case MULTILINE_EDIT:
+                        printf("%s: %d\n", bool_shell_opts[i].opt,
+                               multiline_edit);
+                        break;
                     case HISTORY_NO_DUPS:
                         printf("%s: %d\n", bool_shell_opts[i].opt,
                                history_no_dups);
