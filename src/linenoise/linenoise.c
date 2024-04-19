@@ -721,7 +721,13 @@ static size_t promptTextColumnLen(const char *prompt, size_t plen) {
     size_t offset = 0;
     size_t colpos = 0;
     size_t ret = 0;
+    size_t cols = getColumns(STDIN_FILENO, STDOUT_FILENO);
+    size_t plen2 = plen;
     promptnewlines = 0;
+    while (plen2 >= cols) {
+        promptnewlines++;
+        plen2 -= cols;
+    }
     while (offset < plen) {
         size_t len;
         if (isAnsiEscape(prompt + offset, plen - offset, &len)) {
@@ -729,7 +735,8 @@ static size_t promptTextColumnLen(const char *prompt, size_t plen) {
             continue;
         }
         if (prompt[offset] == '\t') {
-            offset += offset % 8;
+            offset += 8 - (colpos % 8);
+            colpos += 8 - (colpos % 8);
             continue;
         }
         if (prompt[offset] == '\r') {
@@ -746,9 +753,7 @@ static size_t promptTextColumnLen(const char *prompt, size_t plen) {
         colpos++;
     }
     if (promptnewlines) {
-        ret = columnPosForMultiLine(buf, buf_len, colpos,
-                                    getColumns(STDIN_FILENO, STDOUT_FILENO),
-                                    buf_len);
+        ret = columnPosForMultiLine(buf, buf_len, colpos, cols, buf_len);
     } else {
         ret = columnPos(buf, buf_len, colpos);
     }
