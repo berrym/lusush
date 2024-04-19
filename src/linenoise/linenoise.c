@@ -787,6 +787,21 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     }
 
     abInit(&ab);
+
+    if (promptnewlines) {
+        lndebug("go down %d", promptnewlines);
+        snprintf(seq, 64, "\x1b[%dB", promptnewlines);
+        abAppend(&ab, seq, strlen(seq));
+        for (int j = 0; j < promptnewlines; j++) {
+            lndebug("clear+up");
+            snprintf(seq, 64, "\r\x1b[0K\x1b[1A");
+            abAppend(&ab, seq, strlen(seq));
+        }
+        lndebug("clear");
+        snprintf(seq, 64, "\r\x1b[0K");
+        abAppend(&ab, seq, strlen(seq));
+    }
+
     /* Cursor to left edge */
     snprintf(seq, sizeof(seq), "\r");
     abAppend(&ab, seq, strlen(seq));
