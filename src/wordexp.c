@@ -16,6 +16,8 @@
 // special value to represent an invalid variable
 #define INVALID_VAR ((char *)-1)
 
+static bool no_word_expand = false;
+
 // convert the string *word to a cmd_token struct, so it can be passed to
 // functions such as word_expand().
 // returns the malloc'd cmd_token struct, or NULL if insufficient memory.
@@ -217,6 +219,8 @@ word_t *word_expand(char *orig_word) {
     if (!*orig_word) {
         return make_word(orig_word);
     }
+
+    no_word_expand = get_shell_vari("NO_WORD_EXPAND", false);
 
     char *pstart = calloc(strlen(orig_word) + 1, sizeof(char));
     if (pstart == NULL) {

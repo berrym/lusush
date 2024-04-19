@@ -101,12 +101,18 @@
  *    Sequence: ESC [ 2 J
  *    Effect: clear the whole screen
  *
+ * Copyright 2024 Michael Berry - written and maintained for the lusush shell
+ *                                many feature added to original codebase,
+ *                                utf8, ANSI escape sequences in prompt,
+ * multi-line prompt in mlmode, modified history api, etc
+ *
  */
 
 #include "../../include/linenoise/linenoise.h"
 
 #include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -140,6 +146,7 @@ static int atexit_registered = 0; /* Register atexit just 1 time. */
 static int history_max_len = LINENOISE_DEFAULT_HISTORY_MAX_LEN;
 static int history_len = 0;
 static char **history = NULL;
+static bool history_no_dups = false;
 
 enum KEY_ACTION {
     KEY_NULL = 0,   /* NULL */
@@ -824,8 +831,8 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     int rpos =
         (pcollen + l->oldcolpos + l->cols) / l->cols; /* cursor relative row. */
     rpos += promptnewlines;
-    int rpos2;                                        /* rpos after refresh. */
-    int col; /* colum position, zero-based. */
+    int rpos2; /* rpos after refresh. */
+    int col;   /* colum position, zero-based. */
     int old_rows;
     if (l->oldrows) {
         old_rows = l->oldrows;
@@ -1660,20 +1667,23 @@ int linenoiseHistoryAdd(const char *line) {
         memset(history, 0, (sizeof(char *) * history_max_len));
     }
 
-    /* Don't add duplicated lines. */
-    if (history_len && !strcmp(history[history_len - 1], line)) {
+    /* Don't add duplicated entry twice in a row. */
+    if (history_len && strcmp(history[history_len - 1], line) == 0) {
         return 0;
     }
 
+    // If no history duplicates option is set
     // Search for a duplicate. Remove from history.
     // Note that we are cutting the new array short by one.
-    int len = history_len - 2;
-    for (int i = 1; i < len; i++) {
-        if (history[i] == NULL) {
-            break;
-        }
-        if (strcmp(history[i], line) == 0) {
-            linenoiseHistoryDelete(i);
+    if (history_no_dups) {
+        int len = history_len - 2;
+        for (int i = 1; i < len; i++) {
+            if (history[i] == NULL) {
+                break;
+            }
+            if (strcmp(history[i], line) == 0) {
+                linenoiseHistoryDelete(i);
+            }
         }
     }
 
@@ -1748,6 +1758,13 @@ int linenoiseHistoryDelete(int index) {
     history_len--;
 
     return 0;
+}
+
+void linenoiseHistoryNoDups(bool flag) {
+    history_no_dups = flag;
+    if (history_no_dups) {
+        linenoiseHistoryRemoveDups();
+    }
 }
 
 int linenoiseHistoryRemoveDups() {

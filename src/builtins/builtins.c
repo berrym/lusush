@@ -24,6 +24,7 @@ builtin builtins[] = {
     {    "alias",            "set an alias",     bin_alias},
     {  "unalias",          "unset an alias",   bin_unalias},
     {"setprompt",   "set prompt attributes", bin_setprompt},
+    {   "setopt",      "set a shell option",    bin_setopt},
     {     "dump",       "dump symbol table",      bin_dump},
 };
 
@@ -232,6 +233,16 @@ int bin_unalias(int argc __attribute__((unused)),
         return 1;
     }
 
+    return 0;
+}
+
+/**
+ * bin_setopt:
+ *      Set a shell option.
+ */
+int bin_setopt(int argc __attribute__((unused)),
+               char **argv __attribute__((unused))) {
+    setopt(argc, argv);
     return 0;
 }
 

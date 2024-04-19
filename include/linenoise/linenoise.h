@@ -43,6 +43,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stddef.h> /* For size_t. */
 
 extern char *linenoiseEditMore;
@@ -102,6 +103,7 @@ int linenoiseHistoryLoad(const char *filename);
 void linenoiseHistoryPrint(void);
 char *linenoiseHistoryGet(int index);
 int linenoiseHistoryDelete(int index);
+void linenoiseHistoryNoDups(bool flag);
 int linenoiseHistoryRemoveDups(void);
 
 /* Other utilities. */

@@ -25,7 +25,6 @@
 extern char **environ;
 
 bool exit_flag = false;
-bool no_word_expand = false;
 bool parsing_alias = false;
 
 // The type of shell instance
@@ -88,6 +87,8 @@ int init(int argc, char **argv, FILE **in) {
         }
         p++;
     }
+
+    init_shell_opts();
 
     linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                   linenoiseUtf8NextCharLen,

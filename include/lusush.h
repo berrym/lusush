@@ -18,7 +18,6 @@
 #define MAXLINE 4096
 
 extern bool exit_flag;
-extern bool no_word_expand;
 extern bool parsing_alias;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
@@ -37,6 +36,15 @@ int get_shell_vari(char *, int);
 ssize_t get_shell_varl(char *, int);
 void set_shell_varp(char *, char *);
 void set_shell_vari(char *, int);
+
+// shell options
+typedef enum {
+    HISTORY_NO_DUPS,
+    NO_WORD_EXPAND,
+} BOOL_SHELL_OPTS;
+
+void init_shell_opts(void);
+void setopt(int argc, char **argv);
 
 // struct to represent the words resulting from word expansion
 typedef struct word {

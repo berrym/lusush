@@ -20,6 +20,7 @@ int bin_pwd(int, char **);
 int bin_history(int, char **);
 int bin_alias(int, char **);
 int bin_unalias(int, char **);
+int bin_setopt(int, char **);
 int bin_setprompt(int, char **);
 int bin_dump(int, char **);
 bool is_builtin(const char *);
