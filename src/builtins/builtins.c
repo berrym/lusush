@@ -3,6 +3,7 @@
 #include "../../include/alias.h"
 #include "../../include/errors.h"
 #include "../../include/history.h"
+#include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/prompt.h"
 #include "../../include/scanner.h"
@@ -24,6 +25,7 @@ builtin builtins[] = {
     {    "alias",            "set an alias",     bin_alias},
     {  "unalias",          "unset an alias",   bin_unalias},
     {"setprompt",   "set prompt attributes", bin_setprompt},
+    {    "clear",        "clear the screen",     bin_clear},
     {   "setopt",      "set a shell option",    bin_setopt},
     {     "dump",       "dump symbol table",      bin_dump},
 };
@@ -253,6 +255,16 @@ int bin_setopt(int argc __attribute__((unused)),
 int bin_setprompt(int argc __attribute__((unused)),
                   char **argv __attribute__((unused))) {
     set_prompt(argc, argv);
+    return 0;
+}
+
+/**
+ * bin_clear:
+ *      Clear the screen.
+ */
+int bin_clear(int argc __attribute__((unused)),
+              char **argv __attribute__((unused))) {
+    linenoiseClearScreen();
     return 0;
 }
 
