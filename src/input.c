@@ -5,6 +5,7 @@
 #include "../include/init.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
+#include "../include/prompt.h"
 #include "../include/strings.h"
 
 #include <errno.h>
@@ -36,6 +37,8 @@ char *ln_gets(void) {
 
     while (true) {
         errno = 0;
+
+        build_prompt();
 
         if (line == NULL) {
             line = linenoise(get_shell_varp("PS1", "% "));

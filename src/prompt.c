@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 // Prompt styles
@@ -18,6 +19,7 @@ typedef enum {
     NORMAL_PROMPT,
     COLOR_PROMPT,
     FANCY_PROMPT,
+    PRO_PROMPT,
 } PROMPT_STYLE;
 
 // ANSI foreground color values
@@ -77,7 +79,8 @@ typedef struct {
 static const prompt_opts prompt_styles[] = {
     {"normal", NORMAL_PROMPT},
     { "color",  COLOR_PROMPT},
-    { "fancy",  FANCY_PROMPT}
+    { "fancy",  FANCY_PROMPT},
+    {   "pro",    PRO_PROMPT},
 };
 static const int NUM_PROMPT_STYLES =
     sizeof(prompt_styles) / sizeof(prompt_opts);
@@ -135,6 +138,9 @@ static FG_COLOR fg_color = ANSI_FG_GREEN;        // default foreground color
 static BG_COLOR bg_color = ANSI_BG_DEFAULT;      // default background color
 static TEXT_ATTRIB attr = ANSI_BOLD_ON;          // default text attributes
 static PROMPT_STYLE prompt_style = COLOR_PROMPT; // deafult prompt style
+static char PS1[MAXLINE + 1] = "% ";
+static char PS2[MAXLINE + 1] = "> ";
+static char PS1_ROOT[MAXLINE + 1] = "# ";
 
 /**
  * setprompt_usage:
@@ -146,6 +152,9 @@ static void setprompt_usage(void) {
     printf("-a ATTRIBUTE\tset attribute for prompt\n\t");
     printf("-f COLOR\tset prompt foreground color\n\t");
     printf("-b COLOR\tset prompt background color\n\t");
+    printf("-1 \"STRING\"\tset PS1 prompt\n\t");
+    printf("-2 \"STRING\"\tset PS2 prompt\n\t");
+    printf("-r \"STRING\"\tset root prompt\n\t");
     printf("-v\t\tshow valid styles, colors and attributes\n");
 }
 
@@ -190,8 +199,8 @@ static void set_prompt_attr(TEXT_ATTRIB ta) { attr = ta; }
  */
 void set_prompt(int argc, char **argv) {
     int i = 0;
-    int nopt = 0;                     // next option
-    const char *sopts = "hs:f:b:a:v"; // string of valid short options
+    int nopt = 0;                          // next option
+    const char *sopts = "hs:f:b:a:1:2:rv"; // string of valid short options
     // array describing valid long options
     const struct option lopts[] = {
         {      "help", 0, NULL, 'h'},
@@ -199,6 +208,9 @@ void set_prompt(int argc, char **argv) {
         {"foreground", 1, NULL, 'f'},
         {"background", 1, NULL, 'b'},
         {"attributes", 1, NULL, 'a'},
+        {       "one", 1, NULL, '1'},
+        {       "two", 1, NULL, '2'},
+        {      "root", 1, NULL, 'r'},
         {"valid-opts", 0, NULL, 'v'},
         {        NULL, 0, NULL,   0}
     };
@@ -220,12 +232,21 @@ void set_prompt(int argc, char **argv) {
         case 's': // set prompt style as normal, color or fancy
             for (i = 0; i < NUM_PROMPT_STYLES; i++) {
                 if (strcmp(optarg, prompt_styles[i].key) == 0) {
-                    if (prompt_styles[i].val == NORMAL_PROMPT) {
+                    switch (prompt_styles[i].val) {
+                    case NORMAL_PROMPT:
                         prompt_style = NORMAL_PROMPT;
-                    } else if (prompt_styles[i].val == COLOR_PROMPT) {
+                        break;
+                    case COLOR_PROMPT:
                         prompt_style = COLOR_PROMPT;
-                    } else {
+                        break;
+                    case FANCY_PROMPT:
                         prompt_style = FANCY_PROMPT;
+                        break;
+                    case PRO_PROMPT:
+                        prompt_style = PRO_PROMPT;
+                        break;
+                    default:
+                        break;
                     }
                 }
             }
@@ -251,6 +272,15 @@ void set_prompt(int argc, char **argv) {
                 }
             }
             break;
+        case '1': // set PS1 terminating character
+            strcpy(PS1, optarg);
+            break;
+        case '2':
+            strcpy(PS2, optarg);
+            break;
+        case 'r':
+            strcpy(PS1_ROOT, optarg);
+            break;
         case 'v': // print valid setprompt options
             printf("VALID STYLES:\n");
             for (i = 0; i < NUM_PROMPT_STYLES; i++) {
@@ -274,8 +304,6 @@ void set_prompt(int argc, char **argv) {
             break;
         }
     } while (nopt != -1);
-
-    build_prompt();
 }
 
 /**
@@ -287,10 +315,12 @@ void build_prompt(void) {
     char u[_POSIX_LOGIN_NAME_MAX + 1] = {'\0'}; // username
     char h[_POSIX_HOST_NAME_MAX + 1] = {'\0'};  // hostname
     char d[_POSIX_PATH_MAX + 1] = {'\0'};       // current working directory
-    char prompt[MAXLINE + 1] = {'\0'};          // prompt string
+    char t[64] = {'\0'};                        // local time
+    char prompt[(MAXLINE * 2) + 1] = {'\0'};          // prompt string
 
     // Build prompt color sequence
-    if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT) {
+    if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT ||
+        prompt_style == PRO_PROMPT) {
         // Build text colors, and then the formatted prompt string
         if (build_colors() > 0) {
             goto fancy_error;
@@ -298,7 +328,7 @@ void build_prompt(void) {
     }
 
     // Build a prompt string based on style set
-    if (prompt_style == FANCY_PROMPT) {
+    if (prompt_style == FANCY_PROMPT || prompt_style == PRO_PROMPT) {
         // Get user's login name
         if (getlogin_r(u, _POSIX_LOGIN_NAME_MAX) < 0) {
             error_return("error: `build_prompt`: getlogin_r");
@@ -317,34 +347,34 @@ void build_prompt(void) {
             goto fancy_error;
         }
 
-        sprintf(prompt, "%s%s@%s in %s%s\n\r%c ", colors, u, h, d, RESET,
-                (getuid() > 0) ? '%' : '#');
-    } else if (prompt_style == COLOR_PROMPT) {
-        sprintf(prompt, "%s%c%s ", colors, (getuid() > 0) ? '%' : '#', RESET);
-    } else {
-    fancy_error:
-        if (getuid() > 0) {
-            strcpy(prompt, "% "); // normal user prompt
-        } else {
-            strcpy(prompt, "# "); // root user prompt
+        time_t tm = time(NULL);
+        struct tm *lt = localtime(&tm);
+        if (!(strftime(t, sizeof(t), "%c", lt))) {
+            error_return("error: `build_prompt`: strftime");
+            goto fancy_error;
         }
     }
 
-    // Set the prompt environment variables
-    symtable_entry_t *prompt_entry = add_to_symtable("PS1");
-    symtable_entry_t *prompt2_entry = add_to_symtable("PS2");
-
-    if (getuid() > 0) {
-        symtable_entry_setval(prompt_entry, prompt);
+    if (prompt_style == FANCY_PROMPT) {
+        sprintf(prompt, "%s%s@%s in %s%s%s", colors, u, h, d, RESET,
+                (getuid() > 0) ? PS1 : PS1_ROOT);
+    } else if (prompt_style == PRO_PROMPT) {
+        sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
+                (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
+    } else if (prompt_style == COLOR_PROMPT) {
+        sprintf(prompt, "%s%s%s", colors, (getuid() > 0) ? PS1 : PS1_ROOT,
+                RESET);
     } else {
-        symtable_entry_setval(prompt_entry, prompt);
+    fancy_error:
+        sprintf(prompt, "%s", (getuid() > 0) ? PS1 : PS1_ROOT);
     }
 
-    symtable_entry_setval(prompt2_entry, "> ");
+    // Set the prompt environment variables
+    set_shell_varp("PS1", prompt);
+    set_shell_varp("PS2", PS2);
 
     if (colors) {
         free(colors);
     }
-
     colors = NULL;
 }
