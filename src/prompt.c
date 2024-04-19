@@ -359,7 +359,7 @@ void build_prompt(void) {
         sprintf(prompt, "%s%s@%s in %s%s%s", colors, u, h, d, RESET,
                 (getuid() > 0) ? PS1 : PS1_ROOT);
     } else if (prompt_style == PRO_PROMPT) {
-        sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
+        sprintf(prompt, "%s%s@%s in %s\t%s\n\r%s%s", colors, u, h, d, t,
                 (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
     } else if (prompt_style == COLOR_PROMPT) {
         sprintf(prompt, "%s%s%s", colors, (getuid() > 0) ? PS1 : PS1_ROOT,
