@@ -735,7 +735,7 @@ static size_t promptTextColumnLen(const char *prompt, size_t plen) {
             continue;
         }
         if (prompt[offset] == '\t') {
-            offset += 8 - (colpos % 8);
+            offset++;
             colpos += 8 - (colpos % 8);
             continue;
         }
