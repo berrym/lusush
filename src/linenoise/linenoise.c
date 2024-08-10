@@ -1793,8 +1793,8 @@ void linenoiseHistoryNoDups(bool flag) {
 
 int linenoiseHistoryRemoveDups() {
     int len = history_len - 2;
-    for (int i = 1; i < len; i++) {
-        for (int j = i + 1; j < len; j++) {
+    for (int i = len; i > 0; i--) {
+        for (int j = i - 1; j > 0; j--) {
             if (history[i] == NULL || history[j] == NULL) {
                 continue;
             }
