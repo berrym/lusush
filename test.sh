@@ -8,7 +8,8 @@ a \
 fantastic \
 `date +'%A'`!\n"
 echo "\tIn\t$(date +'%B')\t$(date +'%Y')\n"
-echo 4^6 / 2 = $((4**6/2))
+${n1=4} ${n2=6} ${n3=2}
+echo $n1^$n2 / $n3 = $(($n1**$n2/$n3))
 echo "\nThe expanded glob \`*' of \`$(echo `pwd`)' looks like this..."
 echo *
 echo "\nThe detailed directory listing of ~ looks like...\n$(ls -alF --color=force ~)\n"
