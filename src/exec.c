@@ -101,6 +101,13 @@ int do_basic_command(node_t *n) {
         return 0;
     }
 
+
+    // Set a flag if performing a variable assignment word expansion first
+    bool var_assignment = false;
+    if (child->val.str[0] == '$' && strchr(child->val.str, '=')) {
+        var_assignment = true;
+    }
+
     // Parsing aliases allowing for expandable commands
     // needs a modified expansion process, so set a flag
     if (strcmp(child->val.str, "alias") == 0) {
@@ -151,6 +158,12 @@ int do_basic_command(node_t *n) {
 
     if (check_buffer_bounds(&argc, &targc, &argv)) {
         argv[argc] = NULL;
+    }
+
+    // If var_assignment flag is set don't execute the command
+    if (var_assignment) {
+        free_argv(argc, argv);
+        return 1;
     }
 
     // Execute a builtin command
