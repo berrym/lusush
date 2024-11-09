@@ -23,6 +23,7 @@ int bin_unalias(int, char **);
 int bin_setopt(int, char **);
 int bin_setprompt(int, char **);
 int bin_clear(int, char **);
+int bin_unset(int, char **);
 int bin_dump(int, char **);
 bool is_builtin(const char *);
 

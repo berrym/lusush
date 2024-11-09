@@ -27,6 +27,7 @@ builtin builtins[] = {
     {"setprompt",   "set prompt attributes", bin_setprompt},
     {    "clear",        "clear the screen",     bin_clear},
     {   "setopt",      "set a shell option",    bin_setopt},
+    {    "unset",  "unset a shell variable",     bin_unset},
     {     "dump",       "dump symbol table",      bin_dump},
 };
 
@@ -265,6 +266,28 @@ int bin_setprompt(int argc __attribute__((unused)),
 int bin_clear(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
     linenoiseClearScreen();
+    return 0;
+}
+
+/**
+ * bin_unset:
+ *       Remove an entry from global symbol table.
+ */
+int bin_unset(int argc __attribute__((unused)),
+              char **argv __attribute__((unused))) {
+    if (argc != 2) {
+        error_message("usage: unset var");
+        return 1;
+    }
+    symtable_t *global_symtable = get_global_symtable();
+    if (!global_symtable) {
+        return 1;
+    }
+    symtable_entry_t *entry = get_symtable_entry(argv[1]);
+    if (!entry) {
+        return 1;
+    }
+    remove_from_symtable(global_symtable, entry);
     return 0;
 }
 

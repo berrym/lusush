@@ -101,7 +101,6 @@ int do_basic_command(node_t *n) {
         return 0;
     }
 
-
     // Set a flag if performing a variable assignment word expansion first
     bool var_assignment = false;
     if (child->val.str[0] == '$' && strchr(child->val.str, '=')) {
