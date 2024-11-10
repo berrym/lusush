@@ -6,6 +6,7 @@
 
 #include "../include/init.h"
 #include "../include/input.h"
+#include "../include/linenoise/linenoise.h"
 #include "../include/node.h"
 #include "../include/scanner.h"
 
@@ -14,7 +15,7 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
-    FILE *in = stdin;  // input file stream pointer
+    FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
 
     // Perform startup tasks
@@ -39,6 +40,16 @@ int main(int argc, char **argv) {
 
         // Parse then execute a command
         parse_and_execute(&src);
+
+        if (shell_type() != NORMAL_SHELL) {
+            linenoiseFree(line);
+        } else {
+            free_input_buffers();
+        }
+    }
+
+    if (in) {
+        fclose(in);
     }
 }
 

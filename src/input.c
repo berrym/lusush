@@ -23,13 +23,8 @@ ssize_t getline(char **restrict lineptr, size_t *restrict n,
 static char *buf = NULL, *buf2 = NULL;
 
 void free_input_buffers(void) {
-    if (buf) {
-        free_str(buf);
-    }
-
-    if (buf2) {
-        free_str(buf2);
-    }
+    free_str(buf);
+    free_str(buf2);
 }
 
 char *ln_gets(void) {
@@ -69,7 +64,7 @@ char *ln_gets(void) {
 
             if (errno == ENOENT) {
                 if (shell_type() == INTERACTIVE_SHELL) {
-                    exit(EXIT_SUCCESS);
+                    return NULL;
                 }
             }
 
@@ -87,7 +82,7 @@ char *ln_gets(void) {
     }
 
     // If the line has any text in it, save it in history
-    if (*line) {
+    if (shell_type() != NORMAL_SHELL && *line) {
         history_add(line);
         history_save();
     }
@@ -99,9 +94,6 @@ char *ln_gets(void) {
 char *get_input(FILE *in) {
     char *res = NULL;
 
-    // If the buffers have been previously allocated free them
-    free_input_buffers();
-
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
         res = ln_gets();
@@ -110,7 +102,6 @@ char *get_input(FILE *in) {
         ssize_t linelen;
 
         buf = alloc_str(MAXLINE + 1, true);
-        buf2 = alloc_str(MAXLINE + 1, true);
 
         // Read a line of input
         while ((linelen = getline(&buf2, &linecap, in))) {

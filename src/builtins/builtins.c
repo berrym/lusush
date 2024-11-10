@@ -40,7 +40,6 @@ const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
 int bin_exit(int argc __attribute__((unused)),
              char **argv __attribute__((unused))) {
     exit_flag = true;
-    exit(EXIT_SUCCESS);
     return 0;
 }
 

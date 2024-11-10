@@ -90,12 +90,6 @@ int init(int argc, char **argv, FILE **in) {
 
     init_shell_opts();
 
-    linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
-                                  linenoiseUtf8NextCharLen,
-                                  linenoiseUtf8ReadCode);
-    linenoiseSetMultiLine(get_shell_vari("MULTILINE_EDIT", true));
-    build_prompt();
-
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
 
@@ -110,6 +104,12 @@ int init(int argc, char **argv, FILE **in) {
                           argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
+
+            linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
+                                          linenoiseUtf8NextCharLen,
+                                          linenoiseUtf8ReadCode);
+            linenoiseSetMultiLine(get_shell_vari("MULTILINE_EDIT", true));
+            build_prompt();
         } else {
             SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL) {
@@ -131,7 +131,9 @@ int init(int argc, char **argv, FILE **in) {
     entry->flags |= FLAG_READONLY;
 
     // Initialize history
-    init_history();
+    if (shell_type() != NORMAL_SHELL) {
+        init_history();
+    }
 
     // Initialize aliases
     init_aliases();
