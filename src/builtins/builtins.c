@@ -286,7 +286,9 @@ int bin_unset(int argc __attribute__((unused)),
     if (!entry) {
         return 1;
     }
-    remove_from_symtable(global_symtable, entry);
+    if (!(entry->flags & FLAG_EXPORT)) {
+        remove_from_symtable(global_symtable, entry);
+    }
     return 0;
 }
 
