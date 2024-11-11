@@ -145,7 +145,9 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_tok_buf);
     atexit(free_global_symtable);
     atexit(free_aliases);
-    atexit(free_input_buffers);
+    if (shell_type() == NORMAL_SHELL) {
+        atexit(free_input_buffers);
+    }
 
     return 0;
 }
