@@ -1,6 +1,7 @@
 #include "../include/alias.h"
 #include "../include/node.h"
 #include "../include/scanner.h"
+#include "../include/strings.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -37,10 +38,12 @@ node_t *parse_command(token_t *tok) {
             return NULL;
         }
         // Perform recursive alias expansion now
+        char *alias = NULL;
         for (;;) {
-            char *alias = lookup_alias(tok->text);
+            alias = lookup_alias(tok->text);
             if (alias) {
-                strcpy(tok->text, alias);
+                free_str(tok->text);
+                tok->text = strdup(alias);
             } else {
                 break;
             }
