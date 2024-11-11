@@ -1,3 +1,4 @@
+#include "../include/alias.h"
 #include "../include/node.h"
 #include "../include/scanner.h"
 
@@ -35,7 +36,15 @@ node_t *parse_command(token_t *tok) {
             free_token(tok);
             return NULL;
         }
-
+        // Perform recursive alias expansion now
+        for (;;) {
+            char *alias = lookup_alias(tok->text);
+            if (alias) {
+                strcpy(tok->text, alias);
+            } else {
+                break;
+            }
+        }
         set_token_type(tok);
         set_node_val_str(word, tok->text);
         add_child_node(cmd, word);

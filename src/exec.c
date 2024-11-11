@@ -114,16 +114,6 @@ int do_basic_command(node_t *n) {
     }
 
     while (child) {
-        // Perform recursive alias expansion now
-        for (;;) {
-            char *alias = lookup_alias(child->val.str);
-            if (alias) {
-                set_node_val_str(child, alias);
-            } else {
-                break;
-            }
-        }
-
         str = child->val.str;
 
         word_t *w = word_expand(str);
