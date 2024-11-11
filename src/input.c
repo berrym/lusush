@@ -16,19 +16,20 @@
 #include <string.h>
 #include <sys/types.h>
 
-ssize_t getline(char **restrict lineptr, size_t *restrict n,
-                FILE *restrict stream);
-
-// Input buffers
+// getline input buffers
 static char *buf = NULL, *buf2 = NULL;
+size_t linecap = MAXLINE + 1;
+ssize_t linelen;
 
+// Free getline input buffers
 void free_input_buffers(void) {
     free_str(buf);
     free_str(buf2);
 }
 
+// Get a line of input using linenoise
 char *ln_gets(void) {
-    char *line = NULL, *line2 = NULL, *tmp = NULL;
+    char *line = NULL, *next = NULL, *tmp = NULL;
 
     while (true) {
         errno = 0;
@@ -53,9 +54,9 @@ char *ln_gets(void) {
         str_strip_trailing_whitespace(line);
         if (line[strlen(line) - 1] == '\\') {
             line[strlen(line) - 1] = '\0';
-            if (line2 == NULL) {
-                line2 = alloc_str(strlen(line) + 1, true);
-                strcpy(line2, line);
+            if (next == NULL) {
+                next = alloc_str(strlen(line) + 1, true);
+                strcpy(next, line);
             }
             line = linenoise(get_shell_varp("PS2", "> "));
             if (line == NULL) {
@@ -68,14 +69,14 @@ char *ln_gets(void) {
                 }
             }
 
-            tmp = realloc(line2,
-                          (strlen(line2) + strlen(line) + 1) * sizeof(char));
+            tmp =
+                realloc(next, (strlen(next) + strlen(line) + 1) * sizeof(char));
             if (tmp == NULL) {
                 error_syscall("error: `ln_gets`");
             }
-            line2 = tmp;
-            strcat(line2, line);
-            line = line2;
+            next = tmp;
+            strcat(next, line);
+            line = next;
         } else {
             break;
         }
@@ -91,17 +92,14 @@ char *ln_gets(void) {
     return line;
 }
 
+// Get a line of input
 char *get_input(FILE *in) {
-    char *res = NULL;
-
     // Read a line from either a file or standard input
     if (shell_type() != NORMAL_SHELL) {
-        res = ln_gets();
+        buf = ln_gets();
     } else {
-        size_t linecap = 0;
-        ssize_t linelen;
-
         buf = alloc_str(MAXLINE + 1, true);
+        buf2 = alloc_str(MAXLINE + 1, true);
 
         // Read a line of input
         while ((linelen = getline(&buf2, &linecap, in))) {
@@ -117,11 +115,12 @@ char *get_input(FILE *in) {
             if (!*buf) {
                 strcpy(buf, buf2);
             } else {
-                res = realloc(buf, (strlen(buf) + linelen + 1) * sizeof(char));
-                if (res == NULL) {
+                char *tmp =
+                    realloc(buf, (strlen(buf) + linelen + 1) * sizeof(char));
+                if (tmp == NULL) {
                     error_syscall("error: `get_line`");
                 }
-                buf = res;
+                buf = tmp;
                 strcat(buf, buf2);
             }
 
@@ -132,9 +131,7 @@ char *get_input(FILE *in) {
                 break;
             }
         }
-
-        return buf;
     }
 
-    return res;
+    return buf;
 }
