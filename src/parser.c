@@ -9,10 +9,10 @@
 #include <unistd.h>
 
 /**
- * parse_command:
- *      Parse a token into a new command node.
+ * parse_basic_command:
+ *      Parse a basic command;
  */
-node_t *parse_command(token_t *tok) {
+node_t *parse_basic_command(token_t *tok) {
     if (tok == NULL) {
         return NULL;
     }
@@ -37,6 +37,7 @@ node_t *parse_command(token_t *tok) {
             free_token(tok);
             return NULL;
         }
+
         // Perform recursive alias expansion now
         char *alias = NULL;
         for (;;) {
@@ -52,6 +53,21 @@ node_t *parse_command(token_t *tok) {
         add_child_node(cmd, word);
         free_token(tok);
     } while ((tok = tokenize(src)) != &eof_token);
+
+    return cmd;
+}
+
+/**
+ * parse_command:
+ *      Parse a token into a new command node.
+ */
+node_t *parse_command(token_t *tok) {
+    if (tok == NULL) {
+        return NULL;
+    }
+
+    node_t *cmd = NULL;
+    cmd = parse_basic_command(tok);
 
     return cmd;
 }
