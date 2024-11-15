@@ -45,9 +45,7 @@ char *ln_gets(void) {
         }
 
         if (errno == ENOENT) {
-            if (shell_type() == INTERACTIVE_SHELL) {
-                exit(EXIT_SUCCESS);
-            }
+            return NULL;
         }
 
         // Handle line continuations
@@ -64,9 +62,7 @@ char *ln_gets(void) {
             }
 
             if (errno == ENOENT) {
-                if (shell_type() == INTERACTIVE_SHELL) {
-                    return NULL;
-                }
+                return NULL;
             }
 
             tmp =
@@ -83,7 +79,7 @@ char *ln_gets(void) {
     }
 
     // If the line has any text in it, save it in history
-    if (shell_type() != NORMAL_SHELL && *line) {
+    if (*line) {
         history_add(line);
         history_save();
     }

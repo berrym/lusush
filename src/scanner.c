@@ -628,6 +628,7 @@ token_t *tokenize(source_t *src) {
         error_message("error: `tokenize`: failed to create new token");
         return &eof_token;
     }
+    set_token_type(tok);
     tok->src = src;
 
     return tok;

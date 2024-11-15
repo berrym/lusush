@@ -94,7 +94,6 @@ int do_basic_command(node_t *n) {
     if (n == NULL) {
         return 0;
     }
-
     node_t *child = n->first_child;
 
     if (child == NULL) {
@@ -164,9 +163,14 @@ int do_basic_command(node_t *n) {
         }
     }
 
-    pid_t child_pid = 0;
+    pid_t child_pid = fork();
+    int status = 0;
 
-    if ((child_pid = fork()) == 0) {
+    if (child_pid == -1) {
+        error_return("error: `do_basic_command`");
+        free_argv(argc, argv);
+        return 0;
+    } else if (child_pid == 0) {
         do_exec_cmd(argc, argv);
         error_return("error: `do_basic_command`");
 
@@ -181,17 +185,10 @@ int do_basic_command(node_t *n) {
             exit(EXIT_FAILURE);
             break;
         }
+    } else {
+        waitpid(child_pid, &status, 0);
     }
 
-    if (child_pid < 0) {
-        error_return("error: `do_basic_command`");
-        free_argv(argc, argv);
-        return 0;
-    }
-
-    int status = 0;
-
-    waitpid(child_pid, &status, 0);
     free_argv(argc, argv);
 
     return 1;

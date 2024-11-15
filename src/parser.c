@@ -48,7 +48,6 @@ node_t *parse_command(token_t *tok) {
                 break;
             }
         }
-        set_token_type(tok);
         set_node_val_str(word, tok->text);
         add_child_node(cmd, word);
         free_token(tok);
