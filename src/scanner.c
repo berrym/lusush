@@ -383,7 +383,7 @@ token_t *dup_token(token_t *tok) {
 
     new_tok = calloc(1, sizeof(token_t));
     if (new_tok == NULL) {
-        error_return("dup_token");
+        error_return("error: `dup_token`");
         return NULL;
     }
     memcpy(new_tok, tok, sizeof(token_t));
@@ -450,10 +450,10 @@ void add_to_buf(char c) {
     }
 
     tok_buf[tok_bufindex++] = c;
-    if ((size_t)tok_bufindex > tok_bufsize) {
+    if ((size_t)tok_bufindex >= tok_bufsize) {
         tmp = realloc(tok_buf, tok_bufsize * 2);
         if (tmp == NULL) {
-            error_return("add_to_buf");
+            error_return("error: `add_to_buf`");
             return;
         };
         tok_buf = tmp;
@@ -471,11 +471,9 @@ token_t *create_token(char *s) {
         return NULL;
     }
 
-    tmp = strdup(s);
+    tmp = get_alloced_str(s); // strdup(s);
     if (tmp == NULL) {
-        if (tok) {
-            free(tok);
-        }
+        free_token(tok);
         error_return("error: `create token`");
         return NULL;
     }
@@ -483,7 +481,7 @@ token_t *create_token(char *s) {
     buf = str_strip_whitespace(tmp);
 
     tok->text_len = strlen(buf);
-    tok->text = strdup(buf);
+    tok->text = get_alloced_str(buf); // strdup(buf);
 
     if (tok->text == NULL) {
         if (tok) {
@@ -493,18 +491,29 @@ token_t *create_token(char *s) {
         return NULL;
     }
 
-    free_str(tmp);
-    buf = NULL;
+    free_alloced_str(tmp);
 
     return tok;
 }
 
 void free_token(token_t *tok) {
-    if (tok->text) {
-        free_str(tok->text);
+    // don't attempt to free the EOF token
+    if (tok == NULL || tok == &eof_token) {
+        return;
     }
+
+    free_alloced_str(tok->text);
     free(tok);
-    tok = NULL;
+
+    // update the current token struct pointer
+    if (cur_tok == tok) {
+        cur_tok = NULL;
+    }
+
+    // update the previous token struct pointer
+    if (prev_tok == tok) {
+        prev_tok = NULL;
+    }
 }
 
 token_t *tokenize(source_t *src) {
@@ -525,11 +534,38 @@ token_t *tokenize(source_t *src) {
     tok_bufindex = 0;
     tok_buf[0] = '\0';
 
-    char nc = next_char(src);
+    if (cur_tok) {
+        if (prev_tok) {
+            free_token(prev_tok);
+        }
+        prev_tok = cur_tok;
+        cur_tok = NULL;
+    }
+
+    ssize_t linestart, line, chr;
+
+    /* init position indexes */
+    src->pos_old = src->pos + 1;
+    if (src->pos < 0) {
+        linestart = 0;
+        line = 1;
+        chr = 1;
+    } else {
+        linestart = src->curlinestart;
+        line = src->curline;
+        chr = src->curchar;
+    }
+
     char nc2;
     size_t i;
 
+    char nc = next_char(src);
     if (nc == ERRCHAR || nc == EOF) {
+        eof_token.lineno = src->curline;
+        eof_token.charno = src->curchar;
+        eof_token.linestart = src->curlinestart;
+        eof_token.src = src;
+        cur_tok = &eof_token;
         return &eof_token;
     }
 
@@ -589,6 +625,34 @@ token_t *tokenize(source_t *src) {
                 }
             }
             break;
+        case '>':
+        case '<':
+        case '|':
+            // if an '>', '<', or '|' operator delimits the current token,
+            // delimit it
+            if (tok_bufindex > 0) {
+                unget_char(src);
+                loop = false;
+                break;
+            }
+
+            // add the operator to buffer
+            add_to_buf(nc);
+            loop = false;
+            break;
+        case '&':
+        case ';':
+            // if an '&' or ';' operator delimits the current token, delimit it
+            if (tok_bufindex > 0) {
+                unget_char(src);
+                loop = false;
+                break;
+            }
+
+            // add the operator to buffer
+            add_to_buf(nc);
+            loop = false;
+            break;
         case ' ':
         case '\t':
             if (tok_bufindex > 0) {
@@ -613,6 +677,11 @@ token_t *tokenize(source_t *src) {
         }
     } while ((nc = next_char(src)) != EOF);
 
+    eof_token.lineno = src->curline;
+    eof_token.charno = src->curchar;
+    eof_token.linestart = src->curlinestart;
+    eof_token.src = src;
+
     if (tok_bufindex == 0) {
         return &eof_token;
     }
@@ -628,8 +697,15 @@ token_t *tokenize(source_t *src) {
         error_message("error: `tokenize`: failed to create new token");
         return &eof_token;
     }
+
     set_token_type(tok);
+
+    tok->lineno = line;
+    tok->charno = chr;
     tok->src = src;
+    tok->linestart = linestart;
+
+    cur_tok = tok;
 
     return tok;
 }
@@ -642,8 +718,4 @@ void set_current_token(token_t *tok) { cur_tok = tok; }
 
 void set_previous_token(token_t *tok) { prev_tok = tok; }
 
-void free_tok_buf(void) {
-    if (tok_buf) {
-        free_str(tok_buf);
-    }
-}
+void free_tok_buf(void) { free_alloced_str(tok_buf); }
