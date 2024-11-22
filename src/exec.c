@@ -100,6 +100,9 @@ int do_basic_pipe_list(node_t *n) {
 
     // create command buffer
     commands = calloc(len, sizeof(node_t *));
+    if (commands == NULL) {
+        return 0;
+    }
     commands[cnt] = new_node(NODE_COMMAND);
     for (node_t *p = n->first_child; p; p = p->next_sibling) {
         if (p->type == NODE_COMMAND) {
@@ -132,11 +135,7 @@ int do_basic_pipe_list(node_t *n) {
         size_t argc = 0, targc = 0;
         char **argv = NULL, *str = NULL;
 
-        if (n == NULL) {
-            return 0;
-        }
-
-        node_t *child = n->first_child;
+        node_t *child = commands[i]->first_child;
 
         if (child == NULL) {
             return 0;
@@ -155,7 +154,8 @@ int do_basic_pipe_list(node_t *n) {
                     str = alloc_str(strlen(w2->data) + 1, false);
                     if (str) {
                         strcpy(str, w2->data);
-                        argv[argc++] = str;
+                        argv[argc] = str;
+                        argc++;
                     }
                 }
                 w2 = w2->next;
