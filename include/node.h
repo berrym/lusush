@@ -8,6 +8,7 @@
 typedef enum {
     NODE_COMMAND,
     NODE_VAR,
+    NODE_PIPE,
 } node_type_t;
 
 typedef enum {

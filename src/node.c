@@ -30,7 +30,7 @@ void add_child_node(node_t *parent, node_t *child) {
     } else {
         node_t *sibling = parent->first_child;
 
-        while (sibling->next_sibling) {
+        while (sibling->next_sibling != NULL) {
             sibling = sibling->next_sibling;
         }
 

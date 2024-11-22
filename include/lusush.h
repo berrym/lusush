@@ -19,6 +19,7 @@
 
 extern bool exit_flag;
 extern bool parsing_alias;
+extern bool exec_compound_command;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
@@ -82,6 +83,7 @@ char **get_filename_matches(const char *pattern, glob_t *matches);
 // command execution functions
 char *search_path(char *fn);
 int do_exec_cmd(int argc, char **argv);
+int do_basic_pipe_list(node_t *n);
 int do_basic_command(node_t *n);
 
 #endif

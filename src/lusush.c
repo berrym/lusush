@@ -69,7 +69,11 @@ int parse_and_execute(source_t *src) {
             break;
         }
 
-        do_basic_command(cmd);
+        if (exec_compound_command) {
+            do_basic_pipe_list(cmd);
+        } else {
+            do_basic_command(cmd);
+        }
         free_node_tree(cmd);
         tok = tokenize(src);
     }

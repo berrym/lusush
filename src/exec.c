@@ -6,6 +6,7 @@
 #include "../include/strings.h"
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +88,140 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     return 0;
 }
 
+int do_basic_pipe_list(node_t *n) {
+    node_t **commands = NULL;
+    size_t len = 32;
+    size_t cnt = 0;
+
+    // sanity check
+    if (n == NULL || n->first_child == NULL) {
+        return 0;
+    }
+
+    // create command buffer
+    commands = calloc(16, sizeof(node_t *));
+    commands[cnt] = new_node(NODE_COMMAND);
+    for (node_t *p = n->first_child; p; p = p->next_sibling) {
+        if (p->type == NODE_COMMAND) {
+            cnt++;
+            if (cnt >= len - 1) {
+                len *= 2;
+                node_t **tmp = realloc(commands, len * sizeof(node_t *));
+                if (tmp == NULL) {
+                    return 1;
+                }
+                commands = tmp;
+            }
+            commands[cnt] = new_node(NODE_COMMAND);
+        } else if (p->type == NODE_PIPE) {
+            ;
+        } else {
+            if (p->type != NODE_VAR) {
+                continue;
+            }
+            node_t *c = new_node(NODE_VAR);
+            set_node_val_str(c, p->val.str);
+            add_child_node(commands[cnt], c);
+        }
+    }
+    cnt++;
+
+    int pipes[cnt - 1][2];
+
+    for (size_t i = 0; i < cnt; i++) {
+        size_t argc = 0, targc = 0;
+        char **argv = NULL, *str = NULL;
+
+        if (n == NULL) {
+            return 0;
+        }
+
+        node_t *child = n->first_child;
+
+        if (child == NULL) {
+            return 0;
+        }
+
+        while (child) {
+            str = child->val.str;
+            word_t *w = word_expand(str);
+            if (w == NULL) {
+                child = child->next_sibling;
+                continue;
+            }
+            const word_t *w2 = w;
+            while (w2) {
+                if (check_buffer_bounds(&argc, &targc, &argv)) {
+                    str = alloc_str(strlen(w2->data) + 1, false);
+                    if (str) {
+                        strcpy(str, w2->data);
+                        argv[argc++] = str;
+                    }
+                }
+                w2 = w2->next;
+            }
+            free_all_words(w);
+            child = child->next_sibling;
+        }
+
+        if (check_buffer_bounds(&argc, &targc, &argv)) {
+            argv[argc] = NULL;
+        }
+
+        if (i < cnt - 1) {
+            if (pipe(pipes[i]) == -1) {
+                error_return("error: `do_pipe_list`");
+            }
+        }
+
+        pid_t pid = fork();
+        int status = 0;
+
+        if (pid == 0) {
+            if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+                close(pipes[i - 1][0]);
+                close(pipes[i - 1][1]);
+            }
+            if (i < cnt - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+            }
+            do_exec_cmd(argc, argv);
+            error_return("error: `do_pipe_list`");
+            switch (errno) {
+            case ENOEXEC:
+                exit(126);
+                break;
+            case ENOENT:
+                exit(127);
+                break;
+            default:
+                exit(EXIT_FAILURE);
+                break;
+            }
+        } else if (pid < 0) {
+            perror("fork");
+            exit(1);
+        } else {
+            if (i > 0) {
+                close(pipes[i - 1][0]);
+                close(pipes[i - 1][1]);
+            }
+            waitpid(pid, &status, 0);
+        }
+        free_argv(argc, argv);
+    }
+
+    for (size_t i = 0; i < cnt; i++) {
+        free_node_tree(commands[i]);
+    }
+    free(commands);
+
+    return 1;
+}
+
 int do_basic_command(node_t *n) {
     size_t argc = 0, targc = 0;
     char **argv = NULL, *str = NULL;
@@ -94,6 +229,7 @@ int do_basic_command(node_t *n) {
     if (n == NULL) {
         return 0;
     }
+
     node_t *child = n->first_child;
 
     if (child == NULL) {
