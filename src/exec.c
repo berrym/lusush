@@ -99,7 +99,7 @@ int do_basic_pipe_list(node_t *n) {
     }
 
     // create command buffer
-    commands = calloc(16, sizeof(node_t *));
+    commands = calloc(len, sizeof(node_t *));
     commands[cnt] = new_node(NODE_COMMAND);
     for (node_t *p = n->first_child; p; p = p->next_sibling) {
         if (p->type == NODE_COMMAND) {
