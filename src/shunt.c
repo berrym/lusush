@@ -63,7 +63,7 @@
 #define MAXNUMSTACK 64
 #define MAXBASE 36
 
-struct stack_item_s {
+typedef struct stack_item_t {
 #define ITEM_LONG_INT 1
 #define ITEM_VAR_PTR 2
     int type;
@@ -72,15 +72,28 @@ struct stack_item_s {
         ssize_t val;
         symtable_entry_t *ptr;
     };
-};
+} stack_item_t;
 
-struct op_s *opstack[MAXOPSTACK];
+// see this link for C operator precedence:
+// https://en.cppreference.com/w/c/language/operator_precedence
+
+typedef struct op_t {
+    char op;
+    int prec;
+    int assoc;
+    char unary;
+    char chars;
+
+    ssize_t (*eval)(stack_item_t *a1, stack_item_t *a2);
+} op_t;
+
+op_t *opstack[MAXOPSTACK];
 int nopstack = 0;
-struct stack_item_s numstack[MAXNUMSTACK];
+stack_item_t numstack[MAXNUMSTACK];
 int nnumstack = 0;
 bool errflag = false;
 
-ssize_t long_value(struct stack_item_s *a) {
+ssize_t long_value(stack_item_t *a) {
     if (a->type == ITEM_LONG_INT) {
         return a->val;
     }
@@ -92,87 +105,86 @@ ssize_t long_value(struct stack_item_s *a) {
     return 0;
 }
 
-ssize_t eval_uminus(struct stack_item_s *a1,
-                    struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_uminus(stack_item_t *a1,
+                    stack_item_t *a2 __attribute__((unused))) {
     return -long_value(a1);
 }
 
-ssize_t eval_uplus(struct stack_item_s *a1,
-                   struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_uplus(stack_item_t *a1, stack_item_t *a2 __attribute__((unused))) {
     return long_value(a1);
 }
 
-ssize_t eval_lognot(struct stack_item_s *a1,
-                    struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_lognot(stack_item_t *a1,
+                    stack_item_t *a2 __attribute__((unused))) {
     return !long_value(a1);
 }
 
-ssize_t eval_bitnot(struct stack_item_s *a1,
-                    struct stack_item_s *a2 __attribute__((unused))) {
+ssize_t eval_bitnot(stack_item_t *a1,
+                    stack_item_t *a2 __attribute__((unused))) {
     return ~long_value(a1);
 }
 
-ssize_t eval_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_mul(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) * long_value(a2);
 }
 
-ssize_t eval_add(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_add(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) + long_value(a2);
 }
 
-ssize_t eval_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_sub(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) - long_value(a2);
 }
 
-ssize_t eval_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_lsh(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) << long_value(a2);
 }
 
-ssize_t eval_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_rsh(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) >> long_value(a2);
 }
 
-ssize_t eval_lt(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_lt(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) < long_value(a2);
 }
 
-ssize_t eval_le(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_le(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) <= long_value(a2);
 }
 
-ssize_t eval_gt(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_gt(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) > long_value(a2);
 }
 
-ssize_t eval_ge(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_ge(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) >= long_value(a2);
 }
 
-ssize_t eval_eq(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_eq(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) == long_value(a2);
 }
 
-ssize_t eval_ne(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_ne(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) != long_value(a2);
 }
 
-ssize_t eval_bitand(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitand(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) & long_value(a2);
 }
 
-ssize_t eval_bitxor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitxor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) ^ long_value(a2);
 }
 
-ssize_t eval_bitor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_bitor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) | long_value(a2);
 }
 
-ssize_t eval_logand(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_logand(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) && long_value(a2);
 }
 
-ssize_t eval_logor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_logor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) || long_value(a2);
 }
 
@@ -180,33 +192,33 @@ ssize_t do_eval_exp(ssize_t a1, ssize_t a2) {
     return a2 < 0 ? 0 : (a2 == 0 ? 1 : a1 * do_eval_exp(a1, a2 - 1));
 }
 
-ssize_t eval_exp(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_exp(long_value(a1), long_value(a2));
 }
 
-ssize_t eval_div(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_div(stack_item_t *a1, stack_item_t *a2) {
     errflag = false;
     ssize_t n2 = long_value(a2);
     if (!n2) {
-        error_message("error: lusush internal `eval_div`: Division by zero");
+        error_message("error: `eval_div`: Division by zero");
         errflag = true;
         return 0;
     }
     return long_value(a1) / n2;
 }
 
-ssize_t eval_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_mod(stack_item_t *a1, stack_item_t *a2) {
     errflag = false;
     ssize_t n2 = long_value(a2);
     if (!n2) {
-        error_message("error: lusush internal `eval_div`: Division by zero");
+        error_message("error: `eval_div`: Division by zero");
         errflag = true;
         return 0;
     }
     return long_value(a1) % n2;
 }
 
-ssize_t eval_assign(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
     ssize_t val = long_value(a2);
     if (a1->type == ITEM_VAR_PTR) {
         char buf[16];
@@ -216,9 +228,8 @@ ssize_t eval_assign(struct stack_item_s *a1, struct stack_item_s *a2) {
     return val;
 }
 
-ssize_t do_eval_assign_ext(ssize_t (*f)(struct stack_item_s *a1,
-                                        struct stack_item_s *a2),
-                           struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t do_eval_assign_ext(ssize_t (*f)(stack_item_t *a1, stack_item_t *a2),
+                           stack_item_t *a1, stack_item_t *a2) {
     ssize_t val = f(a1, a2);
     if (a1->type == ITEM_VAR_PTR) {
         char buf[32];
@@ -228,47 +239,47 @@ ssize_t do_eval_assign_ext(ssize_t (*f)(struct stack_item_s *a1,
     return val;
 }
 
-ssize_t eval_assign_add(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_add(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_add, a1, a2);
 }
 
-ssize_t eval_assign_sub(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_sub(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_sub, a1, a2);
 }
 
-ssize_t eval_assign_mult(struct stack_item_s *a1, struct stack_item_s *a2) {
-    return do_eval_assign_ext(eval_mult, a1, a2);
+ssize_t eval_assign_mul(stack_item_t *a1, stack_item_t *a2) {
+    return do_eval_assign_ext(eval_mul, a1, a2);
 }
 
-ssize_t eval_assign_div(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_div(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_div, a1, a2);
 }
 
-ssize_t eval_assign_mod(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_mod(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_mod, a1, a2);
 }
 
-ssize_t eval_assign_lsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_lsh(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_lsh, a1, a2);
 }
 
-ssize_t eval_assign_rsh(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_rsh(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_rsh, a1, a2);
 }
 
-ssize_t eval_assign_and(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_and(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_bitand, a1, a2);
 }
 
-ssize_t eval_assign_xor(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_xor(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_bitxor, a1, a2);
 }
 
-ssize_t eval_assign_or(struct stack_item_s *a1, struct stack_item_s *a2) {
+ssize_t eval_assign_or(stack_item_t *a1, stack_item_t *a2) {
     return do_eval_assign_ext(eval_bitor, a1, a2);
 }
 
-ssize_t do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
+ssize_t do_eval_inc_dec(int pre, int add, stack_item_t *a1) {
     ssize_t val = long_value(a1);
     char buf[32];
     if (pre) {
@@ -292,23 +303,23 @@ ssize_t do_eval_inc_dec(int pre, int add, struct stack_item_s *a1) {
     return val;
 }
 
-ssize_t eval_postinc(struct stack_item_s *a1,
-                     struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_postinc(stack_item_t *a1,
+                     stack_item_t *unused __attribute__((unused))) {
     return do_eval_inc_dec(0, 1, a1);
 }
 
-ssize_t eval_postdec(struct stack_item_s *a1,
-                     struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_postdec(stack_item_t *a1,
+                     stack_item_t *unused __attribute__((unused))) {
     return do_eval_inc_dec(0, 0, a1);
 }
 
-ssize_t eval_preinc(struct stack_item_s *a1,
-                    struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_preinc(stack_item_t *a1,
+                    stack_item_t *unused __attribute__((unused))) {
     return do_eval_inc_dec(1, 1, a1);
 }
 
-ssize_t eval_predec(struct stack_item_s *a1,
-                    struct stack_item_s *unused __attribute__((unused))) {
+ssize_t eval_predec(stack_item_t *a1,
+                    stack_item_t *unused __attribute__((unused))) {
     return do_eval_inc_dec(1, 0, a1);
 }
 
@@ -336,7 +347,7 @@ ssize_t eval_predec(struct stack_item_s *a1,
 #define CH_PLUS 22         /* unary plus */
 #define CH_ASSIGN_PLUS 23  /* += assignment */
 #define CH_ASSIGN_MINUS 24 /* -= assignment */
-#define CH_ASSIGN_MULT 25  /* *= assignment */
+#define CH_ASSIGN_MUL 25   /* *= assignment */
 #define CH_ASSIGN_DIV 26   /* /= assignment */
 #define CH_ASSIGN_MOD 27   /* %= assignment */
 #define CH_ASSIGN_LSH 28   /* <<= assignment */
@@ -347,103 +358,92 @@ ssize_t eval_predec(struct stack_item_s *a1,
 
 enum { ASSOC_NONE = 0, ASSOC_LEFT, ASSOC_RIGHT };
 
-// see this link for C operator precedence:
-// https://en.cppreference.com/w/c/language/operator_precedence
-
-struct op_s {
-    char op;
-    int prec;
-    int assoc;
-    char unary;
-    char chars;
-
-    ssize_t (*eval)(struct stack_item_s *a1, struct stack_item_s *a2);
-} arithm_ops[] = {
-    {    CH_POST_INC, 20,  ASSOC_LEFT, 1, 2,     eval_postinc},
-    {    CH_POST_DEC, 20,  ASSOC_LEFT, 1, 2,     eval_postdec},
-    {     CH_PRE_INC, 19, ASSOC_RIGHT, 1, 2,     eval_postinc},
-    {     CH_PRE_DEC, 19, ASSOC_RIGHT, 1, 2,     eval_postdec},
-    {       CH_MINUS, 19, ASSOC_RIGHT, 1, 1,      eval_uminus},
-    {        CH_PLUS, 19, ASSOC_RIGHT, 1, 1,       eval_uplus},
-    {            '!', 19, ASSOC_RIGHT, 1, 1,      eval_lognot},
-    {            '~', 19, ASSOC_RIGHT, 1, 1,      eval_bitnot},
-    {         CH_EXP, 18, ASSOC_RIGHT, 0, 2,         eval_exp},
-    {            '*', 17,  ASSOC_LEFT, 0, 1,        eval_mult},
-    {            '/', 17,  ASSOC_LEFT, 0, 1,         eval_div},
-    {            '%', 17,  ASSOC_LEFT, 0, 1,         eval_mod},
-    {            '+', 16,  ASSOC_LEFT, 0, 1,         eval_add},
-    {            '-', 16,  ASSOC_LEFT, 0, 1,         eval_sub},
-    {         CH_LSH, 15,  ASSOC_LEFT, 0, 2,         eval_lsh},
-    {         CH_RSH, 15,  ASSOC_LEFT, 0, 2,         eval_rsh},
-    {            '<', 14,  ASSOC_LEFT, 0, 1,          eval_lt},
-    {          CH_LE, 14,  ASSOC_LEFT, 0, 2,          eval_le},
-    {            '>', 14,  ASSOC_LEFT, 0, 1,          eval_gt},
-    {          CH_GE, 14,  ASSOC_LEFT, 0, 2,          eval_ge},
-    {          CH_EQ, 13,  ASSOC_LEFT, 0, 2,          eval_eq},
-    {          CH_NE, 13,  ASSOC_LEFT, 0, 2,          eval_ne},
-    {            '&', 12,  ASSOC_LEFT, 0, 1,      eval_bitand},
-    {            '^', 11,  ASSOC_LEFT, 0, 1,      eval_bitxor},
-    {            '|', 10,  ASSOC_LEFT, 0, 1,       eval_bitor},
-    {         CH_AND,  9,  ASSOC_LEFT, 0, 2,      eval_logand},
-    {          CH_OR,  8,  ASSOC_LEFT, 0, 2,       eval_logor},
-    {      CH_ASSIGN,  7, ASSOC_RIGHT, 0, 1,      eval_assign},
-    { CH_ASSIGN_PLUS,  7, ASSOC_RIGHT, 0, 2,  eval_assign_add},
-    {CH_ASSIGN_MINUS,  7, ASSOC_RIGHT, 0, 2,  eval_assign_sub},
-    { CH_ASSIGN_MULT,  7, ASSOC_RIGHT, 0, 2, eval_assign_mult},
-    {  CH_ASSIGN_DIV,  7, ASSOC_RIGHT, 0, 2,  eval_assign_div},
-    {  CH_ASSIGN_MOD,  7, ASSOC_RIGHT, 0, 2,  eval_assign_mod},
-    {  CH_ASSIGN_LSH,  7, ASSOC_RIGHT, 0, 3,  eval_assign_lsh},
-    {  CH_ASSIGN_RSH,  7, ASSOC_RIGHT, 0, 3,  eval_assign_rsh},
-    {  CH_ASSIGN_AND,  7, ASSOC_RIGHT, 0, 2,  eval_assign_and},
-    {  CH_ASSIGN_XOR,  7, ASSOC_RIGHT, 0, 2,  eval_assign_xor},
-    {   CH_ASSIGN_OR,  7, ASSOC_RIGHT, 0, 2,   eval_assign_or},
+op_t arithm_ops[] = {
+    {    CH_POST_INC, 20,  ASSOC_LEFT, 1, 2,    eval_postinc},
+    {    CH_POST_DEC, 20,  ASSOC_LEFT, 1, 2,    eval_postdec},
+    {     CH_PRE_INC, 19, ASSOC_RIGHT, 1, 2,    eval_postinc},
+    {     CH_PRE_DEC, 19, ASSOC_RIGHT, 1, 2,    eval_postdec},
+    {       CH_MINUS, 19, ASSOC_RIGHT, 1, 1,     eval_uminus},
+    {        CH_PLUS, 19, ASSOC_RIGHT, 1, 1,      eval_uplus},
+    {            '!', 19, ASSOC_RIGHT, 1, 1,     eval_lognot},
+    {            '~', 19, ASSOC_RIGHT, 1, 1,     eval_bitnot},
+    {         CH_EXP, 18, ASSOC_RIGHT, 0, 2,        eval_exp},
+    {            '*', 17,  ASSOC_LEFT, 0, 1,        eval_mul},
+    {            '/', 17,  ASSOC_LEFT, 0, 1,        eval_div},
+    {            '%', 17,  ASSOC_LEFT, 0, 1,        eval_mod},
+    {            '+', 16,  ASSOC_LEFT, 0, 1,        eval_add},
+    {            '-', 16,  ASSOC_LEFT, 0, 1,        eval_sub},
+    {         CH_LSH, 15,  ASSOC_LEFT, 0, 2,        eval_lsh},
+    {         CH_RSH, 15,  ASSOC_LEFT, 0, 2,        eval_rsh},
+    {            '<', 14,  ASSOC_LEFT, 0, 1,         eval_lt},
+    {          CH_LE, 14,  ASSOC_LEFT, 0, 2,         eval_le},
+    {            '>', 14,  ASSOC_LEFT, 0, 1,         eval_gt},
+    {          CH_GE, 14,  ASSOC_LEFT, 0, 2,         eval_ge},
+    {          CH_EQ, 13,  ASSOC_LEFT, 0, 2,         eval_eq},
+    {          CH_NE, 13,  ASSOC_LEFT, 0, 2,         eval_ne},
+    {            '&', 12,  ASSOC_LEFT, 0, 1,     eval_bitand},
+    {            '^', 11,  ASSOC_LEFT, 0, 1,     eval_bitxor},
+    {            '|', 10,  ASSOC_LEFT, 0, 1,      eval_bitor},
+    {         CH_AND,  9,  ASSOC_LEFT, 0, 2,     eval_logand},
+    {          CH_OR,  8,  ASSOC_LEFT, 0, 2,      eval_logor},
+    {      CH_ASSIGN,  7, ASSOC_RIGHT, 0, 1,     eval_assign},
+    { CH_ASSIGN_PLUS,  7, ASSOC_RIGHT, 0, 2, eval_assign_add},
+    {CH_ASSIGN_MINUS,  7, ASSOC_RIGHT, 0, 2, eval_assign_sub},
+    {  CH_ASSIGN_MUL,  7, ASSOC_RIGHT, 0, 2, eval_assign_mul},
+    {  CH_ASSIGN_DIV,  7, ASSOC_RIGHT, 0, 2, eval_assign_div},
+    {  CH_ASSIGN_MOD,  7, ASSOC_RIGHT, 0, 2, eval_assign_mod},
+    {  CH_ASSIGN_LSH,  7, ASSOC_RIGHT, 0, 3, eval_assign_lsh},
+    {  CH_ASSIGN_RSH,  7, ASSOC_RIGHT, 0, 3, eval_assign_rsh},
+    {  CH_ASSIGN_AND,  7, ASSOC_RIGHT, 0, 2, eval_assign_and},
+    {  CH_ASSIGN_XOR,  7, ASSOC_RIGHT, 0, 2, eval_assign_xor},
+    {   CH_ASSIGN_OR,  7, ASSOC_RIGHT, 0, 2,  eval_assign_or},
 
     // TODO: add the comma ',' and ternary '?:' operators.
 
-    {            '(',  0,  ASSOC_NONE, 0, 1,             NULL},
-    {            ')',  0,  ASSOC_NONE, 0, 1,             NULL}
+    {            '(',  0,  ASSOC_NONE, 0, 1,            NULL},
+    {            ')',  0,  ASSOC_NONE, 0, 1,            NULL}
 };
 
-struct op_s *OP_POST_INC = &arithm_ops[0];
-struct op_s *OP_POST_DEC = &arithm_ops[1];
-struct op_s *OP_PRE_INC = &arithm_ops[2];
-struct op_s *OP_PRE_DEC = &arithm_ops[3];
-struct op_s *OP_UMINUS = &arithm_ops[4];
-struct op_s *OP_UPLUS = &arithm_ops[5];
-struct op_s *OP_LOG_NOT = &arithm_ops[6];
-struct op_s *OP_BIT_NOT = &arithm_ops[7];
-struct op_s *OP_EXP = &arithm_ops[8];
-struct op_s *OP_MULT = &arithm_ops[9];
-struct op_s *OP_DIV = &arithm_ops[10];
-struct op_s *OP_MOD = &arithm_ops[11];
-struct op_s *OP_ADD = &arithm_ops[12];
-struct op_s *OP_SUB = &arithm_ops[13];
-struct op_s *OP_LSH = &arithm_ops[14];
-struct op_s *OP_RSH = &arithm_ops[15];
-struct op_s *OP_LT = &arithm_ops[16];
-struct op_s *OP_LE = &arithm_ops[17];
-struct op_s *OP_GT = &arithm_ops[18];
-struct op_s *OP_GE = &arithm_ops[19];
-struct op_s *OP_EQ = &arithm_ops[20];
-struct op_s *OP_NE = &arithm_ops[21];
-struct op_s *OP_BIT_AND = &arithm_ops[22];
-struct op_s *OP_BIT_XOR = &arithm_ops[23];
-struct op_s *OP_BIT_OR = &arithm_ops[24];
-struct op_s *OP_LOG_AND = &arithm_ops[25];
-struct op_s *OP_LOG_OR = &arithm_ops[26];
-struct op_s *OP_ASSIGN = &arithm_ops[27];
-struct op_s *OP_ASSIGN_ADD = &arithm_ops[28];
-struct op_s *OP_ASSIGN_SUB = &arithm_ops[29];
-struct op_s *OP_ASSIGN_MULT = &arithm_ops[30];
-struct op_s *OP_ASSIGN_DIV = &arithm_ops[31];
-struct op_s *OP_ASSIGN_MOD = &arithm_ops[32];
-struct op_s *OP_ASSIGN_LSH = &arithm_ops[33];
-struct op_s *OP_ASSIGN_RSH = &arithm_ops[34];
-struct op_s *OP_ASSIGN_AND = &arithm_ops[35];
-struct op_s *OP_ASSIGN_XOR = &arithm_ops[36];
-struct op_s *OP_ASSIGN_OR = &arithm_ops[37];
-struct op_s *OP_LBRACE = &arithm_ops[38];
-struct op_s *OP_RBRACE = &arithm_ops[39];
+op_t *OP_POST_INC = &arithm_ops[0];
+op_t *OP_POST_DEC = &arithm_ops[1];
+op_t *OP_PRE_INC = &arithm_ops[2];
+op_t *OP_PRE_DEC = &arithm_ops[3];
+op_t *OP_UMINUS = &arithm_ops[4];
+op_t *OP_UPLUS = &arithm_ops[5];
+op_t *OP_LOG_NOT = &arithm_ops[6];
+op_t *OP_BIT_NOT = &arithm_ops[7];
+op_t *OP_EXP = &arithm_ops[8];
+op_t *OP_MUL = &arithm_ops[9];
+op_t *OP_DIV = &arithm_ops[10];
+op_t *OP_MOD = &arithm_ops[11];
+op_t *OP_ADD = &arithm_ops[12];
+op_t *OP_SUB = &arithm_ops[13];
+op_t *OP_LSH = &arithm_ops[14];
+op_t *OP_RSH = &arithm_ops[15];
+op_t *OP_LT = &arithm_ops[16];
+op_t *OP_LE = &arithm_ops[17];
+op_t *OP_GT = &arithm_ops[18];
+op_t *OP_GE = &arithm_ops[19];
+op_t *OP_EQ = &arithm_ops[20];
+op_t *OP_NE = &arithm_ops[21];
+op_t *OP_BIT_AND = &arithm_ops[22];
+op_t *OP_BIT_XOR = &arithm_ops[23];
+op_t *OP_BIT_OR = &arithm_ops[24];
+op_t *OP_LOG_AND = &arithm_ops[25];
+op_t *OP_LOG_OR = &arithm_ops[26];
+op_t *OP_ASSIGN = &arithm_ops[27];
+op_t *OP_ASSIGN_ADD = &arithm_ops[28];
+op_t *OP_ASSIGN_SUB = &arithm_ops[29];
+op_t *OP_ASSIGN_MUL = &arithm_ops[30];
+op_t *OP_ASSIGN_DIV = &arithm_ops[31];
+op_t *OP_ASSIGN_MOD = &arithm_ops[32];
+op_t *OP_ASSIGN_LSH = &arithm_ops[33];
+op_t *OP_ASSIGN_RSH = &arithm_ops[34];
+op_t *OP_ASSIGN_AND = &arithm_ops[35];
+op_t *OP_ASSIGN_XOR = &arithm_ops[36];
+op_t *OP_ASSIGN_OR = &arithm_ops[37];
+op_t *OP_LBRACE = &arithm_ops[38];
+op_t *OP_RBRACE = &arithm_ops[39];
 
 /*
  * return true if the given char is a valid shell variable name char.
@@ -467,7 +467,7 @@ bool valid_name_char(char c) {
 /*
  * extract an arithmetic operator from the beginning of expr.
  */
-struct op_s *get_op(char *expr) {
+op_t *get_op(char *expr) {
     switch (*expr) {
     case '+':
         if (expr[1] == '+') {
@@ -490,9 +490,9 @@ struct op_s *get_op(char *expr) {
             return OP_EXP;
         }
         if (expr[1] == '=') {
-            return OP_ASSIGN_MULT;
+            return OP_ASSIGN_MUL;
         }
-        return OP_MULT;
+        return OP_MUL;
     case '<':
         if (expr[1] == '<') {
             if (expr[2] == '=') {
@@ -571,10 +571,9 @@ struct op_s *get_op(char *expr) {
 /*
  * push an operator on the operator stack.
  */
-void push_opstack(struct op_s *op) {
+void push_opstack(op_t *op) {
     if (nopstack > MAXOPSTACK - 1) {
-        error_message(
-            "error: lusush internal `push_opstack`: Operator stack overflow");
+        error_message("error: `push_opstack`: Operator stack overflow");
         errflag = true;
         return;
     }
@@ -584,10 +583,9 @@ void push_opstack(struct op_s *op) {
 /*
  * pop an operator from the operator stack.
  */
-struct op_s *pop_opstack(void) {
+op_t *pop_opstack(void) {
     if (!nopstack) {
-        error_message(
-            "error: lusush internal `pop_opstack`: Operator stack empty");
+        error_message("error: `pop_opstack`: Operator stack empty");
         errflag = true;
         return NULL;
     }
@@ -599,8 +597,7 @@ struct op_s *pop_opstack(void) {
  */
 void push_numstackl(ssize_t val) {
     if (nnumstack > MAXNUMSTACK - 1) {
-        error_message(
-            "error: lusush internal `push_numstackl`: Number stack overflow");
+        error_message("error: `push_numstackl`: Number stack overflow");
         errflag = true;
         return;
     }
@@ -614,8 +611,7 @@ void push_numstackl(ssize_t val) {
  */
 void push_numstackv(symtable_entry_t *val) {
     if (nnumstack > MAXNUMSTACK - 1) {
-        error_message(
-            "error: lusush internal `push_numstackv`: Number stack overflow");
+        error_message("error: `push_numstackv`: Number stack overflow");
         errflag = true;
         return;
     }
@@ -627,12 +623,11 @@ void push_numstackv(symtable_entry_t *val) {
 /*
  * pop an operand from the operand stack.
  */
-struct stack_item_s pop_numstack(void) {
+stack_item_t pop_numstack(void) {
     if (!nnumstack) {
-        error_message(
-            "error: lusush internal `pop_numstack`: Number stack empty");
+        error_message("error: `pop_numstack`: Number stack empty");
         errflag = true;
-        return (struct stack_item_s){};
+        return (stack_item_t){};
     }
     return numstack[--nnumstack];
 }
@@ -647,8 +642,8 @@ struct stack_item_s pop_numstack(void) {
  * after popping the operator, we push the new operator on the operator stack,
  * and we push the previous top-of-stack operator's result on the operand stack.
  */
-void shunt_op(struct op_s *op) {
-    struct op_s *pop;
+void shunt_op(op_t *op) {
+    op_t *pop;
     errflag = false;
     if (op->op == '(') {
         push_opstack(op);
@@ -660,14 +655,14 @@ void shunt_op(struct op_s *op) {
             if (errflag) {
                 return;
             }
-            struct stack_item_s n1 = pop_numstack();
+            stack_item_t n1 = pop_numstack();
             if (errflag) {
                 return;
             }
             if (pop->unary) {
                 push_numstackl(pop->eval(&n1, 0));
             } else {
-                struct stack_item_s n2 = pop_numstack();
+                stack_item_t n2 = pop_numstack();
                 if (errflag) {
                     return;
                 }
@@ -678,7 +673,7 @@ void shunt_op(struct op_s *op) {
             }
         }
         if (!(pop = pop_opstack()) || pop->op != '(') {
-            error_message("error: lusush internal `shunt_op`: Stack error. No "
+            error_message("error: `shunt_op`: Stack error. No "
                           "matching \'(\'");
             errflag = true;
         }
@@ -691,11 +686,11 @@ void shunt_op(struct op_s *op) {
             if (errflag) {
                 return;
             }
-            struct stack_item_s n1 = pop_numstack();
+            stack_item_t n1 = pop_numstack();
             if (pop->unary) {
                 push_numstackl(pop->eval(&n1, 0));
             } else {
-                struct stack_item_s n2 = pop_numstack();
+                stack_item_t n2 = pop_numstack();
                 if (errflag) {
                     return;
                 }
@@ -711,11 +706,11 @@ void shunt_op(struct op_s *op) {
             if (errflag) {
                 return;
             }
-            struct stack_item_s n1 = pop_numstack();
+            stack_item_t n1 = pop_numstack();
             if (pop->unary) {
                 push_numstackl(pop->eval(&n1, 0));
             } else {
-                struct stack_item_s n2 = pop_numstack();
+                stack_item_t n2 = pop_numstack();
                 if (errflag) {
                     return;
                 }
@@ -735,7 +730,7 @@ void shunt_op(struct op_s *op) {
  * the base can be any number from 2 to 64, with values higher than 9
  * represented by the letters a-z, then A-Z, then @ and _ (similar to bash).
  * if the base is <= 36, small and capital letters can be used interchangeably.
- * the result is place in the *result field, and 1 is returned.. otherwise
+ * the result is placed in the *result field, and 1 is returned.. otherwise
  * zero is returned.
  */
 int get_ndigit(char c, int base, int *result) {
@@ -802,7 +797,7 @@ int get_ndigit(char c, int base, int *result) {
 
 invalid:
     /* invalid digit */
-    error_message("error: lusush internal `get_ndigit`: digit %c exceeds the "
+    error_message("error: `get_ndigit`: digit %c exceeds the "
                   "value of the base %d",
                   c, base);
     errflag = true;
@@ -936,11 +931,11 @@ symtable_entry_t *get_var(char *s, int *char_count) {
 char *arithm_expand(char *orig_expr) {
     char *expr = NULL;
     char *tstart = NULL;
-    struct op_s startop = {'X', 0, ASSOC_NONE,
-                           0,   0, NULL}; /* Dummy operator to mark start */
-    struct op_s *op = NULL;
+    op_t startop = {'X', 0, ASSOC_NONE,
+                    0,   0, NULL}; /* Dummy operator to mark start */
+    op_t *op = NULL;
     int n1, n2;
-    struct op_s *lastop = &startop;
+    op_t *lastop = &startop;
     /*
      * get a copy of orig_expr without the $(( and )), or the $[ and ]
      * if we're given the obsolete arithmetic expansion operator.
@@ -948,7 +943,7 @@ char *arithm_expand(char *orig_expr) {
     int baseexp_len = strlen(orig_expr);
     char *baseexp = calloc(baseexp_len + 1, sizeof(char));
     if (baseexp == NULL) {
-        error_return("error: lusush internal `arithm_expand`");
+        error_return("error: `arithm_expand`");
         return NULL;
     }
     /* lose the $(( */
@@ -982,7 +977,7 @@ char *arithm_expand(char *orig_expr) {
                     } else if (op->op == '+') {
                         op = OP_UPLUS;
                     } else if (op->op != '(' && !op->unary) {
-                        error_message("error: lusush internal `arithm_expand`: "
+                        error_message("error: `arithm_expand`: "
                                       "illegal use of binary operator (%c)",
                                       op->op);
                         goto err;
@@ -1011,7 +1006,7 @@ char *arithm_expand(char *orig_expr) {
             } else if (isspace(*expr)) {
                 expr++;
             } else {
-                error_message("error: lusush internal `arithm_expand`: Syntax "
+                error_message("error: `arithm_expand`: Syntax "
                               "error near: %s",
                               expr);
                 goto err;
@@ -1034,7 +1029,7 @@ char *arithm_expand(char *orig_expr) {
         } else if (valid_name_char(*expr)) {
             symtable_entry_t *s1 = get_var(tstart, &n2);
             if (s1 == NULL) {
-                error_message("error: lusush internal `arithm_expand`: "
+                error_message("error: `arithm_expand`: "
                               "Failed to add symbol near: %s",
                               tstart);
                 goto err;
@@ -1078,7 +1073,7 @@ char *arithm_expand(char *orig_expr) {
             lastop = op;
             expr += op->chars;
         } else {
-            error_message("error: lusush internal `arithm_expand`: Syntax "
+            error_message("error: `arithm_expand`: Syntax "
                           "error near: %s",
                           expr);
             goto err;
@@ -1107,14 +1102,14 @@ char *arithm_expand(char *orig_expr) {
         if (errflag) {
             goto err;
         }
-        struct stack_item_s n1 = pop_numstack();
+        stack_item_t n1 = pop_numstack();
         if (errflag) {
             goto err;
         }
         if (op->unary) {
             push_numstackl(op->eval(&n1, 0));
         } else {
-            struct stack_item_s n2 = pop_numstack();
+            stack_item_t n2 = pop_numstack();
             if (errflag) {
                 goto err;
             }
@@ -1134,7 +1129,7 @@ char *arithm_expand(char *orig_expr) {
 
     /* we must have only 1 item on the stack now */
     if (nnumstack != 1) {
-        error_message("error: lusush internal `arithm_expand`: Number stack "
+        error_message("error: `arithm_expand`: Number stack "
                       "has %d elements after evaluation. Should be 1.",
                       nnumstack);
         goto err;
