@@ -642,7 +642,9 @@ token_t *tokenize(source_t *src) {
             break;
         case '&':
         case ';':
-            // if an '&' or ';' operator delimits the current token, delimit it
+        case '(':
+        case ')':
+            // if an '&', ';', '(', or ')' operator delimits the current token, delimit it
             if (tok_bufindex > 0) {
                 unget_char(src);
                 loop = false;

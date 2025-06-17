@@ -6,6 +6,7 @@
 #include "../include/node.h"
 #include "../include/scanner.h"
 #include "../include/strings.h"
+#include "../include/symtable.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -108,10 +109,35 @@ int do_basic_command(node_t *n) {
         return 0;
     }
 
-    // Set a flag if performing a variable assignment word expansion first
+    // Set a flag if performing a variable assignment 
     bool var_assignment = false;
-    if (child->val.str[0] == '$' && strchr(child->val.str, '=')) {
-        var_assignment = true;
+    if (child && child->val.str && strchr(child->val.str, '=')) {
+        // Check if this looks like a valid assignment (name=value)
+        char *eq = strchr(child->val.str, '=');
+        if (eq > child->val.str) {
+            // Check if everything before '=' is a valid identifier
+            bool valid_name = true;
+            for (char *p = child->val.str; p < eq; p++) {
+                if (!isalnum(*p) && *p != '_') {
+                    valid_name = false;
+                    break;
+                }
+            }
+            if (valid_name && isalpha(child->val.str[0])) {
+                var_assignment = true;
+                
+                // Perform the assignment
+                *eq = '\0';  // Split the string
+                char *name = child->val.str;
+                char *value = eq + 1;
+                
+                symtable_entry_t *entry = add_to_symtable(name);
+                if (entry) {
+                    symtable_entry_setval(entry, value);
+                }
+                *eq = '=';  // Restore the string
+            }
+        }
     }
 
     // Build argv array from variable nodes only
@@ -836,26 +862,198 @@ int do_if_clause(node_t *node) {
  * Stub implementations for control structures (to be implemented later)
  */
 int do_for_loop(node_t *node) {
-    (void)node;
-    error_message("for loops not yet implemented");
-    return 0;
+    if (!node || !node->first_child) {
+        return 0;
+    }
+    
+    node_t *current = node->first_child;
+    
+    // First child is the variable name
+    if (!current || current->val_type != VAL_STR) {
+        error_message("for loop: invalid variable name");
+        return 1;
+    }
+    
+    char *var_name = current->val.str;
+    current = current->next_sibling;
+    
+    // Collect list items (all nodes until the body)
+    char **items = NULL;
+    size_t item_count = 0;
+    size_t capacity = 8;
+    
+    items = malloc(capacity * sizeof(char*));
+    if (!items) {
+        error_message("for loop: memory allocation failed");
+        return 1;
+    }
+    
+    // Find the body (last child)
+    node_t *body = node->first_child;
+    while (body && body->next_sibling) {
+        body = body->next_sibling;
+    }
+    
+    // Collect items (all children except first and last)
+    current = node->first_child->next_sibling;
+    while (current && current != body) {
+        if (current->val_type == VAL_STR) {
+            if (item_count >= capacity - 1) {
+                capacity *= 2;
+                char **new_items = realloc(items, capacity * sizeof(char*));
+                if (!new_items) {
+                    free(items);
+                    error_message("for loop: memory allocation failed");
+                    return 1;
+                }
+                items = new_items;
+            }
+            items[item_count++] = current->val.str;
+        }
+        current = current->next_sibling;
+    }
+    
+    int exit_code = 0;
+    
+    // Execute loop for each item
+    for (size_t i = 0; i < item_count; i++) {
+        // Set the loop variable
+        symtable_entry_t *entry = add_to_symtable(var_name);
+        if (entry) {
+            symtable_entry_setval(entry, items[i]);
+        }
+        
+        // Execute body
+        if (body) {
+            exit_code = execute_node(body);
+            
+            // Check for break/continue (would need signal handling)
+            if (exit_flag) {
+                break;
+            }
+        }
+    }
+    
+    free(items);
+    return exit_code;
 }
 
 int do_while_loop(node_t *node) {
-    (void)node;
-    error_message("while loops not yet implemented");
-    return 0;
+    if (!node || !node->first_child) {
+        return 0;
+    }
+    
+    node_t *condition = node->first_child;
+    node_t *body = condition->next_sibling;
+    
+    if (!body) {
+        error_message("while loop: missing body");
+        return 1;
+    }
+    
+    int exit_code = 0;
+    
+    // Execute while condition is true (exit code 0)
+    while (true) {
+        // Evaluate condition
+        int cond_result = execute_node(condition);
+        
+        // While continues when condition succeeds (exit code 0)
+        if (cond_result != 0) {
+            break;
+        }
+        
+        // Execute body
+        exit_code = execute_node(body);
+        
+        // Check for break/continue or exit
+        if (exit_flag) {
+            break;
+        }
+    }
+    
+    return exit_code;
 }
 
 int do_until_loop(node_t *node) {
-    (void)node;
-    error_message("until loops not yet implemented");
-    return 0;
+    if (!node || !node->first_child) {
+        return 0;
+    }
+    
+    node_t *condition = node->first_child;
+    node_t *body = condition->next_sibling;
+    
+    if (!body) {
+        error_message("until loop: missing body");
+        return 1;
+    }
+    
+    int exit_code = 0;
+    
+    // Execute until condition is true (exit code 0)
+    while (true) {
+        // Evaluate condition
+        int cond_result = execute_node(condition);
+        
+        // Until continues when condition fails (exit code != 0)
+        if (cond_result == 0) {
+            break;
+        }
+        
+        // Execute body
+        exit_code = execute_node(body);
+        
+        // Check for break/continue or exit
+        if (exit_flag) {
+            break;
+        }
+    }
+    
+    return exit_code;
 }
 
 int do_case_clause(node_t *node) {
-    (void)node;
-    error_message("case statements not yet implemented");
+    if (!node || !node->first_child) {
+        return 0;
+    }
+    
+    node_t *word_node = node->first_child;
+    if (!word_node || word_node->val_type != VAL_STR) {
+        error_message("case statement: invalid word");
+        return 1;
+    }
+    
+    char *word = word_node->val.str;
+    node_t *current = word_node->next_sibling;
+    
+    // Process pattern/command pairs
+    while (current && current->next_sibling) {
+        node_t *pattern_node = current;
+        node_t *commands_node = current->next_sibling;
+        
+        if (pattern_node->val_type == VAL_STR) {
+            char *pattern = pattern_node->val.str;
+            
+            // Simple pattern matching (could be enhanced with fnmatch)
+            bool match = false;
+            if (strcmp(pattern, "*") == 0) {
+                match = true;  // Wildcard matches everything
+            } else if (strcmp(pattern, word) == 0) {
+                match = true;  // Exact match
+            }
+            // TODO: Add proper glob pattern matching
+            
+            if (match) {
+                // Execute commands and return
+                return execute_node(commands_node);
+            }
+        }
+        
+        // Move to next pattern/command pair
+        current = commands_node->next_sibling;
+    }
+    
+    // No pattern matched
     return 0;
 }
 

@@ -14,6 +14,13 @@
 // Forward declarations
 static node_t *parse_if_statement(source_t *src);
 static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char *clause_type);
+static node_t *parse_for_statement(source_t *src);
+static node_t *parse_while_statement(source_t *src);
+static node_t *parse_until_statement(source_t *src);
+static node_t *parse_case_statement(source_t *src);
+
+// Error recovery context for parser
+static parser_error_context_t error_ctx = {0};
 
 /**
  * parse_redirection:
@@ -236,11 +243,32 @@ node_t *parse_command(token_t *tok) {
 
     node_t *cmd = NULL;
     
+    // Initialize error context if not already done
+    if (error_ctx.max_errors == 0) {
+        parser_reset_errors(&error_ctx);
+    }
+    
     // Check for control structures
     switch (tok->type) {
         case TOKEN_KEYWORD_IF:
             free_token(tok);
             cmd = parse_if_statement(tok->src);
+            break;
+        case TOKEN_KEYWORD_FOR:
+            free_token(tok);
+            cmd = parse_for_statement(tok->src);
+            break;
+        case TOKEN_KEYWORD_WHILE:
+            free_token(tok);
+            cmd = parse_while_statement(tok->src);
+            break;
+        case TOKEN_KEYWORD_UNTIL:
+            free_token(tok);
+            cmd = parse_until_statement(tok->src);
+            break;
+        case TOKEN_KEYWORD_CASE:
+            free_token(tok);
+            cmd = parse_case_statement(tok->src);
             break;
         default:
             cmd = parse_basic_command(tok);
@@ -393,4 +421,436 @@ static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char
     
     add_child_node(if_node, then_body);
     return true;
+}
+
+/**
+ * parse_for_statement:
+ *      Parse a for loop: for var in list; do body; done
+ *      
+ *      AST Structure:
+ *      NODE_FOR
+ *      ├── variable (NODE_VAR)
+ *      ├── list_item1 (NODE_VAR)
+ *      ├── list_item2 (NODE_VAR)
+ *      ├── ...
+ *      └── body (NODE_COMMAND)
+ */
+static node_t *parse_for_statement(source_t *src) {
+    node_t *for_node = new_node(NODE_FOR);
+    if (!for_node) {
+        return NULL;
+    }
+    
+    // Parse variable name
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token || tok->type != TOKEN_WORD) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected variable name after 'for'");
+        if (tok) free_token(tok);
+        free_node_tree(for_node);
+        return NULL;
+    }
+    
+    node_t *var_node = new_node(NODE_VAR);
+    if (!var_node) {
+        free_token(tok);
+        free_node_tree(for_node);
+        return NULL;
+    }
+    set_node_val_str(var_node, tok->text);
+    add_child_node(for_node, var_node);
+    free_token(tok);
+    
+    // Expect 'in'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_IN) {
+        parser_error_with_suggestion(&error_ctx, src, EXPECTED_TOKEN,
+                                    "try: for var in item1 item2...; do...; done",
+                                    "expected 'in' after for variable");
+        if (tok) free_token(tok);
+        free_node_tree(for_node);
+        return NULL;
+    }
+    free_token(tok);
+    
+    // Parse list items
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           tok->type != TOKEN_KEYWORD_DO && 
+           tok->type != TOKEN_SEMI && tok->type != TOKEN_NEWLINE) {
+        
+        if (tok->type == TOKEN_WORD) {
+            node_t *item_node = new_node(NODE_VAR);
+            if (item_node) {
+                set_node_val_str(item_node, tok->text);
+                add_child_node(for_node, item_node);
+            }
+        }
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    // Skip to 'do'
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DO) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'do' after for list");
+        if (tok) free_token(tok);
+        free_node_tree(for_node);
+        return NULL;
+    }
+    free_token(tok);
+    
+    // Parse body
+    tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
+                    "expected command after 'do'");
+        free_node_tree(for_node);
+        return NULL;
+    }
+    
+    node_t *body = parse_basic_command(tok);
+    if (!body) {
+        parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
+                    "failed to parse for loop body");
+        free_node_tree(for_node);
+        return NULL;
+    }
+    
+    add_child_node(for_node, body);
+    
+    // Expect 'done'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'done' to close for loop");
+        if (tok) free_token(tok);
+        free_node_tree(for_node);
+        return NULL;
+    }
+    
+    free_token(tok);
+    return for_node;
+}
+
+/**
+ * parse_while_statement:
+ *      Parse a while loop: while condition; do body; done
+ */
+static node_t *parse_while_statement(source_t *src) {
+    node_t *while_node = new_node(NODE_WHILE);
+    if (!while_node) {
+        return NULL;
+    }
+    
+    // Parse condition
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected condition after 'while'");
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    node_t *condition = parse_basic_command(tok);
+    if (!condition) {
+        parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
+                    "failed to parse while condition");
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    add_child_node(while_node, condition);
+    
+    // Expect ';' or newline, then 'do'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DO) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'do' after while condition");
+        if (tok) free_token(tok);
+        free_node_tree(while_node);
+        return NULL;
+    }
+    free_token(tok);
+    
+    // Parse body
+    tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
+                    "expected command after 'do'");
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    node_t *body = parse_basic_command(tok);
+    if (!body) {
+        parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
+                    "failed to parse while loop body");
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    add_child_node(while_node, body);
+    
+    // Expect 'done'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'done' to close while loop");
+        if (tok) free_token(tok);
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    free_token(tok);
+    return while_node;
+}
+
+/**
+ * parse_until_statement:
+ *      Parse an until loop: until condition; do body; done
+ */
+static node_t *parse_until_statement(source_t *src) {
+    node_t *until_node = new_node(NODE_UNTIL);
+    if (!until_node) {
+        return NULL;
+    }
+    
+    // Parse condition (same structure as while, but semantics differ)
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected condition after 'until'");
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    node_t *condition = parse_basic_command(tok);
+    if (!condition) {
+        parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
+                    "failed to parse until condition");
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    add_child_node(until_node, condition);
+    
+    // Expect ';' or newline, then 'do'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DO) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'do' after until condition");
+        if (tok) free_token(tok);
+        free_node_tree(until_node);
+        return NULL;
+    }
+    free_token(tok);
+    
+    // Parse body
+    tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
+                    "expected command after 'do'");
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    node_t *body = parse_basic_command(tok);
+    if (!body) {
+        parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
+                    "failed to parse until loop body");
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    add_child_node(until_node, body);
+    
+    // Expect 'done'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'done' to close until loop");
+        if (tok) free_token(tok);
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    free_token(tok);
+    return until_node;
+}
+
+/**
+ * parse_case_statement:
+ *      Parse a case statement: case word in pattern) commands;; ... esac
+ *      
+ *      AST Structure:
+ *      NODE_CASE
+ *      ├── word (NODE_VAR)
+ *      ├── pattern1 (NODE_VAR)
+ *      ├── commands1 (NODE_COMMAND)
+ *      ├── pattern2 (NODE_VAR)
+ *      ├── commands2 (NODE_COMMAND)
+ *      └── ...
+ */
+static node_t *parse_case_statement(source_t *src) {
+    node_t *case_node = new_node(NODE_CASE);
+    if (!case_node) {
+        return NULL;
+    }
+    
+    // Parse case word
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token || tok->type != TOKEN_WORD) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected word after 'case'");
+        if (tok) free_token(tok);
+        free_node_tree(case_node);
+        return NULL;
+    }
+    
+    node_t *word_node = new_node(NODE_VAR);
+    if (!word_node) {
+        free_token(tok);
+        free_node_tree(case_node);
+        return NULL;
+    }
+    set_node_val_str(word_node, tok->text);
+    add_child_node(case_node, word_node);
+    free_token(tok);
+    
+    // Expect 'in'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_IN) {
+        parser_error_with_suggestion(&error_ctx, src, EXPECTED_TOKEN,
+                                    "try: case word in pattern) commands;; ... esac",
+                                    "expected 'in' after case word");
+        if (tok) free_token(tok);
+        free_node_tree(case_node);
+        return NULL;
+    }
+    free_token(tok);
+    
+    // Parse case patterns and commands
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && tok->type != TOKEN_KEYWORD_ESAC) {
+        // Skip newlines and semicolons
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
+        
+        if (!tok || tok == &eof_token || tok->type == TOKEN_KEYWORD_ESAC) {
+            break;
+        }
+        
+        // Parse pattern
+        if (tok->type == TOKEN_WORD) {
+            node_t *pattern_node = new_node(NODE_VAR);
+            if (pattern_node) {
+                set_node_val_str(pattern_node, tok->text);
+                add_child_node(case_node, pattern_node);
+            }
+            free_token(tok);
+            
+            // Expect ')'
+            tok = tokenize(src);
+            if (!tok || tok->type != TOKEN_RIGHT_PAREN) {
+                parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                            "expected ')' after case pattern");
+                if (tok) free_token(tok);
+                // Continue trying to parse
+                continue;
+            }
+            free_token(tok);
+            
+            // Parse commands until ';;'
+            tok = tokenize(src);
+            if (tok && tok != &eof_token && tok->type != TOKEN_DSEMI) {
+                node_t *commands = parse_basic_command(tok);
+                if (commands) {
+                    add_child_node(case_node, commands);
+                }
+                
+                // Get next token after parsing commands
+                tok = tokenize(src);
+            }
+            
+            // Expect ';;'
+            while (tok && tok != &eof_token && 
+                   (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+                free_token(tok);
+                tok = tokenize(src);
+            }
+            
+            if (tok && tok->type == TOKEN_DSEMI) {
+                free_token(tok);
+                tok = tokenize(src);
+            }
+        } else {
+            // Skip unexpected token
+            free_token(tok);
+            tok = tokenize(src);
+        }
+    }
+    
+    // Expect 'esac'
+    if (!tok || tok->type != TOKEN_KEYWORD_ESAC) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'esac' to close case statement");
+        if (tok) free_token(tok);
+        free_node_tree(case_node);
+        return NULL;
+    }
+    
+    free_token(tok);
+    return case_node;
 }
