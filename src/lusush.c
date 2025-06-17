@@ -1,13 +1,8 @@
 /*
- * lusush#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-
-int main(int argc, char **argv) { SHell
+ * lusush - POSIX-compliant shell
  */
 
 #include "../include/lusush.h"
-
 #include "../include/init.h"
 #include "../include/input.h"
 #include "../include/linenoise/linenoise.h"
@@ -17,6 +12,7 @@ int main(int argc, char **argv) { SHell
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer

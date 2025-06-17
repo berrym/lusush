@@ -12,6 +12,7 @@
 #include "../include/scanner.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
+#include "../include/version.h"
 
 #include <getopt.h>
 #include <locale.h>
@@ -144,11 +145,12 @@ static int parse_opts(int argc, char **argv) {
     // next option
     int nopt = 0;
     // string of valid short options
-    const char *sopts = "h";
+    const char *sopts = "hv";
     // array describing valid long options
     const struct option lopts[] = {
-        {"help", 0, NULL, 'h'},
-        {  NULL, 0, NULL,   0}
+        {"help",    0, NULL, 'h'},
+        {"version", 0, NULL, 'v'},
+        {  NULL,    0, NULL,   0}
     };
 
     do {
@@ -157,6 +159,12 @@ static int parse_opts(int argc, char **argv) {
         switch (nopt) {
         case 'h':
             usage(EXIT_SUCCESS);
+            break;
+        case 'v':
+            printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
+            printf("%s\n", LUSUSH_DESCRIPTION);
+            printf("Copyright (c) 2025. Licensed under MIT License.\n");
+            exit(EXIT_SUCCESS);
             break;
         case '?':
             usage(EXIT_FAILURE);
@@ -171,6 +179,13 @@ static int parse_opts(int argc, char **argv) {
 }
 
 static void usage(int err) {
-    error_message("Usage:\n\t-h This Help\n");
+    printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSUSH_NAME);
+    printf("A POSIX-compliant shell with modern features\n\n");
+    printf("Options:\n");
+    printf("  -h, --help       Show this help message and exit\n");
+    printf("  -v, --version    Show version information and exit\n");
+    printf("\nArguments:\n");
+    printf("  SCRIPT           Execute commands from script file\n");
+    printf("\nFor more information, see the manual or documentation.\n");
     exit(err);
 }

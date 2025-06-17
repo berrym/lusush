@@ -13,6 +13,7 @@
 
 // Forward declarations
 static node_t *parse_if_statement(source_t *src);
+static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char *clause_type);
 
 /**
  * parse_redirection:
@@ -251,7 +252,16 @@ node_t *parse_command(token_t *tok) {
 
 /**
  * parse_if_statement:
- *      Parse an if statement: if condition; then body; [else body;] fi
+ *      Parse a complete if statement: if condition; then body; [elif condition; then body;]... [else body;] fi
+ *      
+ *      AST Structure:
+ *      NODE_IF
+ *      ├── condition1 (NODE_COMMAND)
+ *      ├── then_body1 (NODE_COMMAND)
+ *      ├── condition2 (NODE_COMMAND) [for elif]
+ *      ├── then_body2 (NODE_COMMAND) [for elif]
+ *      ├── ...
+ *      └── else_body (NODE_COMMAND) [optional, always last]
  */
 static node_t *parse_if_statement(source_t *src) {
     node_t *if_node = new_node(NODE_IF);
@@ -259,63 +269,36 @@ static node_t *parse_if_statement(source_t *src) {
         return NULL;
     }
     
-    // Parse condition - simplified to parse one command
+    // Parse initial if condition and then body
+    if (!parse_condition_then_pair(src, if_node, "if")) {
+        free_node_tree(if_node);
+        return NULL;
+    }
+    
+    // Parse elif clauses
     token_t *tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        error_message("parse error: expected condition after 'if'");
-        free_node_tree(if_node);
-        return NULL;
-    }
-    
-    node_t *condition = parse_basic_command(tok);
-    if (!condition) {
-        error_message("parse error: failed to parse if condition");
-        free_node_tree(if_node);
-        return NULL;
-    }
-    
-    add_child_node(if_node, condition);
-    
-    // Expect ';' or newline, then 'then'
-    tok = tokenize(src);
     while (tok && tok != &eof_token && 
            (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
         free_token(tok);
         tok = tokenize(src);
     }
     
-    if (!tok || tok->type != TOKEN_KEYWORD_THEN) {
-        error_message("parse error: expected 'then' after 'if' condition");
-        free_node_tree(if_node);
-        if (tok) free_token(tok);
-        return NULL;
-    }
-    
-    free_token(tok);
-    
-    // Parse then body - simplified to parse one command
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        error_message("parse error: expected command after 'then'");
-        free_node_tree(if_node);
-        return NULL;
-    }
-    
-    node_t *then_body = parse_basic_command(tok);
-    if (!then_body) {
-        error_message("parse error: failed to parse then body");
-        free_node_tree(if_node);
-        return NULL;
-    }
-    
-    add_child_node(if_node, then_body);
-    
-    // Skip to 'fi' or 'else' - simplified
-    tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+    // Handle elif clauses
+    while (tok && tok->type == TOKEN_KEYWORD_ELIF) {
         free_token(tok);
+        
+        if (!parse_condition_then_pair(src, if_node, "elif")) {
+            free_node_tree(if_node);
+            return NULL;
+        }
+        
+        // Get next token to check for more elif/else/fi
         tok = tokenize(src);
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
     }
     
     // Handle optional else clause
@@ -357,4 +340,57 @@ static node_t *parse_if_statement(source_t *src) {
     
     free_token(tok);
     return if_node;
+}
+
+/**
+ * parse_condition_then_pair:
+ *      Helper function to parse a condition; then body; pair for if/elif
+ */
+static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char *clause_type) {
+    // Parse condition
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        error_message("parse error: expected condition after '%s'", clause_type);
+        return false;
+    }
+    
+    node_t *condition = parse_basic_command(tok);
+    if (!condition) {
+        error_message("parse error: failed to parse %s condition", clause_type);
+        return false;
+    }
+    
+    add_child_node(if_node, condition);
+    
+    // Expect ';' or newline, then 'then'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_THEN) {
+        error_message("parse error: expected 'then' after '%s' condition", clause_type);
+        if (tok) free_token(tok);
+        return false;
+    }
+    
+    free_token(tok);
+    
+    // Parse then body
+    tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        error_message("parse error: expected command after 'then'");
+        return false;
+    }
+    
+    node_t *then_body = parse_basic_command(tok);
+    if (!then_body) {
+        error_message("parse error: failed to parse then body");
+        return false;
+    }
+    
+    add_child_node(if_node, then_body);
+    return true;
 }

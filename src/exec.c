@@ -758,56 +758,78 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
  * do_if_clause:
  *      Execute an if statement
  */
+/**
+ * do_if_clause:
+ *      Execute an if/elif/else/fi statement
+ *      
+ *      The if node structure is:
+ *      - condition1, then_body1, [condition2, then_body2, ...], [else_body]
+ *      - Each condition/then pair represents if/elif clauses
+ *      - The last child (if odd number of children) is the else body
+ */
 int do_if_clause(node_t *node) {
     if (!node || node->type != NODE_IF) {
         return 0;
     }
     
-    // Get condition (first child)
-    node_t *condition = node->first_child;
-    if (!condition) {
+    node_t *child = node->first_child;
+    if (!child) {
         return 0;
     }
     
-    // Execute condition and check exit status
-    int condition_result = 0;
-    if (condition->type == NODE_COMMAND) {
-        // Execute the entire condition command
-        condition_result = do_basic_command(condition);
-    } else {
-        condition_result = do_basic_command(condition);
-    }
-
-    // Get then body (second child)
-    node_t *then_body = condition->next_sibling;
-    if (!then_body) {
-        return condition_result;
+    // Count children to determine structure
+    int child_count = 0;
+    for (node_t *c = child; c; c = c->next_sibling) {
+        child_count++;
     }
     
-    // Get else body (third child, optional)
-    node_t *else_body = then_body->next_sibling;
-    
-    int result = 0;
-    
-    // Execute then body if condition succeeded (exit status 0)
-    if (condition_result == 0) {
-        if (then_body->type == NODE_COMMAND) {
-            // Execute the entire command node
-            result = do_basic_command(then_body);
+    // Process condition/then pairs
+    node_t *current = child;
+    while (current && current->next_sibling) {
+        // Execute condition
+        node_t *condition = current;
+        node_t *then_body = current->next_sibling;
+        
+        int condition_result = 0;
+        if (condition->type == NODE_COMMAND) {
+            condition_result = do_basic_command(condition);
         } else {
-            result = do_basic_command(then_body);
+            condition_result = do_basic_command(condition);
         }
-    } else if (else_body) {
-        // Execute else body if condition failed and else exists
-        if (else_body->type == NODE_COMMAND) {
-            // Execute the entire command node
-            result = do_basic_command(else_body);
-        } else {
-            result = do_basic_command(else_body);
+        
+        // If condition succeeded, execute then body and exit
+        if (condition_result == 0) {
+            int result = 0;
+            if (then_body->type == NODE_COMMAND) {
+                result = do_basic_command(then_body);
+            } else {
+                result = do_basic_command(then_body);
+            }
+            return result;
         }
+        
+        // Move to next condition/then pair (skip both condition and then)
+        current = then_body->next_sibling;
+        if (current && current->next_sibling) {
+            // This is another condition/then pair
+            continue;
+        } else if (current) {
+            // This is the else body (odd number of children)
+            int result = 0;
+            if (current->type == NODE_COMMAND) {
+                result = do_basic_command(current);
+            } else {
+                result = do_basic_command(current);
+            }
+            return result;
+        }
+        
+        // No more conditions and no else body
+        break;
     }
     
-    return result;
+    // No condition succeeded and no else clause
+    return 0;
 }
 
 /**

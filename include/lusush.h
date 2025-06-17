@@ -3,6 +3,7 @@
 
 #include "node.h"
 #include "scanner.h"
+#include "version.h"
 
 #include <fcntl.h>
 #include <glob.h>
