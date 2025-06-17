@@ -40,6 +40,8 @@ builtin builtins[] = {
     {        "[",         "test expressions",      bin_test},
     {     "read",        "read user input",      bin_read},
     {     "eval",      "evaluate arguments",      bin_eval},
+    {     "true",    "return success status",      bin_true},
+    {    "false",    "return failure status",     bin_false},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -745,4 +747,22 @@ bool is_builtin(const char *name) {
     }
 
     return false;
+}
+
+/**
+ * bin_true:
+ *      Always return success (exit status 0)
+ */
+int bin_true(int argc, char **argv) {
+    (void)argc; (void)argv;
+    return 0;
+}
+
+/**
+ * bin_false:
+ *      Always return failure (exit status 1)
+ */
+int bin_false(int argc, char **argv) {
+    (void)argc; (void)argv;
+    return 1;
 }

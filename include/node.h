@@ -16,6 +16,13 @@ typedef enum {
     NODE_REDIR_ERR_APPEND, // '2>>'
     NODE_REDIR_HEREDOC,    // '<<'
     NODE_REDIR_CLOBBER,    // '>|'
+    // Control structures
+    NODE_IF,           // if statement
+    NODE_FOR,          // for loop
+    NODE_WHILE,        // while loop
+    NODE_UNTIL,        // until loop
+    NODE_CASE,         // case statement
+    NODE_FUNCTION,     // function definition
 } node_type_t;
 
 typedef enum {

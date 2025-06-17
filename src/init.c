@@ -1,6 +1,7 @@
 #include "../include/init.h"
 
 #include "../include/alias.h"
+#include "../include/completion.h"
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/input.h"
@@ -33,18 +34,6 @@ static int parse_opts(int argc, char **argv);
 static void usage(int err);
 
 int shell_type(void) { return SHELL_TYPE; }
-
-void line_completion(const char *buf, linenoiseCompletions *lc) {
-    size_t i = 0;
-    char *line = NULL;
-    while ((line = linenoiseHistoryGet(i)) != NULL) {
-        if (buf[0] == line[0]) {
-            linenoiseAddCompletion(lc, line);
-        }
-        free(line);
-        i++;
-    }
-}
 
 int init(int argc, char **argv, FILE **in) {
     struct stat st; // stat buffer
@@ -138,7 +127,7 @@ int init(int argc, char **argv, FILE **in) {
     init_aliases();
 
     // Set line completion function
-    linenoiseSetCompletionCallback(line_completion);
+    linenoiseSetCompletionCallback(lusush_completion_callback);
 
     // Set memory cleanup procedures on termination
     atexit(free_tok_buf);

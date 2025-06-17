@@ -1,5 +1,6 @@
 #include "../include/alias.h"
 #include "../include/alias_expand.h"
+#include "../include/errors.h"
 #include "../include/node.h"
 #include "../include/scanner.h"
 #include "../include/strings.h"
@@ -8,8 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <ctype.h>
+
+// Forward declarations
+static node_t *parse_if_statement(source_t *src);
 
 /**
  * parse_redirection:
@@ -79,6 +82,20 @@ node_t *parse_basic_command(token_t *tok) {
 
     do {
         if (*tok->text == '\n') {
+            free_token(tok);
+            break;
+        }
+
+        // Stop at control structure keywords that shouldn't be part of basic commands
+        if (tok->type == TOKEN_KEYWORD_THEN || tok->type == TOKEN_KEYWORD_ELSE ||
+            tok->type == TOKEN_KEYWORD_FI || tok->type == TOKEN_KEYWORD_DO ||
+            tok->type == TOKEN_KEYWORD_DONE || tok->type == TOKEN_KEYWORD_ELIF) {
+            // Don't consume these tokens - they belong to control structures
+            break;
+        }
+
+        // Handle semicolon as command terminator
+        if (tok->type == TOKEN_SEMI) {
             free_token(tok);
             break;
         }
@@ -217,7 +234,127 @@ node_t *parse_command(token_t *tok) {
     }
 
     node_t *cmd = NULL;
-    cmd = parse_basic_command(tok);
+    
+    // Check for control structures
+    switch (tok->type) {
+        case TOKEN_KEYWORD_IF:
+            free_token(tok);
+            cmd = parse_if_statement(tok->src);
+            break;
+        default:
+            cmd = parse_basic_command(tok);
+            break;
+    }
 
     return cmd;
+}
+
+/**
+ * parse_if_statement:
+ *      Parse an if statement: if condition; then body; [else body;] fi
+ */
+static node_t *parse_if_statement(source_t *src) {
+    node_t *if_node = new_node(NODE_IF);
+    if (!if_node) {
+        return NULL;
+    }
+    
+    // Parse condition - simplified to parse one command
+    token_t *tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        error_message("parse error: expected condition after 'if'");
+        free_node_tree(if_node);
+        return NULL;
+    }
+    
+    node_t *condition = parse_basic_command(tok);
+    if (!condition) {
+        error_message("parse error: failed to parse if condition");
+        free_node_tree(if_node);
+        return NULL;
+    }
+    
+    add_child_node(if_node, condition);
+    
+    // Expect ';' or newline, then 'then'
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    if (!tok || tok->type != TOKEN_KEYWORD_THEN) {
+        error_message("parse error: expected 'then' after 'if' condition");
+        free_node_tree(if_node);
+        if (tok) free_token(tok);
+        return NULL;
+    }
+    
+    free_token(tok);
+    
+    // Parse then body - simplified to parse one command
+    tok = tokenize(src);
+    if (!tok || tok == &eof_token) {
+        error_message("parse error: expected command after 'then'");
+        free_node_tree(if_node);
+        return NULL;
+    }
+    
+    node_t *then_body = parse_basic_command(tok);
+    if (!then_body) {
+        error_message("parse error: failed to parse then body");
+        free_node_tree(if_node);
+        return NULL;
+    }
+    
+    add_child_node(if_node, then_body);
+    
+    // Skip to 'fi' or 'else' - simplified
+    tok = tokenize(src);
+    while (tok && tok != &eof_token && 
+           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+        free_token(tok);
+        tok = tokenize(src);
+    }
+    
+    // Handle optional else clause
+    if (tok && tok->type == TOKEN_KEYWORD_ELSE) {
+        free_token(tok);
+        
+        tok = tokenize(src);
+        if (!tok || tok == &eof_token) {
+            error_message("parse error: expected command after 'else'");
+            free_node_tree(if_node);
+            return NULL;
+        }
+        
+        node_t *else_body = parse_basic_command(tok);
+        if (!else_body) {
+            error_message("parse error: failed to parse else body");
+            free_node_tree(if_node);
+            return NULL;
+        }
+        
+        add_child_node(if_node, else_body);
+        
+        // Skip to 'fi'
+        tok = tokenize(src);
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
+    }
+    
+    // Expect 'fi' to close the if statement
+    if (!tok || tok->type != TOKEN_KEYWORD_FI) {
+        error_message("parse error: expected 'fi' to close 'if' statement");
+        free_node_tree(if_node);
+        if (tok) free_token(tok);
+        return NULL;
+    }
+    
+    free_token(tok);
+    return if_node;
 }

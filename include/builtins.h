@@ -31,6 +31,8 @@ int bin_source(int, char **);
 int bin_test(int, char **);
 int bin_read(int, char **);
 int bin_eval(int, char **);
+int bin_true(int, char **);
+int bin_false(int, char **);
 bool is_builtin(const char *);
 
 #endif

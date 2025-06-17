@@ -164,7 +164,7 @@ int do_basic_command(node_t *n) {
             int exit_code = builtins[i].func(argc, argv);
             last_exit_status = exit_code;
             free_argv(argc, argv);
-            return 1;
+            return exit_code;
         }
     }
 
@@ -325,8 +325,8 @@ int setup_redirections(node_t *cmd) {
 }
 
 /**
- * parse_pipeline_simple:
- *      Simple pipeline parser that works with token lists
+ * execute_pipeline_simple:
+ *      Parse and execute a pipeline from a command line string
  */
 int execute_pipeline_simple(char *cmdline) {
     if (!cmdline || !*cmdline) {
@@ -361,12 +361,28 @@ int execute_pipeline_simple(char *cmdline) {
     // Count pipes to determine number of commands
     int pipe_count = 0;
     char *p = cmdline;
+    bool in_quotes = false;
+    char quote_char = '\0';
+    
     while (*p) {
-        if (*p == '|') pipe_count++;
+        if (!in_quotes && (*p == '"' || *p == '\'')) {
+            in_quotes = true;
+            quote_char = *p;
+        } else if (in_quotes && *p == quote_char && (p == cmdline || p[-1] != '\\')) {
+            in_quotes = false;
+            quote_char = '\0';
+        } else if (!in_quotes && *p == '|') {
+            pipe_count++;
+        }
         p++;
     }
     
     int cmd_count = pipe_count + 1;
+    if (cmd_count > 100) { // Reasonable limit
+        error_message("Pipeline too long (max 100 commands)");
+        free(expanded_line);
+        return 0;
+    }
     
     // Split command line on pipes
     char **commands = malloc(cmd_count * sizeof(char*));
@@ -376,15 +392,29 @@ int execute_pipeline_simple(char *cmdline) {
     }
     
     char *cmdline_copy = strdup(cmdline);
+    if (!cmdline_copy) {
+        free(commands);
+        free(expanded_line);
+        return 0;
+    }
+    
     char *cmd_start = cmdline_copy;
     int cmd_idx = 0;
+    in_quotes = false;
+    quote_char = '\0';
     
     p = cmdline_copy;
     while (*p && cmd_idx < cmd_count) {
-        if (*p == '|') {
+        if (!in_quotes && (*p == '"' || *p == '\'')) {
+            in_quotes = true;
+            quote_char = *p;
+        } else if (in_quotes && *p == quote_char && (p == cmdline_copy || p[-1] != '\\')) {
+            in_quotes = false;
+            quote_char = '\0';
+        } else if (!in_quotes && *p == '|') {
             *p = '\0';
             char *trimmed = str_strip_whitespace(cmd_start);
-            commands[cmd_idx] = strdup(trimmed);
+            commands[cmd_idx] = strdup(trimmed ? trimmed : "");
             cmd_idx++;
             cmd_start = p + 1;
         }
@@ -393,7 +423,7 @@ int execute_pipeline_simple(char *cmdline) {
     // Add the last command
     if (cmd_idx < cmd_count) {
         char *trimmed = str_strip_whitespace(cmd_start);
-        commands[cmd_idx] = strdup(trimmed);
+        commands[cmd_idx] = strdup(trimmed ? trimmed : "");
     }
     
     // Execute pipeline
@@ -412,14 +442,19 @@ int execute_pipeline_simple(char *cmdline) {
 
 /**
  * execute_simple_pipeline:
- *      Execute a simple pipeline of commands
+ *      Execute a simple pipeline of commands with proper word expansion
  */
 int execute_simple_pipeline(char **commands, int cmd_count) {
     if (!commands || cmd_count <= 0) {
         return 0;
     }
     
-    // Parse each command into argc/argv
+    // Special case: single command (no pipeline)
+    if (cmd_count == 1) {
+        return execute_single_command(commands[0]);
+    }
+    
+    // Parse each command into argc/argv with word expansion
     char ***cmd_args = calloc(cmd_count, sizeof(char**));
     int *cmd_argc = calloc(cmd_count, sizeof(int));
     if (!cmd_args || !cmd_argc) {
@@ -429,19 +464,33 @@ int execute_simple_pipeline(char **commands, int cmd_count) {
     }
     
     for (int i = 0; i < cmd_count; i++) {
-        // Simple tokenization by whitespace
+        if (!commands[i] || !*commands[i]) {
+            cmd_argc[i] = 0;
+            cmd_args[i] = NULL;
+            continue;
+        }
+        
+        // Use word expansion to properly parse the command
+        word_t *words = word_expand(commands[i]);
+        if (!words) {
+            cmd_argc[i] = 0;
+            cmd_args[i] = NULL;
+            continue;
+        }
+        
+        // Count words and build argv
         size_t argc = 0, targc = 0;
         char **argv = NULL;
         
-        char *cmd_copy = strdup(commands[i]);
-        char *token = strtok(cmd_copy, " \t\n");
-        
-        while (token) {
-            if (check_buffer_bounds(&argc, &targc, &argv)) {
-                argv[argc] = strdup(token);
-                argc++;
+        const word_t *w = words;
+        while (w) {
+            if (w->data && *w->data) { // Skip empty words
+                if (check_buffer_bounds(&argc, &targc, &argv)) {
+                    argv[argc] = strdup(w->data);
+                    argc++;
+                }
             }
-            token = strtok(NULL, " \t\n");
+            w = w->next;
         }
         
         if (check_buffer_bounds(&argc, &targc, &argv)) {
@@ -450,7 +499,7 @@ int execute_simple_pipeline(char **commands, int cmd_count) {
         
         cmd_args[i] = argv;
         cmd_argc[i] = argc;
-        free(cmd_copy);
+        free_all_words(words);
     }
     
     // Execute the pipeline
@@ -469,17 +518,142 @@ int execute_simple_pipeline(char **commands, int cmd_count) {
 }
 
 /**
+ * execute_single_command:
+ *      Execute a single command (no pipeline) with full word expansion
+ */
+int execute_single_command(char *command) {
+    if (!command || !*command) {
+        return 0;
+    }
+    
+    // Expand the command using our word expansion system
+    word_t *words = word_expand(command);
+    if (!words) {
+        return 0;
+    }
+    
+    // Build argc/argv
+    size_t argc = 0, targc = 0;
+    char **argv = NULL;
+    
+    const word_t *w = words;
+    while (w) {
+        if (w->data && *w->data) { // Skip empty words
+            if (check_buffer_bounds(&argc, &targc, &argv)) {
+                argv[argc] = strdup(w->data);
+                argc++;
+            }
+        }
+        w = w->next;
+    }
+    
+    if (check_buffer_bounds(&argc, &targc, &argv)) {
+        argv[argc] = NULL;
+    }
+    
+    free_all_words(words);
+    
+    if (argc == 0) {
+        free_argv(argc, argv);
+        return 0;
+    }
+    
+    // Check for builtin command
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strcmp(argv[0], builtins[i].name) == 0) {
+            int exit_code = builtins[i].func(argc, argv);
+            last_exit_status = exit_code;
+            free_argv(argc, argv);
+            return exit_code;
+        }
+    }
+    
+    // Execute external command
+    pid_t child_pid = fork();
+    int status = 0;
+
+    if (child_pid == -1) {
+        error_return("error: fork failed");
+        free_argv(argc, argv);
+        return 0;
+    } else if (child_pid == 0) {
+        // Child process
+        do_exec_cmd(argc, argv);
+        error_return("error: exec failed");
+
+        switch (errno) {
+        case ENOEXEC:
+            exit(126);
+            break;
+        case ENOENT:
+            exit(127);
+            break;
+        default:
+            exit(EXIT_FAILURE);
+            break;
+        }
+    } else {
+        waitpid(child_pid, &status, 0);
+        if (WIFEXITED(status)) {
+            last_exit_status = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            last_exit_status = 128 + WTERMSIG(status);
+        } else {
+            last_exit_status = 1;
+        }
+    }
+
+    free_argv(argc, argv);
+    return 1;
+}
+
+/**
  * execute_pipeline_commands:
- *      Execute the actual pipeline
+ *      Execute the actual pipeline with proper process management
  */
 int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
     if (cmd_count <= 0) return 0;
+    
+    // Check for empty commands
+    for (int i = 0; i < cmd_count; i++) {
+        if (cmd_argc[i] == 0 || !cmd_args[i] || !cmd_args[i][0]) {
+            error_message("Empty command in pipeline");
+            return 0;
+        }
+    }
+    
+    // Special case: pipeline with builtins is tricky, only allow if single command
+    if (cmd_count == 1) {
+        // Check if it's a builtin
+        for (size_t i = 0; i < builtins_count; i++) {
+            if (strcmp(cmd_args[0][0], builtins[i].name) == 0) {
+                int exit_code = builtins[i].func(cmd_argc[0], cmd_args[0]);
+                last_exit_status = exit_code;
+                return exit_code;
+            }
+        }
+    } else {
+        // For multi-command pipelines, warn about builtins
+        for (int i = 0; i < cmd_count; i++) {
+            for (size_t j = 0; j < builtins_count; j++) {
+                if (strcmp(cmd_args[i][0], builtins[j].name) == 0) {
+                    error_message("Warning: builtin '%s' in pipeline may not work as expected", 
+                                cmd_args[i][0]);
+                }
+            }
+        }
+    }
     
     // Create pipes
     int pipes[cmd_count - 1][2];
     for (int i = 0; i < cmd_count - 1; i++) {
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
+            // Close any pipes we already created
+            for (int j = 0; j < i; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
             return 0;
         }
     }
@@ -487,26 +661,40 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
     // Execute commands
     pid_t *pids = calloc(cmd_count, sizeof(pid_t));
     if (!pids) {
+        // Close all pipes
+        for (int i = 0; i < cmd_count - 1; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+        }
         return 0;
     }
     
     for (int i = 0; i < cmd_count; i++) {
-        if (cmd_argc[i] == 0) continue;
-        
         pid_t pid = fork();
         if (pid == -1) {
             perror("fork");
+            pids[i] = -1; // Mark as failed
             continue;
         } else if (pid == 0) {
             // Child process
+            
+            // Set up input redirection
             if (i > 0) {
-                dup2(pipes[i - 1][0], STDIN_FILENO);
-            }
-            if (i < cmd_count - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO);
+                if (dup2(pipes[i - 1][0], STDIN_FILENO) == -1) {
+                    perror("dup2 input");
+                    exit(EXIT_FAILURE);
+                }
             }
             
-            // Close all pipe fds
+            // Set up output redirection
+            if (i < cmd_count - 1) {
+                if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
+                    perror("dup2 output");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            
+            // Close all pipe fds in child
             for (int j = 0; j < cmd_count - 1; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
@@ -514,7 +702,19 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
             
             // Execute command
             do_exec_cmd(cmd_argc[i], cmd_args[i]);
-            exit(127);
+            
+            // If we reach here, exec failed
+            switch (errno) {
+            case ENOEXEC:
+                exit(126);
+                break;
+            case ENOENT:
+                exit(127);
+                break;
+            default:
+                exit(EXIT_FAILURE);
+                break;
+            }
         } else {
             pids[i] = pid;
         }
@@ -526,14 +726,148 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
         close(pipes[i][1]);
     }
     
-    // Wait for children
+    // Wait for children and collect exit status from last command
+    int final_status = 0;
     for (int i = 0; i < cmd_count; i++) {
         if (pids[i] > 0) {
             int status;
-            waitpid(pids[i], &status, 0);
+            if (waitpid(pids[i], &status, 0) == -1) {
+                perror("waitpid");
+                continue;
+            }
+            
+            // Use exit status of last command in pipeline
+            if (i == cmd_count - 1) {
+                if (WIFEXITED(status)) {
+                    final_status = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    final_status = 128 + WTERMSIG(status);
+                } else {
+                    final_status = 1;
+                }
+            }
         }
     }
     
+    last_exit_status = final_status;
     free(pids);
     return 1;
+}
+
+/**
+ * do_if_clause:
+ *      Execute an if statement
+ */
+int do_if_clause(node_t *node) {
+    if (!node || node->type != NODE_IF) {
+        return 0;
+    }
+    
+    // Get condition (first child)
+    node_t *condition = node->first_child;
+    if (!condition) {
+        return 0;
+    }
+    
+    // Execute condition and check exit status
+    int condition_result = 0;
+    if (condition->type == NODE_COMMAND) {
+        // Execute the entire condition command
+        condition_result = do_basic_command(condition);
+    } else {
+        condition_result = do_basic_command(condition);
+    }
+
+    // Get then body (second child)
+    node_t *then_body = condition->next_sibling;
+    if (!then_body) {
+        return condition_result;
+    }
+    
+    // Get else body (third child, optional)
+    node_t *else_body = then_body->next_sibling;
+    
+    int result = 0;
+    
+    // Execute then body if condition succeeded (exit status 0)
+    if (condition_result == 0) {
+        if (then_body->type == NODE_COMMAND) {
+            // Execute the entire command node
+            result = do_basic_command(then_body);
+        } else {
+            result = do_basic_command(then_body);
+        }
+    } else if (else_body) {
+        // Execute else body if condition failed and else exists
+        if (else_body->type == NODE_COMMAND) {
+            // Execute the entire command node
+            result = do_basic_command(else_body);
+        } else {
+            result = do_basic_command(else_body);
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * Stub implementations for control structures (to be implemented later)
+ */
+int do_for_loop(node_t *node) {
+    (void)node;
+    error_message("for loops not yet implemented");
+    return 0;
+}
+
+int do_while_loop(node_t *node) {
+    (void)node;
+    error_message("while loops not yet implemented");
+    return 0;
+}
+
+int do_until_loop(node_t *node) {
+    (void)node;
+    error_message("until loops not yet implemented");
+    return 0;
+}
+
+int do_case_clause(node_t *node) {
+    (void)node;
+    error_message("case statements not yet implemented");
+    return 0;
+}
+
+int do_function_def(node_t *node) {
+    (void)node;
+    error_message("function definitions not yet implemented");
+    return 0;
+}
+
+/**
+ * execute_node:
+ *      Main execution dispatcher for different node types
+ */
+int execute_node(node_t *node) {
+    if (!node) {
+        return 0;
+    }
+    
+    switch (node->type) {
+        case NODE_IF:
+            return do_if_clause(node);
+        case NODE_FOR:
+            return do_for_loop(node);
+        case NODE_WHILE:
+            return do_while_loop(node);
+        case NODE_UNTIL:
+            return do_until_loop(node);
+        case NODE_CASE:
+            return do_case_clause(node);
+        case NODE_FUNCTION:
+            return do_function_def(node);
+        case NODE_COMMAND:
+        case NODE_VAR:
+        default:
+            return do_basic_command(node);
+    }
 }

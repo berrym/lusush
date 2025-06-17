@@ -12,8 +12,6 @@ typedef struct command_info {
 
 // Execution functions for different node types
 int do_basic_command(node_t *n);
-int do_basic_pipe_list(node_t *n);
-int execute_pipeline(node_t *pipeline);
 int do_redirect(node_t *n);
 int do_if_clause(node_t *n);
 int do_for_loop(node_t *n);

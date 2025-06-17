@@ -143,10 +143,12 @@ char **get_filename_matches(const char *pattern, glob_t *matches);
 char *search_path(char *fn);
 int do_exec_cmd(int argc, char **argv);
 int do_basic_command(node_t *n);
+int execute_pipeline_simple(char *line);
+int execute_simple_pipeline(char **commands, int cmd_count);
+int execute_single_command(char *command);
+int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count);
 int setup_redirection(node_t *redir);
 int setup_redirections(node_t *cmd);
-int execute_pipeline_simple(char *cmdline);
-int execute_simple_pipeline(char **commands, int cmd_count);
-int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count);
+int execute_node(node_t *node);
 
 #endif

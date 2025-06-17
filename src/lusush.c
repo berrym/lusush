@@ -84,9 +84,8 @@ int parse_and_execute(source_t *src) {
             break;
         }
 
-        // All pipelines are now handled by the simple pipeline parser
-        // This should only execute single commands
-        do_basic_command(cmd);
+        // Execute the parsed command using the appropriate handler
+        execute_node(cmd);
         
         free_node_tree(cmd);
         tok = tokenize(src);
