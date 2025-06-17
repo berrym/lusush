@@ -1,22 +1,1363 @@
-#include "../include/alias.h"
-#include "../include/errors.h"
 #include "../include/lusush.h"
-#include "../include/strings.h"
+#include "../include/errors.h"
 #include "../include/symtable.h"
+#include "../include/strings.h"
 
-#include <ctype.h>
-#include <pwd.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <pwd.h>
 #include <unistd.h>
+#include <sys/types.h>
 
-// special value to represent an invalid variable
-#define INVALID_VAR ((char *)-1)
+// String builder implementation for efficient string manipulation
+str_builder_t *sb_create(size_t initial_capacity) {
+    if (initial_capacity == 0) {
+        initial_capacity = 256;
+    }
+    
+    str_builder_t *sb = malloc(sizeof(str_builder_t));
+    if (!sb) {
+        return NULL;
+    }
+    
+    sb->data = malloc(initial_capacity);
+    if (!sb->data) {
+        free(sb);
+        return NULL;
+    }
+    
+    sb->data[0] = '\0';
+    sb->len = 0;
+    sb->capacity = initial_capacity;
+    
+    return sb;
+}
 
-static bool no_word_expand = false;
+void sb_free(str_builder_t *sb) {
+    if (sb) {
+        free(sb->data);
+        free(sb);
+    }
+}
+
+static bool sb_ensure_capacity(str_builder_t *sb, size_t needed) {
+    if (sb->len + needed + 1 <= sb->capacity) {
+        return true;
+    }
+    
+    size_t new_capacity = sb->capacity;
+    while (new_capacity < sb->len + needed + 1) {
+        new_capacity *= 2;
+    }
+    
+    char *new_data = realloc(sb->data, new_capacity);
+    if (!new_data) {
+        return false;
+    }
+    
+    sb->data = new_data;
+    sb->capacity = new_capacity;
+    return true;
+}
+
+bool sb_append(str_builder_t *sb, const char *str) {
+    if (!sb || !str) {
+        return false;
+    }
+    
+    size_t str_len = strlen(str);
+    return sb_append_len(sb, str, str_len);
+}
+
+bool sb_append_char(str_builder_t *sb, char c) {
+    if (!sb || !sb_ensure_capacity(sb, 1)) {
+        return false;
+    }
+    
+    sb->data[sb->len++] = c;
+    sb->data[sb->len] = '\0';
+    return true;
+}
+
+bool sb_append_len(str_builder_t *sb, const char *str, size_t len) {
+    if (!sb || !str || len == 0) {
+        return false;
+    }
+    
+    if (!sb_ensure_capacity(sb, len)) {
+        return false;
+    }
+    
+    memcpy(sb->data + sb->len, str, len);
+    sb->len += len;
+    sb->data[sb->len] = '\0';
+    return true;
+}
+
+char *sb_finalize(str_builder_t *sb) {
+    if (!sb) {
+        return NULL;
+    }
+    
+    char *result = malloc(sb->len + 1);
+    if (!result) {
+        return NULL;
+    }
+    
+    strcpy(result, sb->data);
+    return result;
+}
+
+// Context management
+exp_ctx_t *create_expansion_context(void) {
+    exp_ctx_t *ctx = calloc(1, sizeof(exp_ctx_t));
+    if (!ctx) {
+        return NULL;
+    }
+    
+    // Initialize with defaults
+    reset_expansion_context(ctx);
+    return ctx;
+}
+
+void free_expansion_context(exp_ctx_t *ctx) {
+    free(ctx);
+}
+
+void reset_expansion_context(exp_ctx_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+    
+    ctx->in_double_quotes = false;
+    ctx->in_single_quotes = false;
+    ctx->in_var_assign = false;
+    ctx->var_assign_eq_count = 0;
+    ctx->no_field_split = false;
+    ctx->no_pathname_expand = false;
+    ctx->no_tilde_expand = false;
+}
+
+// Utility functions
+bool is_expansion_disabled(void) {
+    return get_shell_vari("NO_WORD_EXPAND", false);
+}
+
+bool should_expand_tilde(const char *str, size_t pos, const exp_ctx_t *ctx) {
+    if (!str || !ctx) {
+        return false;
+    }
+    
+    // Don't expand inside quotes
+    if (ctx->in_double_quotes || ctx->in_single_quotes) {
+        return false;
+    }
+    
+    // Don't expand if tilde expansion is disabled
+    if (ctx->no_tilde_expand) {
+        return false;
+    }
+    
+    // Expand if:
+    // 1. It's at the beginning of the word
+    // 2. It's in a variable assignment after = or :
+    if (pos == 0) {
+        return true;
+    }
+    
+    if (ctx->in_var_assign && pos > 0) {
+        char prev = str[pos - 1];
+        return (prev == '=' && ctx->var_assign_eq_count == 1) || prev == ':';
+    }
+    
+    return false;
+}
+
+size_t find_expansion_end(const char *str, size_t start, char delimiter) {
+    if (!str) {
+        return 0;
+    }
+    
+    size_t pos = start;
+    int depth = 0;
+    bool in_quotes = false;
+    char quote_char = 0;
+    
+    while (str[pos]) {
+        if (!in_quotes) {
+            if (str[pos] == '\'' || str[pos] == '"') {
+                in_quotes = true;
+                quote_char = str[pos];
+            } else if (str[pos] == delimiter) {
+                if (depth == 0) {
+                    return pos;
+                }
+                depth--;
+            } else if ((delimiter == '}' && str[pos] == '{') ||
+                      (delimiter == ')' && str[pos] == '(')) {
+                depth++;
+            }
+        } else {
+            if (str[pos] == quote_char && (pos == 0 || str[pos-1] != '\\')) {
+                in_quotes = false;
+                quote_char = 0;
+            }
+        }
+        pos++;
+    }
+    
+    return (delimiter && depth == 0) ? pos : 0;
+}
+
+// Check if a character is a valid variable name character
+static bool is_var_char(char c) {
+    return isalnum(c) || c == '_';
+}
+
+// Check if a string is a valid variable name
+static bool is_valid_var_name(const char *str) {
+    if (!str || !*str) {
+        return false;
+    }
+    
+    // Must start with letter or underscore
+    if (!isalpha(*str) && *str != '_') {
+        return false;
+    }
+    
+    // Rest must be alphanumeric or underscore
+    for (const char *p = str + 1; *p; p++) {
+        if (!is_var_char(*p)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Get special variable value
+static const char *get_special_var(const char *name) {
+    static char buffer[32];
+    
+    if (!name || !*name) return NULL;
+    
+    switch (*name) {
+        case '?':
+            if (name[1] == '\0') {
+                snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
+                return buffer;
+            }
+            break;
+        case '$':
+            if (name[1] == '\0') {
+                snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+                return buffer;
+            }
+            break;
+        case '0':
+            if (name[1] == '\0') {
+                return (shell_argc > 0 && shell_argv[0]) ? shell_argv[0] : "lusush";
+            }
+            break;
+        case '#':
+            if (name[1] == '\0') {
+                snprintf(buffer, sizeof(buffer), "%d", shell_argc > 1 ? shell_argc - 1 : 0);
+                return buffer;
+            }
+            break;
+        default:
+            // Check for positional parameters $1, $2, etc.
+            if (isdigit(*name) && name[1] == '\0') {
+                int pos = *name - '0';
+                if (pos > 0 && pos < shell_argc && shell_argv[pos]) {
+                    return shell_argv[pos];
+                }
+                return "";
+            }
+            break;
+    }
+    
+    return NULL;
+}
+
+// Find the end of a variable name starting at position start
+static size_t find_var_name_end(const char *str, size_t start) {
+    if (!str || !is_var_char(str[start])) {
+        return start;
+    }
+    
+    size_t pos = start;
+    while (str[pos] && is_var_char(str[pos])) {
+        pos++;
+    }
+    
+    return pos;
+}
+
+// Update expansion context based on current character
+static void update_context(exp_ctx_t *ctx, const char *str, size_t pos) {
+    if (!ctx || !str) {
+        return;
+    }
+    
+    char c = str[pos];
+    
+    switch (c) {
+        case '"':
+            if (!ctx->in_single_quotes) {
+                ctx->in_double_quotes = !ctx->in_double_quotes;
+            }
+            break;
+            
+        case '\'':
+            if (!ctx->in_double_quotes) {
+                ctx->in_single_quotes = !ctx->in_single_quotes;
+            }
+            break;
+            
+        case '=':
+            if (!ctx->in_double_quotes && !ctx->in_single_quotes) {
+                // Check if this is a variable assignment
+                // Extract the part before '=' and check if it's a valid variable name
+                char *var_name = malloc(pos + 1);
+                if (var_name) {
+                    strncpy(var_name, str, pos);
+                    var_name[pos] = '\0';
+                    
+                    if (is_valid_var_name(var_name)) {
+                        ctx->in_var_assign = true;
+                        ctx->var_assign_eq_count++;
+                    }
+                    free(var_name);
+                }
+            }
+            break;
+    }
+}
+
+// Tilde expansion implementation
+expansion_t tilde_expand(const char *str, const exp_ctx_t *ctx) {
+    (void)ctx;  // Suppress unused parameter warning
+    expansion_t result = {EXP_NO_EXPANSION, NULL, 0};
+    
+    if (!str || *str != '~') {
+        return result;
+    }
+    
+    if (is_expansion_disabled()) {
+        return result;
+    }
+    
+    // Find the end of the tilde prefix
+    size_t end = 1;
+    while (str[end] && str[end] != '/' && str[end] != ':') {
+        end++;
+    }
+    
+    char *home = NULL;
+    
+    // Null tilde prefix (~) - use $HOME or getpwuid
+    if (end == 1) {
+        const symtable_entry_t *entry = get_symtable_entry("HOME");
+        if (entry && entry->val) {
+            home = entry->val;
+        } else {
+            // Fall back to password database
+            struct passwd *pass = getpwuid(getuid());
+            if (pass) {
+                home = pass->pw_dir;
+            }
+        }
+    } else {
+        // Extract username and look up in password database
+        char *username = malloc(end);
+        if (username) {
+            strncpy(username, str + 1, end - 1);
+            username[end - 1] = '\0';
+            
+            struct passwd *pass = getpwnam(username);
+            if (pass) {
+                home = pass->pw_dir;
+            }
+            free(username);
+        }
+    }
+    
+    if (!home) {
+        error_message("tilde expansion: unable to determine home directory");
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    // Create expanded string
+    result.expanded = malloc(strlen(home) + 1);
+    if (!result.expanded) {
+        error_message("tilde expansion: memory allocation failed");
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    strcpy(result.expanded, home);
+    result.len = strlen(home);
+    result.result = EXP_OK;
+    
+    return result;
+}
+
+// Variable expansion implementation
+expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
+    (void)ctx;  // Suppress unused parameter warning
+    expansion_t result = {EXP_NO_EXPANSION, NULL, 0};
+    
+    if (!str || *str != '$') {
+        return result;
+    }
+    
+    if (is_expansion_disabled()) {
+        return result;
+    }
+    
+    const char *var_start = str + 1;
+    size_t var_name_len = 0;
+    const char *var_name_start = var_start;
+    
+    // Handle ${var} vs $var format
+    if (*var_start == '{') {
+        var_name_start = var_start + 1;
+        
+        // Find closing brace
+        size_t brace_end = find_expansion_end(var_name_start, 0, '}');
+        if (brace_end == 0) {
+            result.result = EXP_ERROR;
+            return result;
+        }
+        var_name_len = brace_end;
+    } else {
+        // Find end of variable name
+        // Check for special single-character variables first
+        if (*var_start == '?' || *var_start == '$' || *var_start == '#' || 
+            (*var_start >= '0' && *var_start <= '9')) {
+            var_name_len = 1;
+            var_name_start = var_start;
+        } else if (!isalpha(*var_start) && *var_start != '_') {
+            result.result = EXP_NO_EXPANSION;
+            return result;
+        } else {
+            size_t end = find_var_name_end(var_start, 0);
+            var_name_len = end;
+            var_name_start = var_start;
+        }
+    }
+    
+    if (var_name_len == 0) {
+        result.result = EXP_NO_EXPANSION;
+        return result;
+    }
+    
+    // Extract variable name
+    char *var_name = malloc(var_name_len + 1);
+    if (!var_name) {
+        error_message("parameter expansion: memory allocation failed");
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    strncpy(var_name, var_name_start, var_name_len);
+    var_name[var_name_len] = '\0';
+    
+    // Handle special variable expansion patterns
+    bool get_length = false;
+    char *actual_var_name = var_name;
+    
+    if (*var_name == '#' && var_name[1] != '\0') {
+        // ${#var} - get length of var
+        get_length = true;
+        actual_var_name = var_name + 1;
+    }
+    // If it's just '#', treat it as the special variable (argument count)
+    
+    // Look up variable value - check special variables first
+    const char *var_value = get_special_var(actual_var_name);
+    if (!var_value) {
+        const symtable_entry_t *entry = get_symtable_entry(actual_var_name);
+        var_value = (entry && entry->val) ? entry->val : "";
+    }
+    
+    if (get_length) {
+        // Return string length
+        char length_str[32];
+        snprintf(length_str, sizeof(length_str), "%zu", strlen(var_value));
+        
+        result.expanded = malloc(strlen(length_str) + 1);
+        if (result.expanded) {
+            strcpy(result.expanded, length_str);
+            result.len = strlen(length_str);
+            result.result = EXP_OK;
+        } else {
+            result.result = EXP_ERROR;
+        }
+    } else {
+        // Return variable value
+        if (*var_value) {
+            result.expanded = malloc(strlen(var_value) + 1);
+            if (result.expanded) {
+                strcpy(result.expanded, var_value);
+                result.len = strlen(var_value);
+                result.result = EXP_OK;
+            } else {
+                result.result = EXP_ERROR;
+            }
+        } else {
+            // Empty or unset variable
+            result.result = EXP_NO_EXPANSION;
+        }
+    }
+    
+    free(var_name);
+    return result;
+}
+
+// Command substitution implementation
+expansion_t command_substitute_exp(const char *str, const exp_ctx_t *ctx) {
+    (void)ctx;  // Suppress unused parameter warning
+    expansion_t result = {EXP_NO_EXPANSION, NULL, 0};
+    
+    if (!str) {
+        return result;
+    }
+    
+    if (is_expansion_disabled()) {
+        return result;
+    }
+    
+    bool backquoted = (*str == '`');
+    const char *cmd_start;
+    size_t cmd_len;
+    
+    if (backquoted) {
+        // `command` format
+        cmd_start = str + 1;
+        const char *end = strchr(cmd_start, '`');
+        if (!end) {
+            result.result = EXP_ERROR;
+            return result;
+        }
+        cmd_len = end - cmd_start;
+    } else if (*str == '$' && str[1] == '(') {
+        // $(command) format
+        cmd_start = str + 2;
+        size_t end = find_expansion_end(cmd_start, 0, ')');
+        if (end == 0) {
+            result.result = EXP_ERROR;
+            return result;
+        }
+        cmd_len = end;
+    } else {
+        return result;
+    }
+    
+    // Extract command
+    char *cmd = malloc(cmd_len + 1);
+    if (!cmd) {
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    strncpy(cmd, cmd_start, cmd_len);
+    cmd[cmd_len] = '\0';
+    
+    // Execute command and capture output
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        error_message("command substitution: failed to execute command");
+        free(cmd);
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    str_builder_t *sb = sb_create(1024);
+    if (!sb) {
+        error_message("command substitution: memory allocation failed");
+        pclose(fp);
+        free(cmd);
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    char buffer[1024];
+    size_t bytes_read;
+    
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+        if (!sb_append_len(sb, buffer, bytes_read)) {
+            sb_free(sb);
+            pclose(fp);
+            free(cmd);
+            result.result = EXP_ERROR;
+            return result;
+        }
+    }
+    
+    pclose(fp);
+    free(cmd);
+    
+    // Remove trailing newlines
+    while (sb->len > 0 && (sb->data[sb->len - 1] == '\n' || sb->data[sb->len - 1] == '\r')) {
+        sb->len--;
+        sb->data[sb->len] = '\0';
+    }
+    
+    result.expanded = sb_finalize(sb);
+    if (result.expanded) {
+        result.len = strlen(result.expanded);
+        result.result = EXP_OK;
+    } else {
+        result.result = EXP_ERROR;
+    }
+    
+    sb_free(sb);
+    return result;
+}
+
+// Arithmetic expansion implementation
+expansion_t arithm_expand_exp(const char *str, const exp_ctx_t *ctx) {
+    (void)ctx;  // Suppress unused parameter warning
+    expansion_t result = {EXP_NO_EXPANSION, NULL, 0};
+    
+    if (!str || strncmp(str, "$((", 3) != 0) {
+        return result;
+    }
+    
+    if (is_expansion_disabled()) {
+        return result;
+    }
+    
+    // Find closing ))
+    const char *expr_start = str + 3;
+    size_t pos = 0;
+    int paren_count = 0;
+    bool found_end = false;
+    
+    while (expr_start[pos]) {
+        if (expr_start[pos] == '(') {
+            paren_count++;
+        } else if (expr_start[pos] == ')') {
+            if (paren_count > 0) {
+                paren_count--;
+            } else {
+                // Check if next character is also ')'
+                if (expr_start[pos + 1] == ')') {
+                    found_end = true;
+                    break;
+                } else {
+                    // Single ) without matching (, this is our end
+                    break;
+                }
+            }
+        }
+        pos++;
+    }
+    
+    if (!found_end) {
+        error_message("arithmetic expansion: missing closing '))'");
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    size_t expr_len = pos;
+    
+    // Extract arithmetic expression
+    char *expr = malloc(expr_len + 1);
+    if (!expr) {
+        error_message("arithmetic expansion: memory allocation failed");
+        result.result = EXP_ERROR;
+        return result;
+    }
+    
+    strncpy(expr, expr_start, expr_len);
+    expr[expr_len] = '\0';
+    
+    // For now, delegate to the existing arithm_expand function
+    char *arith_result = arithm_expand(expr);
+    
+    if (arith_result) {
+        result.expanded = arith_result;
+        result.len = strlen(arith_result);
+        result.result = EXP_OK;
+    } else {
+        error_message("arithmetic expansion: evaluation failed for expression '%s'", expr);
+        result.result = EXP_ERROR;
+    }
+    
+    free(expr);
+    
+    return result;
+}
+
+// Main word expansion function - refactored for clarity and maintainability
+word_t *word_expand(const char *orig_word) {
+    if (!orig_word) {
+        return NULL;
+    }
+    
+    if (!*orig_word) {
+        return make_word((char*)orig_word);
+    }
+    
+    if (is_expansion_disabled()) {
+        return make_word((char*)orig_word);
+    }
+    
+    exp_ctx_t *ctx = create_expansion_context();
+    if (!ctx) {
+        return NULL;
+    }
+    
+    str_builder_t *sb = sb_create(strlen(orig_word) * 2);
+    if (!sb) {
+        free_expansion_context(ctx);
+        return NULL;
+    }
+    
+    const char *p = orig_word;
+    bool expanded = false;
+    
+    while (*p) {
+        update_context(ctx, orig_word, p - orig_word);
+        
+        expansion_t exp_result = {EXP_NO_EXPANSION, NULL, 0};
+        size_t consumed = 1;  // Default: consume one character
+        
+        switch (*p) {
+            case '~':
+                if (should_expand_tilde(orig_word, p - orig_word, ctx)) {
+                    // Find end of tilde prefix
+                    size_t tilde_end = 1;
+                    while (p[tilde_end] && p[tilde_end] != '/' && p[tilde_end] != ':' && 
+                           !isspace(p[tilde_end])) {
+                        tilde_end++;
+                    }
+                    
+                    char *tilde_prefix = malloc(tilde_end + 1);
+                    if (tilde_prefix) {
+                        strncpy(tilde_prefix, p, tilde_end);
+                        tilde_prefix[tilde_end] = '\0';
+                        
+                        exp_result = tilde_expand(tilde_prefix, ctx);
+                        consumed = tilde_end;
+                        free(tilde_prefix);
+                    }
+                }
+                break;
+                
+            case '$':
+                if (!ctx->in_single_quotes) {
+                    if (p[1] == '(') {
+                        if (p[2] == '(') {
+                            // Arithmetic expansion $((...))
+                            size_t end = 3;
+                            int depth = 2;
+                            while (p[end] && depth > 0) {
+                                if (p[end] == '(') depth++;
+                                else if (p[end] == ')') depth--;
+                                end++;
+                            }
+                            if (depth == 0) {
+                                char *arith_expr = malloc(end + 1);
+                                if (arith_expr) {
+                                    strncpy(arith_expr, p, end);
+                                    arith_expr[end] = '\0';
+                                    exp_result = arithm_expand_exp(arith_expr, ctx);
+                                    consumed = end;
+                                    free(arith_expr);
+                                }
+                            }
+                        } else {
+                            // Command substitution $(...)
+                            size_t end = find_expansion_end(p + 2, 0, ')');
+                            if (end > 0) {
+                                end += 3;  // Include $()
+                                char *cmd_expr = malloc(end + 1);
+                                if (cmd_expr) {
+                                    strncpy(cmd_expr, p, end);
+                                    cmd_expr[end] = '\0';
+                                    exp_result = command_substitute_exp(cmd_expr, ctx);
+                                    consumed = end;
+                                    free(cmd_expr);
+                                }
+                            }
+                        }
+                    } else {
+                        // Variable expansion $var or ${var}
+                        size_t end = 1;
+                        if (p[1] == '{') {
+                            end = find_expansion_end(p + 2, 0, '}');
+                            if (end > 0) {
+                                end += 3;  // Include ${}
+                            }
+                        } else if (isalpha(p[1]) || p[1] == '_' || 
+                                  p[1] == '?' || p[1] == '$' || p[1] == '#' ||
+                                  (p[1] >= '0' && p[1] <= '9')) {
+                            // Handle special variables and positional parameters
+                            if (p[1] == '?' || p[1] == '$' || p[1] == '#' ||
+                                (p[1] >= '0' && p[1] <= '9')) {
+                                end = 2;  // Special variables are single character
+                            } else {
+                                end = find_var_name_end(p, 1) + 1;
+                            }
+                        }
+                        
+                        if (end > 1) {
+                            char *var_expr = malloc(end + 1);
+                            if (var_expr) {
+                                strncpy(var_expr, p, end);
+                                var_expr[end] = '\0';
+                                exp_result = var_expand(var_expr, ctx);
+                                consumed = end;
+                                free(var_expr);
+                            }
+                        }
+                    }
+                }
+                break;
+                
+            case '`':
+                if (!ctx->in_single_quotes && !ctx->in_double_quotes) {
+                    // Command substitution `...`
+                    const char *end = strchr(p + 1, '`');
+                    if (end) {
+                        size_t cmd_len = end - p + 1;
+                        char *cmd_expr = malloc(cmd_len + 1);
+                        if (cmd_expr) {
+                            strncpy(cmd_expr, p, cmd_len);
+                            cmd_expr[cmd_len] = '\0';
+                            exp_result = command_substitute_exp(cmd_expr, ctx);
+                            consumed = cmd_len;
+                            free(cmd_expr);
+                        }
+                    }
+                }
+                break;
+                
+            case '\\':
+                if (!ctx->in_single_quotes) {
+                    // Handle escape sequences in double quotes or unquoted context
+                    if (p[1]) {
+                        char next = p[1];
+                        switch (next) {
+                            case 'n':
+                                if (!sb_append_char(sb, '\n')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 't':
+                                if (!sb_append_char(sb, '\t')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 'r':
+                                if (!sb_append_char(sb, '\r')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 'b':
+                                if (!sb_append_char(sb, '\b')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 'f':
+                                if (!sb_append_char(sb, '\f')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 'a':
+                                if (!sb_append_char(sb, '\a')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case 'v':
+                                if (!sb_append_char(sb, '\v')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case '\\':
+                                if (!sb_append_char(sb, '\\')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case '"':
+                                if (!sb_append_char(sb, '"')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case '\'':
+                                if (!sb_append_char(sb, '\'')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            default:
+                                // Other escape sequences or just literal backslash
+                                if (!sb_append_char(sb, next)) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                        }
+                    } else {
+                        // Backslash at end of string
+                        if (!sb_append_char(sb, '\\')) goto error_cleanup;
+                        consumed = 1;
+                    }
+                } else {
+                    // In single quotes - backslash is literal
+                    if (!sb_append_char(sb, *p)) {
+                        goto error_cleanup;
+                    }
+                }
+                break;
+                
+            default:
+                // Regular character - check for whitespace expansion
+                if (isspace(*p) && !ctx->in_double_quotes && !ctx->in_single_quotes) {
+                    expanded = true;
+                }
+                
+                // Don't append here - will be handled in expansion result section
+                break;
+        }
+        
+        // Handle expansion results
+        if (exp_result.result == EXP_OK && exp_result.expanded) {
+            if (!sb_append(sb, exp_result.expanded)) {
+                free(exp_result.expanded);
+                goto error_cleanup;
+            }
+            expanded = true;
+            free(exp_result.expanded);
+        } else if (exp_result.result == EXP_ERROR) {
+            if (exp_result.expanded) {
+                free(exp_result.expanded);
+            }
+            goto error_cleanup;
+        } else if (exp_result.result == EXP_NO_EXPANSION && consumed == 1) {
+            // No expansion, append original character
+            if (!sb_append_char(sb, *p)) {
+                goto error_cleanup;
+            }
+        }
+        
+        p += consumed;
+    }
+    
+    char *expanded_str = sb_finalize(sb);
+    if (!expanded_str) {
+        goto error_cleanup;
+    }
+    
+    sb_free(sb);
+    free_expansion_context(ctx);
+    
+    // If we performed expansion, do field splitting
+    word_t *words = NULL;
+    if (expanded) {
+        words = field_split(expanded_str);
+    }
+    
+    // If no field splitting was done, create a single word
+    if (!words) {
+        words = make_word(expanded_str);
+    }
+    
+    free(expanded_str);
+    
+    // Perform pathname expansion and quote removal
+    if (words && !is_expansion_disabled()) {
+        words = pathnames_expand(words);
+        remove_quotes(words);
+    }
+    
+    return words;
+
+error_cleanup:
+    sb_free(sb);
+    free_expansion_context(ctx);
+    return NULL;
+}
+
+char *word_expand_to_str(const char *word) {
+    if (!word || is_expansion_disabled()) {
+        if (!word) return NULL;
+        char *result = malloc(strlen(word) + 1);
+        if (result) {
+            strcpy(result, word);
+        }
+        return result;
+    }
+    
+    word_t *expanded = word_expand(word);
+    if (!expanded) {
+        return NULL;
+    }
+    
+    char *result = wordlist_to_str(expanded);
+    free_all_words(expanded);
+    
+    return result;
+}
+
+// Improved field splitting with better IFS handling
+word_t *field_split(const char *str) {
+    if (!str || !*str) {
+        return NULL;
+    }
+    
+    const symtable_entry_t *entry = get_symtable_entry("IFS");
+    const char *IFS = entry ? entry->val : " \t\n";
+    
+    // Empty IFS means no field splitting
+    if (!*IFS) {
+        return NULL;
+    }
+    
+    // Classify IFS characters
+    char IFS_space[64] = {0};
+    char IFS_delim[64] = {0};
+    
+    const char *p = IFS;
+    char *sp = IFS_space;
+    char *dp = IFS_delim;
+    
+    while (*p) {
+        if (isspace(*p)) {
+            *sp++ = *p;
+        } else {
+            *dp++ = *p;
+        }
+        p++;
+    }
+    
+    // Skip leading IFS whitespace
+    while (*str && strchr(IFS_space, *str)) {
+        str++;
+    }
+    
+    if (!*str) {
+        return NULL;
+    }
+    
+    word_t *first_word = NULL;
+    word_t *current_word = NULL;
+    str_builder_t *field_sb = sb_create(256);
+    
+    if (!field_sb) {
+        return NULL;
+    }
+    
+    bool in_single_quotes = false;
+    bool in_double_quotes = false;
+    
+    while (*str) {
+        char c = *str;
+        
+        // Handle quotes
+        if (c == '\'' && !in_double_quotes) {
+            in_single_quotes = !in_single_quotes;
+            if (!sb_append_char(field_sb, c)) {
+                goto field_error;
+            }
+        } else if (c == '"' && !in_single_quotes) {
+            in_double_quotes = !in_double_quotes;
+            if (!sb_append_char(field_sb, c)) {
+                goto field_error;
+            }
+        } else if ((strchr(IFS_space, c) || strchr(IFS_delim, c)) &&
+                   !in_single_quotes && !in_double_quotes) {
+            // Field delimiter found
+            if (field_sb->len > 0) {
+                // Create new word
+                char *field_data = sb_finalize(field_sb);
+                if (!field_data) {
+                    goto field_error;
+                }
+                
+                word_t *new_word = make_word(field_data);
+                free(field_data);
+                
+                if (!new_word) {
+                    goto field_error;
+                }
+                
+                if (!first_word) {
+                    first_word = current_word = new_word;
+                } else {
+                    current_word->next = new_word;
+                    current_word = new_word;
+                }
+                
+                // Reset field builder
+                sb_free(field_sb);
+                field_sb = sb_create(256);
+                if (!field_sb) {
+                    return first_word;
+                }
+            }
+            
+            // Skip additional IFS characters
+            while (*str && (strchr(IFS_space, *str) || strchr(IFS_delim, *str))) {
+                str++;
+            }
+            continue;
+        } else {
+            // Regular character
+            if (!sb_append_char(field_sb, c)) {
+                goto field_error;
+            }
+        }
+        
+        str++;
+    }
+    
+    // Handle final field
+    if (field_sb->len > 0) {
+        char *field_data = sb_finalize(field_sb);
+        if (field_data) {
+            word_t *new_word = make_word(field_data);
+            free(field_data);
+            
+            if (new_word) {
+                if (!first_word) {
+                    first_word = new_word;
+                } else {
+                    current_word->next = new_word;
+                }
+            }
+        }
+    }
+    
+    sb_free(field_sb);
+    return first_word;
+
+field_error:
+    sb_free(field_sb);
+    return first_word;
+}
+
+// Improved pathname expansion with better error handling
+word_t *pathnames_expand(word_t *words) {
+    if (!words || is_expansion_disabled()) {
+        return words;
+    }
+    
+    word_t *current = words;
+    word_t *prev = NULL;
+    
+    while (current) {
+        char *pattern = current->data;
+        
+        // Check if the word contains glob characters
+        if (!has_glob_chars(pattern, strlen(pattern))) {
+            prev = current;
+            current = current->next;
+            continue;
+        }
+        
+        // Perform pathname expansion
+        glob_t glob_result;
+        char **matches = get_filename_matches(pattern, &glob_result);
+        
+        if (!matches || !matches[0]) {
+            // No matches found - keep original pattern
+            globfree(&glob_result);
+            prev = current;
+            current = current->next;
+            continue;
+        }
+        
+        // Create new word list from matches
+        word_t *match_head = NULL;
+        word_t *match_tail = NULL;
+        
+        for (size_t i = 0; i < glob_result.gl_pathc; i++) {
+            // Skip hidden files starting with . unless explicitly requested
+            if (matches[i][0] == '.' && pattern[0] != '.') {
+                continue;
+            }
+            
+            word_t *match_word = make_word(matches[i]);
+            if (!match_word) {
+                // Error creating word - cleanup and continue
+                free_all_words(match_head);
+                match_head = NULL;
+                break;
+            }
+            
+            if (!match_head) {
+                match_head = match_tail = match_word;
+            } else {
+                match_tail->next = match_word;
+                match_tail = match_word;
+            }
+        }
+        
+        globfree(&glob_result);
+        
+        if (match_head) {
+            // Replace current word with matches
+            if (prev) {
+                prev->next = match_head;
+            } else {
+                words = match_head;
+            }
+            
+            match_tail->next = current->next;
+            
+            // Free the original word
+            current->next = NULL;
+            free_all_words(current);
+            
+            prev = match_tail;
+            current = match_tail->next;
+        } else {
+            // Failed to create matches - keep original
+            prev = current;
+            current = current->next;
+        }
+    }
+    
+    return words;
+}
+
+// Improved quote removal with better state tracking
+void remove_quotes(word_t *wordlist) {
+    if (!wordlist || is_expansion_disabled()) {
+        return;
+    }
+    
+    word_t *word = wordlist;
+    
+    while (word) {
+        if (!word->data) {
+            word = word->next;
+            continue;
+        }
+        
+        str_builder_t *sb = sb_create(word->len);
+        if (!sb) {
+            word = word->next;
+            continue;
+        }
+        
+        const char *p = word->data;
+        bool in_double_quotes = false;
+        
+        while (*p) {
+            switch (*p) {
+                case '"':
+                    // Toggle double quote mode (remove the quote)
+                    in_double_quotes = !in_double_quotes;
+                    break;
+                    
+                case '\'':
+                    if (!in_double_quotes) {
+                        // Single quotes - skip to closing quote
+                        p++; // Skip opening quote
+                        while (*p && *p != '\'') {
+                            if (!sb_append_char(sb, *p)) {
+                                goto quote_error;
+                            }
+                            p++;
+                        }
+                        // Skip closing quote (will be skipped by loop increment)
+                    } else {
+                        // Inside double quotes - treat as literal
+                        if (!sb_append_char(sb, *p)) {
+                            goto quote_error;
+                        }
+                    }
+                    break;
+                    
+                case '\\':
+                    if (in_double_quotes) {
+                        // In double quotes - only escape special characters
+                        if (p[1] && strchr("$`\"\\", p[1])) {
+                            p++; // Skip backslash
+                            if (!sb_append_char(sb, *p)) {
+                                goto quote_error;
+                            }
+                        } else {
+                            // Keep backslash as literal
+                            if (!sb_append_char(sb, *p)) {
+                                goto quote_error;
+                            }
+                        }
+                    } else {
+                        // Outside quotes - escape next character
+                        if (p[1]) {
+                            p++; // Skip backslash
+                            if (!sb_append_char(sb, *p)) {
+                                goto quote_error;
+                            }
+                        }
+                    }
+                    break;
+                    
+                default:
+                    if (!sb_append_char(sb, *p)) {
+                        goto quote_error;
+                    }
+                    break;
+            }
+            p++;
+        }
+        
+        // Replace word data with unquoted version
+        char *unquoted = sb_finalize(sb);
+        if (unquoted) {
+            free(word->data);
+            word->data = unquoted;
+            word->len = strlen(unquoted);
+        }
+        
+        sb_free(sb);
+        word = word->next;
+        continue;
+
+quote_error:
+        sb_free(sb);
+        word = word->next;
+    }
+}
+
+// Legacy compatibility functions for old API
+char *tilde_expand_legacy(char *s) {
+    if (!s) return NULL;
+    
+    expansion_t result = tilde_expand(s, NULL);
+    if (result.result == EXP_OK && result.expanded) {
+        return result.expanded;
+    }
+    
+    // Return copy of original string if no expansion
+    char *copy = malloc(strlen(s) + 1);
+    if (copy) {
+        strcpy(copy, s);
+    }
+    return copy;
+}
+
+char *var_expand_legacy(char *orig_var_name) {
+    if (!orig_var_name) return NULL;
+    
+    expansion_t result = var_expand(orig_var_name, NULL);
+    if (result.result == EXP_OK && result.expanded) {
+        return result.expanded;
+    } else if (result.result == EXP_INVALID_VAR) {
+        // Return special INVALID_VAR marker for compatibility
+        return (char*)-1;
+    }
+    
+    return NULL;
+}
+
+// Migration helper functions to integrate with existing code
+char *word_expand_to_str_compat(char *word) {
+    return word_expand_to_str(word);
+}
+
+word_t *word_expand_compat(char *orig_word) {
+    return word_expand(orig_word);
+}
+
+// Utility functions for word manipulation
 
 // convert the string *word to a cmd_token struct, so it can be passed to
 // functions such as word_expand().
@@ -107,1321 +1448,4 @@ bool is_name(const char *str) {
         }
     }
     return true;
-}
-
-// substitute the substring of s1, from character start to character end,
-// with the s2 string.
-// start should point to the first char to be deleted from s1.
-// end should point to the last char to be deleted from s, NOT the
-// char coming after it.
-// returns the malloc'd new string, or NULL on error.
-char *substitute_str(char *s1, char *s2, size_t start, size_t end) {
-    if (no_word_expand) {
-        return s1;
-    }
-
-    // get the prefix (the part before start)
-    char before[start + 1];
-    strncpy(before, s1, start);
-    before[start] = '\0';
-
-    // get the postfix (the part after end)
-    const size_t afterlen = strlen(s1) - end + 1;
-    char after[afterlen];
-    strcpy(after, s1 + end + 1);
-
-    // alloc memory for the new string
-    const size_t totallen = start + afterlen + strlen(s2);
-    char *final = alloc_str(totallen + 1, false);
-    if (final == NULL) {
-        error_return("error: `substitute_str`");
-        return NULL;
-    }
-
-    if (!totallen) { // empty string
-        final[0] = '\0';
-    } else { // concatenate the three parts into one string
-        strcpy(final, before);
-        strcat(final, s2);
-        strcat(final, after);
-    }
-
-    // return the new string
-    return final;
-}
-
-int substitute_word(char **pstart, char **p, size_t len, char *(func)(char *),
-                    bool add_quotes) {
-    if (no_word_expand) {
-        return 0;
-    }
-
-    // extract the word to be substituted
-    char *tmp = calloc(len + 1, sizeof(char));
-    if (tmp == NULL) {
-        (*p) += len;
-        return 0;
-    }
-    strncpy(tmp, *p, len);
-    tmp[len--] = '\0';
-
-    // and expand it
-    char *tmp2;
-    if (func && !parsing_alias) {
-        tmp2 = func(tmp);
-        if (tmp2 == INVALID_VAR) {
-            tmp2 = NULL;
-        }
-        if (tmp2) {
-            free(tmp);
-        }
-    } else {
-        tmp2 = tmp;
-    }
-
-    // error expanding the string. keep the original string as-is
-    if (tmp2 == NULL) {
-        (*p) += len;
-        free(tmp);
-        return 0;
-    }
-
-    // save our current position in the word
-    size_t i = (*p) - (*pstart);
-
-    // substitute the expanded word
-    tmp = quote_val(tmp2, add_quotes);
-    free(tmp2);
-    if (tmp) {
-        // substitute the expanded word
-        if ((tmp2 = substitute_str(*pstart, tmp, i, i + len))) {
-            // adjust our pointer to point to the new string
-            free(*pstart);
-            (*pstart) = tmp2;
-            len = strlen(tmp);
-        }
-        free(tmp);
-    }
-
-    // adjust our pointer to point to the new string
-    (*p) = (*pstart) + i + len - 1;
-    return 1;
-}
-
-// perform word expansion on a single word, pointed to by orig_word.
-// returns the head of the linked list of the expanded fields and stores the
-// last field in the tail pointer.
-word_t *word_expand(char *orig_word) {
-    if (orig_word == NULL) {
-        return NULL;
-    }
-
-    if (!*orig_word) {
-        return make_word(orig_word);
-    }
-
-    no_word_expand = get_shell_vari("NO_WORD_EXPAND", false);
-
-    char *pstart = calloc(strlen(orig_word) + 1, sizeof(char));
-    if (pstart == NULL) {
-        return NULL;
-    }
-    strcpy(pstart, orig_word);
-
-    char *p = pstart, *p2;
-    char *tmp;
-    char c;
-    size_t i = 0;
-    size_t len;
-    bool in_double_quotes = false;
-    bool in_var_assign = false;
-    int var_assign_eq = 0;
-    bool expanded = false;
-    char *(*func)(char *);
-
-    do {
-        switch (*p) {
-        case '~':
-            if (no_word_expand) {
-                break;
-            }
-            // don't perform tilde expansion inside double quotes
-            if (in_double_quotes) {
-                break;
-            }
-            // expand a tilde prefix only if:
-            //- it is the first unquoted char in the string.
-            //- it is part of a variable assignment, and is preceded by the
-            // first
-            //  equals sign or a colon.
-            if (p == pstart ||
-                (in_var_assign &&
-                 (p[-1] == ':' || (p[-1] == '=' && var_assign_eq == true)))) {
-                // find the end of the tilde prefix
-                bool tilde_quoted = false;
-                bool endme = false;
-                p2 = p + 1;
-
-                while (*p2) {
-                    switch (*p2) {
-                    case '\\':
-                        tilde_quoted = true;
-                        p2++;
-                        break;
-                    case '"':
-                    case '\'':
-                        if (parsing_alias) {
-                            p2++;
-                            break;
-                        }
-                        i = find_closing_quote(p2);
-                        if (i) {
-                            tilde_quoted = true;
-                            p2 += i;
-                        }
-                        break;
-                    case '/':
-                        endme = true;
-                        break;
-                    case ':':
-                        if (in_var_assign) {
-                            endme = true;
-                        }
-                        break;
-                    }
-                    if (endme) {
-                        break;
-                    }
-                    p2++;
-                }
-
-                // if any part of the prefix is quoted, no expansion is done
-                if (tilde_quoted) {
-                    // just skip the tilde prefix
-                    p = p2;
-                    break;
-                }
-
-                // otherwise, extract the prefix
-                len = p2 - p;
-                substitute_word(&pstart, &p, len, tilde_expand,
-                                !in_double_quotes);
-                expanded = true;
-            }
-            break;
-        case '"':
-            if (no_word_expand) {
-                break;
-            }
-            // toggle quote mode
-            in_double_quotes = !in_double_quotes;
-            break;
-        case '=':
-            if (no_word_expand) {
-                break;
-            }
-            // skip it if inside double quotes
-            if (in_double_quotes) {
-                break;
-            }
-            // check the previous string is a valid var name
-            len = p - pstart;
-            tmp = calloc(len + 1, sizeof(char));
-            if (tmp == NULL) {
-                error_return("error: `word_expand`");
-                break;
-            }
-
-            strncpy(tmp, pstart, len);
-            tmp[len] = '\0';
-
-            // if the string before '=' is a valid var name, we have a
-            // variable assignment.. we set in_var_assign to indicate that,
-            // and we set var_assign_eq which indicates this is the first
-            // equals sign (we use this when performing tilde expansion --
-            // see code above).
-            if (is_name(tmp)) {
-                in_var_assign = true;
-                var_assign_eq++;
-            }
-            free_str(tmp);
-            break;
-        case '\\':
-            if (no_word_expand) {
-                break;
-            }
-            // skip backslash (we'll remove it later on)
-            p++;
-            break;
-        case '\'':
-            if (no_word_expand) {
-                break;
-            }
-
-            // if inside double quotes, treat the single quote as a normal
-            // char
-            if (in_double_quotes) {
-                break;
-            }
-            // skip everything, up to the closing single quote
-            p += find_closing_quote(p);
-            break;
-        case '`':
-            if (no_word_expand) {
-                break;
-            }
-
-            // find the closing back quote
-            if ((len = find_closing_quote(p)) == 0) {
-                // not found. bail out
-                break;
-            }
-            // otherwise, extract the command and substitute its output//
-            substitute_word(&pstart, &p, len + 1, command_substitute, 0);
-            expanded = true;
-            break;
-        // the $ sign might introduce:
-        // - parameter expansions: ${var} or $var
-        // - command substitutions: $()
-        // - arithmetic expansions: $(())
-        case '$':
-            if (no_word_expand) {
-                break;
-            }
-
-            c = p[1];
-            switch (c) {
-            case '{':
-                // find the closing quote
-                if ((len = find_closing_brace(p + 1)) == 0) {
-                    // not found. bail out
-                    break;
-                }
-                // calling var_expand() might return an INVALID_VAR
-                // result which makes the following call fail.
-                if (!substitute_word(&pstart, &p, len + 2, var_expand, 0)) {
-                    free(pstart);
-                    return NULL;
-                }
-                expanded = true;
-                break;
-            // arithmetic expansion $(()) or command substitution $().
-            case '(':
-                if (no_word_expand) {
-                    break;
-                }
-
-                // check if we have one or two opening braces
-                i = 0;
-                if (p[2] == '(') {
-                    i++;
-                }
-                // find the closing quote
-                if ((len = find_closing_brace(p + 1)) == 0) {
-                    // not found. bail out
-                    break;
-                }
-                // otherwise, extract the expression and substitute its
-                // value. if we have one brace (i == 0), we'll perform
-                // command substitution. otherwise, arithmetic
-                // expansion.
-                func = i ? arithm_expand : command_substitute;
-                substitute_word(&pstart, &p, len + 2, func, 0);
-                expanded = true;
-                break;
-            default:
-                if (no_word_expand) {
-                    break;
-                }
-
-                // var names must start with an alphabetic char or _
-                if (!isalpha(p[1]) && p[1] != '_') {
-                    break;
-                }
-                p2 = p + 1;
-                // get the end of the var name
-                while (*p2) {
-                    if (!isalnum(*p2) && *p2 != '_') {
-                        break;
-                    }
-                    p2++;
-                }
-                // empty name
-                if (p2 == p + 1) {
-                    break;
-                }
-                // perform variable expansion
-                substitute_word(&pstart, &p, p2 - p, var_expand, 0);
-                expanded = true;
-                break;
-            }
-            break;
-        default:
-            if (no_word_expand) {
-                break;
-            }
-
-            if (isspace(*p) && !in_double_quotes) {
-                expanded = true;
-            }
-            break;
-        }
-    } while (*(++p));
-
-    // if we performed word expansion, do field splitting
-    word_t *words = NULL;
-    if (expanded) {
-        words = field_split(pstart);
-    }
-    // no expansion done, or no field splitting done
-    if (words == NULL) {
-        words = make_word(pstart);
-        // error making word struct
-        if (words == NULL) {
-            error_message("error: `word_expand`: insufficient memory");
-            free(pstart);
-            return NULL;
-        }
-    }
-    free(pstart);
-
-    // perform pathname expansion and quote removal
-    if (!no_word_expand) {
-        words = pathnames_expand(words);
-        remove_quotes(words);
-    }
-
-    // return the expanded list
-    return words;
-}
-
-// perform tilde expansion.
-// returns the malloc'd expansion of the tilde prefix, NULL if expansion failed.
-char *tilde_expand(char *s) {
-    if (no_word_expand) {
-        return s;
-    }
-
-    char *home = NULL;
-    const size_t len = strlen(s);
-    char *s2 = NULL;
-
-    // null tilde prefix. substitute with the value of home
-    if (len == 1) {
-        const symtable_entry_t *entry = get_symtable_entry("HOME");
-        if (entry && entry->val) {
-            home = entry->val;
-        } else {
-            // POSIX doesn't say what to do if $HOME is null/unset.. we follow
-            // what bash does, which is searching our home directory in the
-            // password database.
-            const struct passwd *pass = getpwuid(getuid());
-            if (pass) {
-                // get the value of home
-                home = pass->pw_dir;
-            }
-        }
-    } else {
-        // we have a login name
-        const struct passwd *pass = getpwnam(s + 1);
-        if (pass) {
-            home = pass->pw_dir;
-        }
-    }
-
-    // we have a NULL value
-    if (home == NULL) {
-        return NULL;
-    }
-
-    // return the home dir we've found
-    s2 = calloc(strlen(home) + 1, sizeof(char));
-    if (s2 == NULL) {
-        return NULL;
-    }
-    strcpy(s2, home);
-    return s2;
-}
-
-// perform variable (parameter) expansion.
-// our options are:
-// syntax           POSIX description   var defined     var undefined
-// ======           =================   ===========     =============
-// $var             Substitute          var             nothing
-// ${var}           Substitute          var             nothing
-// ${var:-thing}    Use Deflt Values    var             thing (var unchanged)
-// ${var:=thing}    Assgn Deflt Values  var             thing (var set to thing)
-// ${var:?message}  Error if NULL/Unset var             print message and exit
-// shell,
-//                                                      (if message is empty,
-//                                                      print "var: parameter
-//                                                      not set")
-// ${var:+thing}    Use Alt. Value      thing           nothing
-// ${#var}          Calculate String Length
-// Using the same options in the table above, but without the colon, results in
-// a test for a parameter that is unset. using the colon results in a test for a
-// parameter that is unset or null.
-
-// TODO: we should test our implementation of the following string processing
-//      functions (see section 2.6.2 - Parameter Expansion in POSIX):
-//      ${parameter%[word]}      Remove Smallest Suffix Pattern
-//      ${parameter%%[word]}     Remove Largest Suffix Pattern
-//      ${parameter#[word]}      Remove Smallest Prefix Pattern
-//      ${parameter##[word]}     Remove Largest Prefix Pattern
-
-// perform variable (parameter) expansion.
-// returns an malloc'd string of the expanded variable value, or NULL if the
-// variable is not defined or the expansion failed.
-// this function should not be called directly by any function outside of this
-// module (hence the double underscores that prefix the function name).
-char *var_expand(char *orig_var_name) {
-    if (no_word_expand) {
-        return orig_var_name;
-    }
-
-    // sanity check
-    if (orig_var_name == NULL) {
-        return NULL;
-    }
-
-    // if the var substitution is in the $var format, remove the $.
-    // if it's in the ${var} format, remove the ${}.
-    // skip the $
-    orig_var_name++;
-    size_t len = strlen(orig_var_name);
-    if (*orig_var_name == '{') {
-        // remove the }
-        orig_var_name[len - 1] = '\0';
-        orig_var_name++;
-    }
-
-    // check we don't have an empty varname
-    if (!*orig_var_name) {
-        return NULL;
-    }
-
-    bool get_length = false;
-    // if varname starts with #, we need to get the string length
-    if (*orig_var_name == '#') {
-        // use of '#' should come with omission of ':'
-        if (strchr(orig_var_name, ':')) {
-            error_message("error: `var_expand`: invalid "
-                          "variable substitution: %s",
-                          orig_var_name);
-            return INVALID_VAR;
-        }
-        get_length = true;
-        orig_var_name++;
-    }
-
-    // check we don't have an empty varname
-    if (!*orig_var_name) {
-        return NULL;
-    }
-
-    // search for a colon, which we use to separate the variable name from the
-    // value or substitution we are going to perform on the variable.
-    char *sub = strchr(orig_var_name, ':');
-    if (sub == NULL) { // we have a substitution without a colon
-        // search for the char that indicates what type of substitution we need
-        // to do
-        sub = strchr_any(orig_var_name, "-=?+%#");
-    }
-
-    // get the length of the variable name (without the substitution part)
-    len = sub ? (size_t)(sub - orig_var_name) : strlen(orig_var_name);
-
-    // if we have a colon+substitution, skip the colon
-    if (sub && *sub == ':') {
-        sub++;
-    }
-
-    // copy the varname to a buffer
-    char var_name[len + 1];
-    memcpy(var_name, orig_var_name, len);
-    var_name[len] = '\0';
-
-    // commence variable substitution.
-    char *empty_val = "";
-    char *tmp = NULL;
-    bool setme = false;
-
-    symtable_entry_t *entry = get_symtable_entry(var_name);
-    tmp = (entry && entry->val && entry->val[0]) ? entry->val : empty_val;
-
-    // first case: variable is unset or empty.
-    if (tmp == NULL || tmp == empty_val) {
-        // do we have a substitution clause?
-        if (sub && *sub) {
-            // check the substitution operation we need to perform
-            switch (sub[0]) {
-            case '-': // use default value
-                tmp = sub + 1;
-                break;
-            case '=': // assign the variable a value
-                // NOTE: only variables, not positional or special
-                // parameters can be assigned this way (we'll fix this
-                // later).
-                tmp = sub + 1;
-                // assign the EXPANSION OF tmp, not tmp
-                // itself, to var_name (we'll set the value below).
-                setme = true;
-                break;
-            case '?': // print error msg if variable is null/unset
-                if (sub[1] == '\0') {
-                    error_message("error: `var_expand`: %s: "
-                                  "parameter not set",
-                                  var_name);
-                } else {
-                    error_message("error: `var_expand` failed: %s: %s\n",
-                                  var_name, sub + 1);
-                }
-                return INVALID_VAR;
-            // use alternative value (we don't have alt. value here)//
-            case '+':
-                return NULL;
-            // pattern matching notation. can't match anything
-            // if the variable is not defined, now can we?
-            case '#':
-            case '%':
-                break;
-            default: // unknown operator
-                return INVALID_VAR;
-            }
-        }
-        // no substitution clause. return NULL as the variable is unset/null
-        else {
-            tmp = empty_val;
-        }
-    }
-    // second case: variable is set/not empty.
-    else {
-        // do we have a substitution clause?
-        if (sub && *sub) {
-            // check the substitution operation we need to perform
-            switch (sub[0]) {
-            case '-': // use default value
-                break;
-            case '=': // assign the variable a value
-                tmp = sub + 1;
-                setme = true;
-                break;
-            case '?': // print error msg if variable is null/unset
-                break;
-            // use alternative value
-            case '+':
-                tmp = sub + 1;
-                break;
-            // for the prefix and suffix matching routines (below).
-            // bash expands the pattern part, but ksh doesn't seem to do
-            // the same (as far as the manpage is concerned). we follow ksh.
-            case '%': // match suffix
-                sub++;
-                // perform word expansion on the value
-                char *p = word_expand_to_str(tmp);
-                // word expansion failed
-                if (p == NULL) {
-                    return INVALID_VAR;
-                }
-                bool longest = false;
-                // match the longest or shortest suffix
-                if (*sub == '%') {
-                    longest = true, sub++;
-                }
-                // perform the match
-                if ((len = match_suffix(sub, p, longest)) == 0) {
-                    return p;
-                }
-                // return the match
-                char *p2 = calloc(len + 1, sizeof(char));
-                if (p2) {
-                    strncpy(p2, p, len);
-                    p2[len] = '\0';
-                }
-                free(p);
-                return p2;
-            case '#': // match prefix
-                sub++;
-                // perform word expansion on the value
-                p = word_expand_to_str(tmp);
-                // word expansion failed
-                if (p == NULL) {
-                    return INVALID_VAR;
-                }
-                longest = false;
-                // match the longest or shortest suffix
-                if (*sub == '#') {
-                    longest = true, sub++;
-                }
-                // perform the match
-                if ((len = match_prefix(sub, p, longest)) == 0) {
-                    return p;
-                }
-                // return the match
-                p2 = calloc(strlen(p) - len + 1, sizeof(char));
-                if (p2) {
-                    strcpy(p2, p + len);
-                }
-                free(p);
-                return p2;
-            default: // unknown operator
-                return INVALID_VAR;
-            }
-        }
-        // no substitution clause. return the variable's original value
-    }
-
-    // we have substituted the variable's value. now go POSIX style on it.
-    bool expanded = false;
-    if (tmp) {
-        if ((tmp = word_expand_to_str(tmp))) {
-            expanded = true;
-        }
-    }
-
-    // do we need to set new value to the variable?
-    if (setme) {
-        // if variable not defined, add it now
-        if (entry == NULL) {
-            entry = add_to_symtable(var_name);
-        }
-        // and set its value
-        if (entry) {
-            symtable_entry_setval(entry, tmp);
-        }
-    }
-
-    char *p = NULL;
-    if (get_length) {
-        char buf[32];
-        if (tmp == NULL) {
-            sprintf(buf, "0");
-        } else {
-            sprintf(buf, "%lu", strlen(tmp));
-        }
-        // get a copy of the buffer
-        p = calloc(strlen(buf) + 1, sizeof(char));
-        if (p) {
-            strcpy(p, buf);
-        }
-    } else {
-        // "normal" variable value
-        p = calloc(strlen(tmp) + 1, sizeof(char));
-        if (p) {
-            strcpy(p, tmp);
-        }
-    }
-
-    // free the expanded word list
-    if (expanded) {
-        free(tmp);
-    }
-
-    // return the result
-    return p ? p : INVALID_VAR;
-}
-
-// perform command substitutions.
-// the backquoted flag tells if we are called from a backquoted command
-// substitution:
-//   `command`
-// or a regular one:
-//   $(command)
-char *command_substitute(char *orig_cmd) {
-    if (no_word_expand || parsing_alias) {
-        return orig_cmd;
-    }
-
-    if (orig_cmd == NULL) {
-        return NULL;
-    }
-
-    char b[1024];
-    size_t bufsize = 0;
-    char *buf = NULL;
-    char *p = NULL;
-    size_t i = 0;
-    const bool backquoted = (*orig_cmd == '`') ? true : false;
-
-    // fix cmd in the backquoted version.. we skip the first char (if using the
-    // old, backquoted version), or the first two chars (if using the POSIX
-    // version).
-    char *cmd = calloc(strlen(orig_cmd) + 1, sizeof(char));
-    if (cmd == NULL) {
-        error_return("error: `command_substitute`");
-        return NULL;
-    }
-
-    strcpy(cmd, orig_cmd + (backquoted ? 1 : 2));
-
-    char *cmd2 = cmd;
-    const size_t cmdlen = strlen(cmd);
-
-    if (backquoted) {
-        // remove the last back quote
-        if (cmd[cmdlen - 1] == '`') {
-            cmd[cmdlen - 1] = '\0';
-        }
-
-        // fix the backslash-escaped chars
-        char *p1 = cmd;
-
-        do {
-            if (*p1 == '\\' &&
-                (p1[1] == '$' || p1[1] == '`' || p1[1] == '\\')) {
-                char *p2 = p1, *p3 = p1 + 1;
-                while ((*p2++ = *p3++))
-                    ;
-            }
-        } while (*(++p1));
-    } else {
-        // remove the last closing brace
-        if (cmd[cmdlen - 1] == ')') {
-            cmd[cmdlen - 1] = '\0';
-        }
-    }
-
-    // Perform recursive alias expansion
-    for (;;) {
-        char *alias = lookup_alias(cmd2);
-        if (alias) {
-            char *tmp = realloc(cmd2, (strlen(cmd2) + strlen(alias) + 1) *
-                                          sizeof(char));
-            cmd2 = tmp;
-            strcpy(cmd2, alias);
-        } else {
-            break;
-        }
-    }
-
-    FILE *fp = popen(cmd2, "r");
-    if (fp == NULL) {
-        error_message("error: `command_substitute`: failed to open pipe");
-        free(cmd2);
-        return NULL;
-    }
-
-    // read the command output
-    while ((i = fread(b, 1, 1024, fp))) {
-        // first time. alloc buffer
-        if (buf == NULL) {
-            // add 1 for the null terminating byte
-            buf = calloc(i + 1, sizeof(char));
-            if (buf == NULL) {
-                goto fin;
-            }
-            p = buf;
-        }
-        // extend buffer
-        else {
-            char *buf2 = realloc(buf, bufsize + i + 1);
-            if (buf2 == NULL) {
-                free(buf);
-                buf = NULL;
-                goto fin;
-            }
-            buf = buf2;
-            p = buf + bufsize;
-        }
-
-        bufsize += i;
-
-        // copy the input and add the null terminating byte
-        memcpy(p, b, i);
-        p[i] = '\0';
-    }
-
-    if (!bufsize) {
-        free(cmd2);
-        return NULL;
-    }
-
-    // now remove any trailing newlines
-    i = bufsize - 1;
-
-    if (buf != NULL) {
-        while (buf[i] == '\n' || buf[i] == '\r') {
-            buf[i] = '\0';
-            i--;
-        }
-    }
-
-fin:
-    // close the pipe
-    pclose(fp);
-
-    // free used memory
-    free(cmd2);
-
-    if (buf == NULL) {
-        error_message("error: `command_substitute`: "
-                      "insufficient memory to perform command substitution");
-    }
-
-    return buf;
-}
-
-// check if char c is a valid $IFS character.
-// returns true if char c is an $IFS character, false otherwise.
-static bool is_IFS_char(const char c, const char *IFS) {
-    if (!*IFS) {
-        return false;
-    }
-
-    do {
-        if (c == *IFS) {
-            return true;
-        }
-    } while (*++IFS);
-
-    return false;
-}
-
-// skip all whitespace characters that are part of $IFS.
-void skip_IFS_whitespace(char **str, char *IFS) {
-    char *IFS2 = IFS;
-    char *s2 = *str;
-
-    do {
-        if (*s2 == *IFS2) {
-            s2++;
-            IFS2 = IFS - 1;
-        }
-    } while (*++IFS2);
-
-    *str = s2;
-}
-
-// skip $IFS delimiters, which can be whitespace characters as well as other
-// chars.
-void skip_IFS_delim(char *str, char *IFS_space, char *IFS_delim, size_t *_i,
-                    size_t len) {
-    size_t i = *_i;
-
-    while ((i < len) && is_IFS_char(str[i], IFS_space)) {
-        i++;
-    }
-
-    while ((i < len) && is_IFS_char(str[i], IFS_delim)) {
-        i++;
-    }
-
-    while ((i < len) && is_IFS_char(str[i], IFS_space)) {
-        i++;
-    }
-
-    *_i = i;
-}
-
-// convert the words resulting from a word expansion into separate fields.
-// returns a pointer to the first field, NULL if no field splitting was done.
-word_t *field_split(char *str) {
-    const symtable_entry_t *entry = get_symtable_entry("IFS");
-    char *IFS = entry ? entry->val : NULL;
-    char *p;
-
-    // POSIX says no IFS means: "space/tab/NL"
-    if (IFS == NULL) {
-        IFS = " \t\n";
-    }
-
-    // POSIX says empty IFS means no field splitting
-    if (IFS[0] == '\0') {
-        return NULL;
-    }
-
-    // get the IFS spaces and delimiters separately
-    char IFS_space[64];
-    char IFS_delim[64];
-
-    if (strcmp(IFS, " \t\n") == 0) { // "standard" IFS
-        IFS_space[0] = ' ';
-        IFS_space[1] = '\t';
-        IFS_space[2] = '\n';
-        IFS_space[3] = '\0';
-        IFS_delim[0] = '\0';
-    } else { // "custom" IFS
-        p = IFS;
-        char *sp = IFS_space;
-        char *dp = IFS_delim;
-
-        do {
-            if (isspace(*p)) {
-                *sp++ = *p++;
-            } else {
-                *dp++ = *p++;
-            }
-        } while (*p);
-
-        *sp = '\0';
-        *dp = '\0';
-    }
-
-    const size_t len = strlen(str);
-    size_t i = 0, j = 0, k;
-    int fields = 1;
-    char quote = 0;
-
-    // skip any leading whitespaces in the string
-    skip_IFS_whitespace(&str, IFS_space);
-
-    // estimate the needed number of fields
-    do {
-        switch (str[i]) {
-        // skip escaped chars
-        case '\\':
-            // backslash has no effect inside single quotes
-            if (quote != '\'') {
-                i++;
-            }
-            break;
-        // don't count whitespaces inside quotes
-        case '\'':
-        case '"':
-        case '`':
-            if (quote == str[i]) {
-                quote = 0;
-            } else {
-                quote = str[i];
-            }
-            break;
-        default:
-            // skip normal characters if we're inside quotes
-            if (quote) {
-                break;
-            }
-
-            if (is_IFS_char(str[i], IFS_space) ||
-                is_IFS_char(str[i], IFS_delim)) {
-                skip_IFS_delim(str, IFS_space, IFS_delim, &i, len);
-                if (i < len) {
-                    fields++;
-                }
-            }
-            break;
-        }
-    } while (++i < len);
-
-    // we have only one field. no field splitting needed
-    if (fields == 1) {
-        return NULL;
-    }
-
-    word_t *first_field = NULL;
-    word_t *cur = NULL;
-
-    // create the fields
-    i = 0;
-    j = 0;
-    quote = 0;
-
-    do {
-        switch (str[i]) {
-        // skip escaped chars
-        case '\\':
-            // backslash has no effect inside single quotes
-            if (quote != '\'') {
-                i++;
-            }
-            break;
-        // skip single quoted substrings
-        case '\'':
-            p = str + i + 1;
-            while (*p && *p != '\'') {
-                p++;
-            }
-            i = p - str;
-            break;
-        // remember if we're inside/outside double and back quotes
-        case '"':
-        case '`':
-            if (quote == str[i]) {
-                quote = 0;
-            } else {
-                quote = str[i];
-            }
-            break;
-        default:
-            // skip normal characters if we're inside quotes
-            if (quote) {
-                break;
-            }
-
-            // delimit the field if we have an IFS space or delimiter char,
-            // or if we reached the end of the input string.
-            if (is_IFS_char(str[i], IFS_space) ||
-                is_IFS_char(str[i], IFS_delim) || (i == len)) {
-                // copy the field text
-                char *tmp = calloc(i - j + 1, sizeof(char));
-                if (tmp == NULL) {
-                    error_return("error: `field_split`");
-                    return first_field;
-                }
-
-                strncpy(tmp, str + j, i - j);
-                tmp[i - j] = '\0';
-
-                // create a new struct for the field
-                word_t *fld = calloc(1, sizeof(word_t));
-                if (fld == NULL) {
-                    free(tmp);
-                    return first_field;
-                }
-
-                fld->data = tmp;
-                fld->len = i - j;
-                fld->next = NULL;
-
-                if (first_field == NULL) {
-                    first_field = fld;
-                }
-
-                if (cur == NULL) {
-                    cur = fld;
-                } else {
-                    cur->next = fld;
-                    cur = fld;
-                }
-
-                k = i;
-
-                // skip trailing IFS spaces/delimiters
-                skip_IFS_delim(str, IFS_space, IFS_delim, &i, len);
-                j = i;
-
-                if (i != k && i < len) {
-                    i--; // go back one step so the loop will work
-                         // correctly
-                }
-            }
-            break;
-        }
-    } while (++i <= len);
-
-    return first_field;
-}
-
-// perform pathname expansion.
-word_t *pathnames_expand(word_t *words) {
-    if (no_word_expand) {
-        return words;
-    }
-
-    word_t *curr_word = words;
-    word_t *prev_word = NULL;
-
-    while (curr_word) {
-        char *p = curr_word->data;
-
-        // check if we should perform filename globbing
-        if (!has_glob_chars(p, strlen(p))) {
-            prev_word = curr_word;
-            curr_word = curr_word->next;
-            continue;
-        }
-
-        glob_t glob;
-        char **matches = get_filename_matches(p, &glob);
-
-        // no matches found
-        if (matches == NULL || matches[0] == NULL) {
-            globfree(&glob);
-        } else {
-            // save the matches
-            word_t *head = NULL, *tail = NULL;
-
-            for (size_t j = 0; j < glob.gl_pathc; j++) {
-                // skip '..' and '.'
-                if (matches[j][0] == '.' &&
-                    (matches[j][1] == '.' || matches[j][1] == '\0' ||
-                     matches[j][1] == '/')) {
-                    continue;
-                }
-                // add the path to the list
-                if (head == NULL) {
-                    // first item in the list
-                    head = make_word(matches[j]);
-                    tail = head;
-                } else {
-                    if (tail == NULL) {
-                        error_message("error: "
-                                      "`pathnames_expand`: couldn't add to "
-                                      "path expansion list, tail is NULL");
-                        return NULL;
-                    }
-                    // add to the list's tail
-                    tail->next = make_word(matches[j]);
-
-                    if (tail->next) {
-                        tail = tail->next;
-                    }
-                }
-            }
-
-            // add the new list to the existing list
-            if (curr_word == words) {
-                words = head;
-            } else if (prev_word) {
-                prev_word->next = head;
-            }
-
-            prev_word = tail;
-            if (tail == NULL) {
-                error_message("error: `pathnames_expand`: couldn't add "
-                              "to path expansion list, tail is NULL");
-                return NULL;
-            }
-            tail->next = curr_word->next;
-
-            // free the word we've just globbed
-            curr_word->next = NULL;
-            free_all_words(curr_word);
-            curr_word = tail;
-
-            // free the matches list
-            globfree(&glob);
-            // finished globbing this word
-        }
-
-        prev_word = curr_word;
-        curr_word = curr_word->next;
-    }
-
-    return words;
-}
-
-// perform quote removal.
-void remove_quotes(word_t *wordlist) {
-    if (no_word_expand) {
-        return;
-    }
-
-    if (wordlist == NULL) {
-        return;
-    }
-
-    bool in_double_quotes = false;
-    word_t *word = wordlist;
-    char *p = NULL;
-
-    while (word) {
-        p = word->data;
-        while (*p) {
-            switch (*p) {
-            case '"':
-                if (parsing_alias) {
-                    p++;
-                    break;
-                }
-                // toggle quote mode
-                in_double_quotes = !in_double_quotes;
-                delete_char_at(p, 0);
-                break;
-            case '\'':
-                if (parsing_alias) {
-                    p++;
-                    break;
-                }
-                // don't delete if inside double quotes
-                if (in_double_quotes) {
-                    p++;
-                    break;
-                }
-                delete_char_at(p, 0);
-                // find the closing quote
-                while (*p && *p != '\'') {
-                    p++;
-                }
-                // and remove it
-                if (*p == '\'') {
-                    delete_char_at(p, 0);
-                }
-                break;
-            case '`':
-                if (parsing_alias) {
-                    p++;
-                    break;
-                }
-                delete_char_at(p, 0);
-                break;
-            case '\v':
-            case '\f':
-            case '\t':
-            case '\r':
-            case '\n':
-                p++;
-                break;
-            case '\\':
-                if (in_double_quotes || parsing_alias) {
-                    switch (p[1]) {
-                    // in double quotes, backslash preserves its special
-                    // quoting meaning only when followed by one of the
-                    // following chars.
-                    case '$':
-                    case '`':
-                    case '"':
-                    case '\\':
-                    case '\n':
-                        delete_char_at(p, 0);
-                        p++;
-                        break;
-                    case 'n':
-                        if (parsing_alias) {
-                            p++;
-                            break;
-                        }
-                        delete_char_at(p, 0);
-                        *p = '\n';
-                        p++;
-                        break;
-                    case 't':
-                        if (parsing_alias) {
-                            p++;
-                            break;
-                        }
-                        delete_char_at(p, 0);
-                        *p = '\t';
-                        p++;
-                        break;
-                    default:
-                        p++;
-                        break;
-                    }
-                } else {
-                    // parse single-character backslash quoting.
-                    delete_char_at(p, 0);
-                    p++;
-                }
-                break;
-            default:
-                p++;
-                break;
-            }
-        }
-
-        // update the word's length
-        word->len = strlen(word->data);
-
-        // move on to the next word
-        word = word->next;
-    }
-}
-
-// A simple shortcut to perform word-expansions on a string,
-// returning the result as a string.
-char *word_expand_to_str(char *word) {
-    if (no_word_expand) {
-        return word;
-    }
-
-    word_t *w = word_expand(word);
-
-    if (w == NULL) {
-        return NULL;
-    }
-
-    char *res = wordlist_to_str(w);
-    free_all_words(w);
-
-    return res;
 }

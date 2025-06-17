@@ -1,5 +1,9 @@
 /*
- * lusush.c - LUSUs' SHell
+ * lusush#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv) { SHell
  */
 
 #include "../include/lusush.h"
@@ -17,6 +21,12 @@
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
+
+    // Initialize special shell variables
+    shell_pid = getpid();
+    shell_argc = argc;
+    shell_argv = argv;
+    last_exit_status = 0;
 
     // Perform startup tasks
     init(argc, argv, &in);
@@ -38,8 +48,13 @@ int main(int argc, char **argv) {
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
-        // Parse then execute a command
-        parse_and_execute(&src);
+        // Check if this line contains pipes and use simple parser if so
+        if (strchr(line, '|') != NULL) {
+            execute_pipeline_simple(line);
+        } else {
+            // Parse then execute a command normally
+            parse_and_execute(&src);
+        }
 
         if (shell_type() != NORMAL_SHELL) {
             linenoiseFree(line);
@@ -69,11 +84,10 @@ int parse_and_execute(source_t *src) {
             break;
         }
 
-        if (exec_compound_command) {
-            do_basic_pipe_list(cmd);
-        } else {
-            do_basic_command(cmd);
-        }
+        // All pipelines are now handled by the simple pipeline parser
+        // This should only execute single commands
+        do_basic_command(cmd);
+        
         free_node_tree(cmd);
         tok = tokenize(src);
     }

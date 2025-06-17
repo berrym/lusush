@@ -26,6 +26,7 @@ size_t find_closing_quote(char *s);
 size_t find_closing_brace(char *s);
 char *quote_val(char *val, bool add_quotes);
 char *substitute_str(char *s1, char *s2, size_t start, size_t end);
+char *process_token_escapes(const char *str);
 bool check_buffer_bounds(const size_t *count, size_t *len, char ***buf);
 void free_argv(size_t argc, char **argv);
 

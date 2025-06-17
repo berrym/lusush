@@ -1,0 +1,84 @@
+LUSUSH v0.1.6 - Major Word Expansion Refactoring and Feature Enhancement
+
+SUMMARY:
+This release represents a comprehensive refactoring and modernization of the
+lusush shell's word expansion subsystem, implementing significant improvements
+to POSIX compliance, functionality, and code maintainability.
+
+COMPLETED REFACTORING:
+- Complete removal of legacy word expansion code (wordexp_legacy.c, wordexp_new.c,
+  wordexp_ctx.c, wordexp_subst.c) and related headers
+- Implementation of unified, modular word expansion system in src/wordexp.c
+- Updated all call sites to use new expansion API
+- Cleaned build system to reference only modernized code
+
+MAJOR FEATURE ENHANCEMENTS:
+
+1. String Literal and Escape Processing
+   - Fixed quote parsing in find_closing_quote() function
+   - Implemented comprehensive escape sequence processing (\n, \t, \r, \b, \f, \a, \v, \\, \", \')
+   - Enhanced echo builtin with -e and -E flags for escape control
+
+2. Tilde Expansion
+   - Working ~/path expansion using HOME environment variable and getpwuid
+   - Support for ~username/path patterns with username lookup
+   - Proper error handling for unresolvable home directories
+
+3. Arithmetic Expansion
+   - Fixed parsing for $((expression)) syntax
+   - Support for all basic operators: +, -, *, /, ** (exponentiation)
+   - Proper parentheses handling and expression evaluation
+   - Enhanced error reporting for malformed expressions
+
+4. Built-in Commands
+   - echo: Enhanced with escape sequence processing and -e/-E flags
+   - export: Variable export with identifier validation and environment updates
+   - source/.: Script sourcing capability
+   - test/[: Basic test conditions (-z, -n, -f, -d, -e, string comparisons)
+   - read: User input reading into variables with validation
+   - eval: Command evaluation from arguments
+
+5. Special Variables Support
+   - $?: Last command exit status with proper tracking
+   - $$: Shell process ID
+   - $0: Shell name/executable path
+   - $#: Command line argument count
+   - $1, $2, etc.: Positional parameters
+   - Support for both $var and ${var} expansion syntax
+
+6. Error Handling and Diagnostics
+   - Consistent error messaging using error_message() functions
+   - Input validation for variable names and identifiers
+   - Detailed error messages for expansion failures
+   - Proper exit status handling for all builtins and external commands
+
+TECHNICAL IMPROVEMENTS:
+- Modular design with each expansion type in separate functions
+- Proper memory management throughout expansion system
+- Consistent error propagation patterns
+- Enhanced code documentation and structure
+- Separation of global variables into dedicated globals.c file
+
+BUILD SYSTEM:
+- Updated meson.build to v0.1.6
+- Clean references to only new code
+- Proper linking for shared globals between main and test programs
+- Maintained backward compatibility
+
+TESTING:
+- Comprehensive test coverage for all new features
+- Error condition validation
+- Integration testing for combined feature usage
+- Regression testing for existing functionality
+
+REMAINING FUTURE WORK:
+- Command history integration with readline/linenoise
+- Job control and background process management
+- Advanced pattern matching and globbing enhancements
+- Additional POSIX-standard built-in commands
+- Runtime configuration options
+- Pipeline and redirection improvements
+
+This release establishes a solid foundation for future shell development with
+modern, maintainable code that supports essential shell features while
+maintaining POSIX compatibility.

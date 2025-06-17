@@ -4,7 +4,7 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '0.1.5',
+        version: '0.1.6',
         license: 'MIT')
 
 inc = include_directories('include',
@@ -14,8 +14,11 @@ inc = include_directories('include',
 src = ['src/builtins/alias.c',
        'src/builtins/builtins.c',
        'src/builtins/history.c',
+       'src/alias_expand.c',
        'src/errors.c',
        'src/exec.c',
+       'src/expand.c',
+       'src/globals.c',
        'src/init.c',
        'src/input.c',
        'src/libhashtable/ht.c',
@@ -47,4 +50,24 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
 executable('lusush',
            src,
+           include_directories: inc)
+
+# Test executable for word expansion
+test_src = ['test_wordexp.c',
+            'src/wordexp.c',
+            'src/symtable.c',
+            'src/strings.c',
+            'src/errors.c',
+            'src/vars.c',
+            'src/node.c',
+            'src/builtins/alias.c',
+            'src/shunt.c',
+            'src/globals.c',
+            'src/libhashtable/ht.c',
+            'src/libhashtable/ht_fnv1a.c',
+            'src/libhashtable/ht_strstr.c',
+            'src/pattern.c']
+
+executable('test_wordexp',
+           test_src,
            include_directories: inc)

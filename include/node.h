@@ -9,6 +9,13 @@ typedef enum {
     NODE_COMMAND,
     NODE_VAR,
     NODE_PIPE,
+    NODE_REDIR_IN,     // '<'
+    NODE_REDIR_OUT,    // '>'
+    NODE_REDIR_APPEND, // '>>'
+    NODE_REDIR_ERR,    // '2>'
+    NODE_REDIR_ERR_APPEND, // '2>>'
+    NODE_REDIR_HEREDOC,    // '<<'
+    NODE_REDIR_CLOBBER,    // '>|'
 } node_type_t;
 
 typedef enum {

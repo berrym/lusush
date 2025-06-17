@@ -25,6 +25,12 @@ int bin_setprompt(int, char **);
 int bin_clear(int, char **);
 int bin_unset(int, char **);
 int bin_dump(int, char **);
+int bin_echo(int, char **);
+int bin_export(int, char **);
+int bin_source(int, char **);
+int bin_test(int, char **);
+int bin_read(int, char **);
+int bin_eval(int, char **);
 bool is_builtin(const char *);
 
 #endif

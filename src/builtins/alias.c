@@ -273,60 +273,27 @@ char *parse_alias_var_name(char *src) {
  *      Parse a substring between quotes that represents the alias substitution
  *      value.
  */
-char *parse_alias_var_value(char *src, const char delim) {
-    char *val = NULL, *p = NULL, *sp = NULL, *ep = NULL;
-
-    if (delim != '\'' && delim != '\"') {
-        error_message("error: `alias`: value not properly quoted `%c'", delim);
+char *parse_alias_var_value(char *src, const char delim __attribute__((unused))) {
+    // Find the first '='
+    char *eq = strchr(src, '=');
+    if (!eq) {
+        error_message("error: `alias`: '=' not found in alias definition");
         return NULL;
     }
-
-    // find the starting quote
-    for (p = src; *p; p++) { // for each char in line
-        if (*p == delim) {   // find first delimeter
-            sp = p;          // set start ptr
-            break;
-        }
-    }
-
-    if (*sp != delim) {
-        error_message("error: `alias`: no opening quote found");
+    // Skip whitespace after '='
+    char *p = eq + 1;
+    while (*p && isspace((unsigned char)*p)) p++;
+    // Take the rest of the string as the value, trim trailing whitespace
+    char *end = p + strlen(p);
+    while (end > p && isspace((unsigned char)*(end - 1))) end--;
+    size_t len = end - p;
+    char *val = alloc_str(len + 1, false);
+    if (!val) {
+        error_message("error: `alias`: insufficient memory to complete operation");
         return NULL;
     }
-
-    // find the end quote
-    size_t len = find_last_quote(sp); // find distance to last quote
-    if (!len) {
-        error_message("error: `alias`: no closing quote `%c' found", delim);
-        return NULL;
-    }
-    ep = sp + len; // set the end ptr
-
-    if (*ep != delim) {
-        error_message("error: `alias`: %c does not match delimiter %c", *ep,
-                      delim);
-        return NULL;
-    }
-
-    // declare substr buffer
-    char *substr = alloc_str(ep - sp + 1, false);
-    if (substr == NULL) {
-        error_message(
-            "error: `alias`: insufficient memory to complete operation");
-        return NULL;
-    }
-
-    // move p to start of quoted value
-    p = sp + 1;
-
-    // copy quoted string to substr
-    for (size_t i = 0; p < ep; i++, p++) {
-        substr[i] = *p;
-    }
-    substr[ep - sp] = '\0'; // nul-terminate
-
-    val = substr;
-
+    strncpy(val, p, len);
+    val[len] = '\0';
     return val;
 }
 
