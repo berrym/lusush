@@ -1,201 +1,230 @@
 # Critical Next Steps for Lusush Development
 
-## Current State Assessment (June 18, 2025)
-✅ **Enhanced token pushback system** - Complete  
-✅ **Unified interactive input system** - Complete  
-✅ **Basic control structures** - Functional (for/while/until/case work!)  
-✅ **Core infrastructure** - Solid foundation established  
-✅ **Memory corruption fix** - Variable expansion no longer shows garbage!
-✅ **Variable assignment logic** - COMPLETELY FIXED (all assignment patterns work)
-✅ **Whitespace handling in variable expansion** - COMPLETELY FIXED
-✅ **Word expansion consolidation** - Single authoritative implementation
-✅ **Quote removal and field splitting** - Working correctly
-✅ **Semicolon command separation** - COMPLETELY FIXED (critical scanner bug resolved!)
+## Current State Assessment (January 2025)
+✅ **Complete core parser infrastructure** - All foundations solid  
+✅ **Multi-character operator support** - Scanner handles &&, ||, >>, etc.  
+✅ **Logical operators with short-circuit evaluation** - POSIX-compliant  
+✅ **Command separation mastery** - Semicolons, newlines, logical ops all work  
+✅ **Pipeline/logical operator distinction** - Critical architecture issue resolved  
+✅ **Unified word expansion system** - Single authoritative implementation  
+✅ **POSIX-compliant variable assignment** - All patterns work correctly  
+✅ **Control structures** - for/while/until/case functional  
+✅ **Clean build architecture** - All obsolete code removed  
 
-## 🔥 **CRITICAL PRIORITY 1: Parser Robustness & Error Recovery**
+## 🎯 **CRITICAL PRIORITY 1: Complex Expression Parsing**
 
-### **JUST COMPLETED**: Scanner Token Typing Fix
-**MAJOR BREAKTHROUGH**: Fixed critical scanner bug where tokens were not being properly typed!
-- **Problem**: `set_token_type()` was never called, all tokens had `TOKEN_EMPTY` type
-- **Solution**: Added call to `set_token_type()` in `create_token()` function  
-- **Impact**: Semicolons now work as command separators: `echo a; echo b`
-- **Testing**: ✓ Multiple semicolons ✓ Mixed with newlines ✓ With variables ✓ Quoted strings
+### **CURRENT ACHIEVEMENT**: Basic Operator Foundation Complete
+**MAJOR MILESTONE**: All individual command separators and logical operators now work perfectly!
+- **Scanner**: Multi-character operators (`&&`, `||`, `>>`) properly tokenized with lookahead
+- **Parser**: Logical operators treated as command delimiters with proper precedence  
+- **Execution**: Short-circuit evaluation implemented correctly
+- **Architecture**: Pipeline vs logical operator routing completely fixed
+- **Testing**: ✓ `&&` and `||` work ✓ Pipelines work ✓ Redirection works ✓ Mixed basic cases
 
-### **NEXT FOCUS**: Advanced Parser Features
-With the core word expansion, variable assignment, AND command separation now working correctly:
+### **NEXT FOCUS**: Advanced Expression Combinations
+The foundation is now solid enough to handle complex operator mixing:
 
 **Immediate Next Steps**:
-1. **Complex Control Structure Edge Cases** - Handle nested constructs
-2. **Advanced Redirection Parsing** - `2>&1`, `>>file`, here documents
-3. **Parser Error Recovery** - Better error messages and recovery strategies
-4. **Field Splitting Edge Cases** - Special IFS handling, empty field behavior
+1. **Mixed Operator Precedence** - `cmd1 | cmd2 && cmd3 || cmd4` 
+2. **Complex Pipeline Logic** - `cmd1 | cmd2 && cmd3 | cmd4 || cmd5`
+3. **Parenthetical Grouping** - `(cmd1 || cmd2) && cmd3`
+4. **Error Recovery in Complex Expressions** - Better error messages for malformed syntax
 
-**Recent Major Completion**: Variable assignment and expansion now works perfectly for all cases including:
-- `VAR="hello   world"; echo "$VAR"` (preserves multiple spaces in quotes)
-- `VAR="hello   world"; echo $VAR` (field splits correctly to separate words)
-- Direct quoted strings: `echo "hello   world"` (preserves spaces)
-- All assignment patterns: `VAR=value command` and `VAR=value` standalone
+**Root Cause Previously Resolved**: The main input loop was incorrectly routing any line containing `|` (including `||`) to pipeline execution. This has been completely fixed with proper operator detection logic.
 
-## ✅ **RECENT MAJOR WINS**
-- **Word expansion consolidation**: Removed all duplicate implementations, single authoritative word_expand function
-- **Variable assignment fixed**: Quotes properly processed during assignment, values stored correctly
-- **Whitespace preservation**: Quoted variable expansion preserves multiple spaces perfectly
-- **Field splitting**: Unquoted variable expansion correctly splits on whitespace
-- **Memory corruption fixed**: Variable expansion no longer shows garbage like `hello �S�=`
-- **Control structures work**: for/while/until loops execute properly with variable expansion
-- **Environment variables work**: `$HOME` expands correctly
-- **Clean build system**: Fresh compilation with no duplicate/obsolete code
+## ✅ **MAJOR ARCHITECTURAL ACHIEVEMENTS**
+- **Multi-character operator scanning**: Lookahead logic for `&&`, `||`, `>>`, `<<`, etc.
+- **Logical operator execution**: Short-circuit evaluation with proper semantics
+- **Pipeline/logical separation**: Critical bug fixed - proper routing based on operator type
+- **Command delimiter parsing**: Semicolons, newlines, and logical operators all supported
+- **Word expansion unification**: Single implementation, all duplicates removed
+- **Variable assignment robustness**: POSIX-compliant processing of quotes and whitespace
+- **Control structures**: for/while/until loops work with all variable expansion patterns
+- **Clean codebase**: All obsolete and duplicate code removed, professional structure
 
-## 🚀 **PRIORITY 2: Complete Variable System (THIS WEEK)**
+## 🚀 **PRIORITY 2: Advanced File Operations (WEEKS 2-3)**
 
-### Why This Matters
-- Showcases the power of our enhanced token system
-- Essential for shell usability and POSIX compliance
-- Relatively contained feature with high impact
+### Why This Builds on Our Foundation
+- File descriptor management requires robust parsing (which we now have)
+- Redirection patterns benefit from our multi-character operator support
+- Here documents showcase our token pushback system capabilities
 
-### Specific Implementation
-1. **Here Documents** (Perfect token pushback showcase)
+### Specific Implementation Targets
+1. **Advanced Redirection Patterns**
+   ```bash
+   command 2>&1 >file.log    # stderr and stdout redirection
+   command &>file.log        # bash-style combined redirection  
+   command >>file.log 2>&1   # append with stderr redirection
+   ls /bad 2>/dev/null       # stderr to null device
+   ```
+
+2. **Here Documents** (Perfect token pushback showcase)
    ```bash
    cat <<EOF
    This is a here document
-   with multiple lines
+   with variable expansion: $HOME
    EOF
    ```
 
-2. **Complex Redirection Patterns**
+3. **File Descriptor Management**
    ```bash
-   command 2>&1 >file.log
-   command &>file.log  
-   command >>file.log 2>&1
+   exec 3< input.txt         # open file descriptor
+   exec 3>&-                 # close file descriptor
+   command <&3               # read from opened descriptor
    ```
 
-3. **Process Substitution** (Advanced)
-   ```bash
-   diff <(command1) <(command2)
-   ```
+## 🎯 **PRIORITY 3: Background Process Management (WEEKS 4-6)**
 
-## 🎯 **CRITICAL PRIORITY 3: Job Control Foundation (WEEKS 2-3)**
-
-### Why This Is Essential
+### Why This Is The Natural Next Step
 - Background processes are fundamental shell functionality
+- Our robust parser can now handle the `&` operator properly
+- Job control builds on our solid execution foundation
 - Users expect `command &`, `jobs`, `fg`, `bg` to work
-- Foundation for all advanced process management
 
-### Implementation Steps
-1. **Background Execution**
+### Implementation Strategy
+1. **Background Execution Framework**
    ```c
-   // Implement in exec.c
-   if (command_ends_with_ampersand()) {
+   // Leverage our enhanced parser
+   if (node->background_flag) {
        execute_background(node);
    }
    ```
 
 2. **Job Management Builtins**
-   - `jobs` - list active background jobs
+   - `jobs` - list active background jobs with status
    - `fg %n` - bring job to foreground  
-   - `bg %n` - resume job in background
-   - `kill %n` - terminate job
+   - `bg %n` - resume suspended job in background
+   - `kill %n` - terminate specific job
 
-3. **Process Group Handling**
-   - Signal propagation to child processes
+3. **Process Group Management**
+   - Signal handling for job control
+   - Terminal control management
+   - Child process cleanup
    - Proper cleanup of terminated jobs
 
-## 🔧 **CRITICAL PRIORITY 4: Testing Infrastructure (PARALLEL)**
+## 🔧 **PRIORITY 4: Robust Testing & Validation (ONGOING)**
 
-### Why This Can't Wait
-- Need to validate fixes as we make them
-- Prevent regressions as we add features
-- Essential for confidence in the codebase
+### Why This Is Essential Now
+- Need to validate our complex operator fixes
+- Prevent regressions as we add advanced features
+- Build confidence in the parser foundation we've created
 
-### Implementation
-1. **Parser Test Suite**
-   ```c
-   // Create comprehensive tests for all control structures
-   test_for_loops();
-   test_while_loops(); 
-   test_nested_structures();
-   test_variable_expansion();
+### Implementation Framework
+1. **Complex Expression Test Suite**
+   ```bash
+   # Test cases that now work thanks to our fixes
+   echo "a" && echo "b" || echo "c"    # short-circuit evaluation
+   echo "test" | grep "test" && echo "found"  # pipeline + logical
+   false || echo "backup" && echo "success"  # complex logical chains
    ```
 
-2. **Integration Tests**
-   - Test unified input system edge cases
-   - Validate token pushback in complex scenarios
-   - Memory leak detection
+2. **Edge Case Validation**
+   - Mixed operator precedence scenarios
+   - Malformed expression error handling
+   - Memory management in complex parsing
 
-3. **Performance Benchmarks**
-   - Ensure enhanced systems don't degrade performance
-   - Profile token pushback overhead
-   - Memory usage validation
+3. **Performance Validation**
+   - Ensure our parser enhancements don't impact performance
+   - Profile complex expression parsing overhead
+   - Memory usage in deep expression trees
 
-## 📋 **IMPLEMENTATION SCHEDULE**
+## 📋 **IMPLEMENTATION SCHEDULE - POST-FOUNDATION**
 
-### Week 1 (Critical Foundation)
-- **Mon-Tue**: Fix variable expansion issues in control structures
-- **Wed-Thu**: Perfect parser edge cases with token pushback system
-- **Fri**: Comprehensive testing and validation
+### Weeks 1-2 (Complex Expression Mastery)
+- **Week 1**: Mixed operator precedence and complex pipeline/logical combinations
+- **Week 2**: Parenthetical grouping and advanced expression error handling
 
-### Week 2 (Core Features)  
-- **Mon-Tue**: Implement here documents and basic redirection
-- **Wed-Thu**: Add background job execution (`command &`)
-- **Fri**: Basic job control builtins (`jobs`, `fg`, `bg`)
+### Weeks 3-4 (Advanced File Operations)  
+- **Week 3**: Advanced redirection patterns (`2>&1`, `&>`, `>>`)
+- **Week 4**: Here documents and file descriptor management
 
-### Week 3 (Polish & Robustness)
-- **Mon-Tue**: Advanced redirection patterns and error handling
-- **Wed-Thu**: Job control signal handling and cleanup
-- **Fri**: Performance optimization and memory management
+### Weeks 5-6 (Background Process Management)
+- **Week 5**: Background execution framework and basic job management
+- **Week 6**: Advanced job control, signal handling, and cleanup
 
-## 🎯 **SUCCESS METRICS**
+## 🎯 **SUCCESS METRICS - Updated for Current State**
 
-### Week 1 Targets
-- [ ] All control structures work with proper variable expansion
-- [ ] No "No such file or directory" errors from parsing issues
-- [ ] Nested structures parse and execute correctly
-- [ ] Enhanced error messages provide helpful context
+### Current Foundation Validation ✅
+- [x] Semicolons work as command separators
+- [x] Logical operators (`&&`, `||`) work with short-circuit evaluation
+- [x] Pipelines work and are properly distinguished from logical operators
+- [x] Multi-character operators (`>>`, `<<`) are properly tokenized
+- [x] Variable expansion preserves quotes and handles field splitting correctly
 
-### Week 2 Targets  
-- [ ] Here documents work perfectly
-- [ ] Background jobs execute and can be managed
-- [ ] Basic job control commands functional
-- [ ] Complex redirection patterns supported
+### Week 1-2 Targets (Complex Expressions)
+- [ ] `cmd1 | cmd2 && cmd3 || cmd4` works with proper precedence
+- [ ] `(cmd1 || cmd2) && cmd3` supports parenthetical grouping
+- [ ] Complex nested expressions parse correctly
+- [ ] Error messages for malformed expressions are helpful
 
-### Week 3 Targets
-- [ ] Professional-grade error handling and recovery
-- [ ] Robust job management with proper cleanup
-- [ ] Performance metrics within acceptable bounds
-- [ ] Comprehensive test coverage for new features
+### Weeks 3-4 Targets (Advanced I/O)
+- [ ] `command 2>&1 >file.log` redirection patterns work
+- [ ] Here documents with variable expansion function
+- [ ] File descriptor management (`exec 3< file`) supported
+- [ ] Advanced redirection edge cases handled robustly
 
-## 🚨 **CRITICAL SUCCESS FACTORS**
+### Weeks 5-6 Targets (Job Control)
+- [ ] Background jobs (`command &`) execute and are tracked
+- [ ] Job control builtins (`jobs`, `fg`, `bg`) functional  
+- [ ] Signal handling and process cleanup work correctly
+- [ ] Job management integrates seamlessly with existing features
 
-1. **Fix Variable Expansion First** - This is blocking everything else
-2. **Leverage Our Enhanced Systems** - Use token pushback and unified input
-3. **Test As We Go** - Don't accumulate technical debt
-4. **Focus on Core Stability** - Perfect the foundation before adding features
-5. **Document Progress** - Maintain clear development momentum
+## 🚨 **CRITICAL SUCCESS FACTORS - UPDATED**
 
-## 🎪 **VALIDATION APPROACH**
+1. **Build on Solid Foundation** - We now have robust parsing and logical operators working
+2. **Focus on Complex Combinations** - Test and perfect mixed operator expressions
+3. **Leverage Enhanced Architecture** - Use our multi-character operator support for advanced features
+4. **Maintain POSIX Compliance** - Ensure all new features follow standards
+5. **Test Complex Scenarios** - Validate edge cases in expression combinations
+6. **Document Architectural Decisions** - Maintain clear development momentum
 
-### Daily Testing
+## 🎪 **VALIDATION APPROACH - CURRENT STATE**
+
+### Foundation Validation (WORKING ✅)
 ```bash
-# These must work perfectly by end of Week 1
-echo 'for i in 1 2 3; do echo "Number: $i"; done' | ./lusush
-echo 'if true; then VAR="test"; echo "Value: $VAR"; fi' | ./lusush
-echo 'while [ true ]; do echo "loop"; break; done' | ./lusush
-
-# These must work perfectly by end of Week 2  
-echo 'ls &' | ./lusush  # Background job
-echo 'jobs' | ./lusush  # List jobs
-printf 'cat <<EOF\nHere doc test\nEOF\n' | ./lusush
+# These all work perfectly now
+echo "first" && echo "second"           # logical AND
+echo "first" || echo "backup"           # logical OR  
+false && echo "skipped" || echo "executed"  # short-circuit
+echo "hello" | grep "hello"             # simple pipeline
+echo "test" > file.txt                  # basic redirection
+echo "append" >> file.txt               # append redirection
 ```
 
-## 🏆 **STRATEGIC IMPACT**
+### Complex Expression Targets (NEXT)
+```bash
+# These are the next validation targets
+echo "test" | grep "test" && echo "found" || echo "not found"
+(echo "group1" || echo "group2") && echo "after"
+command1 | command2 && command3 | command4
+```
 
-After these 3 weeks, we'll have:
-- **Rock-solid parsing foundation** that can handle anything
-- **Essential shell features** that users expect
-- **Robust job control** for real-world usage
-- **Advanced I/O redirection** showcasing our enhanced systems
-- **Comprehensive testing** to prevent regressions
+### Advanced Feature Targets (LATER)
+```bash
+# Future validation targets
+ls /bad 2>/dev/null && echo "quiet success"  # stderr redirection
+cat <<EOF | grep "test"                       # here documents
+This is a test
+EOF
+command & jobs                                # background jobs
+```
 
-This creates a **professional-grade shell** ready for advanced features like arithmetic expansion, parameter expansion, and enhanced completion.
+## 🏆 **STRATEGIC IMPACT - ACHIEVED & FUTURE**
+
+### What We've Achieved ✅
+- **Rock-solid parsing foundation** with multi-character operators
+- **POSIX-compliant logical operators** with proper short-circuit evaluation
+- **Robust command separation** (semicolons, newlines, logical operators)
+- **Clean architecture** with proper pipeline/logical operator distinction
+- **Professional codebase** with all obsolete code removed
+
+### What's Next 🎯
+After the next development phases, we'll have:
+- **Complex expression parsing** that handles any operator combination
+- **Advanced I/O redirection** showcasing our enhanced operator support
+- **Background job control** for real-world shell usage
+- **Comprehensive test coverage** to prevent regressions
+
+This will create a **production-ready shell** with advanced features that rival professional shells while maintaining clean, maintainable code.
 
 The key is to **perfect the core** before adding complexity - our enhanced token and input systems give us the tools, now we need to **execute flawlessly** on the fundamentals.

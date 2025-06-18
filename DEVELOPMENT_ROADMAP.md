@@ -11,35 +11,40 @@
 - ✅ **Variable assignment and expansion system** - COMPLETED (all patterns work)
 - ✅ **Scanner token typing fix** - CRITICAL BUG RESOLVED
 - ✅ **Semicolon command separation** - WORKING (echo a; echo b)
+- ✅ **Logical operators (&&, ||)** - COMPLETELY WORKING with proper short-circuit semantics
+- ✅ **Multi-character operator parsing** - Scanner properly handles `&&`, `||`, `>>`, etc.
+- ✅ **Pipeline vs logical operator separation** - Proper routing to correct execution systems
 
-## Recent Major Breakthrough: Scanner Token Typing Fixed
-**Critical Issue Resolved**: Scanner was not calling `set_token_type()`, causing all tokens to have `TOKEN_EMPTY` type instead of proper types like `TOKEN_SEMI`. This prevented semicolons and other operators from being recognized by the parser.
+## Recent Major Breakthrough: Logical Operators Completely Fixed
+**Critical Root Cause Resolved**: Main input loop in `lusush.c` was incorrectly routing any line containing `|` (including `||`) to pipeline execution instead of the parser, causing "Empty command in pipeline" errors.
 
-**Impact**: Semicolon command separation now works correctly, enabling proper POSIX-compliant command chaining.
+**Solution**: Enhanced pipe detection to distinguish between single pipes (`|`) and compound operators (`||`, `|&`). Now both logical operators work perfectly with proper POSIX short-circuit behavior while preserving pipeline functionality for actual pipes.
 
-## Priority 1: Parser Robustness & Multi-Character Operators
+**Impact**: All basic logical command chaining now works correctly - `&&`, `||`, semicolons, and single pipes all function as expected.
 
-### 1.1 Multi-Character Operator Parsing (IMMEDIATE PRIORITY)
-**Goal**: Fix scanner to handle compound operators properly
-- [ ] **Fix && and || operators** - Currently parsed as separate & or | tokens
-- [ ] **Fix >> append redirection** - Currently parsed as separate > tokens  
-- [ ] **Fix 2>&1 and similar redirections** - File descriptor parsing needed
-- [ ] **Implement proper operator lookahead** in scanner tokenization loop
-- [ ] **Add operator precedence handling** in parser
+## Priority 1: Parser Robustness & Complex Operator Combinations
 
-### 1.2 Control Structure Robustness
+### 1.1 Complex Mixed Operator Parsing (IMMEDIATE PRIORITY)
+**Goal**: Handle combinations of pipes and logical operators on same command line
+- [ ] **Fix mixed operators** - `echo test | grep test || echo not_found`
+- [ ] **Handle precedence** - Proper operator precedence in complex expressions
+- [ ] **Pipeline + logical combinations** - Commands like `cmd1 | cmd2 && cmd3`
+- [ ] **Implement comprehensive operator precedence** handling in parser
+- [ ] **Add advanced expression parsing** for complex shell command lines
+
+### 1.2 Advanced Redirection & File Descriptors  
+**Goal**: Complete POSIX I/O redirection support  
+- [ ] **Fix file descriptor redirection**: `ls /bad 2>/dev/null`, `cmd 2>&1`
+- [ ] **Implement here documents** (`<<EOF`) and here strings (`<<<`)
+- [ ] **Add process substitution** (`<(command)`, `>(command)`)
+- [ ] **Support pipe arrays** and multiple redirections
+
+### 1.3 Control Structure Robustness
 **Goal**: Fix control structures to work with semicolons and mixed delimiters
 - [ ] **Fix if/then/else parsing** with semicolons: `if true; then echo test; fi`
 - [ ] **Fix for loop parsing** with semicolons: `for i in 1 2 3; do echo $i; done`
 - [ ] **Implement proper keyword recognition** in control structure contexts
 - [ ] **Add delimiter flexibility** - handle both newlines and semicolons consistently
-
-### 1.3 Advanced Redirection & Pipes
-**Goal**: Complete POSIX I/O redirection support
-- [ ] Parse complex redirection: `2>&1`, `&>file`, `>>file`
-- [ ] Implement here documents (`<<EOF`) and here strings (`<<<`)
-- [ ] Add process substitution (`<(command)`, `>(command)`)
-- [ ] Support pipe arrays and multiple redirections
 
 ## Priority 2: Advanced Shell Features
 
@@ -159,11 +164,11 @@
 ## Implementation Strategy
 
 ### Phase 1 (Immediate - Next 2-4 weeks)
-Focus on **Parser Robustness** using the new token pushback system:
-1. Fix remaining control structure parsing issues
-2. Implement advanced error recovery
-3. Add complex redirection support
-4. Improve multiline handling
+Focus on **Complex Operator Parsing** using the robust foundation we now have:
+1. Fix complex mixed operator combinations (pipes + logical operators)
+2. Implement advanced file descriptor redirection (2>&1, etc.)
+3. Enhance control structure parsing with delimiters
+4. Add comprehensive operator precedence handling
 
 ### Phase 2 (Short-term - 1-2 months)
 Focus on **Core Shell Features**:
@@ -189,8 +194,8 @@ Focus on **Performance & Polish**:
 ## Technical Priorities by Impact
 
 ### High Impact, Low Effort
-- [ ] Fix remaining parser edge cases with token pushback
-- [ ] Implement basic job control (`&`, `jobs`, `fg`, `bg`)
+- [ ] Fix complex mixed operator combinations (building on working && and || foundation)
+- [ ] Implement file descriptor redirection (2>&1, 2>/dev/null)
 - [ ] Add here document support
 - [ ] Improve error messages with context
 

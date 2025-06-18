@@ -887,6 +887,7 @@ node_t *parse_complete_command(source_t *src) {
     skip_whitespace(src);
     
     token_t *first_tok = tokenize(src);
+    
     if (first_tok == &eof_token) {
         return NULL;
     }

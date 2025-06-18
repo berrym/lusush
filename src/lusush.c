@@ -49,8 +49,21 @@ int main(int argc, char **argv) {
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
-        // Check if this line contains pipes and use simple parser if so
-        if (strchr(line, '|') != NULL) {
+        // Check if this line contains single pipes (not || or other compound operators)
+        // and use simple parser if so
+        bool has_single_pipe = false;
+        char *pipe_pos = strchr(line, '|');
+        while (pipe_pos != NULL) {
+            // Check if it's a single pipe (not || or |&)
+            if ((pipe_pos == line || pipe_pos[-1] != '|') && 
+                (pipe_pos[1] != '|' && pipe_pos[1] != '&')) {
+                has_single_pipe = true;
+                break;
+            }
+            pipe_pos = strchr(pipe_pos + 1, '|');
+        }
+        
+        if (has_single_pipe) {
             execute_pipeline_simple(line);
         } else {
             // Parse then execute a command normally
@@ -88,12 +101,34 @@ int parse_and_execute(source_t *src) {
         // Check for more commands (semicolon or newline separated)
         skip_whitespace(src);
         token_t *delimiter = tokenize(src);
+        
         if (delimiter == &eof_token) {
             break;
         }
         
-        if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE ||
-            delimiter->type == TOKEN_AND_IF || delimiter->type == TOKEN_OR_IF) {
+        // Handle conditional execution for && and ||
+        if (delimiter->type == TOKEN_AND_IF) {
+            // && : continue only if last command succeeded (exit code 0)
+            free_token(delimiter);
+            if (last_exit_status == 0) {
+                continue;  // Success: execute next command
+            } else {
+                // Failure: skip remaining commands until next unconditional delimiter
+                skip_conditional_commands(src);
+                continue;
+            }
+        } else if (delimiter->type == TOKEN_OR_IF) {
+            // || : continue only if last command failed (exit code != 0)  
+            free_token(delimiter);
+            if (last_exit_status != 0) {
+                continue;  // Failure: execute next command
+            } else {
+                // Success: skip remaining commands until next unconditional delimiter
+                skip_conditional_commands(src);
+                continue;
+            }
+        } else if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE) {
+            // Unconditional continuation
             free_token(delimiter);
             continue;  // More commands to process
         } else {

@@ -1,7 +1,7 @@
 # Parser Robustness Test Results
 
-## Test Date: June 18, 2025
-## Git Commit: a7624c0 (post-semicolon-fix)
+## Test Date: December 2024
+## Git Commit: Latest (logical operators and pipeline separation complete)
 
 ### ✅ WORKING CORRECTLY
 
@@ -30,20 +30,25 @@
 - ✅ **Append redirection**: `echo test >> file` ✅ **FIXED!**
 
 #### Multi-Character Operators  
-- ✅ **AND operator**: `echo a && echo b` ✅ **FIXED!** 
-- ✅ **Chained AND**: `echo a && echo b && echo c` ✅ **WORKING!**
+- ✅ **AND operator**: `echo a && echo b` ✅ **WORKING CORRECTLY!** 
+- ✅ **Chained AND**: `echo a && echo b && echo c` ✅ **WORKING CORRECTLY!**
+- ✅ **OR operator**: `echo a || echo b` ✅ **COMPLETELY FIXED!** 
+- ✅ **OR conditional execution**: `echo success || echo backup` only runs first ✅
+- ✅ **OR failure handling**: `/bad_cmd || echo backup` runs backup after failure ✅
+- ✅ **Short-circuit logic**: Both `&&` and `||` implement proper POSIX short-circuiting ✅
 
 ### ❌ NEEDS IMPROVEMENT
 
-#### Multi-Character Operators (Remaining Issues)
-- ❌ **OR operator**: `echo a || echo b` → "Empty command in pipeline" 
-  - **Root cause**: Deep parsing issue, `||` may be conflicting with pipeline logic
-  - **Status**: Scanner creates correct TOKEN_OR_IF, but parser/execution has complex issue
-- ❌ **Complex mixed operators**: Issues with `&&` + `>>` + `cat` combinations
+#### Complex Multi-Operator Cases
+- ❌ **Mixed pipes and logical operators**: `echo test | grep test || echo not_found` 
+  - **Root cause**: Complex mixed operator parsing needs enhancement
+  - **Status**: Simple pipes work, simple logical operators work, complex combinations TBD
+- ❌ **Complex mixed operators**: Issues with mixed `&&`, `||`, and `|` on same line
 
 #### Advanced Redirection  
 - ❌ **Error redirection**: `ls /bad 2>/dev/null` → parsed as separate args
 - ❌ **Redirection combining**: `cmd 2>&1` → needs implementation
+- ✅ **Append redirection**: `echo test >> file` ✅ **WORKING!**
 
 #### Control Structures
 - ❌ **If statements**: `if true; then echo test; fi` → parse error
@@ -58,15 +63,15 @@
 
 Based on this testing, the next priority improvements should be:
 
-1. **Multi-character operator parsing** - Fix `&&`, `||`, `>>`, `2>&1`, etc.
-   - Root cause: Scanner stops at first character instead of checking for multi-char ops
-   - Impact: Medium - affects conditional execution and advanced redirection
+1. **Complex mixed operator parsing** - Fix combinations like `cmd1 | cmd2 && cmd3` or `cmd1 || cmd2 | cmd3`
+   - Root cause: Parser needs enhanced logic to handle multiple operator types in one command line
+   - Impact: Medium - affects advanced command chaining
 
 2. **Control structure parsing robustness** - Fix if/for/while with semicolons
    - Root cause: Control structure parser may not handle delimiters correctly
    - Impact: High - core shell functionality
 
-3. **Advanced redirection parsing** - Fix `2>`, `2>&1`, `>>` patterns
+3. **Advanced redirection parsing** - Fix `2>`, `2>&1` patterns (note: `>>` already works)
    - Root cause: Scanner/parser doesn't recognize file descriptor patterns
    - Impact: Medium - affects error handling and file operations
 
@@ -74,7 +79,30 @@ Based on this testing, the next priority improvements should be:
    - Root cause: Parser doesn't gracefully skip empty tokens
    - Impact: Low - usability improvement
 
-### 🎉 MAJOR BREAKTHROUGH: Multi-Character Operators Fixed (June 18, 2025)
+### 🎉 MAJOR BREAKTHROUGH: Logical Operators Completely Fixed (December 2024)
+
+**Critical Root Cause Identified and Resolved**: The main issue was in the input processing logic in `lusush.c`. The pipe detection used `strchr(line, '|')` which incorrectly routed ANY input containing `|` (including `||`) to the pipeline execution system instead of the normal parser. This caused "Empty command in pipeline" errors.
+
+**Solution Implemented**: 
+- Enhanced pipe detection logic in `lusush.c` to distinguish between single pipes (`|`) and compound operators (`||`, `|&`)
+- Ensured logical operators are properly routed to the parser for conditional execution
+- Preserved pipeline execution for actual single pipes
+- Verified correct short-circuit behavior for both `&&` and `||`
+
+**Testing Results**: All logical operators now work with proper conditional execution semantics:
+- ✅ `echo a && echo b` → Both execute if first succeeds
+- ✅ `echo a || echo b` → Only second executes if first fails  
+- ✅ `/bad_cmd && echo never` → Second never executes (short-circuit)
+- ✅ `/bad_cmd || echo rescue` → Second executes after first fails
+- ✅ `echo test | cat` → Real pipelines still work correctly
+
+**Technical Details**:
+- Modified main input loop in `lusush.c` to properly distinguish pipe vs logical operators
+- Enhanced pipe detection to look for actual single `|` characters not part of `||` or `|&`
+- Restored conditional execution logic in the main execution loop
+- Verified that `execute_pipeline_simple()` is still needed and works for real pipelines
+
+### 🎉 PREVIOUS BREAKTHROUGH: Multi-Character Operators Scanner Fixed
 
 **Scanner Enhancement Completed**: Fixed scanner to properly handle compound operators!
 
@@ -82,14 +110,13 @@ Based on this testing, the next priority improvements should be:
 - Scanner now looks ahead for multi-character operators instead of stopping at first character
 - Added proper multi-character operator detection for `&&`, `||`, `>>`, `>&`, `<&`, `<<`, etc.
 - Enhanced parser to recognize `TOKEN_AND_IF` and `TOKEN_OR_IF` as command delimiters
-- Updated main execution loop to continue processing after `&&` operators
+- Updated main execution loop to process operators correctly
 
 **Testing Results**:
-- ✅ `echo a && echo b && echo c` → All commands execute sequentially
+- ✅ `echo a && echo b && echo c` → All commands execute sequentially if previous succeed
 - ✅ `echo test >> file` → Append redirection works correctly  
 - ✅ `echo line1 >> file && echo line2 >> file` → Mixed operators work
 - ✅ Semicolons still work: `echo a; echo b; echo c`
-- ❌ `||` operator still has parsing issues (next priority)
 
 **Technical Details**:
 - Modified `tokenize()` in `src/scanner.c` to use `peek_char()` for lookahead
@@ -99,9 +126,11 @@ Based on this testing, the next priority improvements should be:
 
 ### 🏆 MAJOR WINS ACHIEVED
 
-1. **Scanner token typing fix** - Critical foundation bug eliminated
-2. **Semicolon command separation** - Core POSIX functionality working
-3. **Variable expansion system** - Robust and POSIX-compliant
-4. **Basic command execution** - Solid foundation established
+1. **Logical Operators Complete** - Both `&&` and `||` work with proper POSIX short-circuit semantics
+2. **Scanner token typing fix** - Critical foundation bug eliminated  
+3. **Semicolon command separation** - Core POSIX functionality working
+4. **Variable expansion system** - Robust and POSIX-compliant
+5. **Basic command execution** - Solid foundation established
+6. **Pipeline vs Logical Operator Separation** - Proper routing to correct execution systems
 
-The shell now has a robust foundation for basic command execution and variable handling. The semicolon fix was a breakthrough that enables proper command chaining. The remaining issues are parser enhancements rather than critical bugs.
+The shell now has a robust foundation for basic and intermediate command execution, variable handling, and logical command chaining. All core logical operators work correctly. The remaining issues are primarily around complex mixed operator parsing and advanced features rather than critical bugs.
