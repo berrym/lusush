@@ -1,18 +1,26 @@
 # Development Progress Tracker
 
-## Current Status: Word Expansion System Completed ✅
+## Current Status: Parser Command Separation Fixed ✅
 
 **Date**: June 18, 2025  
-**Version**: 0.1.8+ (post-word-expansion-fix)  
+**Version**: 0.1.8+ (post-semicolon-fix)  
 **Branch**: master  
 
 ### Recently Completed (This Session)
 - ✅ **Word expansion consolidation** - Removed all duplicate implementations
-- ✅ **Variable assignment fix** - Quotes properly processed during assignment
+- ✅ **Variable assignment fix** - Quotes properly processed during assignment  
 - ✅ **Whitespace preservation** - Multiple spaces preserved in quoted contexts
 - ✅ **Field splitting** - Correct behavior for unquoted variable expansion
 - ✅ **Build system cleanup** - Fresh compilation, no obsolete code
 - ✅ **Memory management** - Eliminated expansion-related memory issues
+- ✅ **Scanner token typing fix** - Critical bug fixed: tokens now properly typed
+- ✅ **Semicolon command separation** - `echo a; echo b` now works correctly
+
+### Latest Major Fix: Scanner Token Typing
+**Problem**: Scanner created tokens but never called `set_token_type()` 
+**Impact**: All tokens had `TOKEN_EMPTY` instead of proper types (TOKEN_SEMI, etc.)
+**Solution**: Added `set_token_type()` call in `create_token()` function
+**Result**: Semicolons, pipes, and other operators now properly recognized by parser
 
 ### Current Architecture State
 ```

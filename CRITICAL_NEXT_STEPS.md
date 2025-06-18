@@ -10,11 +10,19 @@
 ✅ **Whitespace handling in variable expansion** - COMPLETELY FIXED
 ✅ **Word expansion consolidation** - Single authoritative implementation
 ✅ **Quote removal and field splitting** - Working correctly
+✅ **Semicolon command separation** - COMPLETELY FIXED (critical scanner bug resolved!)
 
 ## 🔥 **CRITICAL PRIORITY 1: Parser Robustness & Error Recovery**
 
+### **JUST COMPLETED**: Scanner Token Typing Fix
+**MAJOR BREAKTHROUGH**: Fixed critical scanner bug where tokens were not being properly typed!
+- **Problem**: `set_token_type()` was never called, all tokens had `TOKEN_EMPTY` type
+- **Solution**: Added call to `set_token_type()` in `create_token()` function  
+- **Impact**: Semicolons now work as command separators: `echo a; echo b`
+- **Testing**: ✓ Multiple semicolons ✓ Mixed with newlines ✓ With variables ✓ Quoted strings
+
 ### **NEXT FOCUS**: Advanced Parser Features
-With the core word expansion and variable assignment systems now working correctly, the next priority is enhancing parser robustness:
+With the core word expansion, variable assignment, AND command separation now working correctly:
 
 **Immediate Next Steps**:
 1. **Complex Control Structure Edge Cases** - Handle nested constructs
