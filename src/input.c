@@ -283,3 +283,103 @@ char *get_input_complete(FILE *in) {
     // Need more input - recursively call to get next line
     return get_input_complete(in);
 }
+
+// Enhanced linenoise input that uses is_command_complete() for proper multiline support
+char *ln_gets_complete(void) {
+    static char *accumulated_input = NULL;
+    static size_t accumulated_size = 0;
+    char *line = NULL;
+    char *prompt = NULL;
+    bool first_line = true;
+
+    while (true) {
+        errno = 0;
+
+        // Use PS1 for first line, PS2 for continuation
+        if (first_line) {
+            build_prompt();
+            prompt = get_shell_varp("PS1", "% ");
+        } else {
+            prompt = get_shell_varp("PS2", "> ");
+        }
+
+        line = linenoise(prompt);
+        if (!line) {
+            if (errno == ENOENT) {
+                return NULL;
+            }
+            // EOF or error - return accumulated input if any
+            if (accumulated_input && *accumulated_input) {
+                char *result = accumulated_input;
+                accumulated_input = NULL;
+                accumulated_size = 0;
+                return result;
+            }
+            return NULL;
+        }
+
+        // Strip trailing whitespace
+        str_strip_trailing_whitespace(line);
+
+        // Handle accumulation
+        if (accumulated_input) {
+            size_t line_len = strlen(line);
+            size_t needed = accumulated_size + line_len + 2; // +1 for newline, +1 for null
+            char *tmp = realloc(accumulated_input, needed);
+            if (!tmp) {
+                error_syscall("error: realloc in ln_gets_complete");
+                free(accumulated_input);
+                accumulated_input = NULL;
+                accumulated_size = 0;
+                free(line);
+                return NULL;
+            }
+            accumulated_input = tmp;
+            strcat(accumulated_input, "\n");
+            strcat(accumulated_input, line);
+            accumulated_size = needed - 1;
+        } else {
+            // First line - start accumulating
+            accumulated_size = strlen(line) + 1;
+            accumulated_input = malloc(accumulated_size);
+            if (!accumulated_input) {
+                error_syscall("error: malloc in ln_gets_complete");
+                return line; // Return what we have
+            }
+            strcpy(accumulated_input, line);
+        }
+
+        // Free the individual line since it's now in accumulated_input
+        free(line);
+        line = NULL;
+
+        // Check if the accumulated input is syntactically complete
+        if (is_command_complete(accumulated_input)) {
+            char *result = accumulated_input;
+            accumulated_input = NULL;
+            accumulated_size = 0;
+            
+            // Add to history if non-empty
+            if (*result) {
+                history_add(result);
+                history_save();
+            }
+            
+            return result;
+        }
+
+        // Need more input - continue loop with PS2 prompt
+        first_line = false;
+    }
+}
+
+// Unified input function that provides consistent behavior for interactive and non-interactive modes
+char *get_unified_input(FILE *in) {
+    if (shell_type() != NORMAL_SHELL) {
+        // Interactive mode - use enhanced linenoise with completion detection
+        return ln_gets_complete();
+    } else {
+        // Non-interactive mode - use existing enhanced input
+        return get_input_complete(in);
+    }
+}

@@ -30,8 +30,9 @@ int main(int argc, char **argv) {
     // Read input (buffering complete syntactic units) until user exits
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
-        // Read complete command(s) from the opened stream
-        line = get_input_complete(in);
+        // Read complete command(s) using unified input system
+        // This ensures consistent parsing behavior between interactive and non-interactive modes
+        line = get_unified_input(in);
 
         if (line == NULL) {
             exit_flag = true;
