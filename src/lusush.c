@@ -88,7 +88,8 @@ int parse_and_execute(source_t *src) {
         if (delimiter == &eof_token) {
             break;
         }
-        if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE) {
+        if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE ||
+            delimiter->type == TOKEN_AND_IF || delimiter->type == TOKEN_OR_IF) {
             free_token(delimiter);
             continue;  // More commands to process
         } else {

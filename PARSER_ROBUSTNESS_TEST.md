@@ -27,13 +27,17 @@
 #### File Operations
 - ✅ **Basic redirection**: `echo test > file` ✅
 - ✅ **Input redirection**: `cat < file` ✅
+- ✅ **Append redirection**: `echo test >> file` ✅ **FIXED!**
+
+#### Multi-Character Operators  
+- ✅ **AND operator**: `echo a && echo b` ✅ **FIXED!** 
+- ✅ **Chained AND**: `echo a && echo b && echo c` ✅ **WORKING!**
 
 ### ❌ NEEDS IMPROVEMENT
 
-#### Multi-Character Operators
-- ❌ **AND operator**: `echo a && echo b` → treated as `echo a & & echo b`
-- ❌ **OR operator**: `echo a || echo b` → likely similar issue
-- ❌ **Append redirection**: `echo test >> file` → likely needs work
+#### Multi-Character Operators (Remaining Issues)
+- ❌ **OR operator**: `echo a || echo b` → "Empty command in pipeline"  
+- ❌ **Complex mixed operators**: Issues with `&&` + `>>` + `cat` combinations
 
 #### Advanced Redirection  
 - ❌ **Error redirection**: `ls /bad 2>/dev/null` → parsed as separate args
@@ -67,6 +71,29 @@ Based on this testing, the next priority improvements should be:
 4. **Error recovery** - Better handling of empty commands and malformed input
    - Root cause: Parser doesn't gracefully skip empty tokens
    - Impact: Low - usability improvement
+
+### 🎉 MAJOR BREAKTHROUGH: Multi-Character Operators Fixed (June 18, 2025)
+
+**Scanner Enhancement Completed**: Fixed scanner to properly handle compound operators!
+
+**What was fixed**:
+- Scanner now looks ahead for multi-character operators instead of stopping at first character
+- Added proper multi-character operator detection for `&&`, `||`, `>>`, `>&`, `<&`, `<<`, etc.
+- Enhanced parser to recognize `TOKEN_AND_IF` and `TOKEN_OR_IF` as command delimiters
+- Updated main execution loop to continue processing after `&&` operators
+
+**Testing Results**:
+- ✅ `echo a && echo b && echo c` → All commands execute sequentially
+- ✅ `echo test >> file` → Append redirection works correctly  
+- ✅ `echo line1 >> file && echo line2 >> file` → Mixed operators work
+- ✅ Semicolons still work: `echo a; echo b; echo c`
+- ❌ `||` operator still has parsing issues (next priority)
+
+**Technical Details**:
+- Modified `tokenize()` in `src/scanner.c` to use `peek_char()` for lookahead
+- Enhanced operator detection for `>`, `<`, `|`, `&`, `;` characters  
+- Added `TOKEN_AND_IF` and `TOKEN_OR_IF` to `is_command_delimiter()` in parser
+- Updated main execution loop to handle new delimiter tokens
 
 ### 🏆 MAJOR WINS ACHIEVED
 

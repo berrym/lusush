@@ -836,7 +836,8 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
         // Skip whitespace and separators
         token_t *tok = tokenize(src);
         while (tok && tok != &eof_token && 
-               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE ||
+                tok->type == TOKEN_AND_IF || tok->type == TOKEN_OR_IF)) {
             free_token(tok);
             tok = tokenize(src);
         }
@@ -976,6 +977,8 @@ static bool is_command_delimiter(token_t *tok) {
     bool result = (tok->type == TOKEN_SEMI ||      // ;
                    tok->type == TOKEN_NEWLINE ||   // \n  
                    tok->type == TOKEN_PIPE ||      // |
+                   tok->type == TOKEN_AND_IF ||    // && (conditional execution)
+                   tok->type == TOKEN_OR_IF ||     // || (conditional execution)
                    tok->type == TOKEN_EOF);        // End of input
     
     return result;

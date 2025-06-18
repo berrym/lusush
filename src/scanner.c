@@ -572,6 +572,8 @@ token_t *tokenize(source_t *src) {
     }
 
     ssize_t linestart, line, chr;
+    char next_char_peek;  // For multi-character operator lookahead
+    bool is_compound;     // Track if we found a compound operator
 
     /* init position indexes */
     src->pos_old = src->pos + 1;
@@ -667,6 +669,36 @@ token_t *tokenize(source_t *src) {
 
             // add the operator to buffer
             add_to_buf(nc);
+            
+            // ENHANCEMENT: Check for multi-character operators
+            // Look ahead to see if this forms a compound operator
+            next_char_peek = peek_char(src);
+            is_compound = false;
+            
+            switch (nc) {
+            case '>':
+                // Check for >> or >&
+                if (next_char_peek == '>' || next_char_peek == '&') {
+                    add_to_buf(next_char(src));
+                    is_compound = true;
+                }
+                break;
+            case '<':
+                // Check for << or <& or <>
+                if (next_char_peek == '<' || next_char_peek == '&' || next_char_peek == '>') {
+                    add_to_buf(next_char(src));
+                    is_compound = true;
+                }
+                break;
+            case '|':
+                // Check for || or |&
+                if (next_char_peek == '|' || next_char_peek == '&') {
+                    add_to_buf(next_char(src));
+                    is_compound = true;
+                }
+                break;
+            }
+            
             loop = false;
             break;
         case '&':
@@ -680,6 +712,29 @@ token_t *tokenize(source_t *src) {
 
             // add the operator to buffer
             add_to_buf(nc);
+            
+            // ENHANCEMENT: Check for multi-character operators  
+            // Look ahead to see if this forms a compound operator
+            next_char_peek = peek_char(src);
+            is_compound = false;
+            
+            switch (nc) {
+            case '&':
+                // Check for && or &>
+                if (next_char_peek == '&' || next_char_peek == '>') {
+                    add_to_buf(next_char(src));
+                    is_compound = true;
+                }
+                break;
+            case ';':
+                // Check for ;; or ;& or ;|
+                if (next_char_peek == ';' || next_char_peek == '&' || next_char_peek == '|') {
+                    add_to_buf(next_char(src));
+                    is_compound = true;
+                }
+                break;
+            }
+            
             loop = false;
             break;
         case ' ':
