@@ -923,17 +923,23 @@ int do_for_loop(node_t *node) {
             symtable_entry_setval(entry, items[i]);
         }
         
-        // Execute body
+        // Execute all commands in body
         if (body) {
-            exit_code = execute_node(body);
-            
-            // Check for break/continue (would need signal handling)
-            if (exit_flag) {
-                break;
+            node_t *cmd = body->first_child;
+            while (cmd) {
+                exit_code = execute_node(cmd);
+                
+                // Check for break/continue
+                if (exit_flag) {
+                    goto for_exit;
+                }
+                
+                cmd = cmd->next_sibling;
             }
         }
     }
     
+for_exit:
     free(items);
     return exit_code;
 }
@@ -963,15 +969,21 @@ int do_while_loop(node_t *node) {
             break;
         }
         
-        // Execute body
-        exit_code = execute_node(body);
-        
-        // Check for break/continue or exit
-        if (exit_flag) {
-            break;
+        // Execute all commands in body
+        node_t *cmd = body->first_child;
+        while (cmd) {
+            exit_code = execute_node(cmd);
+            
+            // Check for break/continue or exit
+            if (exit_flag) {
+                goto while_exit;
+            }
+            
+            cmd = cmd->next_sibling;
         }
     }
     
+while_exit:
     return exit_code;
 }
 
@@ -1000,15 +1012,21 @@ int do_until_loop(node_t *node) {
             break;
         }
         
-        // Execute body
-        exit_code = execute_node(body);
-        
-        // Check for break/continue or exit
-        if (exit_flag) {
-            break;
+        // Execute all commands in body
+        node_t *cmd = body->first_child;
+        while (cmd) {
+            exit_code = execute_node(cmd);
+            
+            // Check for break/continue or exit
+            if (exit_flag) {
+                goto until_exit;
+            }
+            
+            cmd = cmd->next_sibling;
         }
     }
     
+until_exit:
     return exit_code;
 }
 

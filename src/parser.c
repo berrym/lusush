@@ -18,6 +18,7 @@ static node_t *parse_for_statement(source_t *src);
 static node_t *parse_while_statement(source_t *src);
 static node_t *parse_until_statement(source_t *src);
 static node_t *parse_case_statement(source_t *src);
+static node_t *parse_command_list(source_t *src, token_type_t terminator);
 
 // Error recovery context for parser
 static parser_error_context_t error_ctx = {0};
@@ -512,16 +513,8 @@ static node_t *parse_for_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(for_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse for loop body");
@@ -533,12 +526,6 @@ static node_t *parse_for_statement(source_t *src) {
     
     // Expect 'done'
     tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
     if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
         parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
                     "expected 'done' to close for loop");
@@ -597,16 +584,8 @@ static node_t *parse_while_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(while_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse while loop body");
@@ -616,23 +595,7 @@ static node_t *parse_while_statement(source_t *src) {
     
     add_child_node(while_node, body);
     
-    // Expect 'done'
-    tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
-    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
-        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
-                    "expected 'done' to close while loop");
-        if (tok) free_token(tok);
-        free_node_tree(while_node);
-        return NULL;
-    }
-    
-    free_token(tok);
+    // 'done' is already consumed by parse_command_list
     return while_node;
 }
 
@@ -682,16 +645,8 @@ static node_t *parse_until_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(until_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse until loop body");
@@ -701,23 +656,7 @@ static node_t *parse_until_statement(source_t *src) {
     
     add_child_node(until_node, body);
     
-    // Expect 'done'
-    tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
-    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
-        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
-                    "expected 'done' to close until loop");
-        if (tok) free_token(tok);
-        free_node_tree(until_node);
-        return NULL;
-    }
-    
-    free_token(tok);
+    // 'done' is already consumed by parse_command_list
     return until_node;
 }
 
@@ -853,4 +792,42 @@ static node_t *parse_case_statement(source_t *src) {
     
     free_token(tok);
     return case_node;
+}
+
+/**
+ * parse_command_list:
+ *      Parse a sequence of commands until a terminator token is found
+ *      Used for parsing loop bodies and other compound constructs
+ */
+static node_t *parse_command_list(source_t *src, token_type_t terminator) {
+    node_t *list_node = new_node(NODE_COMMAND);
+    if (!list_node) {
+        return NULL;
+    }
+    
+    while (true) {
+        // Skip whitespace and separators
+        token_t *tok = tokenize(src);
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
+        
+        // Check for terminator
+        if (!tok || tok == &eof_token || tok->type == terminator) {
+            if (tok && tok->type == terminator) {
+                free_token(tok);  // Consume the terminator
+            }
+            break;
+        }
+        
+        // Parse a command
+        node_t *cmd = parse_basic_command(tok);
+        if (cmd) {
+            add_child_node(list_node, cmd);
+        }
+    }
+    
+    return list_node;
 }
