@@ -973,10 +973,12 @@ static node_t *parse_simple_command(source_t *src, token_t *first_tok) {
 static bool is_command_delimiter(token_t *tok) {
     if (!tok) return true;
     
-    return (tok->type == TOKEN_SEMI ||      // ;
-            tok->type == TOKEN_NEWLINE ||   // \n  
-            tok->type == TOKEN_PIPE ||      // |
-            tok->type == TOKEN_EOF);        // End of input
+    bool result = (tok->type == TOKEN_SEMI ||      // ;
+                   tok->type == TOKEN_NEWLINE ||   // \n  
+                   tok->type == TOKEN_PIPE ||      // |
+                   tok->type == TOKEN_EOF);        // End of input
+    
+    return result;
 }
 
 static bool is_control_structure_keyword(token_t *tok) {

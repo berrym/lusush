@@ -496,6 +496,9 @@ token_t *create_token(char *s) {
     }
 
     free_alloced_str(tmp);
+    
+    // CRITICAL FIX: Set the token type based on the token's text
+    set_token_type(tok);
 
     return tok;
 }
