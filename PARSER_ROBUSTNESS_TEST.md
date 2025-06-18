@@ -36,7 +36,9 @@
 ### ❌ NEEDS IMPROVEMENT
 
 #### Multi-Character Operators (Remaining Issues)
-- ❌ **OR operator**: `echo a || echo b` → "Empty command in pipeline"  
+- ❌ **OR operator**: `echo a || echo b` → "Empty command in pipeline" 
+  - **Root cause**: Deep parsing issue, `||` may be conflicting with pipeline logic
+  - **Status**: Scanner creates correct TOKEN_OR_IF, but parser/execution has complex issue
 - ❌ **Complex mixed operators**: Issues with `&&` + `>>` + `cat` combinations
 
 #### Advanced Redirection  

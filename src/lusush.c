@@ -15,6 +15,9 @@
 #include <string.h>
 #include <stdio.h>
 
+// Forward declarations
+static void skip_conditional_commands(source_t *src);
+
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
@@ -78,7 +81,7 @@ int parse_and_execute(source_t *src) {
         }
 
         // Execute the parsed command using the appropriate handler
-        execute_node(cmd);
+        int last_exit_status = execute_node(cmd);
         
         free_node_tree(cmd);
         
@@ -88,6 +91,7 @@ int parse_and_execute(source_t *src) {
         if (delimiter == &eof_token) {
             break;
         }
+        
         if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE ||
             delimiter->type == TOKEN_AND_IF || delimiter->type == TOKEN_OR_IF) {
             free_token(delimiter);
@@ -100,4 +104,43 @@ int parse_and_execute(source_t *src) {
     }
 
     return 1;
+}
+
+/**
+ * skip_conditional_commands:
+ *      Skip commands in a conditional chain until an unconditional delimiter
+ *      Used when && or || conditions are not met
+ */
+static void skip_conditional_commands(source_t *src) {
+    while (true) {
+        skip_whitespace(src);
+        
+        // Try to parse the next command (but don't execute it)
+        node_t *cmd = parse_complete_command(src);
+        if (cmd == NULL) {
+            break;  // EOF or error
+        }
+        free_node_tree(cmd);  // Discard the parsed command
+        
+        // Check what delimiter follows
+        skip_whitespace(src);
+        token_t *delimiter = tokenize(src);
+        if (delimiter == &eof_token) {
+            break;
+        }
+        
+        if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE) {
+            // Found unconditional delimiter - stop skipping
+            unget_token(delimiter);  // Put it back for main loop
+            break;
+        } else if (delimiter->type == TOKEN_AND_IF || delimiter->type == TOKEN_OR_IF) {
+            // Continue skipping conditional commands
+            free_token(delimiter);
+            continue;
+        } else {
+            // Other token - put it back and stop
+            unget_token(delimiter);
+            break;
+        }
+    }
 }

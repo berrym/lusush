@@ -109,9 +109,10 @@ node_t *parse_basic_command(token_t *tok) {
             break;
         }
 
-        // Handle semicolon as command terminator
-        if (tok->type == TOKEN_SEMI) {
-            free_token(tok);
+        // Handle command terminators (semicolon, logical operators)
+        if (tok->type == TOKEN_SEMI || tok->type == TOKEN_AND_IF || tok->type == TOKEN_OR_IF) {
+            // Put the delimiter back for the main loop to handle
+            unget_token(tok);
             break;
         }
 
