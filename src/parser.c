@@ -964,6 +964,14 @@ static node_t *parse_simple_command(source_t *src, token_t *first_tok) {
             continue;
         }
         
+        // Handle pipe operator - add as child node
+        if (tok->type == TOKEN_PIPE) {
+            node_t *pipe_node = new_node(NODE_PIPE);
+            add_child_node(cmd, pipe_node);
+            free_token(tok);
+            continue;
+        }
+        
         add_token_as_child(cmd, tok);
     }
     
@@ -978,7 +986,6 @@ static bool is_command_delimiter(token_t *tok) {
     
     bool result = (tok->type == TOKEN_SEMI ||      // ;
                    tok->type == TOKEN_NEWLINE ||   // \n  
-                   tok->type == TOKEN_PIPE ||      // |
                    tok->type == TOKEN_AND_IF ||    // && (conditional execution)
                    tok->type == TOKEN_OR_IF ||     // || (conditional execution)
                    tok->type == TOKEN_EOF);        // End of input

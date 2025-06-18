@@ -46,51 +46,52 @@
 - [ ] **Implement proper keyword recognition** in control structure contexts
 - [ ] **Add delimiter flexibility** - handle both newlines and semicolons consistently
 
-## Priority 2: Advanced Shell Features
+## Priority 2: Missing POSIX Features (Based on test.sh Analysis)
 
-### 2.1 Job Control
+### 2.1 Parameter Expansion and Variable Handling
+**Goal**: Complete POSIX parameter expansion support
+- [ ] **Implement `${var=value}` assignment syntax** - Critical missing feature
+- [ ] **Add `${var:-default}` default value expansion**
+- [ ] **Implement `${var:+alternate}` alternate value expansion**  
+- [ ] **Add `${#var}` length expansion**
+- [ ] **Implement pattern substitution** (`${var/pattern/replacement}`)
+
+### 2.2 Command Substitution and Execution
+**Goal**: Complete command substitution support
+- [ ] **Add backtick command substitution** - Legacy `cmd` syntax
+- [ ] **Fix script file execution** - Currently causes infinite loops
+- [ ] **Implement shebang processing** - `#!/path/to/shell` support
+- [ ] **Add proper comment handling** - `#` comments cause parsing errors
+
+### 2.3 Enhanced Builtins and Shell Features
+**Goal**: Improve builtin command functionality
+- [ ] **Enhanced echo builtin** - Process escape sequences (\n, \t, etc.)
+- [ ] **Improved printf builtin** - Full POSIX printf support
+- [ ] **Add complete test builtin** - All POSIX test operators
+- [ ] **Implement job control** - Background processes, job management
+
+## Priority 3: Advanced Shell Features
+
+### 3.1 Job Control
 **Goal**: Background processes and job management
 - [ ] Implement background job execution (`command &`)
 - [ ] Add job control builtins (`jobs`, `fg`, `bg`, `kill`)
 - [ ] Support process groups and signal handling
 - [ ] Implement job status tracking and notifications
 
-### 2.2 Advanced Parameter Expansion
+### 3.2 Advanced Parameter Expansion
 **Goal**: Complete POSIX parameter expansion
 - [ ] Implement `${var:-default}`, `${var:+value}` patterns
 - [ ] Add `${var#pattern}`, `${var%pattern}` (prefix/suffix removal)
 - [ ] Support `${#var}` (length) and `${var/pattern/replacement}`
 - [ ] Implement array variables and `${array[@]}` expansion
 
-### 2.3 Arithmetic Expansion
+### 3.3 Arithmetic Expansion
 **Goal**: Shell arithmetic with `$((expression))`
 - [ ] Implement arithmetic expression parser
 - [ ] Support variables in arithmetic contexts
 - [ ] Add arithmetic assignment operators (`+=`, `-=`, etc.)
 - [ ] Implement arithmetic for loops: `for ((i=0; i<10; i++))`
-
-## Priority 3: Enhanced User Experience
-
-### 3.1 Advanced Command Completion
-**Goal**: Leverage token pushback for intelligent completion
-- [ ] Context-aware completion using `match_token_sequence()`
-- [ ] Complete command arguments based on command type
-- [ ] File path completion with proper escaping
-- [ ] Variable name completion in appropriate contexts
-
-### 3.2 Interactive Features
-**Goal**: Modern shell interaction
-- [ ] History expansion (`!!`, `!n`, `!string`)
-- [ ] Improved prompt with git integration and status
-- [ ] Tab completion for builtins and functions
-- [ ] Syntax highlighting in command line editing
-
-### 3.3 Configuration & Customization
-**Goal**: User customization capabilities
-- [ ] Shell configuration file support (`~/.lusushrc`)
-- [ ] Customizable prompt (PS1, PS2 variables)
-- [ ] Alias persistence and loading
-- [ ] Environment variable management improvements
 
 ## Priority 4: Compatibility & Standards
 

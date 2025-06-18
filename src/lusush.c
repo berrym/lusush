@@ -49,9 +49,17 @@ int main(int argc, char **argv) {
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
-        // Check if this line contains single pipes (not || or other compound operators)
-        // and use simple parser if so
+        // Check if this line contains ONLY simple pipes (no logical operators)
+        // If there are logical operators mixed with pipes, use full parser
         bool has_single_pipe = false;
+        bool has_logical_operators = false;
+        
+        // Check for logical operators first
+        if (strstr(line, "&&") || strstr(line, "||") || strchr(line, ';')) {
+            has_logical_operators = true;
+        }
+        
+        // Check for single pipes (not || or |&)  
         char *pipe_pos = strchr(line, '|');
         while (pipe_pos != NULL) {
             // Check if it's a single pipe (not || or |&)
@@ -63,10 +71,11 @@ int main(int argc, char **argv) {
             pipe_pos = strchr(pipe_pos + 1, '|');
         }
         
-        if (has_single_pipe) {
+        // Use simple pipeline execution ONLY if we have pipes but NO logical operators
+        if (has_single_pipe && !has_logical_operators) {
             execute_pipeline_simple(line);
         } else {
-            // Parse then execute a command normally
+            // Parse then execute a command normally (handles logical operators and mixed expressions)
             parse_and_execute(&src);
         }
 

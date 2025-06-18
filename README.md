@@ -96,3 +96,28 @@ MIT License - see LICENSE file for details.
 ## Contributing
 
 Lusush follows modern C development practices with comprehensive testing and documentation.
+
+### Testing Current Capabilities
+
+To test current lusush functionality, use the provided test script:
+
+```bash
+# Run current capabilities test
+cat test-current-abilities.sh | ./builddir/lusush
+
+# Note: Direct file execution may have issues, use piped input
+```
+
+The test script demonstrates:
+- Variable assignment and expansion
+- Command substitution with $() syntax  
+- Arithmetic expansion
+- Globbing and pathname expansion
+- Mixed operator expressions (pipes + logical operators)
+
+**Known limitations:**
+- No shebang (`#!/bin/sh`) processing
+- No comment (`#`) support in scripts
+- `${var=value}` parameter expansion not implemented
+- Backtick command substitution not supported
+- Script file execution has issues (use piped input)

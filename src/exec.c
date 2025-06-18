@@ -19,6 +19,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// Forward declarations
+int execute_pipeline_from_node(node_t *node);
+
 char *search_path(char *fn) {
     char *PATH = getenv("PATH"), *p = PATH, *p2 = NULL;
 
@@ -103,15 +106,35 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
 
 /**
  * NEW EXECUTION ARCHITECTURE
- * execute_simple_command_new: Properly handle commands with multiple arguments
- * This replaces do_basic_command with correct multi-token processing
+ * execute_command: Handle command execution with assignments, pipelines, and arguments
+ * This is the main command execution dispatcher that handles:
+ * - Variable assignments
+ * - Pipeline detection and routing
+ * - Multi-token command processing
+ * - Both builtin and external command execution
  */
-int execute_simple_command_new(node_t *cmd) {
+int execute_command(node_t *cmd) {
     if (!cmd || cmd->type != NODE_COMMAND || !cmd->first_child) {
         return 0;
     }
     
+    // First check if this command contains pipes - if so, handle as pipeline
     node_t *child = cmd->first_child;
+    bool has_pipe = false;
+    while (child) {
+        if (child->type == NODE_PIPE) {
+            has_pipe = true;
+            break;
+        }
+        child = child->next_sibling;
+    }
+    
+    if (has_pipe) {
+        // This is a pipeline, not a simple command
+        return execute_pipeline_from_node(cmd);
+    }
+    
+    child = cmd->first_child;
     
     // Process variable assignments at the beginning
     while (child && child->val.str && strchr(child->val.str, '=')) {
@@ -225,7 +248,7 @@ int execute_simple_command_new(node_t *cmd) {
     int status = 0;
 
     if (child_pid == -1) {
-        error_return("error: `execute_simple_command_new`");
+        error_return("error: `execute_command`");
         free_argv(argc, argv);
         return 0;
     } else if (child_pid == 0) {
@@ -234,7 +257,7 @@ int execute_simple_command_new(node_t *cmd) {
         }
         
         do_exec_cmd(argc, argv);
-        error_return("error: `execute_simple_command_new`");
+        error_return("error: `execute_command`");
 
         switch (errno) {
         case ENOEXEC:
@@ -259,7 +282,7 @@ int execute_simple_command_new(node_t *cmd) {
     }
 
     free_argv(argc, argv);
-    return 1;
+    return last_exit_status;
 }
 
 /**
@@ -802,7 +825,7 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
     
     last_exit_status = final_status;
     free(pids);
-    return 1;
+    return final_status;
 }
 
 /**
@@ -1109,7 +1132,7 @@ int do_function_def(node_t *node) {
 /**
  * LEGACY FUNCTION: do_basic_command (kept for compatibility)
  * This is the old implementation that handles single-token commands
- * New architecture uses execute_simple_command_new for multi-token commands
+ * New architecture uses execute_command for multi-token commands
  */
 int do_basic_command(node_t *n) {
     size_t argc = 0, targc = 0;
@@ -1272,6 +1295,118 @@ int do_basic_command(node_t *n) {
 }
 
 /**
+ * execute_pipeline_from_node:
+ *      Execute a pipeline represented as a node tree with NODE_PIPE markers
+ *      This handles pipelines found in mixed expressions (e.g., cmd1 | cmd2 && cmd3)
+ */
+int execute_pipeline_from_node(node_t *node) {
+    if (!node || node->type != NODE_COMMAND) {
+        return 1;
+    }
+    
+    // Count pipeline segments and collect command components
+    int segment_count = 1;  // At least one command
+    node_t *child = node->first_child;
+    
+    // Count how many pipe operators we have
+    while (child) {
+        if (child->type == NODE_PIPE) {
+            segment_count++;
+        }
+        child = child->next_sibling;
+    }
+    
+    // Allocate arrays for command segments
+    char ***cmd_args = malloc(segment_count * sizeof(char **));
+    int *cmd_argc = malloc(segment_count * sizeof(int));
+    
+    if (!cmd_args || !cmd_argc) {
+        free(cmd_args);
+        free(cmd_argc);
+        return 1;
+    }
+    
+    // Parse command segments separated by pipes
+    int current_segment = 0;
+    int current_argc = 0;
+    int max_args = 32;
+    char **current_argv = malloc(max_args * sizeof(char *));
+    
+    if (!current_argv) {
+        free(cmd_args);
+        free(cmd_argc);
+        return 1;
+    }
+    
+    child = node->first_child;
+    while (child) {
+        if (child->type == NODE_PIPE) {
+            // End current segment and start new one
+            current_argv[current_argc] = NULL;
+            cmd_args[current_segment] = current_argv;
+            cmd_argc[current_segment] = current_argc;
+            
+            current_segment++;
+            current_argc = 0;
+            current_argv = malloc(max_args * sizeof(char *));
+            if (!current_argv) {
+                // Cleanup and return error
+                for (int i = 0; i < current_segment; i++) {
+                    for (int j = 0; j < cmd_argc[i]; j++) {
+                        free(cmd_args[i][j]);
+                    }
+                    free(cmd_args[i]);
+                }
+                free(cmd_args);
+                free(cmd_argc);
+                return 1;
+            }
+        } else if (child->type == NODE_VAR && child->val.str) {
+            // Add word to current command segment
+            if (current_argc >= max_args - 1) {
+                max_args *= 2;
+                current_argv = realloc(current_argv, max_args * sizeof(char *));
+                if (!current_argv) {
+                    // Cleanup and return error
+                    for (int i = 0; i < current_segment; i++) {
+                        for (int j = 0; j < cmd_argc[i]; j++) {
+                            free(cmd_args[i][j]);
+                        }
+                        free(cmd_args[i]);
+                    }
+                    free(cmd_args);
+                    free(cmd_argc);
+                    return 1;
+                }
+            }
+            current_argv[current_argc] = strdup(child->val.str);
+            current_argc++;
+        }
+        child = child->next_sibling;
+    }
+    
+    // Finalize last segment
+    current_argv[current_argc] = NULL;
+    cmd_args[current_segment] = current_argv;
+    cmd_argc[current_segment] = current_argc;
+    
+    // Execute the pipeline
+    int result = execute_pipeline_commands(cmd_args, cmd_argc, segment_count);
+    
+    // Cleanup
+    for (int i = 0; i < segment_count; i++) {
+        for (int j = 0; j < cmd_argc[i]; j++) {
+            free(cmd_args[i][j]);
+        }
+        free(cmd_args[i]);
+    }
+    free(cmd_args);
+    free(cmd_argc);
+    
+    return result;
+}
+
+/**
  * execute_node:
  *      Main execution dispatcher for different node types
  */
@@ -1294,7 +1429,10 @@ int execute_node(node_t *node) {
         case NODE_FUNCTION:
             return do_function_def(node);
         case NODE_COMMAND:
-            return execute_simple_command_new(node);
+            return execute_command(node);
+        case NODE_PIPE:
+            // Handle pipeline execution properly
+            return execute_pipeline_from_node(node);
         case NODE_VAR:
         default:
             // Fall back to old implementation for individual VAR nodes
