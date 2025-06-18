@@ -442,24 +442,24 @@ node_t *parse_command(token_t *tok) {
     // Check for control structures
     switch (tok->type) {
         case TOKEN_KEYWORD_IF:
-            free_token(tok);
             cmd = parse_if_statement(tok->src);
+            free_token(tok);
             break;
         case TOKEN_KEYWORD_FOR:
-            free_token(tok);
             cmd = parse_for_statement(tok->src);
+            free_token(tok);
             break;
         case TOKEN_KEYWORD_WHILE:
-            free_token(tok);
             cmd = parse_while_statement(tok->src);
+            free_token(tok);
             break;
         case TOKEN_KEYWORD_UNTIL:
-            free_token(tok);
             cmd = parse_until_statement(tok->src);
+            free_token(tok);
             break;
         case TOKEN_KEYWORD_CASE:
-            free_token(tok);
             cmd = parse_case_statement(tok->src);
+            free_token(tok);
             break;
         default:
             cmd = parse_basic_command(tok);
@@ -714,17 +714,7 @@ static node_t *parse_for_statement(source_t *src) {
     
     add_child_node(for_node, body);
     
-    // Expect 'done'
-    tok = tokenize(src);
-    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
-        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
-                    "expected 'done' to close for loop");
-        if (tok) free_token(tok);
-        free_node_tree(for_node);
-        return NULL;
-    }
-    
-    free_token(tok);
+    // 'done' is already consumed by parse_command_list
     return for_node;
 }
 

@@ -49,13 +49,28 @@ char *ln_gets(void) {
             return NULL;
         }
 
-        // Handle line continuations
+        // Handle line continuations and incomplete syntax
         str_strip_trailing_whitespace(line);
-        if (line[strlen(line) - 1] == '\\') {
+        bool needs_continuation = false;
+        
+        // Check for explicit backslash continuation
+        if (strlen(line) > 0 && line[strlen(line) - 1] == '\\') {
             line[strlen(line) - 1] = '\0';
+            needs_continuation = true;
+        }
+        // Check for incomplete quotes/braces/etc
+        else if (!is_line_complete(line)) {
+            needs_continuation = true;
+        }
+        
+        if (needs_continuation) {
             if (next == NULL) {
-                next = alloc_str(strlen(line) + 1, true);
+                next = alloc_str(strlen(line) + 2, true);
                 strcpy(next, line);
+                // Add space for quote/brace continuations (not for backslash)
+                if (line[strlen(line)] != '\0') {
+                    strcat(next, " ");
+                }
             }
             line = linenoise(get_shell_varp("PS2", "> "));
             if (line == NULL) {
@@ -66,8 +81,8 @@ char *ln_gets(void) {
                 return NULL;
             }
 
-            tmp =
-                realloc(next, (strlen(next) + strlen(line) + 1) * sizeof(char));
+            size_t new_size = strlen(next) + strlen(line) + 2;
+            tmp = realloc(next, new_size * sizeof(char));
             if (tmp == NULL) {
                 error_syscall("error: `ln_gets`");
             }
