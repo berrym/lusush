@@ -7,6 +7,7 @@
 #include "../include/input.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/node.h"
+#include "../include/parser.h"
 #include "../include/scanner.h"
 
 #include <stdbool.h>
@@ -66,26 +67,35 @@ int main(int argc, char **argv) {
 }
 
 int parse_and_execute(source_t *src) {
-    skip_whitespace(src);
-
-    token_t *tok = tokenize(src);
-
-    if (tok == &eof_token) {
-        return 0;
-    }
-
-    while (tok && tok != &eof_token) {
-        node_t *cmd = parse_command(tok);
-
+    while (true) {
+        skip_whitespace(src);
+        
+        // Use new parser architecture to get complete commands
+        node_t *cmd = parse_complete_command(src);
+        
         if (cmd == NULL) {
-            break;
+            break;  // EOF or error
         }
 
         // Execute the parsed command using the appropriate handler
         execute_node(cmd);
         
         free_node_tree(cmd);
-        tok = tokenize(src);
+        
+        // Check for more commands (semicolon or newline separated)
+        skip_whitespace(src);
+        token_t *delimiter = tokenize(src);
+        if (delimiter == &eof_token) {
+            break;
+        }
+        if (delimiter->type == TOKEN_SEMI || delimiter->type == TOKEN_NEWLINE) {
+            free_token(delimiter);
+            continue;  // More commands to process
+        } else {
+            // Push back non-delimiter token
+            unget_token(delimiter);
+            break;
+        }
     }
 
     return 1;

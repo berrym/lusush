@@ -99,49 +99,7 @@ char *word_list_to_string(word_t *head) {
     return result;
 }
 
-// Expand a word using the provided context
-word_t *word_expand_with_context(const char *word, expand_ctx_t *ctx) {
-    if (!word || !ctx) {
-        return NULL;
-    }
-    
-    // Create initial word
-    word_t *result = word_create(word);
-    if (!result) {
-        return NULL;
-    }
-    
-    // Perform variable expansion if not disabled
-    if (!expand_ctx_check(ctx, EXPAND_NOVAR)) {
-        // Variable expansion logic would go here
-    }
-    
-    // Perform command substitution if not disabled
-    if (!expand_ctx_check(ctx, EXPAND_NOCMD)) {
-        // Command substitution logic would go here
-    }
-    
-    // Perform quote removal if not disabled
-    if (!expand_ctx_check(ctx, EXPAND_NOQUOTE)) {
-        // Quote removal logic would go here
-    }
-    
-    return result;
-}
 
-// Expand a word using the normal expansion rules
-word_t *word_expand_normal(const char *word) {
-    expand_ctx_t ctx;
-    expand_ctx_init(&ctx, EXPAND_NORMAL);
-    return word_expand_with_context(word, &ctx);
-}
-
-// Expand a word as an alias (with special handling)
-word_t *word_expand_alias(const char *word) {
-    expand_ctx_t ctx;
-    expand_ctx_init(&ctx, EXPAND_ALIAS | EXPAND_NOQUOTE);
-    return word_expand_with_context(word, &ctx);
-}
 
 // Expand an alias recursively
 char *expand_alias_recursive(const char *alias_name) {

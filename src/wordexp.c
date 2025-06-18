@@ -709,6 +709,15 @@ word_t *word_expand(const char *orig_word) {
         return NULL;
     }
     
+    // Check if the entire word is quoted (should not be field-split)
+    size_t word_len = strlen(orig_word);
+    if (word_len >= 2) {
+        if ((orig_word[0] == '"' && orig_word[word_len - 1] == '"') ||
+            (orig_word[0] == '\'' && orig_word[word_len - 1] == '\'')) {
+            ctx->no_field_split = true;
+        }
+    }
+    
     str_builder_t *sb = sb_create(strlen(orig_word) * 2);
     if (!sb) {
         free_expansion_context(ctx);
@@ -906,7 +915,9 @@ word_t *word_expand(const char *orig_word) {
                     expanded = true;
                 }
                 
-                // Don't append here - will be handled in expansion result section
+                // CRITICAL FIX: Always append regular characters (including spaces in quotes)
+                // This was the bug causing "$x $y" to become "xy" instead of "x y"
+                exp_result.result = EXP_NO_EXPANSION;
                 break;
         }
         
@@ -941,19 +952,24 @@ word_t *word_expand(const char *orig_word) {
     }
     
     sb_free(sb);
-    free_expansion_context(ctx);
     
-    // If we performed expansion, do field splitting
+    // If we performed expansion, handle field splitting appropriately
     word_t *words = NULL;
-    if (expanded) {
-        words = field_split(expanded_str);
-    }
     
-    // If no field splitting was done, create a single word
-    if (!words) {
+    if (expanded) {
+        // Field split if not in quoted context
+        if (!ctx->no_field_split) {
+            words = field_split(expanded_str);
+        } else {
+            // In quoted context, create a single word
+            words = make_word(expanded_str);
+        }
+    } else {
+        // No expansion occurred, create single word and handle quotes
         words = make_word(expanded_str);
     }
     
+    free_expansion_context(ctx);
     free(expanded_str);
     
     // Perform pathname expansion and quote removal

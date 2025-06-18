@@ -101,23 +101,19 @@ int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
 
 // Removed old do_basic_pipe_list function - replaced with simpler pipeline implementation
 
-int do_basic_command(node_t *n) {
-    size_t argc = 0, targc = 0;
-    char **argv = NULL, *str = NULL;
-
-    if (n == NULL) {
+/**
+ * NEW EXECUTION ARCHITECTURE
+ * execute_simple_command_new: Properly handle commands with multiple arguments
+ * This replaces do_basic_command with correct multi-token processing
+ */
+int execute_simple_command_new(node_t *cmd) {
+    if (!cmd || cmd->type != NODE_COMMAND || !cmd->first_child) {
         return 0;
     }
-
-    node_t *child = n->first_child;
-
-    if (child == NULL) {
-        return 0;
-    }
-
-    // Handle variable assignments  
     
-    // Process any leading variable assignments
+    node_t *child = cmd->first_child;
+    
+    // Process variable assignments at the beginning
     while (child && child->val.str && strchr(child->val.str, '=')) {
         char *eq = strchr(child->val.str, '=');
         if (eq > child->val.str) {
@@ -135,10 +131,18 @@ int do_basic_command(node_t *n) {
                 char *name = child->val.str;
                 char *value = eq + 1;
                 
+                // Process the value through word expansion (including quote removal)
+                char *processed_value = word_expand_to_str(value);
+                if (!processed_value) {
+                    processed_value = strdup(value); // Fallback to original value
+                }
+                
                 symtable_entry_t *entry = add_to_symtable(name);
                 if (entry) {
-                    symtable_entry_setval(entry, value);
+                    symtable_entry_setval(entry, processed_value);
                 }
+                
+                free(processed_value);
                 *eq = '=';  // Restore the string
                 
                 // Move to next child (skip this assignment)
@@ -154,52 +158,58 @@ int do_basic_command(node_t *n) {
     if (!child) {
         return 0;
     }
-
-    // Build argv array from variable nodes only
+    
+    // Build argv array from all remaining children
+    size_t argc = 0;
+    size_t targc = 32;
+    char **argv = calloc(targc, sizeof(char*));
+    if (!argv) {
+        return 1;
+    }
+    
     while (child) {
-        if (child->type == NODE_VAR) {
-            str = child->val.str;
-
-            word_t *w = word_expand(str);
-
-            if (w == NULL) {
-                child = child->next_sibling;
-                continue;
-            }
-
-            const word_t *w2 = w;
-            while (w2) {
-                if (check_buffer_bounds(&argc, &targc, &argv)) {
-                    str = alloc_str(strlen(w2->data) + 1, false);
+        if (child->type == NODE_VAR && child->val.str) {
+            word_t *w = word_expand(child->val.str);
+            
+            if (w) {
+                const word_t *w2 = w;
+                while (w2) {
+                    if (argc >= targc - 1) {
+                        targc *= 2;
+                        char **new_argv = realloc(argv, targc * sizeof(char*));
+                        if (!new_argv) {
+                            free_argv(argc, argv);
+                            free_all_words(w);
+                            return 1;
+                        }
+                        argv = new_argv;
+                    }
+                    
+                    char *str = alloc_str(strlen(w2->data) + 1, false);
                     if (str) {
                         strcpy(str, w2->data);
                         argv[argc++] = str;
                     }
+                    w2 = w2->next;
                 }
-                w2 = w2->next;
+                free_all_words(w);
             }
-
-            free_all_words(w);
         }
         child = child->next_sibling;
     }
-
-    if (check_buffer_bounds(&argc, &targc, &argv)) {
-        argv[argc] = NULL;
-    }
-
+    
+    argv[argc] = NULL;
+    
     // Check if we have a valid command to execute
-    if (argc == 0 || !argv || !argv[0] || !*argv[0]) {
-        // No command to execute (empty result from expansion or other issues)
+    if (argc == 0 || !argv[0] || !*argv[0]) {
         free_argv(argc, argv);
         return 0;
     }
-
-    // Execute a builtin command
+    
+    // Execute builtin commands
     for (size_t i = 0; i < builtins_count; i++) {
-        if (strcmp(*argv, builtins[i].name) == 0) {
-            // Set up redirections for builtins too
-            if (setup_redirections(n) == -1) {
+        if (strcmp(argv[0], builtins[i].name) == 0) {
+            if (setup_redirections(cmd) == -1) {
                 free_argv(argc, argv);
                 return 0;
             }
@@ -209,22 +219,22 @@ int do_basic_command(node_t *n) {
             return exit_code;
         }
     }
-
+    
+    // Execute external commands
     pid_t child_pid = fork();
     int status = 0;
 
     if (child_pid == -1) {
-        error_return("error: `do_basic_command`");
+        error_return("error: `execute_simple_command_new`");
         free_argv(argc, argv);
         return 0;
     } else if (child_pid == 0) {
-        // Set up redirections in child process
-        if (setup_redirections(n) == -1) {
+        if (setup_redirections(cmd) == -1) {
             exit(EXIT_FAILURE);
         }
         
         do_exec_cmd(argc, argv);
-        error_return("error: `do_basic_command`");
+        error_return("error: `execute_simple_command_new`");
 
         switch (errno) {
         case ENOEXEC:
@@ -249,7 +259,6 @@ int do_basic_command(node_t *n) {
     }
 
     free_argv(argc, argv);
-
     return 1;
 }
 
@@ -1098,6 +1107,171 @@ int do_function_def(node_t *node) {
 }
 
 /**
+ * LEGACY FUNCTION: do_basic_command (kept for compatibility)
+ * This is the old implementation that handles single-token commands
+ * New architecture uses execute_simple_command_new for multi-token commands
+ */
+int do_basic_command(node_t *n) {
+    size_t argc = 0, targc = 0;
+    char **argv = NULL, *str = NULL;
+
+    if (n == NULL) {
+        return 0;
+    }
+
+    node_t *child = n->first_child;
+
+    if (child == NULL) {
+        return 0;
+    }
+
+    // Handle variable assignments  
+    
+    // Process any leading variable assignments
+    while (child && child->val.str && strchr(child->val.str, '=')) {
+        char *eq = strchr(child->val.str, '=');
+        if (eq > child->val.str) {
+            // Check if everything before '=' is a valid identifier
+            bool valid_name = true;
+            for (char *p = child->val.str; p < eq; p++) {
+                if (!isalnum(*p) && *p != '_') {
+                    valid_name = false;
+                    break;
+                }
+            }
+            if (valid_name && isalpha(child->val.str[0])) {
+                // Perform the assignment
+                *eq = '\0';  // Split the string
+                char *name = child->val.str;
+                char *value = eq + 1;
+                
+                // Process the value through word expansion (including quote removal)
+                char *processed_value = word_expand_to_str(value);
+                if (!processed_value) {
+                    processed_value = strdup(value); // Fallback to original value
+                }
+                
+                symtable_entry_t *entry = add_to_symtable(name);
+                if (entry) {
+                    symtable_entry_setval(entry, processed_value);
+                }
+                
+                free(processed_value);
+                *eq = '=';  // Restore the string
+                
+                // Move to next child (skip this assignment)
+                child = child->next_sibling;
+                continue;
+            }
+        }
+        // Not a valid assignment, treat as regular command
+        break;
+    }
+    
+    // If we only had assignments and no command, we're done
+    if (!child) {
+        return 0;
+    }
+
+    // Build argv array from variable nodes only
+    while (child) {
+        if (child->type == NODE_VAR) {
+            str = child->val.str;
+
+            word_t *w = word_expand(str);
+
+            if (w == NULL) {
+                child = child->next_sibling;
+                continue;
+            }
+
+            const word_t *w2 = w;
+            while (w2) {
+                if (check_buffer_bounds(&argc, &targc, &argv)) {
+                    str = alloc_str(strlen(w2->data) + 1, false);
+                    if (str) {
+                        strcpy(str, w2->data);
+                        argv[argc++] = str;
+                    }
+                }
+                w2 = w2->next;
+            }
+
+            free_all_words(w);
+        }
+        child = child->next_sibling;
+    }
+
+    if (check_buffer_bounds(&argc, &targc, &argv)) {
+        argv[argc] = NULL;
+    }
+
+    // Check if we have a valid command to execute
+    if (argc == 0 || !argv || !argv[0] || !*argv[0]) {
+        // No command to execute (empty result from expansion or other issues)
+        free_argv(argc, argv);
+        return 0;
+    }
+
+    // Execute a builtin command
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strcmp(*argv, builtins[i].name) == 0) {
+            // Set up redirections for builtins too
+            if (setup_redirections(n) == -1) {
+                free_argv(argc, argv);
+                return 0;
+            }
+            int exit_code = builtins[i].func(argc, argv);
+            last_exit_status = exit_code;
+            free_argv(argc, argv);
+            return exit_code;
+        }
+    }
+
+    pid_t child_pid = fork();
+    int status = 0;
+
+    if (child_pid == -1) {
+        error_return("error: `do_basic_command`");
+        free_argv(argc, argv);
+        return 0;
+    } else if (child_pid == 0) {
+        // Set up redirections in child process
+        if (setup_redirections(n) == -1) {
+            exit(EXIT_FAILURE);
+        }
+        
+        do_exec_cmd(argc, argv);
+        error_return("error: `do_basic_command`");
+
+        switch (errno) {
+        case ENOEXEC:
+            exit(126);
+            break;
+        case ENOENT:
+            exit(127);
+            break;
+        default:
+            exit(EXIT_FAILURE);
+            break;
+        }
+    } else {
+        waitpid(child_pid, &status, 0);
+        if (WIFEXITED(status)) {
+            last_exit_status = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            last_exit_status = 128 + WTERMSIG(status);
+        } else {
+            last_exit_status = 1;
+        }
+    }
+
+    free_argv(argc, argv);
+
+    return 1;
+}
+
+/**
  * execute_node:
  *      Main execution dispatcher for different node types
  */
@@ -1120,8 +1294,10 @@ int execute_node(node_t *node) {
         case NODE_FUNCTION:
             return do_function_def(node);
         case NODE_COMMAND:
+            return execute_simple_command_new(node);
         case NODE_VAR:
         default:
+            // Fall back to old implementation for individual VAR nodes
             return do_basic_command(node);
     }
 }

@@ -540,6 +540,15 @@ token_t *tokenize(source_t *src) {
         return &eof_token;
     }
 
+    // Initialize pushback manager if not already done
+    if (!pushback_mgr) {
+        init_scanner();
+    }
+
+    // CRITICAL FIX: Skip leading whitespace before tokenizing
+    // This ensures proper word boundary detection for commands like "y=test echo $y"
+    skip_whitespace(src);
+
     if (tok_buf == NULL) {
         tok_bufsize = MAXLINE + 1;
         tok_buf = alloc_str(tok_bufsize, false);
@@ -670,6 +679,20 @@ token_t *tokenize(source_t *src) {
             add_to_buf(nc);
             loop = false;
             break;
+        case ' ':
+        case '\t':
+        case '\r':
+        case '\n':
+            // CRITICAL FIX: Whitespace delimits tokens
+            // If we have accumulated characters, stop here to create the token
+            if (tok_bufindex > 0) {
+                unget_char(src);
+                loop = false;
+                break;
+            }
+            // If no characters accumulated, skip this whitespace and continue
+            // (this should not happen due to skip_whitespace at start of tokenize)
+            break;
         default:
             add_to_buf(nc);
             break;
@@ -680,6 +703,9 @@ token_t *tokenize(source_t *src) {
     if (tok_bufindex == 0) {
         return &eof_token;
     }
+    
+    // CRITICAL FIX: Null-terminate the token buffer before creating token
+    tok_buf[tok_bufindex] = '\0';
 
     token_t *tok = create_token(tok_buf);
     if (!tok) {

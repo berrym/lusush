@@ -20,6 +20,12 @@ static node_t *parse_until_statement(source_t *src);
 static node_t *parse_case_statement(source_t *src);
 static node_t *parse_command_list(source_t *src, token_type_t terminator);
 
+// Forward declarations for new parser architecture
+static node_t *parse_simple_command(source_t *src, token_t *first_tok);
+static bool is_command_delimiter(token_t *tok);
+static bool is_control_structure_keyword(token_t *tok);
+static void add_token_as_child(node_t *cmd, token_t *tok);
+
 // Error recovery context for parser
 static parser_error_context_t error_ctx = {0};
 
@@ -863,4 +869,133 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
     }
     
     return list_node;
+}
+
+/**
+ * New Parser Architecture Functions
+ * These replace the flawed token-by-token parsing with proper command-level parsing
+ */
+
+/**
+ * parse_complete_command:
+ *      Parse a complete command (assignments + command + args) until delimiter
+ *      This is the main entry point for the new parser architecture
+ */
+node_t *parse_complete_command(source_t *src) {
+    skip_whitespace(src);
+    
+    token_t *first_tok = tokenize(src);
+    if (first_tok == &eof_token) {
+        return NULL;
+    }
+    
+    // Check if this is a control structure
+    if (is_control_structure_keyword(first_tok)) {
+        // Handle control structures with existing functions
+        switch (first_tok->type) {
+            case TOKEN_KEYWORD_IF:
+                free_token(first_tok);
+                return parse_if_statement(src);
+            case TOKEN_KEYWORD_FOR:
+                free_token(first_tok);
+                return parse_for_statement(src);
+            case TOKEN_KEYWORD_WHILE:
+                free_token(first_tok);
+                return parse_while_statement(src);
+            case TOKEN_KEYWORD_UNTIL:
+                free_token(first_tok);
+                return parse_until_statement(src);
+            case TOKEN_KEYWORD_CASE:
+                free_token(first_tok);
+                return parse_case_statement(src);
+            default:
+                free_token(first_tok);
+                return NULL;
+        }
+    }
+    
+    // Otherwise, parse a simple command
+    return parse_simple_command(src, first_tok);
+}
+
+/**
+ * parse_simple_command:
+ *      Parse a simple command by collecting all tokens until a command delimiter
+ *      Creates one NODE_COMMAND with all tokens as children
+ */
+static node_t *parse_simple_command(source_t *src, token_t *first_tok) {
+    node_t *cmd = new_node(NODE_COMMAND);
+    if (!cmd) {
+        free_token(first_tok);
+        return NULL;
+    }
+    
+    // Add first token as child
+    add_token_as_child(cmd, first_tok);
+    
+    // Continue tokenizing until command delimiter
+    token_t *tok;
+    while ((tok = tokenize(src)) != &eof_token) {
+        if (is_command_delimiter(tok)) {
+            // Push back delimiter for next command
+            unget_token(tok);
+            break;
+        }
+        
+        // Handle redirection operators specially
+        if (tok->type == TOKEN_LESS || tok->type == TOKEN_GREAT || 
+            tok->type == TOKEN_DGREAT || tok->type == TOKEN_DLESS ||
+            tok->type == TOKEN_CLOBBER) {
+            
+            token_t *redir_tok = tok;
+            token_t *target_tok = tokenize(src);
+            
+            if (target_tok != &eof_token) {
+                node_t *redir = parse_redirection(redir_tok, target_tok);
+                if (redir) {
+                    add_child_node(cmd, redir);
+                }
+                free_token(target_tok);
+            }
+            free_token(redir_tok);
+            continue;
+        }
+        
+        add_token_as_child(cmd, tok);
+    }
+    
+    return cmd;
+}
+
+/**
+ * Helper functions for new parser architecture
+ */
+static bool is_command_delimiter(token_t *tok) {
+    if (!tok) return true;
+    
+    return (tok->type == TOKEN_SEMI ||      // ;
+            tok->type == TOKEN_NEWLINE ||   // \n  
+            tok->type == TOKEN_PIPE ||      // |
+            tok->type == TOKEN_EOF);        // End of input
+}
+
+static bool is_control_structure_keyword(token_t *tok) {
+    if (!tok) return false;
+    
+    return (tok->type == TOKEN_KEYWORD_IF ||
+            tok->type == TOKEN_KEYWORD_FOR ||
+            tok->type == TOKEN_KEYWORD_WHILE ||
+            tok->type == TOKEN_KEYWORD_UNTIL ||
+            tok->type == TOKEN_KEYWORD_CASE);
+}
+
+static void add_token_as_child(node_t *cmd, token_t *tok) {
+    if (!cmd || !tok) return;
+    
+    node_t *word = new_node(NODE_VAR);
+    if (word) {
+        set_node_val_str(word, tok->text);
+        add_child_node(cmd, word);
+    }
+    free_token(tok);
 }
