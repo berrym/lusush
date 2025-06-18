@@ -499,19 +499,14 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
             result.result = EXP_ERROR;
         }
     } else {
-        // Return variable value
-        if (*var_value) {
-            result.expanded = malloc(strlen(var_value) + 1);
-            if (result.expanded) {
-                strcpy(result.expanded, var_value);
-                result.len = strlen(var_value);
-                result.result = EXP_OK;
-            } else {
-                result.result = EXP_ERROR;
-            }
+        // Return variable value (including empty string)
+        result.expanded = malloc(strlen(var_value) + 1);
+        if (result.expanded) {
+            strcpy(result.expanded, var_value);
+            result.len = strlen(var_value);
+            result.result = EXP_OK;
         } else {
-            // Empty or unset variable
-            result.result = EXP_NO_EXPANSION;
+            result.result = EXP_ERROR;
         }
     }
     
@@ -928,10 +923,12 @@ word_t *word_expand(const char *orig_word) {
                 free(exp_result.expanded);
             }
             goto error_cleanup;
-        } else if (exp_result.result == EXP_NO_EXPANSION && consumed == 1) {
-            // No expansion, append original character
-            if (!sb_append_char(sb, *p)) {
-                goto error_cleanup;
+        } else if (exp_result.result == EXP_NO_EXPANSION) {
+            // No expansion, append original characters
+            for (size_t i = 0; i < consumed; i++) {
+                if (!sb_append_char(sb, p[i])) {
+                    goto error_cleanup;
+                }
             }
         }
         

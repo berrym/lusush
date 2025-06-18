@@ -77,6 +77,12 @@ char *search_path(char *fn) {
 }
 
 int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
+    // Validate input
+    if (!argv || !argv[0] || !*argv[0]) {
+        error_message("do_exec_cmd: invalid or empty command");
+        return 1;
+    }
+
     if (strchr(*argv, '/')) {
         execv(*argv, argv);
     } else {
@@ -109,10 +115,10 @@ int do_basic_command(node_t *n) {
         return 0;
     }
 
-    // Set a flag if performing a variable assignment 
-    bool var_assignment = false;
-    if (child && child->val.str && strchr(child->val.str, '=')) {
-        // Check if this looks like a valid assignment (name=value)
+    // Handle variable assignments  
+    
+    // Process any leading variable assignments
+    while (child && child->val.str && strchr(child->val.str, '=')) {
         char *eq = strchr(child->val.str, '=');
         if (eq > child->val.str) {
             // Check if everything before '=' is a valid identifier
@@ -124,8 +130,6 @@ int do_basic_command(node_t *n) {
                 }
             }
             if (valid_name && isalpha(child->val.str[0])) {
-                var_assignment = true;
-                
                 // Perform the assignment
                 *eq = '\0';  // Split the string
                 char *name = child->val.str;
@@ -136,8 +140,19 @@ int do_basic_command(node_t *n) {
                     symtable_entry_setval(entry, value);
                 }
                 *eq = '=';  // Restore the string
+                
+                // Move to next child (skip this assignment)
+                child = child->next_sibling;
+                continue;
             }
         }
+        // Not a valid assignment, treat as regular command
+        break;
+    }
+    
+    // If we only had assignments and no command, we're done
+    if (!child) {
+        return 0;
     }
 
     // Build argv array from variable nodes only
@@ -173,10 +188,11 @@ int do_basic_command(node_t *n) {
         argv[argc] = NULL;
     }
 
-    // If var_assignment flag is set don't execute the command
-    if (var_assignment) {
+    // Check if we have a valid command to execute
+    if (argc == 0 || !argv || !argv[0] || !*argv[0]) {
+        // No command to execute (empty result from expansion or other issues)
         free_argv(argc, argv);
-        return 1;
+        return 0;
     }
 
     // Execute a builtin command
