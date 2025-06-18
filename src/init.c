@@ -34,6 +34,26 @@ static int SHELL_TYPE;
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
 
+// Function to handle shebang processing
+static void process_shebang(FILE *file) {
+    if (!file) return;
+    
+    // Check if the first line starts with #!
+    long pos = ftell(file);
+    char line[256];
+    
+    if (fgets(line, sizeof(line), file) != NULL) {
+        if (strncmp(line, "#!", 2) == 0) {
+            // This is a shebang line - we just consume it and continue
+            // The shebang has already done its job by launching our shell
+            return;
+        }
+    }
+    
+    // Not a shebang line, rewind to beginning
+    fseek(file, pos, SEEK_SET);
+}
+
 int shell_type(void) { return SHELL_TYPE; }
 
 int init(int argc, char **argv, FILE **in) {
@@ -103,6 +123,9 @@ int init(int argc, char **argv, FILE **in) {
             SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL) {
                 error_syscall("error: `init`: fopen");
+            } else {
+                // Process shebang line if present
+                process_shebang(*in);
             }
         }
     } else {
@@ -136,6 +159,11 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_aliases);
     if (shell_type() == NORMAL_SHELL) {
         atexit(free_input_buffers);
+    }
+
+    // Process shebang if the shell is invoked with a script
+    if (shell_type() == NORMAL_SHELL && *in) {
+        process_shebang(*in);
     }
 
     return 0;

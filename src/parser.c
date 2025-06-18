@@ -26,6 +26,20 @@ static bool is_command_delimiter(token_t *tok);
 static bool is_control_structure_keyword(token_t *tok);
 static void add_token_as_child(node_t *cmd, token_t *tok);
 
+// Helper function to skip comments and get the next meaningful token
+static token_t *tokenize_skip_comments(source_t *src) {
+    token_t *tok;
+    do {
+        tok = tokenize(src);
+        if (tok && tok->type == TOKEN_COMMENT) {
+            free_token(tok);
+            continue;
+        }
+        break;
+    } while (true);
+    return tok;
+}
+
 // Error recovery context for parser
 static parser_error_context_t error_ctx = {0};
 
@@ -886,7 +900,7 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
 node_t *parse_complete_command(source_t *src) {
     skip_whitespace(src);
     
-    token_t *first_tok = tokenize(src);
+    token_t *first_tok = tokenize_skip_comments(src);
     
     if (first_tok == &eof_token) {
         return NULL;
@@ -938,7 +952,7 @@ static node_t *parse_simple_command(source_t *src, token_t *first_tok) {
     
     // Continue tokenizing until command delimiter
     token_t *tok;
-    while ((tok = tokenize(src)) != &eof_token) {
+    while ((tok = tokenize_skip_comments(src)) != &eof_token) {
         if (is_command_delimiter(tok)) {
             // Push back delimiter for next command
             unget_token(tok);
@@ -951,7 +965,7 @@ static node_t *parse_simple_command(source_t *src, token_t *first_tok) {
             tok->type == TOKEN_CLOBBER) {
             
             token_t *redir_tok = tok;
-            token_t *target_tok = tokenize(src);
+            token_t *target_tok = tokenize_skip_comments(src);
             
             if (target_tok != &eof_token) {
                 node_t *redir = parse_redirection(redir_tok, target_tok);

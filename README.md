@@ -64,8 +64,37 @@ VAR="hello world"; echo "$VAR"
 for i in 1 2 3; do echo "Number: $i"; done
 ```
 
+**Mixed operators (major achievement):**
+```bash
+echo "test" | grep "test" && echo "found" || echo "not found"
+```
+
+### Testing Current Capabilities
+
+To test current lusush functionality, use the provided test script:
+
+```bash
+# Run current capabilities test
+cat test-current-abilities.sh | ./builddir/lusush
+
+# Note: Direct file execution may have issues, use piped input
+```
+
+The test script demonstrates:
+- Variable assignment and expansion
+- Command substitution with $() syntax  
+- Arithmetic expansion
+- Globbing and pathname expansion
+- Mixed operator expressions (pipes + logical operators)
+
+**Known limitations:**
+- **Limited parameter expansion**: `${var=value}` syntax not implemented
+- **No backtick substitution**: Only `$()` supported, not legacy backticks
+- **Basic echo builtin**: Escape sequences (\n, \t) printed literally
+
 ## Architecture
 
+- **Mixed operator support** - Robust parsing of `cmd | pipe && logical` expressions
 - **Multi-token pushback system** for sophisticated parsing
 - **Unified word expansion** with proper POSIX semantics
 - **Clean separation** between pipeline and logical operator processing

@@ -751,6 +751,28 @@ token_t *tokenize(source_t *src) {
             // If no characters accumulated, skip this whitespace and continue
             // (this should not happen due to skip_whitespace at start of tokenize)
             break;
+        case '#':
+            // Handle comments - read until end of line
+            if (tok_bufindex > 0) {
+                // If we already have a token in progress, put back the # and finish the token
+                unget_char(src);
+                loop = false;
+                break;
+            }
+            
+            // Start a comment token - consume everything until newline or EOF
+            add_to_buf(nc);
+            while ((nc = next_char(src)) > 0 && nc != '\n' && nc != EOF) {
+                add_to_buf(nc);
+            }
+            
+            // If we stopped at a newline, put it back for the next tokenization
+            if (nc == '\n') {
+                unget_char(src);
+            }
+            
+            loop = false;
+            break;
         default:
             add_to_buf(nc);
             break;

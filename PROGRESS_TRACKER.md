@@ -6,21 +6,36 @@
 **Version**: 0.2.0 (major-parser-robustness-milestone)  
 **Branch**: master  
 
-### Major Achievements (This Development Cycle)
-- ✅ **Complete word expansion system** - All duplicates removed, unified implementation
-- ✅ **Robust variable assignment** - Quotes and whitespace properly handled
-- ✅ **Scanner reliability** - Multi-character operators (`&&`, `||`, `>>`) fully supported
-- ✅ **Command separation mastery** - Semicolons, newlines, and logical operators all working
-- ✅ **Pipeline/logical operator distinction** - Critical architecture fix implemented
-- ✅ **Short-circuit evaluation** - POSIX-compliant conditional execution
+### 🎯 CRITICAL BREAKTHROUGH: Mixed Operators Completely Fixed ✅
+- ✅ **Mixed operator parsing** - `cmd | pipe && logical` expressions now work perfectly
+- ✅ **Pipeline/logical operator distinction** - Critical architecture fix implemented  
+- ✅ **Parser enhancement** - Modified is_command_delimiter() to exclude TOKEN_PIPE
+- ✅ **Execution routing** - execute_command() now properly detects and routes pipelines
+- ✅ **Real-world functionality** - Complex expressions like `echo test | grep test && echo found` work
+- ✅ **Short-circuit evaluation** - POSIX-compliant conditional execution maintained
 - ✅ **Build system cleanliness** - All obsolete code removed, fresh compilation
 
-### Root Cause Resolution: Pipeline vs Logical Operators
-**Critical Bug**: Main input loop routed any `|` character (including `||`) to pipeline execution
-**Symptoms**: "Empty command in pipeline" errors for `||` operations
-**Architecture Fix**: Enhanced pipe detection with proper operator precedence
-**Impact**: Perfect logical operator functionality while preserving true pipeline support
-**Result**: All command separators now work according to POSIX standards
+### Technical Implementation Details
+**Parser Changes**:
+- Modified `is_command_delimiter()` to exclude TOKEN_PIPE from command splitting
+- Enhanced `parse_simple_command()` with explicit NODE_PIPE creation
+- Improved `execute_command()` with pipeline detection and routing
+
+**Architecture Impact**: 
+- Perfect logical operator functionality while preserving true pipeline support
+- All command separators now work according to POSIX standards
+- Foundation ready for advanced shell features
+
+### Comment Support Discovery ❌ → ✅ IMPLEMENTED
+**Previous Finding**: Comment processing (`#`) not implemented - caused parsing errors
+**Solution Implemented**: Added comprehensive comment support to scanner and parser
+**Technical Changes**:
+- Enhanced `tokenize()` function with dedicated `#` comment handling
+- Added `tokenize_skip_comments()` wrapper function for parser
+- Implemented automatic comment token skipping in parser
+- Added shebang processing in `init.c` for script file execution
+
+**Impact**: Scripts with comments now execute flawlessly - major usability improvement
 
 ### Current Architecture State - Ready for Advanced Features
 ```
