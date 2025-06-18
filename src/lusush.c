@@ -27,11 +27,11 @@ int main(int argc, char **argv) {
     // Perform startup tasks
     init(argc, argv, &in);
 
-    // Read input one line at a time until user exits
+    // Read input (buffering complete syntactic units) until user exits
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
-        // Read a line of input from the opened stream
-        line = get_input(in);
+        // Read complete command(s) from the opened stream
+        line = get_input_complete(in);
 
         if (line == NULL) {
             exit_flag = true;

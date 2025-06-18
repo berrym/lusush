@@ -6,6 +6,7 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
+#include "../include/scanner.h"
 #include "../include/strings.h"
 
 #include <errno.h>
@@ -130,4 +131,155 @@ char *get_input(FILE *in) {
     }
 
     return buf;
+}
+
+// Function to check if a command line is syntactically complete
+// Returns 1 if complete, 0 if needs more input, -1 if error
+static int is_command_complete(const char *input) {
+    if (!input || !*input) {
+        return 1; // Empty input is complete
+    }
+    
+    // Create a temporary source to scan the tokens
+    source_t temp_src;
+    temp_src.buf = (char *)input;
+    temp_src.bufsize = strlen(input);
+    temp_src.pos = INIT_SRC_POS;
+    temp_src.pos_old = INIT_SRC_POS;
+    temp_src.curline = 1;
+    temp_src.curchar = 1;
+    temp_src.curlinestart = 0;
+    temp_src.wstart = 0;
+    
+    int control_depth = 0;
+    int brace_depth = 0;
+    int paren_depth = 0;
+    int if_count = 0, for_count = 0, while_count = 0, until_count = 0, case_count = 0;
+    token_t *tok;
+    
+    // Scan through all tokens
+    while ((tok = tokenize(&temp_src)) && tok != &eof_token) {
+        if (!tok || !tok->text) {
+            if (tok) free_token(tok);
+            continue;
+        }
+        
+        switch (tok->type) {
+            case TOKEN_KEYWORD_IF:
+                if_count++;
+                control_depth++;
+                break;
+            case TOKEN_KEYWORD_FI:
+                if (if_count > 0) {
+                    if_count--;
+                    control_depth--;
+                }
+                break;
+            case TOKEN_KEYWORD_FOR:
+            case TOKEN_KEYWORD_WHILE: 
+            case TOKEN_KEYWORD_UNTIL:
+                if (tok->type == TOKEN_KEYWORD_FOR) for_count++;
+                else if (tok->type == TOKEN_KEYWORD_WHILE) while_count++;
+                else if (tok->type == TOKEN_KEYWORD_UNTIL) until_count++;
+                control_depth++;
+                break;
+            case TOKEN_KEYWORD_DONE:
+                if (for_count > 0) {
+                    for_count--;
+                    control_depth--;
+                } else if (while_count > 0) {
+                    while_count--;
+                    control_depth--;
+                } else if (until_count > 0) {
+                    until_count--;
+                    control_depth--;
+                }
+                break;
+            case TOKEN_KEYWORD_CASE:
+                case_count++;
+                control_depth++;
+                break;
+            case TOKEN_KEYWORD_ESAC:
+                if (case_count > 0) {
+                    case_count--;
+                    control_depth--;
+                }
+                break;
+            case TOKEN_KEYWORD_LBRACE: // {
+                brace_depth++;
+                break;
+            case TOKEN_KEYWORD_RBRACE: // }
+                brace_depth--;
+                break;
+            case TOKEN_LEFT_PAREN:
+                paren_depth++;
+                break;
+            case TOKEN_RIGHT_PAREN:
+                paren_depth--;
+                break;
+            default:
+                break;
+        }
+        
+        free_token(tok);
+    }
+    
+    // Command is complete if all structures are closed
+    return (control_depth == 0 && brace_depth == 0 && paren_depth == 0) ? 1 : 0;
+}
+
+// Enhanced get_input that buffers complete syntactic units
+char *get_input_complete(FILE *in) {
+    static char *accumulated_input = NULL;
+    static size_t accumulated_size = 0;
+    char *line = get_input(in);
+
+    if (!line) {
+        // EOF or error - return any accumulated input
+        if (accumulated_input && *accumulated_input) {
+            char *result = accumulated_input;
+            accumulated_input = NULL;
+            accumulated_size = 0;
+            return result;
+        }
+        return NULL;
+    }
+
+    // If we have accumulated input, append the new line
+    if (accumulated_input) {
+        size_t line_len = strlen(line);
+        size_t needed = accumulated_size + line_len + 2; // +1 for newline, +1 for null
+        char *tmp = realloc(accumulated_input, needed);
+        if (!tmp) {
+            error_syscall("error: realloc in get_input_complete");
+            free(accumulated_input);
+            accumulated_input = NULL;
+            accumulated_size = 0;
+            return line; // Return what we have
+        }
+        accumulated_input = tmp;
+        strcat(accumulated_input, "\n");
+        strcat(accumulated_input, line);
+        accumulated_size = needed - 1;
+    } else {
+        // First line - start accumulating
+        accumulated_size = strlen(line) + 1;
+        accumulated_input = malloc(accumulated_size);
+        if (!accumulated_input) {
+            error_syscall("error: malloc in get_input_complete");
+            return line; // Return what we have
+        }
+        strcpy(accumulated_input, line);
+    }
+
+    // Check if the accumulated input is complete
+    if (is_command_complete(accumulated_input)) {
+        char *result = accumulated_input;
+        accumulated_input = NULL;
+        accumulated_size = 0;
+        return result;
+    }
+
+    // Need more input - recursively call to get next line
+    return get_input_complete(in);
 }
