@@ -18,6 +18,7 @@ static node_t *parse_for_statement(source_t *src);
 static node_t *parse_while_statement(source_t *src);
 static node_t *parse_until_statement(source_t *src);
 static node_t *parse_case_statement(source_t *src);
+static node_t *parse_command_list(source_t *src, token_type_t terminator);
 
 // Error recovery context for parser
 static parser_error_context_t error_ctx = {0};
@@ -226,18 +227,208 @@ node_t *parse_basic_command(token_t *tok) {
 }
 
 /**
+ * parse_basic_command_enhanced:
+ *      Enhanced version of parse_basic_command with better nesting and error recovery
+ */
+node_t *parse_basic_command_enhanced(token_t *tok) {
+    if (tok == NULL) {
+        return NULL;
+    }
+
+    node_t *cmd = new_node(NODE_COMMAND);
+    if (cmd == NULL) {
+        free_token(tok);
+        return NULL;
+    }
+
+    source_t *src = tok->src;
+    bool first_word = true;
+    int paren_depth = 0;
+
+    do {
+        if (*tok->text == '\n') {
+            free_token(tok);
+            break;
+        }
+
+        // Handle parentheses for subshells and command grouping
+        if (tok->type == TOKEN_LEFT_PAREN) {
+            paren_depth++;
+            // For now, just add as a word - subshell parsing can be enhanced later
+            node_t *word = new_node(NODE_VAR);
+            if (word) {
+                set_node_val_str(word, tok->text);
+                add_child_node(cmd, word);
+            }
+            free_token(tok);
+            if ((tok = tokenize(src)) == &eof_token) {
+                break;
+            }
+            continue;
+        }
+        
+        if (tok->type == TOKEN_RIGHT_PAREN) {
+            if (paren_depth > 0) {
+                paren_depth--;
+                node_t *word = new_node(NODE_VAR);
+                if (word) {
+                    set_node_val_str(word, tok->text);
+                    add_child_node(cmd, word);
+                }
+            }
+            free_token(tok);
+            if ((tok = tokenize(src)) == &eof_token) {
+                break;
+            }
+            continue;
+        }
+
+        // Stop at control structure keywords that shouldn't be part of basic commands
+        if (tok->type == TOKEN_KEYWORD_THEN || tok->type == TOKEN_KEYWORD_ELSE ||
+            tok->type == TOKEN_KEYWORD_FI || tok->type == TOKEN_KEYWORD_DO ||
+            tok->type == TOKEN_KEYWORD_DONE || tok->type == TOKEN_KEYWORD_ELIF) {
+            // Don't consume these tokens - they belong to control structures
+            break;
+        }
+
+        // Handle semicolon as command terminator (unless we're inside parentheses)
+        if (tok->type == TOKEN_SEMI && paren_depth == 0) {
+            free_token(tok);
+            break;
+        }
+
+        // Handle pipe operator - just add pipe marker  
+        if (tok->type == TOKEN_PIPE) {
+            node_t *pipe_node = new_node(NODE_PIPE);
+            add_child_node(cmd, pipe_node);
+            free_token(tok);
+            if ((tok = tokenize(src)) == &eof_token) {
+                break;
+            }
+            first_word = true; // Reset for next command in pipeline
+            continue;
+        }
+
+        // Handle redirection operators
+        if (tok->type == TOKEN_LESS || tok->type == TOKEN_GREAT || 
+            tok->type == TOKEN_DGREAT || tok->type == TOKEN_DLESS ||
+            tok->type == TOKEN_CLOBBER) {
+            
+            token_t *redir_tok = tok;
+            free_token(tok);
+            
+            // Get the target filename/fd
+            if ((tok = tokenize(src)) == &eof_token) {
+                free_token(redir_tok);
+                break;
+            }
+            
+            node_t *redir = parse_redirection(redir_tok, tok);
+            if (redir != NULL) {
+                add_child_node(cmd, redir);
+            }
+            
+            free_token(redir_tok);
+            free_token(tok);
+            if ((tok = tokenize(src)) == &eof_token) {
+                break;
+            }
+            continue;
+        }
+
+        // Handle regular words
+        node_t *word = new_node(NODE_VAR);
+        if (word == NULL) {
+            free_node_tree(cmd);
+            free_token(tok);
+            return NULL;
+        }
+
+        // Expand only the first word as an alias (POSIX behavior)
+        char *expanded = NULL;
+        if (first_word) {
+            expanded = expand_first_word_alias(tok->text);
+            first_word = false;
+            
+            // If the alias expanded, tokenize and add all parts
+            if (expanded && strcmp(expanded, tok->text) != 0) {
+                char *token_start = expanded;
+                bool first_token = true;
+                
+                while (*token_start) {
+                    // Skip leading whitespace
+                    while (*token_start && isspace(*token_start)) {
+                        token_start++;
+                    }
+                    
+                    if (!*token_start) break;
+                    
+                    // Find end of token
+                    char *token_end = token_start;
+                    while (*token_end && !isspace(*token_end)) {
+                        token_end++;
+                    }
+                    
+                    // Create a word node for this token
+                    size_t token_len = token_end - token_start;
+                    char *token_str = malloc(token_len + 1);
+                    if (token_str) {
+                        strncpy(token_str, token_start, token_len);
+                        token_str[token_len] = '\0';
+                        
+                        if (first_token) {
+                            set_node_val_str(word, token_str);
+                            add_child_node(cmd, word);
+                            first_token = false;
+                        } else {
+                            node_t *alias_word = new_node(NODE_VAR);
+                            if (alias_word) {
+                                set_node_val_str(alias_word, token_str);
+                                add_child_node(cmd, alias_word);
+                            }
+                        }
+                        free(token_str);
+                    }
+                    
+                    token_start = token_end;
+                }
+                
+                free(expanded);
+                free_token(tok);
+                if ((tok = tokenize(src)) == &eof_token) {
+                    break;
+                }
+                continue;
+            }
+        } else {
+            expanded = strdup(tok->text);
+        }
+        
+        set_node_val_str(word, expanded);
+        free(expanded);
+        add_child_node(cmd, word);
+        free_token(tok);
+        
+    } while ((tok = tokenize(src)) != &eof_token);
+
+    return cmd;
+}
+
+/**
  * parse_command:
  *      Parse a token into a new command node.
  */
 node_t *parse_command(token_t *tok) {
     // skip newline and ; operators
-    while (tok->type == TOKEN_NEWLINE || tok->type == TOKEN_SEMI) {
+    while (tok && (tok->type == TOKEN_NEWLINE || tok->type == TOKEN_SEMI)) {
         /* save the start of this line */
         tok->src->wstart = tok->src->pos;
+        free_token(tok);
         tok = tokenize(tok->src);
     }
 
     if (tok == NULL || tok->type == TOKEN_EOF) {
+        if (tok) free_token(tok);
         return NULL;
     }
 
@@ -512,16 +703,8 @@ static node_t *parse_for_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(for_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse for loop body");
@@ -533,12 +716,6 @@ static node_t *parse_for_statement(source_t *src) {
     
     // Expect 'done'
     tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
     if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
         parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
                     "expected 'done' to close for loop");
@@ -597,16 +774,8 @@ static node_t *parse_while_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(while_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse while loop body");
@@ -616,23 +785,7 @@ static node_t *parse_while_statement(source_t *src) {
     
     add_child_node(while_node, body);
     
-    // Expect 'done'
-    tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
-    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
-        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
-                    "expected 'done' to close while loop");
-        if (tok) free_token(tok);
-        free_node_tree(while_node);
-        return NULL;
-    }
-    
-    free_token(tok);
+    // 'done' is already consumed by parse_command_list
     return while_node;
 }
 
@@ -682,16 +835,8 @@ static node_t *parse_until_statement(source_t *src) {
     }
     free_token(tok);
     
-    // Parse body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        parser_error(&error_ctx, src, UNEXPECTED_EOF, ERROR_RECOVERABLE,
-                    "expected command after 'do'");
-        free_node_tree(until_node);
-        return NULL;
-    }
-    
-    node_t *body = parse_basic_command(tok);
+    // Parse body as command list until 'done'
+    node_t *body = parse_command_list(src, TOKEN_KEYWORD_DONE);
     if (!body) {
         parser_error(&error_ctx, src, SYNTAX_ERROR, ERROR_RECOVERABLE,
                     "failed to parse until loop body");
@@ -701,23 +846,7 @@ static node_t *parse_until_statement(source_t *src) {
     
     add_child_node(until_node, body);
     
-    // Expect 'done'
-    tok = tokenize(src);
-    while (tok && tok != &eof_token && 
-           (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
-        free_token(tok);
-        tok = tokenize(src);
-    }
-    
-    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
-        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
-                    "expected 'done' to close until loop");
-        if (tok) free_token(tok);
-        free_node_tree(until_node);
-        return NULL;
-    }
-    
-    free_token(tok);
+    // 'done' is already consumed by parse_command_list
     return until_node;
 }
 
@@ -853,4 +982,42 @@ static node_t *parse_case_statement(source_t *src) {
     
     free_token(tok);
     return case_node;
+}
+
+/**
+ * parse_command_list:
+ *      Parse a sequence of commands until a terminator token is found
+ *      Used for parsing loop bodies and other compound constructs
+ */
+static node_t *parse_command_list(source_t *src, token_type_t terminator) {
+    node_t *list_node = new_node(NODE_COMMAND);
+    if (!list_node) {
+        return NULL;
+    }
+    
+    while (true) {
+        // Skip whitespace and separators
+        token_t *tok = tokenize(src);
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_SEMI || tok->type == TOKEN_NEWLINE)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
+        
+        // Check for terminator
+        if (!tok || tok == &eof_token || tok->type == terminator) {
+            if (tok && tok->type == terminator) {
+                free_token(tok);  // Consume the terminator
+            }
+            break;
+        }
+        
+        // Parse a command
+        node_t *cmd = parse_basic_command(tok);
+        if (cmd) {
+            add_child_node(list_node, cmd);
+        }
+    }
+    
+    return list_node;
 }

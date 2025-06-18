@@ -7,6 +7,7 @@
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
+#include "../include/scanner.h"
 
 #include <errno.h>
 #include <stdbool.h>

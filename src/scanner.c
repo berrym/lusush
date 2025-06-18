@@ -11,6 +11,17 @@
 #include <string.h>
 #include <sys/types.h>
 
+// Quote state tracking for multi-line parsing
+typedef struct quote_state {
+    char active_quote;     // Current active quote (' " ` or \0)
+    bool in_escape;        // True if next char is escaped
+    bool needs_more_input; // True if we need more input to complete
+    int brace_depth;       // Depth of ${} or $() nesting
+    int paren_depth;       // Depth of () nesting  
+} quote_state_t;
+
+static quote_state_t quote_state = {0};
+
 // the shell command language keywords
 char *keywords[] = {
     // POSIX keywords
@@ -721,3 +732,89 @@ void set_current_token(token_t *tok) { cur_tok = tok; }
 void set_previous_token(token_t *tok) { prev_tok = tok; }
 
 void free_tok_buf(void) { free_alloced_str(tok_buf); }
+
+/*
+ * reset_quote_state:
+ *      Reset the quote state to initial state
+ */
+void reset_quote_state(void) {
+    quote_state.active_quote = '\0';
+    quote_state.in_escape = false;
+    quote_state.needs_more_input = false;
+    quote_state.brace_depth = 0;
+    quote_state.paren_depth = 0;
+}
+
+/*
+ * update_quote_state:
+ *      Update quote state based on current character
+ */
+static void update_quote_state(char c) {
+    if (quote_state.in_escape) {
+        quote_state.in_escape = false;
+        return;
+    }
+    
+    switch (c) {
+        case '\\':
+            if (quote_state.active_quote != '\'') {  // No escaping in single quotes
+                quote_state.in_escape = true;
+            }
+            break;
+            
+        case '\'':
+        case '"':
+        case '`':
+            if (quote_state.active_quote == '\0') {
+                quote_state.active_quote = c;
+            } else if (quote_state.active_quote == c) {
+                quote_state.active_quote = '\0';
+            }
+            break;
+            
+        case '{':
+            if (quote_state.active_quote == '\0') {
+                quote_state.brace_depth++;
+            }
+            break;
+            
+        case '}':
+            if (quote_state.active_quote == '\0' && quote_state.brace_depth > 0) {
+                quote_state.brace_depth--;
+            }
+            break;
+            
+        case '(':
+            if (quote_state.active_quote == '\0') {
+                quote_state.paren_depth++;
+            }
+            break;
+            
+        case ')':
+            if (quote_state.active_quote == '\0' && quote_state.paren_depth > 0) {
+                quote_state.paren_depth--;
+            }
+            break;
+    }
+    
+    // Check if we need more input
+    quote_state.needs_more_input = (quote_state.active_quote != '\0' || 
+                                   quote_state.brace_depth > 0 || 
+                                   quote_state.paren_depth > 0);
+}
+
+/*
+ * is_line_complete:
+ *      Check if the current line is syntactically complete
+ */
+bool is_line_complete(const char *line) {
+    if (!line) return true;
+    
+    reset_quote_state();
+    
+    for (const char *p = line; *p; p++) {
+        update_quote_state(*p);
+    }
+    
+    return !quote_state.needs_more_input;
+}

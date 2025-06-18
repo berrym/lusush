@@ -124,4 +124,8 @@ char peek_char(source_t *src);
 void skip_whitespace(source_t *src);
 void free_tok_buf(void);
 
+// Enhanced quote and multi-line support
+void reset_quote_state(void);
+bool is_line_complete(const char *line);
+
 #endif
