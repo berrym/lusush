@@ -41,6 +41,7 @@ src = ['src/builtins/alias.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
+       'src/token_pushback.c',
        'src/vars.c',
        'src/wordexp.c',
       ]

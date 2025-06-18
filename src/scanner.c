@@ -3,6 +3,7 @@
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/strings.h"
+#include "../include/token_pushback.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -69,6 +70,9 @@ token_t eof_token = {
 
 static token_t *cur_tok = NULL;
 static token_t *prev_tok = NULL;
+
+// Token pushback manager for proper multi-token lookahead
+static token_pushback_manager_t *pushback_mgr = NULL;
 
 bool is_seperator_tok(token_type_t type) {
     switch (type) {
@@ -519,6 +523,19 @@ void free_token(token_t *tok) {
 token_t *tokenize(source_t *src) {
     bool loop = true;
 
+    // Initialize pushback manager if not already done
+    if (!pushback_mgr) {
+        init_scanner();
+    }
+
+    // Check for pushed back tokens first
+    if (!is_pushback_empty(pushback_mgr)) {
+        token_t *tok = pop_token(pushback_mgr);
+        if (tok) {
+            return tok;
+        }
+    }
+
     if (src == NULL || src->buf == NULL || !src->bufsize) {
         return &eof_token;
     }
@@ -642,9 +659,7 @@ token_t *tokenize(source_t *src) {
             break;
         case '&':
         case ';':
-        case '(':
-        case ')':
-            // if an '&', ';', '(', or ')' operator delimits the current token, delimit it
+            // if an '&' or ';' operator delimits the current token, delimit it
             if (tok_bufindex > 0) {
                 unget_char(src);
                 loop = false;
@@ -655,69 +670,151 @@ token_t *tokenize(source_t *src) {
             add_to_buf(nc);
             loop = false;
             break;
-        case ' ':
-        case '\t':
-            if (tok_bufindex > 0) {
-                loop = false;
-            }
-            break;
-        case '\n':
-            if (tok_bufindex > 0) {
-                unget_char(src);
-            } else {
-                add_to_buf(nc);
-            }
-            loop = false;
-            break;
         default:
             add_to_buf(nc);
             break;
         }
+    } while (loop && (nc = next_char(src)) > 0);
 
-        if (!loop) {
-            break;
-        }
-    } while ((nc = next_char(src)) != EOF);
-
-    eof_token.lineno = src->curline;
-    eof_token.charno = src->curchar;
-    eof_token.linestart = src->curlinestart;
-    eof_token.src = src;
-
+    // create token from buffer
     if (tok_bufindex == 0) {
         return &eof_token;
     }
 
-    if ((size_t)tok_bufindex >= tok_bufsize) {
-        tok_bufindex--;
-    }
-
-    tok_buf[tok_bufindex] = '\0';
-
     token_t *tok = create_token(tok_buf);
-    if (tok == NULL) {
-        error_message("error: `tokenize`: failed to create new token");
+    if (!tok) {
         return &eof_token;
     }
 
-    set_token_type(tok);
-
-    tok->lineno = line;
-    tok->charno = chr;
-    tok->src = src;
-    tok->linestart = linestart;
-
     cur_tok = tok;
-
     return tok;
 }
 
-token_t *get_current_token(void) { return cur_tok ? cur_tok : &eof_token; }
+// Token pushback mechanism - supports multiple tokens
+void unget_token(token_t *tok) {
+    if (!tok) {
+        return;
+    }
+    
+    // Initialize pushback manager if not already done
+    if (!pushback_mgr) {
+        init_scanner();
+    }
+    
+    if (pushback_token(pushback_mgr, tok) != 0) {
+        error_message("warning: failed to push back token, may cause parsing issues");
+    }
+}
 
-token_t *get_previous_token(void) { return prev_tok; }
+// Free the token buffer and cleanup scanner resources
+void free_tok_buf(void) {
+    if (tok_buf) {
+        free_str(tok_buf);
+        tok_buf = NULL;
+        tok_bufsize = 0;
+        tok_bufindex = 0;
+    }
+    
+    // Clean up pushback manager
+    if (pushback_mgr) {
+        destroy_pushback_manager(pushback_mgr);
+        pushback_mgr = NULL;
+    }
+}
 
-void set_current_token(token_t *tok) { cur_tok = tok; }
+// Initialize the scanner subsystem
+void init_scanner(void) {
+    if (!pushback_mgr) {
+        pushback_mgr = create_pushback_manager(DEFAULT_PUSHBACK_CAPACITY);
+        if (!pushback_mgr) {
+            error_abort("init_scanner: failed to create pushback manager");
+        }
+    }
+}
 
-void set_previous_token(token_t *tok) { prev_tok = tok; }
+// Advanced token lookahead functions
 
-void free_tok_buf(void) { free_alloced_str(tok_buf); }
+// Peek ahead at the next token without consuming it
+token_t *peek_next_token(source_t *src) {
+    if (!src) {
+        return NULL;
+    }
+    
+    token_t *tok = tokenize(src);
+    if (tok) {
+        unget_token(tok);
+    }
+    return tok;
+}
+
+// Peek ahead multiple tokens
+token_t *peek_token_ahead(source_t *src, size_t offset) {
+    if (!src || !pushback_mgr) {
+        return NULL;
+    }
+    
+    // If we already have enough tokens in pushback, just peek
+    if (offset < pushback_count(pushback_mgr)) {
+        return peek_token(pushback_mgr, offset);
+    }
+    
+    // We need to read more tokens
+    size_t tokens_needed = offset + 1 - pushback_count(pushback_mgr);
+    token_t **temp_tokens = calloc(tokens_needed, sizeof(token_t *));
+    if (!temp_tokens) {
+        return NULL;
+    }
+    
+    // Read the additional tokens we need
+    for (size_t i = 0; i < tokens_needed; i++) {
+        temp_tokens[i] = tokenize(src);
+        if (!temp_tokens[i] || temp_tokens[i] == &eof_token) {
+            // Push back what we read and cleanup
+            for (size_t j = 0; j < i; j++) {
+                if (temp_tokens[j] && temp_tokens[j] != &eof_token) {
+                    unget_token(temp_tokens[j]);
+                }
+            }
+            token_t *result = temp_tokens[i]; // Save result before freeing
+            free(temp_tokens);
+            return result; // Return EOF or NULL
+        }
+    }
+    
+    // Push back all tokens in reverse order
+    for (size_t i = tokens_needed; i > 0; i--) {
+        unget_token(temp_tokens[i - 1]);
+    }
+    
+    token_t *result = peek_token(pushback_mgr, offset);
+    free(temp_tokens);
+    return result;
+}
+
+// Check if the next N tokens match a specific pattern
+int match_token_sequence(source_t *src, token_type_t *types, size_t count) {
+    if (!src || !types || count == 0) {
+        return 0;
+    }
+    
+    for (size_t i = 0; i < count; i++) {
+        token_t *tok = peek_token_ahead(src, i);
+        if (!tok || tok == &eof_token || tok->type != types[i]) {
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+
+// Consume N tokens (useful after successful pattern matching)
+void consume_tokens(source_t *src, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        token_t *tok = tokenize(src);
+        if (tok && tok != &eof_token) {
+            free_token(tok);
+        } else {
+            break;
+        }
+    }
+}

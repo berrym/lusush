@@ -524,7 +524,7 @@ static node_t *parse_for_statement(source_t *src) {
     
     add_child_node(for_node, body);
     
-    // Now expect 'done' (parse_command_list doesn't consume the terminator)
+    // Expect 'done' (parse_command_list pushes it back with unget_token)
     tok = tokenize(src);
     if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
         parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
@@ -595,7 +595,17 @@ static node_t *parse_while_statement(source_t *src) {
     
     add_child_node(while_node, body);
     
-    // 'done' is already consumed by parse_command_list
+    // Expect 'done' (parse_command_list pushes it back with unget_token)
+    tok = tokenize(src);
+    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'done' to close while loop");
+        if (tok) free_token(tok);
+        free_node_tree(while_node);
+        return NULL;
+    }
+    
+    free_token(tok);
     return while_node;
 }
 
@@ -656,7 +666,17 @@ static node_t *parse_until_statement(source_t *src) {
     
     add_child_node(until_node, body);
     
-    // 'done' is already consumed by parse_command_list
+    // Expect 'done' (parse_command_list pushes it back with unget_token)
+    tok = tokenize(src);
+    if (!tok || tok->type != TOKEN_KEYWORD_DONE) {
+        parser_error(&error_ctx, src, EXPECTED_TOKEN, ERROR_RECOVERABLE,
+                    "expected 'done' to close until loop");
+        if (tok) free_token(tok);
+        free_node_tree(until_node);
+        return NULL;
+    }
+    
+    free_token(tok);
     return until_node;
 }
 
@@ -798,6 +818,7 @@ static node_t *parse_case_statement(source_t *src) {
  * parse_command_list:
  *      Parse a sequence of commands until a terminator token is found
  *      Used for parsing loop bodies and other compound constructs
+ *      This function does NOT consume the terminator token (uses unget_token)
  */
 static node_t *parse_command_list(source_t *src, token_type_t terminator) {
     node_t *list_node = new_node(NODE_COMMAND);
@@ -816,14 +837,15 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
         
         // Check for terminator or EOF
         if (!tok || tok == &eof_token) {
+            if (tok && tok != &eof_token) {
+                free_token(tok);
+            }
             break;
         }
         
         if (tok->type == terminator) {
-            // Don't consume the terminator - let the caller handle it
-            // We need to "unget" this token, but since we don't have that mechanism,
-            // we'll store it in a simple way
-            free_token(tok);
+            // Found terminator - push it back for the caller to consume
+            unget_token(tok);
             break;
         }
         
@@ -833,6 +855,9 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
             add_child_node(list_node, cmd);
         } else {
             // If we can't parse a command, break to avoid infinite loop
+            if (tok && tok != &eof_token) {
+                free_token(tok);
+            }
             break;
         }
     }

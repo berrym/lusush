@@ -120,8 +120,16 @@ token_type_t get_keyword_toktype(int index);
 char next_char(source_t *src);
 char prev_char(source_t *src);
 void unget_char(source_t *src);
+void unget_token(token_t *tok);
 char peek_char(source_t *src);
 void skip_whitespace(source_t *src);
+void init_scanner(void);
 void free_tok_buf(void);
+
+// Advanced token lookahead functions
+token_t *peek_next_token(source_t *src);
+token_t *peek_token_ahead(source_t *src, size_t offset);
+int match_token_sequence(source_t *src, token_type_t *types, size_t count);
+void consume_tokens(source_t *src, size_t count);
 
 #endif
