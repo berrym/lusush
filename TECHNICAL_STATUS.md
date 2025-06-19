@@ -2,9 +2,9 @@
 
 ## Current State Summary
 
-**Version**: 0.4.0  
+**Version**: 0.4.1  
 **Date**: June 19, 2025  
-**Major Achievement**: POSIX Parser Migration Phase 1 Complete
+**Major Achievement**: POSIX Parser Migration Phase 2 Complete
 
 ## Architecture Overview
 
@@ -42,21 +42,23 @@ Command Input -> Complexity Analysis -> Parser Selection -> Execution
 
 ## Parser Migration Status
 
+### Phase 2: Pipelines (COMPLETE)
+**Status**: Production ready  
+**Coverage**: All pipeline commands (`cmd1 | cmd2`, `ls | head -3`)  
+**Parser**: New POSIX parser  
+**Execution**: `execute_new_parser_pipeline()` adapter  
+
 ### Phase 1: Simple Commands (COMPLETE)
 **Status**: Production ready  
 **Coverage**: All simple commands (`echo hello`, `pwd`, `ls -la`)  
 **Parser**: New POSIX parser  
 **Execution**: `execute_new_parser_command()` adapter  
 
-### Phase 2: Pipelines (PLANNED)
-**Status**: Design phase  
-**Coverage**: Commands with pipes (`cmd1 | cmd2`)  
-**Current**: Existing pipeline system  
-**Target**: Extend new parser to handle pipeline grammar  
-
-### Phase 3: Control Structures (PLANNED) 
-**Status**: Analysis phase  
+### Phase 3: Control Structures (NEXT)
+**Status**: Ready for implementation  
 **Coverage**: `for`, `while`, `if` statements  
+**Current**: Old parser  
+**Target**: Migrate to new parser with POSIX grammar  
 **Current**: Old parser  
 **Target**: Migrate to new parser with POSIX grammar  
 
@@ -76,7 +78,8 @@ Command Input -> Complexity Analysis -> Parser Selection -> Execution
 ### Main Execution Flow
 - **`main()`** in `src/lusush.c`: Shell initialization and main loop
 - **`analyze_command_complexity()`**: Determines parser routing
-- **`parse_and_execute_simple()`**: New parser execution path
+- **`parse_and_execute_simple()`**: New parser execution path for simple commands
+- **`parse_and_execute_pipeline()`**: New parser execution path for pipelines
 - **`parse_and_execute()`**: Legacy parser execution path
 
 ### Parser Functions
@@ -85,7 +88,8 @@ Command Input -> Complexity Analysis -> Parser Selection -> Execution
 - **`parse_complete_command()`**: Legacy parser entry point
 
 ### Execution Functions  
-- **`execute_new_parser_command()`**: Adapter for new parser AST
+- **`execute_new_parser_command()`**: Adapter for new parser AST (simple commands)
+- **`execute_new_parser_pipeline()`**: Adapter for new parser AST (pipelines)
 - **`execute_node()`**: Legacy execution dispatcher
 - **`execute_command()`**: Command execution with old parser AST
 

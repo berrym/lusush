@@ -187,5 +187,6 @@ int setup_redirection(node_t *redir);
 int setup_redirections(node_t *cmd);
 int execute_node(node_t *node);
 int execute_new_parser_command(node_t *cmd);
+int execute_new_parser_pipeline(node_t *pipe_node);
 
 #endif

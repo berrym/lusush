@@ -2,13 +2,19 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.4.0 - POSIX Parser Migration Phase 1 Complete
+## Version 0.4.1 - POSIX Parser Migration Phase 2 Complete
 
-Lusush has successfully completed **Phase 1 of the POSIX parser migration**, implementing a pragmatic dual-parser architecture that maintains full compatibility while introducing modern POSIX-compliant parsing for simple commands.
+Lusush has successfully completed **Phase 2 of the POSIX parser migration**, extending the dual-parser architecture to include full pipeline support with the new POSIX-compliant parser.
 
 ## POSIX Parser Migration Progress
 
-### Phase 1 Complete - Simple Command Migration
+### Phase 2 Complete - Pipeline Migration
+- **Pipeline POSIX Compliance**: All pipeline commands now use new POSIX parser  
+- **Multi-Command Support**: 2, 3, and N-command pipelines fully functional
+- **AST-Based Execution**: Proper pipeline AST structure with execution adapters
+- **Performance Optimized**: Efficient process management and pipe handling
+
+### Phase 1 Complete - Simple Command Migration  
 - **New POSIX Parser**: Handles simple commands with full POSIX compliance
 - **Intelligent Command Routing**: Complexity analysis routes commands to appropriate parser
 - **Execution Adapter**: Bridge between new parser AST and existing execution engine
@@ -16,14 +22,14 @@ Lusush has successfully completed **Phase 1 of the POSIX parser migration**, imp
 
 #### Current Parser Routing
 - **Simple Commands** (NEW POSIX parser): `echo hello`, `pwd`, `ls -la`
-- **Pipelines** (existing system): `echo test | cat`, `ls | head -3` 
+- **Pipelines** (NEW POSIX parser): `echo test | cat`, `ls | head -3`, `cmd1 | cmd2 | cmd3`
 - **Control Structures** (old parser): `for i in a b; do echo $i; done`
 - **Logical Operators** (old parser): `echo success && echo second`
 
 ### Migration Roadmap
 - **Phase 1** (COMPLETE): Simple command migration with dual parser architecture
-- **Phase 2** (NEXT): Pipeline migration to new parser
-- **Phase 3** (PLANNED): Control structure migration to new parser
+- **Phase 2** (COMPLETE): Pipeline migration to new parser
+- **Phase 3** (NEXT): Control structure migration to new parser  
 - **Phase 4** (PLANNED): Advanced feature migration (logical operators, parameter expansion)
 - **Phase 5** (PLANNED): Complete migration, remove old parser
 
@@ -43,6 +49,7 @@ Lusush has successfully completed **Phase 1 of the POSIX parser migration**, imp
 - **Pipeline Processing** with proper logical operator handling
 - **Complete Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var:+alternate}`, etc.)
 - **POSIX Simple Commands** (via new parser with full standards compliance)
+- **POSIX Pipelines** (via new parser with full standards compliance)
 
 ### Known Limitations
 - **Nested Control Structures**: Parsing issues cause hangs, should be avoided
@@ -52,7 +59,13 @@ Lusush has successfully completed **Phase 1 of the POSIX parser migration**, imp
 
 ### Recent Major Achievements (June 2025)
 
-#### Parser Migration Phase 1 (CURRENT)
+#### Parser Migration Phase 2 (CURRENT)
+- **Pipeline POSIX Compliance**: All pipeline commands migrated to new POSIX parser
+- **Multi-Command Pipelines**: Full support for complex pipeline constructs  
+- **AST-Based Execution**: Proper pipeline AST processing with execution adapters
+- **Performance Optimization**: Efficient process management and resource handling
+
+#### Parser Migration Phase 1 (PREVIOUS)
 - **Dual Parser Architecture**: Intelligent command complexity analysis with appropriate parser routing
 - **POSIX Simple Commands**: All simple commands now use new POSIX-compliant parser
 - **Execution Adapter**: Seamless bridge between new parser AST and existing execution engine

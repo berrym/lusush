@@ -122,6 +122,56 @@ static int parse_and_execute_simple(source_t *src) {
     return exit_status;
 }
 
+/**
+ * parse_and_execute_pipeline: Parse and execute pipeline using new POSIX parser
+ */
+int parse_and_execute_pipeline(source_t *src) {
+    if (!src) {
+        return 0;
+    }
+    
+    // Create new parser instance
+    parser_t *parser = parser_create(src, NULL);
+    if (!parser) {
+        fprintf(stderr, "DEBUG: Failed to create new parser\n");
+        return 0;
+    }
+    
+    // Parse the command (should be a pipeline)
+    node_t *cmd = parser_parse(parser);
+    if (!cmd) {
+        if (getenv("NEW_PARSER_DEBUG")) {
+            fprintf(stderr, "DEBUG: New parser returned NULL\n");
+        }
+        parser_destroy(parser);
+        return 0;  // Empty command or EOF
+    }
+    
+    // Debug: Show parser routing (optional)
+    if (getenv("NEW_PARSER_DEBUG")) {
+        fprintf(stderr, "DEBUG: Parsing pipeline command\n");
+        fprintf(stderr, "DEBUG: Parsed node type: %d\n", cmd->type);
+        if (cmd->val.str) {
+            fprintf(stderr, "DEBUG: Node value: '%s'\n", cmd->val.str);
+        }
+    }
+    
+    // Execute the command - check if it's actually a pipeline
+    int exit_status;
+    if (cmd->type == NODE_PIPE) {
+        exit_status = execute_new_parser_pipeline(cmd);
+    } else {
+        // Not a pipeline, execute as simple command
+        exit_status = execute_new_parser_command(cmd);
+    }
+    
+    // Clean up
+    free_node_tree(cmd);
+    parser_destroy(parser);
+    
+    return exit_status;
+}
+
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
@@ -178,13 +228,13 @@ int main(int argc, char **argv) {
         
         switch (complexity) {
             case CMD_SIMPLE:
-                // Use new parser for simple commands (gradual migration phase 1)
+                // Use new parser for simple commands (Phase 1 complete)
                 parse_and_execute_simple(&src);
                 break;
                 
             case CMD_PIPELINE:
-                // Use existing pipeline execution for now (TODO: migrate to new parser)
-                execute_pipeline_simple(line);
+                // Use new parser for pipelines (Phase 2)
+                parse_and_execute_pipeline(&src);
                 break;
                 
             case CMD_COMPLEX:

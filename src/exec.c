@@ -23,6 +23,11 @@
 // Forward declarations
 int execute_pipeline_from_node(node_t *node);
 int execute_new_parser_command(node_t *cmd);
+int execute_new_parser_pipeline(node_t *pipe_node);
+static int count_pipeline_commands(node_t *node);
+static int extract_pipeline_commands(node_t *node, node_t **commands, int max_commands);
+static int extract_pipeline_commands_recursive(node_t *node, node_t **commands, int max_commands, int current_index);
+static int execute_new_parser_pipeline_commands(node_t **commands, int cmd_count);
 
 /**
  * execute_new_parser_command: Adapter for new parser's AST structure
@@ -1702,4 +1707,206 @@ int execute_node(node_t *node) {
             // Fall back to old implementation for individual VAR nodes
             return do_basic_command(node);
     }
+}
+
+/**
+ * execute_new_parser_pipeline: Execute pipeline from new parser AST
+ * 
+ * The new parser creates pipeline nodes with the structure:
+ *   NODE_PIPE (left_child: cmd1, right_child: cmd2)
+ * 
+ * For multi-command pipelines, they are left-associative:
+ *   cmd1 | cmd2 | cmd3 becomes:
+ *   NODE_PIPE(NODE_PIPE(cmd1, cmd2), cmd3)
+ */
+int execute_new_parser_pipeline(node_t *pipe_node) {
+    if (!pipe_node || pipe_node->type != NODE_PIPE) {
+        return 0;
+    }
+    
+    // Check if we're in syntax check mode - if so, don't execute
+    if (is_syntax_check_mode()) {
+        return 0;
+    }
+    
+    // Convert the pipeline AST to a linear array of commands
+    // First, count the commands in the pipeline
+    int cmd_count = count_pipeline_commands(pipe_node);
+    if (cmd_count <= 0) {
+        return 0;
+    }
+    
+    // Extract commands from the pipeline AST
+    node_t **commands = malloc(cmd_count * sizeof(node_t*));
+    if (!commands) {
+        return 1;
+    }
+    
+    int extracted = extract_pipeline_commands(pipe_node, commands, cmd_count);
+    if (extracted != cmd_count) {
+        free(commands);
+        return 1;
+    }
+    
+    // Execute the pipeline using the same logic as the existing pipeline system
+    int result = execute_new_parser_pipeline_commands(commands, cmd_count);
+    
+    free(commands);
+    return result;
+}
+
+/**
+ * count_pipeline_commands: Count total commands in a pipeline AST
+ */
+static int count_pipeline_commands(node_t *node) {
+    if (!node) return 0;
+    
+    if (node->type == NODE_PIPE) {
+        return count_pipeline_commands(node->first_child) + 
+               count_pipeline_commands(node->first_child ? node->first_child->next_sibling : NULL);
+    } else {
+        return 1; // Single command
+    }
+}
+
+/**
+ * extract_pipeline_commands: Extract commands from pipeline AST into linear array
+ */
+static int extract_pipeline_commands(node_t *node, node_t **commands, int max_commands) {
+    if (!node || !commands) {
+        return 0;
+    }
+    
+    return extract_pipeline_commands_recursive(node, commands, max_commands, 0);
+}
+
+/**
+ * extract_pipeline_commands_recursive: Helper function for pipeline command extraction
+ */
+static int extract_pipeline_commands_recursive(node_t *node, node_t **commands, int max_commands, int current_index) {
+    if (!node || current_index >= max_commands) {
+        return current_index;
+    }
+    
+    if (node->type == NODE_PIPE) {
+        // Left-associative: process left subtree first, then right
+        current_index = extract_pipeline_commands_recursive(node->first_child, commands, max_commands, current_index);
+        current_index = extract_pipeline_commands_recursive(
+            node->first_child ? node->first_child->next_sibling : NULL, 
+            commands, max_commands, current_index);
+    } else {
+        // Single command - add to array
+        if (current_index < max_commands) {
+            commands[current_index] = node;
+            current_index++;
+        }
+    }
+    
+    return current_index;
+}
+
+/**
+ * execute_new_parser_pipeline_commands: Execute array of command nodes as pipeline
+ */
+static int execute_new_parser_pipeline_commands(node_t **commands, int cmd_count) {
+    if (!commands || cmd_count <= 0) {
+        return 0;
+    }
+    
+    // Special case: single command (no actual pipeline)
+    if (cmd_count == 1) {
+        return execute_new_parser_command(commands[0]);
+    }
+    
+    // Create pipes
+    int (*pipes)[2] = malloc((cmd_count - 1) * sizeof(int[2]));
+    if (!pipes) {
+        return 1;
+    }
+    
+    for (int i = 0; i < cmd_count - 1; i++) {
+        if (pipe(pipes[i]) == -1) {
+            // Clean up pipes created so far
+            for (int j = 0; j < i; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            free(pipes);
+            error_return("error: creating pipe");
+            return 1;
+        }
+    }
+    
+    // Create child processes for each command
+    pid_t *pids = malloc(cmd_count * sizeof(pid_t));
+    if (!pids) {
+        // Clean up pipes
+        for (int i = 0; i < cmd_count - 1; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+        }
+        free(pipes);
+        return 1;
+    }
+    
+    for (int i = 0; i < cmd_count; i++) {
+        pids[i] = fork();
+        
+        if (pids[i] == -1) {
+            error_return("error: fork");
+            // Clean up
+            for (int j = 0; j < i; j++) {
+                kill(pids[j], SIGTERM);
+            }
+            free(pids);
+            for (int j = 0; j < cmd_count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            free(pipes);
+            return 1;
+        } else if (pids[i] == 0) {
+            // Child process
+            
+            // Set up input redirection
+            if (i > 0) {
+                dup2(pipes[i-1][0], STDIN_FILENO);
+            }
+            
+            // Set up output redirection
+            if (i < cmd_count - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+            
+            // Close all pipe file descriptors in child
+            for (int j = 0; j < cmd_count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            
+            // Execute the command
+            int exit_code = execute_new_parser_command(commands[i]);
+            exit(exit_code);
+        }
+    }
+    
+    // Parent process: close all pipe file descriptors
+    for (int i = 0; i < cmd_count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    free(pipes);
+    
+    // Wait for all children and get exit status of last command
+    int last_exit_status = 0;
+    for (int i = 0; i < cmd_count; i++) {
+        int status;
+        waitpid(pids[i], &status, 0);
+        if (i == cmd_count - 1) { // Last command determines pipeline exit status
+            last_exit_status = WEXITSTATUS(status);
+        }
+    }
+    
+    free(pids);
+    return last_exit_status;
 }
