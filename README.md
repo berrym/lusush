@@ -99,9 +99,27 @@ The test script demonstrates:
 - Mixed operator expressions (pipes + logical operators)
 
 **Known limitations:**
+- **🚨 CRITICAL: POSIX command-line options** - Missing essential options like `-c`, `-e`, `-x`, `-s`, `-i`
 - **Advanced parameter expansion**: Pattern substitution `${var/pattern/replacement}` not implemented
 - **Here documents**: `<<EOF` syntax not supported
 - **Advanced redirection**: Some complex redirection patterns may need enhancement
+- **Job control**: Background processes and job management not implemented
+
+### Command-Line Options Gap
+
+**CURRENTLY SUPPORTED**: Only `-h/--help` and `-v/--version` (non-POSIX convenience options)
+
+**MISSING CRITICAL POSIX OPTIONS**:
+- **`-c command_string`** - Execute command string (essential for automation)
+- **`-s`** - Read commands from standard input
+- **`-i`** - Interactive mode
+- **`-l`** - Login shell behavior
+- **`-e`** - Exit on error (`set -e`)
+- **`-x`** - Trace execution (`set -x`)
+- **`-n`** - Syntax check mode (`set -n`)
+- **`-u`** - Unset variable error (`set -u`)
+
+This represents a significant POSIX compliance gap that affects system integration and automation usage.
 
 ## Architecture
 
@@ -114,20 +132,30 @@ The test script demonstrates:
 
 ## Development Status
 
-Version 0.2.0 represents a major milestone with all core parsing functionality complete and ready for advanced features.
+Version 0.2.1 represents a major milestone with comprehensive POSIX parameter expansion, enhanced echo, and robust mixed operator parsing complete.
 
-### What Works
-- All basic command separators and logical operators
+### What Works  
+- All basic command separators and logical operators (&&, ||, ;)
 - Variable assignment and expansion with proper quote handling
-- Control structures with nested support
+- Control structures with nested support (if/then/else, for, while, until, case)
 - Simple and complex pipeline processing
 - File redirection and basic I/O operations
+- **Complete POSIX parameter expansion** - All `${var...}` patterns implemented
+- **Enhanced echo builtin** - Escape sequences enabled by default
+- **Command substitution** - Both `$()` and backtick syntax working
+- **Mixed operator parsing** - `cmd | pipe && logical` expressions work perfectly
 
-### Next Development Phase
-- Complex mixed operator expressions
-- Advanced file descriptor management
-- Background job control
-- Enhanced POSIX compliance features
+### Critical Development Priority
+**POSIX Command-Line Options Implementation** - The most critical missing feature for system integration:
+- Implement `-c command_string` for automation and script execution
+- Add shell behavior flags (`-e`, `-x`, `-n`, `-u`) for robust scripting
+- Complete POSIX option syntax (`-o`/`+o`) for full compliance
+
+### Future Development Phases
+- Advanced parameter expansion completion (pattern substitution)
+- Advanced file descriptor management and here documents
+- Background job control and process management
+- Enhanced POSIX compliance testing and validation
 
 ## License
 

@@ -35,14 +35,39 @@
 - **Pipeline execution**: Single and multi-stage pipes functional
 - **Logical operators**: `&&` and `||` with proper short-circuit evaluation
 
-### **Missing POSIX Features Discovered** ✅ COMPREHENSIVE UPDATE - MAJOR GAPS CLOSED
+### **Missing POSIX Features Discovered** ✅ COMPREHENSIVE UPDATE - CRITICAL GAPS IDENTIFIED
 1. ✅ **Parameter expansion syntax**: `${var=value}` assignment - IMPLEMENTED
 2. ✅ **Parameter expansion patterns**: `${var:-default}`, `${var:+alternate}`, etc. - IMPLEMENTED
 3. ✅ **Enhanced echo builtin**: Escape sequences (\n, \t) - IMPLEMENTED (enabled by default)
 4. ✅ **Command substitution**: Both `$()` and backtick syntax - FULLY FUNCTIONAL
-5. ❌ **Advanced parameter expansions**: Pattern substitution `${var/pattern/replacement}` - still missing
-6. ❌ **Here documents**: `<<EOF` syntax - not implemented
-7. ❌ **Advanced redirection**: File descriptor manipulation - limited support
+5. ❌ **CRITICAL: POSIX command-line options** - Major compliance gap discovered
+6. ❌ **Advanced parameter expansions**: Pattern substitution `${var/pattern/replacement}` - still missing
+7. ❌ **Here documents**: `<<EOF` syntax - not implemented
+8. ❌ **Advanced redirection**: File descriptor manipulation - limited support
+
+### **🚨 NEW CRITICAL DISCOVERY: POSIX Command-Line Options Gap**
+
+**CURRENT STATUS**: lusush only supports `-h/--help` and `-v/--version` (non-POSIX convenience options)
+
+**MISSING MANDATORY POSIX OPTIONS**:
+- **`-c command_string`** - Execute command string (CRITICAL - most common shell usage)
+- **`-s`** - Read commands from standard input explicitly
+- **`-i`** - Force interactive mode regardless of input source
+- **`-l`** - Make shell act as login shell (read profile files)
+
+**MISSING POSIX SET OPTIONS** (can be command-line or `set` builtin):
+- **`-e`** - Exit immediately on command failure (`set -e`)
+- **`-f`** - Disable pathname expansion/globbing (`set -f`)
+- **`-h`** - Remember command locations in hash table (`set -h`)
+- **`-m`** - Enable job control (`set -m`)
+- **`-n`** - Read commands but don't execute - syntax check (`set -n`)
+- **`-u`** - Treat unset variables as error (`set -u`)
+- **`-v`** - Print shell input lines as read - verbose (`set -v`)
+- **`-x`** - Print commands and arguments as executed - trace (`set -x`)
+- **`-o option`** - Set named option
+- **`+o option`** - Unset named option
+
+**IMPACT**: This represents a major POSIX compliance gap affecting basic shell usage patterns and automation.
 
 ### **Major Features Added** ✅
 1. **Comment processing**: `#` comments now fully supported - IMPLEMENTED
@@ -59,28 +84,52 @@
 
 These findings confirm our development priorities are correctly focused on missing POSIX features rather than core functionality regressions.  
 
-## 🎯 **CRITICAL PRIORITY 1: Enhanced Builtin Commands**
+## 🚨 **CRITICAL PRIORITY 1: POSIX Command-Line Options (URGENT)**
 
-### **CURRENT ACHIEVEMENT**: POSIX Parameter Expansion Complete ✅
-**MAJOR MILESTONE**: All essential POSIX parameter expansion patterns now implemented!
-- ✅ **`${var=value}`**: Assign value if variable is unset
-- ✅ **`${var:-default}`**: Use default if variable is unset or empty (no assignment)
-- ✅ **`${var:=default}`**: Assign default if variable is unset or empty
-- ✅ **`${var:+alternate}`**: Use alternate if variable is set and non-empty
-- ✅ **`${var-default}`**: Use default if variable is unset (but not if empty)
-- ✅ **`${var+alternate}`**: Use alternate if variable is set (even if empty)
-- ✅ **`${#var}`**: Get length of variable (previously implemented)
+### **CURRENT ACHIEVEMENT**: Core Features Complete, but Major CLI Gap Discovered ❌
+**CRITICAL FINDING**: lusush lacks essential POSIX command-line options that are fundamental to shell usage
 
-**Real-World Impact**: Shell scripts can now use standard POSIX parameter expansion patterns for robust variable handling.
+**MISSING CRITICAL OPTIONS**:
+- **`-c command_string`** - Execute command string (used by scripts, automation, system tools)
+- **`-s`** - Explicit stdin reading mode
+- **`-i`** - Interactive mode control
+- **`-l`** - Login shell behavior
 
-### **NEXT FOCUS**: Enhanced Builtin Commands
-The parameter expansion foundation is now complete. Next priority is improving builtin command functionality:
+**MISSING SHELL BEHAVIOR OPTIONS**:
+- **`-e`** - Exit on error (essential for robust scripts)  
+- **`-x`** - Trace execution (critical for debugging)
+- **`-n`** - Syntax check mode (essential for validation)
+- **`-u`** - Unset variable error (important for script safety)
+- **`-v`** - Verbose mode, **`-f`** - Disable globbing
+- **`-h`** - Command hashing, **`-m`** - Job control
 
-**Immediate Next Steps**:
-1. **Enhanced echo builtin** - Process escape sequences like `\n`, `\t`, `\r`
-2. **Improved printf builtin** - Full POSIX printf format support
-3. **Complete test builtin** - All POSIX test operators and file tests
-4. **Backtick command substitution** - Legacy `command` syntax support
+### **IMMEDIATE IMPLEMENTATION PLAN** (TOP PRIORITY):
+
+**Phase 1 - Critical Command-Line Options (Week 1)**:
+1. **Implement `-c command_string`** - Most critical missing feature for automation
+2. **Add `-s` and `-i` flags** - Complete basic option parsing framework
+3. **Update argument parsing in src/init.c** - Expand option handling beyond current -h/-v
+4. **Test compatibility** - Verify standard usage patterns work (`lusush -c "echo test"`)
+
+**Phase 2 - Shell Behavior Options (Week 2)**:
+1. **Add global shell state management** - Create shell_options struct to track flags
+2. **Implement `set` builtin** - Control shell behavior options dynamically
+3. **Add `-e`, `-x`, `-n`, `-u` support** - Core behavior flags that affect execution
+4. **Integrate with execution system** - Apply flags to command execution in src/exec.c
+
+**Phase 3 - Complete POSIX Option Set (Week 3)**:
+1. **Add remaining options** - `-v`, `-f`, `-h`, `-m`, `-l` for full POSIX compliance
+2. **Implement `-o`/`+o` syntax** - Named option control (`set -o errexit`)
+3. **Add option inheritance** - Subshell option propagation
+4. **Comprehensive testing** - Validate all POSIX option behaviors
+
+**RATIONALE**: Command-line options are fundamental to shell usage. The `-c` option especially is used by:
+- System scripts and automation tools (cron, systemd, etc.)
+- Other programs launching shell commands (make, build systems)
+- Interactive command execution (ssh, remote shells)
+- Shell testing and validation (CI/CD pipelines)
+
+**IMPACT**: This gap significantly affects lusush's usability as a POSIX-compliant shell and prevents it from being used as a system shell replacement.
 
 ## ✅ **MAJOR ARCHITECTURAL ACHIEVEMENTS**
 - **Multi-character operator scanning**: Lookahead logic for `&&`, `||`, `>>`, `<<`, etc.
@@ -92,7 +141,38 @@ The parameter expansion foundation is now complete. Next priority is improving b
 - **Control structures**: for/while/until loops work with all variable expansion patterns
 - **Clean codebase**: All obsolete and duplicate code removed, professional structure
 
-## 🚀 **PRIORITY 2: Advanced File Operations (WEEKS 2-3)**
+## 🚀 **PRIORITY 2: Advanced Parameter Expansion (WEEKS 4-5)**
+
+### Why This Completes Our Word Expansion System
+- Pattern substitution builds on our robust parameter expansion foundation
+- Advanced expansions use the same infrastructure we've perfected
+- Completion of POSIX parameter expansion specification
+
+### Implementation Targets
+1. **Pattern Substitution**
+   ```bash
+   ${var/pattern/replacement}     # Replace first match
+   ${var//pattern/replacement}    # Replace all matches
+   ${var/#pattern/replacement}    # Replace if matches beginning
+   ${var/%pattern/replacement}    # Replace if matches end
+   ```
+
+2. **Substring Operations**
+   ```bash
+   ${var:offset}                  # Substring from offset
+   ${var:offset:length}           # Substring with length
+   ${#var}                        # String length (already implemented)
+   ```
+
+3. **Case Modification (bash extensions)**
+   ```bash
+   ${var^}                        # Uppercase first character
+   ${var^^}                       # Uppercase all characters
+   ${var,}                        # Lowercase first character
+   ${var,,}                       # Lowercase all characters
+   ```
+
+## 🎯 **PRIORITY 3: Advanced File Operations (WEEKS 6-7)**
 
 ### Why This Builds on Our Foundation
 - File descriptor management requires robust parsing (which we now have)
@@ -123,7 +203,7 @@ The parameter expansion foundation is now complete. Next priority is improving b
    command <&3               # read from opened descriptor
    ```
 
-## 🎯 **PRIORITY 3: Background Process Management (WEEKS 4-6)**
+## 🎯 **PRIORITY 4: Background Process Management (WEEKS 8-10)**
 
 ### Why This Is The Natural Next Step
 - Background processes are fundamental shell functionality
@@ -152,7 +232,7 @@ The parameter expansion foundation is now complete. Next priority is improving b
    - Child process cleanup
    - Proper cleanup of terminated jobs
 
-## 🔧 **PRIORITY 4: Robust Testing & Validation (ONGOING)**
+## 🔧 **PRIORITY 5: Robust Testing & Validation (ONGOING)**
 
 ### Why This Is Essential Now
 - Need to validate our complex operator fixes
@@ -178,19 +258,25 @@ The parameter expansion foundation is now complete. Next priority is improving b
    - Profile complex expression parsing overhead
    - Memory usage in deep expression trees
 
-## 📋 **IMPLEMENTATION SCHEDULE - POST-FOUNDATION**
+## 📋 **UPDATED IMPLEMENTATION SCHEDULE - POSIX COMPLIANCE FOCUS**
 
-### Weeks 1-2 (Complex Expression Mastery)
-- **Week 1**: Mixed operator precedence and complex pipeline/logical combinations
-- **Week 2**: Parenthetical grouping and advanced expression error handling
+### Weeks 1-3 (CRITICAL: POSIX Command-Line Options)
+- **Week 1**: `-c`, `-s`, `-i`, `-l` options - fundamental shell invocation modes
+- **Week 2**: Shell behavior flags (`-e`, `-x`, `-n`, `-u`) and `set` builtin implementation
+- **Week 3**: Complete POSIX option set (`-v`, `-f`, `-h`, `-m`) and `-o`/`+o` syntax
 
-### Weeks 3-4 (Advanced File Operations)  
-- **Week 3**: Advanced redirection patterns (`2>&1`, `&>`, `>>`)
-- **Week 4**: Here documents and file descriptor management
+### Weeks 4-5 (Advanced Parameter Expansion Completion)  
+- **Week 4**: Pattern substitution (`${var/pattern/replacement}`) and substring operations
+- **Week 5**: Case modification extensions and parameter expansion edge cases
 
-### Weeks 5-6 (Background Process Management)
-- **Week 5**: Background execution framework and basic job management
-- **Week 6**: Advanced job control, signal handling, and cleanup
+### Weeks 6-7 (Advanced File Operations)
+- **Week 6**: Advanced redirection patterns (`2>&1`, `&>`, `>>`) and file descriptor management
+- **Week 7**: Here documents and process substitution implementation
+
+### Weeks 8-10 (Background Process Management)
+- **Week 8**: Background execution framework and basic job management
+- **Week 9**: Advanced job control, signal handling, and cleanup
+- **Week 10**: Job control integration and comprehensive testing
 
 ## 🎯 **SUCCESS METRICS - Updated for Current State**
 
@@ -201,19 +287,25 @@ The parameter expansion foundation is now complete. Next priority is improving b
 - [x] Multi-character operators (`>>`, `<<`) are properly tokenized
 - [x] Variable expansion preserves quotes and handles field splitting correctly
 
-### Week 1-2 Targets (Complex Expressions)
-- [ ] `cmd1 | cmd2 && cmd3 || cmd4` works with proper precedence
-- [ ] `(cmd1 || cmd2) && cmd3` supports parenthetical grouping
-- [ ] Complex nested expressions parse correctly
-- [ ] Error messages for malformed expressions are helpful
+### Week 1-3 Targets (CRITICAL: POSIX Command-Line Options)
+- [ ] `-c command_string` works for script execution and automation
+- [ ] `-s`, `-i`, `-l` flags control shell behavior appropriately
+- [ ] `set -e`, `set -x`, `set -n`, `set -u` behavior flags functional
+- [ ] Complete POSIX option compatibility validates against standard test suites
 
-### Weeks 3-4 Targets (Advanced I/O)
+### Week 4-5 Targets (Advanced Parameter Expansion)
+- [ ] `${var/pattern/replacement}` pattern substitution works correctly
+- [ ] `${var:offset:length}` substring operations functional
+- [ ] Case modification extensions work as expected
+- [ ] All parameter expansion edge cases handled properly
+
+### Weeks 6-7 Targets (Advanced I/O)
 - [ ] `command 2>&1 >file.log` redirection patterns work
 - [ ] Here documents with variable expansion function
 - [ ] File descriptor management (`exec 3< file`) supported
 - [ ] Advanced redirection edge cases handled robustly
 
-### Weeks 5-6 Targets (Job Control)
+### Weeks 8-10 Targets (Job Control)
 - [ ] Background jobs (`command &`) execute and are tracked
 - [ ] Job control builtins (`jobs`, `fg`, `bg`) functional  
 - [ ] Signal handling and process cleanup work correctly
