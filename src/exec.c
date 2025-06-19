@@ -118,6 +118,11 @@ int execute_command(node_t *cmd) {
         return 0;
     }
     
+    // Check if we're in syntax check mode - if so, don't execute
+    if (is_syntax_check_mode()) {
+        return 0;
+    }
+    
     // First check if this command contains pipes - if so, handle as pipeline
     node_t *child = cmd->first_child;
     bool has_pipe = false;
@@ -216,6 +221,10 @@ int execute_command(node_t *cmd) {
                     w2 = w2->next;
                 }
                 free_all_words(w);
+            } else {
+                // Word expansion failed - this could be due to unset variable error (-u)
+                free_argv(argc, argv);
+                return 1;
             }
         }
         child = child->next_sibling;
@@ -229,6 +238,16 @@ int execute_command(node_t *cmd) {
         return 0;
     }
     
+    // Trace command execution if -x flag is set
+    if (should_trace_execution()) {
+        fprintf(stderr, "+");
+        for (int i = 0; i < argc; i++) {
+            fprintf(stderr, " %s", argv[i]);
+        }
+        fprintf(stderr, "\n");
+        fflush(stderr);
+    }
+    
     // Execute builtin commands
     for (size_t i = 0; i < builtins_count; i++) {
         if (strcmp(argv[0], builtins[i].name) == 0) {
@@ -238,6 +257,13 @@ int execute_command(node_t *cmd) {
             }
             int exit_code = builtins[i].func(argc, argv);
             last_exit_status = exit_code;
+            
+            // Check if we should exit on error (-e flag)
+            if (should_exit_on_error() && exit_code != 0) {
+                fprintf(stderr, "lusush: exiting due to error (exit code %d)\n", exit_code);
+                exit(exit_code);
+            }
+            
             free_argv(argc, argv);
             return exit_code;
         }
@@ -278,6 +304,12 @@ int execute_command(node_t *cmd) {
             last_exit_status = 128 + WTERMSIG(status);
         } else {
             last_exit_status = 1;
+        }
+        
+        // Check if we should exit on error (-e flag)
+        if (should_exit_on_error() && last_exit_status != 0) {
+            fprintf(stderr, "lusush: exiting due to error (exit code %d)\n", last_exit_status);
+            exit(last_exit_status);
         }
     }
 
@@ -692,7 +724,8 @@ int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count) {
     for (int i = 0; i < cmd_count; i++) {
         if (cmd_argc[i] == 0 || !cmd_args[i] || !cmd_args[i][0]) {
             error_message("Empty command in pipeline");
-            return 0;
+            // In syntax check mode, return proper error code for syntax errors
+            return is_syntax_check_mode() ? 2 : 1;
         }
     }
     

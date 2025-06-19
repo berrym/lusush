@@ -85,8 +85,43 @@ typedef enum {
     NO_WORD_EXPAND,
 } BOOL_SHELL_OPTS;
 
+// POSIX shell options structure
+typedef struct shell_options {
+    // Command-line invocation modes
+    bool command_mode;          // -c flag: execute command string
+    char *command_string;       // -c argument: command to execute
+    bool stdin_mode;            // -s flag: read from stdin
+    bool interactive;           // -i flag: force interactive mode
+    bool login_shell;           // -l flag: login shell behavior
+    
+    // Shell behavior flags
+    bool exit_on_error;         // -e flag: exit on command failure
+    bool trace_execution;       // -x flag: trace command execution
+    bool syntax_check;          // -n flag: syntax check only
+    bool unset_error;           // -u flag: error on unset variables
+    bool verbose;               // -v flag: print input lines
+    bool no_globbing;           // -f flag: disable pathname expansion
+    bool hash_commands;         // -h flag: command hashing
+    bool job_control;           // -m flag: enable job control
+} shell_options_t;
+
+// Global shell options
+extern shell_options_t shell_opts;
+
 void init_shell_opts(void);
 void setopt(int argc, char **argv);
+
+// POSIX option management functions
+void init_posix_options(void);
+bool is_posix_option_set(char option);
+bool should_exit_on_error(void);
+bool should_trace_execution(void);
+bool is_syntax_check_mode(void);
+bool should_error_unset_vars(void);
+bool is_verbose_mode(void);
+bool is_globbing_disabled(void);
+void print_command_trace(const char *command);
+int builtin_set(char **args);
 
 // struct to represent the words resulting from word expansion
 typedef struct word {

@@ -98,6 +98,9 @@ int init(int argc, char **argv, FILE **in) {
     }
 
     init_shell_opts();
+    
+    // Initialize POSIX shell options with defaults
+    init_posix_options();
 
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
@@ -172,12 +175,12 @@ int init(int argc, char **argv, FILE **in) {
 static int parse_opts(int argc, char **argv) {
     // next option
     int nopt = 0;
-    // string of valid short options
-    const char *sopts = "hv";
+    // string of valid short options - include all POSIX options
+    const char *sopts = "hVc:silexnuvfm";
     // array describing valid long options
     const struct option lopts[] = {
         {"help",    0, NULL, 'h'},
-        {"version", 0, NULL, 'v'},
+        {"version", 0, NULL, 'V'},
         {  NULL,    0, NULL,   0}
     };
 
@@ -188,11 +191,59 @@ static int parse_opts(int argc, char **argv) {
         case 'h':
             usage(EXIT_SUCCESS);
             break;
-        case 'v':
+        case 'V':
             printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
             printf("%s\n", LUSUSH_DESCRIPTION);
             printf("Copyright (c) 2025. Licensed under MIT License.\n");
             exit(EXIT_SUCCESS);
+            break;
+        case 'c':
+            // Execute command string
+            shell_opts.command_mode = true;
+            shell_opts.command_string = strdup(optarg);
+            if (!shell_opts.command_string) {
+                error_abort("failed to allocate memory for command string");
+            }
+            break;
+        case 's':
+            // Read commands from standard input
+            shell_opts.stdin_mode = true;
+            break;
+        case 'i':
+            // Force interactive mode
+            shell_opts.interactive = true;
+            break;
+        case 'l':
+            // Login shell behavior
+            shell_opts.login_shell = true;
+            break;
+        case 'e':
+            // Exit immediately on command failure
+            shell_opts.exit_on_error = true;
+            break;
+        case 'x':
+            // Trace command execution
+            shell_opts.trace_execution = true;
+            break;
+        case 'n':
+            // Syntax check mode - read but don't execute
+            shell_opts.syntax_check = true;
+            break;
+        case 'u':
+            // Treat unset variables as error
+            shell_opts.unset_error = true;
+            break;
+        case 'v':
+            // Verbose mode - print input lines as read
+            shell_opts.verbose = true;
+            break;
+        case 'f':
+            // Disable pathname expansion (globbing)
+            shell_opts.no_globbing = true;
+            break;
+        case 'm':
+            // Enable job control
+            shell_opts.job_control = true;
             break;
         case '?':
             usage(EXIT_FAILURE);
@@ -211,9 +262,24 @@ static void usage(int err) {
     printf("A POSIX-compliant shell with modern features\n\n");
     printf("Options:\n");
     printf("  -h, --help       Show this help message and exit\n");
-    printf("  -v, --version    Show version information and exit\n");
+    printf("  -V, --version    Show version information and exit\n");
+    printf("  -c command       Execute command string and exit\n");
+    printf("  -s               Read commands from standard input\n");
+    printf("  -i               Force interactive mode\n");
+    printf("  -l               Act as login shell\n");
+    printf("  -e               Exit immediately on command failure (set -e)\n");
+    printf("  -x               Trace command execution (set -x)\n");
+    printf("  -n               Syntax check mode - read but don't execute (set -n)\n");
+    printf("  -u               Treat unset variables as error (set -u)\n");
+    printf("  -v               Verbose mode - print input lines (set -v)\n");
+    printf("  -f               Disable pathname expansion (set -f)\n");
+    printf("  -m               Enable job control (set -m)\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
+    printf("\nShell Options:\n");
+    printf("  Use 'set -o option' or 'set +o option' to control shell behavior\n");
+    printf("  Available options: errexit, xtrace, noexec, nounset, verbose,\n");
+    printf("                     noglob, hashall, monitor\n");
     printf("\nFor more information, see the manual or documentation.\n");
     exit(err);
 }

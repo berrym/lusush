@@ -507,6 +507,21 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
         var_value = var_exists ? entry->val : "";
     }
     
+    // Check for unset variable error (-u option)
+    if (!var_exists && is_posix_option_set('u') && !param_expansion_op) {
+        error_message("unset variable: %s", actual_var_name);
+        result.result = EXP_ERROR;
+        // Clean up allocated memory before returning
+        if (param_expansion_op) {
+            free(param_expansion_op);
+        }
+        if (actual_var_name != var_name) {
+            free(actual_var_name);
+        }
+        free(var_name);
+        return result;
+    }
+    
     // Handle parameter expansion operations
     if (param_expansion_op) {
         char *op = param_expansion_op;

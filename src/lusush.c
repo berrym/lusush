@@ -31,6 +31,26 @@ int main(int argc, char **argv) {
     // Perform startup tasks
     init(argc, argv, &in);
 
+    // Handle command mode (-c option)
+    if (shell_opts.command_mode && shell_opts.command_string) {
+        // Print the command if verbose mode is enabled
+        if (shell_opts.verbose) {
+            fprintf(stderr, "%s\n", shell_opts.command_string);
+        }
+        
+        // Execute the command string and exit
+        source_t src;
+        src.buf = shell_opts.command_string;
+        src.bufsize = strlen(shell_opts.command_string);
+        src.pos = INIT_SRC_POS;
+        
+        int exit_status = parse_and_execute(&src);
+        
+        // Clean up and exit
+        free(shell_opts.command_string);
+        exit(exit_status);
+    }
+
     // Read input (buffering complete syntactic units) until user exits
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
@@ -92,6 +112,8 @@ int main(int argc, char **argv) {
 }
 
 int parse_and_execute(source_t *src) {
+    int last_exit_status = 0;  // Initialize to 0 (success)
+    
     while (true) {
         skip_whitespace(src);
         
@@ -103,7 +125,7 @@ int parse_and_execute(source_t *src) {
         }
 
         // Execute the parsed command using the appropriate handler
-        int last_exit_status = execute_node(cmd);
+        last_exit_status = execute_node(cmd);
         
         free_node_tree(cmd);
         
@@ -147,7 +169,7 @@ int parse_and_execute(source_t *src) {
         }
     }
 
-    return 1;
+    return last_exit_status;  // Return the exit status of the last command
 }
 
 /**

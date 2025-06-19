@@ -42,6 +42,7 @@ builtin builtins[] = {
     {     "eval",      "evaluate arguments",      bin_eval},
     {     "true",    "return success status",      bin_true},
     {    "false",    "return failure status",     bin_false},
+    {      "set",       "set shell options",       bin_set},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -765,4 +766,12 @@ int bin_true(int argc, char **argv) {
 int bin_false(int argc, char **argv) {
     (void)argc; (void)argv;
     return 1;
+}
+
+/**
+ * bin_set:
+ *      Manage shell options and behavior flags
+ */
+int bin_set(int argc, char **argv) {
+    return builtin_set(argv);
 }
