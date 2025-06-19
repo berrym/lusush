@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1197,14 +1198,36 @@ int do_case_clause(node_t *node) {
         if (pattern_node->val_type == VAL_STR) {
             char *pattern = pattern_node->val.str;
             
-            // Simple pattern matching (could be enhanced with fnmatch)
+            // POSIX case pattern matching using fnmatch
+            // Supports: * (any string), ? (any char), [abc] (char sets), [a-z] (ranges)
             bool match = false;
-            if (strcmp(pattern, "*") == 0) {
-                match = true;  // Wildcard matches everything
-            } else if (strcmp(pattern, word) == 0) {
-                match = true;  // Exact match
+            
+            // Handle multiple patterns separated by | (pipe)
+            char *pattern_copy = strdup(pattern);
+            if (!pattern_copy) {
+                error_message("case statement: memory allocation failed");
+                return 1;
             }
-            // TODO: Add proper glob pattern matching
+            
+            char *token = strtok(pattern_copy, "|");
+            while (token && !match) {
+                // Trim whitespace from pattern
+                while (*token == ' ' || *token == '\t') token++;
+                char *end = token + strlen(token) - 1;
+                while (end > token && (*end == ' ' || *end == '\t')) {
+                    *end = '\0';
+                    end--;
+                }
+                
+                // Use fnmatch for full POSIX pattern matching
+                if (fnmatch(token, word, 0) == 0) {
+                    match = true;
+                }
+                
+                token = strtok(NULL, "|");
+            }
+            
+            free(pattern_copy);
             
             if (match) {
                 // Execute commands and return
