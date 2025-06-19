@@ -5,8 +5,9 @@
  * the existing node_t structure for compatibility.
  */
 
-#include "../include/parser_new_simple.h"
+#include "../include/parser_new.h"
 #include "../include/node.h"
+#include "../include/errors.h"
 #include "../include/scanner.h"
 
 #include <stdio.h>
@@ -300,7 +301,8 @@ static node_t *parse_and_or(parser_t *parser) {
 /**
  * Parse pipeline
  * pipeline : bang_opt pipe_sequence
- * bang_opt : '!' | empty
+ * bang_opt : '!'
+ *          | /* empty */
  */
 static node_t *parse_pipeline(parser_t *parser) {
     if (!parser || !parser->current_token) {
@@ -410,7 +412,6 @@ static node_t *parse_command(parser_t *parser) {
                 return parse_function_def(parser);
             }
             // Fall through to simple command
-            __attribute__((fallthrough));
             
         default:
             return parse_simple_command(parser);
@@ -884,6 +885,7 @@ static bool is_redirection(const token_t *token) {
             return false;
     }
 }
+
 // Placeholder implementations for compound commands not yet implemented
 static node_t *parse_case_clause(parser_t *parser) {
     parser_error(parser, "Case statements not yet implemented");
@@ -898,86 +900,4 @@ static node_t *parse_until_clause(parser_t *parser) {
 static node_t *parse_function_def(parser_t *parser) {
     parser_error(parser, "Function definitions not yet implemented");
     return NULL;
-}
-
-// ============================================================================
-// PARSER STATE MANAGEMENT
-// ============================================================================
-
-/**
- * Create and initialize a new parser
- */
-parser_t *parser_create(source_t *source, void *errors) {
-    if (!source) {
-        return NULL;
-    }
-    
-    parser_t *parser = malloc(sizeof(parser_t));
-    if (!parser) {
-        return NULL;
-    }
-    
-    parser->source = source;
-    parser->current_token = NULL;
-    parser->lookahead_token = NULL;
-    parser->errors = errors;
-    parser->recursion_depth = 0;
-    parser->max_recursion = 100;  // Reasonable limit
-    parser->in_function = false;
-    parser->in_case = false;
-    parser->interactive = false;
-    
-    // Initialize with first two tokens
-    parser_advance(parser);  // Load current
-    parser_advance(parser);  // Load lookahead
-    
-    return parser;
-}
-
-/**
- * Clean up parser resources
- */
-void parser_destroy(parser_t *parser) {
-    if (!parser) {
-        return;
-    }
-    
-    if (parser->current_token && parser->current_token != &eof_token) {
-        free_token(parser->current_token);
-    }
-    
-    if (parser->lookahead_token && parser->lookahead_token != &eof_token) {
-        free_token(parser->lookahead_token);
-    }
-    
-    free(parser);
-}
-
-/**
- * Reset parser state for new input
- */
-void parser_reset(parser_t *parser, source_t *source) {
-    if (!parser || !source) {
-        return;
-    }
-    
-    // Clean up old tokens
-    if (parser->current_token && parser->current_token != &eof_token) {
-        free_token(parser->current_token);
-    }
-    
-    if (parser->lookahead_token && parser->lookahead_token != &eof_token) {
-        free_token(parser->lookahead_token);
-    }
-    
-    parser->source = source;
-    parser->current_token = NULL;
-    parser->lookahead_token = NULL;
-    parser->recursion_depth = 0;
-    parser->in_function = false;
-    parser->in_case = false;
-    
-    // Load first two tokens
-    parser_advance(parser);
-    parser_advance(parser);
 }

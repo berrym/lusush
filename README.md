@@ -2,64 +2,92 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.4.1 - POSIX Parser Migration Phase 2 Complete
+## Version 0.5.1 - POSIX Parser Migration Phase 3 Partial Complete
 
-Lusush has successfully completed **Phase 2 of the POSIX parser migration**, extending the dual-parser architecture to include full pipeline support with the new POSIX-compliant parser.
+Lusush has made significant progress on **Phase 3 of the POSIX parser migration**, implementing control structure parsing with the new POSIX-compliant parser. While all parsing is functional, execution has mixed results.
+
+## � Current Status: Control Structures Partially Implemented
+
+**Working Features:**
+- ✅ **Simple Commands**: `echo hello`, `ls -la`, command with arguments (fully functional)
+- ✅ **Complex Pipelines**: `cmd1 | cmd2 | cmd3`, multi-stage data processing (fully functional)
+- ✅ **IF Statements**: `if condition; then commands; fi` (parsing and execution working)
+- ⚠️ **FOR Loops**: `for var in list; do commands; done` (parsing works, variable expansion needs improvement)
+- ❌ **WHILE Loops**: `while condition; do commands; done` (parsing works, execution causes infinite loops)
 
 ## POSIX Parser Migration Progress
 
-### Phase 2 Complete - Pipeline Migration
+### � Phase 3 In Progress - Control Structure Migration  
+- **✅ Control Structure Parsing**: All control structures parse correctly with new POSIX parser
+- **✅ IF Statement Execution**: Full if/then/else/fi functionality working
+- **⚠️ FOR Loop Execution**: Basic execution working, variable expansion needs refinement
+- **❌ WHILE Loop Execution**: Implementation causes infinite loops, requires debugging
+- **✅ AST-Based Control Logic**: Modern control flow parsing using proper parser AST structures
+
+### ✅ Phase 2 Complete - Pipeline Migration  
 - **Pipeline POSIX Compliance**: All pipeline commands now use new POSIX parser  
 - **Multi-Command Support**: 2, 3, and N-command pipelines fully functional
 - **AST-Based Execution**: Proper pipeline AST structure with execution adapters
 - **Performance Optimized**: Efficient process management and pipe handling
 
-### Phase 1 Complete - Simple Command Migration  
+### ✅ Phase 1 Complete - Simple Command Migration  
 - **New POSIX Parser**: Handles simple commands with full POSIX compliance
 - **Intelligent Command Routing**: Complexity analysis routes commands to appropriate parser
 - **Execution Adapter**: Bridge between new parser AST and existing execution engine
 - **Zero Downtime Migration**: All existing functionality preserved during transition
 
-#### Current Parser Routing
-- **Simple Commands** (NEW POSIX parser): `echo hello`, `pwd`, `ls -la`
-- **Pipelines** (NEW POSIX parser): `echo test | cat`, `ls | head -3`, `cmd1 | cmd2 | cmd3`
-- **Control Structures** (old parser): `for i in a b; do echo $i; done`
-- **Logical Operators** (old parser): `echo success && echo second`
+#### Current Parser Routing (Core Features + Control Structure Parsing)
+- **✅ Simple Commands** (NEW POSIX parser): `echo hello`, `pwd`, `ls -la` (fully functional)
+- **✅ Pipelines** (NEW POSIX parser): `echo test | cat`, `ls | head -3`, `cmd1 | cmd2 | cmd3` (fully functional)
+- **🔄 Control Structures** (NEW POSIX parser): 
+  - **✅ IF statements**: `if condition; then commands; fi` (working)
+  - **⚠️ FOR loops**: `for var in list; do commands; done` (parsing works, execution partial)
+  - **❌ WHILE loops**: `while condition; do commands; done` (parsing works, execution broken)
+- **⚠️ Advanced Features** (old parser): `case statements`, `until loops`, `function definitions`
 
 ### Migration Roadmap
-- **Phase 1** (COMPLETE): Simple command migration with dual parser architecture
-- **Phase 2** (COMPLETE): Pipeline migration to new parser
-- **Phase 3** (NEXT): Control structure migration to new parser  
-- **Phase 4** (PLANNED): Advanced feature migration (logical operators, parameter expansion)
-- **Phase 5** (PLANNED): Complete migration, remove old parser
+- **✅ Phase 1** (COMPLETE): Simple command migration with dual parser architecture
+- **✅ Phase 2** (COMPLETE): Pipeline migration to new parser
+- **🔄 Phase 3** (IN PROGRESS): Control structure migration to new parser (if working, for/while need fixes)
+- **🎯 Phase 4** (NEXT): Complete Phase 3 and advanced feature migration (case, until, functions)
+- **🎯 Phase 5** (FUTURE): Complete migration, remove old parser
 
 ## Current POSIX Compliance Status
 
-### Complete POSIX Features
-- **All 12 Essential POSIX Command-Line Options** (`-c`, `-s`, `-i`, `-l`, `-e`, `-x`, `-n`, `-u`, `-v`, `-f`, `-h`, `-m`)
-- **Complete Set Builtin** with option management (`set -e`, `set +x`, etc.)
-- **Multi-Command Control Structures**:
-  - `if/then/else/elif/fi` statements with multi-command bodies
-  - `for/in/do/done` loops with multi-command bodies
-  - `while/do/done` loops with multi-command bodies and infinite loop protection
-  - Both newline and semicolon separators work correctly
-- **Robust Word Expansion** (variables, parameters, command substitution, globbing)
-- **Memory-Safe Operation** (critical bugs fixed, no more crashes)
-- **Command Substitution** (both `$()` modern and `` `cmd` `` legacy syntax)
-- **Pipeline Processing** with proper logical operator handling
-- **Complete Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var:+alternate}`, etc.)
-- **POSIX Simple Commands** (via new parser with full standards compliance)
-- **POSIX Pipelines** (via new parser with full standards compliance)
+### � Current POSIX Features (Major Progress with Control Structure Parsing)
+- **✅ All 12 Essential POSIX Command-Line Options** (`-c`, `-s`, `-i`, `-l`, `-e`, `-x`, `-n`, `-u`, `-v`, `-f`, `-h`, `-m`)
+- **✅ Complete Set Builtin** with option management (`set -e`, `set +x`, etc.)
+- **🔄 Core Control Structures** (NEW POSIX parser implementation with mixed execution status):
+  - **✅ `if/then/else/elif/fi` statements** with condition evaluation (fully working)
+  - **⚠️ `for/in/do/done` loops** with basic iteration (parsing works, variable expansion needs work)
+  - **❌ `while/do/done` loops** with condition testing (parsing works, execution causes infinite loops)
+  - **✅ Mixed command separators** (both newline and semicolon separators work correctly)
+- **✅ Full Pipeline Processing** (via new POSIX parser with complete multi-command support)
+- **✅ POSIX Simple Commands** (via new parser with full standards compliance)
+- **✅ Robust Word Expansion** (variables, parameters, command substitution, globbing)
+- **✅ Memory-Safe Operation** (critical bugs fixed, no more crashes)
+- **✅ Command Substitution** (both `$()` modern and `` `cmd` `` legacy syntax)
+- **✅ Complete Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var:+alternate}`, etc.)
 
-### Known Limitations
-- **Nested Control Structures**: Parsing issues cause hangs, should be avoided
-- **Case Statements**: Parser implemented, pattern matching pending
-- **Until Loops**: Parser implemented, execution support pending
-- **Function Definitions**: Not yet implemented
+### Known Limitations (Control Structure Execution Issues)
+- **❌ WHILE Loop Infinite Loops**: While loop execution causes infinite loops, avoid using
+- **⚠️ FOR Loop Variable Expansion**: Variables in for loops don't expand properly ($i shows as literal)
+- **⚠️ Nested Control Structures**: Parsing issues cause hangs, should be avoided
+- **⚠️ Case Statements**: Parser implemented, pattern matching pending (Phase 4)
+- **⚠️ Until Loops**: Parser implemented, execution support pending (Phase 4)  
+- **⚠️ Function Definitions**: Not yet implemented (Phase 4)
 
-### Recent Major Achievements (June 2025)
+### 🏆 Recent Major Achievements (June 2025)
 
-#### Parser Migration Phase 2 (CURRENT)
+#### 🔄 Parser Migration Phase 3 In Progress (CURRENT MILESTONE)
+- **✅ Control Structure Parsing Complete**: All control structures parse correctly with new POSIX parser
+- **✅ IF Statement Implementation**: If statements fully functional with condition evaluation
+- **⚠️ FOR Loop Partial Implementation**: Basic for loop execution working, variable expansion needs fixes
+- **❌ WHILE Loop Execution Issues**: While loops cause infinite loops, execution logic needs debugging
+- **✅ AST-Based Architecture**: Modern control flow parsing using proper parser AST structures
+- **✅ Enhanced Parser Routing**: Intelligent command complexity analysis routes control structures correctly
+
+#### Parser Migration Phase 2 (PREVIOUS)
 - **Pipeline POSIX Compliance**: All pipeline commands migrated to new POSIX parser
 - **Multi-Command Pipelines**: Full support for complex pipeline constructs  
 - **AST-Based Execution**: Proper pipeline AST processing with execution adapters

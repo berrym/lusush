@@ -188,5 +188,9 @@ int setup_redirections(node_t *cmd);
 int execute_node(node_t *node);
 int execute_new_parser_command(node_t *cmd);
 int execute_new_parser_pipeline(node_t *pipe_node);
+int execute_new_parser_control_structure(node_t *control_node);
+int execute_new_parser_if(node_t *if_node);
+int execute_new_parser_while(node_t *while_node);
+int execute_new_parser_for(node_t *for_node);
 
 #endif

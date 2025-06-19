@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 // Forward declarations
 static void skip_conditional_commands(source_t *src);
@@ -24,9 +25,10 @@ static int parse_and_execute_simple(source_t *src);
  * Analyze command complexity to determine which parser to use
  */
 typedef enum {
-    CMD_SIMPLE,      // Simple command: echo hello, ls -la
-    CMD_PIPELINE,    // Simple pipeline: ls | grep test  
-    CMD_COMPLEX      // Complex: logical operators, control structures, etc.
+    CMD_SIMPLE,           // Simple command: echo hello, ls -la
+    CMD_PIPELINE,         // Simple pipeline: ls | grep test  
+    CMD_CONTROL_STRUCTURE, // Control structures: if, while, for (new parser can handle)
+    CMD_COMPLEX           // Complex: logical operators, functions, etc. (old parser)
 } command_complexity_t;
 
 static command_complexity_t analyze_command_complexity(const char *line) {
@@ -34,21 +36,34 @@ static command_complexity_t analyze_command_complexity(const char *line) {
         return CMD_SIMPLE;
     }
     
-    // Check for control structure keywords
-    const char *control_keywords[] = {
-        "if ", "then ", "else ", "elif ", "fi ",
-        "while ", "for ", "do ", "done ",
-        "case ", "esac ", "until ",
-        "function ", "{", "}"
+    // Trim leading whitespace for analysis
+    while (*line && isspace(*line)) {
+        line++;
+    }
+    
+    // Check for basic control structure keywords that new parser can handle
+    const char *new_parser_control_keywords[] = {
+        "if ", "while ", "for "
     };
     
-    for (size_t i = 0; i < sizeof(control_keywords) / sizeof(control_keywords[0]); i++) {
-        if (strstr(line, control_keywords[i])) {
+    for (size_t i = 0; i < sizeof(new_parser_control_keywords) / sizeof(new_parser_control_keywords[0]); i++) {
+        if (strncmp(line, new_parser_control_keywords[i], strlen(new_parser_control_keywords[i])) == 0) {
+            return CMD_CONTROL_STRUCTURE;
+        }
+    }
+    
+    // Check for control structure keywords that require old parser (for now)
+    const char *old_parser_control_keywords[] = {
+        "case ", "until ", "function ", "{", "}"
+    };
+    
+    for (size_t i = 0; i < sizeof(old_parser_control_keywords) / sizeof(old_parser_control_keywords[0]); i++) {
+        if (strstr(line, old_parser_control_keywords[i])) {
             return CMD_COMPLEX;
         }
     }
     
-    // Check for logical operators (&&, ||, ;)
+    // Check for logical operators (&&, ||, ;) - these need old parser for now
     if (strstr(line, "&&") || strstr(line, "||") || strchr(line, ';')) {
         return CMD_COMPLEX;
     }
@@ -172,6 +187,52 @@ int parse_and_execute_pipeline(source_t *src) {
     return exit_status;
 }
 
+/**
+ * parse_and_execute_control_structure:
+ *   Use new parser for control structures (Phase 3 of gradual migration)
+ *   This function handles if, while, for, and other control structures
+ *   using the new POSIX-compliant parser.
+ */
+static int parse_and_execute_control_structure(source_t *src) {
+    // Debug: Show what we're trying to parse
+    if (getenv("NEW_PARSER_DEBUG")) {
+        fprintf(stderr, "DEBUG: Parsing control structure: '%.50s'\n", src->buf);
+    }
+    
+    // Create new parser instance
+    parser_t *parser = parser_create(src, NULL);
+    if (!parser) {
+        fprintf(stderr, "Error: Failed to create parser for control structure\n");
+        return 1;
+    }
+    
+    // Parse the control structure using new parser
+    node_t *cmd = parser_parse(parser);
+    if (!cmd) {
+        fprintf(stderr, "Error: Failed to parse control structure\n");
+        parser_destroy(parser);
+        return 1;
+    }
+    
+    // Debug: Show parser routing (optional)
+    if (getenv("NEW_PARSER_DEBUG")) {
+        fprintf(stderr, "DEBUG: Parsing control structure command\n");
+        fprintf(stderr, "DEBUG: Parsed node type: %d\n", cmd->type);
+        if (cmd->val.str) {
+            fprintf(stderr, "DEBUG: Node value: '%s'\n", cmd->val.str);
+        }
+    }
+    
+    // Execute the control structure using new parser execution
+    int exit_status = execute_new_parser_control_structure(cmd);
+    
+    // Clean up
+    free_node_tree(cmd);
+    parser_destroy(parser);
+    
+    return exit_status;
+}
+
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
@@ -233,8 +294,13 @@ int main(int argc, char **argv) {
                 break;
                 
             case CMD_PIPELINE:
-                // Use new parser for pipelines (Phase 2)
+                // Use new parser for pipelines (Phase 2 complete)
                 parse_and_execute_pipeline(&src);
+                break;
+                
+            case CMD_CONTROL_STRUCTURE:
+                // Use new parser for control structures (Phase 3)
+                parse_and_execute_control_structure(&src);
                 break;
                 
             case CMD_COMPLEX:
