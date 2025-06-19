@@ -933,8 +933,27 @@ static node_t *parse_command_list_multi_term(source_t *src, token_type_t *termin
             break;
         }
         
-        // Parse a single command properly
-        node_t *cmd = parse_basic_command(tok);
+        // Parse command - detect control structures and route appropriately
+        node_t *cmd = NULL;
+        if (tok->type == TOKEN_KEYWORD_IF) {
+            free_token(tok);
+            cmd = parse_if_statement(src);
+        } else if (tok->type == TOKEN_KEYWORD_FOR) {
+            free_token(tok);
+            cmd = parse_for_statement(src);
+        } else if (tok->type == TOKEN_KEYWORD_WHILE) {
+            free_token(tok);
+            cmd = parse_while_statement(src);
+        } else if (tok->type == TOKEN_KEYWORD_UNTIL) {
+            free_token(tok);
+            cmd = parse_until_statement(src);
+        } else if (tok->type == TOKEN_KEYWORD_CASE) {
+            free_token(tok);
+            cmd = parse_case_statement(src);
+        } else {
+            // Regular command - use existing logic
+            cmd = parse_basic_command(tok);
+        }
         if (cmd) {
             add_child_node(list_node, cmd);
         } else {

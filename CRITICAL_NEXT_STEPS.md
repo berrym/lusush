@@ -15,8 +15,18 @@
 ✅ **Enhanced echo builtin** - Escape sequences enabled by default  
 ✅ **Comprehensive command substitution** - Both $() and backtick syntax working  
 ✅ **Comment and shebang processing** - Full scripting support implemented
+✅ **NESTED CONTROL STRUCTURES FIXED** - Critical parser infinite loop resolved
 
-## 🎯 **MAJOR BREAKTHROUGH: Mixed Operators Fixed** 
+## **MAJOR BREAKTHROUGH: Nested Control Structures Parser Fixed** 
+
+✅ **CRITICAL BLOCKER RESOLVED**: Nested control structures no longer cause infinite hangs  
+✅ **Root cause identified**: parse_command_list_multi_term() lacked control structure keyword detection  
+✅ **Architecture fix implemented**: Added proper keyword routing to specific parsers  
+✅ **Token management corrected**: Fixed token consumption pattern for nested contexts  
+✅ **Memory safety preserved**: No crashes or memory corruption in nested parsing  
+✅ **Comprehensive testing validated**: All existing control structure tests continue to pass
+
+## **MAJOR BREAKTHROUGH: Mixed Operators Fixed** 
 
 ✅ **CRITICAL ISSUE RESOLVED**: Mixed operator parsing (`cmd | pipe && logical`) now works perfectly  
 ✅ **Root cause fixed**: Modified `is_command_delimiter()` to exclude TOKEN_PIPE  
@@ -24,9 +34,10 @@
 ✅ **Execution routing improved**: execute_command now detects and routes pipelines correctly  
 ✅ **Real-world ready**: Complex expressions like `echo test | grep test && echo found` functional
 
-## 📊 **REGRESSION ANALYSIS: test.sh Compatibility Assessment**
+## **REGRESSION ANALYSIS: test.sh Compatibility Assessment**
 
-### **Major Achievements Confirmed** ✅  
+### **Major Achievements Confirmed**  
+- **Nested control structures**: Parser no longer hangs on nested if/for/while constructs (CRITICAL FIX)
 - **Mixed operators**: `cmd | pipe && logical` works perfectly (PRIMARY BREAKTHROUGH)
 - **Complex command substitution**: `$(command)` syntax robust and reliable
 - **Variable assignment and expansion**: Standard `var=value` syntax functional

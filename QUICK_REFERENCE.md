@@ -1,27 +1,27 @@
 # LUSUSH QUICK REFERENCE CARD
 *Essential Architecture Information for Developers*
 
-## 🎯 **IMMEDIATE DEVELOPMENT TARGETS**
+## **IMMEDIATE DEVELOPMENT TARGETS**
 
-### 1. Fix Nested Control Structures (CRITICAL)
-```
-File: src/parser.c - parse_command_list_multi_term()
-Issue: Hangs on nested if statements
-Test: if true; then if true; then echo "test"; fi; fi
-```
-
-### 2. Implement Case Pattern Matching
+### 1. Implement Case Pattern Matching
 ```
 File: src/exec.c - do_case_clause() 
 Status: Parser works, execution stub exists
 Need: Pattern matching logic (*, ?, [ranges])
 ```
 
-### 3. Implement Until Loop Execution  
+### 2. Implement Until Loop Execution  
 ```
 File: src/exec.c - do_until_loop()
 Status: Parser works, execution stub exists  
 Need: Negated condition logic (opposite of while)
+```
+
+### 3. Advanced Parameter Expansion Features
+```
+File: src/wordexp.c
+Status: Basic patterns implemented
+Need: Pattern substitution ${var/pattern/replacement}
 ```
 
 ## 🧭 **KEY FILE NAVIGATION**
@@ -50,23 +50,28 @@ do_for_loop()      ─ FOR execution (WORKING)
 do_while_loop()    ─ WHILE execution (WORKING)
 ```
 
-## 📊 **CURRENT STATUS MATRIX**
+## **CURRENT STATUS MATRIX**
 
 | Feature | Parser | Execution | Multi-Cmd | Status |
 |---------|--------|-----------|-----------|---------|
 | IF/THEN/ELSE | ✅ | ✅ | ✅ | COMPLETE |
 | FOR loops | ✅ | ✅ | ✅ | COMPLETE |  
 | WHILE loops | ✅ | ✅ | ✅ | COMPLETE |
-| Nested structures | ❌ | ❌ | ❌ | BROKEN |
+| Nested structures | ✅ | ⚠️ | ⚠️ | FIXED (no hangs) |
 | CASE statements | ✅ | ❌ | N/A | PARTIAL |
 | UNTIL loops | ✅ | ❌ | N/A | PARTIAL |
 
-## 🔧 **DEBUGGING QUICK COMMANDS**
+## **DEBUGGING QUICK COMMANDS**
 
 ### Test Multi-Command Control Structures
 ```bash
 ./builddir/lusush -c 'if true; then var1=A; var2=B; echo "vars: $var1 $var2"; fi'
 ./builddir/lusush -c 'for i in 1 2; do echo "num: $i"; val=$i; done; echo "final: $val"'
+```
+
+### Test Nested Structures (Previously Hanging - Now Fixed)
+```bash
+./builddir/lusush -c 'if true; then if true; then echo "nested works"; fi; fi'
 ```
 
 ### Test Nested Structure Issue (WILL HANG)
@@ -80,12 +85,12 @@ valgrind ./builddir/lusush -c 'simple command'
 gdb ./builddir/lusush
 ```
 
-## 🚨 **KNOWN DANGER ZONES**
+## **KNOWN AREAS REQUIRING ATTENTION**
 
-1. **Nested parsing** - Any nesting will hang
-2. **Token pushback** - Complex for nested structures  
-3. **Memory leaks** - AST cleanup in error paths
-4. **Infinite loops** - While loop protection active
+1. **Case pattern matching** - Implementation stub exists, needs pattern logic
+2. **Until loop execution** - Parser complete, execution stub needs implementation  
+3. **Memory leaks** - AST cleanup in error paths needs validation
+4. **Advanced parameter expansion** - Pattern substitution features missing
 
 ## 💡 **DEVELOPMENT TIPS**
 
