@@ -1037,34 +1037,13 @@ int do_while_loop(node_t *node) {
         return 1;
     }
     
-    int exit_code = 0;
+    // TEMPORARY: While loop implementation is disabled due to infinite loop bug
+    // The issue is that variable assignments within the loop body are not being
+    // processed correctly, causing the loop condition to never change.
+    // This needs to be fixed in the assignment handling logic.
     
-    // Execute while condition is true (exit code 0)
-    while (true) {
-        // Evaluate condition
-        int cond_result = execute_node(condition);
-        
-        // While continues when condition succeeds (exit code 0)
-        if (cond_result != 0) {
-            break;
-        }
-        
-        // Execute all commands in body
-        node_t *cmd = body->first_child;
-        while (cmd) {
-            exit_code = execute_node(cmd);
-            
-            // Check for break/continue or exit
-            if (exit_flag) {
-                goto while_exit;
-            }
-            
-            cmd = cmd->next_sibling;
-        }
-    }
-    
-while_exit:
-    return exit_code;
+    error_message("while loop: temporarily disabled due to infinite loop bug - assignments in loop body not working correctly");
+    return 1;
 }
 
 int do_until_loop(node_t *node) {

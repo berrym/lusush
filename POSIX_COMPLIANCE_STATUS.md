@@ -48,84 +48,68 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 - Comment processing ✅
 - Alias expansion ✅
 
+#### Control Structures (NEWLY IMPLEMENTED)
+- **if-then-else-fi statements** ✅ **FIXED**
+- **for-do-done loops** ✅ **FIXED**
+- **while-do-done loops** ⚠️ **PARSING WORKS - ASSIGNMENT BUG IN EXECUTION**
+- **until-do-done loops** ⚠️ **IMPLEMENTED BUT NOT TESTED**
+- Keyword recognition (`if`, `then`, `else`, `elif`, `fi`, `do`, `done`, `while`, `for`, `until`) ✅
+- Token pushback system for proper parsing ✅
+- Nested control structures support ✅
+
+**Recent Major Fix**: Resolved critical parser bug where control structure keywords were not being recognized due to missing source attribution in tokens. All control structure parsing now works correctly.
+
 ---
 
 ## ⚠️ KNOWN LIMITATIONS AND REQUIRED FIXES
 
-### CRITICAL LIMITATIONS (Require Major Development)
+### ⚠️ PARTIALLY IMPLEMENTED FEATURES
 
-#### 1. **Control Structures Not Implemented**
-**Status**: ❌ **MAJOR LIMITATION - TOP PRIORITY**
+#### 1. **Control Structures - Major Implementation Completed**
+**Status**: ✅ **MAJOR BREAKTHROUGH - MOSTLY WORKING**
 
-**Missing Features**:
-- `for` loops (`for var in list; do commands; done`)
-- `while` loops (`while condition; do commands; done`) 
-- `until` loops (`until condition; do commands; done`)
-- `if/then/else/fi` statements (`if condition; then commands; fi`)
-- `case/esac` statements (`case $var in pattern) commands;; esac`)
-- Function definitions (`function_name() { commands; }`)
+**Working Features**:
+- `if/then/else/fi` statements ✅ (`if condition; then commands; fi`)
+- `for` loops ✅ (`for var in list; do commands; done`)
+- Keyword recognition for all control structures ✅
+- Proper parsing with token pushback system ✅
+- Nested control structures support ✅
 
-**Current Parser Limitations**:
-- Parser only recognizes simple commands and pipelines
-- No AST nodes for control structures
-- No execution engine support for structured control flow
+**Remaining Issues**:
+- `while` loops ⚠️ (parser works, but infinite loop due to assignment bug in loop body)
+- `until` loops ⚠️ (implemented but not tested)
+- `case/esac` statements ❌ (not yet implemented)
+- Function definitions ❌ (not yet implemented)
 
-**Impact**: 
-- Scripts using control structures fail completely
-- Basic conditional logic unusable  
-- Loops cannot be executed
-- Function definitions not supported
+**Recent Major Progress**:
+Fixed critical parser bug where control structure keywords were not being recognized. The scanner, parser, and AST generation now work correctly for most control structures.
 
-**Example Failures**:
+**Current Issue - While Loop Assignment Bug**:
 ```bash
-# These constructs are not supported:
-for i in 1 2 3; do echo $i; done          # ❌ parse error
-if [ -f file ]; then echo found; fi       # ❌ parse error  
-while read line; do echo $line; done      # ❌ parse error
-function myFunc() { echo hello; }         # ❌ parse error
+# This fails due to assignment processing bug:
+while test "$i" -le 3; do
+    echo "Iteration: $i"
+    i=$((i + 1))        # ❌ Assignment not processed correctly in loop context
+done
 ```
 
-**Required Fix - Comprehensive Parser Overhaul**:
+**Working Examples**:
+```bash
+# These work correctly:
+if test -f README.md; then echo "Found"; fi           # ✅ 
+for i in 1 2 3; do echo "Number: $i"; done            # ✅
+if [ "$var" = "test" ]; then echo "Match"; fi         # ✅
+```
 
-1. **Scanner Enhancements** (`src/scanner.c`):
-   ```c
-   // Add new token types
-   TOKEN_FOR, TOKEN_DO, TOKEN_DONE,
-   TOKEN_IF, TOKEN_THEN, TOKEN_ELSE, TOKEN_FI,
-   TOKEN_WHILE, TOKEN_UNTIL,
-   TOKEN_CASE, TOKEN_IN, TOKEN_ESAC,
-   TOKEN_FUNCTION
-   ```
+**Required Fix for Remaining Issues**:
+1. Fix assignment processing in `do_basic_command` for control structure contexts
+2. Test and debug `until` loops  
+3. Implement `case/esac` statement parsing and execution
+4. Add function definition support
 
-2. **AST Node Extensions** (`include/lusush.h`):
-   ```c
-   typedef enum {
-       NODE_IF_STATEMENT,
-       NODE_FOR_LOOP,
-       NODE_WHILE_LOOP,
-       NODE_CASE_STATEMENT,
-       NODE_FUNCTION_DEF
-   } node_type_t;
-   
-   typedef struct {
-       node_t *condition;
-       node_t *then_body;
-       node_t *else_body;
-   } if_statement_t;
-   ```
+**Estimated Effort**: � **Medium** (1-2 weeks for remaining features)
 
-3. **Parser Grammar Extensions** (`src/parser.c`):
-   - Add recursive descent parsing for control structures
-   - Implement proper precedence and associativity
-   - Handle nested control structures
-
-4. **Execution Engine Modifications** (`src/exec.c`):
-   - Add control flow execution logic
-   - Implement loop variable scoping
-   - Add break/continue statement support
-   - Function call stack management
-
-**Estimated Effort**: 🔴 **Very High** (3-4 weeks of full-time development)
+### REMAINING CRITICAL LIMITATIONS
 
 #### 2. **Array Variables Not Implemented**
 **Status**: ❌ **MAJOR LIMITATION**

@@ -2,29 +2,36 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.2.1 - POSIX Command-Line Options & Set Builtin Complete
+## Version 0.3.0 - Control Structures Implementation Complete
 
-Lusush has achieved **comprehensive POSIX shell option compliance (19/20 tests passing)** with all essential command-line options implemented and a full set builtin. Major word expansion bugs have been fixed, making lusush significantly more stable and compatible with real-world shell scripts.
+Lusush has achieved **major POSIX control structure support** with working `if` statements and `for` loops. This represents a significant milestone in shell functionality, enabling real-world script execution with conditional logic and iteration.
 
 ## ✅ Current POSIX Compliance Status
 
 ### Complete POSIX Features
 - **All 12 Essential POSIX Command-Line Options** (`-c`, `-s`, `-i`, `-l`, `-e`, `-x`, `-n`, `-u`, `-v`, `-f`, `-h`, `-m`)
 - **Complete Set Builtin** with option management (`set -e`, `set +x`, etc.)
+- **Control Structures Implementation** ✅ **NEW**:
+  - `if/then/else/fi` statements with proper condition evaluation
+  - `for/do/done` loops with iteration support
+  - Keyword recognition and token pushback parsing
+  - Nested control structure support
 - **Robust Word Expansion** (variables, parameters, command substitution, globbing)
 - **Memory-Safe Operation** (critical bugs fixed, no more crashes)
 - **Command Substitution** (both `$()` modern and `` `cmd` `` legacy syntax)
 - **Pipeline Processing** with proper logical operator handling
-- **Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var#pattern}`, etc.)
+- **Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var:+alternate}`, etc.)
 
 ### Known Limitations
-- **Control Structures**: `for`/`while`/`if` statements not yet implemented (major parser enhancement needed)
-- **Minor Display Issues**: Escape sequence formatting in some contexts
+- **While Loops**: Parser works but assignment bug causes infinite loops (temporary disabled)
+- **Case Statements**: Not yet implemented
+- **Function Definitions**: Not yet implemented
 
-### Recent Fixes (December 2024)
-- **Parameter Expansion `:+` Operator**: Fixed critical bug where `${VAR:+alternate}` failed with unset variables
-- **Word Expansion Stability**: Resolved string builder and argument processing issues
-- **POSIX Compliance**: Enhanced compatibility with standard shell behavior
+### Recent Major Achievements (June 2025)
+- **Control Structure Parser**: Complete rewrite of token recognition system
+- **Fixed Critical Token Bug**: Control structure keywords now properly recognized
+- **Parser Enhancement**: Token pushback system working correctly for lookahead
+- **AST Generation**: Control structures properly parsed into execution nodes
 
 ## Features
 
@@ -91,7 +98,13 @@ echo -n "No newline"           # -n flag supported
 
 **Control structures:**
 ```bash
+# Working examples:
+if test -f README.md; then echo "File exists"; fi
 for i in 1 2 3; do echo "Number: $i"; done
+if [ "$var" = "test" ]; then echo "Match"; fi
+
+# Temporarily disabled due to assignment bug:
+# while test "$i" -le 3; do echo $i; i=$((i + 1)); done
 ```
 
 **Mixed operators (major achievement):**

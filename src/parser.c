@@ -120,6 +120,7 @@ node_t *parse_basic_command(token_t *tok) {
             tok->type == TOKEN_KEYWORD_FI || tok->type == TOKEN_KEYWORD_DO ||
             tok->type == TOKEN_KEYWORD_DONE || tok->type == TOKEN_KEYWORD_ELIF) {
             // Don't consume these tokens - they belong to control structures
+            unget_token(tok);
             break;
         }
 
@@ -242,7 +243,10 @@ node_t *parse_basic_command(token_t *tok) {
         add_child_node(cmd, word);
         free_token(tok);
         
-    } while ((tok = tokenize(src)) != &eof_token);
+        // Get next token for the loop
+        tok = tokenize(src);
+        
+    } while (tok != &eof_token);
 
     return cmd;
 }
@@ -420,7 +424,12 @@ static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char
         tok = tokenize(src);
     }
     
-    if (!tok || tok->type != TOKEN_KEYWORD_THEN) {
+    if (!tok) {
+        error_message("parse error: unexpected end of input after '%s' condition", clause_type);
+        return false;
+    }
+    
+    if (tok->type != TOKEN_KEYWORD_THEN) {
         error_message("parse error: expected 'then' after '%s' condition", clause_type);
         if (tok) free_token(tok);
         return false;

@@ -792,6 +792,12 @@ token_t *tokenize(source_t *src) {
         return &eof_token;
     }
 
+    // CRITICAL FIX: Set the source and position information
+    tok->src = src;
+    tok->lineno = line;
+    tok->charno = chr;
+    tok->linestart = linestart;
+
     cur_tok = tok;
     return tok;
 }
