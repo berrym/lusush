@@ -471,6 +471,7 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
     bool get_length = false;
     char *actual_var_name = var_name;
     char *param_expansion_op = NULL;
+    bool allocated_actual_var_name = false;
     
     // Check for parameter expansion patterns like ${var=value}, ${var:-default}, etc.
     char *op_pos = strpbrk(var_name, "=:-+");
@@ -486,15 +487,18 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
         }
         strncpy(actual_var_name, var_name, actual_name_len);
         actual_var_name[actual_name_len] = '\0';
+        allocated_actual_var_name = true;
         
         // Store the operator and value for later processing
         param_expansion_op = strdup(op_pos);
     } else if (*var_name == '#' && var_name[1] != '\0') {
         // ${#var} - get length of var
         get_length = true;
-        actual_var_name = var_name + 1;
+        actual_var_name = var_name + 1;  // This is NOT a malloc'd pointer
+        allocated_actual_var_name = false;
     } else {
         actual_var_name = var_name;
+        allocated_actual_var_name = false;
     }
     // If it's just '#', treat it as the special variable (argument count)
     
@@ -505,21 +509,6 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
         const symtable_entry_t *entry = get_symtable_entry(actual_var_name);
         var_exists = (entry && entry->val);
         var_value = var_exists ? entry->val : "";
-    }
-    
-    // Check for unset variable error (-u option)
-    if (!var_exists && is_posix_option_set('u') && !param_expansion_op) {
-        error_message("unset variable: %s", actual_var_name);
-        result.result = EXP_ERROR;
-        // Clean up allocated memory before returning
-        if (param_expansion_op) {
-            free(param_expansion_op);
-        }
-        if (actual_var_name != var_name) {
-            free(actual_var_name);
-        }
-        free(var_name);
-        return result;
     }
     
     // Handle parameter expansion operations
@@ -571,6 +560,21 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
                 var_value = "";
             }
         }
+    } else {
+        // Check for unset variable error (-u option) only when no expansion operator is present
+        if (!var_exists && is_posix_option_set('u')) {
+            error_message("unset variable: %s", actual_var_name);
+            result.result = EXP_ERROR;
+            // Clean up allocated memory before returning
+            if (param_expansion_op) {
+                free(param_expansion_op);
+            }
+            if (allocated_actual_var_name) {
+                free(actual_var_name);
+            }
+            free(var_name);
+            return result;
+        }
     }
     
     if (get_length) {
@@ -602,7 +606,7 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
     if (param_expansion_op) {
         free(param_expansion_op);
     }
-    if (actual_var_name != var_name) {
+    if (allocated_actual_var_name) {
         free(actual_var_name);
     }
     free(var_name);
@@ -903,7 +907,7 @@ word_t *word_expand(const char *orig_word) {
                                 (p[1] >= '0' && p[1] <= '9')) {
                                 end = 2;  // Special variables are single character
                             } else {
-                                end = find_var_name_end(p, 1) + 1;
+                                end = find_var_name_end(p, 1);
                             }
                         }
                         
@@ -922,8 +926,8 @@ word_t *word_expand(const char *orig_word) {
                 break;
                 
             case '`':
-                if (!ctx->in_single_quotes && !ctx->in_double_quotes) {
-                    // Command substitution `...`
+                if (!ctx->in_single_quotes) {
+                    // Command substitution `...` (works in double quotes and unquoted context)
                     const char *end = strchr(p + 1, '`');
                     if (end) {
                         size_t cmd_len = end - p + 1;
@@ -983,6 +987,10 @@ word_t *word_expand(const char *orig_word) {
                                 break;
                             case '\'':
                                 if (!sb_append_char(sb, '\'')) goto error_cleanup;
+                                consumed = 2;
+                                break;
+                            case '$':
+                                if (!sb_append_char(sb, '$')) goto error_cleanup;
                                 consumed = 2;
                                 break;
                             default:
