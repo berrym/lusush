@@ -2,11 +2,32 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.3.1 - Multi-Command Control Structures Achievement
+## Version 0.4.0 - POSIX Parser Migration Phase 1 Complete
 
-Lusush has achieved **comprehensive POSIX control structure support** with working multi-command bodies. This represents a major milestone in shell functionality, enabling real-world script execution with complex conditional logic and iteration patterns.
+Lusush has successfully completed **Phase 1 of the POSIX parser migration**, implementing a pragmatic dual-parser architecture that maintains full compatibility while introducing modern POSIX-compliant parsing for simple commands.
 
-## ✅ Current POSIX Compliance Status
+## POSIX Parser Migration Progress
+
+### Phase 1 Complete - Simple Command Migration
+- **New POSIX Parser**: Handles simple commands with full POSIX compliance
+- **Intelligent Command Routing**: Complexity analysis routes commands to appropriate parser
+- **Execution Adapter**: Bridge between new parser AST and existing execution engine
+- **Zero Downtime Migration**: All existing functionality preserved during transition
+
+#### Current Parser Routing
+- **Simple Commands** (NEW POSIX parser): `echo hello`, `pwd`, `ls -la`
+- **Pipelines** (existing system): `echo test | cat`, `ls | head -3` 
+- **Control Structures** (old parser): `for i in a b; do echo $i; done`
+- **Logical Operators** (old parser): `echo success && echo second`
+
+### Migration Roadmap
+- **Phase 1** (COMPLETE): Simple command migration with dual parser architecture
+- **Phase 2** (NEXT): Pipeline migration to new parser
+- **Phase 3** (PLANNED): Control structure migration to new parser
+- **Phase 4** (PLANNED): Advanced feature migration (logical operators, parameter expansion)
+- **Phase 5** (PLANNED): Complete migration, remove old parser
+
+## Current POSIX Compliance Status
 
 ### Complete POSIX Features
 - **All 12 Essential POSIX Command-Line Options** (`-c`, `-s`, `-i`, `-l`, `-e`, `-x`, `-n`, `-u`, `-v`, `-f`, `-h`, `-m`)
@@ -21,6 +42,7 @@ Lusush has achieved **comprehensive POSIX control structure support** with worki
 - **Command Substitution** (both `$()` modern and `` `cmd` `` legacy syntax)
 - **Pipeline Processing** with proper logical operator handling
 - **Complete Parameter Expansion** (`${var:-default}`, `${var:=value}`, `${var:+alternate}`, etc.)
+- **POSIX Simple Commands** (via new parser with full standards compliance)
 
 ### Known Limitations
 - **Nested Control Structures**: Parsing issues cause hangs, should be avoided
@@ -28,7 +50,15 @@ Lusush has achieved **comprehensive POSIX control structure support** with worki
 - **Until Loops**: Parser implemented, execution support pending
 - **Function Definitions**: Not yet implemented
 
-### Recent Major Achievement (June 2025)
+### Recent Major Achievements (June 2025)
+
+#### Parser Migration Phase 1 (CURRENT)
+- **Dual Parser Architecture**: Intelligent command complexity analysis with appropriate parser routing
+- **POSIX Simple Commands**: All simple commands now use new POSIX-compliant parser
+- **Execution Adapter**: Seamless bridge between new parser AST and existing execution engine
+- **Full Compatibility**: Zero breaking changes, all existing functionality preserved
+
+#### Multi-Command Control Structures (PREVIOUS)
 - **Multi-Command Parsing Fix**: Control structures now properly parse and execute multiple commands in their bodies
 - **Semicolon Support**: Both newline and semicolon separators work correctly in control structure bodies
 - **Enhanced Execution Logic**: Proper command list handling for complex control flow patterns

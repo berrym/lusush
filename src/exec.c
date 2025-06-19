@@ -22,7 +22,147 @@
 
 // Forward declarations
 int execute_pipeline_from_node(node_t *node);
+int execute_new_parser_command(node_t *cmd);
 
+/**
+ * execute_new_parser_command: Adapter for new parser's AST structure
+ * 
+ * The new parser creates a different AST structure than the old parser.
+ * This function adapts the new parser's output to work with the existing execution logic.
+ * 
+ * New parser structure:
+ *   NODE_COMMAND (value: "command_name", children: arguments as separate nodes)
+ * 
+ * Old parser structure expected by execute_command:
+ *   NODE_COMMAND (children: command and args as NODE_VAR nodes)
+ */
+int execute_new_parser_command(node_t *cmd) {
+    if (!cmd || cmd->type != NODE_COMMAND) {
+        return 0;
+    }
+    
+    // Check if we're in syntax check mode - if so, don't execute
+    if (is_syntax_check_mode()) {
+        return 0;
+    }
+    
+    // Build argv array from the command node and its children
+    size_t argc = 0;
+    size_t targc = 32;
+    char **argv = calloc(targc, sizeof(char*));
+    if (!argv) {
+        return 1;
+    }
+    
+    // Add the command name (from the node's value)
+    if (cmd->val.str && *cmd->val.str) {
+        argv[argc++] = cmd->val.str;
+    }
+    
+    // Add arguments from child nodes
+    node_t *child = cmd->first_child;
+    while (child) {
+        if (child->val.str && *child->val.str) {
+            if (argc >= targc - 1) {
+                targc *= 2;
+                char **new_argv = realloc(argv, targc * sizeof(char*));
+                if (!new_argv) {
+                    free(argv);
+                    return 1;
+                }
+                argv = new_argv;
+            }
+            argv[argc++] = child->val.str;
+        }
+        child = child->next_sibling;
+    }
+    
+    argv[argc] = NULL;
+    
+    // Check if we have a valid command to execute
+    if (argc == 0 || !argv[0] || !*argv[0]) {
+        free(argv);
+        return 0;
+    }
+    
+    // Trace command execution if -x flag is set
+    if (should_trace_execution()) {
+        fprintf(stderr, "+");
+        for (int i = 0; i < argc; i++) {
+            fprintf(stderr, " %s", argv[i]);
+        }
+        fprintf(stderr, "\n");
+        fflush(stderr);
+    }
+    
+    // Execute builtin commands
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strcmp(argv[0], builtins[i].name) == 0) {
+            if (setup_redirections(cmd) == -1) {
+                free(argv);
+                return 0;
+            }
+            int exit_code = builtins[i].func(argc, argv);
+            last_exit_status = exit_code;
+            
+            // Check if we should exit on error (-e flag)
+            if (should_exit_on_error() && exit_code != 0) {
+                fprintf(stderr, "lusush: exiting due to error (exit code %d)\n", exit_code);
+                exit(exit_code);
+            }
+            
+            free(argv);
+            return exit_code;
+        }
+    }
+    
+    // Execute external commands
+    pid_t child_pid = fork();
+    int status = 0;
+
+    if (child_pid == -1) {
+        error_return("error: `execute_new_parser_command`");
+        free(argv);
+        return 0;
+    } else if (child_pid == 0) {
+        if (setup_redirections(cmd) == -1) {
+            exit(EXIT_FAILURE);
+        }
+        
+        do_exec_cmd(argc, argv);
+        error_return("error: `execute_new_parser_command`");
+
+        switch (errno) {
+        case ENOEXEC:
+            exit(126);
+            break;
+        case ENOENT:
+            exit(127);
+            break;
+        default:
+            exit(EXIT_FAILURE);
+            break;
+        }
+    } else {
+        waitpid(child_pid, &status, 0);
+        int exit_code = WEXITSTATUS(status);
+        last_exit_status = exit_code;
+        
+        // Check if we should exit on error (-e flag)
+        if (should_exit_on_error() && exit_code != 0) {
+            fprintf(stderr, "lusush: exiting due to error (exit code %d)\n", exit_code);
+            exit(exit_code);
+        }
+        
+        free(argv);
+        return exit_code;
+    }
+}
+
+/**
+ * search_path:
+ *      Search for an executable file in the directories listed in the PATH environment variable
+ */
 char *search_path(char *fn) {
     char *PATH = getenv("PATH"), *p = PATH, *p2 = NULL;
 
@@ -80,6 +220,10 @@ char *search_path(char *fn) {
     return NULL;
 }
 
+/**
+ * do_exec_cmd:
+ *      Execute a command with arguments
+ */
 int do_exec_cmd(int argc __attribute__((unused)), char **argv) {
     // Validate input
     if (!argv || !argv[0] || !*argv[0]) {

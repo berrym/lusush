@@ -18,6 +18,53 @@
 
 // Forward declarations
 static void skip_conditional_commands(source_t *src);
+static int parse_and_execute_simple(source_t *src);
+
+/**
+ * Analyze command complexity to determine which parser to use
+ */
+typedef enum {
+    CMD_SIMPLE,      // Simple command: echo hello, ls -la
+    CMD_PIPELINE,    // Simple pipeline: ls | grep test  
+    CMD_COMPLEX      // Complex: logical operators, control structures, etc.
+} command_complexity_t;
+
+static command_complexity_t analyze_command_complexity(const char *line) {
+    if (!line || strlen(line) == 0) {
+        return CMD_SIMPLE;
+    }
+    
+    // Check for control structure keywords
+    const char *control_keywords[] = {
+        "if ", "then ", "else ", "elif ", "fi ",
+        "while ", "for ", "do ", "done ",
+        "case ", "esac ", "until ",
+        "function ", "{", "}"
+    };
+    
+    for (size_t i = 0; i < sizeof(control_keywords) / sizeof(control_keywords[0]); i++) {
+        if (strstr(line, control_keywords[i])) {
+            return CMD_COMPLEX;
+        }
+    }
+    
+    // Check for logical operators (&&, ||, ;)
+    if (strstr(line, "&&") || strstr(line, "||") || strchr(line, ';')) {
+        return CMD_COMPLEX;
+    }
+    
+    // Check for simple pipes
+    char *pipe_pos = strchr(line, '|');
+    if (pipe_pos != NULL) {
+        // Make sure it's not || or |&
+        if ((pipe_pos == line || pipe_pos[-1] != '|') && 
+            (pipe_pos[1] != '|' && pipe_pos[1] != '&')) {
+            return CMD_PIPELINE;
+        }
+    }
+    
+    return CMD_SIMPLE;
+}
 
 // Optional: Bridge function to test new parser (can be enabled via environment variable)
 static node_t *parse_complete_command_new_bridge(source_t *src) {
@@ -29,6 +76,50 @@ static node_t *parse_complete_command_new_bridge(source_t *src) {
     node_t *result = parser_parse(parser);
     parser_destroy(parser);
     return result;
+}
+
+/**
+ * parse_and_execute_simple:
+ *   Use new parser for simple commands only (Phase 1 of gradual migration)
+ *   This function bypasses the old parser's complex logic and uses the new
+ *   POSIX-compliant parser directly for simple command execution.
+ */
+static int parse_and_execute_simple(source_t *src) {
+    // Debug: Show what we're trying to parse
+    fprintf(stderr, "DEBUG: Parsing simple command: '%.50s'\n", src->buf);
+    
+    // Create new parser instance
+    parser_t *parser = parser_create(src, NULL);
+    if (!parser) {
+        fprintf(stderr, "Error: Failed to create parser for simple command\n");
+        return 1;
+    }
+    
+    // Parse the simple command using new parser
+    node_t *cmd = parser_parse(parser);
+    if (!cmd) {
+        fprintf(stderr, "DEBUG: New parser returned NULL\n");
+        parser_destroy(parser);
+        return 0;  // Empty command or EOF
+    }
+    
+    // Debug: Show parser routing (optional)
+    if (getenv("NEW_PARSER_DEBUG")) {
+        fprintf(stderr, "DEBUG: Parsing simple command: '%s'\n", src->buf);
+        fprintf(stderr, "DEBUG: Parsed node type: %d\n", cmd->type);
+        if (cmd->val.str) {
+            fprintf(stderr, "DEBUG: Node value: '%s'\n", cmd->val.str);
+        }
+    }
+    
+    // Execute the command using the new parser adapter
+    int exit_status = execute_new_parser_command(cmd);
+    
+    // Clean up
+    free_node_tree(cmd);
+    parser_destroy(parser);
+    
+    return exit_status;
 }
 
 int main(int argc, char **argv) {
@@ -82,34 +173,24 @@ int main(int argc, char **argv) {
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
-        // Check if this line contains ONLY simple pipes (no logical operators)
-        // If there are logical operators mixed with pipes, use full parser
-        bool has_single_pipe = false;
-        bool has_logical_operators = false;
+        // Analyze command complexity to choose appropriate parser
+        command_complexity_t complexity = analyze_command_complexity(line);
         
-        // Check for logical operators first
-        if (strstr(line, "&&") || strstr(line, "||") || strchr(line, ';')) {
-            has_logical_operators = true;
-        }
-        
-        // Check for single pipes (not || or |&)  
-        char *pipe_pos = strchr(line, '|');
-        while (pipe_pos != NULL) {
-            // Check if it's a single pipe (not || or |&)
-            if ((pipe_pos == line || pipe_pos[-1] != '|') && 
-                (pipe_pos[1] != '|' && pipe_pos[1] != '&')) {
-                has_single_pipe = true;
+        switch (complexity) {
+            case CMD_SIMPLE:
+                // Use new parser for simple commands (gradual migration phase 1)
+                parse_and_execute_simple(&src);
                 break;
-            }
-            pipe_pos = strchr(pipe_pos + 1, '|');
-        }
-        
-        // Use simple pipeline execution ONLY if we have pipes but NO logical operators
-        if (has_single_pipe && !has_logical_operators) {
-            execute_pipeline_simple(line);
-        } else {
-            // Parse then execute a command normally (handles logical operators and mixed expressions)
-            parse_and_execute(&src);
+                
+            case CMD_PIPELINE:
+                // Use existing pipeline execution for now (TODO: migrate to new parser)
+                execute_pipeline_simple(line);
+                break;
+                
+            case CMD_COMPLEX:
+                // Use old parser for complex commands (fallback during transition)
+                parse_and_execute(&src);
+                break;
         }
 
         if (shell_type() != NORMAL_SHELL) {
