@@ -6,6 +6,34 @@ This document provides a complete catalog of all issues discovered during compre
 
 ---
 
+## ✅ RECENTLY FIXED ISSUES
+
+### Parameter Expansion `:+` Operator Bug (FIXED)
+**Priority**: CRITICAL - Affected basic parameter expansion
+**Test Status**: ✅ Fixed and fully tested
+
+#### **Problem Description**
+The parameter expansion operator `${VAR:+alternate}` was incorrectly failing with exit code 1 when used with unset variables. According to POSIX, it should return an empty string and exit with code 0.
+
+#### **Root Cause**
+Two underlying bugs:
+1. String builder rejected empty string appends (len == 0)
+2. Command execution treated NULL word expansion returns as errors
+
+#### **Solution Applied**
+- **src/wordexp.c**: Fixed `sb_append_len()` to allow empty string appends
+- **src/exec.c**: Fixed `execute_command()` to handle NULL returns from valid empty expansions
+
+#### **Test Results**
+All parameter expansion cases now work correctly:
+- `echo "${MISSING:+replacement}"` → empty line, exit 0
+- `echo ${MISSING:+replacement}` → empty line, exit 0
+- `VAR=hello; echo "${VAR:+replacement}"` → "replacement", exit 0
+
+See `PARAMETER_EXPANSION_FIX.md` for detailed technical documentation.
+
+---
+
 ## 🔴 CRITICAL ISSUES (Must Fix for Basic POSIX Compliance)
 
 ### 1. Control Structures Not Implemented

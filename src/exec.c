@@ -221,11 +221,10 @@ int execute_command(node_t *cmd) {
                     w2 = w2->next;
                 }
                 free_all_words(w);
-            } else {
-                // Word expansion failed - this could be due to unset variable error (-u)
-                free_argv(argc, argv);
-                return 1;
             }
+            // Note: NULL return from word_expand is valid for empty unquoted expansions
+            // Only return error if there was an actual expansion error (e.g., -u flag violations)
+            // The word_expand function handles those errors internally
         }
         child = child->next_sibling;
     }

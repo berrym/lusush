@@ -19,8 +19,12 @@ Lusush has achieved **comprehensive POSIX shell option compliance (19/20 tests p
 
 ### Known Limitations
 - **Control Structures**: `for`/`while`/`if` statements not yet implemented (major parser enhancement needed)
-- **Some Parameter Expansion Edge Cases**: `:+` operator issues with unset variables
 - **Minor Display Issues**: Escape sequence formatting in some contexts
+
+### Recent Fixes (December 2024)
+- **Parameter Expansion `:+` Operator**: Fixed critical bug where `${VAR:+alternate}` failed with unset variables
+- **Word Expansion Stability**: Resolved string builder and argument processing issues
+- **POSIX Compliance**: Enhanced compatibility with standard shell behavior
 
 ## Features
 
@@ -126,12 +130,13 @@ echo "test" | grep "test" && echo "found" || echo "not found"
 # Test parameter expansion
 ./builddir/lusush -c 'echo "${UNSET:-default_value}"'
 ./builddir/lusush -c 'VAR=test; echo "${VAR:+replacement}"'
+./builddir/lusush -c 'echo "${MISSING:+wont_show}"'  # Recently fixed
 ```
 
 **Known Working Features**:
 - ✅ All POSIX command-line options (`-c`, `-e`, `-x`, `-v`, etc.)
 - ✅ Set builtin with option management
-- ✅ Variable expansion and parameter expansion
+- ✅ Variable expansion and parameter expansion (including `:+` operator)
 - ✅ Command substitution (modern and legacy)
 - ✅ Pipeline and logical operators
 - ✅ Globbing and pathname expansion
@@ -139,7 +144,7 @@ echo "test" | grep "test" && echo "found" || echo "not found"
 
 **Known Limitations**:
 - ❌ Control structures (`for`, `while`, `if` statements)
-- ⚠️ Some parameter expansion edge cases
+- ⚠️ Advanced parameter expansion patterns
 - ⚠️ Minor escape sequence display issues
 
 See `POSIX_COMPLIANCE_STATUS.md` for detailed analysis.

@@ -82,8 +82,13 @@ bool sb_append_char(str_builder_t *sb, char c) {
 }
 
 bool sb_append_len(str_builder_t *sb, const char *str, size_t len) {
-    if (!sb || !str || len == 0) {
+    if (!sb || !str) {
         return false;
+    }
+    
+    // Allow appending empty strings (len == 0 is valid)
+    if (len == 0) {
+        return true;
     }
     
     if (!sb_ensure_capacity(sb, len)) {
@@ -509,14 +514,12 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
         const symtable_entry_t *entry = get_symtable_entry(actual_var_name);
         var_exists = (entry && entry->val);
         var_value = var_exists ? entry->val : "";
-    }
-    
-    // Handle parameter expansion operations
-    if (param_expansion_op) {
-        char *op = param_expansion_op;
-        char *expansion_default = NULL;
-        
-        if (strncmp(op, "=", 1) == 0) {
+    }        // Handle parameter expansion operations
+        if (param_expansion_op) {
+            char *op = param_expansion_op;
+            char *expansion_default = NULL;
+            
+            if (strncmp(op, "=", 1) == 0) {
             // ${var=value} - assign value if var is unset
             expansion_default = op + 1;
             if (!var_exists || strlen(var_value) == 0) {
