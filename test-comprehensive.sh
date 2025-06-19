@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/home/mberry/Lab/c/lusush/builddir/lusush
 # Comprehensive lusush shell feature demonstration
 # This script showcases the major POSIX compliance achievements
 

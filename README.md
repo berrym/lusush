@@ -96,8 +96,47 @@ echo "Line1\nLine2\tTabbed"    # Escape sequences enabled by default
 echo -n "No newline"           # -n flag supported
 ```
 
-**Control structures:**
+**Control structures (NEW):**
 ```bash
+# Working if statements
+if test -f README.md; then 
+    echo "File exists"
+fi
+
+if [ "$USER" = "admin" ]; then
+    echo "Admin user detected"
+else
+    echo "Regular user"
+fi
+
+# Working for loops  
+for i in 1 2 3; do
+    echo "Number: $i"
+done
+
+for file in *.md; do
+    echo "Processing: $file" 
+done
+
+# Variable assignment in single-command control structures
+if true; then var=VALUE; fi     # var persists after if
+for i in 1; do var=VALUE; done  # var persists after for
+```
+
+**Known control structure limitations:**
+```bash
+# Multi-command bodies currently concatenate (under investigation)
+if true; then
+    var1=FIRST      # These commands get combined instead
+    var2=SECOND     # of executing separately
+fi
+
+# While loops temporarily disabled due to infinite loop protection
+# while test "$i" -le 3; do
+#     echo "$i"
+#     i=$((i + 1))
+# done
+```
 # Working examples:
 if test -f README.md; then echo "File exists"; fi
 for i in 1 2 3; do echo "Number: $i"; done

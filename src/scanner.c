@@ -441,7 +441,8 @@ char peek_char(source_t *src) {
 void skip_whitespace(source_t *src) {
     char c;
 
-    while (((c = peek_char(src)) != EOF) && isspace((int)c)) {
+    // Skip whitespace but NOT newlines, as newlines are significant tokens
+    while (((c = peek_char(src)) != EOF) && isspace((int)c) && c != '\n') {
         next_char(src);
     }
 }

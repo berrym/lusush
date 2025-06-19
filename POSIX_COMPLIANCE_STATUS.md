@@ -48,16 +48,24 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 - Comment processing ✅
 - Alias expansion ✅
 
-#### Control Structures (NEWLY IMPLEMENTED)
-- **if-then-else-fi statements** ✅ **FIXED**
-- **for-do-done loops** ✅ **FIXED**
-- **while-do-done loops** ⚠️ **PARSING WORKS - ASSIGNMENT BUG IN EXECUTION**
+#### Control Structures (MAJOR PROGRESS WITH CRITICAL FIXES)
+- **if-then-else-fi statements** ✅ **SINGLE COMMANDS WORKING** / ⚠️ **MULTI-COMMAND BODIES CONCATENATE**
+- **for-do-done loops** ✅ **SINGLE COMMANDS WORKING** / ⚠️ **MULTI-COMMAND BODIES CONCATENATE**  
+- **while-do-done loops** ⚠️ **SUSPENDED - INFINITE LOOP PROTECTION CAUSES SESSION HANGS**
 - **until-do-done loops** ⚠️ **IMPLEMENTED BUT NOT TESTED**
-- Keyword recognition (`if`, `then`, `else`, `elif`, `fi`, `do`, `done`, `while`, `for`, `until`) ✅
-- Token pushback system for proper parsing ✅
-- Nested control structures support ✅
+- Keyword recognition (`if`, `then`, `else`, `elif`, `fi`, `do`, `done`, `while`, `for`, `until`) ✅ **COMPLETE**
+- Token pushback system for proper parsing ✅ **COMPLETE**
+- Nested control structures support ⚠️ **UNTESTED**
 
-**Recent Major Fix**: Resolved critical parser bug where control structure keywords were not being recognized due to missing source attribution in tokens. All control structure parsing now works correctly.
+**Major Architectural Fixes Applied (2025-06-19)**:
+1. **Critical Scanner Bug**: Fixed `skip_whitespace()` consuming newlines - newlines now properly tokenized
+2. **Parser Enhancement**: Added `TOKEN_NEWLINE` recognition to `parse_basic_command()` terminators
+3. **Root Cause Resolution**: Systematic investigation revealed scanning layer was preventing command separation
+
+**Current Functional Status**:
+- **Single command bodies**: Work perfectly in all control structures
+- **Multi-command bodies**: Commands concatenate instead of executing separately
+- **Variable persistence**: Works correctly when commands parse properly
 
 ---
 
@@ -65,39 +73,42 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 
 ### ⚠️ PARTIALLY IMPLEMENTED FEATURES
 
-#### 1. **Control Structures - Major Implementation Completed**
-**Status**: ✅ **MAJOR BREAKTHROUGH - MOSTLY WORKING**
+#### 1. **Control Structures - Single Commands Working, Multi-Commands Need Fix**
+**Status**: ✅ **CRITICAL PROGRESS - SINGLE COMMANDS FUNCTIONAL** / ⚠️ **MULTI-COMMAND PARSING ISSUE**
 
-**Working Features**:
-- `if/then/else/fi` statements ✅ (`if condition; then commands; fi`)
-- `for` loops ✅ (`for var in list; do commands; done`)
-- Keyword recognition for all control structures ✅
-- Proper parsing with token pushback system ✅
-- Nested control structures support ✅
-
-**Remaining Issues**:
-- `while` loops ⚠️ (parser works, but infinite loop due to assignment bug in loop body)
-- `until` loops ⚠️ (implemented but not tested)
-- `case/esac` statements ❌ (not yet implemented)
-- Function definitions ❌ (not yet implemented)
-
-**Recent Major Progress**:
-Fixed critical parser bug where control structure keywords were not being recognized. The scanner, parser, and AST generation now work correctly for most control structures.
-
-**Current Issue - While Loop Assignment Bug**:
+**Working Features (VERIFIED)**:
 ```bash
-# This fails due to assignment processing bug:
-while test "$i" -le 3; do
-    echo "Iteration: $i"
-    i=$((i + 1))        # ❌ Assignment not processed correctly in loop context
-done
+# Single commands in control structures work perfectly:
+if true; then var=VALUE; fi                    # ✅ var persists correctly
+for i in 1; do var=VALUE; done                 # ✅ var persists correctly  
+if test -f README.md; then echo "Found"; fi   # ✅ conditional execution works
+for i in 1 2 3; do echo "Number: $i"; done    # ✅ iteration works
 ```
 
-**Working Examples**:
+**Failing Features (IDENTIFIED)**:
 ```bash
-# These work correctly:
-if test -f README.md; then echo "Found"; fi           # ✅ 
-for i in 1 2 3; do echo "Number: $i"; done            # ✅
+# Multi-command bodies concatenate instead of separating:
+if true; then
+    var1=FIRST      # These commands get parsed as one
+    var2=SECOND     # concatenated string instead of
+    var3=THIRD      # three separate commands
+fi
+# Result: "var1=FIRST var2=SECOND var3=THIRD" (concatenated)
+# Expected: Three separate assignment executions
+```
+
+**Root Cause Analysis Complete**:
+- Scanner architecture fixed - newlines now properly preserved and tokenized
+- Single command parsing works due to scanner fixes
+- Multi-command parsing has remaining issues in `parse_command_list()` logic
+- Issue affects if statements and for loops equally
+- Symbol table and execution layers confirmed functional for properly parsed commands
+
+**While Loop Status**:
+- Parser confirmed working correctly
+- Execution suspended due to infinite loop protection causing session hangs
+- Manual simulation reveals same multi-command concatenation issue
+- Problem is manifestation of general multi-command parsing issue, not unique while loop bug
 if [ "$var" = "test" ]; then echo "Match"; fi         # ✅
 ```
 
