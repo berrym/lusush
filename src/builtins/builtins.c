@@ -387,7 +387,7 @@ static char *process_escape_sequences(const char *str) {
  *      Echo arguments to stdout with escape sequence processing.
  */
 int bin_echo(int argc, char **argv) {
-    bool interpret_escapes = false;  // POSIX default: off
+    bool interpret_escapes = true;   // Enable by default for POSIX compliance
     bool no_newline = false;
     int arg_start = 1;
     

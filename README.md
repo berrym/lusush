@@ -91,8 +91,8 @@ The test script demonstrates:
 - Mixed operator expressions (pipes + logical operators)
 
 **Known limitations:**
-- **No backtick substitution**: Only `$()` supported, not legacy backticks
-- **Basic echo builtin**: Escape sequences (\n, \t) printed literally
+- **Multiline string parsing**: Backslash line continuations need improvement
+- **Advanced redirection**: Some complex redirection patterns may need enhancement
 
 ## Architecture
 
