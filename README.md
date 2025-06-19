@@ -2,7 +2,7 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.2.0+ - Complete POSIX Core Features
+## Version 0.2.1 - Complete POSIX Core Features
 
 Lusush has achieved comprehensive POSIX shell compliance with robust parsing infrastructure, complete parameter expansion, enhanced builtins, and full command substitution support.
 

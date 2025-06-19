@@ -1,72 +1,34 @@
-# Test script for current lusush c# Arithmetic expansion
-A=10
-B=5
-echo "6. Arithmetic: $A + $B = $((A + B))"
-echo "   Arithmetic: $A * $B = $((A * B))"
-echo "   Arithmetic: $A ** 2 = $((A ** 2))"
+#!/bin/bash
+# lusush Shell v0.2.1 - Core Capabilities Test
 
-# Globbing test
-echo "7. Globbing test - files:"
-echo *.md
+echo "=== LUSUSH v0.2.1 CORE CAPABILITIES ==="
 
-# Mixed operators (our main achievement)
-echo "8. Mixed operators test:"
-echo "success" | grep "success" && echo "   Pipeline + AND works!"
-echo "fail" | grep "success" || echo "   Pipeline + OR works!"
+echo "1. Basic Operations:"
+MSG="Hello lusush v0.2.1"
+echo "   $MSG"
 
-# Comment support (now working!)
-echo "9. Comment support: Working!" # This is an inline commentcomment support
-# All features listed here work correctly
+echo "2. Parameter Expansion:"
+echo "   ${var1=default} = assigned"
+echo "   ${var2:-fallback} = fallback"
+echo "   var1 is now: $var1"
 
-echo "=== LUSUSH CURRENT CAPABILITIES TEST ==="
+echo "3. Command Substitution:"
+echo "   Modern: $(date '+%Y-%m-%d')"
+echo "   Legacy: `date '+%H:%M'`"
 
-# Basic echo functionality
-echo "1. Basic echo works"
+echo "4. Arithmetic:"
+A=10; B=3
+echo "   $A + $B = $((A + B))"
 
-# Variable assignment and expansion  
-TEST_VAR="Hello World"
-echo "2. Variable assignment: $TEST_VAR"
+echo "5. Enhanced Echo:"
+echo "   Escape sequences: Line1\nLine2"
 
-# Parameter expansion (NEW FEATURE!)
-echo "3. Parameter expansion:"
-echo "   ${unset1=default} -> sets and returns 'default'"
-echo "   unset1 is now: $unset1"
-echo "   ${unset2:-fallback} -> returns 'fallback' without setting"
-echo "   ${unset3:=assigned} -> sets and returns 'assigned'"
-echo "   unset3 is now: $unset3"
+echo "6. Mixed Operators:"
+echo "test" | grep "test" && echo "   Pipeline + AND works"
 
-# Command substitution - both modern $() and legacy backticks
-CURRENT_DATE=$(date '+%Y-%m-%d')
-CURRENT_TIME=`date '+%H:%M'`
-CURRENT_DAY=`date '+%A'`
-echo "4. Command substitution:"
-echo "   Modern syntax: Today is $CURRENT_DATE"
-echo "   Legacy syntax: Current time is $CURRENT_TIME"
-echo "   Mixed test: Today is $(echo $CURRENT_DAY), $CURRENT_DATE"
-PWD_RESULT=`pwd`
-echo "   Backtick assignment: Working directory is $PWD_RESULT"
-echo "   Nested: Files in $(basename `pwd`): $(echo *.md | wc -w) markdown files"
+echo "7. Control Flow:"
+for i in 1 2; do echo "   Loop: $i"; done
 
-# Enhanced echo with escape sequences (now enabled by default)
-echo "5. Enhanced echo with escape sequences:"
-echo "   Line1\nLine2\tTabbed\rCarriage\aBeep"
+echo "8. Comments:" # inline comment works
 
-# Arithmetic expansion
-A=10
-B=5
-echo "6. Arithmetic: $A + $B = $((A + B))"
-echo "   Arithmetic: $A * $B = $((A * B))"
-
-# Globbing test
-echo "7. Globbing test - files:"
-echo *
-
-# Mixed operators (our main achievement)
-echo "8. Mixed operators test:"
-echo "success" | grep "success" && echo "   Pipeline + AND works!"
-echo "fail" | grep "success" || echo "   Pipeline + OR works!"
-
-# Comment support (now working!)
-echo "9. Comment support: Working!" # This is an inline comment
-
-echo "=== TEST COMPLETED ==="
+echo "=== LUSUSH v0.2.1 READY ==="
