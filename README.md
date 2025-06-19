@@ -2,9 +2,9 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.2.0 - Core Parser Robustness + Parameter Expansion Complete
+## Version 0.2.0+ - Complete POSIX Core Features
 
-Lusush has reached a major architectural milestone with robust parsing infrastructure, full support for logical operators, command separators, pipeline processing, and comprehensive POSIX parameter expansion.
+Lusush has achieved comprehensive POSIX shell compliance with robust parsing infrastructure, complete parameter expansion, enhanced builtins, and full command substitution support.
 
 ## Features
 
@@ -16,6 +16,8 @@ Lusush has reached a major architectural milestone with robust parsing infrastru
 - **Pipeline processing** with proper distinction from logical operators
 - **Variable expansion** with quote handling and field splitting
 - **POSIX parameter expansion** (`${var=value}`, `${var:-default}`, `${var:+alternate}`, etc.)
+- **Enhanced echo builtin** with escape sequence processing enabled by default
+- **Comprehensive command substitution** (both `$()` modern and backtick legacy syntax)
 - **Control structures** (if/then/else, for, while, until, case)
 - **File redirection** (input, output, append)
 - **Command completion** with linenoise integration
@@ -55,11 +57,17 @@ echo a; echo b; echo c
 echo "test data" | grep "test"
 ```
 
-**Variable expansion:**
+**Command substitution (both syntaxes):**
 ```bash
-VAR="hello world"; echo "$VAR"
-echo "${unset_var=default_value}"  # New: parameter expansion
-echo "${var:-fallback}"            # New: default values
+MODERN=$(date '+%Y-%m-%d')     # Modern syntax
+LEGACY=`date '+%H:%M'`         # Legacy backtick syntax  
+echo "Today is $MODERN at $LEGACY"
+```
+
+**Enhanced echo with escape sequences:**
+```bash
+echo "Line1\nLine2\tTabbed"    # Escape sequences enabled by default
+echo -n "No newline"           # -n flag supported
 ```
 
 **Control structures:**
@@ -91,7 +99,8 @@ The test script demonstrates:
 - Mixed operator expressions (pipes + logical operators)
 
 **Known limitations:**
-- **Multiline string parsing**: Backslash line continuations need improvement
+- **Advanced parameter expansion**: Pattern substitution `${var/pattern/replacement}` not implemented
+- **Here documents**: `<<EOF` syntax not supported
 - **Advanced redirection**: Some complex redirection patterns may need enhancement
 
 ## Architecture
