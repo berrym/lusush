@@ -53,6 +53,27 @@ This index provides access to all comprehensive documentation created for lusush
   - Memory management best practices
   - Development workflow recommendations
 
+### **LUSUSH_ARCHITECTURE_REFERENCE.md** - Technical Architecture Guide ⭐ **NEW**
+- **Purpose**: Comprehensive technical architecture with diagrams and flowcharts  
+- **Contents**:
+  - Overall system architecture with ASCII diagrams
+  - Input processing flow and parser architecture mapping
+  - AST node structure and execution engine analysis
+  - Memory management patterns and lifecycle documentation
+  - Control structure processing detailed analysis
+  - Development hotspots and critical areas identification
+  - Enhancement opportunities and refactoring guidance
+
+### **QUICK_REFERENCE.md** - Developer Reference Card ⭐ **NEW**
+- **Purpose**: Essential quick reference for active development
+- **Contents**:
+  - Immediate development targets with file locations
+  - Key file navigation and function mapping
+  - Current status matrix for all features
+  - Debugging commands and testing shortcuts
+  - Known danger zones and development tips
+  - Performance profiling guidance
+
 ---
 
 ## 🔍 **Issue Quick Reference**
