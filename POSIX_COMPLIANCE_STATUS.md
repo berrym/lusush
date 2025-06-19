@@ -48,156 +48,335 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 
 ---
 
-## ⚠️ KNOWN LIMITATIONS AND ISSUES
+## ⚠️ KNOWN LIMITATIONS AND REQUIRED FIXES
 
 ### CRITICAL LIMITATIONS (Require Major Development)
 
 #### 1. **Control Structures Not Implemented**
-**Status**: ❌ **MAJOR LIMITATION**
+**Status**: ❌ **MAJOR LIMITATION - TOP PRIORITY**
 
 **Missing Features**:
-- `for` loops
-- `while` loops  
-- `until` loops
-- `if/then/else/fi` statements
-- `case/esac` statements
-- Function definitions
+- `for` loops (`for var in list; do commands; done`)
+- `while` loops (`while condition; do commands; done`) 
+- `until` loops (`until condition; do commands; done`)
+- `if/then/else/fi` statements (`if condition; then commands; fi`)
+- `case/esac` statements (`case $var in pattern) commands;; esac`)
+- Function definitions (`function_name() { commands; }`)
+
+**Current Parser Limitations**:
+- Parser only recognizes simple commands and pipelines
+- No AST nodes for control structures
+- No execution engine support for structured control flow
 
 **Impact**: 
 - Scripts using control structures fail completely
-- Basic conditional logic unusable
+- Basic conditional logic unusable  
 - Loops cannot be executed
+- Function definitions not supported
 
 **Example Failures**:
 ```bash
 # These constructs are not supported:
-for i in 1 2 3; do echo $i; done
-if [ -f file ]; then echo found; fi
-while read line; do echo $line; done
+for i in 1 2 3; do echo $i; done          # ❌ parse error
+if [ -f file ]; then echo found; fi       # ❌ parse error  
+while read line; do echo $line; done      # ❌ parse error
+function myFunc() { echo hello; }         # ❌ parse error
 ```
 
+**Required Fix - Comprehensive Parser Overhaul**:
+
+1. **Scanner Enhancements** (`src/scanner.c`):
+   ```c
+   // Add new token types
+   TOKEN_FOR, TOKEN_DO, TOKEN_DONE,
+   TOKEN_IF, TOKEN_THEN, TOKEN_ELSE, TOKEN_FI,
+   TOKEN_WHILE, TOKEN_UNTIL,
+   TOKEN_CASE, TOKEN_IN, TOKEN_ESAC,
+   TOKEN_FUNCTION
+   ```
+
+2. **AST Node Extensions** (`include/lusush.h`):
+   ```c
+   typedef enum {
+       NODE_IF_STATEMENT,
+       NODE_FOR_LOOP,
+       NODE_WHILE_LOOP,
+       NODE_CASE_STATEMENT,
+       NODE_FUNCTION_DEF
+   } node_type_t;
+   
+   typedef struct {
+       node_t *condition;
+       node_t *then_body;
+       node_t *else_body;
+   } if_statement_t;
+   ```
+
+3. **Parser Grammar Extensions** (`src/parser.c`):
+   - Add recursive descent parsing for control structures
+   - Implement proper precedence and associativity
+   - Handle nested control structures
+
+4. **Execution Engine Modifications** (`src/exec.c`):
+   - Add control flow execution logic
+   - Implement loop variable scoping
+   - Add break/continue statement support
+   - Function call stack management
+
+**Estimated Effort**: 🔴 **Very High** (3-4 weeks of full-time development)
+
+#### 2. **Array Variables Not Implemented**
+**Status**: ❌ **MAJOR LIMITATION**
+
+**Missing Features**:
+- Array assignment (`array[index]=value`)
+- Array expansion (`${array[index]}`, `${array[@]}`)
+- Array length (`${#array[@]}`)
+
 **Required Fix**:
-- Major parser enhancements to recognize control structure syntax
-- New AST node types for control structures
-- Execution engine modifications to handle structured control flow
-- Loop variable scoping implementation
-- Conditional expression evaluation framework
+- Extend symbol table to support indexed variables
+- Implement array parsing and expansion logic
+- Add array-specific parameter expansion operators
 
-**Estimated Effort**: 🔴 **Very High** (weeks of development)
+**Estimated Effort**: 🟡 **High** (1-2 weeks)
 
-#### 2. **Arithmetic Expansion Limitations**
+#### 3. **Advanced Parameter Expansion Patterns**
 **Status**: ⚠️ **PARTIALLY IMPLEMENTED**
 
-**Working**:
-- Basic arithmetic (`$((2 + 3))`)
-- Variable references in arithmetic (`$((X + Y))`)
-
-**Missing**:
-- Complex arithmetic expressions with precedence
-- Arithmetic assignment operators (`+=`, `-=`, etc.)
-- Pre/post increment/decrement (`++`, `--`)
-- Bitwise operations
-- Arithmetic comparisons in arithmetic context
+**Missing Pattern Operations**:
+- Pattern substitution: `${var/pattern/replacement}`, `${var//pattern/replacement}`
+- Pattern removal: `${var#pattern}`, `${var##pattern}`, `${var%pattern}`, `${var%%pattern}`
+- String length and substring: `${var:offset:length}`
 
 **Required Fix**:
-- Enhanced arithmetic expression parser
-- Operator precedence handling
-- Assignment operator implementation
+- Implement pattern matching engine
+- Add glob pattern support in parameter expansion
+- Extend parameter expansion parser
 
-**Estimated Effort**: 🟡 **Medium** (days of development)
+**Estimated Effort**: 🟡 **Medium** (1-2 weeks)
 
 ---
 
 ### MODERATE ISSUES (Affecting Compatibility)
 
-#### 3. **Parameter Expansion Edge Cases**
-**Status**: ⚠️ **MOSTLY WORKING WITH ISSUES**
+#### 4. **Parameter Expansion `:+` Operator Edge Case**
+**Status**: ⚠️ **PARTIALLY WORKING - HIGH PRIORITY BUG**
 
-**Working Operators**:
-- `${VAR:-default}` ✅
-- `${VAR:=default}` ✅  
-- `${VAR+alternate}` ✅
-- `${VAR=default}` ✅
-- `${VAR-default}` ✅
+**Specific Problem**:
+- `${VAR:+alternate}` fails with unset variables (exits with code 1)
+- Should return empty string when variable is unset or null
 
-**Problematic Operators**:
-- `${VAR:+alternate}` ❌ (fails with unset variables)
-
-**Symptoms**:
+**Working Correctly**:
 ```bash
-# This works:
-echo "${EXISTING:+replacement}"  # ✅
-
-# This fails with exit code 1:
-echo "${MISSING:+replacement}"   # ❌
+EXISTING=value
+echo "${EXISTING:+replacement}"  # ✅ Works: outputs "replacement"
 ```
 
-**Root Cause**: 
-- Parameter expansion logic has edge case in `:+` operator handling
-- Unset variable error checking interferes with expansion operators
+**Failing Case**:
+```bash
+unset MISSING
+echo "${MISSING:+replacement}"   # ❌ Fails: exits with code 1
+                                 # Should output: "" (empty string)
+```
+
+**Root Cause Analysis**:
+Located in `src/wordexp.c`, the unset variable error check (`-u` option) is triggered before the `:+` operator logic is processed:
+
+```c
+// CURRENT PROBLEMATIC CODE:
+if (!var_exists && is_posix_option_set('u')) {
+    // Error triggered here for ${MISSING:+...}
+    return error_unset_variable;
+}
+// `:+` operator processing happens after this check
+```
 
 **Required Fix**:
-- Debug parameter expansion operator precedence
-- Fix `:+` operator logic for unset variables
-- Ensure all expansion operators handle unset variables correctly
+1. Reorder parameter expansion logic to process operators first
+2. Only check unset variable errors after confirming no expansion operator handles the case
+3. Test all parameter expansion operators with unset variables
+
+**Detailed Code Changes Needed**:
+```c
+// In src/wordexp.c, word_expand() function:
+if (has_param_expansion_operator) {
+    // Process ${VAR:+alt}, ${VAR:-def}, etc. first
+    switch (operator) {
+        case PARAM_PLUS_COLON:
+            if (!var_exists || value_is_null) return "";
+            return alternate_value;
+        // ... other operators
+    }
+} else {
+    // Only check unset variable error if no operator present
+    if (!var_exists && is_posix_option_set('u')) {
+        return error_unset_variable;
+    }
+}
+```
 
 **Estimated Effort**: 🟡 **Medium** (1-2 days)
 
-#### 4. **Escape Sequence Display Issues**
-**Status**: ⚠️ **FUNCTIONAL BUT COSMETIC ISSUES**
+#### 5. **Here Documents and Process Substitution Missing**
+**Status**: ❌ **NOT IMPLEMENTED**
 
-**Problem**:
-- `\$` in strings displays as `$$` instead of `$`
-- Affects script output formatting but not functionality
-
-**Example**:
-```bash
-echo "Price: \$5"    # Shows: Price: $$5 (should show: Price: $5)
-```
-
-**Root Cause**:
-- Multiple layers of escape sequence processing
-- Word expansion and echo builtin both processing escapes
+**Missing Features**:
+- Here documents: `command <<EOF ... EOF`
+- Here strings: `command <<<string`
+- Process substitution: `<(command)`, `>(command)`
 
 **Required Fix**:
-- Audit escape sequence processing pipeline
-- Ensure single-pass escape handling
-- Fix word expansion escape sequence logic
+- Extend parser to recognize here document syntax
+- Implement temporary file handling for here documents
+- Add process substitution with named pipes
 
-**Estimated Effort**: 🟢 **Low** (hours)
+**Estimated Effort**: 🟡 **High** (2-3 weeks)
 
-#### 5. **Syntax Check Mode Error Reporting**
-**Status**: ⚠️ **MOSTLY WORKING**
+#### 6. **Arithmetic Expansion Limitations**
+**Status**: ⚠️ **BASIC IMPLEMENTATION COMPLETE**
 
-**Problem**:
-- Syntax check mode (`-n`) doesn't return proper exit codes for all syntax errors
-- Some syntax errors return 0 instead of 2
+**Working Features**:
+- Basic arithmetic (`$((2 + 3))`) ✅
+- Variable references (`$((X + Y))`) ✅  
+- Parentheses and precedence ✅
 
-**Impact**:
-- Automated syntax checking tools may not detect errors properly
+**Missing Advanced Features**:
+- Assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`)
+- Pre/post increment/decrement (`++var`, `var++`, `--var`, `var--`)
+- Bitwise operations (`&`, `|`, `^`, `<<`, `>>`, `~`)
+- Arithmetic comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+- Ternary operator (`condition ? true_value : false_value`)
 
 **Required Fix**:
-- Enhance syntax check mode to perform full syntax validation
-- Ensure proper error code propagation from parser
-- Add comprehensive syntax error detection
+- Extend arithmetic expression parser
+- Add assignment operator support
+- Implement bitwise and comparison operators
 
-**Estimated Effort**: 🟡 **Medium** (1-2 days)
+**Estimated Effort**: 🟡 **Medium** (1-2 weeks)
 
 ---
 
 ### MINOR ISSUES (Cosmetic or Edge Cases)
 
-#### 6. **Pipeline Builtin Warnings**
-**Status**: ⚠️ **COSMETIC**
+#### 7. **Escape Sequence Display Issues**
+**Status**: ⚠️ **FUNCTIONAL BUT COSMETIC PROBLEM**
+
+**Problem**:
+- `\$` in strings displays as `$$` instead of `$`
+- Affects script output formatting but not core functionality
+
+**Examples of Incorrect Display**:
+```bash
+echo "Price: \$5"           # Shows: "Price: $$5" 
+                            # Should show: "Price: $5"
+
+echo "Escaped: \$VAR"       # Shows: "Escaped: $$VAR"
+                            # Should show: "Escaped: $VAR"
+```
+
+**Root Cause**:
+Multiple escape sequence processing layers in the word expansion pipeline:
+1. Scanner processes escapes during tokenization
+2. Word expansion processes escapes during variable expansion
+3. Echo builtin processes escapes during output
+
+**Required Fix**:
+1. Audit the complete escape sequence processing pipeline
+2. Ensure single-pass escape handling
+3. Fix word expansion escape sequence logic to avoid double-processing
+
+**Code Locations to Investigate**:
+- `src/wordexp.c`: `word_expand()` function
+- `src/builtins/builtins.c`: `builtin_echo()` function  
+- `src/scanner.c`: String tokenization
+
+**Estimated Effort**: 🟢 **Low** (4-8 hours)
+
+#### 8. **Syntax Check Mode Error Reporting**
+**Status**: ⚠️ **MOSTLY WORKING - ONE TEST FAILURE**
+
+**Problem**:
+- Syntax check mode (`-n`) doesn't return proper exit codes for all syntax errors
+- Some syntax errors return 0 instead of 2
+- This is the only failing test in the POSIX options test suite (19/20 passing)
+
+**Expected Behavior**:
+```bash
+./lusush -n -c 'invalid syntax here'
+echo $?    # Should return 2, sometimes returns 0
+```
+
+**Impact**:
+- Automated syntax checking tools may not detect errors properly
+- CI/CD pipelines relying on exit codes could miss syntax errors
+
+**Required Fix**:
+1. Enhance syntax check mode to perform full syntax validation
+2. Ensure proper error code propagation from parser to main shell
+3. Add comprehensive syntax error detection for all invalid constructs
+
+**Code Investigation Points**:
+- `src/lusush.c`: Command-line option processing
+- `src/parser.c`: Error handling and return codes
+- Error propagation from parser to main execution
+
+**Estimated Effort**: 🟡 **Medium** (1-2 days)
+
+#### 9. **Pipeline Builtin Warnings**
+**Status**: ⚠️ **COSMETIC ISSUE**
 
 **Issue**:
-- Warnings displayed for builtins in pipelines
+- Unnecessary warnings displayed for builtins in pipelines
 - Doesn't affect functionality but clutters output
+- Creates confusing user experience
 
-**Example**:
+**Example Warning Output**:
 ```bash
 echo "test" | grep "test"
 # Shows: Warning: builtin 'echo' in pipeline may not work as expected
+# Output: test
+```
+
+**Root Cause**:
+Overly conservative pipeline detection logic that warns even for safe builtin cases.
+
+**Required Fix**:
+1. Improve builtin pipeline handling logic
+2. Remove warnings for known-safe cases (like `echo`)
+3. Only warn for builtins that genuinely have pipeline issues
+
+**Code Location**: `src/exec.c` - pipeline execution and builtin handling
+
+**Estimated Effort**: 🟢 **Low** (2-4 hours)
+
+---
+
+### ADVANCED FEATURES FOR FUTURE IMPLEMENTATION
+
+#### 10. **Job Control and Background Processing**
+**Status**: ❌ **NOT IMPLEMENTED**
+
+**Missing Features**:
+- Job control (`jobs`, `fg`, `bg` commands)
+- Process group management
+- Signal handling for background jobs
+- Job status monitoring
+
+**Required for Full POSIX Compliance**: Yes, but lower priority than control structures
+
+#### 11. **Advanced Redirection and File Descriptors**
+**Status**: ⚠️ **BASIC IMPLEMENTATION**
+
+**Working**: Basic input/output redirection (`>`, `<`, `>>`)
+**Missing**: Advanced file descriptor operations, duplicate redirection (`2>&1`)
+
+#### 12. **Alias and Function Advanced Features**
+**Status**: ⚠️ **BASIC IMPLEMENTATION**
+
+**Working**: Basic alias support
+**Missing**: Function-local variables, function parameters (`$1`, `$2`, etc.)
+
+---
 ```
 
 **Required Fix**:

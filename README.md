@@ -146,28 +146,65 @@ See `POSIX_COMPLIANCE_STATUS.md` for detailed analysis.
 
 The test capabilities demonstrate:
 
-**Known limitations:**
-- **🚨 CRITICAL: POSIX command-line options** - Missing essential options like `-c`, `-e`, `-x`, `-s`, `-i`
-- **Advanced parameter expansion**: Pattern substitution `${var/pattern/replacement}` not implemented
-- **Here documents**: `<<EOF` syntax not supported
-- **Advanced redirection**: Some complex redirection patterns may need enhancement
-- **Job control**: Background processes and job management not implemented
+**Known limitations requiring fixes:**
 
-### Command-Line Options Gap
+### � CRITICAL LIMITATIONS (Require Major Development)
 
-**CURRENTLY SUPPORTED**: Only `-h/--help` and `-v/--version` (non-POSIX convenience options)
+#### **Control Structures Not Implemented**
+- **Missing**: `for`, `while`, `until`, `if/then/else/fi`, `case/esac` statements
+- **Impact**: Scripts using loops or conditionals fail completely
+- **Fix Required**: Major parser enhancements to recognize control structure syntax, new AST node types, execution engine modifications
+- **Estimated Effort**: Weeks of development
 
-**MISSING CRITICAL POSIX OPTIONS**:
-- **`-c command_string`** - Execute command string (essential for automation)
-- **`-s`** - Read commands from standard input
-- **`-i`** - Interactive mode
-- **`-l`** - Login shell behavior
-- **`-e`** - Exit on error (`set -e`)
-- **`-x`** - Trace execution (`set -x`)
-- **`-n`** - Syntax check mode (`set -n`)
-- **`-u`** - Unset variable error (`set -u`)
+#### **Function Definitions Not Supported**
+- **Missing**: `function_name() { commands; }` syntax
+- **Impact**: Cannot define reusable functions
+- **Fix Required**: Parser support for function syntax, execution environment scoping
 
-This represents a significant POSIX compliance gap that affects system integration and automation usage.
+### 🟡 MODERATE LIMITATIONS (Affecting Compatibility)
+
+#### **Parameter Expansion Edge Cases**
+- **Issue**: `${VAR:+alternate}` operator fails with unset variables (returns exit code 1)
+- **Working**: `${VAR:-default}`, `${VAR:=value}`, `${VAR+alternate}` 
+- **Fix Required**: Debug parameter expansion operator precedence, fix `:+` operator logic
+- **Estimated Effort**: 1-2 days
+
+#### **Advanced Parameter Expansion Missing**
+- **Missing**: Pattern substitution `${var/pattern/replacement}`, `${var#pattern}`, `${var%pattern}`
+- **Fix Required**: Implement pattern matching in parameter expansion
+
+#### **Array Variables Not Implemented**
+- **Missing**: `array[index]=value`, `${array[@]}` syntax
+- **Fix Required**: Array storage implementation, index parsing
+
+### 🟢 MINOR ISSUES (Cosmetic or Edge Cases)
+
+#### **Escape Sequence Display Problems**
+- **Issue**: `\$` in strings displays as `$$` instead of `$`
+- **Cause**: Multiple layers of escape sequence processing
+- **Fix Required**: Audit escape processing pipeline, ensure single-pass handling
+
+#### **Syntax Check Mode Error Reporting**
+- **Issue**: `-n` mode returns exit code 0 instead of 2 for some syntax errors
+- **Fix Required**: Enhance error propagation from parser to main shell
+
+#### **Pipeline Builtin Warnings**  
+- **Issue**: Unnecessary warnings for builtins in pipelines ("Warning: builtin 'echo' in pipeline...")
+- **Fix Required**: Improve builtin pipeline detection logic
+
+### 📋 ADVANCED FEATURES NOT YET IMPLEMENTED
+
+#### **Here Documents and Process Substitution**
+- **Missing**: `<<EOF` syntax, `<(command)`, `>(command)`
+- **Fix Required**: Parser extensions, file descriptor management
+
+#### **Job Control**
+- **Missing**: Background job management, job control operators
+- **Fix Required**: Process group management, signal handling enhancements
+
+#### **Advanced Redirection**
+- **Missing**: Some complex redirection patterns, file descriptor operations
+- **Fix Required**: Enhanced I/O redirection parsing and handling
 
 ## Architecture
 
@@ -194,10 +231,31 @@ Version 0.2.1 represents a major milestone with comprehensive POSIX parameter ex
 - **Mixed operator parsing** - `cmd | pipe && logical` expressions work perfectly
 
 ### Critical Development Priority
-**POSIX Command-Line Options Implementation** - The most critical missing feature for system integration:
-- Implement `-c command_string` for automation and script execution
-- Add shell behavior flags (`-e`, `-x`, `-n`, `-u`) for robust scripting
-- Complete POSIX option syntax (`-o`/`+o`) for full compliance
+
+**The highest priority development tasks for enhancing lusush POSIX compliance:**
+
+1. **Implement Basic Control Structures** 🔴 **CRITICAL**
+   - Add `if/then/else/fi` conditional statements
+   - Implement `for var in list; do ... done` loops
+   - Add `while` and `until` loops
+   - This enables basic shell scripting functionality
+
+2. **Fix Parameter Expansion Edge Cases** 🟡 **HIGH**
+   - Resolve `${VAR:+alternate}` operator failing with unset variables
+   - Ensure all POSIX expansion operators handle edge cases correctly
+
+3. **Complete Advanced Parameter Expansion** 🟡 **MEDIUM**
+   - Implement pattern substitution `${var/pattern/replacement}`
+   - Add pattern removal `${var#pattern}`, `${var%pattern}`
+
+4. **Add Function Definitions** 🟡 **MEDIUM**
+   - Support `function_name() { commands; }` syntax
+   - Implement proper function scoping and parameter passing
+
+5. **Polish User Experience** 🟢 **LOW**
+   - Fix escape sequence display issues (`\$` showing as `$$`)
+   - Remove unnecessary pipeline warnings
+   - Improve syntax error reporting
 
 ### Future Development Phases
 - Advanced parameter expansion completion (pattern substitution)
