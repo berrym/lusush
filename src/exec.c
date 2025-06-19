@@ -907,7 +907,18 @@ int do_if_clause(node_t *node) {
         if (condition_result == 0) {
             int result = 0;
             if (then_body->type == NODE_COMMAND) {
-                result = do_basic_command(then_body);
+                // Check if this is a command list (has child commands) or a single command
+                if (then_body->first_child && then_body->first_child->type == NODE_COMMAND) {
+                    // This is a command list - execute each child command
+                    node_t *cmd = then_body->first_child;
+                    while (cmd) {
+                        result = execute_node(cmd);
+                        cmd = cmd->next_sibling;
+                    }
+                } else {
+                    // This is a single command
+                    result = do_basic_command(then_body);
+                }
             } else {
                 result = do_basic_command(then_body);
             }
@@ -923,7 +934,18 @@ int do_if_clause(node_t *node) {
             // This is the else body (odd number of children)
             int result = 0;
             if (current->type == NODE_COMMAND) {
-                result = do_basic_command(current);
+                // Check if this is a command list (has child commands) or a single command
+                if (current->first_child && current->first_child->type == NODE_COMMAND) {
+                    // This is a command list - execute each child command
+                    node_t *cmd = current->first_child;
+                    while (cmd) {
+                        result = execute_node(cmd);
+                        cmd = cmd->next_sibling;
+                    }
+                } else {
+                    // This is a single command
+                    result = do_basic_command(current);
+                }
             } else {
                 result = do_basic_command(current);
             }

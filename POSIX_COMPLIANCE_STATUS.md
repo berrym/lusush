@@ -48,24 +48,25 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 - Comment processing ✅
 - Alias expansion ✅
 
-#### Control Structures (MAJOR PROGRESS WITH CRITICAL FIXES)
-- **if-then-else-fi statements** ✅ **SINGLE COMMANDS WORKING** / ⚠️ **MULTI-COMMAND BODIES CONCATENATE**
-- **for-do-done loops** ✅ **SINGLE COMMANDS WORKING** / ⚠️ **MULTI-COMMAND BODIES CONCATENATE**  
-- **while-do-done loops** ⚠️ **SUSPENDED - INFINITE LOOP PROTECTION CAUSES SESSION HANGS**
-- **until-do-done loops** ⚠️ **IMPLEMENTED BUT NOT TESTED**
+#### Control Structures ✅ **FULLY WORKING**
+- **if-then-else-fi statements** ✅ **COMPLETE - Multi-command bodies working**
+- **for-do-done loops** ✅ **COMPLETE - Multi-command bodies working**  
+- **while-do-done loops** ✅ **COMPLETE - Multi-command bodies working with infinite loop protection**
+- **until-do-done loops** ⚠️ **PARSED BUT EXECUTION NOT IMPLEMENTED**
+- **case-in-esac statements** ⚠️ **PARSED BUT PATTERN MATCHING NOT IMPLEMENTED**
 - Keyword recognition (`if`, `then`, `else`, `elif`, `fi`, `do`, `done`, `while`, `for`, `until`) ✅ **COMPLETE**
 - Token pushback system for proper parsing ✅ **COMPLETE**
+- Multi-command parsing with newlines and semicolons ✅ **COMPLETE**
 - Nested control structures support ⚠️ **UNTESTED**
 
-**Major Architectural Fixes Applied (2025-06-19)**:
-1. **Critical Scanner Bug**: Fixed `skip_whitespace()` consuming newlines - newlines now properly tokenized
-2. **Parser Enhancement**: Added `TOKEN_NEWLINE` recognition to `parse_basic_command()` terminators
-3. **Root Cause Resolution**: Systematic investigation revealed scanning layer was preventing command separation
+**Major Achievement (June 19, 2025)**:
+🎉 **MULTI-COMMAND PARSING COMPLETELY FIXED** - All control structures now properly parse and execute multiple commands in their bodies, supporting both newline and semicolon separators.
 
 **Current Functional Status**:
-- **Single command bodies**: Work perfectly in all control structures
-- **Multi-command bodies**: Commands concatenate instead of executing separately
-- **Variable persistence**: Works correctly when commands parse properly
+- **Single command bodies**: Work perfectly ✅
+- **Multi-command bodies**: Work perfectly with newlines and semicolons ✅
+- **Variable persistence**: Works correctly ✅
+- **Nested structures**: Parsing works, execution untested ⚠️
 
 ---
 
@@ -73,31 +74,42 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 
 ### ⚠️ PARTIALLY IMPLEMENTED FEATURES
 
-#### 1. **Control Structures - Single Commands Working, Multi-Commands Need Fix**
-**Status**: ✅ **CRITICAL PROGRESS - SINGLE COMMANDS FUNCTIONAL** / ⚠️ **MULTI-COMMAND PARSING ISSUE**
+#### 1. **Advanced Control Structures - Until and Case Need Implementation**
+**Status**: ⚠️ **PARSED BUT EXECUTION NOT IMPLEMENTED**
 
 **Working Features (VERIFIED)**:
 ```bash
-# Single commands in control structures work perfectly:
-if true; then var=VALUE; fi                    # ✅ var persists correctly
-for i in 1; do var=VALUE; done                 # ✅ var persists correctly  
-if test -f README.md; then echo "Found"; fi   # ✅ conditional execution works
-for i in 1 2 3; do echo "Number: $i"; done    # ✅ iteration works
-```
-
-**Failing Features (IDENTIFIED)**:
-```bash
-# Multi-command bodies concatenate instead of separating:
+# All basic control structures work with multi-command bodies:
 if true; then
-    var1=FIRST      # These commands get parsed as one
-    var2=SECOND     # concatenated string instead of
-    var3=THIRD      # three separate commands
+    var1=FIRST      # ✅ All commands execute separately
+    var2=SECOND     # ✅ Both newlines and semicolons work  
+    var3=THIRD; var4=FOURTH
 fi
-# Result: "var1=FIRST var2=SECOND var3=THIRD" (concatenated)
-# Expected: Three separate assignment executions
+
+for item in list; do
+    cmd1; cmd2      # ✅ Multiple commands work
+    cmd3            # ✅ Mixed separators work
+done
+
+while condition; do
+    assignment1=value1; assignment2=value2  # ✅ Works with infinite loop protection
+    command3
+done
 ```
 
-**Root Cause Analysis Complete**:
+**Missing Features**:
+```bash
+# Until loops - parsed but not executed
+until condition; do
+    commands
+done
+
+# Case statements - parsed but pattern matching not implemented
+case $var in
+    pattern1) commands;;
+    pattern2) commands;;
+esac
+```
 - Scanner architecture fixed - newlines now properly preserved and tokenized
 - Single command parsing works due to scanner fixes
 - Multi-command parsing has remaining issues in `parse_command_list()` logic

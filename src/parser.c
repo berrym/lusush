@@ -19,6 +19,7 @@ static node_t *parse_while_statement(source_t *src);
 static node_t *parse_until_statement(source_t *src);
 static node_t *parse_case_statement(source_t *src);
 static node_t *parse_command_list(source_t *src, token_type_t terminator);
+static node_t *parse_command_list_multi_term(source_t *src, token_type_t *terminators, int num_terminators);
 
 // Forward declarations for new parser architecture
 static node_t *parse_simple_command(source_t *src, token_t *first_tok);
@@ -360,14 +361,10 @@ static node_t *parse_if_statement(source_t *src) {
     if (tok && tok->type == TOKEN_KEYWORD_ELSE) {
         free_token(tok);
         
-        tok = tokenize(src);
-        if (!tok || tok == &eof_token) {
-            error_message("parse error: expected command after 'else'");
-            free_node_tree(if_node);
-            return NULL;
-        }
-        
-        node_t *else_body = parse_basic_command(tok);
+        // Parse else body using command list to handle multiple commands
+        // The else body can only be terminated by fi
+        token_type_t terminators[] = {TOKEN_KEYWORD_FI};
+        node_t *else_body = parse_command_list_multi_term(src, terminators, 1);
         if (!else_body) {
             error_message("parse error: failed to parse else body");
             free_node_tree(if_node);
@@ -438,14 +435,10 @@ static bool parse_condition_then_pair(source_t *src, node_t *if_node, const char
     
     free_token(tok);
     
-    // Parse then body
-    tok = tokenize(src);
-    if (!tok || tok == &eof_token) {
-        error_message("parse error: expected command after 'then'");
-        return false;
-    }
-    
-    node_t *then_body = parse_basic_command(tok);
+    // Parse then body using command list to handle multiple commands
+    // The then body can be terminated by elif, else, or fi
+    token_type_t terminators[] = {TOKEN_KEYWORD_ELIF, TOKEN_KEYWORD_ELSE, TOKEN_KEYWORD_FI};
+    node_t *then_body = parse_command_list_multi_term(src, terminators, 3);
     if (!then_body) {
         error_message("parse error: failed to parse then body");
         return false;
@@ -858,9 +851,10 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
     }
     
     while (true) {
-        // Skip leading whitespace and empty lines, but NOT command separators
+        // Skip leading whitespace, empty lines, and command separators  
         token_t *tok = tokenize(src);
-        while (tok && tok != &eof_token && tok->type == TOKEN_NEWLINE) {
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_NEWLINE || tok->type == TOKEN_SEMI)) {
             free_token(tok);
             tok = tokenize(src);
         }
@@ -879,7 +873,67 @@ static node_t *parse_command_list(source_t *src, token_type_t terminator) {
             break;
         }
         
-        // Parse a single command properly - don't consume separators beforehand
+        // Parse a single command properly
+        node_t *cmd = parse_basic_command(tok);
+        if (cmd) {
+            add_child_node(list_node, cmd);
+        } else {
+            // If we can't parse a command, break to avoid infinite loop
+            if (tok && tok != &eof_token) {
+                free_token(tok);
+            }
+            break;
+        }
+    }
+    
+    return list_node;
+}
+
+/**
+ * parse_command_list_multi_term:
+ *      Parse a sequence of commands until any of the specified terminator tokens is found
+ *      Used for parsing control structure bodies that can have multiple terminators
+ *      This function does NOT consume the terminator token (uses unget_token)
+ */
+static node_t *parse_command_list_multi_term(source_t *src, token_type_t *terminators, int num_terminators) {
+    node_t *list_node = new_node(NODE_COMMAND);
+    if (!list_node) {
+        return NULL;
+    }
+    
+    while (true) {
+        // Skip leading whitespace, empty lines, and command separators
+        token_t *tok = tokenize(src);
+        while (tok && tok != &eof_token && 
+               (tok->type == TOKEN_NEWLINE || tok->type == TOKEN_SEMI)) {
+            free_token(tok);
+            tok = tokenize(src);
+        }
+        
+        // Check for terminator or EOF
+        if (!tok || tok == &eof_token) {
+            if (tok && tok != &eof_token) {
+                free_token(tok);
+            }
+            break;
+        }
+        
+        // Check if this token is any of the terminators
+        bool is_terminator = false;
+        for (int i = 0; i < num_terminators; i++) {
+            if (tok->type == terminators[i]) {
+                is_terminator = true;
+                break;
+            }
+        }
+        
+        if (is_terminator) {
+            // Found terminator - push it back for the caller to consume
+            unget_token(tok);
+            break;
+        }
+        
+        // Parse a single command properly
         node_t *cmd = parse_basic_command(tok);
         if (cmd) {
             add_child_node(list_node, cmd);

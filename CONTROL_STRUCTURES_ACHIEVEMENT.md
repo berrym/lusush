@@ -231,3 +231,60 @@ This implementation represents a **major milestone** in lusush development. The 
 The parser architecture is now robust enough to handle complex control structures, and the execution engine properly manages control flow. This achievement demonstrates that lusush is well on its way to full POSIX compliance.
 
 **Achievement Level**: 🏆 **MAJOR BREAKTHROUGH** - Control structures fundamentally change what lusush can do.
+
+## MAJOR UPDATE: Multi-Command Parsing Fix (June 19, 2025)
+
+### Issue Resolution
+Successfully resolved the multi-command parsing issue in control structure bodies. The problem was that control structure bodies were only parsing single commands instead of command lists.
+
+### Root Cause Analysis
+1. **Parser Issue**: `parse_condition_then_pair()` was calling `parse_basic_command()` instead of `parse_command_list_multi_term()`
+2. **Execution Issue**: `do_if_clause()` was calling `do_basic_command()` instead of properly handling command lists
+3. **Semicolon Handling**: Both `parse_command_list()` and `parse_command_list_multi_term()` were not properly consuming semicolon separators between commands
+
+### Implementation Details
+
+#### Parser Changes
+1. **Created `parse_command_list_multi_term()`**: New function to parse command lists with multiple possible terminators
+2. **Updated `parse_condition_then_pair()`**: Now uses `parse_command_list_multi_term()` for then/else bodies
+3. **Fixed semicolon handling**: Both command list parsers now properly consume semicolons between commands
+
+#### Execution Changes
+1. **Enhanced `do_if_clause()`**: Now detects command lists vs single commands and executes accordingly
+2. **Command List Execution**: Iterates through child commands and calls `execute_node()` on each
+
+#### Files Modified
+- `src/parser.c`: Multi-terminator command list parsing, semicolon handling fixes
+- `src/exec.c`: Command list execution logic for if statements
+
+### Testing Results
+All control structures now support multiple commands with both newline and semicolon separators:
+
+```bash
+# IF statements with multiple commands
+if true; then
+    var1=A
+    var2=B; var3=C
+fi
+
+# FOR loops with multiple commands  
+for item in list; do
+    cmd1; cmd2
+    cmd3
+done
+
+# WHILE loops with multiple commands
+while condition; do
+    assignment1=value1; assignment2=value2
+    command3
+done
+```
+
+### Verification
+- ✅ IF statements: Multiple commands work with newlines and semicolons
+- ✅ IF-ELSE statements: Multiple commands work in both branches
+- ✅ FOR loops: Multiple commands work with both separators
+- ✅ WHILE loops: Multiple commands work with infinite loop protection
+- ✅ Mixed separators: Combining newlines and semicolons works correctly
+
+This resolves the core parsing architecture issue that prevented proper multi-command execution in control structures.
