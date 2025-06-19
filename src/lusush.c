@@ -8,6 +8,7 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/node.h"
 #include "../include/parser.h"
+#include "../include/parser_new_simple.h"
 #include "../include/scanner.h"
 
 #include <stdbool.h>
@@ -17,6 +18,18 @@
 
 // Forward declarations
 static void skip_conditional_commands(source_t *src);
+
+// Optional: Bridge function to test new parser (can be enabled via environment variable)
+static node_t *parse_complete_command_new_bridge(source_t *src) {
+    parser_t *parser = parser_create(src, NULL);
+    if (!parser) {
+        return NULL;
+    }
+    
+    node_t *result = parser_parse(parser);
+    parser_destroy(parser);
+    return result;
+}
 
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
@@ -114,11 +127,19 @@ int main(int argc, char **argv) {
 int parse_and_execute(source_t *src) {
     int last_exit_status = 0;  // Initialize to 0 (success)
     
+    // Option to use new parser via environment variable (for testing/comparison)
+    const char *use_new_parser = getenv("LUSUSH_NEW_PARSER");
+    
     while (true) {
         skip_whitespace(src);
         
-        // Use new parser architecture to get complete commands
-        node_t *cmd = parse_complete_command(src);
+        // Choose parser based on environment variable
+        node_t *cmd = NULL;
+        if (use_new_parser && strcmp(use_new_parser, "1") == 0) {
+            cmd = parse_complete_command_new_bridge(src);  // Use new parser
+        } else {
+            cmd = parse_complete_command(src);  // Use old parser (default for stability)
+        }
         
         if (cmd == NULL) {
             break;  // EOF or error
