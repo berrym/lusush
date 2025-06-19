@@ -57,7 +57,7 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 - Keyword recognition (`if`, `then`, `else`, `elif`, `fi`, `do`, `done`, `while`, `for`, `until`) ✅ **COMPLETE**
 - Token pushback system for proper parsing ✅ **COMPLETE**
 - Multi-command parsing with newlines and semicolons ✅ **COMPLETE**
-- Nested control structures support ⚠️ **UNTESTED**
+- Nested control structures support ⚠️ **PARSING ISSUES - Causes hangs, avoid for now**
 
 **Major Achievement (June 19, 2025)**:
 🎉 **MULTI-COMMAND PARSING COMPLETELY FIXED** - All control structures now properly parse and execute multiple commands in their bodies, supporting both newline and semicolon separators.
@@ -66,7 +66,7 @@ This document provides a comprehensive analysis of lusush's current POSIX compli
 - **Single command bodies**: Work perfectly ✅
 - **Multi-command bodies**: Work perfectly with newlines and semicolons ✅
 - **Variable persistence**: Works correctly ✅
-- **Nested structures**: Parsing works, execution untested ⚠️
+- **Nested structures**: Parsing causes hangs, avoid until fixed ❌
 
 ---
 
