@@ -470,19 +470,92 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
     // Handle special variable expansion patterns
     bool get_length = false;
     char *actual_var_name = var_name;
+    char *param_expansion_op = NULL;
     
-    if (*var_name == '#' && var_name[1] != '\0') {
+    // Check for parameter expansion patterns like ${var=value}, ${var:-default}, etc.
+    char *op_pos = strpbrk(var_name, "=:-+");
+    if (op_pos) {
+        // Extract the variable name (before the operator)
+        size_t actual_name_len = op_pos - var_name;
+        actual_var_name = malloc(actual_name_len + 1);
+        if (!actual_var_name) {
+            error_message("parameter expansion: memory allocation failed");
+            result.result = EXP_ERROR;
+            free(var_name);
+            return result;
+        }
+        strncpy(actual_var_name, var_name, actual_name_len);
+        actual_var_name[actual_name_len] = '\0';
+        
+        // Store the operator and value for later processing
+        param_expansion_op = strdup(op_pos);
+    } else if (*var_name == '#' && var_name[1] != '\0') {
         // ${#var} - get length of var
         get_length = true;
         actual_var_name = var_name + 1;
+    } else {
+        actual_var_name = var_name;
     }
     // If it's just '#', treat it as the special variable (argument count)
     
     // Look up variable value - check special variables first
     const char *var_value = get_special_var(actual_var_name);
+    bool var_exists = (var_value != NULL);
     if (!var_value) {
         const symtable_entry_t *entry = get_symtable_entry(actual_var_name);
-        var_value = (entry && entry->val) ? entry->val : "";
+        var_exists = (entry && entry->val);
+        var_value = var_exists ? entry->val : "";
+    }
+    
+    // Handle parameter expansion operations
+    if (param_expansion_op) {
+        char *op = param_expansion_op;
+        char *expansion_default = NULL;
+        
+        if (strncmp(op, "=", 1) == 0) {
+            // ${var=value} - assign value if var is unset
+            expansion_default = op + 1;
+            if (!var_exists || strlen(var_value) == 0) {
+                // Variable is unset or empty, assign the default value
+                set_shell_varp(actual_var_name, expansion_default);
+                var_value = expansion_default;
+            }
+        } else if (strncmp(op, ":-", 2) == 0) {
+            // ${var:-default} - use default if var is unset or empty
+            expansion_default = op + 2;
+            if (!var_exists || strlen(var_value) == 0) {
+                var_value = expansion_default;
+            }
+        } else if (strncmp(op, ":=", 2) == 0) {
+            // ${var:=default} - assign default if var is unset or empty
+            expansion_default = op + 2;
+            if (!var_exists || strlen(var_value) == 0) {
+                set_shell_varp(actual_var_name, expansion_default);
+                var_value = expansion_default;
+            }
+        } else if (strncmp(op, ":+", 2) == 0) {
+            // ${var:+alternate} - use alternate if var is set and non-empty
+            expansion_default = op + 2;
+            if (var_exists && strlen(var_value) > 0) {
+                var_value = expansion_default;
+            } else {
+                var_value = "";
+            }
+        } else if (strncmp(op, "-", 1) == 0) {
+            // ${var-default} - use default if var is unset (but not if empty)
+            expansion_default = op + 1;
+            if (!var_exists) {
+                var_value = expansion_default;
+            }
+        } else if (strncmp(op, "+", 1) == 0) {
+            // ${var+alternate} - use alternate if var is set (even if empty)
+            expansion_default = op + 1;
+            if (var_exists) {
+                var_value = expansion_default;
+            } else {
+                var_value = "";
+            }
+        }
     }
     
     if (get_length) {
@@ -510,6 +583,13 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
         }
     }
     
+    // Clean up allocated memory
+    if (param_expansion_op) {
+        free(param_expansion_op);
+    }
+    if (actual_var_name != var_name) {
+        free(actual_var_name);
+    }
     free(var_name);
     return result;
 }

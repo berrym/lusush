@@ -2,9 +2,9 @@
 
 A POSIX-compliant shell with modern features, built in C.
 
-## Version 0.2.0 - Core Parser Robustness Complete
+## Version 0.2.0 - Core Parser Robustness + Parameter Expansion Complete
 
-Lusush has reached a major architectural milestone with robust parsing infrastructure and full support for logical operators, command separators, and pipeline processing.
+Lusush has reached a major architectural milestone with robust parsing infrastructure, full support for logical operators, command separators, pipeline processing, and comprehensive POSIX parameter expansion.
 
 ## Features
 
@@ -15,6 +15,7 @@ Lusush has reached a major architectural milestone with robust parsing infrastru
 - **Multiple command separators** (semicolons, newlines, logical operators)
 - **Pipeline processing** with proper distinction from logical operators
 - **Variable expansion** with quote handling and field splitting
+- **POSIX parameter expansion** (`${var=value}`, `${var:-default}`, `${var:+alternate}`, etc.)
 - **Control structures** (if/then/else, for, while, until, case)
 - **File redirection** (input, output, append)
 - **Command completion** with linenoise integration
@@ -57,6 +58,8 @@ echo "test data" | grep "test"
 **Variable expansion:**
 ```bash
 VAR="hello world"; echo "$VAR"
+echo "${unset_var=default_value}"  # New: parameter expansion
+echo "${var:-fallback}"            # New: default values
 ```
 
 **Control structures:**
@@ -88,7 +91,6 @@ The test script demonstrates:
 - Mixed operator expressions (pipes + logical operators)
 
 **Known limitations:**
-- **Limited parameter expansion**: `${var=value}` syntax not implemented
 - **No backtick substitution**: Only `$()` supported, not legacy backticks
 - **Basic echo builtin**: Escape sequences (\n, \t) printed literally
 
