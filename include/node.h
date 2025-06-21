@@ -16,6 +16,9 @@ typedef enum {
     NODE_REDIR_ERR_APPEND, // '2>>'
     NODE_REDIR_HEREDOC,    // '<<'
     NODE_REDIR_CLOBBER,    // '>|'
+    // List types for semantic clarity
+    NODE_COMMAND_LIST, // Sequence of commands separated by semicolons
+    NODE_PIPELINE,     // Sequence of commands connected by pipes
     // Control structures
     NODE_IF,           // if statement
     NODE_FOR,          // for loop
