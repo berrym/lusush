@@ -302,7 +302,7 @@ static node_t *parse_if_statement(parser_modern_t *parser) {
     node_t *if_node = new_node(NODE_IF);
     if (!if_node) return NULL;
     
-    // Parse condition - parse until we hit 'then'
+    // Parse condition - parse until we hit 'then' or ';'
     node_t *condition = parse_pipeline(parser);
     if (!condition) {
         free_node_tree(if_node);
@@ -310,7 +310,17 @@ static node_t *parse_if_statement(parser_modern_t *parser) {
     }
     add_child_node(if_node, condition);
     
-    if (!expect_token(parser, MODERN_TOK_THEN)) {
+    // Handle flexible separator: semicolon can substitute for THEN
+    if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+        modern_tokenizer_advance(parser->tokenizer);
+        // After semicolon, optionally accept THEN keyword
+        if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_THEN)) {
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+    } else if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_THEN)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    } else {
+        parser_error(parser, "Expected ';' or 'then' after if condition");
         free_node_tree(if_node);
         return NULL;
     }
@@ -323,6 +333,11 @@ static node_t *parse_if_statement(parser_modern_t *parser) {
     }
     add_child_node(if_node, then_body);
     
+    // Handle optional semicolon before else/fi
+    if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    }
+    
     // Parse optional else
     if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ELSE)) {
         modern_tokenizer_advance(parser->tokenizer);
@@ -332,7 +347,14 @@ static node_t *parse_if_statement(parser_modern_t *parser) {
             return NULL;
         }
         add_child_node(if_node, else_body);
+        
+        // Handle optional semicolon after else body
+        if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+            modern_tokenizer_advance(parser->tokenizer);
+        }
     }
+    
+    // No need for additional semicolon handling here since we handled it above
     
     if (!expect_token(parser, MODERN_TOK_FI)) {
         free_node_tree(if_node);
@@ -369,12 +391,17 @@ static node_t *parse_while_statement(parser_modern_t *parser) {
     }
     add_child_node(while_node, condition);
     
-    // Skip optional semicolon before 'do'
+    // Handle flexible separator: semicolon can substitute for DO
     if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
         modern_tokenizer_advance(parser->tokenizer);
-    }
-    
-    if (!expect_token(parser, MODERN_TOK_DO)) {
+        // After semicolon, optionally accept DO keyword
+        if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DO)) {
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+    } else if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DO)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    } else {
+        parser_error(parser, "Expected ';' or 'do' after while condition");
         free_node_tree(while_node);
         return NULL;
     }
@@ -386,6 +413,11 @@ static node_t *parse_while_statement(parser_modern_t *parser) {
         return NULL;
     }
     add_child_node(while_node, body);
+    
+    // Handle optional semicolon before DONE
+    if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    }
     
     if (!expect_token(parser, MODERN_TOK_DONE)) {
         free_node_tree(while_node);
@@ -448,12 +480,17 @@ static node_t *parse_for_statement(parser_modern_t *parser) {
     
     add_child_node(for_node, word_list);
     
-    // Skip optional semicolon before 'do'
+    // Handle flexible separator: semicolon can substitute for DO
     if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
         modern_tokenizer_advance(parser->tokenizer);
-    }
-    
-    if (!expect_token(parser, MODERN_TOK_DO)) {
+        // After semicolon, optionally accept DO keyword
+        if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DO)) {
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+    } else if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DO)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    } else {
+        parser_error(parser, "Expected ';' or 'do' after for word list");
         free_node_tree(for_node);
         return NULL;
     }
@@ -465,6 +502,11 @@ static node_t *parse_for_statement(parser_modern_t *parser) {
         return NULL;
     }
     add_child_node(for_node, body);
+    
+    // Handle optional semicolon before DONE
+    if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+        modern_tokenizer_advance(parser->tokenizer);
+    }
     
     if (!expect_token(parser, MODERN_TOK_DONE)) {
         free_node_tree(for_node);

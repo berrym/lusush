@@ -10,16 +10,18 @@
 #define EXECUTOR_MODERN_H
 
 #include "parser_modern.h"
+#include "symtable_modern.h"
 #include "node.h"
 #include <stdbool.h>
 
 // Execution context for maintaining state
 typedef struct executor_modern {
-    bool interactive;           // Interactive mode flag
-    bool debug;                // Debug mode flag
-    int exit_status;           // Last command exit status
-    const char *error_message; // Last error message
-    bool has_error;            // Error flag
+    bool interactive;                // Interactive mode flag
+    bool debug;                     // Debug mode flag
+    int exit_status;                // Last command exit status
+    const char *error_message;      // Last error message
+    bool has_error;                 // Error flag
+    symtable_manager_t *symtable;   // Modern symbol table manager
 } executor_modern_t;
 
 // Main execution interface

@@ -9,16 +9,18 @@
 #include "executor_modern.h"
 #include "parser_modern.h"
 #include "tokenizer_new.h"
+#include "symtable_modern.h"
 #include "node.h"
-#include "symtable.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <ctype.h>
 
 // Forward declarations
+// Forward declarations - updated for modern symtable
 static int execute_node_modern(executor_modern_t *executor, node_t *node);
 static int execute_command_modern(executor_modern_t *executor, node_t *command);
 static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline);
@@ -26,21 +28,28 @@ static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
 static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
 static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
 static int execute_command_list_modern(executor_modern_t *executor, node_t *list);
-static char **build_argv_from_ast(node_t *command, int *argc);
+static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc);
 static int execute_external_command(executor_modern_t *executor, char **argv);
 static int execute_builtin_command(executor_modern_t *executor, char **argv);
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
-static char *expand_variable(const char *var_text);
-static char *expand_arithmetic(const char *arith_text);
-static char *expand_if_needed(const char *text);
+static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
+static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
+static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
 static bool is_assignment(const char *text);
-static void execute_assignment(const char *assignment);
+static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
 
 // Create new executor
 executor_modern_t *executor_modern_new(void) {
     executor_modern_t *executor = malloc(sizeof(executor_modern_t));
     if (!executor) return NULL;
+    
+    // Initialize modern symbol table
+    executor->symtable = symtable_manager_new();
+    if (!executor->symtable) {
+        free(executor);
+        return NULL;
+    }
     
     executor->interactive = false;
     executor->debug = false;
@@ -54,6 +63,9 @@ executor_modern_t *executor_modern_new(void) {
 // Free executor
 void executor_modern_free(executor_modern_t *executor) {
     if (executor) {
+        if (executor->symtable) {
+            symtable_manager_free(executor->symtable);
+        }
         free(executor);
     }
 }
@@ -62,6 +74,9 @@ void executor_modern_free(executor_modern_t *executor) {
 void executor_modern_set_debug(executor_modern_t *executor, bool debug) {
     if (executor) {
         executor->debug = debug;
+        if (executor->symtable) {
+            symtable_manager_set_debug(executor->symtable, debug);
+        }
     }
 }
 
@@ -397,6 +412,12 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
         return 1;
     }
     
+    // Push loop scope
+    if (symtable_push_scope(executor->symtable, SCOPE_LOOP, "for-loop") != 0) {
+        executor_error(executor, "Failed to create loop scope");
+        return 1;
+    }
+    
     int last_result = 0;
     
     if (word_list && word_list->first_child) {
@@ -404,17 +425,29 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
         node_t *word = word_list->first_child;
         while (word) {
             if (word->val.str) {
-                // Set loop variable
-                char assignment[256];
-                snprintf(assignment, sizeof(assignment), "%s=%s", var_name, word->val.str);
-                execute_assignment(assignment);
+                // Set loop variable in current (loop) scope
+                if (symtable_set_local_var(executor->symtable, var_name, word->val.str) != 0) {
+                    executor_error(executor, "Failed to set loop variable");
+                    symtable_pop_scope(executor->symtable);
+                    return 1;
+                }
                 
                 if (executor->debug) {
-                    printf("DEBUG: FOR loop setting %s\n", assignment);
+                    printf("DEBUG: FOR loop setting %s=%s\n", var_name, word->val.str);
                 }
                 
                 // Execute body
                 last_result = execute_node_modern(executor, body);
+            }
+            word = word->next_sibling;
+        }
+    }
+    
+    // Pop loop scope
+    symtable_pop_scope(executor->symtable);
+    
+    return last_result;
+}
             }
             word = word->next_sibling;
         }
@@ -597,16 +630,19 @@ static void execute_assignment(const char *assignment) {
     
     char *value = expand_if_needed(eq + 1);
     
-    // Set the variable (this would use the shell's variable system)
-    setenv(var_name, value ? value : "", 1);
+    // Set the variable in the shell's symbol table
+    symtable_entry_t *entry = add_to_symtable(var_name);
+    if (entry) {
+        symtable_entry_setval(entry, value ? value : "");
+    }
     
-    free(var_name);
+    // Don't free var_name here since add_to_symtable takes ownership
     free(value);
 }
 
-// Expand variable reference
-static char *expand_variable(const char *var_text) {
-    if (!var_text || var_text[0] != '$') {
+// Expand variable reference using modern symbol table
+static char *expand_variable_modern(executor_modern_t *executor, const char *var_text) {
+    if (!executor || !var_text || var_text[0] != '$') {
         return strdup(var_text ? var_text : "");
     }
     
@@ -622,14 +658,39 @@ static char *expand_variable(const char *var_text) {
                 strncpy(name, var_name + 1, len);
                 name[len] = '\0';
                 
-                const char *value = getenv(name);
+                // Look up in modern symbol table
+                char *value = symtable_get_var(executor->symtable, name);
+                
                 free(name);
-                return strdup(value ? value : "");
+                return value ? value : strdup("");
             }
         }
     } else {
-        // Simple $var format
-        const char *value = getenv(var_name);
+        // Simple $var format - find end of variable name
+        size_t name_len = 0;
+        while (var_name[name_len] && (isalnum(var_name[name_len]) || var_name[name_len] == '_')) {
+            name_len++;
+        }
+        
+        if (name_len > 0) {
+            char *name = malloc(name_len + 1);
+            if (name) {
+                strncpy(name, var_name, name_len);
+                name[name_len] = '\0';
+                
+                // Look up in modern symbol table
+                char *value = symtable_get_var(executor->symtable, name);
+                
+                free(name);
+                return value ? value : strdup("");
+            }
+        }
+    }
+    
+    return strdup("");
+}
+            value = getenv(var_name); // Fall back to environment variables
+        }
         return strdup(value ? value : "");
     }
     
@@ -661,7 +722,15 @@ static char *expand_arithmetic(const char *arith_text) {
                     // Handle i+1 pattern
                     char *var = strtok(expr, "+");
                     if (var) {
-                        const char *val = getenv(var);
+                        // Look up in symbol table first, then environment
+                        symtable_entry_t *entry = get_symtable_entry(var);
+                        const char *val = NULL;
+                        if (entry && entry->val) {
+                            val = entry->val;
+                        } else {
+                            val = getenv(var);
+                        }
+                        
                         if (val) {
                             result = atoi(val) + 1;
                         } else {
