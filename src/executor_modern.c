@@ -114,10 +114,18 @@ int executor_modern_execute(executor_modern_t *executor, node_t *ast) {
     executor->has_error = false;
     executor->error_message = NULL;
     
-    int result = execute_node_modern(executor, ast);
-    executor->exit_status = result;
-    
-    return result;
+    // Check if this is a command sequence (has siblings) or a single command
+    if (ast->next_sibling) {
+        // This is a command sequence, execute all siblings
+        int result = execute_command_list_modern(executor, ast);
+        executor->exit_status = result;
+        return result;
+    } else {
+        // Single command, execute normally
+        int result = execute_node_modern(executor, ast);
+        executor->exit_status = result;
+        return result;
+    }
 }
 
 // Execute command line (parse and execute)
@@ -179,8 +187,10 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             // Variable nodes are typically handled by their parent
             return 0;
         default:
-            // Handle command lists (sibling nodes)
-            return execute_command_list_modern(executor, node);
+            if (executor->debug) {
+                printf("DEBUG: Unknown node type %d, skipping\n", node->type);
+            }
+            return 0;
     }
 }
 

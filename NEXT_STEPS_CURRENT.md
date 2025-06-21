@@ -16,36 +16,50 @@
 **Timeline**: Immediate Development Focus  
 **Date**: June 21, 2025
 
+# LUSUSH DEVELOPMENT NEXT STEPS
+
+**Priority**: Feature Enhancement and Testing  
+**Timeline**: Immediate Development Focus  
+**Date**: June 21, 2025
+
 ## Immediate Priorities (Next 1-2 Days)
 
-### 1. Fix Command Sequence Parsing Issue
-**Progress**: Identified specific issue with assignment + FOR loop command sequences  
-**Issue**: Parser has trouble with constructs like `a=test; for i in 1; do echo "hi"; done`  
-**Files**: `src/parser_modern.c` - command list parsing logic  
-**Impact**: Will complete remaining edge cases in command parsing
+### ✅ COMPLETED: Fix Command Sequence Parsing Issue
+**Status**: FIXED - Command sequences now work correctly  
+**Solution**: Updated executor main entry point to properly handle AST sibling traversal  
+**Verification**: All test cases pass including `a=test; for i in 1; do ...; done`  
+**Impact**: Core functionality now complete for command sequences
 
-### 2. Add Comprehensive Test Suite for Quoted String Expansion
-**New Feature**: Recently completed quoted string variable expansion needs testing  
-**Tests Needed**: Multiple variables, edge cases, FOR loop integration, arithmetic expansion  
-**Files**: Create `test_quoted_string_expansion.c`  
-**Impact**: Ensures robustness of new quoted string expansion feature
+### 1. Enhanced Testing Framework
+**Priority**: HIGH - Comprehensive testing for all new features  
+**Tests Needed**: 
+- Expand automated test coverage for command sequences
+- Integration tests for complex scenarios
+- Regression tests for all fixed bugs
+**Files**: Expand existing test suites and add new comprehensive tests  
+**Impact**: Ensures robustness and prevents regressions
+
+### 2. Debug Output Enhancement  
+**Issue**: Debug output not properly connected to environment variables  
+**Files**: `src/lusush.c` - debug flag handling  
+**Impact**: Better debugging and troubleshooting capability
 
 ## Short Term (Next Week)
 
 ### 3. Performance Testing and Optimization
-- **Memory usage**: Verify no memory leaks in quoted string expansion
-- **Performance**: Test performance with complex variable expansions
-- **Edge cases**: Test unusual quoting and variable combinations
+- **Memory usage**: Verify no memory leaks in new execution engine
+- **Performance**: Test performance with complex command sequences
+- **Edge cases**: Test unusual command combinations and control structures
 
 ### 4. Architecture Cleanup
-- **Remove legacy calls**: Clean up any remaining old symbol table references
-- **Code consolidation**: Remove redundant implementations
+- **Remove legacy warnings**: Clean up unused function declarations
+- **Code consolidation**: Remove any remaining redundant implementations  
 - **Documentation**: Update all code documentation for completed features
 
-### 5. Enhanced Testing Framework
-- **Automated tests**: Expand test suite for all completed integrations
-- **Regression testing**: Ensure existing functionality remains stable
-- **Integration tests**: Test complete workflows with modern architecture
+### 5. Advanced Control Structure Support
+- **Enhanced IF statements**: Support for complex conditions and else-if chains
+- **CASE statements**: Implement case/esac pattern matching
+- **Function definitions**: Support for shell function definitions and calls
 
 ## Medium Term (Next 2 Weeks)
 

@@ -88,13 +88,23 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 
 ## Outstanding Issues
 
-### Critical - Integration Phase
-- **Executor Integration**: Updating executor functions to use modern symbol table API
-- **Function Signature Updates**: Several functions need parameter updates for new architecture
-
 ### Minor - Polish Phase  
 - **Error Messages**: Some error reporting could be more descriptive
 - **Debug Output**: Debug mode produces verbose output that should be cleaned up
+
+## Recent Major Fixes (June 21, 2025)
+
+### ✅ Command Sequence Execution Bug (FIXED)
+- **Issue**: Commands like `a=test; for i in 1; do ...; done` only executed the second command
+- **Root Cause**: Executor's main entry point didn't properly handle command sequences (sibling nodes in AST)
+- **Solution**: Updated `executor_modern_execute()` to detect and properly traverse command sequences
+- **Verification**: All command sequence tests now pass, including the original problematic case
+- **Test Coverage**: Comprehensive test suite created (`test_command_sequences.sh`)
+
+### ✅ AST Sibling Traversal Implementation
+- **Issue**: Executor was not traversing `next_sibling` pointers in AST for command sequences  
+- **Solution**: Fixed dispatcher logic and added proper command list traversal
+- **Result**: Both assignment and control structure commands now execute in sequence correctly
 
 ## Technical Debt Resolved
 
@@ -103,11 +113,12 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 3. **Scope Management**: ✅ Clean push/pop operations for nested contexts
 4. **Quoted String Expansion**: ✅ Full POSIX-compliant variable expansion within double quotes
 5. **Integration Complexity**: ✅ All executor functions updated to use modern symbol table API
+6. **Command Sequence Execution**: ✅ Fixed AST traversal to properly execute all commands in sequences
 
 ## Technical Debt Remaining
 
-1. **Command Sequence Parsing**: Minor issue with assignment followed by FOR loop constructs
-2. **Multiple Parser Systems**: Three parsing systems coexist (legacy, new, modern) - planned cleanup
+1. **Multiple Parser Systems**: Three parsing systems coexist (legacy, new, modern) - planned cleanup
+2. **Legacy Code Cleanup**: Remove unused legacy components once migration is complete
 
 ## Root Cause Analysis Complete
 
@@ -125,10 +136,10 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 
 ## Next Development Priorities
 
-1. **Address Command Sequence Parsing**: Fix minor issue with assignment + FOR loop sequences
-2. **Expand Testing**: Comprehensive automated test suite for quoted string expansion
-3. **Clean Up Architecture**: Remove redundant implementations once final testing complete
-4. **Advanced Features**: Implement remaining POSIX features (case statements, functions)
+1. **Comprehensive Testing**: Expand automated test coverage for all new features
+2. **Clean Up Architecture**: Remove redundant implementations once final testing complete
+3. **Advanced Features**: Implement remaining POSIX features (case statements, functions)
+4. **Performance Optimization**: Fine-tune execution engine for better performance
 
 ## File Structure Changes
 
