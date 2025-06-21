@@ -347,19 +347,13 @@ int main(int argc, char **argv) {
 int parse_and_execute(source_t *src) {
     int last_exit_status = 0;  // Initialize to 0 (success)
     
-    // Option to use new parser via environment variable (for testing/comparison)
-    const char *use_new_parser = getenv("LUSUSH_NEW_PARSER");
+    // Always use modern parser (migrated from complexity analysis)
     
     while (true) {
         skip_whitespace(src);
         
-        // Choose parser based on environment variable
-        node_t *cmd = NULL;
-        if (use_new_parser && strcmp(use_new_parser, "1") == 0) {
-            cmd = parse_complete_command_new_bridge(src);  // Use new parser
-        } else {
-            cmd = parse_complete_command(src);  // Use old parser (default for stability)
-        }
+        // Always use modern parser via bridge function
+        node_t *cmd = parse_complete_command_new_bridge(src);
         
         if (cmd == NULL) {
             break;  // EOF or error

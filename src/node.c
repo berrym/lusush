@@ -73,7 +73,7 @@ void free_node_tree(node_t *node) {
 
     if (node->val_type == VAL_STR) {
         if (node->val.str) {
-            free_str(node->val.str);
+            free(node->val.str);
         }
     }
 
