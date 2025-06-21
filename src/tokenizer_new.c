@@ -271,7 +271,9 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
             tokenizer->column++;
         }
         
-        return token_new(MODERN_TOK_STRING, &tokenizer->input[start], length,
+        // Double quotes create expandable strings, single quotes create literal strings
+        modern_token_type_t token_type = (quote == '"') ? MODERN_TOK_EXPANDABLE_STRING : MODERN_TOK_STRING;
+        return token_new(token_type, &tokenizer->input[start], length,
                         start_line, start_column, start_pos);
     }
     

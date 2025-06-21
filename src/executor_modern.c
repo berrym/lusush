@@ -36,6 +36,7 @@ static void executor_error(executor_modern_t *executor, const char *message);
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str);
 static bool is_assignment(const char *text);
 static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
 
@@ -211,13 +212,12 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {
-        execute_assignment(command->val.str);
-        return 0;
+        return execute_assignment_modern(executor, command->val.str);
     }
     
     // Build argument vector
     int argc;
-    char **argv = build_argv_from_ast(command, &argc);
+    char **argv = build_argv_from_ast(executor, command, &argc);
     if (!argv || argc == 0) {
         return 1;
     }
@@ -448,17 +448,10 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
     
     return last_result;
 }
-            }
-            word = word->next_sibling;
-        }
-    }
-    
-    return last_result;
-}
 
 // Build argv from AST
-static char **build_argv_from_ast(node_t *command, int *argc) {
-    if (!command || !argc) {
+static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc) {
+    if (!executor || !command || !argc) {
         return NULL;
     }
     
@@ -488,7 +481,7 @@ static char **build_argv_from_ast(node_t *command, int *argc) {
     
     // Add command name
     if (command->val.str) {
-        argv[i] = expand_if_needed(command->val.str);
+        argv[i] = expand_if_needed_modern(executor, command->val.str);
         i++;
     }
     
@@ -496,7 +489,7 @@ static char **build_argv_from_ast(node_t *command, int *argc) {
     child = command->first_child;
     while (child && i < count) {
         if (child->val.str) {
-            argv[i] = expand_if_needed(child->val.str);
+            argv[i] = expand_if_needed_modern(executor, child->val.str);
             i++;
         }
         child = child->next_sibling;
@@ -509,16 +502,22 @@ static char **build_argv_from_ast(node_t *command, int *argc) {
 }
 
 // Expand variable/arithmetic if needed
-static char *expand_if_needed(const char *text) {
-    if (!text) return NULL;
+static char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
+    if (!executor || !text) return NULL;
     
     // Check for variable expansion
     if (text[0] == '$') {
         if (strncmp(text, "$((", 3) == 0) {
-            return expand_arithmetic(text);
+            return expand_arithmetic_modern(executor, text);
         } else {
-            return expand_variable(text);
+            return expand_variable_modern(executor, text);
         }
+    }
+    
+    // Check if this looks like it contains variables (has $ in the middle)
+    // This is a heuristic for expandable strings
+    if (strchr(text, '$')) {
+        return expand_quoted_string_modern(executor, text);
     }
     
     // Regular text - just duplicate
@@ -614,30 +613,35 @@ static bool is_assignment(const char *text) {
 }
 
 // Execute assignment
-static void execute_assignment(const char *assignment) {
-    if (!assignment) return;
+// Execute assignment using modern symbol table
+static int execute_assignment_modern(executor_modern_t *executor, const char *assignment) {
+    if (!executor || !assignment) return 1;
     
     char *eq = strchr(assignment, '=');
-    if (!eq) return;
+    if (!eq) return 1;
     
     // Split into variable and value
     size_t var_len = eq - assignment;
     char *var_name = malloc(var_len + 1);
-    if (!var_name) return;
+    if (!var_name) return 1;
     
     strncpy(var_name, assignment, var_len);
     var_name[var_len] = '\0';
     
-    char *value = expand_if_needed(eq + 1);
+    // Expand the value using modern expansion
+    char *value = expand_if_needed_modern(executor, eq + 1);
     
-    // Set the variable in the shell's symbol table
-    symtable_entry_t *entry = add_to_symtable(var_name);
-    if (entry) {
-        symtable_entry_setval(entry, value ? value : "");
+    // Set the variable in the modern symbol table
+    int result = symtable_set_var(executor->symtable, var_name, value ? value : "", SYMVAR_NONE);
+    
+    if (executor->debug) {
+        printf("DEBUG: Assignment %s=%s (result: %d)\n", var_name, value ? value : "", result);
     }
     
-    // Don't free var_name here since add_to_symtable takes ownership
+    free(var_name);
     free(value);
+    
+    return result == 0 ? 0 : 1;
 }
 
 // Expand variable reference using modern symbol table
@@ -689,17 +693,10 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
     
     return strdup("");
 }
-            value = getenv(var_name); // Fall back to environment variables
-        }
-        return strdup(value ? value : "");
-    }
-    
-    return strdup("");
-}
 
-// Expand arithmetic expression
-static char *expand_arithmetic(const char *arith_text) {
-    if (!arith_text) return strdup("0");
+// Expand arithmetic expression using modern symbol table
+static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text) {
+    if (!executor || !arith_text) return strdup("0");
     
     // This is a simplified implementation
     // A full implementation would parse and evaluate the arithmetic
@@ -722,17 +719,15 @@ static char *expand_arithmetic(const char *arith_text) {
                     // Handle i+1 pattern
                     char *var = strtok(expr, "+");
                     if (var) {
-                        // Look up in symbol table first, then environment
-                        symtable_entry_t *entry = get_symtable_entry(var);
-                        const char *val = NULL;
-                        if (entry && entry->val) {
-                            val = entry->val;
-                        } else {
+                        // Look up in modern symbol table first, then environment
+                        char *val = symtable_get_var(executor->symtable, var);
+                        if (!val) {
                             val = getenv(var);
                         }
                         
                         if (val) {
                             result = atoi(val) + 1;
+                            if (val != getenv(var)) free(val); // Free if allocated by symtable
                         } else {
                             result = 1;
                         }
@@ -753,4 +748,124 @@ static char *expand_arithmetic(const char *arith_text) {
     }
     
     return strdup("0");
+}
+
+// Expand variables within double-quoted strings
+static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str) {
+    if (!executor || !str) return strdup("");
+    
+    size_t len = strlen(str);
+    if (len == 0) return strdup("");
+    
+    // Allocate a buffer for expansion (estimate double the original size)
+    size_t buffer_size = len * 2 + 256;
+    char *result = malloc(buffer_size);
+    if (!result) return strdup("");
+    
+    size_t result_pos = 0;
+    size_t i = 0;
+    
+    while (i < len) {
+        if (str[i] == '$' && i + 1 < len) {
+            // Variable expansion needed
+            size_t var_start = i + 1;
+            size_t var_end = var_start;
+            
+            // Handle ${var} format
+            if (str[var_start] == '{') {
+                var_start++; // Skip opening brace
+                var_end = var_start; // Start looking for closing brace after opening brace
+                while (var_end < len && str[var_end] != '}') {
+                    var_end++;
+                }
+                if (var_end < len) {
+                    // Extract variable name
+                    size_t var_name_len = var_end - var_start;
+                    char *var_name = malloc(var_name_len + 1);
+                    if (var_name) {
+                        strncpy(var_name, &str[var_start], var_name_len);
+                        var_name[var_name_len] = '\0';
+                        
+                        // Get variable value
+                        char *var_value = symtable_get_var(executor->symtable, var_name);
+                        if (var_value) {
+                            size_t value_len = strlen(var_value);
+                            // Ensure buffer is large enough
+                            while (result_pos + value_len >= buffer_size) {
+                                buffer_size *= 2;
+                                result = realloc(result, buffer_size);
+                                if (!result) {
+                                    free(var_name);
+                                    free(var_value);
+                                    return strdup("");
+                                }
+                            }
+                            strcpy(&result[result_pos], var_value);
+                            result_pos += value_len;
+                            free(var_value);
+                        }
+                        
+                        free(var_name);
+                        i = var_end + 1; // Skip past closing brace
+                    } else {
+                        result[result_pos++] = str[i++];
+                    }
+                } else {
+                    result[result_pos++] = str[i++];
+                }
+            } else {
+                // Simple $var format
+                while (var_end < len && (isalnum(str[var_end]) || str[var_end] == '_')) {
+                    var_end++;
+                }
+                
+                if (var_end > var_start) {
+                    // Extract variable name
+                    size_t var_name_len = var_end - var_start;
+                    char *var_name = malloc(var_name_len + 1);
+                    if (var_name) {
+                        strncpy(var_name, &str[var_start], var_name_len);
+                        var_name[var_name_len] = '\0';
+                        
+                        // Get variable value
+                        char *var_value = symtable_get_var(executor->symtable, var_name);
+                        if (var_value) {
+                            size_t value_len = strlen(var_value);
+                            // Ensure buffer is large enough
+                            while (result_pos + value_len >= buffer_size) {
+                                buffer_size *= 2;
+                                result = realloc(result, buffer_size);
+                                if (!result) {
+                                    free(var_name);
+                                    free(var_value);
+                                    return strdup("");
+                                }
+                            }
+                            strcpy(&result[result_pos], var_value);
+                            result_pos += value_len;
+                            free(var_value);
+                        }
+                        
+                        free(var_name);
+                        i = var_end;
+                    } else {
+                        result[result_pos++] = str[i++];
+                    }
+                } else {
+                    result[result_pos++] = str[i++];
+                }
+            }
+        } else {
+            // Regular character
+            if (result_pos >= buffer_size - 1) {
+                buffer_size *= 2;
+                result = realloc(result, buffer_size);
+                if (!result) return strdup("");
+            }
+            result[result_pos++] = str[i++];
+        }
+    }
+    
+    result[result_pos] = '\0';
+    return result;
 }

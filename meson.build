@@ -60,3 +60,4 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 executable('lusush',
            src,
            include_directories: inc)
+

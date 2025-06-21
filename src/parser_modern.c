@@ -275,6 +275,7 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
         // Handle special case: ] is part of [ command arguments
         if (modern_token_is_word_like(arg_token->type) || 
             arg_token->type == MODERN_TOK_VARIABLE ||
+            arg_token->type == MODERN_TOK_EXPANDABLE_STRING ||
             arg_token->type == MODERN_TOK_RBRACKET ||
             arg_token->type == MODERN_TOK_REDIRECT_IN ||
             arg_token->type == MODERN_TOK_REDIRECT_OUT) {

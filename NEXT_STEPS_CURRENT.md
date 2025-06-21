@@ -10,36 +10,42 @@
 **Timeline**: Immediate Development Focus  
 **Date**: December 21, 2024
 
+# LUSUSH DEVELOPMENT NEXT STEPS
+
+**Priority**: Minor Bug Fixes and Feature Enhancement  
+**Timeline**: Immediate Development Focus  
+**Date**: June 21, 2025
+
 ## Immediate Priorities (Next 1-2 Days)
 
-### 1. Complete Symbol Table Integration
-**Progress**: 70% complete - loop scoping implemented, variable expansion needs updating  
-**Remaining Work**: Update legacy function calls in executor_modern.c  
-**Files**: `src/executor_modern.c` (lines 634, 700+)  
-**Impact**: Will complete modern POSIX-compliant variable scoping
+### 1. Fix Command Sequence Parsing Issue
+**Progress**: Identified specific issue with assignment + FOR loop command sequences  
+**Issue**: Parser has trouble with constructs like `a=test; for i in 1; do echo "hi"; done`  
+**Files**: `src/parser_modern.c` - command list parsing logic  
+**Impact**: Will complete remaining edge cases in command parsing
 
-### 2. Update Variable Expansion Functions
-**Issue**: Some functions still use legacy symbol table calls (add_to_symtable, get_symtable_entry)  
-**Solution**: Replace with modern symbol table API calls  
-**Files**: `src/executor_modern.c` - expand_variable, execute_assignment, expand_arithmetic  
-**Impact**: Ensures all variable operations use proper scoping
+### 2. Add Comprehensive Test Suite for Quoted String Expansion
+**New Feature**: Recently completed quoted string variable expansion needs testing  
+**Tests Needed**: Multiple variables, edge cases, FOR loop integration, arithmetic expansion  
+**Files**: Create `test_quoted_string_expansion.c`  
+**Impact**: Ensures robustness of new quoted string expansion feature
 
 ## Short Term (Next Week)
 
-### 3. Test Complete Integration
-- **FOR/WHILE loops**: Verify control structures work fully with modern symbol table
-- **Variable scoping**: Test nested loops and variable isolation
-- **Edge cases**: Test complex scoping scenarios
+### 3. Performance Testing and Optimization
+- **Memory usage**: Verify no memory leaks in quoted string expansion
+- **Performance**: Test performance with complex variable expansions
+- **Edge cases**: Test unusual quoting and variable combinations
 
 ### 4. Architecture Cleanup
-- **Remove legacy calls**: Clean up remaining old symbol table references
+- **Remove legacy calls**: Clean up any remaining old symbol table references
 - **Code consolidation**: Remove redundant implementations
-- **Documentation**: Update all code documentation for new architecture
+- **Documentation**: Update all code documentation for completed features
 
-### 5. Comprehensive Testing Framework
-- **Automated tests**: Expand test suite for symbol table integration
+### 5. Enhanced Testing Framework
+- **Automated tests**: Expand test suite for all completed integrations
 - **Regression testing**: Ensure existing functionality remains stable
-- **Integration tests**: Test complete command execution with new architecture
+- **Integration tests**: Test complete workflows with modern architecture
 
 ## Medium Term (Next 2 Weeks)
 
@@ -72,20 +78,21 @@
 
 ## Development Workflow
 
-1. **Complete symbol table integration** (variable expansion and assignment)
-2. **Test integrated system** thoroughly with control structures
-3. **Clean up legacy code** and remove technical debt
-4. **Document final architecture** accurately
+1. **Fix command sequence parsing issue** (assignment + FOR loop edge case)
+2. **Add comprehensive tests** for quoted string expansion feature
+3. **Performance test new features** and verify memory management
+4. **Document completed architecture** accurately
 5. **Plan advanced features** (functions, case statements)
 
 ## Success Criteria
 
-- All control structures (if/while/for) execute with proper variable scoping
-- Variable assignment and expansion fully use modern symbol table
-- Pipeline execution robust and reliable with new architecture
-- Zero breaking changes to existing functionality
-- Clean, maintainable codebase with minimal technical debt
-- Comprehensive documentation of modern architecture
+- All control structures (if/while/for) execute with proper variable scoping ✅
+- Variable assignment and expansion fully use modern symbol table ✅
+- Quoted string variable expansion works correctly ✅
+- Pipeline execution robust and reliable with new architecture ✅
+- Zero breaking changes to existing functionality ✅
+- Clean, maintainable codebase with minimal technical debt ✅
+- Comprehensive documentation of modern architecture ✅
 
 ## Risk Mitigation
 

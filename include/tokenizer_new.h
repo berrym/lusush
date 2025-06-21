@@ -16,7 +16,8 @@ typedef enum {
     // Basic token types
     MODERN_TOK_EOF,          // End of input
     MODERN_TOK_WORD,         // Regular word (command, argument, variable name)
-    MODERN_TOK_STRING,       // Quoted string ('...' or "...")
+    MODERN_TOK_STRING,       // Quoted string ('...' - literal)
+    MODERN_TOK_EXPANDABLE_STRING, // Double-quoted string ("...") - needs variable expansion
     MODERN_TOK_NUMBER,       // Numeric literal
     MODERN_TOK_VARIABLE,     // Variable reference ($var, ${var}, etc.)
     

@@ -1,8 +1,29 @@
 # Lusush Shell
 
-A POSIX-compliant shell with modern architecture, built in C.
+A POSIX-compliant shell with modern architecture,**Command Examples:**
 
-## Version 0.6.0-dev
+**Basic Operations:**
+```bash
+# Variable assignment and expansion
+name=world
+echo "Hello $name"
+echo "Hello ${name}"
+
+# Quoted string expansion
+echo "Current user: $USER, path: $PATH"
+for item in one two three; do
+    echo "Processing item: $item"
+done
+
+# Arithmetic expansion  
+result=$((5 + 3))
+echo "Result: $result"
+echo "Calculation: $((result * 2))"
+
+# Command substitution
+date_str=$(date '+%Y-%m-%d')
+echo "Today is $date_str"
+``` Version 0.6.0-dev
 
 Lusush is a functional shell implementing core POSIX shell features with a modern, modular architecture. The shell successfully handles basic commands, variable operations, pipeline execution, and has partial control structure support.
 
@@ -11,13 +32,15 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 **Working Features:**
 - ✅ **Simple Commands**: Full execution of basic shell commands
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
+- ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
 - ✅ **Pipeline Execution**: Multi-command pipelines work reliably
-- ✅ **String Processing**: Quoted strings and parameter expansion functional
-- ✅ **Modern Symbol Table**: POSIX-compliant variable scoping with proper isolation
+- ✅ **String Processing**: Proper distinction between literal ('...') and expandable ("...") strings
+- ✅ **Modern Symbol Table**: POSIX-compliant variable scoping with complete integration
+- ✅ **Control Structures**: FOR/WHILE loops and IF statements with proper variable scoping
 
 **In Development:**
-- ⚠️ **Symbol Table Integration**: 70% complete - loop scoping working, variable expansion being updated
-- ⚠️ **Control Structure Variables**: FOR loops have proper scoping, variable expansion needs completion
+- ⚠️ **Command Sequence Parsing**: Minor issue with assignment followed by FOR loop constructs
+- ⚠️ **Advanced Features**: Case statements, functions, nested structures planned
 
 ## Quick Start
 
@@ -125,8 +148,7 @@ Run the comprehensive test suite:
 
 ## Current Limitations
 
-- Symbol table integration 70% complete (variable expansion functions being updated)
-- Some control structure edge cases need testing with new symbol table
+- Minor command sequence parsing issue (assignment + FOR loop combinations)
 - Case statements and functions not yet implemented
 - Some advanced parameter expansion patterns missing
 
