@@ -7,7 +7,7 @@
 
 #include "../include/parser_new_simple.h"
 #include "../include/node.h"
-#include "../include/scanner.h"
+#include "../include/scanner_old.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -673,9 +673,43 @@ static node_t *parse_while_clause(parser_t *parser) {
 
     parser_advance(parser); // consume 'while'
 
-    node_t *condition = parse_compound_list(parser);
+    // Parse condition - use parse_and_or instead of parse_compound_list
+    // to stop at semicolons and avoid including separators in the condition
+    node_t *condition = parse_and_or(parser);
     if (!condition) {
         return NULL;
+    }
+
+    // DEBUG: Show what token we have after parsing condition
+    if (getenv("NEW_PARSER_DEBUG")) {
+        if (parser->current_token) {
+            fprintf(stderr, "DEBUG: After condition parsing, current token type: %d, value: '%s'\n", 
+                    parser->current_token->type, 
+                    parser->current_token->text ? parser->current_token->text : "NULL");
+        } else {
+            fprintf(stderr, "DEBUG: After condition parsing, current token is NULL\n");
+        }
+    }
+
+    // Skip the semicolon/newline separator between condition and 'do'
+    while (parser->current_token && 
+           (parser->current_token->type == TOKEN_SEMI ||
+            parser->current_token->type == TOKEN_NEWLINE)) {
+        if (getenv("NEW_PARSER_DEBUG")) {
+            fprintf(stderr, "DEBUG: Skipping separator token type: %d\n", parser->current_token->type);
+        }
+        parser_advance(parser);
+    }
+
+    // DEBUG: Show what token we have after skipping separators
+    if (getenv("NEW_PARSER_DEBUG")) {
+        if (parser->current_token) {
+            fprintf(stderr, "DEBUG: After skipping separators, current token type: %d, value: '%s'\n", 
+                    parser->current_token->type, 
+                    parser->current_token->text ? parser->current_token->text : "NULL");
+        } else {
+            fprintf(stderr, "DEBUG: After skipping separators, current token is NULL\n");
+        }
     }
 
     if (!parser->current_token || 

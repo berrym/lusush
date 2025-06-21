@@ -1,7 +1,7 @@
 #ifndef ERRORS_H
 #define ERRORS_H
 
-#include "scanner.h"
+#include "scanner_old.h"
 
 #include <stdarg.h>
 #include <stddef.h>

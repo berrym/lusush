@@ -6,7 +6,7 @@
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/prompt.h"
-#include "../../include/scanner.h"
+#include "../../include/scanner_old.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
 

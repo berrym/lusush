@@ -4,7 +4,7 @@
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
-#include "../include/scanner.h"
+#include "../include/scanner_old.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
 
@@ -53,6 +53,100 @@ int execute_new_parser_command(node_t *cmd) {
         return 0;
     }
     
+    // First check if this is a variable assignment (cmd->val.str contains '=')
+    if (cmd->val.str && strchr(cmd->val.str, '=')) {
+        char *eq = strchr(cmd->val.str, '=');
+        if (eq > cmd->val.str) {
+            // Check if everything before '=' is a valid identifier
+            bool valid_name = true;
+            for (char *p = cmd->val.str; p < eq; p++) {
+                if (!isalnum(*p) && *p != '_') {
+                    valid_name = false;
+                    break;
+                }
+            }
+            if (valid_name && isalpha(cmd->val.str[0])) {
+                // This is a variable assignment
+                char *name_value = strdup(cmd->val.str);
+                if (!name_value) return 1;
+                
+                char *eq_copy = strchr(name_value, '=');
+                *eq_copy = '\0';  // Split the string
+                char *name = name_value;
+                char *value = eq_copy + 1;
+                
+                // Process the value through word expansion (including quote removal)
+                char *processed_value = word_expand_to_str(value);
+                if (!processed_value) {
+                    processed_value = strdup(value); // Fallback to original value
+                }
+                
+                symtable_entry_t *entry = add_to_symtable(name);
+                if (entry) {
+                    symtable_entry_setval(entry, processed_value);
+                }
+                
+                free(processed_value);
+                free(name_value);
+                return 0;  // Assignment successful
+            }
+        }
+    }
+    
+    // Also check child nodes for assignments (prefixed assignments like: var=value command)
+    node_t *child = cmd->first_child;
+    node_t *last_assignment_child = NULL;
+    
+    // Process variable assignments at the beginning
+    while (child && child->val.str && strchr(child->val.str, '=')) {
+        char *eq = strchr(child->val.str, '=');
+        if (eq > child->val.str) {
+            // Check if everything before '=' is a valid identifier
+            bool valid_name = true;
+            for (char *p = child->val.str; p < eq; p++) {
+                if (!isalnum(*p) && *p != '_') {
+                    valid_name = false;
+                    break;
+                }
+            }
+            if (valid_name && isalpha(child->val.str[0])) {
+                // This is a variable assignment
+                char *name_value = strdup(child->val.str);
+                if (!name_value) return 1;
+                
+                char *eq_copy = strchr(name_value, '=');
+                *eq_copy = '\0';  // Split the string
+                char *name = name_value;
+                char *value = eq_copy + 1;
+                
+                // Process the value through word expansion (including quote removal)
+                char *processed_value = word_expand_to_str(value);
+                if (!processed_value) {
+                    processed_value = strdup(value); // Fallback to original value
+                }
+                
+                symtable_entry_t *entry = add_to_symtable(name);
+                if (entry) {
+                    symtable_entry_setval(entry, processed_value);
+                }
+                
+                free(processed_value);
+                free(name_value);
+                
+                last_assignment_child = child;
+                child = child->next_sibling;
+                continue;
+            }
+        }
+        // Not a valid assignment, break and treat as command
+        break;
+    }
+    
+    // If we only had assignments and no command after them, we're done
+    if (last_assignment_child && !child && (!cmd->val.str || strchr(cmd->val.str, '='))) {
+        return 0;
+    }
+    
     // Build argv array from the command node and its children
     size_t argc = 0;
     size_t targc = 32;
@@ -61,25 +155,64 @@ int execute_new_parser_command(node_t *cmd) {
         return 1;
     }
     
-    // Add the command name (from the node's value)
-    if (cmd->val.str && *cmd->val.str) {
-        argv[argc++] = cmd->val.str;
+    // Add the command name (from the node's value) with expansion, but only if it's not an assignment
+    if (cmd->val.str && *cmd->val.str && !strchr(cmd->val.str, '=')) {
+        char *expanded_cmd = word_expand_to_str(cmd->val.str);
+        if (expanded_cmd && *expanded_cmd) {
+            argv[argc++] = expanded_cmd;
+        } else if (cmd->val.str && *cmd->val.str) {
+            // Fallback to original if expansion fails
+            argv[argc++] = cmd->val.str;
+        }
     }
     
-    // Add arguments from child nodes
-    node_t *child = cmd->first_child;
+    // Add arguments from child nodes with expansion, starting from first non-assignment child
     while (child) {
-        if (child->val.str && *child->val.str) {
-            if (argc >= targc - 1) {
-                targc *= 2;
-                char **new_argv = realloc(argv, targc * sizeof(char*));
-                if (!new_argv) {
-                    free(argv);
-                    return 1;
+        // Skip assignment children (we already processed them)
+        if (child->val.str && strchr(child->val.str, '=')) {
+            char *eq = strchr(child->val.str, '=');
+            if (eq > child->val.str) {
+                bool valid_name = true;
+                for (char *p = child->val.str; p < eq; p++) {
+                    if (!isalnum(*p) && *p != '_') {
+                        valid_name = false;
+                        break;
+                    }
                 }
-                argv = new_argv;
+                if (valid_name && isalpha(child->val.str[0])) {
+                    child = child->next_sibling;
+                    continue; // Skip this assignment child
+                }
             }
-            argv[argc++] = child->val.str;
+        }
+        
+        if (child->val.str && *child->val.str) {
+            // Expand the argument
+            char *expanded_arg = word_expand_to_str(child->val.str);
+            if (expanded_arg && *expanded_arg) {
+                if (argc >= targc - 1) {
+                    targc *= 2;
+                    char **new_argv = realloc(argv, targc * sizeof(char*));
+                    if (!new_argv) {
+                        free(argv);
+                        return 1;
+                    }
+                    argv = new_argv;
+                }
+                argv[argc++] = expanded_arg;
+            } else if (child->val.str && *child->val.str) {
+                // Fallback to original if expansion fails or results in empty string
+                if (argc >= targc - 1) {
+                    targc *= 2;
+                    char **new_argv = realloc(argv, targc * sizeof(char*));
+                    if (!new_argv) {
+                        free(argv);
+                        return 1;
+                    }
+                    argv = new_argv;
+                }
+                argv[argc++] = child->val.str;
+            }
         }
         child = child->next_sibling;
     }
@@ -1331,22 +1464,55 @@ int execute_new_parser_while(node_t *while_node) {
         return 1; // Malformed while statement
     }
     
+    bool debug_mode = (getenv("NEW_PARSER_DEBUG") != NULL);
+    if (debug_mode) {
+        printf("DEBUG: WHILE loop starting - condition type: %d, body type: %d\n", 
+               condition->type, body->type);
+        if (condition->val.str) {
+            printf("DEBUG: Condition value: '%s'\n", condition->val.str);
+        }
+    }
+    
     int last_result = 0;
+    int loop_count = 0;
+    int max_iterations = 1000;  // Reasonable safety limit
     
     // Execute loop
     while (true) {
+        loop_count++;
+        if (loop_count > max_iterations) {
+            fprintf(stderr, "lusush: while loop exceeded %d iterations, breaking for safety\n", max_iterations);
+            break;
+        }
+        
         // Execute condition
+        if (debug_mode) {
+            printf("DEBUG: Executing condition (iteration %d)\n", loop_count);
+        }
         int condition_result = execute_compound_list(condition);
+        if (debug_mode) {
+            printf("DEBUG: Condition returned: %d\n", condition_result);
+        }
         
         // If condition fails (non-zero), exit loop
+        // In shell: 0 = success (continue), non-zero = failure (break)
         if (condition_result != 0) {
+            if (debug_mode) {
+                printf("DEBUG: WHILE loop breaking due to condition failure\n");
+            }
             break;
         }
         
         // Execute body
+        if (debug_mode) {
+            printf("DEBUG: Executing WHILE loop body\n");
+        }
         last_result = execute_compound_list(body);
+        if (debug_mode) {
+            printf("DEBUG: WHILE loop body executed, result: %d\n", last_result);
+        }
         
-        // Check for break/continue signals (these would be handled by signal handling)
+        // Check for break/continue statements (if implemented)
         // For now, just continue the loop
     }
     
@@ -1401,11 +1567,19 @@ int execute_new_parser_for(node_t *for_node) {
         node_t *word_node = word_list->first_child;
         while (word_node) {
             if (word_node->val.str) {
-                // Set loop variable
-                setenv(var_name, word_node->val.str, 1);
+                // Expand the word before assignment
+                char *expanded_value = word_expand_to_str(word_node->val.str);
+                if (!expanded_value) {
+                    expanded_value = strdup(word_node->val.str); // Fallback
+                }
+                
+                // Set loop variable in shell symbol table (not environment)
+                set_shell_varp((char*)var_name, expanded_value);
                 
                 // Execute body
                 last_result = execute_compound_list(body);
+                
+                free(expanded_value);
             }
             word_node = word_node->next_sibling;
         }
@@ -1420,7 +1594,7 @@ int execute_new_parser_for(node_t *for_node) {
             if (argv_copy) {
                 char *token = strtok(argv_copy, " ");
                 while (token) {
-                    setenv(var_name, token, 1);
+                    set_shell_varp((char*)var_name, token);
                     last_result = execute_compound_list(body);
                     token = strtok(NULL, " ");
                 }

@@ -2,7 +2,7 @@
 #include "../include/alias_expand.h"
 #include "../include/errors.h"
 #include "../include/node.h"
-#include "../include/scanner.h"
+#include "../include/scanner_old.h"
 #include "../include/strings.h"
 
 #include <stdbool.h>

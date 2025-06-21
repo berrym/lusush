@@ -2,7 +2,7 @@
 #define LUSUSH_H
 
 #include "node.h"
-#include "scanner.h"
+#include "scanner_old.h"
 #include "version.h"
 
 #include <fcntl.h>

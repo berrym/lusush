@@ -1,7 +1,7 @@
 #include "../include/errors.h"
 
 #include "../include/lusush.h"
-#include "../include/scanner.h"
+#include "../include/scanner_old.h"
 
 #include <errno.h>
 #include <stdarg.h>

@@ -2,7 +2,7 @@
 #define NODE_NEW_H
 
 #include "node.h"
-#include "scanner.h"
+#include "scanner_old.h"
 
 /**
  * ENHANCED AST NODE TYPES FOR POSIX-COMPLIANT PARSER

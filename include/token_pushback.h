@@ -1,7 +1,7 @@
 #ifndef TOKEN_PUSHBACK_H
 #define TOKEN_PUSHBACK_H
 
-#include "scanner.h"
+#include "scanner_old.h"
 #include <stddef.h>
 
 // Default capacity for token pushback buffer

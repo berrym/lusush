@@ -9,7 +9,9 @@
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/parser_new_simple.h"
-#include "../include/scanner.h"
+#include "../include/parser_modern.h"
+#include "../include/executor_modern.h"
+#include "../include/scanner_old.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -41,13 +43,25 @@ static command_complexity_t analyze_command_complexity(const char *line) {
         line++;
     }
     
-    // Check for basic control structure keywords that new parser can handle
+    // PRIORITY CHECK: Look for control structure keywords at the start of the line or after semicolons
+    // This must be checked before semicolon check since control structures contain semicolons
     const char *new_parser_control_keywords[] = {
         "if ", "while ", "for "
     };
     
+    // Check if line starts with a control keyword
     for (size_t i = 0; i < sizeof(new_parser_control_keywords) / sizeof(new_parser_control_keywords[0]); i++) {
         if (strncmp(line, new_parser_control_keywords[i], strlen(new_parser_control_keywords[i])) == 0) {
+            return CMD_CONTROL_STRUCTURE;
+        }
+    }
+    
+    // Check if line contains control keywords after semicolons (e.g., "var=1; while ..." or "var=1;while...")
+    for (size_t i = 0; i < sizeof(new_parser_control_keywords) / sizeof(new_parser_control_keywords[0]); i++) {
+        char search_pattern1[32], search_pattern2[32];
+        snprintf(search_pattern1, sizeof(search_pattern1), "; %s", new_parser_control_keywords[i]);
+        snprintf(search_pattern2, sizeof(search_pattern2), ";%s", new_parser_control_keywords[i]);
+        if (strstr(line, search_pattern1) != NULL || strstr(line, search_pattern2) != NULL) {
             return CMD_CONTROL_STRUCTURE;
         }
     }
@@ -63,8 +77,26 @@ static command_complexity_t analyze_command_complexity(const char *line) {
         }
     }
     
-    // Check for logical operators (&&, ||, ;) - these need old parser for now
-    if (strstr(line, "&&") || strstr(line, "||") || strchr(line, ';')) {
+    // Check for logical operators (&&, ||) - these need old parser for now
+    // NOTE: Don't check for semicolons here since they can be part of control structures
+    if (strstr(line, "&&") || strstr(line, "||")) {
+        // But if they also contain control keywords, use new parser instead
+        for (size_t i = 0; i < sizeof(new_parser_control_keywords) / sizeof(new_parser_control_keywords[0]); i++) {
+            if (strstr(line, new_parser_control_keywords[i])) {
+                return CMD_CONTROL_STRUCTURE;
+            }
+        }
+        return CMD_COMPLEX;
+    }
+    
+    // Check for simple semicolons without control structures - use old parser for backward compatibility
+    if (strchr(line, ';')) {
+        // But if they contain control keywords, prioritize new parser
+        for (size_t i = 0; i < sizeof(new_parser_control_keywords) / sizeof(new_parser_control_keywords[0]); i++) {
+            if (strstr(line, new_parser_control_keywords[i])) {
+                return CMD_CONTROL_STRUCTURE;
+            }
+        }
         return CMD_COMPLEX;
     }
     
@@ -189,9 +221,9 @@ int parse_and_execute_pipeline(source_t *src) {
 
 /**
  * parse_and_execute_control_structure:
- *   Use new parser for control structures (Phase 3 of gradual migration)
+ *   Use modern parser for control structures (Phase 3 of gradual migration)
  *   This function handles if, while, for, and other control structures
- *   using the new POSIX-compliant parser.
+ *   using the modern POSIX-compliant parser with the new tokenizer.
  */
 static int parse_and_execute_control_structure(source_t *src) {
     // Debug: Show what we're trying to parse
@@ -199,36 +231,27 @@ static int parse_and_execute_control_structure(source_t *src) {
         fprintf(stderr, "DEBUG: Parsing control structure: '%.50s'\n", src->buf);
     }
     
-    // Create new parser instance
-    parser_t *parser = parser_create(src, NULL);
-    if (!parser) {
-        fprintf(stderr, "Error: Failed to create parser for control structure\n");
+    // Create modern executor
+    executor_modern_t *executor = executor_modern_new();
+    if (!executor) {
+        fprintf(stderr, "Error: Failed to create modern executor\n");
         return 1;
     }
     
-    // Parse the control structure using new parser
-    node_t *cmd = parser_parse(parser);
-    if (!cmd) {
-        fprintf(stderr, "Error: Failed to parse control structure\n");
-        parser_destroy(parser);
-        return 1;
-    }
-    
-    // Debug: Show parser routing (optional)
+    // Enable debug mode if requested
     if (getenv("NEW_PARSER_DEBUG")) {
-        fprintf(stderr, "DEBUG: Parsing control structure command\n");
-        fprintf(stderr, "DEBUG: Parsed node type: %d\n", cmd->type);
-        if (cmd->val.str) {
-            fprintf(stderr, "DEBUG: Node value: '%s'\n", cmd->val.str);
-        }
+        executor_modern_set_debug(executor, true);
     }
     
-    // Execute the control structure using new parser execution
-    int exit_status = execute_new_parser_control_structure(cmd);
+    // Execute using modern execution engine
+    int exit_status = executor_modern_execute_command_line(executor, src->buf);
+    
+    if (executor_modern_has_error(executor)) {
+        fprintf(stderr, "Execution error: %s\n", executor_modern_error(executor));
+    }
     
     // Clean up
-    free_node_tree(cmd);
-    parser_destroy(parser);
+    executor_modern_free(executor);
     
     return exit_status;
 }

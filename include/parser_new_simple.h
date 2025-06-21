@@ -2,7 +2,7 @@
 #define PARSER_NEW_SIMPLE_H
 
 #include "node.h"
-#include "scanner.h"
+#include "scanner_old.h"
 
 /**
  * LUSUSH PARSER REWRITE - SIMPLIFIED HEADER
