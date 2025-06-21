@@ -16,6 +16,10 @@
 - **Code Structure**: Modern implementation in `src/` with headers in `include/`
 - **Symbol Table**: Modern POSIX-compliant implementation in `src/symtable_modern.c`, `include/symtable_modern.h`
 
+### Bug Fixes and Design Documents
+- **[Assignment Parsing Bug Fix](ASSIGNMENT_PARSING_BUG_FIX.md)** - Documentation of critical assignment parsing bug fix
+- **[Explicit List Types Design](EXPLICIT_LIST_TYPES_DESIGN.md)** - Design document for explicit AST list node types
+
 ## Archived Documentation
 
 Legacy documentation has been moved to `docs/archived/` to maintain project history while keeping current documentation focused and up-to-date.
