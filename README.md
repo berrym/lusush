@@ -13,10 +13,11 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
 - ✅ **Pipeline Execution**: Multi-command pipelines work reliably
 - ✅ **String Processing**: Quoted strings and parameter expansion functional
+- ✅ **Modern Symbol Table**: POSIX-compliant variable scoping with proper isolation
 
 **In Development:**
-- ⚠️ **Control Structures**: Parser implemented, token boundary issues being resolved
-- ⚠️ **Advanced Features**: Case statements, functions, nested structures planned
+- ⚠️ **Symbol Table Integration**: 70% complete - loop scoping working, variable expansion being updated
+- ⚠️ **Control Structure Variables**: FOR loops have proper scoping, variable expansion needs completion
 
 ## Quick Start
 
@@ -36,12 +37,13 @@ echo 'result=$((5+1)); echo $result' | ./builddir/lusush
 
 ## Architecture
 
-The shell uses a modern three-phase architecture:
+The shell uses a modern four-component architecture:
 - **Tokenizer**: POSIX-compliant lexical analysis
 - **Parser**: Recursive descent parser building AST
 - **Executor**: Clean execution engine for parsed commands
+- **Symbol Table**: POSIX-compliant variable scoping with proper isolation
 
-This design provides clear separation of concerns and enables robust error handling and future extensibility.
+This design provides clear separation of concerns, enables robust error handling, and supports proper variable scoping for nested contexts (loops, functions, subshells).
 ## Documentation
 
 **Active Documentation:**
@@ -108,23 +110,27 @@ meson install -C builddir
 Run the comprehensive test suite:
 
 ```bash
-# Run all tests
+# Run integration tests
 ./test_modern_integration.sh
 
 # Test specific components
 ./builddir/test_tokenizer_simple
 ./builddir/test_parser_modern
 ./builddir/test_executor_modern
+./builddir/test_symtable_modern
+
+# Test comprehensive tokenizer
+./builddir/test_tokenizer_comprehensive
 ```
 
 ## Current Limitations
 
-- Control structures have parsing issues (being resolved)
-- Nested control structures not yet supported
-- Case statements and functions not implemented
+- Symbol table integration 70% complete (variable expansion functions being updated)
+- Some control structure edge cases need testing with new symbol table
+- Case statements and functions not yet implemented
 - Some advanced parameter expansion patterns missing
 
-See [Project Status](PROJECT_STATUS_CURRENT.md) for detailed limitation analysis.
+See [Project Status](PROJECT_STATUS_CURRENT.md) for detailed progress and technical architecture.
 
 ## Contributing
 

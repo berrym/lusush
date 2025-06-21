@@ -4,43 +4,49 @@
 **Timeline**: Immediate Development Focus  
 **Date**: June 21, 2025
 
+# LUSUSH DEVELOPMENT NEXT STEPS
+
+**Priority**: Symbol Table Integration Completion  
+**Timeline**: Immediate Development Focus  
+**Date**: December 21, 2024
+
 ## Immediate Priorities (Next 1-2 Days)
 
-### 1. Fix Control Structure Token Parsing
-**Issue**: Modern parser expects different token sequences than provided by tokenizer  
-**Solution**: Correct token consumption in parse_if_statement, parse_for_statement, parse_while_statement  
-**Files**: `src/parser_modern.c`  
-**Impact**: Will complete control structure functionality
+### 1. Complete Symbol Table Integration
+**Progress**: 70% complete - loop scoping implemented, variable expansion needs updating  
+**Remaining Work**: Update legacy function calls in executor_modern.c  
+**Files**: `src/executor_modern.c` (lines 634, 700+)  
+**Impact**: Will complete modern POSIX-compliant variable scoping
 
-### 2. Resolve Token Boundary Issues
-**Issue**: Parser expects 'THEN' but receives 'SEMICOLON' tokens  
-**Solution**: Update parser grammar to handle semicolon/newline flexibility in control structures  
-**Files**: `src/parser_modern.c`  
-**Impact**: Critical for POSIX compliance
+### 2. Update Variable Expansion Functions
+**Issue**: Some functions still use legacy symbol table calls (add_to_symtable, get_symtable_entry)  
+**Solution**: Replace with modern symbol table API calls  
+**Files**: `src/executor_modern.c` - expand_variable, execute_assignment, expand_arithmetic  
+**Impact**: Ensures all variable operations use proper scoping
 
 ## Short Term (Next Week)
 
-### 3. Implement Missing Control Structures
-- **CASE statements**: Add case/esac parsing and execution
-- **UNTIL loops**: Complete until loop implementation
-- **Function definitions**: Basic function support
+### 3. Test Complete Integration
+- **FOR/WHILE loops**: Verify control structures work fully with modern symbol table
+- **Variable scoping**: Test nested loops and variable isolation
+- **Edge cases**: Test complex scoping scenarios
 
-### 4. Comprehensive Testing Framework
-- **Automated tests**: Create test suite covering all implemented features
+### 4. Architecture Cleanup
+- **Remove legacy calls**: Clean up remaining old symbol table references
+- **Code consolidation**: Remove redundant implementations
+- **Documentation**: Update all code documentation for new architecture
+
+### 5. Comprehensive Testing Framework
+- **Automated tests**: Expand test suite for symbol table integration
 - **Regression testing**: Ensure existing functionality remains stable
-- **Edge case coverage**: Test complex nested constructs
-
-### 5. Documentation Consolidation
-- **Remove obsolete docs**: Clean up outdated status files
-- **Update README**: Reflect current capabilities and architecture
-- **Developer guide**: Clear setup and contribution instructions
+- **Integration tests**: Test complete command execution with new architecture
 
 ## Medium Term (Next 2 Weeks)
 
-### 6. Architecture Cleanup
-- **Remove legacy parser**: Eliminate redundant parsing systems
-- **Consolidate execution**: Unify execution engines
-- **Code organization**: Improve modularity and separation of concerns
+### 6. Advanced Control Structures
+- **CASE statements**: Add case/esac parsing and execution
+- **UNTIL loops**: Complete until loop implementation  
+- **Function definitions**: Implement function support using new scoping
 
 ### 7. Performance Optimization
 - **Memory efficiency**: Optimize AST construction and cleanup
@@ -66,20 +72,20 @@
 
 ## Development Workflow
 
-1. **Fix critical parsing issues** (control structures)
-2. **Add comprehensive tests** for validation
-3. **Clean up codebase** and remove technical debt
-4. **Document current state** accurately
-5. **Plan next feature additions**
+1. **Complete symbol table integration** (variable expansion and assignment)
+2. **Test integrated system** thoroughly with control structures
+3. **Clean up legacy code** and remove technical debt
+4. **Document final architecture** accurately
+5. **Plan advanced features** (functions, case statements)
 
 ## Success Criteria
 
-- All basic shell constructs work correctly
-- Control structures (if/while/for) execute properly  
-- Variable assignment and expansion fully functional
-- Pipeline execution robust and reliable
+- All control structures (if/while/for) execute with proper variable scoping
+- Variable assignment and expansion fully use modern symbol table
+- Pipeline execution robust and reliable with new architecture
 - Zero breaking changes to existing functionality
-- Clear, accurate documentation of current capabilities
+- Clean, maintainable codebase with minimal technical debt
+- Comprehensive documentation of modern architecture
 
 ## Risk Mitigation
 

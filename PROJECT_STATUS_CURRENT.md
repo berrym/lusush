@@ -2,7 +2,7 @@
 
 **Version**: 0.6.0-dev  
 **Date**: June 21, 2025  
-**Status**: Modern Parser and Execution Engine Implementation Complete
+**Status**: Modern Parser, Execution Engine, and Symbol Table Architecture Complete
 
 ## Current Functional Status
 
@@ -12,64 +12,112 @@
 - **Arithmetic Expansion**: Mathematical expressions in $((expr)) format work correctly
 - **Pipeline Execution**: Basic command pipelines (cmd1 | cmd2) function properly
 - **String Handling**: Quoted strings and basic parameter expansion functional
+- **Control Structure Parsing**: IF statements work correctly, FOR/WHILE have minor integration issues
 
-### Partially Working Features
-- **Control Structures**: Parsing implemented but execution has token consumption issues
-  - IF statements: Parser errors on token boundaries
-  - FOR loops: Similar token boundary problems
-  - WHILE loops: Same parsing issues as other control structures
+### Recently Implemented - Major Architecture Upgrade
+- **Modern Symbol Table**: Complete POSIX-compliant symbol table with proper scoping
+  - Support for global, function, loop, subshell, and conditional scopes
+  - Proper variable isolation and cleanup
+  - Clean API for variable operations and scope management
+  - Tested and verified independently
+- **Partial Symbol Table Integration**: Modern executor updated to use new symbol table for:
+  - Loop scope management (FOR loops now create proper isolated scopes)
+  - Variable assignment in loop contexts
+  - Scope initialization and cleanup
 
-### Technical Architecture
+### In Progress
+- **Complete Symbol Table Integration**: Finishing executor updates for new symbol table
+  - Variable expansion functions need modernization
+  - Assignment execution needs symbol table API updates
+  - Some legacy function calls remain in arithmetic expansion
 
-#### Parser System
-- **Modern Tokenizer**: Complete POSIX-compliant tokenizer with proper token classification
+## Technical Architecture
+
+### Modern Components (New Implementation)
+- **Modern Tokenizer**: Complete POSIX-compliant token classification system
 - **Modern Parser**: Recursive descent parser implementing POSIX shell grammar
-- **Modern Executor**: Clean execution engine designed for the new AST structure
-- **Legacy Integration**: Seamless fallback to existing parser for unsupported constructs
+- **Modern Executor**: Clean execution engine designed for new AST structure  
+- **Modern Symbol Table**: POSIX-compliant variable scoping with proper scope management
+- **Command Routing**: Intelligent complexity analysis for parser selection
 
-#### Command Routing
+### Symbol Table Architecture (NEW)
 ```
-Input Analysis → Complexity Classification → Parser Selection → Execution
-    ↓                     ↓                      ↓              ↓
-Simple Cmds         CMD_SIMPLE            Modern Parser   Modern Executor
-Control Structs     CMD_CONTROL_STRUCTURE  Modern Parser   Modern Executor  
-Complex Constructs  CMD_COMPLEX           Legacy Parser   Legacy Executor
+Scope Stack Management:
+Global Scope
+  ├── Function Scope (if in function)
+  │   ├── Loop Scope (if in loop)
+  │   └── Conditional Scope (if in if/case)
+  └── Subshell Scope (if in subshell)
+
+Variable Resolution: Current → Parent → ... → Global
 ```
+
+### Parser/Execution Flow
+```
+Input → Analysis → Tokenizer → Parser → AST → Executor → Output
+                      ↓           ↓       ↓       ↓        ↓
+                Token Stream   Grammar  Node Tree Commands Variables
+                                                    ↓        ↓
+                                               Modern    Modern
+                                               Executor  Symbol Table
+```
+
+## Key Technical Achievements
 
 ## Key Technical Achievements
 
 1. **Complete Tokenizer Rewrite**: Modern tokenizer correctly handles all shell constructs
 2. **POSIX Grammar Implementation**: Parser follows strict POSIX.1-2017 specifications
 3. **AST-Based Execution**: Clean separation between parsing and execution phases
-4. **Memory Management**: Proper cleanup and error handling throughout the pipeline
-5. **Backward Compatibility**: Zero breaking changes to existing functionality
+4. **Modern Symbol Table**: POSIX-compliant scoping for all variable contexts
+5. **Memory Management**: Proper cleanup and error handling throughout the pipeline
+6. **Backward Compatibility**: Zero breaking changes to existing functionality
 
 ## Outstanding Issues
 
-### Critical
-- **Control Structure Token Consumption**: Parser expects different token sequences than tokenizer provides
-- **Compound Command Boundaries**: Need proper handling of command list terminators
+### Critical - Integration Phase
+- **Executor Integration**: Updating executor functions to use modern symbol table API
+- **Function Signature Updates**: Several functions need parameter updates for new architecture
 
-### Minor
+### Minor - Polish Phase  
 - **Error Messages**: Some error reporting could be more descriptive
 - **Debug Output**: Debug mode produces verbose output that should be cleaned up
 
-## Technical Debt
+## Technical Debt Resolved
 
-1. **Multiple Parser Systems**: Three parsing systems coexist (legacy, new, modern)
-2. **Documentation Sprawl**: Many overlapping status documents need consolidation
-3. **Test Coverage**: Lack of comprehensive automated test suite
+1. **✅ Symbol Table Architecture**: New POSIX-compliant implementation eliminates scoping issues
+2. **✅ Variable Resolution**: Proper separation of shell variables vs environment variables
+3. **✅ Scope Management**: Clean push/pop operations for nested contexts
+
+## Technical Debt Remaining
+
+1. **Multiple Parser Systems**: Three parsing systems coexist (legacy, new, modern) - planned cleanup
+2. **Executor Function Updates**: Systematic update needed for modern symbol table integration
+
+## Root Cause Analysis Complete
+
+**FOR Loop Variable Issue**: 
+- ✅ **Identified**: Incorrect symbol table usage (environment vs shell variables)
+- ✅ **Designed**: Modern symbol table with proper scoping
+- ✅ **Implemented**: New architecture tested and working
+- ✅ **Partially Integrated**: Loop scoping now uses modern symbol table
+- 🔄 **Final Integration**: Completing variable expansion and assignment updates
 
 ## Next Development Priorities
 
-1. **Fix Control Structure Parsing**: Resolve token boundary issues in modern parser
-2. **Consolidate Architecture**: Remove redundant parser implementations
-3. **Comprehensive Testing**: Develop automated test suite for all features
-4. **Documentation Cleanup**: Consolidate and organize project documentation
+1. **Complete Symbol Table Integration**: Finish executor function updates for modern symbol table
+2. **Test Control Structures**: Verify FOR/WHILE loops work completely with new symbol table
+3. **Clean Up Architecture**: Remove redundant implementations once integration complete
+4. **Expand Testing**: Comprehensive automated test suite for all features
 
 ## File Structure Changes
 
-### New Files Added
+### New Files Added - Recent
+- `src/symtable_modern.c` - Modern POSIX symbol table implementation
+- `include/symtable_modern.h` - Modern symbol table interface
+- `test_symtable_modern.c` - Symbol table test suite
+
+### New Files Added - Previous
 - `src/executor_modern.c` - Modern execution engine
 - `src/parser_modern.c` - Modern POSIX parser  
 - `src/tokenizer_new.c` - Modern tokenizer

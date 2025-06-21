@@ -14,6 +14,7 @@
 - **Build System**: See `meson.build` for current build configuration
 - **Testing**: See test files in project root (`test_*.c`, `test_*.sh`)
 - **Code Structure**: Modern implementation in `src/` with headers in `include/`
+- **Symbol Table**: Modern POSIX-compliant implementation in `src/symtable_modern.c`, `include/symtable_modern.h`
 
 ## Archived Documentation
 
