@@ -3,10 +3,16 @@
 
 #include <stdio.h>
 
+// Core input functions
 void free_input_buffers(void);
-char *get_input(FILE *);
+char *get_input(FILE *in);
+
+// Enhanced multiline input functions
+char *ln_gets(void);
 char *get_input_complete(FILE *in);
-char *ln_gets_complete(void);
 char *get_unified_input(FILE *in);
+
+// Legacy compatibility (deprecated - use get_unified_input instead)
+char *ln_gets_complete(void);
 
 #endif

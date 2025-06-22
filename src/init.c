@@ -116,6 +116,8 @@ int init(int argc, char **argv, FILE **in) {
                           argv[optind]);
             optind = 0;
             SHELL_TYPE = INTERACTIVE_SHELL;
+            // Set input to stdin for interactive mode (including piped input)
+            *in = stdin;
 
             linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                           linenoiseUtf8NextCharLen,
@@ -134,6 +136,8 @@ int init(int argc, char **argv, FILE **in) {
     } else {
         optind = 0;
         SHELL_TYPE = INTERACTIVE_SHELL;
+        // Set input to stdin for interactive mode (including piped input)
+        *in = stdin;
     }
 
     // Get and set shell's ppid in environment
