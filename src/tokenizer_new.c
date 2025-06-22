@@ -402,6 +402,34 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
         goto handle_word;
     }
     
+    // Handle backtick command substitution
+    if (c == '`') {
+        size_t start = tokenizer->position;
+        tokenizer->position++; // Skip opening backtick
+        tokenizer->column++;
+        
+        // Find matching closing backtick
+        while (tokenizer->position < tokenizer->input_length && 
+               tokenizer->input[tokenizer->position] != '`') {
+            if (tokenizer->input[tokenizer->position] == '\n') {
+                tokenizer->line++;
+                tokenizer->column = 1;
+            } else {
+                tokenizer->column++;
+            }
+            tokenizer->position++;
+        }
+        
+        if (tokenizer->position < tokenizer->input_length) {
+            tokenizer->position++; // Skip closing backtick
+            tokenizer->column++;
+        }
+        
+        size_t length = tokenizer->position - start;
+        return token_new(MODERN_TOK_COMMAND_SUB, &tokenizer->input[start], length,
+                        start_line, start_column, start_pos);
+    }
+    
     // Handle single-character operators
     modern_token_type_t single_char_type;
     switch (c) {
@@ -422,7 +450,6 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
         // case '/': single_char_type = MODERN_TOK_DIVIDE; break;  // Handled above
         case '%': single_char_type = MODERN_TOK_MODULO; break;
         case '?': single_char_type = MODERN_TOK_QUESTION; break;
-        case '`': single_char_type = MODERN_TOK_BACKQUOTE; break;
         default: single_char_type = MODERN_TOK_ERROR; break;
     }
     

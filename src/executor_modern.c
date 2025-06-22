@@ -11,12 +11,13 @@
 #include "tokenizer_new.h"
 #include "symtable_modern.h"
 #include "node.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <errno.h>
+#include <sys/types.h>
 #include <ctype.h>
 
 // Forward declarations
@@ -37,6 +38,7 @@ static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
+static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text);
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
 static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str);
 static bool is_assignment(const char *text);
@@ -570,17 +572,24 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
     return argv;
 }
 
-// Expand variable/arithmetic if needed
+// Expand variable/arithmetic/command substitution if needed
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
     if (!executor || !text) return NULL;
     
-    // Check for variable expansion
+    // Check for expansions starting with $
     if (text[0] == '$') {
         if (strncmp(text, "$((", 3) == 0) {
             return expand_arithmetic_modern(executor, text);
+        } else if (strncmp(text, "$(", 2) == 0) {
+            return expand_command_substitution_modern(executor, text);
         } else {
             return expand_variable_modern(executor, text);
         }
+    }
+    
+    // Check for backtick command substitution
+    if (text[0] == '`') {
+        return expand_command_substitution_modern(executor, text);
     }
     
     // Check if this looks like it contains variables (has $ in the middle)
@@ -713,7 +722,241 @@ static int execute_assignment_modern(executor_modern_t *executor, const char *as
     return result == 0 ? 0 : 1;
 }
 
-// Expand variable reference using modern symbol table
+// Helper function to check if a string is empty or null
+static bool is_empty_or_null(const char *str) {
+    return !str || str[0] == '\0';
+}
+
+// Helper function to extract substring
+static char *extract_substring(const char *str, int offset, int length) {
+    if (!str) return strdup("");
+    
+    int str_len = strlen(str);
+    
+    // Handle negative offset (from end)
+    if (offset < 0) {
+        offset = str_len + offset;
+        if (offset < 0) offset = 0;
+    }
+    
+    // Bounds check
+    if (offset >= str_len) return strdup("");
+    
+    // Calculate actual length
+    int remaining = str_len - offset;
+    if (length < 0 || length > remaining) {
+        length = remaining;
+    }
+    
+    char *result = malloc(length + 1);
+    if (!result) return strdup("");
+    
+    strncpy(result, str + offset, length);
+    result[length] = '\0';
+    
+    return result;
+}
+
+// Recursively expand variables within a string (for parameter expansion defaults)
+static char *expand_variables_in_string(executor_modern_t *executor, const char *str) {
+    if (!str || !executor) return strdup("");
+    
+    size_t len = strlen(str);
+    char *result = malloc(len * 2 + 1); // Start with double size
+    if (!result) return strdup("");
+    
+    size_t result_pos = 0;
+    size_t result_size = len * 2 + 1;
+    
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '$') {
+            // Find variable name
+            size_t var_start = i + 1;
+            size_t var_end = var_start;
+            
+            // Handle ${var} format
+            if (var_start < len && str[var_start] == '{') {
+                var_start++; // Skip {
+                while (var_end < len && str[var_end] != '}') {
+                    var_end++;
+                }
+                if (var_end < len) var_end++; // Include }
+            } else {
+                // Handle $var format
+                while (var_end < len && (isalnum(str[var_end]) || str[var_end] == '_')) {
+                    var_end++;
+                }
+            }
+            
+            if (var_end > var_start) {
+                // Extract and expand variable
+                size_t var_len = var_end - i;
+                char *var_expr = malloc(var_len + 1);
+                if (var_expr) {
+                    strncpy(var_expr, &str[i], var_len);
+                    var_expr[var_len] = '\0';
+                    
+                    char *var_value = expand_variable_modern(executor, var_expr);
+                    if (var_value) {
+                        size_t value_len = strlen(var_value);
+                        
+                        // Ensure buffer is large enough
+                        while (result_pos + value_len >= result_size) {
+                            result_size *= 2;
+                            char *new_result = realloc(result, result_size);
+                            if (!new_result) {
+                                free(result);
+                                free(var_value);
+                                free(var_expr);
+                                return strdup("");
+                            }
+                            result = new_result;
+                        }
+                        
+                        strcpy(&result[result_pos], var_value);
+                        result_pos += value_len;
+                        free(var_value);
+                    }
+                    
+                    free(var_expr);
+                    i = var_end - 1; // Skip past variable
+                    continue;
+                }
+            }
+        }
+        
+        // Regular character - ensure buffer space
+        if (result_pos + 1 >= result_size) {
+            result_size *= 2;
+            char *new_result = realloc(result, result_size);
+            if (!new_result) {
+                free(result);
+                return strdup("");
+            }
+            result = new_result;
+        }
+        
+        result[result_pos++] = str[i];
+    }
+    
+    result[result_pos] = '\0';
+    return result;
+}
+
+// Parse parameter expansion inside ${...}
+static char *parse_parameter_expansion(executor_modern_t *executor, const char *expansion) {
+    if (!expansion) return strdup("");
+    
+    // Handle length expansion: ${#var}
+    if (expansion[0] == '#') {
+        const char *var_name = expansion + 1;
+        char *value = symtable_get_var(executor->symtable, var_name);
+        if (value) {
+            int len = strlen(value);
+            char *result = malloc(16);
+            if (result) {
+                snprintf(result, 16, "%d", len);
+            }
+            return result ? result : strdup("0");
+        }
+        return strdup("0");
+    }
+    
+    // Look for parameter expansion operators
+    const char *op_pos = NULL;
+    const char *operators[] = {":-", ":+", ":", "-", "+", NULL};
+    int op_type = -1;
+    
+    for (int i = 0; operators[i]; i++) {
+        op_pos = strstr(expansion, operators[i]);
+        if (op_pos) {
+            op_type = i;
+            break;
+        }
+    }
+    
+    if (op_pos) {
+        // Extract variable name
+        size_t var_len = op_pos - expansion;
+        char *var_name = malloc(var_len + 1);
+        if (!var_name) return strdup("");
+        
+        strncpy(var_name, expansion, var_len);
+        var_name[var_len] = '\0';
+        
+        // Get variable value
+        char *var_value = symtable_get_var(executor->symtable, var_name);
+        const char *default_value = op_pos + strlen(operators[op_type]);
+        
+        // Expand variables in default value
+        char *expanded_default = expand_variables_in_string(executor, default_value);
+        
+        char *result = NULL;
+        
+        switch (op_type) {
+            case 0: // ${var:-default} - use default if var is unset or empty
+                if (is_empty_or_null(var_value)) {
+                    result = strdup(expanded_default);
+                } else {
+                    result = strdup(var_value);
+                }
+                break;
+                
+            case 1: // ${var:+alternative} - use alternative if var is set and non-empty
+                if (!is_empty_or_null(var_value)) {
+                    result = strdup(expanded_default);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 2: // ${var:offset:length} - substring expansion
+                if (var_value) {
+                    // Parse offset and optional length (with variable expansion)
+                    char *expanded_offset_str = expand_variables_in_string(executor, default_value);
+                    char *endptr;
+                    int offset = strtol(expanded_offset_str, &endptr, 10);
+                    int length = -1;
+                    
+                    if (*endptr == ':') {
+                        length = strtol(endptr + 1, NULL, 10);
+                    }
+                    
+                    result = extract_substring(var_value, offset, length);
+                    free(expanded_offset_str);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 3: // ${var-default} - use default if var is unset (but not if empty)
+                if (!var_value) {
+                    result = strdup(expanded_default);
+                } else {
+                    result = strdup(var_value);
+                }
+                break;
+                
+            case 4: // ${var+alternative} - use alternative if var is set (even if empty)
+                if (var_value) {
+                    result = strdup(expanded_default);
+                } else {
+                    result = strdup("");
+                }
+                break;
+        }
+        
+        free(var_name);
+        free(expanded_default);
+        return result ? result : strdup("");
+    }
+    
+    // No operator found, just get the variable value
+    char *value = symtable_get_var(executor->symtable, expansion);
+    return value ? strdup(value) : strdup("");
+}
+
+// Expand variable reference using modern symbol table with advanced parameter expansion
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text) {
     if (!executor || !var_text || var_text[0] != '$') {
         return strdup(var_text ? var_text : "");
@@ -721,21 +964,19 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
     
     const char *var_name = var_text + 1;
     
-    // Handle ${var} format
+    // Handle ${var} format with advanced parameter expansion
     if (var_name[0] == '{') {
         char *close = strchr(var_name, '}');
         if (close) {
             size_t len = close - var_name - 1;
-            char *name = malloc(len + 1);
-            if (name) {
-                strncpy(name, var_name + 1, len);
-                name[len] = '\0';
+            char *expansion = malloc(len + 1);
+            if (expansion) {
+                strncpy(expansion, var_name + 1, len);
+                expansion[len] = '\0';
                 
-                // Look up in modern symbol table
-                char *value = symtable_get_var(executor->symtable, name);
-                
-                free(name);
-                return value ? value : strdup("");
+                char *result = parse_parameter_expansion(executor, expansion);
+                free(expansion);
+                return result;
             }
         }
     } else {
@@ -755,7 +996,7 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
                 char *value = symtable_get_var(executor->symtable, name);
                 
                 free(name);
-                return value ? value : strdup("");
+                return value ? strdup(value) : strdup("");
             }
         }
     }
@@ -819,6 +1060,103 @@ static char *expand_arithmetic_modern(executor_modern_t *executor, const char *a
     return strdup("0");
 }
 
+// Expand command substitution $(command) or `command` - Modern implementation
+static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text) {
+    if (!executor || !cmd_text) return strdup("");
+    
+    // Extract command from $(command) or `command` format
+    char *command = NULL;
+    if (strncmp(cmd_text, "$(", 2) == 0 && cmd_text[strlen(cmd_text) - 1] == ')') {
+        // Extract from $(command)
+        size_t len = strlen(cmd_text) - 3; // Remove $( and )
+        command = malloc(len + 1);
+        if (!command) return strdup("");
+        strncpy(command, cmd_text + 2, len);
+        command[len] = '\0';
+    } else if (cmd_text[0] == '`' && cmd_text[strlen(cmd_text) - 1] == '`') {
+        // Extract from `command`
+        size_t len = strlen(cmd_text) - 2; // Remove backticks
+        command = malloc(len + 1);
+        if (!command) return strdup("");
+        strncpy(command, cmd_text + 1, len);
+        command[len] = '\0';
+    } else {
+        // Already extracted command
+        command = strdup(cmd_text);
+        if (!command) return strdup("");
+    }
+    
+    // Create a pipe to capture command output
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        free(command);
+        return strdup("");
+    }
+    
+    pid_t pid = fork();
+    if (pid == -1) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        free(command);
+        return strdup("");
+    }
+    
+    if (pid == 0) {
+        // Child process - execute command
+        close(pipefd[0]); // Close read end
+        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
+        close(pipefd[1]);
+        
+        // Execute command using the shell
+        execl("/bin/sh", "sh", "-c", command, NULL);
+        _exit(127);
+    } else {
+        // Parent process - read output
+        close(pipefd[1]); // Close write end
+        free(command);
+        
+        char *output = malloc(1024);
+        size_t output_size = 1024;
+        size_t output_len = 0;
+        
+        if (!output) {
+            close(pipefd[0]);
+            waitpid(pid, NULL, 0);
+            return strdup("");
+        }
+        
+        ssize_t bytes_read;
+        char buffer[256];
+        
+        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+            if (output_len + bytes_read >= output_size) {
+                output_size *= 2;
+                char *new_output = realloc(output, output_size);
+                if (!new_output) {
+                    free(output);
+                    close(pipefd[0]);
+                    waitpid(pid, NULL, 0);
+                    return strdup("");
+                }
+                output = new_output;
+            }
+            memcpy(output + output_len, buffer, bytes_read);
+            output_len += bytes_read;
+        }
+        
+        close(pipefd[0]);
+        waitpid(pid, NULL, 0);
+        
+        // Null terminate and remove trailing newlines
+        output[output_len] = '\0';
+        while (output_len > 0 && (output[output_len - 1] == '\n' || output[output_len - 1] == '\r')) {
+            output[--output_len] = '\0';
+        }
+        
+        return output;
+    }
+}
+
 // Expand variables within double-quoted strings
 static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str) {
     if (!executor || !str) return strdup("");
@@ -836,6 +1174,60 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
     
     while (i < len) {
         if (str[i] == '$' && i + 1 < len) {
+            // Check for command substitution $(...)
+            if (str[i + 1] == '(') {
+                // Find matching closing parenthesis
+                size_t cmd_start = i;
+                size_t cmd_end = i + 2;
+                int paren_depth = 1;
+                
+                while (cmd_end < len && paren_depth > 0) {
+                    if (str[cmd_end] == '(') {
+                        paren_depth++;
+                    } else if (str[cmd_end] == ')') {
+                        paren_depth--;
+                    }
+                    cmd_end++;
+                }
+                
+                if (paren_depth == 0) {
+                    // Extract command substitution including $( and )
+                    size_t full_cmd_len = cmd_end - (cmd_start - 2) + 1; // Include $( and )
+                    char *full_cmd_expr = malloc(full_cmd_len + 1);
+                    if (full_cmd_expr) {
+                        strncpy(full_cmd_expr, &str[cmd_start - 2], full_cmd_len);
+                        full_cmd_expr[full_cmd_len] = '\0';
+                        
+                        // Expand command substitution
+                        char *cmd_result = expand_command_substitution_modern(executor, full_cmd_expr);
+                        if (cmd_result) {
+                            size_t result_len = strlen(cmd_result);
+                            // Ensure buffer is large enough
+                            while (result_pos + result_len >= buffer_size) {
+                                buffer_size *= 2;
+                                char *new_result = realloc(result, buffer_size);
+                                if (!new_result) {
+                                    free(result);
+                                    free(cmd_result);
+                                    free(full_cmd_expr);
+                                    return strdup("");
+                                }
+                                result = new_result;
+                            }
+                            
+                            // Copy command result
+                            strcpy(&result[result_pos], cmd_result);
+                            result_pos += result_len;
+                            free(cmd_result);
+                        }
+                        
+                        free(full_cmd_expr);
+                        i = cmd_end; // Skip past the closing parenthesis
+                        continue;
+                    }
+                }
+            }
+            
             // Variable expansion needed
             size_t var_start = i + 1;
             size_t var_end = var_start;
