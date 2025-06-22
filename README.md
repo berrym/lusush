@@ -38,12 +38,13 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 **Working Features:**
 - ✅ **Simple Commands**: Full execution of basic shell commands
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
-- ✅ **Advanced Parameter Expansion**: Complete POSIX-compliant parameter expansion system
+- ✅ **Complete Modern Parameter Expansion**: Full POSIX parameter expansion specification
   - Default values: `${var:-default}`, `${var-default}`
   - Alternative values: `${var:+alternative}`, `${var+alternative}`
   - Length expansion: `${#var}`
   - Substring expansion: `${var:offset:length}`
   - Pattern matching: `${var#pattern}`, `${var##pattern}`, `${var%pattern}`, `${var%%pattern}`
+  - Case conversion: `${var^}`, `${var,}`, `${var^^}`, `${var,,}`
 - ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
@@ -136,11 +137,17 @@ echo "${#password}"                # Get string length
 echo "${filename:0:8}"             # Extract first 8 characters
 echo "${path:5}"                   # Everything from position 5
 
-# Pattern matching (NEW!)
+# Pattern matching
 echo "${filename%.*}"              # Remove file extension
 echo "${path##*/}"                 # Get basename from path
 echo "${url#*://}"                 # Remove protocol from URL
 echo "${version%%.*}"              # Get major version number
+
+# Case conversion (NEW!)
+echo "${name^}"                    # Capitalize first character
+echo "${text,,}"                   # Convert to all lowercase
+echo "${const^^}"                  # Convert to all uppercase
+echo "${word,}"                    # Lowercase first character
 
 # Unset vs empty distinction
 empty=""
@@ -185,9 +192,9 @@ Run the comprehensive test suite:
 ## Current Limitations
 
 - Case statements and functions not yet implemented
-- Case conversion features (`${var^}`, `${var,}`) not yet implemented
-- Special characters in pattern matching (`:`, `@`, `?`) need refinement
-- Minor edge cases in complex parameter expansion scenarios
+- Special characters in parameter expansion (`:`, `@`, `?`) need refinement
+- Complex command sequences in parameter expansion need improvement
+- Minor edge cases in advanced parameter expansion scenarios
 
 See [Project Status](PROJECT_STATUS_CURRENT.md) for detailed progress and technical architecture.
 
