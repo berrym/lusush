@@ -757,6 +757,77 @@ static char *extract_substring(const char *str, int offset, int length) {
     return result;
 }
 
+// Simple glob pattern matching for parameter expansion
+static bool match_pattern(const char *str, const char *pattern) {
+    if (!str || !pattern) return false;
+    
+    // Handle simple cases
+    if (*pattern == '\0') return *str == '\0';
+    if (*pattern == '*') {
+        if (*(pattern + 1) == '\0') return true; // * matches everything
+        // Try matching at each position
+        for (const char *s = str; *s; s++) {
+            if (match_pattern(s, pattern + 1)) return true;
+        }
+        return match_pattern(str, pattern + 1);
+    }
+    if (*str == '\0') return false;
+    
+    // Handle character matching
+    if (*pattern == '?' || *pattern == *str) {
+        return match_pattern(str + 1, pattern + 1);
+    }
+    
+    return false;
+}
+
+// Find shortest match from beginning (for # operator)
+static int find_prefix_match(const char *str, const char *pattern, bool longest) {
+    if (!str || !pattern) return 0;
+    
+    int str_len = strlen(str);
+    int match_len = 0;
+    
+    for (int i = 0; i <= str_len; i++) {
+        char *substr = malloc(i + 1);
+        if (!substr) break;
+        
+        strncpy(substr, str, i);
+        substr[i] = '\0';
+        
+        if (match_pattern(substr, pattern)) {
+            match_len = i;
+            if (!longest) {
+                free(substr);
+                break; // Return first (shortest) match
+            }
+        }
+        free(substr);
+    }
+    
+    return match_len;
+}
+
+// Find shortest match from end (for % operator)
+static int find_suffix_match(const char *str, const char *pattern, bool longest) {
+    if (!str || !pattern) return 0;
+    
+    int str_len = strlen(str);
+    int match_len = 0;
+    
+    for (int i = 0; i <= str_len; i++) {
+        const char *suffix = str + str_len - i;
+        if (match_pattern(suffix, pattern)) {
+            match_len = i;
+            if (!longest) {
+                break; // Return first (shortest) match
+            }
+        }
+    }
+    
+    return match_len;
+}
+
 // Recursively expand variables within a string (for parameter expansion defaults)
 static char *expand_variables_in_string(executor_modern_t *executor, const char *str) {
     if (!str || !executor) return strdup("");
@@ -864,14 +935,30 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
     
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", ":", "-", "+", NULL};
+    const char *operators[] = {":-", ":+", "##", "%%", ":", "#", "%", "-", "+", NULL};
     int op_type = -1;
     
+    // Find the first valid operator that's not part of a pattern
     for (int i = 0; operators[i]; i++) {
-        op_pos = strstr(expansion, operators[i]);
-        if (op_pos) {
-            op_type = i;
-            break;
+        const char *found = strstr(expansion, operators[i]);
+        if (found) {
+            // For : operator, make sure it's not part of :// or other patterns
+            if (strcmp(operators[i], ":") == 0) {
+                // Check if this is followed by // (like in URLs)
+                if (found[1] == '/' && found[2] == '/') {
+                    continue; // Skip this match, it's part of ://
+                }
+                // Check if this is part of :+ or :-
+                if (found > expansion && (found[-1] == '+' || found[-1] == '-')) {
+                    continue; // Skip this match, it's part of :+ or :-
+                }
+            }
+            
+            // If we haven't found an operator yet, or this one comes first, use it
+            if (!op_pos || found < op_pos) {
+                op_pos = found;
+                op_type = i;
+            }
         }
     }
     
@@ -929,7 +1016,59 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 3: // ${var-default} - use default if var is unset (but not if empty)
+            case 3: // ${var##pattern} - remove longest match of pattern from beginning
+                if (var_value) {
+                    int match_len = find_prefix_match(var_value, default_value, true);
+                    result = strdup(var_value + match_len);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 4: // ${var#pattern} - remove shortest match of pattern from beginning
+                if (var_value) {
+                    int match_len = find_prefix_match(var_value, default_value, false);
+                    result = strdup(var_value + match_len);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 5: // ${var%%pattern} - remove longest match of pattern from end
+                if (var_value) {
+                    int str_len = strlen(var_value);
+                    int match_len = find_suffix_match(var_value, default_value, true);
+                    int result_len = str_len - match_len;
+                    result = malloc(result_len + 1);
+                    if (result) {
+                        strncpy(result, var_value, result_len);
+                        result[result_len] = '\0';
+                    } else {
+                        result = strdup("");
+                    }
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 6: // ${var%pattern} - remove shortest match of pattern from end
+                if (var_value) {
+                    int str_len = strlen(var_value);
+                    int match_len = find_suffix_match(var_value, default_value, false);
+                    int result_len = str_len - match_len;
+                    result = malloc(result_len + 1);
+                    if (result) {
+                        strncpy(result, var_value, result_len);
+                        result[result_len] = '\0';
+                    } else {
+                        result = strdup("");
+                    }
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 7: // ${var-default} - use default if var is unset (but not if empty)
                 if (!var_value) {
                     result = strdup(expanded_default);
                 } else {
@@ -937,7 +1076,7 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 4: // ${var+alternative} - use alternative if var is set (even if empty)
+            case 8: // ${var+alternative} - use alternative if var is set (even if empty)
                 if (var_value) {
                     result = strdup(expanded_default);
                 } else {
