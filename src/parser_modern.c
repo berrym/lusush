@@ -196,6 +196,42 @@ static node_t *parse_if_body(parser_modern_t *parser) {
     return first_command;
 }
 
+// Parse logical operators (and_or level)
+static node_t *parse_logical_expression(parser_modern_t *parser) {
+    node_t *left = parse_pipeline(parser);
+    if (!left) return NULL;
+    
+    while (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_AND) ||
+           modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_OR)) {
+        
+        modern_token_type_t op_type = modern_tokenizer_current(parser->tokenizer)->type;
+        modern_tokenizer_advance(parser->tokenizer); // consume operator
+        
+        // Skip whitespace after operator
+        skip_separators(parser);
+        
+        node_t *right = parse_pipeline(parser);
+        if (!right) {
+            free_node_tree(left);
+            return NULL;
+        }
+        
+        // Create logical operator node
+        node_t *logical_node = new_node(op_type == MODERN_TOK_LOGICAL_AND ? NODE_LOGICAL_AND : NODE_LOGICAL_OR);
+        if (!logical_node) {
+            free_node_tree(left);
+            free_node_tree(right);
+            return NULL;
+        }
+        
+        add_child_node(logical_node, left);
+        add_child_node(logical_node, right);
+        left = logical_node;
+    }
+    
+    return left;
+}
+
 // Parse command list (commands separated by ; or newlines)
 static node_t *parse_command_list(parser_modern_t *parser) {
     node_t *first_command = NULL;
@@ -212,16 +248,18 @@ static node_t *parse_command_list(parser_modern_t *parser) {
             break;
         }
         
-        node_t *command = parse_pipeline(parser);
+        node_t *command = parse_logical_expression(parser);
         if (!command) {
             if (!parser->has_error) {
-                parser_error(parser, "Failed to parse command");
+                break; // End of input
             }
-            break;
+            free_node_tree(first_command);
+            return NULL;
         }
         
         if (!first_command) {
-            first_command = current = command;
+            first_command = command;
+            current = command;
         } else {
             current->next_sibling = command;
             current = command;

@@ -107,8 +107,43 @@ test_regression "Single-line IF statement" \
 test_regression "Single-line IF-ELSE" \
     "if false; then echo no; else echo yes; fi" \
     "yes"
+echo -e "${BLUE}=== Logical Operators (NEW) ===${NC}"
 
-# Command sequences that should work
+# Test logical AND operator
+test_regression "Logical AND - success case" \
+    "true && echo \"success\"" \
+    "success"
+
+test_regression "Logical AND - failure case" \
+    "false && echo \"should not print\"; echo \"after\"" \
+    "after"
+
+test_regression "Logical OR - success case" \
+    "true || echo \"should not print\"; echo \"after\"" \
+    "after"
+
+test_regression "Logical OR - failure case" \
+    "false || echo \"fallback\"" \
+    "fallback"
+
+test_regression "Chained logical AND" \
+    "true && echo \"first\" && echo \"second\"" \
+    "first"
+
+test_regression "Chained logical OR" \
+    "false || echo \"first\" || echo \"second\"" \
+    "first"
+
+test_regression "Mixed logical operators" \
+    "false || echo \"backup\" && echo \"then this\"" \
+    "backup"
+
+test_regression "File test with logical operators" \
+    "test -f README.md && echo \"exists\" || echo \"missing\"" \
+    "exists"
+
+echo -e "${BLUE}=== Command Sequences ===${NC}"
+
 test_regression "Multiple commands with semicolons" \
     "echo first; echo second; echo third" \
     "first"
@@ -214,9 +249,10 @@ echo "✓ Variable assignment and expansion"
 echo "✓ Pipeline operations"
 echo "✓ Single-line control structures"
 echo "✓ Multiline control structures (NEW)"
+echo "✓ Logical operators && and || (NEW)"
 echo "✓ Command sequences"
 echo "✓ Basic I/O redirection"
 echo "✓ Error handling and recovery"
 echo
 echo "The shell maintains its existing capabilities while adding"
-echo "comprehensive multiline input support for control structures."
+echo "comprehensive multiline input support and logical operators."

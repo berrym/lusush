@@ -26,6 +26,9 @@ typedef enum {
     NODE_UNTIL,        // until loop
     NODE_CASE,         // case statement
     NODE_FUNCTION,     // function definition
+    // Logical operators
+    NODE_LOGICAL_AND,  // && operator
+    NODE_LOGICAL_OR,   // || operator
 } node_type_t;
 
 typedef enum {

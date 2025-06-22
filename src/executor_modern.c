@@ -27,6 +27,8 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
 static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
 static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
 static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
+static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_node);
+static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_node);
 static int execute_command_list_modern(executor_modern_t *executor, node_t *list);
 static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc);
 static int execute_external_command(executor_modern_t *executor, char **argv);
@@ -184,6 +186,10 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             return execute_while_modern(executor, node);
         case NODE_FOR:
             return execute_for_modern(executor, node);
+        case NODE_LOGICAL_AND:
+            return execute_logical_and_modern(executor, node);
+        case NODE_LOGICAL_OR:
+            return execute_logical_or_modern(executor, node);
         case NODE_VAR:
             // Variable nodes are typically handled by their parent
             return 0;
@@ -431,8 +437,8 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
     
     int last_result = 0;
     
+    // Iterate over word list
     if (word_list && word_list->first_child) {
-        // Iterate over word list
         node_t *word = word_list->first_child;
         while (word) {
             if (word->val.str) {
@@ -458,6 +464,58 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
     symtable_pop_scope(executor->symtable);
     
     return last_result;
+}
+
+// Execute logical AND operator (&&)
+static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_node) {
+    if (!and_node || and_node->type != NODE_LOGICAL_AND) {
+        return 1;
+    }
+    
+    node_t *left = and_node->first_child;
+    node_t *right = left ? left->next_sibling : NULL;
+    
+    if (!left || !right) {
+        executor_error(executor, "Logical AND missing operands");
+        return 1;
+    }
+    
+    // Execute left command
+    int left_result = execute_node_modern(executor, left);
+    
+    // Only execute right command if left succeeded (exit code 0)
+    if (left_result == 0) {
+        return execute_node_modern(executor, right);
+    }
+    
+    // Left failed, return its exit code without executing right
+    return left_result;
+}
+
+// Execute logical OR operator (||)
+static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_node) {
+    if (!or_node || or_node->type != NODE_LOGICAL_OR) {
+        return 1;
+    }
+    
+    node_t *left = or_node->first_child;
+    node_t *right = left ? left->next_sibling : NULL;
+    
+    if (!left || !right) {
+        executor_error(executor, "Logical OR missing operands");
+        return 1;
+    }
+    
+    // Execute left command
+    int left_result = execute_node_modern(executor, left);
+    
+    // Only execute right command if left failed (exit code != 0)
+    if (left_result != 0) {
+        return execute_node_modern(executor, right);
+    }
+    
+    // Left succeeded, return its exit code without executing right
+    return left_result;
 }
 
 // Build argv from AST
