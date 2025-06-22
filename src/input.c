@@ -56,6 +56,106 @@ static void cleanup_input_state(input_state_t *state) {
     }
 }
 
+// Convert multiline input to single-line format for history storage
+// This makes multiline commands more manageable in history recall
+static char *convert_multiline_for_history(const char *input) {
+    if (!input || !*input) {
+        return NULL;
+    }
+    
+    size_t input_len = strlen(input);
+    char *result = malloc(input_len + 1);
+    if (!result) {
+        return NULL;
+    }
+    
+    const char *src = input;
+    char *dst = result;
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+    bool escaped = false;
+    bool last_was_space = false;
+    
+    while (*src) {
+        char ch = *src;
+        
+        // Handle escaping
+        if (escaped) {
+            if (ch == '\n') {
+                // Backslash-newline continuation: replace with single space
+                if (!last_was_space) {
+                    *dst++ = ' ';
+                    last_was_space = true;
+                }
+            } else {
+                *dst++ = '\\';
+                *dst++ = ch;
+                last_was_space = false;
+            }
+            escaped = false;
+            src++;
+            continue;
+        }
+        
+        if (ch == '\\') {
+            escaped = true;
+            src++;
+            continue;
+        }
+        
+        // Handle quotes
+        if (ch == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            *dst++ = ch;
+            last_was_space = false;
+        } else if (ch == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            *dst++ = ch;
+            last_was_space = false;
+        } else if (ch == '\n') {
+            // Convert newlines to spaces
+            if (in_single_quote || in_double_quote) {
+                // Inside quotes - preserve as literal newline
+                *dst++ = '\\';
+                *dst++ = 'n';
+                last_was_space = false;
+            } else {
+                // Outside quotes - convert to space
+                if (!last_was_space) {
+                    *dst++ = ' ';
+                    last_was_space = true;
+                }
+            }
+        } else if (isspace(ch)) {
+            // Collapse multiple spaces
+            if (!last_was_space) {
+                *dst++ = ' ';
+                last_was_space = true;
+            }
+        } else {
+            *dst++ = ch;
+            last_was_space = false;
+        }
+        
+        src++;
+    }
+    
+    // Remove trailing whitespace
+    while (dst > result && isspace(*(dst-1))) {
+        dst--;
+    }
+    
+    *dst = '\0';
+    
+    // If the result is empty, return NULL
+    if (dst == result) {
+        free(result);
+        return NULL;
+    }
+    
+    return result;
+}
+
 // Free getline input buffers
 void free_input_buffers(void) {
     free_str(buf);
@@ -463,8 +563,17 @@ char *ln_gets(void) {
             
             // Add to history if non-empty
             if (*result) {
-                history_add(result);
-                history_save();
+                // Convert multiline input to single-line format for better history handling
+                char *history_line = convert_multiline_for_history(result);
+                if (history_line) {
+                    history_add(history_line);
+                    history_save();
+                    free(history_line);
+                } else {
+                    // Fallback to original if conversion fails
+                    history_add(result);
+                    history_save();
+                }
             }
             
             return result;
@@ -591,14 +700,11 @@ char *get_input_complete(FILE *in) {
 
 // Unified input function providing consistent multiline behavior
 char *get_unified_input(FILE *in) {
-    // Check if input is from a terminal or piped/redirected
-    bool is_terminal_input = (in == stdin && isatty(STDIN_FILENO));
-    
-    if (shell_type() == INTERACTIVE_SHELL && is_terminal_input) {
-        // True interactive mode - use enhanced linenoise
+    if (shell_type() == INTERACTIVE_SHELL) {
+        // Interactive mode - use enhanced linenoise (matches shell type detection)
         return ln_gets();
     } else {
-        // Non-interactive mode or piped input - use enhanced file input
+        // Non-interactive mode - use enhanced file input
         return get_input_complete(in);
     }
 }
