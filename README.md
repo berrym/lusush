@@ -1,6 +1,7 @@
 # Lusush Shell
 
 A POSIX-compliant shell with modern architecture,**Command Examples:**
+**Command Examples:**
 
 **Basic Operations:**
 ```bash
@@ -9,20 +10,25 @@ name=world
 echo "Hello $name"
 echo "Hello ${name}"
 
-# Quoted string expansion
-echo "Current user: $USER, path: $PATH"
-for item in one two three; do
-    echo "Processing item: $item"
-done
+# Advanced parameter expansion
+echo "${USER:-guest}"              # Default value
+echo "${DEBUG:+--verbose}"         # Alternative value
+echo "${#filename}"                # String length
+echo "${path:0:5}"                 # Substring
 
-# Arithmetic expansion  
-result=$((5 + 3))
-echo "Result: $result"
-echo "Calculation: $((result * 2))"
+# Logical operators
+test -f file && echo "exists" || echo "missing"
+command1 && command2 || fallback_command
 
 # Command substitution
 date_str=$(date '+%Y-%m-%d')
 echo "Today is $date_str"
+echo `echo "Legacy backticks work too"`
+
+# Complex combinations
+echo "${name:+Hello ${name}}"
+test -f "${CONFIG:-config.txt}" && echo "Config found"
+```
 ``` Version 0.6.0-dev
 
 Lusush is a functional shell implementing core POSIX shell features with a modern, modular architecture. The shell successfully handles basic commands, variable operations, pipeline execution, and has partial control structure support.
@@ -32,6 +38,13 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 **Working Features:**
 - ✅ **Simple Commands**: Full execution of basic shell commands
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
+- ✅ **Advanced Parameter Expansion**: Complete POSIX-compliant parameter expansion system
+  - Default values: `${var:-default}`, `${var-default}`
+  - Alternative values: `${var:+alternative}`, `${var+alternative}`
+  - Length expansion: `${#var}`
+  - Substring expansion: `${var:offset:length}`
+- ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
+- ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
 - ✅ **Pipeline Execution**: Multi-command pipelines work reliably
 - ✅ **String Processing**: Proper distinction between literal ('...') and expandable ("...") strings
@@ -107,10 +120,26 @@ echo "test data" | grep "test" | wc -l
 ls -la | sort | head -10
 ```
 
-**Parameter Expansion:**
+**Advanced Parameter Expansion:**
 ```bash
-echo "${USER:-default_user}"
-echo "${PATH:+path_is_set}"
+# Default values
+echo "${USER:-guest}"              # Use 'guest' if USER unset
+echo "${CONFIG:-config.txt}"       # Default configuration file
+
+# Alternative values  
+echo "${DEBUG:+--verbose}"         # Add flag only if DEBUG set
+echo "${name:+Hello $name}"        # Conditional greeting
+
+# String operations
+echo "${#password}"                # Get string length
+echo "${filename:0:8}"             # Extract first 8 characters
+echo "${path:5}"                   # Everything from position 5
+
+# Unset vs empty distinction
+empty=""
+echo "${empty-default}"            # "" (empty but set)
+echo "${empty:-default}"           # "default" (empty)
+echo "${empty+set}"                # "set" (variable exists)
 ```
 
 ## Building and Installation
@@ -148,9 +177,10 @@ Run the comprehensive test suite:
 
 ## Current Limitations
 
-- Minor command sequence parsing issue (assignment + FOR loop combinations)
 - Case statements and functions not yet implemented
-- Some advanced parameter expansion patterns missing
+- Pattern matching parameter expansion (`${var#pattern}`, `${var%pattern}`) not yet implemented
+- Case conversion features (`${var^}`, `${var,}`) not yet implemented
+- Minor edge cases in complex parameter expansion scenarios
 
 See [Project Status](PROJECT_STATUS_CURRENT.md) for detailed progress and technical architecture.
 

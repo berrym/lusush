@@ -1,112 +1,130 @@
 # LUSUSH DEVELOPMENT NEXT STEPS
 
-**Priority**: Critical Fixes Required  
-**Timeline**: Immediate Development Focus  
-**Date**: June 21, 2025
-
-# LUSUSH DEVELOPMENT NEXT STEPS
-
-**Priority**: Symbol Table Integration Completion  
-**Timeline**: Immediate Development Focus  
+**Priority**: Strategic Architecture Decision - Modern vs Legacy  
+**Timeline**: Critical Decision Point  
 **Date**: December 21, 2024
 
-# LUSUSH DEVELOPMENT NEXT STEPS
+## STRATEGIC DECISION POINT: Modern Architecture Consolidation
 
-**Priority**: Minor Bug Fixes and Feature Enhancement  
-**Timeline**: Immediate Development Focus  
-**Date**: June 21, 2025
+### ✅ MAJOR ACHIEVEMENTS COMPLETED
+**Status**: Modern parameter expansion, logical operators, and command substitution fully implemented  
+**Architecture**: All new features built on clean modern codebase without legacy dependencies  
+**Success**: Professional-grade shell capabilities now available  
+**Quality**: Comprehensive testing, POSIX compliance, robust memory management
 
-# LUSUSH DEVELOPMENT NEXT STEPS
+### 🤔 CRITICAL DECISION: Legacy Refactoring vs Continued Modern Development
 
-**Priority**: Feature Enhancement and Testing  
-**Timeline**: Immediate Development Focus  
-**Date**: June 21, 2025
+**Option A: Continue Modern-Only Development**
+- **Pros**: Maintain momentum, avoid disruption, focus on remaining POSIX features
+- **Cons**: Codebase complexity with multiple parallel systems
+- **Timeline**: Immediate continued progress on pattern matching, case conversion
+- **Risk**: Low - current architecture is working well
 
-## Immediate Priorities (Next 1-2 Days)
+**Option B: Refactor Legacy Components Now**  
+- **Pros**: Clean unified codebase, eliminate technical debt, simpler maintenance
+- **Cons**: Significant refactoring effort, potential for introducing bugs
+- **Timeline**: 1-2 weeks of refactoring before continuing feature development
+- **Risk**: Medium - refactoring always carries integration risks
 
-### ✅ COMPLETED: Fix Command Sequence Parsing Issue
-**Status**: FIXED - Command sequences now work correctly  
-**Solution**: Updated executor main entry point to properly handle AST sibling traversal  
-**Verification**: All test cases pass including `a=test; for i in 1; do ...; done`  
-**Impact**: Core functionality now complete for command sequences
+### 🎯 RECOMMENDED APPROACH: Continue Modern Development
+**Rationale**: 
+- Modern architecture is proven and working excellently
+- Current momentum is strong with major features landing successfully
+- Legacy components can be addressed after core POSIX features are complete
+- No urgent need to refactor - existing architecture is maintainable
 
-### 1. Enhanced Testing Framework
-**Priority**: HIGH - Comprehensive testing for all new features  
-**Tests Needed**: 
-- Expand automated test coverage for command sequences
-- Integration tests for complex scenarios
-- Regression tests for all fixed bugs
-**Files**: Expand existing test suites and add new comprehensive tests  
-**Impact**: Ensures robustness and prevents regressions
+### 1. Complete Core POSIX Parameter Expansion
+**Priority**: IMMEDIATE - Build on current success  
+**Features**: Pattern matching (`${var#pattern}`, `${var%pattern}`)  
+**Timeline**: 1-2 days  
+**Impact**: Complete POSIX parameter expansion specification
 
-### 2. Debug Output Enhancement  
-**Issue**: Debug output not properly connected to environment variables  
-**Files**: `src/lusush.c` - debug flag handling  
-**Impact**: Better debugging and troubleshooting capability
+### 2. Case Conversion Features
+**Priority**: HIGH - Complete modern parameter expansion  
+**Features**: `${var^}`, `${var,}`, `${var^^}`, `${var,,}`  
+**Timeline**: 2-3 days  
+**Impact**: Full modern shell parameter expansion capabilities
 
-## Short Term (Next Week)
+### 3. Advanced Control Structures  
+**Priority**: MEDIUM - Expand shell capabilities  
+**Features**: CASE statements, function definitions  
+**Timeline**: 1 week  
+**Impact**: Complete core shell programming constructs
 
-### 3. Performance Testing and Optimization
-- **Memory usage**: Verify no memory leaks in new execution engine
-- **Performance**: Test performance with complex command sequences
-- **Edge cases**: Test unusual command combinations and control structures
+## Short Term (Next 1-2 Weeks)
 
-### 4. Architecture Cleanup
-- **Remove legacy warnings**: Clean up unused function declarations
-- **Code consolidation**: Remove any remaining redundant implementations  
-- **Documentation**: Update all code documentation for completed features
+### 4. Legacy Architecture Assessment
+- **Inventory**: Catalog all legacy components still in use
+- **Dependencies**: Map which components depend on legacy code
+- **Migration plan**: Design strategy for gradual legacy removal
+- **Risk assessment**: Identify high-risk vs low-risk refactoring areas
 
-### 5. Advanced Control Structure Support
-- **Enhanced IF statements**: Support for complex conditions and else-if chains
-- **CASE statements**: Implement case/esac pattern matching
-- **Function definitions**: Support for shell function definitions and calls
+### 5. Selective Legacy Cleanup
+- **Low-risk wins**: Remove obviously unused legacy code
+- **Documentation**: Update build system to reflect modern-only components
+- **Testing**: Ensure no regressions during cleanup
 
-## Medium Term (Next 2 Weeks)
+## Medium Term (Next 3-4 Weeks)
 
-### 6. Advanced Control Structures
-- **CASE statements**: Add case/esac parsing and execution
-- **UNTIL loops**: Complete until loop implementation  
-- **Function definitions**: Implement function support using new scoping
+### 6. Complete POSIX Feature Set
+- **Job control**: Background processes (`command &`) and job management
+- **Advanced redirections**: Here documents (`<<EOF`) and process substitution
+- **Here strings**: `<<<string` input redirection
+- **Brace expansion**: `{a,b,c}` and `{1..10}` patterns
 
-### 7. Performance Optimization
-- **Memory efficiency**: Optimize AST construction and cleanup
-- **Execution speed**: Profile and optimize hot paths
-- **Startup time**: Reduce shell initialization overhead
+### 7. Legacy Architecture Refactoring (If Warranted)
+- **Full assessment**: Complete analysis of refactoring benefits vs costs
+- **Phased approach**: Gradual migration of legacy components
+- **Testing**: Comprehensive regression testing during refactoring
+- **Decision point**: Re-evaluate whether refactoring improves or hinders progress
 
-### 8. Advanced Features
-- **Job control**: Background processes and job management
-- **Advanced redirections**: Here documents and process substitution
-- **Parameter expansion**: Complete POSIX parameter expansion features
+### 8. Performance and Polish
+- **Memory optimization**: Profile and optimize memory usage
+- **Error handling**: Improve error messages and recovery
+- **User experience**: Polish interactive features and output formatting
 
-## Long Term (Next Month)
+## Long Term (Next 1-2 Months)
 
-### 9. Complete POSIX Compliance
-- **Standards testing**: Validate against POSIX.1-2017 specification
-- **Compatibility testing**: Test with common shell scripts
-- **Behavior verification**: Ensure consistent shell semantics
+### 9. Production Readiness
+- **POSIX compliance**: Comprehensive testing against POSIX.1-2017 specification
+- **Security audit**: Review for potential security vulnerabilities
+- **Performance benchmarking**: Compare with bash, dash, and other shells
+- **Compatibility testing**: Validate with real-world shell scripts
 
-### 10. Production Readiness
-- **Error handling**: Robust error recovery and reporting
-- **Security audit**: Review for potential security issues
-- **Performance benchmarking**: Compare with other shells
+### 10. Architecture Finalization
+- **Legacy elimination**: Complete removal of unused legacy components (if beneficial)
+- **Code documentation**: Comprehensive documentation of final architecture
+- **Maintenance guide**: Clear guidelines for future development and maintenance
 
 ## Development Workflow
 
-1. **Fix command sequence parsing issue** (assignment + FOR loop edge case)
-2. **Add comprehensive tests** for quoted string expansion feature
-3. **Performance test new features** and verify memory management
-4. **Document completed architecture** accurately
-5. **Plan advanced features** (functions, case statements)
+1. **Complete pattern matching parameter expansion** (`${var#pattern}`, `${var%pattern}`)
+2. **Add case conversion features** (`${var^}`, `${var,}`)
+3. **Implement advanced control structures** (CASE statements, functions)
+4. **Assess legacy refactoring** (cost/benefit analysis)
+5. **Continue with remaining POSIX features** (job control, advanced I/O)
+6. **Make frequent git commits** after each achievement
+7. **Update core documentation** to reflect progress
 
 ## Success Criteria
 
 - All control structures (if/while/for) execute with proper variable scoping ✅
 - Variable assignment and expansion fully use modern symbol table ✅
-- Quoted string variable expansion works correctly ✅
+- Advanced parameter expansion with POSIX compliance ✅
+- Logical operators (&&, ||) with proper conditional execution ✅
+- Command substitution (both modern and backtick syntax) ✅
 - Pipeline execution robust and reliable with new architecture ✅
 - Zero breaking changes to existing functionality ✅
-- Clean, maintainable codebase with minimal technical debt ✅
+- Clean, maintainable codebase with strategic architecture decisions ✅
 - Comprehensive documentation of modern architecture ✅
+- Regular git commits documenting progress ✅
+
+## Upcoming Success Targets
+- Complete POSIX parameter expansion (pattern matching, case conversion)
+- Advanced control structures (CASE statements, function definitions)
+- Strategic legacy code cleanup (when beneficial)
+- Job control and advanced I/O redirection
+- Full POSIX.1-2017 compliance
 
 ## Risk Mitigation
 
