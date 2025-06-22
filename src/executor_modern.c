@@ -142,12 +142,13 @@ int executor_modern_execute_command_line(executor_modern_t *executor, const char
     }
     
     node_t *ast = parser_modern_parse(parser);
+    
     if (parser_modern_has_error(parser)) {
         executor_error(executor, parser_modern_error(parser));
         parser_modern_free(parser);
         return 1;
     }
-    
+
     if (!ast) {
         parser_modern_free(parser);
         return 0; // Empty command
