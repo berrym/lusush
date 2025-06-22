@@ -828,6 +828,67 @@ static int find_suffix_match(const char *str, const char *pattern, bool longest)
     return match_len;
 }
 
+// Case conversion functions
+static char *convert_case_first_upper(const char *str) {
+    if (!str) return strdup("");
+    
+    size_t len = strlen(str);
+    char *result = malloc(len + 1);
+    if (!result) return strdup("");
+    
+    strcpy(result, str);
+    if (len > 0 && islower(result[0])) {
+        result[0] = toupper(result[0]);
+    }
+    
+    return result;
+}
+
+static char *convert_case_first_lower(const char *str) {
+    if (!str) return strdup("");
+    
+    size_t len = strlen(str);
+    char *result = malloc(len + 1);
+    if (!result) return strdup("");
+    
+    strcpy(result, str);
+    if (len > 0 && isupper(result[0])) {
+        result[0] = tolower(result[0]);
+    }
+    
+    return result;
+}
+
+static char *convert_case_all_upper(const char *str) {
+    if (!str) return strdup("");
+    
+    size_t len = strlen(str);
+    char *result = malloc(len + 1);
+    if (!result) return strdup("");
+    
+    for (size_t i = 0; i < len; i++) {
+        result[i] = toupper(str[i]);
+    }
+    result[len] = '\0';
+    
+    return result;
+}
+
+static char *convert_case_all_lower(const char *str) {
+    if (!str) return strdup("");
+    
+    size_t len = strlen(str);
+    char *result = malloc(len + 1);
+    if (!result) return strdup("");
+    
+    for (size_t i = 0; i < len; i++) {
+        result[i] = tolower(str[i]);
+    }
+    result[len] = '\0';
+    
+    return result;
+}
+
 // Recursively expand variables within a string (for parameter expansion defaults)
 static char *expand_variables_in_string(executor_modern_t *executor, const char *str) {
     if (!str || !executor) return strdup("");
@@ -935,7 +996,7 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
     
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", "##", "%%", ":", "#", "%", "-", "+", NULL};
+    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":", "#", "%", "^", ",", "-", "+", NULL};
     int op_type = -1;
     
     // Find the first valid operator that's not part of a pattern
@@ -997,10 +1058,52 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 2: // ${var:offset:length} - substring expansion
+            case 2: // ${var##pattern} - remove longest match of pattern from beginning
+                if (var_value) {
+                    int match_len = find_prefix_match(var_value, expanded_default, true);
+                    result = strdup(var_value + match_len);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 3: // ${var%%pattern} - remove longest match of pattern from end
+                if (var_value) {
+                    int str_len = strlen(var_value);
+                    int match_len = find_suffix_match(var_value, expanded_default, true);
+                    int result_len = str_len - match_len;
+                    result = malloc(result_len + 1);
+                    if (result) {
+                        strncpy(result, var_value, result_len);
+                        result[result_len] = '\0';
+                    } else {
+                        result = strdup("");
+                    }
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 4: // ${var^^} - convert all characters to uppercase
+                if (var_value) {
+                    result = convert_case_all_upper(var_value);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 5: // ${var,,} - convert all characters to lowercase
+                if (var_value) {
+                    result = convert_case_all_lower(var_value);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 6: // ${var:offset:length} - substring expansion
                 if (var_value) {
                     // Parse offset and optional length (with variable expansion)
-                    char *expanded_offset_str = expand_variables_in_string(executor, default_value);
+                    char *expanded_offset_str = expand_variables_in_string(executor, expanded_default);
                     char *endptr;
                     int offset = strtol(expanded_offset_str, &endptr, 10);
                     int length = -1;
@@ -1016,28 +1119,19 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 3: // ${var##pattern} - remove longest match of pattern from beginning
+            case 7: // ${var#pattern} - remove shortest match of pattern from beginning
                 if (var_value) {
-                    int match_len = find_prefix_match(var_value, default_value, true);
+                    int match_len = find_prefix_match(var_value, expanded_default, false);
                     result = strdup(var_value + match_len);
                 } else {
                     result = strdup("");
                 }
                 break;
                 
-            case 4: // ${var#pattern} - remove shortest match of pattern from beginning
-                if (var_value) {
-                    int match_len = find_prefix_match(var_value, default_value, false);
-                    result = strdup(var_value + match_len);
-                } else {
-                    result = strdup("");
-                }
-                break;
-                
-            case 5: // ${var%%pattern} - remove longest match of pattern from end
+            case 8: // ${var%pattern} - remove shortest match of pattern from end
                 if (var_value) {
                     int str_len = strlen(var_value);
-                    int match_len = find_suffix_match(var_value, default_value, true);
+                    int match_len = find_suffix_match(var_value, expanded_default, false);
                     int result_len = str_len - match_len;
                     result = malloc(result_len + 1);
                     if (result) {
@@ -1051,24 +1145,23 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 6: // ${var%pattern} - remove shortest match of pattern from end
+            case 9: // ${var^} - convert first character to uppercase
                 if (var_value) {
-                    int str_len = strlen(var_value);
-                    int match_len = find_suffix_match(var_value, default_value, false);
-                    int result_len = str_len - match_len;
-                    result = malloc(result_len + 1);
-                    if (result) {
-                        strncpy(result, var_value, result_len);
-                        result[result_len] = '\0';
-                    } else {
-                        result = strdup("");
-                    }
+                    result = convert_case_first_upper(var_value);
                 } else {
                     result = strdup("");
                 }
                 break;
                 
-            case 7: // ${var-default} - use default if var is unset (but not if empty)
+            case 10: // ${var,} - convert first character to lowercase
+                if (var_value) {
+                    result = convert_case_first_lower(var_value);
+                } else {
+                    result = strdup("");
+                }
+                break;
+                
+            case 11: // ${var-default} - use default if var is unset (but not if empty)
                 if (!var_value) {
                     result = strdup(expanded_default);
                 } else {
@@ -1076,7 +1169,7 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
                 }
                 break;
                 
-            case 8: // ${var+alternative} - use alternative if var is set (even if empty)
+            case 12: // ${var+alternative} - use alternative if var is set (even if empty)
                 if (var_value) {
                     result = strdup(expanded_default);
                 } else {
