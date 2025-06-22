@@ -43,6 +43,7 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
   - Alternative values: `${var:+alternative}`, `${var+alternative}`
   - Length expansion: `${#var}`
   - Substring expansion: `${var:offset:length}`
+  - Pattern matching: `${var#pattern}`, `${var##pattern}`, `${var%pattern}`, `${var%%pattern}`
 - ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
@@ -135,6 +136,12 @@ echo "${#password}"                # Get string length
 echo "${filename:0:8}"             # Extract first 8 characters
 echo "${path:5}"                   # Everything from position 5
 
+# Pattern matching (NEW!)
+echo "${filename%.*}"              # Remove file extension
+echo "${path##*/}"                 # Get basename from path
+echo "${url#*://}"                 # Remove protocol from URL
+echo "${version%%.*}"              # Get major version number
+
 # Unset vs empty distinction
 empty=""
 echo "${empty-default}"            # "" (empty but set)
@@ -178,8 +185,8 @@ Run the comprehensive test suite:
 ## Current Limitations
 
 - Case statements and functions not yet implemented
-- Pattern matching parameter expansion (`${var#pattern}`, `${var%pattern}`) not yet implemented
 - Case conversion features (`${var^}`, `${var,}`) not yet implemented
+- Special characters in pattern matching (`:`, `@`, `?`) need refinement
 - Minor edge cases in complex parameter expansion scenarios
 
 See [Project Status](PROJECT_STATUS_CURRENT.md) for detailed progress and technical architecture.
