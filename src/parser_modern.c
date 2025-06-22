@@ -213,17 +213,23 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             node_t *command = new_node(NODE_COMMAND);
             if (!command) return NULL;
             
-            // Create assignment string: "variable=value"
-            size_t var_len = strlen(current->text);
+            // FIX: Save variable name BEFORE advancing tokenizer
+            char *var_name = strdup(current->text);
+            if (!var_name) {
+                free_node_tree(command);
+                return NULL;
+            }
+            
             modern_tokenizer_advance(parser->tokenizer); // consume variable name
             modern_tokenizer_advance(parser->tokenizer); // consume '='
             
             modern_token_t *value = modern_tokenizer_current(parser->tokenizer);
             if (value && modern_token_is_word_like(value->type)) {
+                size_t var_len = strlen(var_name);
                 size_t value_len = strlen(value->text);
                 char *assignment = malloc(var_len + 1 + value_len + 1);
                 if (assignment) {
-                    strcpy(assignment, current->text);
+                    strcpy(assignment, var_name);
                     strcat(assignment, "=");
                     strcat(assignment, value->text);
                     command->val.str = assignment;
@@ -231,13 +237,16 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
                 modern_tokenizer_advance(parser->tokenizer); // consume value
             } else {
                 // Assignment with empty value: variable=
+                size_t var_len = strlen(var_name);
                 char *assignment = malloc(var_len + 2);
                 if (assignment) {
-                    strcpy(assignment, current->text);
+                    strcpy(assignment, var_name);
                     strcat(assignment, "=");
                     command->val.str = assignment;
                 }
             }
+            
+            free(var_name);
             return command;
         }
     }
