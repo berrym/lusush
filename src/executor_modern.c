@@ -28,6 +28,7 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
 static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
 static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
 static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
+static int execute_case_modern(executor_modern_t *executor, node_t *case_node);
 static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_node);
 static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_node);
 static int execute_command_list_modern(executor_modern_t *executor, node_t *list);
@@ -43,6 +44,7 @@ static char *expand_if_needed_modern(executor_modern_t *executor, const char *te
 static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str);
 static bool is_assignment(const char *text);
 static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
+static bool match_pattern(const char *str, const char *pattern);
 
 // Create new executor
 executor_modern_t *executor_modern_new(void) {
@@ -188,6 +190,8 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             return execute_while_modern(executor, node);
         case NODE_FOR:
             return execute_for_modern(executor, node);
+        case NODE_CASE:
+            return execute_case_modern(executor, node);
         case NODE_LOGICAL_AND:
             return execute_logical_and_modern(executor, node);
         case NODE_LOGICAL_OR:
@@ -720,6 +724,67 @@ static int execute_assignment_modern(executor_modern_t *executor, const char *as
     free(value);
     
     return result == 0 ? 0 : 1;
+}
+
+// Execute case statement
+static int execute_case_modern(executor_modern_t *executor, node_t *node) {
+    if (!executor || !node || node->type != NODE_CASE) {
+        return 1;
+    }
+    
+    // Get the test word and expand variables in it
+    char *test_word = expand_if_needed_modern(executor, node->val.str);
+    if (!test_word) {
+        return 1;
+    }
+    
+    int result = 0;
+    bool matched = false;
+    
+    // Iterate through case items (children)
+    node_t *case_item = node->first_child;
+    while (case_item && !matched) {
+        // The pattern is stored in case_item->val.str
+        char *patterns = case_item->val.str;
+        if (!patterns) {
+            case_item = case_item->next_sibling;
+            continue;
+        }
+        
+        // Split patterns by | and test each one
+        char *pattern_copy = strdup(patterns);
+        if (!pattern_copy) {
+            free(test_word);
+            return 1;
+        }
+        
+        char *pattern = strtok(pattern_copy, "|");
+        while (pattern && !matched) {
+            // Expand variables in pattern
+            char *expanded_pattern = expand_if_needed_modern(executor, pattern);
+            if (expanded_pattern) {
+                if (match_pattern(test_word, expanded_pattern)) {
+                    matched = true;
+                    
+                    // Execute commands for this case item
+                    node_t *commands = case_item->first_child;
+                    while (commands) {
+                        result = execute_node_modern(executor, commands);
+                        if (result != 0) break;
+                        commands = commands->next_sibling;
+                    }
+                }
+                free(expanded_pattern);
+            }
+            pattern = strtok(NULL, "|");
+        }
+        
+        free(pattern_copy);
+        case_item = case_item->next_sibling;
+    }
+    
+    free(test_word);
+    return result;
 }
 
 // Helper function to check if a string is empty or null
