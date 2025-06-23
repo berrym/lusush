@@ -208,6 +208,8 @@ int executor_modern_execute_command_line(executor_modern_t *executor, const char
         return 1;
     }
     
+
+    
     // Parse the input
     parser_modern_t *parser = parser_modern_new(input);
     if (!parser) {
@@ -239,6 +241,8 @@ int executor_modern_execute_command_line(executor_modern_t *executor, const char
 // Core node execution dispatcher
 static int execute_node_modern(executor_modern_t *executor, node_t *node) {
     if (!node) return 0;
+    
+
     
     if (executor->debug) {
         printf("DEBUG: Executing node type %d\n", node->type);
@@ -311,6 +315,8 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     if (!command || command->type != NODE_COMMAND) {
         return 1;
     }
+    
+
     
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {

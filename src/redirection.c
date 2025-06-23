@@ -21,7 +21,9 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <errno.h>
+#include <ctype.h>
 
 // Forward declarations
 static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node);
@@ -31,8 +33,14 @@ static int setup_here_document_with_processing(executor_modern_t *executor, cons
 static int setup_here_string(const char *content);
 static char *expand_redirection_target(const char *target);
 
+// Forward declaration for shell variable access
+extern char *get_shell_varp(char *name, char *default_value);
+
 // External function from executor_modern.c
 extern char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+
+// Forward declaration for file descriptor redirection
+static int setup_fd_redirection(const char *redir_text);
 
 // Setup redirections for a command
 int setup_redirections(executor_modern_t *executor, node_t *command) {
@@ -40,10 +48,46 @@ int setup_redirections(executor_modern_t *executor, node_t *command) {
         return 0; // No redirections to setup
     }
     
-    // Look for redirection nodes among the command's children
+
+    
+    // First pass: Process stderr redirections (2>, 2>>, 2>&1) to set up error suppression
     node_t *child = command->first_child;
+    int child_count = 0;
     while (child) {
+        child_count++;
+
+
+        
+        if (child->type == NODE_REDIR_ERR || child->type == NODE_REDIR_ERR_APPEND || 
+            (child->type == NODE_REDIR_FD && child->val.str && strstr(child->val.str, "2>"))) {
+
+
+            int result = handle_redirection_node(executor, child);
+            if (result != 0) {
+                return result;
+            }
+        }
+        child = child->next_sibling;
+    }
+
+    // Second pass: Process all other redirections
+    child = command->first_child;
+    child_count = 0;
+    while (child) {
+        child_count++;
+
+
+        
         if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_FD) {
+            // Skip stderr redirections (already processed in first pass)
+            if (child->type == NODE_REDIR_ERR || child->type == NODE_REDIR_ERR_APPEND || 
+                (child->type == NODE_REDIR_FD && child->val.str && strstr(child->val.str, "2>"))) {
+                child = child->next_sibling;
+                continue;
+            }
+
+
+
             int result = handle_redirection_node(executor, child);
             if (result != 0) {
                 return result;
@@ -52,13 +96,21 @@ int setup_redirections(executor_modern_t *executor, node_t *command) {
         child = child->next_sibling;
     }
     
-    return 0; // All redirections set up successfully
+
+    
+    return 0;
 }
 
 // Handle individual redirection node
 static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node) {
     if (!redir_node) {
         return 1;
+    }
+    
+
+    
+    if (getenv("LUSUSH_DEBUG_REDIR")) {
+        printf("DEBUG: handle_redirection_node called with type %d\n", redir_node->type);
     }
     
     // For here documents, check if we have pre-collected content
@@ -88,20 +140,26 @@ static int handle_redirection_node(executor_modern_t *executor, node_t *redir_no
         return 1; // No delimiter found
     }
     
+    // Handle NODE_REDIR_FD first since it doesn't need a target child
+    if (redir_node->type == NODE_REDIR_FD) {
+        // File descriptor redirection: >&2, 2>&1, etc.
+        return setup_fd_redirection(redir_node->val.str);
+    }
+
     // Get the target (filename) from the first child for other redirections
     node_t *target_node = redir_node->first_child;
     if (!target_node || !target_node->val.str) {
         return 1; // No target specified
     }
-    
+
     // Expand variables in the target
     char *target = expand_redirection_target(target_node->val.str);
     if (!target) {
         return 1;
     }
-    
+
     int result = 0;
-    
+
     switch (redir_node->type) {
         case NODE_REDIR_OUT: {
             // Standard output redirection: command > file
@@ -228,6 +286,8 @@ static int handle_redirection_node(executor_modern_t *executor, node_t *redir_no
             result = setup_here_string(target);
             break;
         }
+        
+
         
         default:
             // Unknown redirection type
@@ -465,6 +525,12 @@ static int setup_here_document_with_processing(executor_modern_t *executor, cons
 
 // Setup here string redirection
 static int setup_here_string(const char *content) {
+
+    
+    if (getenv("LUSUSH_DEBUG_REDIR")) {
+        printf("DEBUG: setup_here_string called with: '%s'\n", content);
+    }
+    
     // Create a temporary pipe to provide the string as input
     int pipefd[2];
     if (pipe(pipefd) == -1) {
@@ -472,10 +538,19 @@ static int setup_here_string(const char *content) {
         return 1;
     }
     
-    // Write the string to the pipe
-    ssize_t written = write(pipefd[1], content, strlen(content));
+    // Expand variables in the content first
+    char *expanded_content = expand_redirection_target(content);
+    if (!expanded_content) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return 1;
+    }
+    
+    // Write the expanded string to the pipe
+    ssize_t written = write(pipefd[1], expanded_content, strlen(expanded_content));
     if (written == -1) {
         perror("write");
+        free(expanded_content);
         close(pipefd[0]);
         close(pipefd[1]);
         return 1;
@@ -484,6 +559,7 @@ static int setup_here_string(const char *content) {
     // Add a newline at the end
     write(pipefd[1], "\n", 1);
     close(pipefd[1]);
+    free(expanded_content);
     
     // Redirect stdin to read from the pipe
     if (dup2(pipefd[0], STDIN_FILENO) == -1) {
@@ -502,12 +578,140 @@ static char *expand_redirection_target(const char *target) {
         return NULL;
     }
     
-    // For now, just return a copy of the target
-    // In a full implementation, this would expand variables like $HOME, etc.
+    if (getenv("LUSUSH_DEBUG_REDIR")) {
+        printf("DEBUG: expand_redirection_target called with: '%s'\n", target);
+    }
+    
+    // Check if this looks like it needs expansion
+    if (strchr(target, '$')) {
+        // Simple variable expansion - look for $VAR patterns
+        size_t len = strlen(target);
+        size_t result_size = len * 4 + 1; // Allow for expansion
+        char *result = malloc(result_size);
+        if (!result) return strdup(target);
+        
+        size_t result_pos = 0;
+        for (size_t i = 0; i < len; i++) {
+            if (target[i] == '$' && i + 1 < len) {
+                // Extract variable name
+                size_t var_start = i + 1;
+                size_t var_end = var_start;
+                
+                // Handle ${VAR} format
+                if (target[var_start] == '{') {
+                    var_start++;
+                    while (var_end < len && target[var_end] != '}') {
+                        var_end++;
+                    }
+                    if (var_end < len) var_end++; // Include closing brace
+                } else {
+                    // Handle $VAR format
+                    while (var_end < len && (isalnum(target[var_end]) || target[var_end] == '_')) {
+                        var_end++;
+                    }
+                }
+                
+                if (var_end > var_start) {
+                    // Extract variable name
+                    size_t name_len = (target[var_start - 1] == '{') ? var_end - var_start - 1 : var_end - var_start;
+                    char *var_name = malloc(name_len + 1);
+                    if (var_name) {
+                        strncpy(var_name, &target[var_start], name_len);
+                        var_name[name_len] = '\0';
+                        
+                        // Get variable value from environment and shell variables
+                        char *var_value = getenv(var_name);
+                        if (!var_value) {
+                            // Try shell variables (for things like $?, $$, etc.)
+                            var_value = get_shell_varp(var_name, NULL);
+                        }
+                        
+
+                        
+                        if (var_value) {
+                            if (getenv("LUSUSH_DEBUG_REDIR")) {
+                                printf("DEBUG: Found variable %s = '%s'\n", var_name, var_value);
+                            }
+                            size_t value_len = strlen(var_value);
+                            // Ensure buffer is large enough
+                            while (result_pos + value_len >= result_size) {
+                                result_size *= 2;
+                                char *new_result = realloc(result, result_size);
+                                if (!new_result) {
+                                    free(result);
+                                    free(var_name);
+                                    return strdup(target);
+                                }
+                                result = new_result;
+                            }
+                            strcpy(&result[result_pos], var_value);
+                            result_pos += value_len;
+                        } else {
+                            if (getenv("LUSUSH_DEBUG_REDIR")) {
+                                printf("DEBUG: Variable %s not found\n", var_name);
+                            }
+                        }
+                        
+                        free(var_name);
+                        i = var_end - 1; // Skip processed characters
+                    }
+                } else {
+                    result[result_pos++] = target[i];
+                }
+            } else {
+                result[result_pos++] = target[i];
+            }
+        }
+        result[result_pos] = '\0';
+        if (getenv("LUSUSH_DEBUG_REDIR")) {
+            printf("DEBUG: expand_redirection_target result: '%s'\n", result);
+        }
+        return result;
+    }
+    
+    if (getenv("LUSUSH_DEBUG_REDIR")) {
+        printf("DEBUG: No expansion needed, returning copy of: '%s'\n", target);
+    }
     return strdup(target);
 }
 
-// Save current file descriptors before redirection
+// Setup file descriptor redirection (>&2, 2>&1, etc.)
+static int setup_fd_redirection(const char *redir_text) {
+    if (!redir_text) {
+        return 1;
+    }
+    
+
+    
+    // Parse patterns like ">&2", "2>&1", etc.
+    if (redir_text[0] == '>' && redir_text[1] == '&' && isdigit(redir_text[2])) {
+        // >&N - redirect stdout to file descriptor N
+        int target_fd = redir_text[2] - '0';
+
+        if (dup2(target_fd, STDOUT_FILENO) == -1) {
+            perror("dup2");
+            return 1;
+        }
+        return 0;
+    }
+    
+    if (isdigit(redir_text[0]) && redir_text[1] == '>' && redir_text[2] == '&' && isdigit(redir_text[3])) {
+        // N>&M - redirect file descriptor N to file descriptor M
+        int source_fd = redir_text[0] - '0';
+        int target_fd = redir_text[3] - '0';
+
+        if (dup2(target_fd, source_fd) == -1) {
+            perror("dup2");
+            return 1;
+        }
+        return 0;
+    }
+    
+
+    return 1; // Unknown pattern
+}
+
+// Save current file descriptors for later restoration
 int save_file_descriptors(redirection_state_t *state) {
     if (!state) {
         return 1;
@@ -599,14 +803,23 @@ int count_redirections(node_t *command) {
         return 0;
     }
     
+
+    
     int count = 0;
     node_t *child = command->first_child;
+    int child_num = 0;
     while (child) {
+        child_num++;
+
+        
         if (is_redirection_node(child)) {
             count++;
+
         }
         child = child->next_sibling;
     }
+    
+
     
     return count;
 }

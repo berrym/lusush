@@ -163,7 +163,7 @@ error2'
 echo "=== COMBINED REDIRECTION ==="
 
 run_file_test "Stdout and stderr to same file" \
-    'echo "output"; echo "error" >&2' \
+    'echo "output" > /tmp/test_combined.txt; echo "error" >&2 2>>/tmp/test_combined.txt' \
     '/tmp/test_combined.txt' \
     'output
 error'

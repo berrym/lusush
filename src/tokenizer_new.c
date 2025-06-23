@@ -458,7 +458,7 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
             tokenizer->column++;
         }
         
-        // Check if followed by > or >>
+        // Check if followed by >, >>, or >&
         if (tokenizer->position < tokenizer->input_length) {
             if (tokenizer->input[tokenizer->position] == '>') {
                 if (tokenizer->position + 1 < tokenizer->input_length &&
@@ -469,6 +469,17 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
                     size_t length = tokenizer->position - num_start;
                     return token_new(MODERN_TOK_APPEND_ERR, &tokenizer->input[num_start], length,
                                    start_line, start_column, start_pos);
+                } else if (tokenizer->position + 1 < tokenizer->input_length &&
+                           tokenizer->input[tokenizer->position + 1] == '&') {
+                    // Check for N>&M pattern (redirect file descriptor N to M)
+                    if (tokenizer->position + 2 < tokenizer->input_length &&
+                        isdigit(tokenizer->input[tokenizer->position + 2])) {
+                        tokenizer->position += 3; // Skip >&M
+                        tokenizer->column += 3;
+                        size_t length = tokenizer->position - num_start;
+                        return token_new(MODERN_TOK_REDIRECT_FD, &tokenizer->input[num_start], length,
+                                       start_line, start_column, start_pos);
+                    }
                 } else {
                     // Handle N> (redirect file descriptor N)
                     tokenizer->position++;
@@ -534,6 +545,23 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
                         start_line, start_column, start_pos);
     }
     
+    // Handle >&digit and >& patterns (redirect to file descriptor)
+    if (c == '>' && tokenizer->position + 1 < tokenizer->input_length &&
+        tokenizer->input[tokenizer->position + 1] == '&') {
+        
+        // Look ahead for digit after >&
+        if (tokenizer->position + 2 < tokenizer->input_length &&
+            isdigit(tokenizer->input[tokenizer->position + 2])) {
+            // >&digit pattern - redirect stdout to file descriptor
+            size_t start_pos = tokenizer->position;
+            tokenizer->position += 3; // Skip >&digit
+            tokenizer->column += 3;
+            size_t length = tokenizer->position - start_pos;
+            return token_new(MODERN_TOK_REDIRECT_FD, &tokenizer->input[start_pos], length,
+                           start_line, start_column, start_pos);
+        }
+    }
+
     // Handle single-character operators
     modern_token_type_t single_char_type;
     switch (c) {

@@ -457,13 +457,19 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             arg_token->type == MODERN_TOK_HERESTRING ||
             arg_token->type == MODERN_TOK_REDIRECT_ERR ||
             arg_token->type == MODERN_TOK_REDIRECT_BOTH ||
-            arg_token->type == MODERN_TOK_APPEND_ERR) {
+            arg_token->type == MODERN_TOK_APPEND_ERR ||
+            arg_token->type == MODERN_TOK_REDIRECT_FD) {
+            
+
             
             node_t *redir_node = parse_redirection(parser);
             if (!redir_node) {
                 free_node_tree(command);
                 return NULL;
             }
+            
+
+            
             add_child_node(command, redir_node);
         }
         // Handle regular arguments (including keywords that should be treated as words)
@@ -628,6 +634,10 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         case MODERN_TOK_APPEND_ERR:
             node_type = NODE_REDIR_ERR_APPEND;
             break;
+        case MODERN_TOK_REDIRECT_FD:
+            node_type = NODE_REDIR_FD;
+
+            break;
         default:
             parser_error(parser, "Unknown redirection token");
             return NULL;
@@ -642,6 +652,13 @@ static node_t *parse_redirection(parser_modern_t *parser) {
     
     // Parse the target (filename or here document content)
     modern_token_t *target_token = modern_tokenizer_current(parser->tokenizer);
+    
+    // For NODE_REDIR_FD, the target is embedded in the redirection token itself
+    if (node_type == NODE_REDIR_FD) {
+        // No separate target token needed for file descriptor redirections
+        return redir_node;
+    }
+    
     if (!target_token || !modern_token_is_word_like(target_token->type)) {
         if (node_type == NODE_REDIR_HEREDOC || node_type == NODE_REDIR_HEREDOC_STRIP) {
             // For here documents, the delimiter might be quoted or special
