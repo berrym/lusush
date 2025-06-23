@@ -80,6 +80,9 @@ void executor_modern_set_symtable(executor_modern_t *executor, symtable_manager_
 bool executor_modern_has_error(executor_modern_t *executor);
 const char *executor_modern_error(executor_modern_t *executor);
 
+// Variable expansion functions
+char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+
 // Job control functions
 int executor_modern_execute_background(executor_modern_t *executor, node_t *command);
 job_t *executor_modern_add_job(executor_modern_t *executor, pid_t pgid, const char *command_line);

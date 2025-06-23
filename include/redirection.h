@@ -16,10 +16,12 @@
  * - Here strings (<<<)
  * - Here documents (<<, <<-)
  */
+#include "node.h"
+#include "executor_modern.h"
 
 // Main redirection setup function
 // Called by the executor to setup all redirections for a command
-int setup_redirections(node_t *command);
+int setup_redirections(executor_modern_t *executor, node_t *command);
 
 // Utility functions for redirection handling
 bool is_redirection_node(node_t *node);

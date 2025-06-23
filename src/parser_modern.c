@@ -667,6 +667,14 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
         
+        // Check if delimiter is quoted (no variable expansion if quoted)
+        bool expand_variables = true;
+        if ((delimiter[0] == '"' || delimiter[0] == '\'') && 
+            strlen(delimiter) > 2 && 
+            delimiter[strlen(delimiter)-1] == delimiter[0]) {
+            expand_variables = false;
+        }
+        
         // Advance past the delimiter token first
         modern_tokenizer_advance(parser->tokenizer);
         
@@ -691,6 +699,15 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         content_node->val.str = content; // Transfer ownership
         add_child_node(redir_node, content_node);
         
+        // Create a second child node to store the expand_variables flag
+        node_t *expand_flag_node = new_node(NODE_VAR);
+        if (!expand_flag_node) {
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        expand_flag_node->val.str = strdup(expand_variables ? "1" : "0");
+        add_child_node(redir_node, expand_flag_node);
+        
         return redir_node;
     } else {
         // Regular redirection - just store the target
@@ -713,13 +730,36 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
         return NULL;
     }
     
+    // Check if delimiter is quoted (no variable expansion if quoted)
+    bool expand_variables = true;
+    if ((delimiter[0] == '"' || delimiter[0] == '\'') && 
+        strlen(delimiter) > 2 && 
+        delimiter[strlen(delimiter)-1] == delimiter[0]) {
+        expand_variables = false;
+    }
+    
     modern_tokenizer_t *tokenizer = parser->tokenizer;
     
     // Find the start of the here document content by searching for << delimiter in input
     size_t content_start = 0;
     
     // Look for "<<" followed by the delimiter in the input
-    size_t delimiter_len = strlen(delimiter);
+    // For quoted delimiters, we need to match without quotes
+    const char *match_delimiter = delimiter;
+    char *unquoted_delimiter = NULL;
+    if ((delimiter[0] == '"' || delimiter[0] == '\'') && 
+        strlen(delimiter) > 2 && 
+        delimiter[strlen(delimiter)-1] == delimiter[0]) {
+        size_t delim_len = strlen(delimiter);
+        unquoted_delimiter = malloc(delim_len - 1);
+        if (unquoted_delimiter) {
+            strncpy(unquoted_delimiter, delimiter + 1, delim_len - 2);
+            unquoted_delimiter[delim_len - 2] = '\0';
+            match_delimiter = unquoted_delimiter;
+        }
+    }
+    
+    size_t delimiter_len = strlen(match_delimiter);
     
     for (size_t i = 0; i < tokenizer->input_length - 1; i++) {
         if (tokenizer->input[i] == '<' && tokenizer->input[i + 1] == '<') {
@@ -739,7 +779,7 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
             
             // Check if delimiter matches
             if (delimiter_pos + delimiter_len <= tokenizer->input_length &&
-                strncmp(&tokenizer->input[delimiter_pos], delimiter, delimiter_len) == 0) {
+                strncmp(&tokenizer->input[delimiter_pos], match_delimiter, delimiter_len) == 0) {
                 
                 // Found our << delimiter, find the end of this line
                 content_start = delimiter_pos + delimiter_len;
@@ -793,7 +833,7 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
         }
         
         // Check if this line matches the delimiter
-        if (strcmp(line_content, delimiter) == 0) {
+        if (strcmp(line_content, match_delimiter) == 0) {
             // Found delimiter - stop collecting
             free(line);
             break;
@@ -812,8 +852,12 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
             content = new_content;
         }
         
-        // Append the original line (not stripped) plus newline
-        strcat(content, line);
+        // Append the line (stripped if <<- variant) plus newline
+        if (strip_tabs) {
+            strcat(content, line_content);
+        } else {
+            strcat(content, line);
+        }
         strcat(content, "\n");
         content_size = strlen(content);
         
@@ -838,6 +882,11 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
     
     // Refresh tokenizer cache from the updated position
     modern_tokenizer_refresh_from_position(tokenizer);
+    
+    // Clean up temporary delimiter
+    if (unquoted_delimiter) {
+        free(unquoted_delimiter);
+    }
     
     return content;
 }

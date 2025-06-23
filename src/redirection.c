@@ -13,25 +13,29 @@
 
 #include "../include/node.h"
 #include "../include/redirection.h"
+#include "../include/executor_modern.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
 #include <errno.h>
 
 // Forward declarations
-static int handle_redirection_node(node_t *redir_node);
+static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
 static int setup_here_document_with_content(const char *content);
+static int setup_here_document_with_processing(executor_modern_t *executor, const char *content, bool strip_tabs, bool expand_vars);
 static int setup_here_string(const char *content);
 static char *expand_redirection_target(const char *target);
 
+// External function from executor_modern.c
+extern char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+
 // Setup redirections for a command
-int setup_redirections(node_t *command) {
+int setup_redirections(executor_modern_t *executor, node_t *command) {
     if (!command) {
         return 0; // No redirections to setup
     }
@@ -40,7 +44,7 @@ int setup_redirections(node_t *command) {
     node_t *child = command->first_child;
     while (child) {
         if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_FD) {
-            int result = handle_redirection_node(child);
+            int result = handle_redirection_node(executor, child);
             if (result != 0) {
                 return result;
             }
@@ -48,11 +52,11 @@ int setup_redirections(node_t *command) {
         child = child->next_sibling;
     }
     
-    return 0;
+    return 0; // All redirections set up successfully
 }
 
 // Handle individual redirection node
-static int handle_redirection_node(node_t *redir_node) {
+static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node) {
     if (!redir_node) {
         return 1;
     }
@@ -61,10 +65,20 @@ static int handle_redirection_node(node_t *redir_node) {
     if (redir_node->type == NODE_REDIR_HEREDOC || redir_node->type == NODE_REDIR_HEREDOC_STRIP) {
         // The delimiter is stored in the redirection node value
         // The content is stored in the first child node
+        // The expand variables flag is stored in the second child node
         node_t *content_node = redir_node->first_child;
+        node_t *expand_flag_node = content_node ? content_node->next_sibling : NULL;
+        
         if (content_node && content_node->val.str) {
-            // Use pre-collected content
-            return setup_here_document_with_content(content_node->val.str);
+            bool strip_tabs = (redir_node->type == NODE_REDIR_HEREDOC_STRIP);
+            bool expand_vars = true; // Default to expand
+            
+            // Check expand variables flag from parser
+            if (expand_flag_node && expand_flag_node->val.str) {
+                expand_vars = (strcmp(expand_flag_node->val.str, "1") == 0);
+            }
+            
+            return setup_here_document_with_processing(executor, content_node->val.str, strip_tabs, expand_vars);
         }
         // If no content node, fall back to interactive here document
         if (redir_node->val.str) {
@@ -353,6 +367,100 @@ static int setup_here_document_with_content(const char *content) {
     }
     
     return 0;
+}
+
+// Setup here document with variable expansion and tab stripping
+static int setup_here_document_with_processing(executor_modern_t *executor, const char *content, bool strip_tabs, bool expand_vars) {
+    if (!content) {
+        return 1;
+    }
+    
+    // Process the content line by line
+    size_t processed_size = strlen(content) * 2 + 1; // Allow for expansion
+    char *processed_content = malloc(processed_size);
+    if (!processed_content) {
+        return 1;
+    }
+    processed_content[0] = '\0';
+    
+    char *line_start = (char *)content;
+    char *line_end;
+    
+    while (*line_start) {
+        // Find end of current line
+        line_end = strchr(line_start, '\n');
+        if (!line_end) {
+            line_end = line_start + strlen(line_start);
+        }
+        
+        // Extract line
+        size_t line_len = line_end - line_start;
+        char *line = malloc(line_len + 1);
+        if (!line) {
+            free(processed_content);
+            return 1;
+        }
+        strncpy(line, line_start, line_len);
+        line[line_len] = '\0';
+        
+        // Strip leading tabs if requested
+        char *processed_line = line;
+        if (strip_tabs) {
+            while (*processed_line == '\t') {
+                processed_line++;
+            }
+        }
+        
+        // Variable expansion if requested and executor available
+        char *final_line = processed_line;
+        if (expand_vars && executor) {
+            // Use the executor's variable expansion function
+            char *expanded_line = expand_if_needed_modern(executor, processed_line);
+            if (expanded_line) {
+                final_line = expanded_line;
+            }
+        }
+        
+        // Ensure buffer is large enough
+        size_t needed = strlen(processed_content) + strlen(final_line) + 2;
+        if (needed > processed_size) {
+            processed_size = needed * 2;
+            char *new_content = realloc(processed_content, processed_size);
+            if (!new_content) {
+                free(line);
+                if (final_line != processed_line) {
+                    free(final_line);
+                }
+                free(processed_content);
+                return 1;
+            }
+            processed_content = new_content;
+        }
+        
+        // Add line to processed content
+        strcat(processed_content, final_line);
+        if (*line_end == '\n') {
+            strcat(processed_content, "\n");
+        }
+        
+        // Clean up memory
+        if (final_line != processed_line) {
+            free(final_line);
+        }
+        free(line);
+        
+        // Move to next line
+        if (*line_end == '\n') {
+            line_start = line_end + 1;
+        } else {
+            break;
+        }
+    }
+    
+    // Now use the regular setup function with processed content
+    int result = setup_here_document_with_content(processed_content);
+    free(processed_content);
+    return result;
 }
 
 // Setup here string redirection

@@ -66,7 +66,7 @@ static bool needs_brace_expansion(const char *str);
 static void initialize_job_control(executor_modern_t *executor);
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
 static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text);
-static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
 static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str);
 static bool is_assignment(const char *text);
 static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
@@ -485,7 +485,7 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         redirection_state_t redir_state;
         if (has_redirections) {
             save_file_descriptors(&redir_state);
-            int redir_result = setup_redirections(command);
+            int redir_result = setup_redirections(executor, command);
             if (redir_result != 0) {
                 restore_file_descriptors(&redir_state);
                 return redir_result;
@@ -1029,7 +1029,7 @@ cleanup_delimiters:
 }
 
 // Expand variable/arithmetic/command substitution if needed
-static char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
+char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
     if (!executor || !text) return NULL;
     
     // Check if this looks like it contains variables (has $)
@@ -1422,7 +1422,7 @@ static int execute_external_command_with_setup(executor_modern_t *executor, char
     
     if (pid == 0) {
         // Child process - setup redirections here
-        int redir_result = setup_redirections(command);
+        int redir_result = setup_redirections(executor, command);
         if (redir_result != 0) {
             exit(1);
         }
