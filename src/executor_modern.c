@@ -11,6 +11,7 @@
 #include "tokenizer_new.h"
 #include "symtable.h"
 #include "node.h"
+#include "redirection.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -290,7 +291,13 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         return execute_assignment_modern(executor, command->val.str);
     }
     
-    // Build argument vector
+    // Setup redirections before command execution
+    int redir_result = setup_redirections(command);
+    if (redir_result != 0) {
+        return redir_result;
+    }
+    
+    // Build argument vector (excluding redirection nodes)
     int argc;
     char **argv = build_argv_from_ast(executor, command, &argc);
     if (!argv || argc == 0) {
@@ -649,13 +656,16 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         return NULL;
     }
     
-    // Count arguments
+    // Count arguments (excluding redirection nodes)
     int count = 0;
     if (command->val.str) count++; // Command name
     
     node_t *child = command->first_child;
     while (child) {
-        if (child->val.str) count++;
+        // Skip redirection nodes
+        if (!is_redirection_node(child)) {
+            if (child->val.str) count++;
+        }
         child = child->next_sibling;
     }
     
@@ -679,12 +689,15 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         i++;
     }
     
-    // Add arguments
+    // Add arguments (excluding redirection nodes)
     child = command->first_child;
     while (child && i < count) {
-        if (child->val.str) {
-            argv[i] = expand_if_needed_modern(executor, child->val.str);
-            i++;
+        // Skip redirection nodes
+        if (!is_redirection_node(child)) {
+            if (child->val.str) {
+                argv[i] = expand_if_needed_modern(executor, child->val.str);
+                i++;
+            }
         }
         child = child->next_sibling;
     }

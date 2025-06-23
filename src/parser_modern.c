@@ -23,6 +23,7 @@ static node_t *parse_for_statement(parser_modern_t *parser);
 static node_t *parse_case_statement(parser_modern_t *parser);
 static node_t *parse_function_definition(parser_modern_t *parser);
 static bool is_function_definition(parser_modern_t *parser);
+static node_t *parse_redirection(parser_modern_t *parser);
 static void parser_error(parser_modern_t *parser, const char *message);
 static bool expect_token(parser_modern_t *parser, modern_token_type_t expected);
 
@@ -406,7 +407,7 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     command->val.str = strdup(current->text);
     modern_tokenizer_advance(parser->tokenizer);
     
-    // Parse arguments
+    // Parse arguments and redirections
     while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_NEWLINE) &&
@@ -423,16 +424,32 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
         modern_token_t *arg_token = modern_tokenizer_current(parser->tokenizer);
         if (!arg_token) break;
         
-        // Handle special case: ] is part of [ command arguments
-        if (modern_token_is_word_like(arg_token->type) || 
-            arg_token->type == MODERN_TOK_VARIABLE ||
-            arg_token->type == MODERN_TOK_EXPANDABLE_STRING ||
-            arg_token->type == MODERN_TOK_COMMAND_SUB ||
-            arg_token->type == MODERN_TOK_BACKQUOTE ||
-            arg_token->type == MODERN_TOK_RBRACKET ||
+        // Check for redirection tokens
+        if (arg_token->type == MODERN_TOK_REDIRECT_OUT ||
             arg_token->type == MODERN_TOK_REDIRECT_IN ||
-            arg_token->type == MODERN_TOK_REDIRECT_OUT ||
-            arg_token->type == MODERN_TOK_ASSIGN) {
+            arg_token->type == MODERN_TOK_APPEND ||
+            arg_token->type == MODERN_TOK_HEREDOC ||
+            arg_token->type == MODERN_TOK_HEREDOC_STRIP ||
+            arg_token->type == MODERN_TOK_HERESTRING ||
+            arg_token->type == MODERN_TOK_REDIRECT_ERR ||
+            arg_token->type == MODERN_TOK_REDIRECT_BOTH ||
+            arg_token->type == MODERN_TOK_APPEND_ERR) {
+            
+            node_t *redir_node = parse_redirection(parser);
+            if (!redir_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            add_child_node(command, redir_node);
+        }
+        // Handle regular arguments
+        else if (modern_token_is_word_like(arg_token->type) || 
+                 arg_token->type == MODERN_TOK_VARIABLE ||
+                 arg_token->type == MODERN_TOK_EXPANDABLE_STRING ||
+                 arg_token->type == MODERN_TOK_COMMAND_SUB ||
+                 arg_token->type == MODERN_TOK_BACKQUOTE ||
+                 arg_token->type == MODERN_TOK_RBRACKET ||
+                 arg_token->type == MODERN_TOK_ASSIGN) {
             
             node_t *arg_node = new_node(NODE_VAR);
             if (!arg_node) {
@@ -448,6 +465,85 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     }
     
     return command;
+}
+
+// Parse redirection
+static node_t *parse_redirection(parser_modern_t *parser) {
+    modern_token_t *redir_token = modern_tokenizer_current(parser->tokenizer);
+    if (!redir_token) return NULL;
+    
+    node_type_t node_type;
+    switch (redir_token->type) {
+        case MODERN_TOK_REDIRECT_OUT:
+            node_type = NODE_REDIR_OUT;
+            break;
+        case MODERN_TOK_REDIRECT_IN:
+            node_type = NODE_REDIR_IN;
+            break;
+        case MODERN_TOK_APPEND:
+            node_type = NODE_REDIR_APPEND;
+            break;
+        case MODERN_TOK_HEREDOC:
+            node_type = NODE_REDIR_HEREDOC;
+            break;
+        case MODERN_TOK_HEREDOC_STRIP:
+            node_type = NODE_REDIR_HEREDOC_STRIP;
+            break;
+        case MODERN_TOK_HERESTRING:
+            node_type = NODE_REDIR_HERESTRING;
+            break;
+        case MODERN_TOK_REDIRECT_ERR:
+            node_type = NODE_REDIR_ERR;
+            break;
+        case MODERN_TOK_REDIRECT_BOTH:
+            node_type = NODE_REDIR_BOTH;
+            break;
+        case MODERN_TOK_APPEND_ERR:
+            node_type = NODE_REDIR_ERR_APPEND;
+            break;
+        default:
+            parser_error(parser, "Unknown redirection token");
+            return NULL;
+    }
+    
+    node_t *redir_node = new_node(node_type);
+    if (!redir_node) return NULL;
+    
+    // Store the redirection operator
+    redir_node->val.str = strdup(redir_token->text);
+    modern_tokenizer_advance(parser->tokenizer);
+    
+    // Parse the target (filename or here document content)
+    modern_token_t *target_token = modern_tokenizer_current(parser->tokenizer);
+    if (!target_token || !modern_token_is_word_like(target_token->type)) {
+        if (node_type == NODE_REDIR_HEREDOC || node_type == NODE_REDIR_HEREDOC_STRIP) {
+            // For here documents, the delimiter might be quoted or special
+            if (target_token && (target_token->type == MODERN_TOK_STRING || 
+                                target_token->type == MODERN_TOK_EXPANDABLE_STRING ||
+                                modern_token_is_word_like(target_token->type))) {
+                // Valid here document delimiter
+            } else {
+                parser_error(parser, "Expected here document delimiter");
+                free_node_tree(redir_node);
+                return NULL;
+            }
+        } else {
+            parser_error(parser, "Expected redirection target");
+            free_node_tree(redir_node);
+            return NULL;
+        }
+    }
+    
+    node_t *target_node = new_node(NODE_VAR);
+    if (!target_node) {
+        free_node_tree(redir_node);
+        return NULL;
+    }
+    target_node->val.str = strdup(target_token->text);
+    add_child_node(redir_node, target_node);
+    modern_tokenizer_advance(parser->tokenizer);
+    
+    return redir_node;
 }
 
 // Parse if statement

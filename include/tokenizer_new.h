@@ -31,6 +31,12 @@ typedef enum {
     MODERN_TOK_REDIRECT_OUT, // >
     MODERN_TOK_APPEND,       // >>
     MODERN_TOK_HEREDOC,      // <<
+    MODERN_TOK_HEREDOC_STRIP, // <<-
+    MODERN_TOK_HERESTRING,   // <<<
+    MODERN_TOK_REDIRECT_ERR, // 2>
+    MODERN_TOK_REDIRECT_BOTH, // &>
+    MODERN_TOK_APPEND_ERR,   // 2>>
+    MODERN_TOK_REDIRECT_FD,  // &1, &2, etc.
     MODERN_TOK_ASSIGN,       // =
     MODERN_TOK_PLUS,         // +
     MODERN_TOK_MINUS,        // -

@@ -377,9 +377,72 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
     
     if (c == '<' && tokenizer->position + 1 < tokenizer->input_length && 
         tokenizer->input[tokenizer->position + 1] == '<') {
+        // Check for <<< (here string)
+        if (tokenizer->position + 2 < tokenizer->input_length &&
+            tokenizer->input[tokenizer->position + 2] == '<') {
+            tokenizer->position += 3;
+            tokenizer->column += 3;
+            return token_new(MODERN_TOK_HERESTRING, "<<<", 3, start_line, start_column, start_pos);
+        }
+        // Check for <<- (here document with tab stripping)
+        else if (tokenizer->position + 2 < tokenizer->input_length &&
+                 tokenizer->input[tokenizer->position + 2] == '-') {
+            tokenizer->position += 3;
+            tokenizer->column += 3;
+            return token_new(MODERN_TOK_HEREDOC_STRIP, "<<-", 3, start_line, start_column, start_pos);
+        }
+        // Regular << (here document)
+        else {
+            tokenizer->position += 2;
+            tokenizer->column += 2;
+            return token_new(MODERN_TOK_HEREDOC, "<<", 2, start_line, start_column, start_pos);
+        }
+    }
+    
+    // Handle &> (redirect both stdout and stderr)
+    if (c == '&' && tokenizer->position + 1 < tokenizer->input_length && 
+        tokenizer->input[tokenizer->position + 1] == '>') {
         tokenizer->position += 2;
         tokenizer->column += 2;
-        return token_new(MODERN_TOK_HEREDOC, "<<", 2, start_line, start_column, start_pos);
+        return token_new(MODERN_TOK_REDIRECT_BOTH, "&>", 2, start_line, start_column, start_pos);
+    }
+    
+    // Handle numeric file descriptor redirections (2>, 2>>, etc.)
+    if (isdigit(c)) {
+        size_t num_start = tokenizer->position;
+        // Read the number
+        while (tokenizer->position < tokenizer->input_length && 
+               isdigit(tokenizer->input[tokenizer->position])) {
+            tokenizer->position++;
+            tokenizer->column++;
+        }
+        
+        // Check if followed by > or >>
+        if (tokenizer->position < tokenizer->input_length) {
+            if (tokenizer->input[tokenizer->position] == '>') {
+                if (tokenizer->position + 1 < tokenizer->input_length &&
+                    tokenizer->input[tokenizer->position + 1] == '>') {
+                    // Handle N>> (append to file descriptor N)
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    size_t length = tokenizer->position - num_start;
+                    return token_new(MODERN_TOK_APPEND_ERR, &tokenizer->input[num_start], length,
+                                   start_line, start_column, start_pos);
+                } else {
+                    // Handle N> (redirect file descriptor N)
+                    tokenizer->position++;
+                    tokenizer->column++;
+                    size_t length = tokenizer->position - num_start;
+                    return token_new(MODERN_TOK_REDIRECT_ERR, &tokenizer->input[num_start], length,
+                                   start_line, start_column, start_pos);
+                }
+            }
+        }
+        
+        // Not a redirection, reset position and treat as regular number
+        tokenizer->position = num_start;
+        tokenizer->column = start_column;
+        goto handle_word;
     }
     
     // Handle context-sensitive operators first
@@ -507,6 +570,12 @@ const char *modern_token_type_name(modern_token_type_t type) {
         case MODERN_TOK_REDIRECT_OUT: return "REDIRECT_OUT";
         case MODERN_TOK_APPEND: return "APPEND";
         case MODERN_TOK_HEREDOC: return "HEREDOC";
+        case MODERN_TOK_HEREDOC_STRIP: return "HEREDOC_STRIP";
+        case MODERN_TOK_HERESTRING: return "HERESTRING";
+        case MODERN_TOK_REDIRECT_ERR: return "REDIRECT_ERR";
+        case MODERN_TOK_REDIRECT_BOTH: return "REDIRECT_BOTH";
+        case MODERN_TOK_APPEND_ERR: return "APPEND_ERR";
+        case MODERN_TOK_REDIRECT_FD: return "REDIRECT_FD";
         case MODERN_TOK_ASSIGN: return "ASSIGN";
         case MODERN_TOK_PLUS: return "PLUS";
         case MODERN_TOK_MINUS: return "MINUS";

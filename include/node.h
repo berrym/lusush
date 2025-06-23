@@ -15,6 +15,10 @@ typedef enum {
     NODE_REDIR_ERR,    // '2>'
     NODE_REDIR_ERR_APPEND, // '2>>'
     NODE_REDIR_HEREDOC,    // '<<'
+    NODE_REDIR_HEREDOC_STRIP, // '<<-'
+    NODE_REDIR_HERESTRING, // '<<<'
+    NODE_REDIR_BOTH,       // '&>'
+    NODE_REDIR_FD,         // '&1', '&2', etc.
     NODE_REDIR_CLOBBER,    // '>|'
     // List types for semantic clarity
     NODE_COMMAND_LIST, // Sequence of commands separated by semicolons
