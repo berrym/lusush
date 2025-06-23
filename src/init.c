@@ -154,6 +154,12 @@ int init(int argc, char **argv, FILE **in) {
     // Set initial exit status
     set_exit_status(0);
     
+    // Set shell PID ($$ special variable)
+    pid_t shell_pid = getpid();
+    char shell_pid_str[32];
+    snprintf(shell_pid_str, sizeof(shell_pid_str), "%d", (int)shell_pid);
+    set_shell_varp("$", shell_pid_str);
+    
     // Set shell name/script name
     set_shell_varp("0", argv[0]);
 

@@ -353,11 +353,24 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
             }
         } else {
             // Handle $var format
-            while (tokenizer->position < tokenizer->input_length &&
-                   (isalnum(tokenizer->input[tokenizer->position]) || 
-                    tokenizer->input[tokenizer->position] == '_')) {
-                tokenizer->position++;
-                tokenizer->column++;
+            // Check for special single-character variables first
+            if (tokenizer->position < tokenizer->input_length) {
+                char next_char = tokenizer->input[tokenizer->position];
+                
+                if (next_char == '?' || next_char == '#' || 
+                    (next_char >= '0' && next_char <= '9')) {
+                    // Special single-character variables
+                    tokenizer->position++;
+                    tokenizer->column++;
+                } else {
+                    // Regular variable name (alphanumeric + underscore)
+                    while (tokenizer->position < tokenizer->input_length &&
+                           (isalnum(tokenizer->input[tokenizer->position]) || 
+                            tokenizer->input[tokenizer->position] == '_')) {
+                        tokenizer->position++;
+                        tokenizer->column++;
+                    }
+                }
             }
         }
         

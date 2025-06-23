@@ -251,12 +251,24 @@ static const char *get_special_var(const char *name) {
     switch (*name) {
         case '?':
             if (name[1] == '\0') {
+                // Read exit status from symbol table (set by set_exit_status)
+                char *val = get_shell_varp("?", NULL);
+                if (val) {
+                    return val;
+                }
+                // Fallback to global variable if not in symbol table
                 snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
                 return buffer;
             }
             break;
         case '$':
             if (name[1] == '\0') {
+                // Read shell PID from symbol table (set in init.c)
+                char *val = get_shell_varp("$", NULL);
+                if (val) {
+                    return val;
+                }
+                // Fallback to global variable if not in symbol table
                 snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
                 return buffer;
             }

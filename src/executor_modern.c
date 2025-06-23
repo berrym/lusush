@@ -1764,6 +1764,24 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
         return strdup(var_text ? var_text : "");
     }
     
+    // Special case: if var_text is exactly "$$", treat it as shell PID
+    if (strcmp(var_text, "$$") == 0) {
+        char *value = get_shell_varp("$", NULL);
+        return value ? strdup(value) : strdup("");
+    }
+    
+    // Special case: if var_text is exactly "$", treat it as shell PID
+    if (strcmp(var_text, "$") == 0) {
+        char *value = get_shell_varp("$", NULL);
+        return value ? strdup(value) : strdup("");
+    }
+    
+    // Special case: if var_text is exactly "$?", treat it as exit status
+    if (strcmp(var_text, "$?") == 0) {
+        char *value = get_shell_varp("?", NULL);
+        return value ? strdup(value) : strdup("");
+    }
+    
     const char *var_name = var_text + 1;
     
     // Handle ${var} format with advanced parameter expansion
@@ -1782,10 +1800,18 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
             }
         }
     } else {
-        // Simple $var format - find end of variable name
+        // Simple $var format - handle special variables and regular variables
         size_t name_len = 0;
-        while (var_name[name_len] && (isalnum(var_name[name_len]) || var_name[name_len] == '_')) {
-            name_len++;
+        
+        // Check for special single-character variables first
+        if (var_name[0] == '?' || var_name[0] == '$' || var_name[0] == '#' || 
+            (var_name[0] >= '0' && var_name[0] <= '9')) {
+            name_len = 1;
+        } else {
+            // Regular variable names (alphanumeric + underscore)
+            while (var_name[name_len] && (isalnum(var_name[name_len]) || var_name[name_len] == '_')) {
+                name_len++;
+            }
         }
         
         if (name_len > 0) {
@@ -1796,6 +1822,16 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
                 
                 // Look up in modern symbol table
                 char *value = symtable_get_var(executor->symtable, name);
+                
+                // If not found in symbol table and it's a special variable, 
+                // fall back to legacy API
+                if (!value && name_len == 1 && (name[0] == '?' || name[0] == '$' || name[0] == '#')) {
+                    char *legacy_value = get_shell_varp(name, NULL);
+                    if (legacy_value) {
+                        free(name);
+                        return strdup(legacy_value);
+                    }
+                }
                 
                 free(name);
                 return value ? strdup(value) : strdup("");

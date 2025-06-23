@@ -9,6 +9,7 @@
 #include "../include/node.h"
 #include "../include/parser_modern.h"
 #include "../include/executor_modern.h"
+#include "../include/symtable.h"
 
 
 #include <stdbool.h>
@@ -59,8 +60,10 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        // Execute using unified modern parser
-        parse_and_execute(line);
+        // Execute using unified modern parser and store exit status
+        int exit_status = parse_and_execute(line);
+        last_exit_status = exit_status;
+        set_exit_status(exit_status);
 
         if (shell_type() != NORMAL_SHELL) {
             linenoiseFree(line);

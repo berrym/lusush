@@ -286,17 +286,9 @@ int bin_unset(int argc __attribute__((unused)),
         error_message("usage: unset var");
         return 1;
     }
-    symtable_t *global_symtable = get_global_symtable();
-    if (!global_symtable) {
-        return 1;
-    }
-    symtable_entry_t *entry = get_symtable_entry(argv[1]);
-    if (!entry) {
-        return 1;
-    }
-    if (!(entry->flags & FLAG_EXPORT)) {
-        remove_from_symtable(global_symtable, entry);
-    }
+    
+    // Use legacy API function for unsetting variables
+    unset_shell_var(argv[1]);
     return 0;
 }
 
@@ -467,29 +459,50 @@ int bin_export(int argc, char **argv) {
         char *eq = strchr(argv[i], '=');
         if (eq) {
             // Variable assignment: VAR=value
-            *eq = '\0';
-            const char *name = argv[i];
+            size_t name_len = eq - argv[i];
+            char *name = malloc(name_len + 1);
+            if (!name) {
+                error_message("export: memory allocation failed");
+                return 1;
+            }
+            strncpy(name, argv[i], name_len);
+            name[name_len] = '\0';
+            
             const char *value = eq + 1;
             
             // Validate variable name
             if (!is_valid_identifier(name)) {
                 error_message("export: invalid variable name: %s", name);
-                *eq = '=';  // Restore the string
+                free(name);
                 return 1;
             }
             
-            // Set in symbol table
-            set_shell_varp((char*)name, (char*)value);
+            // Set variable value using legacy API
+            set_shell_varp(name, (char*)value);
             
-            // Mark as exported
-            symtable_entry_t *entry = get_symtable_entry(name);
-            if (entry) {
-                entry->flags |= FLAG_EXPORT;
+            // Export the variable using legacy API
+            export_shell_var(name);
+            
+            free(name);
+        } else if (i + 2 < argc && strcmp(argv[i + 1], "=") == 0) {
+            // Handle tokenized assignment: VAR = value
+            const char *name = argv[i];
+            const char *value = argv[i + 2];
+            
+            // Validate variable name
+            if (!is_valid_identifier(name)) {
+                error_message("export: invalid variable name: %s", name);
+                return 1;
             }
             
-            // Set in environment
-            setenv(name, value, 1);
-            *eq = '=';  // Restore the string
+            // Set variable value using legacy API
+            set_shell_varp((char*)name, (char*)value);
+            
+            // Export the variable using legacy API
+            export_shell_var((char*)name);
+            
+            // Skip the = and value tokens
+            i += 2;
         } else {
             // Just export existing variable
             if (!is_valid_identifier(argv[i])) {
@@ -497,19 +510,15 @@ int bin_export(int argc, char **argv) {
                 return 1;
             }
             
-            const symtable_entry_t *entry = get_symtable_entry(argv[i]);
-            if (entry && entry->val) {
-                setenv(argv[i], entry->val, 1);
-                // Mark as exported
-                ((symtable_entry_t*)entry)->flags |= FLAG_EXPORT;
+            // Check if variable exists and get its value
+            char *current_value = get_shell_varp(argv[i], NULL);
+            if (current_value) {
+                // Variable exists - just export it
+                export_shell_var(argv[i]);
             } else {
-                // Variable doesn't exist - create it with empty value
+                // Variable doesn't exist - create with empty value and export
                 set_shell_varp(argv[i], "");
-                symtable_entry_t *new_entry = get_symtable_entry(argv[i]);
-                if (new_entry) {
-                    new_entry->flags |= FLAG_EXPORT;
-                }
-                setenv(argv[i], "", 1);
+                export_shell_var(argv[i]);
             }
         }
     }
@@ -677,7 +686,7 @@ int bin_read(int argc, char **argv) {
         line[read - 1] = '\0';
     }
     
-    // Set the variable
+    // Set the variable using legacy API
     set_shell_varp(argv[1], line);
     
     free(line);
