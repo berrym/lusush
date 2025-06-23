@@ -655,14 +655,19 @@ static node_t *parse_for_statement(parser_modern_t *parser) {
 
 // Parse case statement: case WORD in pattern) commands ;; ... esac
 static node_t *parse_case_statement(parser_modern_t *parser) {
-    if (!expect_token(parser, MODERN_TOK_CASE)) return NULL;
+    if (!expect_token(parser, MODERN_TOK_CASE)) {
+        return NULL;
+    }
     
     node_t *case_node = new_node(NODE_CASE);
-    if (!case_node) return NULL;
+    if (!case_node) {
+        return NULL;
+    }
     
     // Parse the word to test
     modern_token_t *word_token = modern_tokenizer_current(parser->tokenizer);
-    if (!modern_token_is_word_like(word_token->type)) {
+    if (!modern_token_is_word_like(word_token->type) && 
+        word_token->type != MODERN_TOK_VARIABLE) {
         free_node_tree(case_node);
         parser_error(parser, "Expected word after 'case'");
         return NULL;
@@ -704,20 +709,57 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
         size_t pattern_len = 0;
         
         do {
-            modern_token_t *pattern_token = modern_tokenizer_current(parser->tokenizer);
-            if (!modern_token_is_word_like(pattern_token->type)) {
+            // Build pattern from multiple tokens until ) or |
+            char *single_pattern = NULL;
+            size_t single_pattern_len = 0;
+            
+            // Collect tokens for a single pattern until ) or |
+            while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_RPAREN) &&
+                   !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_PIPE) &&
+                   !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF) &&
+                   !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ESAC)) {
+                
+                modern_token_t *pattern_token = modern_tokenizer_current(parser->tokenizer);
+                
+                // Accept word-like tokens, wildcards, and variables for patterns
+                if (modern_token_is_word_like(pattern_token->type) ||
+                    pattern_token->type == MODERN_TOK_MULTIPLY ||
+                    pattern_token->type == MODERN_TOK_QUESTION ||
+                    pattern_token->type == MODERN_TOK_VARIABLE) {
+                    
+                    size_t token_len = strlen(pattern_token->text);
+                    char *new_single_pattern = realloc(single_pattern, single_pattern_len + token_len + 1);
+                    if (!new_single_pattern) {
+                        free(single_pattern);
+                        free_node_tree(case_item);
+                        free_node_tree(case_node);
+                        return NULL;
+                    }
+                    single_pattern = new_single_pattern;
+                    strcpy(single_pattern + single_pattern_len, pattern_token->text);
+                    single_pattern_len += token_len;
+                    
+                    modern_tokenizer_advance(parser->tokenizer);
+                } else {
+                    // Unexpected token in pattern
+                    break;
+                }
+            }
+            
+            // If we didn't collect any pattern tokens, that's an error
+            if (!single_pattern) {
                 free_node_tree(case_item);
                 free_node_tree(case_node);
                 parser_error(parser, "Expected pattern in case statement");
                 return NULL;
             }
             
-            // Append pattern to pattern string
-            size_t token_len = strlen(pattern_token->text);
+            // Append this single pattern to the overall pattern string
             if (pattern) {
                 // Add | separator and new pattern
-                char *new_pattern = realloc(pattern, pattern_len + 1 + token_len + 1);
+                char *new_pattern = realloc(pattern, pattern_len + 1 + single_pattern_len + 1);
                 if (!new_pattern) {
+                    free(single_pattern);
                     free(pattern);
                     free_node_tree(case_item);
                     free_node_tree(case_node);
@@ -725,23 +767,18 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
                 }
                 pattern = new_pattern;
                 pattern[pattern_len] = '|';
-                strcpy(pattern + pattern_len + 1, pattern_token->text);
-                pattern_len += 1 + token_len;
+                strcpy(pattern + pattern_len + 1, single_pattern);
+                pattern_len += 1 + single_pattern_len;
             } else {
                 // First pattern
-                pattern = malloc(token_len + 1);
-                if (!pattern) {
-                    free_node_tree(case_item);
-                    free_node_tree(case_node);
-                    return NULL;
-                }
-                strcpy(pattern, pattern_token->text);
-                pattern_len = token_len;
+                pattern = single_pattern;
+                pattern_len = single_pattern_len;
+                single_pattern = NULL; // Transfer ownership
             }
             
-            modern_tokenizer_advance(parser->tokenizer);
+            free(single_pattern);
             
-            // Check for | to continue pattern or ) to end patterns
+            // Check for | to continue with more patterns
             } while (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_PIPE) &&
                      (modern_tokenizer_advance(parser->tokenizer), true));
         
@@ -771,13 +808,15 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
                 if (next && next->type == MODERN_TOK_SEMICOLON) {
                     break; // Found ;; - end this case item
                 }
+                // Single semicolon - consume it and continue parsing commands
+                modern_tokenizer_advance(parser->tokenizer);
+                continue;
             }
             
             node_t *command = parse_simple_command(parser);
             if (!command) {
                 break; // Can't parse more commands
             }
-            
             if (!commands) {
                 commands = command;
             } else {
@@ -787,8 +826,7 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
                 last->next_sibling = command;
             }
             
-            // Skip separators after command
-            skip_separators(parser);
+            // Don't skip separators here - we need to detect ;; explicitly
         }
         
         // Add commands as child of case item
@@ -804,8 +842,11 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
             }
         }
         
-        // Skip separators
-        skip_separators(parser);
+        // Only skip non-semicolon separators (newlines, whitespace)
+        while (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_NEWLINE) ||
+               modern_tokenizer_match(parser->tokenizer, MODERN_TOK_WHITESPACE)) {
+            modern_tokenizer_advance(parser->tokenizer);
+        }
         
         // Add case item to case statement
         add_child_node(case_node, case_item);
@@ -816,6 +857,5 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
         free_node_tree(case_node);
         return NULL;
     }
-    
     return case_node;
 }
