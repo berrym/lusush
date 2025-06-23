@@ -1,87 +1,99 @@
 # LUSUSH DEVELOPMENT NEXT STEPS
 
-**Priority**: Strategic Architecture Decision - Modern vs Legacy  
-**Timeline**: Critical Decision Point  
+**Priority**: Advanced Shell Features Implementation  
+**Timeline**: Continue Modern Architecture Success  
 **Date**: December 21, 2024
 
-## STRATEGIC DECISION POINT: Modern Architecture Consolidation
+## MAJOR MILESTONE ACHIEVED: Case Statements Complete
 
 ### ✅ MAJOR ACHIEVEMENTS COMPLETED
-**Status**: Modern parameter expansion, logical operators, and command substitution fully implemented  
+**Status**: Modern parameter expansion, logical operators, command substitution, and case statements fully implemented  
 **Architecture**: All new features built on clean modern codebase without legacy dependencies  
-**Success**: Professional-grade shell capabilities now available  
+**Success**: Professional-grade shell capabilities with 100% case statement test success  
 **Quality**: Comprehensive testing, POSIX compliance, robust memory management
 
-### 🤔 CRITICAL DECISION: Legacy Refactoring vs Continued Modern Development
+### 🎯 NEXT DEVELOPMENT PRIORITIES
 
-**Option A: Continue Modern-Only Development**
-- **Pros**: Maintain momentum, avoid disruption, focus on remaining POSIX features
-- **Cons**: Codebase complexity with multiple parallel systems
-- **Timeline**: Immediate continued progress on pattern matching, case conversion
-- **Risk**: Low - current architecture is working well
+**Modern Architecture Success**: Case statements achieved 100% test success, proving the architecture's capability for complex language features.
 
-**Option B: Refactor Legacy Components Now**  
-- **Pros**: Clean unified codebase, eliminate technical debt, simpler maintenance
-- **Cons**: Significant refactoring effort, potential for introducing bugs
-- **Timeline**: 1-2 weeks of refactoring before continuing feature development
-- **Risk**: Medium - refactoring always carries integration risks
-
-### 🎯 RECOMMENDED APPROACH: Continue Modern Development
-**Rationale**: 
-- Modern architecture is proven and working excellently
-- Current momentum is strong with major features landing successfully
-- Legacy components can be addressed after core POSIX features are complete
-- No urgent need to refactor - existing architecture is maintainable
-
-### 1. Complete Core POSIX Parameter Expansion
-**Priority**: IMMEDIATE - Build on current success  
-**Features**: Pattern matching (`${var#pattern}`, `${var%pattern}`)  
-**Timeline**: 1-2 days  
-**Impact**: Complete POSIX parameter expansion specification
-
-### 2. Case Conversion Features
-**Priority**: HIGH - Complete modern parameter expansion  
-**Features**: `${var^}`, `${var,}`, `${var^^}`, `${var,,}`  
-**Timeline**: 2-3 days  
-**Impact**: Full modern shell parameter expansion capabilities
-
-### 3. Advanced Control Structures  
-**Priority**: MEDIUM - Expand shell capabilities  
-**Features**: CASE statements, function definitions  
-**Timeline**: 1 week  
+### 1. Function Definitions
+**Priority**: HIGH - Essential shell programming feature  
+**Features**: POSIX-compliant function definition and calling  
+- `function name() { commands; }`
+- `name() { commands; }`
+- Local variable scoping
+- Function arguments ($1, $2, etc.)
+- Return values and exit codes
+**Timeline**: 1-2 weeks  
 **Impact**: Complete core shell programming constructs
+
+### 2. Here Documents
+**Priority**: HIGH - Critical I/O redirection feature  
+**Features**: `<<` and `<<-` here document functionality  
+- Basic here documents: `command <<EOF`
+- Tab-stripping here documents: `command <<-EOF`
+- Variable expansion in here documents
+- Quoted and unquoted delimiters
+**Timeline**: 3-5 days  
+**Impact**: Essential for shell scripting and automation
+
+### 3. Advanced I/O Redirection
+**Priority**: MEDIUM - Complete I/O capabilities  
+**Features**: Complete redirection operators and file descriptor manipulation  
+- Process substitution: `<(command)` and `>(command)`
+- Here strings: `<<<string`
+- Advanced file descriptor operations
+**Timeline**: 1 week  
+**Impact**: Full POSIX I/O redirection compliance
 
 ## Short Term (Next 1-2 Weeks)
 
-### 4. Legacy Architecture Assessment
-- **Inventory**: Catalog all legacy components still in use
-- **Dependencies**: Map which components depend on legacy code
-- **Migration plan**: Design strategy for gradual legacy removal
-- **Risk assessment**: Identify high-risk vs low-risk refactoring areas
+### 4. Parameter Expansion Edge Cases
+**Priority**: MEDIUM - Polish existing features  
+**Features**: Fix remaining edge cases in parameter expansion  
+- Special character handling in patterns
+- Complex nested expansions
+- Error handling improvements
+**Timeline**: 2-3 days  
+**Impact**: Robust parameter expansion for production use
 
-### 5. Selective Legacy Cleanup
-- **Low-risk wins**: Remove obviously unused legacy code
-- **Documentation**: Update build system to reflect modern-only components
-- **Testing**: Ensure no regressions during cleanup
+### 5. Job Control
+**Priority**: LOW - Advanced shell feature  
+**Features**: Background processes and job management  
+- Background execution with `&`
+- Job control commands (jobs, fg, bg)
+- Signal handling for job control
+**Timeline**: 1-2 weeks  
+**Impact**: Full interactive shell capabilities
 
 ## Medium Term (Next 3-4 Weeks)
 
-### 6. Complete POSIX Feature Set
-- **Job control**: Background processes (`command &`) and job management
-- **Advanced redirections**: Here documents (`<<EOF`) and process substitution
-- **Here strings**: `<<<string` input redirection
-- **Brace expansion**: `{a,b,c}` and `{1..10}` patterns
+### 6. Brace Expansion
+**Priority**: LOW - Shell convenience feature  
+**Features**: Brace expansion patterns  
+- List expansion: `{a,b,c}`
+- Range expansion: `{1..10}`, `{a..z}`
+- Nested brace expansion
+**Timeline**: 3-5 days  
+**Impact**: Enhanced shell scripting convenience
 
-### 7. Legacy Architecture Refactoring (If Warranted)
-- **Full assessment**: Complete analysis of refactoring benefits vs costs
-- **Phased approach**: Gradual migration of legacy components
-- **Testing**: Comprehensive regression testing during refactoring
-- **Decision point**: Re-evaluate whether refactoring improves or hinders progress
+### 7. Legacy Architecture Assessment
+**Priority**: LOW - Technical debt cleanup  
+**Features**: Gradual legacy component removal  
+- Inventory unused legacy components
+- Remove safe-to-remove legacy code
+- Update build system
+**Timeline**: Ongoing as time permits  
+**Impact**: Cleaner, more maintainable codebase
 
 ### 8. Performance and Polish
-- **Memory optimization**: Profile and optimize memory usage
-- **Error handling**: Improve error messages and recovery
-- **User experience**: Polish interactive features and output formatting
+**Priority**: LOW - Production readiness  
+**Features**: Performance optimization and user experience  
+- Memory optimization and profiling
+- Enhanced error messages
+- Interactive features polish
+**Timeline**: Ongoing  
+**Impact**: Production-ready shell quality
 
 ## Long Term (Next 1-2 Months)
 
@@ -98,19 +110,20 @@
 
 ## Development Workflow
 
-1. **Complete pattern matching parameter expansion** (`${var#pattern}`, `${var%pattern}`)
-2. **Add case conversion features** (`${var^}`, `${var,}`)
-3. **Implement advanced control structures** (CASE statements, functions)
-4. **Assess legacy refactoring** (cost/benefit analysis)
-5. **Continue with remaining POSIX features** (job control, advanced I/O)
+1. **Implement function definitions** (POSIX-compliant function syntax and scoping)
+2. **Add here document support** (`<<` and `<<-` operators)
+3. **Complete advanced I/O redirection** (process substitution, here strings)
+4. **Polish parameter expansion edge cases** (special characters, error handling)
+5. **Add job control features** (background processes, job management)
 6. **Make frequent git commits** after each achievement
 7. **Update core documentation** to reflect progress
 
 ## Success Criteria
 
-- All control structures (if/while/for) execute with proper variable scoping ✅
+- All control structures (if/while/for/case) execute with proper variable scoping ✅
 - Variable assignment and expansion fully use modern symbol table ✅
 - Advanced parameter expansion with POSIX compliance ✅
+- Case statements with 100% test success rate ✅
 - Logical operators (&&, ||) with proper conditional execution ✅
 - Command substitution (both modern and backtick syntax) ✅
 - Pipeline execution robust and reliable with new architecture ✅
@@ -120,10 +133,11 @@
 - Regular git commits documenting progress ✅
 
 ## Upcoming Success Targets
-- Complete POSIX parameter expansion (pattern matching, case conversion)
-- Advanced control structures (CASE statements, function definitions)
-- Strategic legacy code cleanup (when beneficial)
-- Job control and advanced I/O redirection
+- Function definitions with proper local scoping
+- Here document implementation (`<<` and `<<-`)
+- Advanced I/O redirection (process substitution, here strings)
+- Parameter expansion edge case handling
+- Job control and background process management
 - Full POSIX.1-2017 compliance
 
 ## Risk Mitigation

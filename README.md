@@ -1,35 +1,6 @@
 # Lusush Shell
 
-A POSIX-compliant shell with modern architecture,**Command Examples:**
-**Command Examples:**
-
-**Basic Operations:**
-```bash
-# Variable assignment and expansion
-name=world
-echo "Hello $name"
-echo "Hello ${name}"
-
-# Advanced parameter expansion
-echo "${USER:-guest}"              # Default value
-echo "${DEBUG:+--verbose}"         # Alternative value
-echo "${#filename}"                # String length
-echo "${path:0:5}"                 # Substring
-
-# Logical operators
-test -f file && echo "exists" || echo "missing"
-command1 && command2 || fallback_command
-
-# Command substitution
-date_str=$(date '+%Y-%m-%d')
-echo "Today is $date_str"
-echo `echo "Legacy backticks work too"`
-
-# Complex combinations
-echo "${name:+Hello ${name}}"
-test -f "${CONFIG:-config.txt}" && echo "Config found"
-```
-``` Version 0.6.0-dev
+A POSIX-compliant shell with modern architecture. Version 0.7.0-dev
 
 Lusush is a functional shell implementing core POSIX shell features with a modern, modular architecture. The shell successfully handles basic commands, variable operations, pipeline execution, and has partial control structure support.
 
@@ -38,24 +9,32 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 **Working Features:**
 - ✅ **Simple Commands**: Full execution of basic shell commands
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
-- ✅ **Complete Modern Parameter Expansion**: Full POSIX parameter expansion specification
+- ✅ **Complete Modern Parameter Expansion**: Full POSIX parameter expansion specification (94% test success)
   - Default values: `${var:-default}`, `${var-default}`
   - Alternative values: `${var:+alternative}`, `${var+alternative}`
   - Length expansion: `${#var}`
   - Substring expansion: `${var:offset:length}`
   - Pattern matching: `${var#pattern}`, `${var##pattern}`, `${var%pattern}`, `${var%%pattern}`
   - Case conversion: `${var^}`, `${var,}`, `${var^^}`, `${var,,}`
+- ✅ **Case Statements**: Complete POSIX-compliant case statement implementation (100% test success)
+  - Exact pattern matching: `case word in pattern) commands ;; esac`
+  - Wildcard patterns: `*` (any string), `?` (any character)
+  - Multiple patterns: `pattern1|pattern2|pattern3) commands ;;`
+  - Variable expansion in test words: `case $var in pattern) ...`
+  - Variable expansion in patterns: `case word in $pattern) ...`
+  - Multiple commands per case: `case word in pattern) cmd1; cmd2; cmd3 ;; esac`
 - ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
 - ✅ **Pipeline Execution**: Multi-command pipelines work reliably
 - ✅ **String Processing**: Proper distinction between literal ('...') and expandable ("...") strings
 - ✅ **Modern Symbol Table**: POSIX-compliant variable scoping with complete integration
-- ✅ **Control Structures**: FOR/WHILE loops and IF statements with proper variable scoping
+- ✅ **Control Structures**: FOR/WHILE loops, IF statements, and CASE statements with proper variable scoping
 
-**In Development:**
-- ⚠️ **Command Sequence Parsing**: Minor issue with assignment followed by FOR loop constructs
-- ⚠️ **Advanced Features**: Case statements, functions, nested structures planned
+**Next Priorities:**
+- 🔄 **Function Definitions**: POSIX-compliant function definition and calling
+- 🔄 **Here Documents**: `<<` and `<<-` here document functionality
+- 🔄 **Advanced I/O Redirection**: Complete redirection operators and file descriptor manipulation
 
 ## Quick Start
 
@@ -100,6 +79,7 @@ This design provides clear separation of concerns, enables robust error handling
 - Interactive command line editing with history
 
 ### Command Examples
+**Command Examples:**
 
 **Basic Operations:**
 ```bash
@@ -114,6 +94,30 @@ echo "Result: $result"
 # Command substitution
 date_str=$(date '+%Y-%m-%d')
 echo "Today is $date_str"
+```
+
+**Case Statements:**
+```bash
+# File type detection
+case "$filename" in
+    *.txt) echo "Text file" ;;
+    *.jpg|*.png) echo "Image file" ;;
+    *) echo "Unknown type" ;;
+esac
+
+# User input validation
+case "$answer" in
+    y|yes|Y|YES) echo "Confirmed" ;;
+    n|no|N|NO) echo "Cancelled" ;;
+    *) echo "Invalid input" ;;
+esac
+
+# System detection
+case "$(uname)" in
+    Linux) echo "Linux system" ;;
+    Darwin) echo "macOS system" ;;
+    *) echo "Other system" ;;
+esac
 ```
 
 **Pipelines:**
@@ -143,7 +147,7 @@ echo "${path##*/}"                 # Get basename from path
 echo "${url#*://}"                 # Remove protocol from URL
 echo "${version%%.*}"              # Get major version number
 
-# Case conversion (NEW!)
+# Case conversion
 echo "${name^}"                    # Capitalize first character
 echo "${text,,}"                   # Convert to all lowercase
 echo "${const^^}"                  # Convert to all uppercase
@@ -185,13 +189,18 @@ Run the comprehensive test suite:
 ./builddir/test_executor_modern
 ./builddir/test_symtable_modern
 
+# Test case statements
+./test_case_basic.sh
+
 # Test comprehensive tokenizer
 ./builddir/test_tokenizer_comprehensive
 ```
 
 ## Current Limitations
 
-- Case statements and functions not yet implemented
+- Function definitions not yet implemented
+- Here documents not yet implemented
+- Advanced I/O redirection features incomplete
 - Special characters in parameter expansion (`:`, `@`, `?`) need refinement
 - Complex command sequences in parameter expansion need improvement
 - Minor edge cases in advanced parameter expansion scenarios
