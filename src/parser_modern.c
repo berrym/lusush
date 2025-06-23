@@ -760,28 +760,22 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
         // Skip separators
         skip_separators(parser);
         
-        // Parse commands until ;;
+        // Parse commands until ;; or esac
         node_t *commands = NULL;
-        while (true) {
-            // Check for ;; pattern
+        while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ESAC) &&
+               !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF)) {
+            
+            // Check for ;; pattern at start of loop
             if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
                 modern_token_t *next = modern_tokenizer_peek(parser->tokenizer);
                 if (next && next->type == MODERN_TOK_SEMICOLON) {
-                    break; // Found ;;
+                    break; // Found ;; - end this case item
                 }
-            }
-            
-            // Check for end conditions
-            if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ESAC) ||
-                modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF)) {
-                break;
             }
             
             node_t *command = parse_simple_command(parser);
             if (!command) {
-                free_node_tree(case_item);
-                free_node_tree(case_node);
-                return NULL;
+                break; // Can't parse more commands
             }
             
             if (!commands) {
@@ -793,7 +787,7 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
                 last->next_sibling = command;
             }
             
-            // Skip separators
+            // Skip separators after command
             skip_separators(parser);
         }
         
@@ -804,10 +798,9 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
         
         // Expect ;;
         if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
-            modern_token_t *next = modern_tokenizer_peek(parser->tokenizer);
-            if (next && next->type == MODERN_TOK_SEMICOLON) {
-                modern_tokenizer_advance(parser->tokenizer); // First ;
-                modern_tokenizer_advance(parser->tokenizer); // Second ;
+            modern_tokenizer_advance(parser->tokenizer); // Consume first ;
+            if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON)) {
+                modern_tokenizer_advance(parser->tokenizer); // Consume second ;
             }
         }
         
