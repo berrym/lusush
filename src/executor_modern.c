@@ -13,6 +13,7 @@
 #include "node.h"
 #include "redirection.h"
 #include "builtins.h"
+#include "alias.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -365,6 +366,39 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         }
         if (redirect_stderr) {
             printf("DEBUG: stderr redirection enabled\n");
+        }
+    }
+    
+    // Check for alias expansion before command execution
+    char *alias_expanded = lookup_alias(filtered_argv[0]);
+    if (alias_expanded && filtered_argv[0]) {
+        // For simple single-word aliases, just replace the command
+        // For multi-word aliases, check if it's a simple case
+        char *space = strchr(alias_expanded, ' ');
+        if (!space) {
+            // Simple single-word alias
+            free(filtered_argv[0]);
+            filtered_argv[0] = strdup(alias_expanded);
+            
+            if (executor->debug) {
+                printf("DEBUG: Expanded simple alias to: %s\n", filtered_argv[0]);
+            }
+        } else {
+            // Multi-word alias - extract just the first word for now
+            // This is a simplified implementation
+            size_t first_word_len = space - alias_expanded;
+            char *first_word = malloc(first_word_len + 1);
+            if (first_word) {
+                strncpy(first_word, alias_expanded, first_word_len);
+                first_word[first_word_len] = '\0';
+                
+                free(filtered_argv[0]);
+                filtered_argv[0] = first_word;
+                
+                if (executor->debug) {
+                    printf("DEBUG: Expanded multi-word alias, using first word: %s\n", filtered_argv[0]);
+                }
+            }
         }
     }
     
