@@ -537,7 +537,8 @@ static node_t *parse_redirection(parser_modern_t *parser) {
     
     // For here documents, collect the content
     if (node_type == NODE_REDIR_HEREDOC || node_type == NODE_REDIR_HEREDOC_STRIP) {
-        const char *delimiter = target_token->text;
+        // Store delimiter before advancing tokenizer
+        char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
         
         // Advance past the delimiter token
@@ -546,6 +547,7 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         // Collect the here document content
         char *content = collect_heredoc_content(parser, delimiter, strip_tabs);
         if (!content) {
+            free(delimiter);
             free_node_tree(redir_node);
             return NULL;
         }
@@ -553,11 +555,12 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         // Create target node with the delimiter
         node_t *target_node = new_node(NODE_VAR);
         if (!target_node) {
+            free(delimiter);
             free(content);
             free_node_tree(redir_node);
             return NULL;
         }
-        target_node->val.str = strdup(delimiter);
+        target_node->val.str = delimiter; // Transfer ownership
         add_child_node(redir_node, target_node);
         
         // Create content node with the collected content
@@ -594,24 +597,43 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
     
     modern_tokenizer_t *tokenizer = parser->tokenizer;
     
-    // Find the start of the here document content
-    // We need to find the newline after the << delimiter line and start from there
-    size_t content_start = tokenizer->position;
+    // Find the start of the here document content by searching for << delimiter in input
+    size_t content_start = 0;
     
-    // Go back to find the beginning of the current line (the << line)
-    while (content_start > 0 && tokenizer->input[content_start - 1] != '\n') {
-        content_start--;
-    }
+    // Look for "<<" followed by the delimiter in the input
+    size_t delimiter_len = strlen(delimiter);
     
-    // Now find the end of this line (end of the << delimiter line)
-    while (content_start < tokenizer->input_length && 
-           tokenizer->input[content_start] != '\n') {
-        content_start++;
-    }
-    
-    // Skip the newline to get to the start of the content
-    if (content_start < tokenizer->input_length) {
-        content_start++; // Now we're at the start of the first content line
+    for (size_t i = 0; i < tokenizer->input_length - 1; i++) {
+        if (tokenizer->input[i] == '<' && tokenizer->input[i + 1] == '<') {
+            // Found <<, now check if delimiter follows
+            size_t delimiter_pos = i + 2;
+            
+            // Skip optional '-' for <<-
+            if (delimiter_pos < tokenizer->input_length && tokenizer->input[delimiter_pos] == '-') {
+                delimiter_pos++;
+            }
+            
+            // Skip whitespace
+            while (delimiter_pos < tokenizer->input_length && 
+                   (tokenizer->input[delimiter_pos] == ' ' || tokenizer->input[delimiter_pos] == '\t')) {
+                delimiter_pos++;
+            }
+            
+            // Check if delimiter matches
+            if (delimiter_pos + delimiter_len <= tokenizer->input_length &&
+                strncmp(&tokenizer->input[delimiter_pos], delimiter, delimiter_len) == 0) {
+                
+                // Found our << delimiter, find the end of this line
+                content_start = delimiter_pos + delimiter_len;
+                while (content_start < tokenizer->input_length && tokenizer->input[content_start] != '\n') {
+                    content_start++;
+                }
+                if (content_start < tokenizer->input_length) {
+                    content_start++; // Skip the newline
+                }
+                break;
+            }
+        }
     }
     
     // Collect lines until we find the delimiter
@@ -622,6 +644,8 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
         return NULL;
     }
     content[0] = '\0';
+    
+
     
     size_t line_start = content_start;
     while (line_start < tokenizer->input_length) {
