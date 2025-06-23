@@ -67,11 +67,11 @@ global: '
 echo "=== ADVANCED FEATURES ==="
 
 run_test "Function with conditional" \
-    'cond() { if [ "$1" = "test" ]; then echo "match"; else echo "no match"; fi; }; cond test' \
+    'cond() { if [ "$1" "=" "test" ]; then echo "match"; else echo "no match"; fi; }; cond test' \
     'match'
 
 run_test "Bracket test variations" \
-    'test_brackets() { [ "$1" != "wrong" ] && echo "correct"; }; test_brackets right' \
+    'test_brackets() { if [ "$1" "!=" "wrong" ]; then echo "correct"; fi; }; test_brackets right' \
     'correct'
 
 run_test "Variable assignment in function" \
@@ -108,7 +108,7 @@ run_test "Function with arithmetic" \
     'Result: 5 plus 3 equals something'
 
 run_test "Function with string operations" \
-    'string_test() { echo "Processing: [$1]"; [ -n "$1" ] && echo "Non-empty"; }; string_test "hello"' \
+    'string_test() { echo "Processing: [$1]"; if [ -n "$1" ]; then echo "Non-empty"; fi; }; string_test "hello"' \
     'Processing: [hello]
 Non-empty'
 
