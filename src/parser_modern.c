@@ -459,7 +459,9 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
                  arg_token->type == MODERN_TOK_COMMAND_SUB ||
                  arg_token->type == MODERN_TOK_BACKQUOTE ||
                  arg_token->type == MODERN_TOK_RBRACKET ||
-                 arg_token->type == MODERN_TOK_ASSIGN) {
+                 arg_token->type == MODERN_TOK_ASSIGN ||
+                 arg_token->type == MODERN_TOK_GLOB ||
+                 arg_token->type == MODERN_TOK_QUESTION) {
             
             node_t *arg_node = new_node(NODE_VAR);
             if (!arg_node) {

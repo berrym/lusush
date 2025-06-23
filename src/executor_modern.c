@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <glob.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -55,6 +56,10 @@ static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
+static char **expand_glob_pattern(const char *pattern, int *expanded_count);
+static bool needs_glob_expansion(const char *str);
+static char **expand_brace_pattern(const char *pattern, int *expanded_count);
+static bool needs_brace_expansion(const char *str);
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
 static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text);
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
@@ -775,12 +780,27 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         return NULL;
     }
     
-    // Count arguments (excluding redirection nodes and here document delimiters)
-    int count = 0;
-    if (command->val.str) count++; // Command name
+    // Dynamic argument list to handle glob expansion
+    char **argv_list = NULL;
+    int argv_count = 0;
+    int argv_capacity = 0;
     
-    // First pass: find here document delimiters to exclude
-    char *heredoc_delimiters[10] = {0}; // Support up to 10 here documents
+    // Helper function to add arguments to dynamic list
+    auto int add_to_argv_list(char *arg) {
+        if (argv_count >= argv_capacity) {
+            argv_capacity = argv_capacity ? argv_capacity * 2 : 8;
+            char **new_list = realloc(argv_list, argv_capacity * sizeof(char *));
+            if (!new_list) {
+                return 0; // Failed to expand
+            }
+            argv_list = new_list;
+        }
+        argv_list[argv_count++] = arg;
+        return 1;
+    }
+    
+    // Find here document delimiters to exclude
+    char *heredoc_delimiters[10] = {0};
     int delimiter_count = 0;
     
     node_t *child = command->first_child;
@@ -794,7 +814,16 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         child = child->next_sibling;
     }
     
-    // Second pass: count arguments excluding redirections and here document delimiters
+    // Add command name (no glob expansion for command names)
+    if (command->val.str) {
+        char *expanded_cmd = expand_if_needed_modern(executor, command->val.str);
+        if (!add_to_argv_list(expanded_cmd)) {
+            free(expanded_cmd);
+            goto cleanup_and_fail;
+        }
+    }
+    
+    // Process arguments with glob expansion
     child = command->first_child;
     while (child) {
         // Skip redirection nodes
@@ -808,68 +837,187 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
                         break;
                     }
                 }
+                
                 if (!is_delimiter) {
-                    count++;
-                }
-            }
-        }
-        child = child->next_sibling;
-    }
-    
-    if (count == 0) {
-        *argc = 0;
-        return NULL;
-    }
-    
-    // Allocate argv
-    char **argv = malloc((count + 1) * sizeof(char *));
-    if (!argv) {
-        *argc = 0;
-        return NULL;
-    }
-    
-    int i = 0;
-    
-    // Add command name
-    if (command->val.str) {
-        argv[i] = expand_if_needed_modern(executor, command->val.str);
-        i++;
-    }
-    
-    // Add arguments (excluding redirection nodes and here document delimiters)
-    child = command->first_child;
-    while (child && i < count) {
-        // Skip redirection nodes
-        if (!is_redirection_node(child)) {
-            if (child->val.str) {
-                // Check if this is a here document delimiter
-                bool is_delimiter = false;
-                for (int j = 0; j < delimiter_count; j++) {
-                    if (heredoc_delimiters[j] && strcmp(child->val.str, heredoc_delimiters[j]) == 0) {
-                        is_delimiter = true;
-                        break;
+                    char *expanded_arg = expand_if_needed_modern(executor, child->val.str);
+                    
+                    if (getenv("NEW_PARSER_DEBUG")) {
+                        fprintf(stderr, "DEBUG: Processing argument: '%s' -> '%s'\n", 
+                                child->val.str, expanded_arg);
+                    }
+                    
+                    // Check if argument needs brace expansion first
+                    if (needs_brace_expansion(expanded_arg)) {
+                        int brace_count;
+                        char **brace_results = expand_brace_pattern(expanded_arg, &brace_count);
+                        
+                        if (brace_results) {
+                            // Process each brace expansion result for potential glob expansion
+                            for (int j = 0; j < brace_count; j++) {
+                                if (needs_glob_expansion(brace_results[j])) {
+                                    int glob_count;
+                                    char **glob_results = expand_glob_pattern(brace_results[j], &glob_count);
+                                    
+                                    if (glob_results) {
+                                        // Add all glob results, free brace result since we won't use it
+                                        free(brace_results[j]);
+                                        for (int k = 0; k < glob_count; k++) {
+                                            if (!add_to_argv_list(glob_results[k])) {
+                                                // Cleanup remaining strings on failure
+                                                for (int l = k; l < glob_count; l++) {
+                                                    free(glob_results[l]);
+                                                }
+                                                free(glob_results);
+                                                for (int l = j + 1; l < brace_count; l++) {
+                                                    free(brace_results[l]);
+                                                }
+                                                free(brace_results);
+                                                free(expanded_arg);
+                                                goto cleanup_and_fail;
+                                            }
+                                        }
+                                        free(glob_results);
+                                    } else {
+                                        // Glob expansion failed, use brace result
+                                        if (!add_to_argv_list(brace_results[j])) {
+                                            for (int l = j + 1; l < brace_count; l++) {
+                                                free(brace_results[l]);
+                                            }
+                                            free(brace_results);
+                                            free(expanded_arg);
+                                            goto cleanup_and_fail;
+                                        }
+                                    }
+                                } else {
+                                    // No glob expansion needed, use brace result directly
+                                    if (!add_to_argv_list(brace_results[j])) {
+                                        for (int l = j + 1; l < brace_count; l++) {
+                                            free(brace_results[l]);
+                                        }
+                                        free(brace_results);
+                                        free(expanded_arg);
+                                        goto cleanup_and_fail;
+                                    }
+                                }
+                            }
+                            free(brace_results);
+                        } else {
+                            // Brace expansion failed, fall back to normal expansion
+                            if (needs_glob_expansion(expanded_arg)) {
+                                int glob_count;
+                                char **glob_results = expand_glob_pattern(expanded_arg, &glob_count);
+                                
+                                if (glob_results) {
+                                    for (int j = 0; j < glob_count; j++) {
+                                        if (!add_to_argv_list(glob_results[j])) {
+                                            for (int k = j; k < glob_count; k++) {
+                                                free(glob_results[k]);
+                                            }
+                                            free(glob_results);
+                                            free(expanded_arg);
+                                            goto cleanup_and_fail;
+                                        }
+                                    }
+                                    free(glob_results);
+                                } else {
+                                    if (!add_to_argv_list(expanded_arg)) {
+                                        free(expanded_arg);
+                                        goto cleanup_and_fail;
+                                    }
+                                    expanded_arg = NULL; // Ownership transferred
+                                }
+                            } else {
+                                if (!add_to_argv_list(expanded_arg)) {
+                                    free(expanded_arg);
+                                    goto cleanup_and_fail;
+                                }
+                                expanded_arg = NULL; // Ownership transferred
+                            }
+                        }
+                        if (expanded_arg) free(expanded_arg);
+                    } else if (needs_glob_expansion(expanded_arg)) {
+                        // No brace expansion, check for glob expansion
+                        int glob_count;
+                        char **glob_results = expand_glob_pattern(expanded_arg, &glob_count);
+                        
+                        if (glob_results) {
+                            // Add all glob results
+                            for (int j = 0; j < glob_count; j++) {
+                                if (!add_to_argv_list(glob_results[j])) {
+                                    // Cleanup on failure
+                                    for (int k = j; k < glob_count; k++) {
+                                        free(glob_results[k]);
+                                    }
+                                    free(glob_results);
+                                    free(expanded_arg);
+                                    goto cleanup_and_fail;
+                                }
+                            }
+                            free(glob_results); // Free the array but not the strings
+                        } else {
+                            // Glob expansion failed, use original
+                            if (!add_to_argv_list(expanded_arg)) {
+                                free(expanded_arg);
+                                goto cleanup_and_fail;
+                            }
+                        }
+                        free(expanded_arg); // We copied the strings or used them
+                    } else {
+                        // No expansion needed
+                        if (!add_to_argv_list(expanded_arg)) {
+                            free(expanded_arg);
+                            goto cleanup_and_fail;
+                        }
+                        // expanded_arg ownership transferred to argv_list, don't free
                     }
                 }
-                if (!is_delimiter) {
-                    argv[i] = expand_if_needed_modern(executor, child->val.str);
-                    i++;
-                }
             }
         }
         child = child->next_sibling;
     }
     
-    argv[i] = NULL;
-    *argc = i;
+    if (argv_count == 0) {
+        *argc = 0;
+        free(argv_list);
+        goto cleanup_delimiters;
+    }
     
-    // Free delimiter strings
-    for (int j = 0; j < delimiter_count; j++) {
-        if (heredoc_delimiters[j]) {
-            free(heredoc_delimiters[j]);
-        }
+    // Convert to final argv array
+    char **argv = malloc((argv_count + 1) * sizeof(char *));
+    if (!argv) {
+        goto cleanup_and_fail;
+    }
+    
+    for (int i = 0; i < argv_count; i++) {
+        argv[i] = argv_list[i];
+    }
+    argv[argv_count] = NULL;
+    
+    *argc = argv_count;
+    free(argv_list);
+    
+    // Clean up here document delimiters
+    for (int k = 0; k < delimiter_count; k++) {
+        free(heredoc_delimiters[k]);
     }
     
     return argv;
+    
+cleanup_and_fail:
+    // Free all allocated arguments
+    for (int i = 0; i < argv_count; i++) {
+        free(argv_list[i]);
+    }
+    free(argv_list);
+    
+cleanup_delimiters:
+    // Clean up here document delimiters
+    for (int k = 0; k < delimiter_count; k++) {
+        free(heredoc_delimiters[k]);
+    }
+    
+    *argc = 0;
+    return NULL;
 }
 
 // Expand variable/arithmetic/command substitution if needed
@@ -1016,6 +1164,240 @@ static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell
         
         return result;
     }
+}
+
+// Expand glob pattern using system glob() function
+static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
+    if (!pattern || !expanded_count) {
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+
+    
+    glob_t globbuf;
+    int glob_result = glob(pattern, GLOB_NOSORT, NULL, &globbuf);
+    
+
+    
+    if (glob_result == GLOB_NOMATCH) {
+        // No matches - return original pattern (POSIX behavior)
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        } else {
+            *expanded_count = 0;
+        }
+        return result;
+    } else if (glob_result != 0) {
+        // Error in globbing
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+    // Success - copy results
+    *expanded_count = globbuf.gl_pathc;
+    char **result = malloc((globbuf.gl_pathc + 1) * sizeof(char *));
+    if (!result) {
+        globfree(&globbuf);
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+        result[i] = strdup(globbuf.gl_pathv[i]);
+
+        if (!result[i]) {
+            // Cleanup on allocation failure
+            for (size_t j = 0; j < i; j++) {
+                free(result[j]);
+            }
+            free(result);
+            globfree(&globbuf);
+            *expanded_count = 0;
+            return NULL;
+        }
+    }
+    result[globbuf.gl_pathc] = NULL;
+    
+    globfree(&globbuf);
+    return result;
+}
+
+// Check if a string contains glob patterns that need expansion
+static bool needs_glob_expansion(const char *str) {
+    if (!str) return false;
+    
+    // Check for glob metacharacters: *, ?, and character classes [...]
+    while (*str) {
+        if (*str == '*' || *str == '?' || *str == '[') {
+            return true;
+        }
+        str++;
+    }
+    return false;
+}
+
+// Check if a string contains brace patterns that need expansion
+static bool needs_brace_expansion(const char *str) {
+    if (!str) return false;
+    
+    // Check for brace expansion patterns: {a,b,c}
+    const char *p = str;
+    while (*p) {
+        if (*p == '{') {
+            // Look for comma and closing brace
+            const char *comma = strchr(p + 1, ',');
+            const char *close = strchr(p + 1, '}');
+            if (comma && close && comma < close) {
+                return true;
+            }
+        }
+        p++;
+    }
+    return false;
+}
+
+// Expand brace patterns like {a,b,c} into multiple strings
+static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
+    if (!pattern || !expanded_count) {
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+
+    
+    // Find the first brace pattern
+    const char *open = strchr(pattern, '{');
+    if (!open) {
+        // No braces - return original pattern
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        } else {
+            *expanded_count = 0;
+        }
+        return result;
+    }
+    
+    const char *close = strchr(open + 1, '}');
+    if (!close) {
+        // Malformed brace - return original pattern
+        char **result = malloc(2 * sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            result[1] = NULL;
+            *expanded_count = 1;
+        } else {
+            *expanded_count = 0;
+        }
+        return result;
+    }
+    
+    // Extract prefix, brace content, and suffix
+    size_t prefix_len = open - pattern;
+    size_t content_len = close - open - 1;
+    const char *suffix = close + 1;
+    
+    char *prefix = malloc(prefix_len + 1);
+    char *content = malloc(content_len + 1);
+    if (!prefix || !content) {
+        free(prefix);
+        free(content);
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+    strncpy(prefix, pattern, prefix_len);
+    prefix[prefix_len] = '\0';
+    strncpy(content, open + 1, content_len);
+    content[content_len] = '\0';
+    
+    // Count comma-separated items
+    int item_count = 1;
+    for (const char *p = content; *p; p++) {
+        if (*p == ',') item_count++;
+    }
+    
+    // Allocate result array
+    char **result = malloc((item_count + 1) * sizeof(char *));
+    if (!result) {
+        free(prefix);
+        free(content);
+        *expanded_count = 0;
+        return NULL;
+    }
+    
+    // Split content by commas and build result strings
+    int result_index = 0;
+    char *item_start = content;
+    char *comma_pos = content;
+    
+    while (result_index < item_count) {
+        // Find next comma or end of string
+        while (*comma_pos && *comma_pos != ',') {
+            comma_pos++;
+        }
+        
+        // Extract current item
+        size_t item_len = comma_pos - item_start;
+        char *item = malloc(item_len + 1);
+        if (!item) {
+            // Cleanup on failure
+            for (int i = 0; i < result_index; i++) {
+                free(result[i]);
+            }
+            free(result);
+            free(prefix);
+            free(content);
+            *expanded_count = 0;
+            return NULL;
+        }
+        strncpy(item, item_start, item_len);
+        item[item_len] = '\0';
+        
+        // Build full result string: prefix + item + suffix
+        size_t full_len = strlen(prefix) + strlen(item) + strlen(suffix);
+        result[result_index] = malloc(full_len + 1);
+        if (!result[result_index]) {
+            // Cleanup on failure
+            free(item);
+            for (int i = 0; i < result_index; i++) {
+                free(result[i]);
+            }
+            free(result);
+            free(prefix);
+            free(content);
+            *expanded_count = 0;
+            return NULL;
+        }
+        
+        strcpy(result[result_index], prefix);
+        strcat(result[result_index], item);
+        strcat(result[result_index], suffix);
+        
+
+        
+        free(item);
+        result_index++;
+        
+        // Move to next item
+        if (*comma_pos == ',') {
+            comma_pos++;
+            item_start = comma_pos;
+        }
+    }
+    
+    result[item_count] = NULL;
+    *expanded_count = item_count;
+    
+    free(prefix);
+    free(content);
+    return result;
 }
 
 // Execute external command with full redirection setup in child process

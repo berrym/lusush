@@ -176,16 +176,23 @@ static void skip_whitespace(modern_tokenizer_t *tokenizer) {
 
 // Check if character can be part of a word
 static bool is_word_char(char c) {
-    return isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~' || c == ':' || c == '@';
+    return isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~' || c == ':' || c == '@' || c == '*' || c == '?' || c == '[' || c == ']' || c == '{' || c == '}' || c == ',';
 }
 
 // Check if character is an operator
 static bool is_operator_char(char c) {
-    return strchr("|&;<>(){}[]!=+-*/%?", c) != NULL;
+    return strchr("|&;<>()!=+-*/%?", c) != NULL;
 }
 
 // Classify word as keyword or regular word
 static modern_token_type_t classify_word(const char *text, size_t length, bool enable_keywords) {
+    // Check for glob patterns first (before keywords)
+    for (size_t i = 0; i < length; i++) {
+        if (text[i] == '*' || text[i] == '?' || text[i] == '[' || text[i] == ']' || text[i] == '{' || text[i] == '}') {
+            return MODERN_TOK_GLOB;
+        }
+    }
+    
     if (!enable_keywords) {
         return MODERN_TOK_WORD;
     }
@@ -543,10 +550,10 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
         case ']': single_char_type = MODERN_TOK_RBRACKET; break;
         case '=': single_char_type = MODERN_TOK_ASSIGN; break;
         case '+': single_char_type = MODERN_TOK_PLUS; break;
-        case '*': single_char_type = MODERN_TOK_MULTIPLY; break;
+        // case '*': // Let * be handled as part of words for glob patterns
         // case '/': single_char_type = MODERN_TOK_DIVIDE; break;  // Handled above
         case '%': single_char_type = MODERN_TOK_MODULO; break;
-        case '?': single_char_type = MODERN_TOK_QUESTION; break;
+        // case '?': // Let ? be handled as part of words for glob patterns
         default: single_char_type = MODERN_TOK_ERROR; break;
     }
     
@@ -559,7 +566,7 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
     
     // Handle words and numbers  
     handle_word:
-    if (isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~') {
+    if (isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~' || c == '*' || c == '?') {
         size_t start = tokenizer->position;
         bool is_number = isdigit(c);
         
