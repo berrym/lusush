@@ -552,16 +552,8 @@ static node_t *parse_redirection(parser_modern_t *parser) {
             return NULL;
         }
         
-        // Create target node with the delimiter
-        node_t *target_node = new_node(NODE_VAR);
-        if (!target_node) {
-            free(delimiter);
-            free(content);
-            free_node_tree(redir_node);
-            return NULL;
-        }
-        target_node->val.str = delimiter; // Transfer ownership
-        add_child_node(redir_node, target_node);
+        // Store delimiter in the redirection node value
+        redir_node->val.str = delimiter; // Transfer ownership
         
         // Create content node with the collected content
         node_t *content_node = new_node(NODE_VAR);

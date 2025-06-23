@@ -56,19 +56,27 @@ static int handle_redirection_node(node_t *redir_node) {
         return 1;
     }
     
-    // Get the target (filename or delimiter) from the first child
-    node_t *target_node = redir_node->first_child;
-    if (!target_node || !target_node->val.str) {
-        return 1; // No target specified
-    }
-    
     // For here documents, check if we have pre-collected content
     if (redir_node->type == NODE_REDIR_HEREDOC || redir_node->type == NODE_REDIR_HEREDOC_STRIP) {
-        node_t *content_node = target_node->next_sibling;
+        // The delimiter is stored in the redirection node value
+        // The content is stored in the first child node
+        node_t *content_node = redir_node->first_child;
         if (content_node && content_node->val.str) {
             // Use pre-collected content
             return setup_here_document_with_content(content_node->val.str);
         }
+        // If no content node, fall back to interactive here document
+        if (redir_node->val.str) {
+            return setup_here_document(redir_node->val.str, 
+                                     redir_node->type == NODE_REDIR_HEREDOC_STRIP);
+        }
+        return 1; // No delimiter found
+    }
+    
+    // Get the target (filename) from the first child for other redirections
+    node_t *target_node = redir_node->first_child;
+    if (!target_node || !target_node->val.str) {
+        return 1; // No target specified
     }
     
     // Expand variables in the target
