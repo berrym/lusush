@@ -660,6 +660,8 @@ static int execute_external_command(executor_modern_t *executor, char **argv) {
 }
 
 // Execute builtin command
+static int execute_test_builtin(executor_modern_t *executor, char **argv);
+
 static int execute_builtin_command(executor_modern_t *executor, char **argv) {
     if (!argv || !argv[0]) {
         return 1;
@@ -685,6 +687,10 @@ static int execute_builtin_command(executor_modern_t *executor, char **argv) {
         exit(exit_code);
     }
     
+    if (strcmp(argv[0], "test") == 0 || strcmp(argv[0], "[") == 0) {
+        return execute_test_builtin(executor, argv);
+    }
+    
     // For other builtins, fall back to external execution
     return execute_external_command(executor, argv);
 }
@@ -696,6 +702,7 @@ static bool is_builtin_command(const char *cmd) {
     const char *builtins[] = {
         "echo", "exit", "cd", "pwd", "export", "unset", "alias", "unalias",
         "type", "which", "history", "jobs", "fg", "bg", "set", "unset",
+        "test", "[",
         NULL
     };
     
@@ -706,6 +713,112 @@ static bool is_builtin_command(const char *cmd) {
     }
     
     return false;
+}
+
+// Execute test builtin command
+static int execute_test_builtin(executor_modern_t *executor, char **argv) {
+    if (!argv || !argv[0]) {
+        return 1;
+    }
+    
+    // Count arguments
+    int argc = 0;
+    while (argv[argc]) argc++;
+    
+    // Handle [ command - must end with ]
+    if (strcmp(argv[0], "[") == 0) {
+        if (argc < 2 || strcmp(argv[argc-1], "]") != 0) {
+            return 1; // Missing closing ]
+        }
+        argc--; // Don't count the closing ]
+    }
+    
+    // Handle different test cases
+    if (argc == 1) {
+        // test with no arguments - false
+        return 1;
+    }
+    
+    if (argc == 2) {
+        // test STRING - true if STRING is non-empty
+        return (argv[1] && strlen(argv[1]) > 0) ? 0 : 1;
+    }
+    
+    if (argc == 3) {
+        // Unary operators
+        if (strcmp(argv[1], "-z") == 0) {
+            // -z STRING - true if STRING is empty
+            return (argv[2] && strlen(argv[2]) == 0) ? 0 : 1;
+        }
+        if (strcmp(argv[1], "-n") == 0) {
+            // -n STRING - true if STRING is non-empty
+            return (argv[2] && strlen(argv[2]) > 0) ? 0 : 1;
+        }
+        // Add more unary operators as needed
+        return 1;
+    }
+    
+    if (argc == 4) {
+        // Binary operators: STRING1 OP STRING2
+        char *str1 = argv[1];
+        char *op = argv[2];
+        char *str2 = argv[3];
+        
+        if (strcmp(op, "=") == 0 || strcmp(op, "==") == 0) {
+            // String equality
+            return strcmp(str1, str2) == 0 ? 0 : 1;
+        }
+        
+        if (strcmp(op, "!=") == 0) {
+            // String inequality
+            return strcmp(str1, str2) != 0 ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-eq") == 0) {
+            // Numeric equality
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 == num2) ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-ne") == 0) {
+            // Numeric inequality
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 != num2) ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-lt") == 0) {
+            // Numeric less than
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 < num2) ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-le") == 0) {
+            // Numeric less than or equal
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 <= num2) ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-gt") == 0) {
+            // Numeric greater than
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 > num2) ? 0 : 1;
+        }
+        
+        if (strcmp(op, "-ge") == 0) {
+            // Numeric greater than or equal
+            int num1 = atoi(str1);
+            int num2 = atoi(str2);
+            return (num1 >= num2) ? 0 : 1;
+        }
+    }
+    
+    // Default: false
+    return 1;
 }
 
 // Check if text is an assignment
