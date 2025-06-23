@@ -25,6 +25,7 @@
 // Forward declarations
 static int handle_redirection_node(node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
+static int setup_here_document_with_content(const char *content);
 static int setup_here_string(const char *content);
 static char *expand_redirection_target(const char *target);
 
@@ -59,6 +60,15 @@ static int handle_redirection_node(node_t *redir_node) {
     node_t *target_node = redir_node->first_child;
     if (!target_node || !target_node->val.str) {
         return 1; // No target specified
+    }
+    
+    // For here documents, check if we have pre-collected content
+    if (redir_node->type == NODE_REDIR_HEREDOC || redir_node->type == NODE_REDIR_HEREDOC_STRIP) {
+        node_t *content_node = target_node->next_sibling;
+        if (content_node && content_node->val.str) {
+            // Use pre-collected content
+            return setup_here_document_with_content(content_node->val.str);
+        }
     }
     
     // Expand variables in the target
@@ -260,6 +270,61 @@ static int setup_here_document(const char *delimiter, bool strip_tabs) {
         if (line) {
             free(line);
         }
+        close(pipefd[1]);
+        _exit(0);
+    } else {
+        // Parent process: redirect stdin to read from pipe
+        close(pipefd[1]); // Close write end
+        
+        if (dup2(pipefd[0], STDIN_FILENO) == -1) {
+            perror("dup2");
+            close(pipefd[0]);
+            return 1;
+        }
+        close(pipefd[0]);
+        
+        // Wait for child to finish writing the here document
+        int status;
+        waitpid(pid, &status, 0);
+    }
+    
+    return 0;
+}
+
+// Setup here document redirection with pre-collected content
+static int setup_here_document_with_content(const char *content) {
+    if (!content) {
+        return 1;
+    }
+    
+    // Create a temporary pipe for the here document content
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        return 1;
+    }
+    
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return 1;
+    }
+    
+    if (pid == 0) {
+        // Child process: write pre-collected content to pipe
+        close(pipefd[0]); // Close read end
+        
+        // Write the content to the pipe
+        size_t content_len = strlen(content);
+        if (content_len > 0) {
+            ssize_t written = write(pipefd[1], content, content_len);
+            if (written == -1) {
+                perror("write");
+            }
+        }
+        
         close(pipefd[1]);
         _exit(0);
     } else {

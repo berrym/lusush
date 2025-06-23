@@ -24,6 +24,7 @@ static node_t *parse_case_statement(parser_modern_t *parser);
 static node_t *parse_function_definition(parser_modern_t *parser);
 static bool is_function_definition(parser_modern_t *parser);
 static node_t *parse_redirection(parser_modern_t *parser);
+static char *collect_heredoc_content(parser_modern_t *parser, const char *delimiter, bool strip_tabs);
 static void parser_error(parser_modern_t *parser, const char *message);
 static bool expect_token(parser_modern_t *parser, modern_token_type_t expected);
 
@@ -534,16 +535,156 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         }
     }
     
-    node_t *target_node = new_node(NODE_VAR);
-    if (!target_node) {
-        free_node_tree(redir_node);
+    // For here documents, collect the content
+    if (node_type == NODE_REDIR_HEREDOC || node_type == NODE_REDIR_HEREDOC_STRIP) {
+        const char *delimiter = target_token->text;
+        bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
+        
+        // Advance past the delimiter token
+        modern_tokenizer_advance(parser->tokenizer);
+        
+        // Collect the here document content
+        char *content = collect_heredoc_content(parser, delimiter, strip_tabs);
+        if (!content) {
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        
+        // Create target node with the delimiter
+        node_t *target_node = new_node(NODE_VAR);
+        if (!target_node) {
+            free(content);
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        target_node->val.str = strdup(delimiter);
+        add_child_node(redir_node, target_node);
+        
+        // Create content node with the collected content
+        node_t *content_node = new_node(NODE_VAR);
+        if (!content_node) {
+            free(content);
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        content_node->val.str = content; // Transfer ownership
+        add_child_node(redir_node, content_node);
+        
+        return redir_node;
+    } else {
+        // Regular redirection - just store the target
+        node_t *target_node = new_node(NODE_VAR);
+        if (!target_node) {
+            free_node_tree(redir_node);
+            return NULL;
+        }
+        target_node->val.str = strdup(target_token->text);
+        add_child_node(redir_node, target_node);
+        modern_tokenizer_advance(parser->tokenizer);
+        
+        return redir_node;
+    }
+}
+
+// Collect here document content until delimiter is found
+static char *collect_heredoc_content(parser_modern_t *parser, const char *delimiter, bool strip_tabs) {
+    if (!parser || !delimiter) {
         return NULL;
     }
-    target_node->val.str = strdup(target_token->text);
-    add_child_node(redir_node, target_node);
-    modern_tokenizer_advance(parser->tokenizer);
     
-    return redir_node;
+    modern_tokenizer_t *tokenizer = parser->tokenizer;
+    
+    // Find the start of the next line (after the delimiter token)
+    size_t content_start = tokenizer->position;
+    while (content_start < tokenizer->input_length && 
+           tokenizer->input[content_start] != '\n') {
+        content_start++;
+    }
+    if (content_start < tokenizer->input_length) {
+        content_start++; // Skip the newline
+    }
+    
+    // Collect lines until we find the delimiter
+    size_t content_size = 0;
+    size_t content_capacity = 1024;
+    char *content = malloc(content_capacity);
+    if (!content) {
+        return NULL;
+    }
+    content[0] = '\0';
+    
+    size_t line_start = content_start;
+    while (line_start < tokenizer->input_length) {
+        // Find end of current line
+        size_t line_end = line_start;
+        while (line_end < tokenizer->input_length && 
+               tokenizer->input[line_end] != '\n') {
+            line_end++;
+        }
+        
+        // Extract the line (without newline)
+        size_t line_len = line_end - line_start;
+        char *line = malloc(line_len + 1);
+        if (!line) {
+            free(content);
+            return NULL;
+        }
+        strncpy(line, &tokenizer->input[line_start], line_len);
+        line[line_len] = '\0';
+        
+        // Strip leading tabs if requested (<<- variant)
+        const char *line_content = line;
+        if (strip_tabs) {
+            while (*line_content == '\t') {
+                line_content++;
+            }
+        }
+        
+        // Check if this line matches the delimiter
+        if (strcmp(line_content, delimiter) == 0) {
+            // Found delimiter - stop collecting
+            free(line);
+            break;
+        }
+        
+        // Add line to content (with newline)
+        size_t needed = content_size + line_len + 2; // +1 for newline, +1 for null
+        if (needed > content_capacity) {
+            content_capacity = needed * 2;
+            char *new_content = realloc(content, content_capacity);
+            if (!new_content) {
+                free(line);
+                free(content);
+                return NULL;
+            }
+            content = new_content;
+        }
+        
+        // Append the original line (not stripped) plus newline
+        strcat(content, line);
+        strcat(content, "\n");
+        content_size = strlen(content);
+        
+        free(line);
+        
+        // Move to next line
+        line_start = line_end + 1;
+    }
+    
+    // Update tokenizer position to after the delimiter line
+    tokenizer->position = line_start;
+    
+    // Update line and column tracking
+    for (size_t i = content_start; i < tokenizer->position; i++) {
+        if (tokenizer->input[i] == '\n') {
+            tokenizer->line++;
+            tokenizer->column = 1;
+        } else {
+            tokenizer->column++;
+        }
+    }
+    
+    return content;
 }
 
 // Parse if statement
