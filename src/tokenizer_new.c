@@ -163,7 +163,7 @@ static void skip_whitespace(modern_tokenizer_t *tokenizer) {
 
 // Check if character can be part of a word
 static bool is_word_char(char c) {
-    return isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~';
+    return isalnum(c) || c == '_' || c == '-' || c == '.' || c == '/' || c == '~' || c == ':' || c == '@';
 }
 
 // Check if character is an operator
