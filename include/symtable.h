@@ -4,6 +4,7 @@
 #include "node.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
 // Type of a symbol table entry's value
 typedef enum {
@@ -64,5 +65,22 @@ void dump_local_symtable(void);
 void free_symtable(symtable_t *);
 void free_global_symtable(void);
 void symtable_entry_setval(symtable_entry_t *, char *);
+
+// Shell variable functions
+char *get_shell_varp(char *, char *);
+int get_shell_vari(char *, int);
+ssize_t get_shell_varl(char *, int);
+void set_shell_varp(char *, char *);
+void set_shell_vari(char *, int);
+void export_shell_var(char *);
+void unset_shell_var(char *);
+char **get_environ_array(void);
+void free_environ_array(char **);
+void set_exit_status(int);
+bool get_shell_varb(const char *, bool);
+
+// Modern symtable access for new code
+#include "symtable_modern.h"
+symtable_manager_t *get_global_symtable_manager(void);
 
 #endif

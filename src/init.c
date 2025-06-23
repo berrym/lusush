@@ -11,7 +11,7 @@
 #include "../include/prompt.h"
 #include "../include/scanner_old.h"
 #include "../include/signals.h"
-#include "../include/symtable_global.h"
+#include "../include/symtable.h"
 #include "../include/version.h"
 
 #include <getopt.h>
@@ -69,12 +69,10 @@ int init(int argc, char **argv, FILE **in) {
     // Setup signal handlers
     init_signal_handlers();
 
-    // Initialize global modern symbol table
-    if (init_global_symtable() != 0) {
-        error_abort("Failed to create symbol table manager");
-    }
+    // Initialize symbol table
+    init_symtable();
 
-    // Import environment variables into global symtable
+    // Import environment variables into symtable
     char **env_ptr = environ;
     while (*env_ptr) {
         char *eq = strchr(*env_ptr, '=');
@@ -90,12 +88,14 @@ int init(int argc, char **argv, FILE **in) {
             name[name_len] = '\0';
             
             // Set variable and mark as exported
-            export_global_var(name, eq + 1);
+            set_shell_varp(name, eq + 1);
+            export_shell_var(name);
             
             free(name);
         } else {
             // Environment variable without value (set but empty)
-            export_global_var(*env_ptr, "");
+            set_shell_varp(*env_ptr, "");
+            export_shell_var(*env_ptr);
         }
         env_ptr++;
     }
@@ -148,13 +148,14 @@ int init(int argc, char **argv, FILE **in) {
     char ppid_str[32];
     snprintf(ppid_str, sizeof(ppid_str), "%d", ppid);
     setenv("PPID", ppid_str, 1);
-    export_global_var("PPID", ppid_str);
+    set_shell_varp("PPID", ppid_str);
+    export_shell_var("PPID");
     
     // Set initial exit status
-    set_special_var("?", "0");
+    set_exit_status(0);
     
     // Set shell name/script name
-    set_special_var("0", argv[0]);
+    set_shell_varp("0", argv[0]);
 
     // Initialize history
     if (shell_type() != NORMAL_SHELL) {
@@ -168,7 +169,6 @@ int init(int argc, char **argv, FILE **in) {
     linenoiseSetCompletionCallback(lusush_completion_callback);
 
     // Set memory cleanup procedures on termination
-    atexit(free_tok_buf);
     atexit(free_global_symtable);
     atexit(free_aliases);
     if (shell_type() == NORMAL_SHELL) {

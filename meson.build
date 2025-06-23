@@ -45,10 +45,8 @@ src = ['src/builtins/alias.c',
        'src/strings.c',
        'src/symtable.c',
        'src/symtable_modern.c',
-       'src/symtable_global.c',
        'src/token_pushback.c',
        'src/tokenizer_new.c',
-       'src/vars.c',
        'src/wordexp.c',
       ]
 

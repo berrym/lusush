@@ -9,8 +9,7 @@
 #include "executor_modern.h"
 #include "parser_modern.h"
 #include "tokenizer_new.h"
-#include "symtable_modern.h"
-#include "symtable_global.h"
+#include "symtable.h"
 #include "node.h"
 
 #include <stdlib.h>
@@ -61,7 +60,7 @@ executor_modern_t *executor_modern_new(void) {
         return NULL;
     }
     
-    // Use global symbol table
+    // Use global symbol table manager from modernized legacy interface
     executor->symtable = get_global_symtable_manager();
     if (!executor->symtable) {
         free(executor);
