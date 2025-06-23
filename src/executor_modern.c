@@ -12,6 +12,7 @@
 #include "symtable.h"
 #include "node.h"
 #include "redirection.h"
+#include "builtins.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -847,52 +848,27 @@ static int execute_builtin_command(executor_modern_t *executor, char **argv) {
         return 1;
     }
     
-    // This is a simplified implementation
-    // In the full shell, this would call the actual builtin functions
-    
-    if (strcmp(argv[0], "echo") == 0) {
-        for (int i = 1; argv[i]; i++) {
-            if (i > 1) printf(" ");
-            printf("%s", argv[i]);
+    // Find the builtin function in the builtin table
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strcmp(argv[0], builtins[i].name) == 0) {
+            // Count arguments
+            int argc = 0;
+            while (argv[argc]) argc++;
+            
+            // Call the builtin function
+            return builtins[i].func(argc, argv);
         }
-        printf("\n");
-        return 0;
     }
     
-    if (strcmp(argv[0], "exit") == 0) {
-        int exit_code = 0;
-        if (argv[1]) {
-            exit_code = atoi(argv[1]);
-        }
-        exit(exit_code);
-    }
+
     
-    if (strcmp(argv[0], "test") == 0 || strcmp(argv[0], "[") == 0) {
-        return execute_test_builtin(executor, argv);
-    }
-    
-    // For other builtins, fall back to external execution
+    // Builtin not found, fallback to external execution
     return execute_external_command(executor, argv);
 }
 
 // Check if command is builtin
 static bool is_builtin_command(const char *cmd) {
-    if (!cmd) return false;
-    
-    const char *builtins[] = {
-        "echo", "exit", "cd", "pwd", "export", "unset", "alias", "unalias",
-        "type", "which", "history", "jobs", "fg", "bg", "set", "unset",
-        "test", "[",
-        NULL
-    };
-    
-    for (int i = 0; builtins[i]; i++) {
-        if (strcmp(cmd, builtins[i]) == 0) {
-            return true;
-        }
-    }
-    
-    return false;
+    return is_builtin(cmd);
 }
 
 // Execute test builtin command
