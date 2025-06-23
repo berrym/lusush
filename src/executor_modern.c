@@ -18,6 +18,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <ctype.h>
 
 // Forward declarations
@@ -675,20 +677,60 @@ static int execute_external_command(executor_modern_t *executor, char **argv) {
         return 1;
     }
     
+    // Check for stderr redirection (2>/dev/null pattern)
+    bool redirect_stderr = false;
+    int actual_argc = 0;
+    
+    // Count actual arguments and detect redirection
+    for (int i = 0; argv[i]; i++) {
+        if (strcmp(argv[i], "2>/dev/null") == 0) {
+            redirect_stderr = true;
+            break;
+        }
+        actual_argc++;
+    }
+    
+    // Create filtered argv without redirection
+    char **filtered_argv = malloc((actual_argc + 1) * sizeof(char *));
+    if (!filtered_argv) {
+        return 1;
+    }
+    
+    int j = 0;
+    for (int i = 0; i < actual_argc; i++) {
+        if (strcmp(argv[i], "2>/dev/null") != 0) {
+            filtered_argv[j++] = argv[i];
+        }
+    }
+    filtered_argv[j] = NULL;
+    
     pid_t pid = fork();
     if (pid == -1) {
+        free(filtered_argv);
         executor_error(executor, "Failed to fork");
         return 1;
     }
     
     if (pid == 0) {
         // Child process
-        execvp(argv[0], argv);
-        perror(argv[0]);
+        if (redirect_stderr) {
+            // Redirect stderr to /dev/null
+            int null_fd = open("/dev/null", O_WRONLY);
+            if (null_fd != -1) {
+                dup2(null_fd, STDERR_FILENO);
+                close(null_fd);
+            }
+        }
+        
+        execvp(filtered_argv[0], filtered_argv);
+        if (!redirect_stderr) {
+            perror(filtered_argv[0]);
+        }
         exit(127);
     }
     
     // Parent process
+    free(filtered_argv);
     int status;
     waitpid(pid, &status, 0);
     

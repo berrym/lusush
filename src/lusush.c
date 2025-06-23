@@ -4,7 +4,7 @@
 
 #include "../include/lusush.h"
 #include "../include/init.h"
-#include "../include/input.h"
+#include "../include/input_modern.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/node.h"
 #include "../include/parser_modern.h"
@@ -47,12 +47,20 @@ int main(int argc, char **argv) {
         exit(exit_status);
     }
 
+    // Create modern input context
+    bool is_interactive = (shell_type() == INTERACTIVE_SHELL);
+    input_context_t *input_context = input_context_new(in, is_interactive);
+    if (!input_context) {
+        fprintf(stderr, "Failed to initialize input system\n");
+        exit(1);
+    }
+
     // Read input (buffering complete syntactic units) until user exits
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
-        // Read complete command(s) using unified input system
+        // Read complete command(s) using modern input system
         // This ensures consistent parsing behavior between interactive and non-interactive modes
-        line = get_unified_input(in);
+        line = input_get_command_line(input_context);
 
         if (line == NULL) {
             exit_flag = true;
@@ -62,12 +70,12 @@ int main(int argc, char **argv) {
         // Execute using unified modern parser
         parse_and_execute(line);
 
-        if (shell_type() != NORMAL_SHELL) {
-            linenoiseFree(line);
-        } else {
-            free_input_buffers();
-        }
+        // Free the line - modern input system manages its own memory
+        free(line);
     }
+
+    // Clean up modern input context
+    input_context_free(input_context);
 
     if (in) {
         fclose(in);
