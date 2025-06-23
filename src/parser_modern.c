@@ -594,14 +594,24 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
     
     modern_tokenizer_t *tokenizer = parser->tokenizer;
     
-    // Find the start of the next line (after the delimiter token)
+    // Find the start of the here document content
+    // We need to find the newline after the << delimiter line and start from there
     size_t content_start = tokenizer->position;
+    
+    // Go back to find the beginning of the current line (the << line)
+    while (content_start > 0 && tokenizer->input[content_start - 1] != '\n') {
+        content_start--;
+    }
+    
+    // Now find the end of this line (end of the << delimiter line)
     while (content_start < tokenizer->input_length && 
            tokenizer->input[content_start] != '\n') {
         content_start++;
     }
+    
+    // Skip the newline to get to the start of the content
     if (content_start < tokenizer->input_length) {
-        content_start++; // Skip the newline
+        content_start++; // Now we're at the start of the first content line
     }
     
     // Collect lines until we find the delimiter
