@@ -48,6 +48,7 @@ static int execute_command_list_modern(executor_modern_t *executor, node_t *list
 static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc);
 static int execute_external_command(executor_modern_t *executor, char **argv);
 static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr);
+static int execute_external_command_with_setup(executor_modern_t *executor, char **argv, bool redirect_stderr, node_t *command);
 static int execute_builtin_command(executor_modern_t *executor, char **argv);
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
@@ -297,11 +298,8 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         return execute_assignment_modern(executor, command->val.str);
     }
 
-    // Setup redirections before command execution
-    int redir_result = setup_redirections(command);
-    if (redir_result != 0) {
-        return redir_result;
-    }
+    // Check if command has redirections
+    bool has_redirections = count_redirections(command) > 0;
     
     // Build argument vector (excluding redirection nodes)
     int argc;
@@ -464,9 +462,29 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     if (is_function_defined(executor, filtered_argv[0])) {
         result = execute_function_call_modern(executor, filtered_argv[0], filtered_argv, filtered_argc);
     } else if (is_builtin_command(filtered_argv[0])) {
+        // For builtin commands, handle redirections in parent process
+        redirection_state_t redir_state;
+        if (has_redirections) {
+            save_file_descriptors(&redir_state);
+            int redir_result = setup_redirections(command);
+            if (redir_result != 0) {
+                restore_file_descriptors(&redir_state);
+                return redir_result;
+            }
+        }
+        
         result = execute_builtin_command(executor, filtered_argv);
+        
+        // Restore file descriptors after builtin execution
+        if (has_redirections) {
+            // Flush output streams before restoring file descriptors
+            fflush(stdout);
+            fflush(stderr);
+            restore_file_descriptors(&redir_state);
+        }
     } else {
-        result = execute_external_command_with_redirection(executor, filtered_argv, redirect_stderr);
+        // For external commands, pass redirection info to child process
+        result = execute_external_command_with_setup(executor, filtered_argv, redirect_stderr, command);
     }
     
     // Free argv
@@ -919,17 +937,53 @@ static int execute_external_command_with_redirection(executor_modern_t *executor
             perror(argv[0]);
         }
         exit(127);
+    } else {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    }
+}
+
+// Execute external command with full redirection setup in child process
+static int execute_external_command_with_setup(executor_modern_t *executor, char **argv, bool redirect_stderr, node_t *command) {
+    if (!argv || !argv[0]) {
+        return 1;
     }
     
-    // Parent process
-    int status;
-    waitpid(pid, &status, 0);
-    
-    if (WIFEXITED(status)) {
-        return WEXITSTATUS(status);
+    pid_t pid = fork();
+    if (pid == -1) {
+        executor_error(executor, "Failed to fork");
+        return 1;
     }
     
-    return 1;
+    if (pid == 0) {
+        // Child process - setup redirections here
+        int redir_result = setup_redirections(command);
+        if (redir_result != 0) {
+            exit(1);
+        }
+        
+        if (redirect_stderr) {
+            // Redirect stderr to /dev/null
+            int null_fd = open("/dev/null", O_WRONLY);
+            if (null_fd != -1) {
+                dup2(null_fd, STDERR_FILENO);
+                close(null_fd);
+            }
+        }
+        
+        execvp(argv[0], argv);
+        if (!redirect_stderr) {
+            perror(argv[0]);
+        }
+        exit(127);
+    } else {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    }
 }
 
 // Execute builtin command

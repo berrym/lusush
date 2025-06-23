@@ -12,6 +12,7 @@
  */
 
 #include "../include/node.h"
+#include "../include/redirection.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -396,6 +397,83 @@ static char *expand_redirection_target(const char *target) {
     // For now, just return a copy of the target
     // In a full implementation, this would expand variables like $HOME, etc.
     return strdup(target);
+}
+
+// Save current file descriptors before redirection
+int save_file_descriptors(redirection_state_t *state) {
+    if (!state) {
+        return 1;
+    }
+    
+    // Initialize state
+    state->stdin_saved = false;
+    state->stdout_saved = false;
+    state->stderr_saved = false;
+    
+    // Save stdin
+    state->saved_stdin = dup(STDIN_FILENO);
+    if (state->saved_stdin != -1) {
+        state->stdin_saved = true;
+    }
+    
+    // Save stdout
+    state->saved_stdout = dup(STDOUT_FILENO);
+    if (state->saved_stdout != -1) {
+        state->stdout_saved = true;
+    }
+    
+    // Save stderr
+    state->saved_stderr = dup(STDERR_FILENO);
+    if (state->saved_stderr != -1) {
+        state->stderr_saved = true;
+    }
+    
+    return 0;
+}
+
+// Restore file descriptors after command execution
+int restore_file_descriptors(redirection_state_t *state) {
+    if (!state) {
+        return 1;
+    }
+    
+    int result = 0;
+    
+    // Restore stdin
+    if (state->stdin_saved) {
+        if (dup2(state->saved_stdin, STDIN_FILENO) == -1) {
+            perror("Failed to restore stdin");
+            result = 1;
+        }
+        close(state->saved_stdin);
+    }
+    
+    // Restore stdout
+    if (state->stdout_saved) {
+        if (dup2(state->saved_stdout, STDOUT_FILENO) == -1) {
+            perror("Failed to restore stdout");
+            result = 1;
+        }
+        close(state->saved_stdout);
+    }
+    
+    // Restore stderr
+    if (state->stderr_saved) {
+        if (dup2(state->saved_stderr, STDERR_FILENO) == -1) {
+            perror("Failed to restore stderr");
+            result = 1;
+        }
+        close(state->saved_stderr);
+    }
+    
+    return result;
+}
+
+// Print redirection error message
+void redirection_error(const char *message) {
+    if (message) {
+        fprintf(stderr, "redirection: %s\n", message);
+    }
 }
 
 // Check if a node represents a redirection
