@@ -14,6 +14,7 @@
 #include "redirection.h"
 #include "builtins.h"
 #include "alias.h"
+#include "alias_expand.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -292,8 +293,6 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     if (command->val.str && is_assignment(command->val.str)) {
         return execute_assignment_modern(executor, command->val.str);
     }
-    
-
 
     // Setup redirections before command execution
     int redir_result = setup_redirections(command);
@@ -369,36 +368,92 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         }
     }
     
-    // Check for alias expansion before command execution
+    // Check for alias expansion and rebuild argv if needed
     char *alias_expanded = lookup_alias(filtered_argv[0]);
-    if (alias_expanded && filtered_argv[0]) {
-        // For simple single-word aliases, just replace the command
-        // For multi-word aliases, check if it's a simple case
-        char *space = strchr(alias_expanded, ' ');
-        if (!space) {
-            // Simple single-word alias
-            free(filtered_argv[0]);
-            filtered_argv[0] = strdup(alias_expanded);
-            
-            if (executor->debug) {
-                printf("DEBUG: Expanded simple alias to: %s\n", filtered_argv[0]);
+    if (alias_expanded) {
+        // Reconstruct original command for expansion
+        char *original_command = NULL;
+        size_t total_len = 1; // for null terminator
+        
+        for (int i = 0; i < filtered_argc; i++) {
+            total_len += strlen(filtered_argv[i]) + (i > 0 ? 1 : 0);
+        }
+        
+        original_command = malloc(total_len);
+        if (original_command) {
+            strcpy(original_command, filtered_argv[0]);
+            for (int i = 1; i < filtered_argc; i++) {
+                strcat(original_command, " ");
+                strcat(original_command, filtered_argv[i]);
             }
-        } else {
-            // Multi-word alias - extract just the first word for now
-            // This is a simplified implementation
-            size_t first_word_len = space - alias_expanded;
-            char *first_word = malloc(first_word_len + 1);
-            if (first_word) {
-                strncpy(first_word, alias_expanded, first_word_len);
-                first_word[first_word_len] = '\0';
-                
-                free(filtered_argv[0]);
-                filtered_argv[0] = first_word;
-                
-                if (executor->debug) {
-                    printf("DEBUG: Expanded multi-word alias, using first word: %s\n", filtered_argv[0]);
+            
+            // Expand the full command line with recursive expansion
+            char *recursive_expanded = expand_aliases_recursive(filtered_argv[0], 10); // max depth 10
+            char *expanded_command = NULL;
+            
+            if (recursive_expanded) {
+                // If recursive expansion succeeded, use it to build full command
+                if (filtered_argc > 1) {
+                    // Add original arguments to recursively expanded command
+                    size_t len = strlen(recursive_expanded) + 1;
+                    for (int i = 1; i < filtered_argc; i++) {
+                        len += strlen(filtered_argv[i]) + 1;
+                    }
+                    expanded_command = malloc(len);
+                    if (expanded_command) {
+                        strcpy(expanded_command, recursive_expanded);
+                        for (int i = 1; i < filtered_argc; i++) {
+                            strcat(expanded_command, " ");
+                            strcat(expanded_command, filtered_argv[i]);
+                        }
+                    }
+                } else {
+                    expanded_command = strdup(recursive_expanded);
+                }
+                free(recursive_expanded);
+            } else {
+                // Fall back to simple first-word expansion
+                expanded_command = expand_first_word_alias(original_command);
+            }
+            if (expanded_command && strcmp(expanded_command, original_command) != 0) {
+                // Create new argv array for expanded command
+                char **new_argv = malloc(256 * sizeof(char*)); // reasonable limit
+                if (new_argv) {
+                    // Tokenize expanded command into new argv
+                    char *expanded_copy = strdup(expanded_command);
+                    char *token = strtok(expanded_copy, " ");
+                    int new_argc = 0;
+                    
+                    while (token && new_argc < 255) {
+                        new_argv[new_argc] = strdup(token);
+                        new_argc++;
+                        token = strtok(NULL, " ");
+                    }
+                    new_argv[new_argc] = NULL;
+                    
+                    // Only replace if we successfully created the new argv
+                    if (new_argc > 0) {
+                        // Free old argv only if it's not the same as original argv
+                        if (filtered_argv != argv) {
+                            for (int i = 0; i < filtered_argc; i++) {
+                                free(filtered_argv[i]);
+                            }
+                            free(filtered_argv);
+                        }
+                        
+                        filtered_argv = new_argv;
+                        filtered_argc = new_argc;
+                    } else {
+                        // Failed to create new argv, clean up
+                        free(new_argv);
+                    }
+                    
+                    free(expanded_copy);
                 }
             }
+            
+            free(expanded_command);
+            free(original_command);
         }
     }
     
