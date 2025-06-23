@@ -8,6 +8,10 @@
 typedef enum {
     NODE_COMMAND,
     NODE_VAR,
+    NODE_STRING_LITERAL,    // Single-quoted string - no expansion
+    NODE_STRING_EXPANDABLE, // Double-quoted string - variable expansion
+    NODE_ARITH_EXP,        // Arithmetic expansion $((expr))
+    NODE_COMMAND_SUB,      // Command substitution $(cmd)
     NODE_PIPE,
     NODE_REDIR_IN,     // '<'
     NODE_REDIR_OUT,    // '>'

@@ -392,7 +392,11 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             modern_tokenizer_advance(parser->tokenizer); // consume '='
             
             modern_token_t *value = modern_tokenizer_current(parser->tokenizer);
-            if (value && modern_token_is_word_like(value->type)) {
+            if (value && (modern_token_is_word_like(value->type) || 
+                         value->type == MODERN_TOK_VARIABLE ||
+                         value->type == MODERN_TOK_ARITH_EXP ||
+                         value->type == MODERN_TOK_COMMAND_SUB ||
+                         value->type == MODERN_TOK_BACKQUOTE)) {
                 size_t var_len = strlen(var_name);
                 size_t value_len = strlen(value->text);
                 char *assignment = malloc(var_len + 1 + value_len + 1);
@@ -472,13 +476,54 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             
             add_child_node(command, redir_node);
         }
+        // Handle string literals (single quotes) - no expansion
+        else if (arg_token->type == MODERN_TOK_STRING) {
+            node_t *arg_node = new_node(NODE_STRING_LITERAL);
+            if (!arg_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            arg_node->val.str = strdup(arg_token->text);
+            add_child_node(command, arg_node);
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+        // Handle expandable strings (double quotes) - variable expansion
+        else if (arg_token->type == MODERN_TOK_EXPANDABLE_STRING) {
+            node_t *arg_node = new_node(NODE_STRING_EXPANDABLE);
+            if (!arg_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            arg_node->val.str = strdup(arg_token->text);
+            add_child_node(command, arg_node);
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+        // Handle arithmetic expansion
+        else if (arg_token->type == MODERN_TOK_ARITH_EXP) {
+            node_t *arg_node = new_node(NODE_ARITH_EXP);
+            if (!arg_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            arg_node->val.str = strdup(arg_token->text);
+            add_child_node(command, arg_node);
+            modern_tokenizer_advance(parser->tokenizer);
+        }
+        // Handle command substitution
+        else if (arg_token->type == MODERN_TOK_COMMAND_SUB || arg_token->type == MODERN_TOK_BACKQUOTE) {
+            node_t *arg_node = new_node(NODE_COMMAND_SUB);
+            if (!arg_node) {
+                free_node_tree(command);
+                return NULL;
+            }
+            arg_node->val.str = strdup(arg_token->text);
+            add_child_node(command, arg_node);
+            modern_tokenizer_advance(parser->tokenizer);
+        }
         // Handle regular arguments (including keywords that should be treated as words)
         else if (modern_token_is_word_like(arg_token->type) || 
                  modern_token_is_keyword(arg_token->type) ||
                  arg_token->type == MODERN_TOK_VARIABLE ||
-                 arg_token->type == MODERN_TOK_EXPANDABLE_STRING ||
-                 arg_token->type == MODERN_TOK_COMMAND_SUB ||
-                 arg_token->type == MODERN_TOK_BACKQUOTE ||
                  arg_token->type == MODERN_TOK_RBRACKET ||
                  arg_token->type == MODERN_TOK_ASSIGN ||
                  arg_token->type == MODERN_TOK_GLOB ||

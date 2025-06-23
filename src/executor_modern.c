@@ -853,7 +853,25 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
                 }
                 
                 if (!is_delimiter) {
-                    char *expanded_arg = expand_if_needed_modern(executor, child->val.str);
+                    char *expanded_arg;
+                    
+                    // Handle different node types appropriately
+                    if (child->type == NODE_STRING_LITERAL) {
+                        // Single-quoted strings: no expansion at all
+                        expanded_arg = strdup(child->val.str);
+                    } else if (child->type == NODE_STRING_EXPANDABLE) {
+                        // Double-quoted strings: expand variables but not globs
+                        expanded_arg = expand_quoted_string_modern(executor, child->val.str);
+                    } else if (child->type == NODE_ARITH_EXP) {
+                        // Arithmetic expansion: $((expr))
+                        expanded_arg = expand_arithmetic_modern(executor, child->val.str);
+                    } else if (child->type == NODE_COMMAND_SUB) {
+                        // Command substitution: $(cmd) or `cmd`
+                        expanded_arg = expand_command_substitution_modern(executor, child->val.str);
+                    } else {
+                        // Regular variables and other expandable content
+                        expanded_arg = expand_if_needed_modern(executor, child->val.str);
+                    }
                     
                     if (getenv("NEW_PARSER_DEBUG")) {
                         fprintf(stderr, "DEBUG: Processing argument: '%s' -> '%s'\n", 
@@ -2464,12 +2482,141 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
     return strdup("");
 }
 
+// Modern arithmetic evaluator with proper operator precedence
+static long evaluate_arithmetic_expression(executor_modern_t *executor, const char *expr) {
+    if (!expr || !*expr) return 0;
+    
+    // Simple recursive descent parser for arithmetic expressions
+    // Supports: +, -, *, /, (), variables, numbers
+    
+    const char *pos = expr;
+    while (*pos && isspace(*pos)) pos++; // Skip whitespace
+    
+    // Parse number or variable
+    if (isdigit(*pos) || *pos == '-' || *pos == '+') {
+        char *endptr;
+        long result = strtol(pos, &endptr, 10);
+        return result;
+    }
+    
+    // Parse variable
+    if (isalpha(*pos) || *pos == '_') {
+        const char *start = pos;
+        while (isalnum(*pos) || *pos == '_') pos++;
+        
+        size_t var_len = pos - start;
+        char *var_name = malloc(var_len + 1);
+        if (var_name) {
+            strncpy(var_name, start, var_len);
+            var_name[var_len] = '\0';
+            
+            // Look up variable value
+            char *val = symtable_get_var(executor->symtable, var_name);
+            if (!val) {
+                val = getenv(var_name);
+            }
+            
+            long result = val ? strtol(val, NULL, 10) : 0;
+            if (val && val != getenv(var_name)) free(val);
+            free(var_name);
+            return result;
+        }
+    }
+    
+    return 0;
+}
+
+// Parse and evaluate a simple arithmetic expression (handles +, -, *, /)
+static long parse_arithmetic_simple(executor_modern_t *executor, const char *expr) {
+    if (!expr || !*expr) return 0;
+    
+    // Find the last + or - (lowest precedence)
+    const char *op_pos = NULL;
+    char op = 0;
+    int paren_depth = 0;
+    
+    for (const char *p = expr + strlen(expr) - 1; p >= expr; p--) {
+        if (*p == ')') paren_depth++;
+        else if (*p == '(') paren_depth--;
+        else if (paren_depth == 0 && (*p == '+' || *p == '-') && p > expr) {
+            op_pos = p;
+            op = *p;
+            break;
+        }
+    }
+    
+    // If no + or -, look for * or /
+    if (!op_pos) {
+        paren_depth = 0;
+        for (const char *p = expr + strlen(expr) - 1; p >= expr; p--) {
+            if (*p == ')') paren_depth++;
+            else if (*p == '(') paren_depth--;
+            else if (paren_depth == 0 && (*p == '*' || *p == '/') && p > expr) {
+                op_pos = p;
+                op = *p;
+                break;
+            }
+        }
+    }
+    
+    if (op_pos) {
+        // Split expression at operator
+        size_t left_len = op_pos - expr;
+        size_t right_len = strlen(op_pos + 1);
+        
+        char *left_expr = malloc(left_len + 1);
+        char *right_expr = malloc(right_len + 1);
+        
+        if (left_expr && right_expr) {
+            strncpy(left_expr, expr, left_len);
+            left_expr[left_len] = '\0';
+            strcpy(right_expr, op_pos + 1);
+            
+            long left_val = parse_arithmetic_simple(executor, left_expr);
+            long right_val = parse_arithmetic_simple(executor, right_expr);
+            
+            long result = 0;
+            switch (op) {
+                case '+': result = left_val + right_val; break;
+                case '-': result = left_val - right_val; break;
+                case '*': result = left_val * right_val; break;
+                case '/': result = (right_val != 0) ? left_val / right_val : 0; break;
+            }
+            
+            free(left_expr);
+            free(right_expr);
+            return result;
+        }
+        
+        free(left_expr);
+        free(right_expr);
+    }
+    
+    // Handle parentheses
+    const char *start = expr;
+    while (*start && isspace(*start)) start++;
+    if (*start == '(') {
+        const char *end = expr + strlen(expr) - 1;
+        while (end > start && isspace(*end)) end--;
+        if (*end == ')') {
+            size_t inner_len = end - start - 1;
+            char *inner_expr = malloc(inner_len + 1);
+            if (inner_expr) {
+                strncpy(inner_expr, start + 1, inner_len);
+                inner_expr[inner_len] = '\0';
+                long result = parse_arithmetic_simple(executor, inner_expr);
+                free(inner_expr);
+                return result;
+            }
+        }
+    }
+    
+    return evaluate_arithmetic_expression(executor, expr);
+}
+
 // Expand arithmetic expression using modern symbol table
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text) {
     if (!executor || !arith_text) return strdup("0");
-    
-    // This is a simplified implementation
-    // A full implementation would parse and evaluate the arithmetic
     
     if (strncmp(arith_text, "$((", 3) == 0) {
         // Find the closing ))
@@ -2482,35 +2629,13 @@ static char *expand_arithmetic_modern(executor_modern_t *executor, const char *a
                 strncpy(expr, arith_text + 3, expr_len);
                 expr[expr_len] = '\0';
                 
-                // Simple arithmetic evaluation (very basic)
-                // In a full implementation, this would be much more sophisticated
-                int result = 0;
-                if (strstr(expr, "+1")) {
-                    // Handle i+1 pattern
-                    char *var = strtok(expr, "+");
-                    if (var) {
-                        // Look up in modern symbol table first, then environment
-                        char *val = symtable_get_var(executor->symtable, var);
-                        if (!val) {
-                            val = getenv(var);
-                        }
-                        
-                        if (val) {
-                            result = atoi(val) + 1;
-                            if (val != getenv(var)) free(val); // Free if allocated by symtable
-                        } else {
-                            result = 1;
-                        }
-                    }
-                } else {
-                    result = atoi(expr);
-                }
-                
+                // Evaluate the arithmetic expression
+                long result = parse_arithmetic_simple(executor, expr);
                 free(expr);
                 
                 char *result_str = malloc(32);
                 if (result_str) {
-                    snprintf(result_str, 32, "%d", result);
+                    snprintf(result_str, 32, "%ld", result);
                     return result_str;
                 }
             }
@@ -2654,10 +2779,10 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                 
                 if (paren_depth == 0) {
                     // Extract command substitution including $( and )
-                    size_t full_cmd_len = cmd_end - (cmd_start - 2) + 1; // Include $( and )
+                    size_t full_cmd_len = cmd_end - cmd_start;
                     char *full_cmd_expr = malloc(full_cmd_len + 1);
                     if (full_cmd_expr) {
-                        strncpy(full_cmd_expr, &str[cmd_start - 2], full_cmd_len);
+                        strncpy(full_cmd_expr, &str[cmd_start], full_cmd_len);
                         full_cmd_expr[full_cmd_len] = '\0';
                         
                         // Expand command substitution
