@@ -308,7 +308,21 @@ static node_t *parse_pipeline(parser_modern_t *parser) {
         
         add_child_node(pipe_node, left);
         add_child_node(pipe_node, right);
-        return pipe_node;
+        left = pipe_node;
+    }
+    
+    // Check for background execution
+    if (modern_tokenizer_match(parser->tokenizer, MODERN_TOK_AND)) {
+        modern_tokenizer_advance(parser->tokenizer); // consume &
+        
+        node_t *background_node = new_node(NODE_BACKGROUND);
+        if (!background_node) {
+            free_node_tree(left);
+            return NULL;
+        }
+        
+        add_child_node(background_node, left);
+        return background_node;
     }
     
     return left;
@@ -427,6 +441,7 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_NEWLINE) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_PIPE) &&
+           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_AND) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_AND) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_OR)) {
         

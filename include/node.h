@@ -35,6 +35,8 @@ typedef enum {
     // Logical operators
     NODE_LOGICAL_AND,  // && operator
     NODE_LOGICAL_OR,   // || operator
+    // Job control
+    NODE_BACKGROUND,   // & operator (background execution)
 } node_type_t;
 
 typedef enum {

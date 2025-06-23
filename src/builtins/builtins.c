@@ -9,10 +9,16 @@
 
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
+#include "../../include/executor_modern.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// Forward declarations for job control builtins
+int bin_jobs(int argc, char **argv);
+int bin_fg(int argc, char **argv);
+int bin_bg(int argc, char **argv);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -43,6 +49,9 @@ builtin builtins[] = {
     {     "true",    "return success status",      bin_true},
     {    "false",    "return failure status",     bin_false},
     {      "set",       "set shell options",       bin_set},
+    {     "jobs",         "list active jobs",      bin_jobs},
+    {       "fg",    "bring job to foreground",        bin_fg},
+    {       "bg",    "send job to background",         bin_bg},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -772,4 +781,42 @@ int bin_false(int argc, char **argv) {
  */
 int bin_set(int argc, char **argv) {
     return builtin_set(argv);
+}
+
+// Global executor pointer for job control builtins
+extern executor_modern_t *current_executor;
+
+/**
+ * bin_jobs:
+ *      List active jobs
+ */
+int bin_jobs(int argc, char **argv) {
+    if (current_executor) {
+        return executor_modern_builtin_jobs(current_executor, argv);
+    }
+    return 1;
+}
+
+/**
+ * bin_fg:
+ *      Bring job to foreground
+ */
+int bin_fg(int argc, char **argv) {
+    if (current_executor) {
+        return executor_modern_builtin_fg(current_executor, argv);
+    }
+    fprintf(stderr, "fg: no current job\n");
+    return 1;
+}
+
+/**
+ * bin_bg:
+ *      Send job to background
+ */
+int bin_bg(int argc, char **argv) {
+    if (current_executor) {
+        return executor_modern_builtin_bg(current_executor, argv);
+    }
+    fprintf(stderr, "bg: no current job\n");
+    return 1;
 }

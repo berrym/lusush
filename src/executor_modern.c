@@ -27,6 +27,9 @@
 #include <fcntl.h>
 #include <ctype.h>
 
+// Global executor pointer for job control builtins
+executor_modern_t *current_executor = NULL;
+
 // Forward declarations
 // Forward declarations - updated for modern symtable
 static int execute_node_modern(executor_modern_t *executor, node_t *node);
@@ -60,6 +63,7 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count);
 static bool needs_glob_expansion(const char *str);
 static char **expand_brace_pattern(const char *pattern, int *expanded_count);
 static bool needs_brace_expansion(const char *str);
+static void initialize_job_control(executor_modern_t *executor);
 static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
 static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text);
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
@@ -88,6 +92,7 @@ executor_modern_t *executor_modern_new(void) {
     executor->error_message = NULL;
     executor->has_error = false;
     executor->functions = NULL;
+    initialize_job_control(executor);
     
     return executor;
 }
@@ -108,6 +113,7 @@ executor_modern_t *executor_modern_new_with_symtable(symtable_manager_t *symtabl
     executor->error_message = NULL;
     executor->has_error = false;
     executor->functions = NULL;
+    initialize_job_control(executor);
     
     return executor;
 }
@@ -264,6 +270,8 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             return execute_brace_group_modern(executor, node);
         case NODE_SUBSHELL:
             return execute_subshell_modern(executor, node);
+        case NODE_BACKGROUND:
+            return executor_modern_execute_background(executor, node);
         case NODE_VAR:
             // Variable nodes are typically handled by their parent
             return 0;
@@ -1449,6 +1457,9 @@ static int execute_builtin_command(executor_modern_t *executor, char **argv) {
         return 1;
     }
     
+    // Set global executor for job control builtins
+    current_executor = executor;
+    
     // Find the builtin function in the builtin table
     for (size_t i = 0; i < builtins_count; i++) {
         if (strcmp(argv[0], builtins[i].name) == 0) {
@@ -1456,15 +1467,19 @@ static int execute_builtin_command(executor_modern_t *executor, char **argv) {
             int argc = 0;
             while (argv[argc]) argc++;
             
-            // Call the builtin function
-            return builtins[i].func(argc, argv);
+            int result = builtins[i].func(argc, argv);
+            
+            // Clear global executor
+            current_executor = NULL;
+            
+            return result;
         }
     }
     
-
+    // Clear global executor
+    current_executor = NULL;
     
-    // Builtin not found, fallback to external execution
-    return execute_external_command(executor, argv);
+    return 1; // Command not found
 }
 
 // Check if command is builtin
@@ -2770,4 +2785,272 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
     
     result[result_pos] = '\0';
     return result;
+}
+// ========== JOB CONTROL IMPLEMENTATION ==========
+
+#include "executor_modern.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <string.h>
+
+// Initialize job control in executor
+static void initialize_job_control(executor_modern_t *executor) {
+    if (!executor) return;
+    
+    executor->jobs = NULL;
+    executor->next_job_id = 1;
+    executor->shell_pgid = getpgrp();
+}
+
+// Create a new process structure
+static process_t *create_process(pid_t pid, const char *command) {
+    process_t *proc = malloc(sizeof(process_t));
+    if (!proc) return NULL;
+    
+    proc->pid = pid;
+    proc->command = command ? strdup(command) : NULL;
+    proc->status = 0;
+    proc->next = NULL;
+    
+    return proc;
+}
+
+// Free process list
+static void free_process_list(process_t *processes) {
+    while (processes) {
+        process_t *next = processes->next;
+        free(processes->command);
+        free(processes);
+        processes = next;
+    }
+}
+
+// Add a new job to the job list
+job_t *executor_modern_add_job(executor_modern_t *executor, pid_t pgid, const char *command_line) {
+    if (!executor) return NULL;
+    
+    job_t *job = malloc(sizeof(job_t));
+    if (!job) return NULL;
+    
+    job->job_id = executor->next_job_id++;
+    job->pgid = pgid;
+    job->state = JOB_RUNNING;
+    job->foreground = false;
+    job->processes = NULL;
+    job->command_line = command_line ? strdup(command_line) : NULL;
+    job->next = executor->jobs;
+    
+    executor->jobs = job;
+    return job;
+}
+
+// Find job by ID
+job_t *executor_modern_find_job(executor_modern_t *executor, int job_id) {
+    if (!executor) return NULL;
+    
+    job_t *job = executor->jobs;
+    while (job) {
+        if (job->job_id == job_id) {
+            return job;
+        }
+        job = job->next;
+    }
+    return NULL;
+}
+
+// Remove job from job list
+void executor_modern_remove_job(executor_modern_t *executor, int job_id) {
+    if (!executor || !executor->jobs) return;
+    
+    job_t *job = executor->jobs;
+    job_t *prev = NULL;
+    
+    while (job) {
+        if (job->job_id == job_id) {
+            if (prev) {
+                prev->next = job->next;
+            } else {
+                executor->jobs = job->next;
+            }
+            
+            free_process_list(job->processes);
+            free(job->command_line);
+            free(job);
+            return;
+        }
+        prev = job;
+        job = job->next;
+    }
+}
+
+// Update job status by checking all processes
+void executor_modern_update_job_status(executor_modern_t *executor) {
+    if (!executor) return;
+    
+    job_t *job = executor->jobs;
+    while (job) {
+        job_t *next_job = job->next;
+        
+        if (job->state == JOB_RUNNING) {
+            int status;
+            pid_t result = waitpid(-job->pgid, &status, WNOHANG | WUNTRACED);
+            
+            if (result > 0) {
+                if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                    job->state = JOB_DONE;
+                    printf("[%d]+ Done                    %s\n", job->job_id, 
+                           job->command_line ? job->command_line : "unknown");
+                    executor_modern_remove_job(executor, job->job_id);
+                } else if (WIFSTOPPED(status)) {
+                    job->state = JOB_STOPPED;
+                    printf("[%d]+ Stopped                 %s\n", job->job_id, 
+                           job->command_line ? job->command_line : "unknown");
+                }
+            }
+        }
+        
+        job = next_job;
+    }
+}
+
+// Execute command in background
+int executor_modern_execute_background(executor_modern_t *executor, node_t *command) {
+    if (!executor || !command) return 1;
+    
+    // Build command line for display
+    char *command_line = NULL;
+    if (command->first_child && command->first_child->type == NODE_COMMAND) {
+        command_line = command->first_child->val.str;
+    }
+    
+    pid_t pid = fork();
+    if (pid == -1) {
+        fprintf(stderr, "Failed to fork for background job\n");
+        return 1;
+    }
+    
+    if (pid == 0) {
+        // Child process - create new process group
+        setpgid(0, 0);
+        
+        // Execute the command
+        int result = execute_node_modern(executor, command->first_child);
+        exit(result);
+    } else {
+        // Parent process - add to job list
+        setpgid(pid, pid); // Set child's process group
+        
+        job_t *job = executor_modern_add_job(executor, pid, command_line);
+        if (job) {
+            printf("[%d] %d\n", job->job_id, pid);
+        }
+        
+        return 0; // Background job started successfully
+    }
+}
+
+// Built-in jobs command
+int executor_modern_builtin_jobs(executor_modern_t *executor, char **argv) {
+    if (!executor) return 1;
+    
+    // Update job statuses first
+    executor_modern_update_job_status(executor);
+    
+    job_t *job = executor->jobs;
+    while (job) {
+        const char *state_str;
+        switch (job->state) {
+            case JOB_RUNNING: state_str = "Running"; break;
+            case JOB_STOPPED: state_str = "Stopped"; break;
+            case JOB_DONE: state_str = "Done"; break;
+            default: state_str = "Unknown"; break;
+        }
+        
+        printf("[%d]%c %-20s %s\n", job->job_id, 
+               job->foreground ? '+' : '-',
+               state_str,
+               job->command_line ? job->command_line : "unknown");
+        
+        job = job->next;
+    }
+    
+    return 0;
+}
+
+// Built-in fg command
+int executor_modern_builtin_fg(executor_modern_t *executor, char **argv) {
+    if (!executor) return 1;
+    
+    int job_id = 1; // Default to job 1
+    if (argv[1]) {
+        job_id = atoi(argv[1]);
+    }
+    
+    job_t *job = executor_modern_find_job(executor, job_id);
+    if (!job) {
+        fprintf(stderr, "fg: %d: no such job\n", job_id);
+        return 1;
+    }
+    
+    if (job->state == JOB_DONE) {
+        fprintf(stderr, "fg: %d: job has terminated\n", job_id);
+        return 1;
+    }
+    
+    // Continue the job if it was stopped
+    if (job->state == JOB_STOPPED) {
+        kill(-job->pgid, SIGCONT);
+    }
+    
+    job->foreground = true;
+    job->state = JOB_RUNNING;
+    
+    // Wait for the job to complete or stop
+    int status;
+    waitpid(-job->pgid, &status, WUNTRACED);
+    
+    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+        executor_modern_remove_job(executor, job_id);
+        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    } else if (WIFSTOPPED(status)) {
+        job->state = JOB_STOPPED;
+        job->foreground = false;
+        printf("[%d]+ Stopped                 %s\n", job_id, 
+               job->command_line ? job->command_line : "unknown");
+    }
+    
+    return 0;
+}
+
+// Built-in bg command
+int executor_modern_builtin_bg(executor_modern_t *executor, char **argv) {
+    if (!executor) return 1;
+    
+    int job_id = 1; // Default to job 1
+    if (argv[1]) {
+        job_id = atoi(argv[1]);
+    }
+    
+    job_t *job = executor_modern_find_job(executor, job_id);
+    if (!job) {
+        fprintf(stderr, "bg: %d: no such job\n", job_id);
+        return 1;
+    }
+    
+    if (job->state != JOB_STOPPED) {
+        fprintf(stderr, "bg: %d: job already in background\n", job_id);
+        return 1;
+    }
+    
+    // Continue the job in background
+    job->state = JOB_RUNNING;
+    job->foreground = false;
+    kill(-job->pgid, SIGCONT);
+    
+    printf("[%d]+ %s &\n", job_id, job->command_line ? job->command_line : "unknown");
+    
+    return 0;
 }
