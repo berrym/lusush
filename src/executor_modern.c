@@ -43,6 +43,7 @@ static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_nod
 static int execute_command_list_modern(executor_modern_t *executor, node_t *list);
 static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc);
 static int execute_external_command(executor_modern_t *executor, char **argv);
+static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr);
 static int execute_builtin_command(executor_modern_t *executor, char **argv);
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
@@ -296,20 +297,74 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         return 1;
     }
     
-    if (executor->debug) {
-        printf("DEBUG: Executing command: %s with %d args\n", argv[0], argc - 1);
+    // Check for stderr redirection pattern (2>/dev/null or 2> /dev/null)
+    bool redirect_stderr = false;
+    char **filtered_argv = NULL;
+    int filtered_argc = 0;
+    
+    // Look for 2>/dev/null pattern in arguments
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "2>/dev/null") == 0) {
+            redirect_stderr = true;
+            break;
+        } else if (i + 2 < argc && strcmp(argv[i], "2") == 0 && 
+                   strcmp(argv[i+1], ">") == 0 && strcmp(argv[i+2], "/dev/null") == 0) {
+            redirect_stderr = true;
+            break;
+        }
+    }
+    
+    if (redirect_stderr) {
+        // Create filtered argv without redirection tokens
+        filtered_argv = malloc((argc + 1) * sizeof(char *));
+        if (!filtered_argv) {
+            // Free original argv and return error
+            for (int i = 0; i < argc; i++) {
+                free(argv[i]);
+            }
+            free(argv);
+            return 1;
+        }
+        
+        int j = 0;
         for (int i = 0; i < argc; i++) {
-            printf("DEBUG: argv[%d] = '%s'\n", i, argv[i]);
+            if (strcmp(argv[i], "2>/dev/null") == 0) {
+                // Skip this token
+                continue;
+            } else if (i + 2 < argc && strcmp(argv[i], "2") == 0 && 
+                       strcmp(argv[i+1], ">") == 0 && strcmp(argv[i+2], "/dev/null") == 0) {
+                // Skip these three tokens
+                i += 2;
+                continue;
+            } else {
+                filtered_argv[j] = strdup(argv[i]);
+                j++;
+            }
+        }
+        filtered_argv[j] = NULL;
+        filtered_argc = j;
+    } else {
+        filtered_argv = argv;
+        filtered_argc = argc;
+    }
+    
+    if (executor->debug) {
+        printf("DEBUG: Executing command: %s with %d args\n", filtered_argv[0], filtered_argc - 1);
+        for (int i = 0; i < filtered_argc; i++) {
+            printf("DEBUG: argv[%d] = '%s'\n", i, filtered_argv[i]);
+        }
+        if (redirect_stderr) {
+            printf("DEBUG: stderr redirection enabled\n");
         }
     }
     
     int result;
-    if (is_function_defined(executor, argv[0])) {
-        result = execute_function_call_modern(executor, argv[0], argv, argc);
-    } else if (is_builtin_command(argv[0])) {
-        result = execute_builtin_command(executor, argv);
+    if (is_function_defined(executor, filtered_argv[0])) {
+        result = execute_function_call_modern(executor, filtered_argv[0], filtered_argv, filtered_argc);
+    } else if (is_builtin_command(filtered_argv[0])) {
+        result = execute_builtin_command(executor, filtered_argv);
     } else {
-        result = execute_external_command(executor, argv);
+        result = execute_external_command_with_redirection(executor, filtered_argv, redirect_stderr);
     }
     
     // Free argv
@@ -317,6 +372,14 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         free(argv[i]);
     }
     free(argv);
+    
+    // Free filtered argv if it was separately allocated
+    if (redirect_stderr && filtered_argv) {
+        for (int i = 0; i < filtered_argc; i++) {
+            free(filtered_argv[i]);
+        }
+        free(filtered_argv);
+    }
     
     return result;
 }
@@ -673,40 +736,16 @@ static char *expand_if_needed_modern(executor_modern_t *executor, const char *te
 
 // Execute external command
 static int execute_external_command(executor_modern_t *executor, char **argv) {
+    return execute_external_command_with_redirection(executor, argv, false);
+}
+
+static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr) {
     if (!argv || !argv[0]) {
         return 1;
     }
     
-    // Check for stderr redirection (2>/dev/null pattern)
-    bool redirect_stderr = false;
-    int actual_argc = 0;
-    
-    // Count actual arguments and detect redirection
-    for (int i = 0; argv[i]; i++) {
-        if (strcmp(argv[i], "2>/dev/null") == 0) {
-            redirect_stderr = true;
-            break;
-        }
-        actual_argc++;
-    }
-    
-    // Create filtered argv without redirection
-    char **filtered_argv = malloc((actual_argc + 1) * sizeof(char *));
-    if (!filtered_argv) {
-        return 1;
-    }
-    
-    int j = 0;
-    for (int i = 0; i < actual_argc; i++) {
-        if (strcmp(argv[i], "2>/dev/null") != 0) {
-            filtered_argv[j++] = argv[i];
-        }
-    }
-    filtered_argv[j] = NULL;
-    
     pid_t pid = fork();
     if (pid == -1) {
-        free(filtered_argv);
         executor_error(executor, "Failed to fork");
         return 1;
     }
@@ -722,15 +761,14 @@ static int execute_external_command(executor_modern_t *executor, char **argv) {
             }
         }
         
-        execvp(filtered_argv[0], filtered_argv);
+        execvp(argv[0], argv);
         if (!redirect_stderr) {
-            perror(filtered_argv[0]);
+            perror(argv[0]);
         }
         exit(127);
     }
     
     // Parent process
-    free(filtered_argv);
     int status;
     waitpid(pid, &status, 0);
     
