@@ -10,6 +10,7 @@
 #include "parser_modern.h"
 #include "tokenizer_new.h"
 #include "symtable_modern.h"
+#include "symtable_global.h"
 #include "node.h"
 
 #include <stdlib.h>
@@ -53,13 +54,15 @@ static bool is_assignment(const char *text);
 static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
 static bool match_pattern(const char *str, const char *pattern);
 
-// Create new executor
+// Create new executor with global symtable
 executor_modern_t *executor_modern_new(void) {
     executor_modern_t *executor = malloc(sizeof(executor_modern_t));
-    if (!executor) return NULL;
+    if (!executor) {
+        return NULL;
+    }
     
-    // Initialize modern symbol table
-    executor->symtable = symtable_manager_new();
+    // Use global symbol table
+    executor->symtable = get_global_symtable_manager();
     if (!executor->symtable) {
         free(executor);
         return NULL;
@@ -75,12 +78,30 @@ executor_modern_t *executor_modern_new(void) {
     return executor;
 }
 
+// Create new executor with external symtable
+executor_modern_t *executor_modern_new_with_symtable(symtable_manager_t *symtable) {
+    executor_modern_t *executor = malloc(sizeof(executor_modern_t));
+    if (!executor) {
+        return NULL;
+    }
+    
+    // Use provided symtable
+    executor->symtable = symtable;
+    
+    executor->interactive = false;
+    executor->debug = false;
+    executor->exit_status = 0;
+    executor->error_message = NULL;
+    executor->has_error = false;
+    executor->functions = NULL;
+    
+    return executor;
+}
+
 // Free executor
 void executor_modern_free(executor_modern_t *executor) {
     if (executor) {
-        if (executor->symtable) {
-            symtable_manager_free(executor->symtable);
-        }
+        // Don't free global symtable - it's managed globally
         
         // Free function table
         function_def_t *func = executor->functions;
@@ -110,6 +131,14 @@ void executor_modern_set_debug(executor_modern_t *executor, bool debug) {
 void executor_modern_set_interactive(executor_modern_t *executor, bool interactive) {
     if (executor) {
         executor->interactive = interactive;
+    }
+}
+
+// Set external symtable
+void executor_modern_set_symtable(executor_modern_t *executor, symtable_manager_t *symtable) {
+    if (executor) {
+        // Don't free the old symtable if it exists - it might be external
+        executor->symtable = symtable;
     }
 }
 

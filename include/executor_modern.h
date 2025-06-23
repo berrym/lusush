@@ -34,6 +34,7 @@ typedef struct executor_modern {
 
 // Main execution interface
 executor_modern_t *executor_modern_new(void);
+executor_modern_t *executor_modern_new_with_symtable(symtable_manager_t *symtable);
 void executor_modern_free(executor_modern_t *executor);
 
 // Primary execution functions
@@ -43,6 +44,7 @@ int executor_modern_execute_command_line(executor_modern_t *executor, const char
 // Configuration
 void executor_modern_set_debug(executor_modern_t *executor, bool debug);
 void executor_modern_set_interactive(executor_modern_t *executor, bool interactive);
+void executor_modern_set_symtable(executor_modern_t *executor, symtable_manager_t *symtable);
 
 // Error handling
 bool executor_modern_has_error(executor_modern_t *executor);

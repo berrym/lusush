@@ -71,10 +71,6 @@ int main(int argc, char **argv) {
         src.bufsize = strlen(line);
         src.pos = INIT_SRC_POS;
 
-
-
-
-
         // Execute using unified modern parser
         parse_and_execute(&src);
 

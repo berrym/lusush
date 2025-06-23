@@ -1,17 +1,19 @@
-#include "../include/init.h"
+/*
+ * Modern initialization system for Lusush shell
+ * Uses modern symtable and clean component interfaces
+ */
 
+#include "../include/init.h"
+#include "../include/symtable_modern.h"
 #include "../include/alias.h"
 #include "../include/completion.h"
 #include "../include/errors.h"
 #include "../include/history.h"
-#include "../include/input.h"
 #include "../include/linenoise/encodings/utf8.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
-#include "../include/scanner_old.h"
 #include "../include/signals.h"
-#include "../include/symtable_global.h"
 #include "../include/version.h"
 
 #include <getopt.h>
@@ -54,9 +56,12 @@ static void process_shebang(FILE *file) {
     fseek(file, pos, SEEK_SET);
 }
 
-int shell_type(void) { return SHELL_TYPE; }
+int shell_type(void) { 
+    return SHELL_TYPE; 
+}
 
-int init(int argc, char **argv, FILE **in) {
+// Modern initialization function that returns a configured symtable manager
+symtable_manager_t *init_modern(int argc, char **argv, FILE **in) {
     struct stat st; // stat buffer
 
     if (argv == NULL) {
@@ -69,12 +74,13 @@ int init(int argc, char **argv, FILE **in) {
     // Setup signal handlers
     init_signal_handlers();
 
-    // Initialize global modern symbol table
-    if (init_global_symtable() != 0) {
+    // Create modern symbol table manager
+    symtable_manager_t *symtable = symtable_manager_new();
+    if (!symtable) {
         error_abort("Failed to create symbol table manager");
     }
 
-    // Import environment variables into global symtable
+    // Import environment variables into modern symtable
     char **env_ptr = environ;
     while (*env_ptr) {
         char *eq = strchr(*env_ptr, '=');
@@ -90,73 +96,140 @@ int init(int argc, char **argv, FILE **in) {
             name[name_len] = '\0';
             
             // Set variable and mark as exported
-            export_global_var(name, eq + 1);
+            symtable_set_var(symtable, name, eq + 1, SYMVAR_EXPORTED);
             
             free(name);
         } else {
             // Environment variable without value (set but empty)
-            export_global_var(*env_ptr, "");
+            symtable_set_var(symtable, *env_ptr, "", SYMVAR_EXPORTED);
         }
         env_ptr++;
     }
 
+    // Initialize shell options
     init_shell_opts();
     
     // Initialize POSIX shell options with defaults
     init_posix_options();
 
     // Parse command line options
-    size_t optind = parse_opts(argc, argv);
+    int optind = parse_opts(argc, argv);
 
-    // Determine the shell type
-    if (**argv == '-') {
+    // Determine shell type according to POSIX specification
+    bool is_login = false;
+    bool is_interactive = false;
+    
+    // POSIX: Login shell determination
+    // 1. If argv[0] starts with '-', it's a login shell
+    // 2. If invoked with -l option, it's a login shell
+    if (argv[0][0] == '-' || shell_opts.login_shell) {
+        is_login = true;
+    }
+    
+    // POSIX: Interactive shell determination
+    // 1. If -i option is specified, force interactive
+    // 2. If stdin is a terminal and no script file, interactive
+    // 3. If -c option is used, non-interactive unless -i is also specified
+    if (shell_opts.interactive) {
+        is_interactive = true;
+    } else if (shell_opts.command_mode) {
+        is_interactive = false;  // -c implies non-interactive unless -i
+    } else if (optind < argc && argv[optind]) {
+        is_interactive = false;  // Script file implies non-interactive
+    } else if (isatty(STDIN_FILENO) && isatty(STDERR_FILENO)) {
+        is_interactive = true;   // Terminal input/output implies interactive
+    } else {
+        is_interactive = false;  // Piped input implies non-interactive
+    }
+    
+    // Set shell type based on POSIX classification
+    if (is_login) {
         SHELL_TYPE = LOGIN_SHELL;
-    } else if (optind && argv[optind] && *argv[optind]) {
-        // Check that argv[optind] is a regular file
-        stat(argv[optind], &st);
-        if (!(S_ISREG(st.st_mode))) {
-            error_message("error: `init`: %s is not a regular file",
-                          argv[optind]);
-            optind = 0;
-            SHELL_TYPE = INTERACTIVE_SHELL;
-            // Set input to stdin for interactive mode (including piped input)
-            *in = stdin;
-
-            linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
-                                          linenoiseUtf8NextCharLen,
-                                          linenoiseUtf8ReadCode);
-            linenoiseSetMultiLine(get_shell_varb("MULTILINE_EDIT", true));
-            build_prompt();
-        } else {
+    } else if (is_interactive) {
+        SHELL_TYPE = INTERACTIVE_SHELL;
+    } else {
+        SHELL_TYPE = NORMAL_SHELL;
+    }
+    
+    // Handle input source based on shell type and arguments
+    if (optind < argc && argv[optind]) {
+        // Script file specified
+        if (stat(argv[optind], &st) != 0) {
+            error_syscall("error: `init_modern`: cannot access script file");
+            symtable_manager_free(symtable);
+            return NULL;
+        }
+        
+        if (!S_ISREG(st.st_mode)) {
+            error_message("error: `init_modern`: %s is not a regular file", argv[optind]);
+            symtable_manager_free(symtable);
+            return NULL;
+        }
+        
+        if ((*in = fopen(argv[optind], "r")) == NULL) {
+            error_syscall("error: `init_modern`: cannot open script file");
+            symtable_manager_free(symtable);
+            return NULL;
+        }
+        
+        // Process shebang line if present
+        process_shebang(*in);
+        
+        // Override shell type to NORMAL_SHELL when executing script
+        if (!shell_opts.interactive) {
             SHELL_TYPE = NORMAL_SHELL;
-            if ((*in = fopen(argv[optind], "r")) == NULL) {
-                error_syscall("error: `init`: fopen");
-            } else {
-                // Process shebang line if present
-                process_shebang(*in);
-            }
         }
     } else {
-        optind = 0;
-        SHELL_TYPE = INTERACTIVE_SHELL;
-        // Set input to stdin for interactive mode (including piped input)
+        // No script file - use stdin
         *in = stdin;
     }
 
-    // Get and set shell's ppid in environment
-    pid_t ppid = getppid();
+    // Set up interactive features if needed
+    if (is_interactive) {
+        linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
+                                      linenoiseUtf8NextCharLen,
+                                      linenoiseUtf8ReadCode);
+        linenoiseSetMultiLine(get_shell_vari("MULTILINE_EDIT", true));
+        build_prompt();
+        
+        // POSIX: Interactive shells should handle job control
+        if (shell_opts.job_control) {
+            // Initialize job control (placeholder for future implementation)
+        }
+    }
+    
+    // POSIX: Set positional parameters
+    // $0 is the shell name or script name
+    if (optind < argc && argv[optind]) {
+        symtable_set_var(symtable, "0", argv[optind], SYMVAR_READONLY);
+        // Set $1, $2, etc. for script arguments
+        for (int i = optind + 1; i < argc; i++) {
+            char param_name[16];
+            snprintf(param_name, sizeof(param_name), "%d", i - optind);
+            symtable_set_var(symtable, param_name, argv[i], SYMVAR_NONE);
+        }
+        // Set $# (argument count)
+        char argc_str[16];
+        snprintf(argc_str, sizeof(argc_str), "%d", argc - optind - 1);
+        symtable_set_var(symtable, "#", argc_str, SYMVAR_READONLY);
+    } else {
+        symtable_set_var(symtable, "0", argv[0], SYMVAR_READONLY);
+        symtable_set_var(symtable, "#", "0", SYMVAR_READONLY);
+    }
+
+    // Set shell process information in modern symtable
+    char pid_str[32];
+    snprintf(pid_str, sizeof(pid_str), "%d", getpid());
+    symtable_set_var(symtable, "SHELL_PID", pid_str, SYMVAR_READONLY);
+    
     char ppid_str[32];
-    snprintf(ppid_str, sizeof(ppid_str), "%d", ppid);
-    setenv("PPID", ppid_str, 1);
-    export_global_var("PPID", ppid_str);
+    snprintf(ppid_str, sizeof(ppid_str), "%d", getppid());
+    symtable_set_var(symtable, "PPID", ppid_str, SYMVAR_READONLY | SYMVAR_EXPORTED);
     
     // Set initial exit status
-    set_special_var("?", "0");
-    
-    // Set shell name/script name
-    set_special_var("0", argv[0]);
+    symtable_set_var(symtable, "?", "0", SYMVAR_NONE);
 
-    // Initialize history
+    // Initialize history for interactive and login shells
     if (shell_type() != NORMAL_SHELL) {
         init_history();
     }
@@ -168,19 +241,14 @@ int init(int argc, char **argv, FILE **in) {
     linenoiseSetCompletionCallback(lusush_completion_callback);
 
     // Set memory cleanup procedures on termination
-    atexit(free_tok_buf);
-    atexit(free_global_symtable);
     atexit(free_aliases);
-    if (shell_type() == NORMAL_SHELL) {
-        atexit(free_input_buffers);
-    }
 
     // Process shebang if the shell is invoked with a script
     if (shell_type() == NORMAL_SHELL && *in) {
         process_shebang(*in);
     }
 
-    return 0;
+    return symtable;
 }
 
 static int parse_opts(int argc, char **argv) {

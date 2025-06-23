@@ -45,6 +45,7 @@ src = ['src/builtins/alias.c',
        'src/strings.c',
        'src/symtable.c',
        'src/symtable_modern.c',
+       'src/symtable_global.c',
        'src/token_pushback.c',
        'src/tokenizer_new.c',
        'src/vars.c',
@@ -58,4 +59,3 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 executable('lusush',
            src,
            include_directories: inc)
-
