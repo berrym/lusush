@@ -108,6 +108,19 @@ bool modern_tokenizer_consume(modern_tokenizer_t *tokenizer, modern_token_type_t
     return false;
 }
 
+// Refresh tokenizer cache from current position (used after manual position updates)
+void modern_tokenizer_refresh_from_position(modern_tokenizer_t *tokenizer) {
+    if (!tokenizer) return;
+    
+    // Free existing cached tokens
+    modern_token_free(tokenizer->current);
+    modern_token_free(tokenizer->lookahead);
+    
+    // Re-tokenize from current position
+    tokenizer->current = tokenize_next(tokenizer);
+    tokenizer->lookahead = tokenize_next(tokenizer);
+}
+
 // Control keyword recognition
 void modern_tokenizer_enable_keywords(modern_tokenizer_t *tokenizer, bool enable) {
     if (tokenizer) {

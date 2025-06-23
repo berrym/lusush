@@ -684,6 +684,9 @@ static char *collect_heredoc_content(parser_modern_t *parser, const char *delimi
         }
     }
     
+    // Refresh tokenizer cache from the updated position
+    modern_tokenizer_refresh_from_position(tokenizer);
+    
     return content;
 }
 

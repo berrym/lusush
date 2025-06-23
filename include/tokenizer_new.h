@@ -122,5 +122,6 @@ bool modern_token_is_word_like(modern_token_type_t type);
 
 // Token control
 void modern_tokenizer_enable_keywords(modern_tokenizer_t *tokenizer, bool enable);
+void modern_tokenizer_refresh_from_position(modern_tokenizer_t *tokenizer);
 
 #endif // TOKENIZER_NEW_H
