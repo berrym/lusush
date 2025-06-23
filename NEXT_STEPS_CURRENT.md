@@ -17,16 +17,18 @@
 
 **Modern Architecture Success**: Case statements achieved 100% test success, test builtin provides complete conditional logic, proving the architecture's capability for complex language features.
 
-### 1. Function Polish
-**Priority**: HIGH - Complete function implementation to 100% success  
-**Current Status**: 73% working, major functionality complete with conditional logic support  
-**Remaining Issues**:
-- Multiple variable expansion in quoted strings (`"$1-$2"` only shows first variable)
-- Quoted variable assignments (`var="value"` syntax not working)
-- Empty function bodies (`{ }` show error messages instead of silent success)
-- Function error handling improvements
-**Timeline**: 4-5 days  
-**Impact**: Complete core shell programming constructs with 100% POSIX compliance
+**URGENT**: Core shell functionality regressions identified that require immediate attention.
+
+### 1. Fix Core Shell Regressions
+**Priority**: CRITICAL - Restore previously working fundamental shell functionality  
+**Current Status**: Basic shell operations regressed, affecting all shell usage  
+**Critical Issues**:
+- Multiple variable expansion in quoted strings broken (`"$VAR1-$VAR2"` only shows first variable)
+- Quoted variable assignments not working (`var="value"` syntax not recognized)
+- Empty function bodies showing error messages instead of silent success
+- These affect general shell use, not just functions
+**Timeline**: 2-3 days URGENT  
+**Impact**: Restore core POSIX shell functionality for basic operations and scripting
 
 ### 2. Here Documents
 **Priority**: HIGH - Critical I/O redirection feature  
@@ -49,15 +51,14 @@
 
 ## Short Term (Next 1-2 Weeks)
 
-### 4. Parameter Expansion Edge Cases
-**Priority**: HIGH - Critical for function completion  
-**Features**: Fix remaining edge cases in parameter expansion (affects function multiple variable issue)  
-- Multiple variable expansion in single quoted string (`"$1-$2"`)
-- Special character handling in patterns
-- Complex nested expansions
-- Error handling improvements
-**Timeline**: 1-2 days  
-**Impact**: Robust parameter expansion for production use and 100% function success
+### 4. Function Polish (After Core Fixes)
+**Priority**: MEDIUM - Complete after core regressions fixed  
+**Features**: Complete function implementation to 100% success rate  
+- Function error handling improvements (after core expansion fixes)
+- Advanced function features and edge cases
+- Function-specific optimizations
+**Timeline**: 1-2 days (after core fixes)  
+**Impact**: Complete function implementation depends on core shell functionality being restored
 
 ### 5. Job Control
 **Priority**: LOW - Advanced shell feature  
@@ -137,8 +138,8 @@
 - Regular git commits documenting progress ✅
 
 ## Upcoming Success Targets
-- Function implementation completion (100% success rate)
-- Parameter expansion edge case fixes (multiple variables in strings)
+- URGENT: Core shell functionality regression fixes (multiple variable expansion, quoted assignments)
+- Function implementation completion (100% success rate - blocked by core fixes)
 - Here document implementation (`<<` and `<<-`)
 - Advanced I/O redirection (process substitution, here strings)
 - Job control and background process management

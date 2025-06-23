@@ -165,9 +165,14 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 
 ## Outstanding Issues
 
-### Minor - Function Polish (Current Priority)
-- **Multiple Variable Expansion**: Parameter expansion issue with multiple variables in single string (`"$1-$2"` only expands first variable)
-- **Quoted Variable Assignment**: Variable assignments with quoted values in functions (`var="value"` vs `var=value`)
+### Critical - Basic Shell Functionality Regressions (IMMEDIATE PRIORITY)
+- **Multiple Variable Expansion Regression**: Core shell functionality broken - multiple variables in single quoted string only expand first variable
+  - Example: `VAR1=first; VAR2=second; echo "$VAR1-$VAR2"` outputs `first` instead of `first-second`
+  - Affects both general shell use and function parameter expansion
+  - Previously working functionality now regressed
+- **Quoted Variable Assignment Regression**: Basic assignment syntax not working
+  - Example: `var="hello"` not recognized as assignment, only `var=hello` works
+  - Fundamental shell assignment functionality regression
 - **Empty Function Bodies**: Functions with empty bodies `{ }` show error messages instead of silent success
 - **Function Error Handling**: Undefined function calls should return proper error codes
 
@@ -177,6 +182,13 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 - **Parser Warning**: Unused function declaration 'parse_control_structure' should be removed
 
 ## Recent Major Implementations (December 21, 2024)
+
+### ⚠️ Critical Regressions Identified (December 21, 2024)
+- **Discovery**: Investigation revealed regressions in core shell functionality that was previously working
+- **Impact**: Multiple variable expansion and quoted assignments broken, affecting both general use and functions
+- **Root Cause**: Recent changes have introduced parsing/expansion regressions in fundamental shell operations
+- **Priority**: IMMEDIATE - these affect basic shell functionality beyond just function implementation
+- **Evidence**: Parameter expansion tests show inconsistent results (69% vs 94% in different test suites)
 
 ### ✅ Test Builtin and Function Enhancement (IMPLEMENTED - December 21, 2024)
 - **Achievement**: Complete test/[ builtin command enabling conditional logic throughout the shell
@@ -270,11 +282,11 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 
 ## Next Development Priorities
 
-1. **Function Polish**: Complete function implementation to 100% success rate
-   - Fix multiple variable expansion in quoted strings (`"$1-$2"`)
-   - Support quoted variable assignments (`var="value"`)
+1. **URGENT: Fix Basic Shell Regressions**: Restore previously working core functionality
+   - Fix multiple variable expansion in quoted strings (affects general shell use, not just functions)
+   - Fix quoted variable assignment recognition (`var="value"` syntax)
    - Handle empty function bodies gracefully
-   - Improve function error handling and undefined function calls
+   - These are regressions in fundamental shell operations that must be resolved immediately
 2. **Here Documents**: Implement `<<` and `<<-` here document functionality
 3. **Advanced I/O Redirection**: Complete redirection operators and file descriptor manipulation
 4. **Parameter Expansion Refinement**: Fix remaining edge cases and special character handling
@@ -307,7 +319,7 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
 - **Crash Stability**: Modern components include proper error handling
 - **Execution Speed**: Performance comparable to legacy implementation
 - **Standards Compliance**: Excellent POSIX adherence with modern parser, case statements, and test builtin
-- **Test Coverage**: 100% success rate on case statements, 94% on parameter expansion, 73% on functions
+- **Test Coverage**: 100% success rate on case statements, 94% on parameter expansion (with known regressions), 73% on functions (limited by core regressions)
 
 ## Development Methodology
 
