@@ -31,6 +31,7 @@ static bool is_function_defined(executor_modern_t *executor, const char *functio
 static function_def_t *find_function(executor_modern_t *executor, const char *function_name);
 static int store_function(executor_modern_t *executor, const char *function_name, node_t *body);
 static node_t *copy_ast_node(node_t *node);
+static node_t *copy_ast_chain(node_t *node);
 static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
 static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
 static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
@@ -884,8 +885,14 @@ static int execute_function_call_modern(executor_modern_t *executor, const char 
     snprintf(argc_str, sizeof(argc_str), "%d", argc - 1);
     symtable_set_local_var(executor->symtable, "#", argc_str);
     
-    // Execute function body
-    int result = execute_node_modern(executor, func->body);
+    // Execute function body (handle multiple commands)
+    int result = 0;
+    node_t *command = func->body;
+    while (command) {
+        result = execute_node_modern(executor, command);
+        if (result != 0) break; // Stop on first error
+        command = command->next_sibling;
+    }
     
     // Restore previous scope
     symtable_pop_scope(executor->symtable);
@@ -915,6 +922,7 @@ static int store_function(executor_modern_t *executor, const char *function_name
         return 1;
     }
     
+
     // Check if function already exists and remove it
     function_def_t **current = &executor->functions;
     while (*current) {
@@ -941,15 +949,15 @@ static int store_function(executor_modern_t *executor, const char *function_name
         return 1;
     }
     
-    // Create a deep copy of the body AST
-    new_func->body = copy_ast_node(body);
+    // Create a deep copy of the body AST (including sibling chain)
+    new_func->body = copy_ast_chain(body);
     if (!new_func->body) {
         free(new_func->name);
         free(new_func);
         return 1;
     }
     
-    // Add to front of function list
+// Add to front of function list
     new_func->next = executor->functions;
     executor->functions = new_func;
     
@@ -988,6 +996,33 @@ static node_t *copy_ast_node(node_t *node) {
     }
     
     return copy;
+}
+
+// Copy AST node chain (including siblings)
+static node_t *copy_ast_chain(node_t *node) {
+    if (!node) return NULL;
+    
+    node_t *first_copy = copy_ast_node(node);
+    if (!first_copy) return NULL;
+    
+    node_t *current_copy = first_copy;
+    node_t *current_orig = node->next_sibling;
+    
+    while (current_orig) {
+        node_t *sibling_copy = copy_ast_node(current_orig);
+        if (!sibling_copy) {
+            free_node_tree(first_copy);
+            return NULL;
+        }
+        
+        current_copy->next_sibling = sibling_copy;
+        sibling_copy->prev_sibling = current_copy;
+        
+        current_copy = sibling_copy;
+        current_orig = current_orig->next_sibling;
+    }
+    
+    return first_copy;
 }
 
 // Helper function to check if a string is empty or null
