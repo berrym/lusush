@@ -28,15 +28,16 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
   - Numeric comparisons: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge` for all numeric operations
   - Both command forms: `test condition` and `[ condition ]` with proper validation
   - Proper exit codes enabling conditional execution with `&&` and `||` operators
-- ✅ **Function Definitions**: Major POSIX-compliant function implementation (80% working)
+- ✅ **Function Definitions**: Near-complete POSIX-compliant function implementation (93% working)
   - Function definition syntax: `name() { commands; }` and `function name() { commands; }`
   - Function calling with argument passing and parameter access (`$1`, `$2`, etc.)
   - Multiple variable expansion in functions: `"$1-$2"` works correctly
   - Quoted variable assignments in functions: `var="value with spaces"` fully functional
   - Empty function bodies: `empty() { }; empty` works silently without errors
-  - Local variable scoping with proper scope management and isolation
-  - Conditional logic in functions using test builtin and if statements
+  - Variable scoping with proper global assignment from functions
+  - Conditional logic in functions using test builtin and if statements with bracket syntax
   - Function redefinition support and complex multi-command bodies
+  - Full support for test conditions in functions: `if [ "$1" = "test" ]; then echo "match"; fi`
 - ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
@@ -46,10 +47,9 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 - ✅ **Control Structures**: FOR/WHILE loops, IF statements, and CASE statements with proper variable scoping
 
 **Next Priorities:**
-- 🔄 **Function Completion**: Complete function implementation to 100% success rate (currently 80%)
-  - Fix remaining variable scoping edge cases
-  - Improve function error handling consistency
-  - Address advanced function patterns and features
+- 🔄 **Function Completion**: Complete function implementation to 100% success rate (currently 93%)
+  - Address remaining I/O redirection edge case in error handling
+  - Minor refinements for advanced function error scenarios
 - 🔄 **Here Documents**: `<<` and `<<-` here document functionality
 - 🔄 **Advanced I/O Redirection**: Complete redirection operators and file descriptor manipulation
 
