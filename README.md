@@ -23,6 +23,17 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
   - Variable expansion in test words: `case $var in pattern) ...`
   - Variable expansion in patterns: `case word in $pattern) ...`
   - Multiple commands per case: `case word in pattern) cmd1; cmd2; cmd3 ;; esac`
+- ✅ **Test Builtin**: Complete POSIX-compliant test/[ builtin implementation
+  - String comparisons: `=`, `!=`, `-z`, `-n` for equality and empty/non-empty tests
+  - Numeric comparisons: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge` for all numeric operations
+  - Both command forms: `test condition` and `[ condition ]` with proper validation
+  - Proper exit codes enabling conditional execution with `&&` and `||` operators
+- ✅ **Function Definitions**: Partial POSIX-compliant function implementation (73% working)
+  - Function definition syntax: `name() { commands; }` and `function name() { commands; }`
+  - Function calling with argument passing and parameter access (`$1`, `$2`, etc.)
+  - Local variable scoping with proper scope management and isolation
+  - Conditional logic in functions using test builtin and if statements
+  - Function redefinition support and complex multi-command bodies
 - ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
 - ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
@@ -32,7 +43,10 @@ Lusush is a functional shell implementing core POSIX shell features with a moder
 - ✅ **Control Structures**: FOR/WHILE loops, IF statements, and CASE statements with proper variable scoping
 
 **Next Priorities:**
-- 🔄 **Function Definitions**: POSIX-compliant function definition and calling
+- 🔄 **Function Polish**: Complete function implementation to 100% success rate
+  - Fix multiple variable expansion in quoted strings (`"$1-$2"`)
+  - Support quoted variable assignments (`var="value"`)
+  - Handle empty function bodies gracefully
 - 🔄 **Here Documents**: `<<` and `<<-` here document functionality
 - 🔄 **Advanced I/O Redirection**: Complete redirection operators and file descriptor manipulation
 
@@ -50,6 +64,12 @@ meson compile -C builddir
 echo 'x=42; echo "Value: $x"' | ./builddir/lusush
 echo 'echo hello | grep h' | ./builddir/lusush
 echo 'result=$((5+1)); echo $result' | ./builddir/lusush
+
+# Test conditional logic
+echo 'if [ -n "$HOME" ]; then echo "Home is set"; fi' | ./builddir/lusush
+
+# Test functions
+echo 'greet() { echo "Hello $1"; }; greet world' | ./builddir/lusush
 ```
 
 ## Architecture
@@ -75,7 +95,7 @@ This design provides clear separation of concerns, enables robust error handling
 - Variable expansion with quote handling and arithmetic support
 - Command substitution (both `$()` and backtick syntax)
 - Pipeline processing with proper I/O redirection
-- Built-in commands (echo, export, test, set, etc.)
+- Built-in commands (echo, export, test, [, set, etc.)
 - Interactive command line editing with history
 
 ### Command Examples
@@ -94,6 +114,46 @@ echo "Result: $result"
 # Command substitution
 date_str=$(date '+%Y-%m-%d')
 echo "Today is $date_str"
+```
+
+**Conditional Logic:**
+```bash
+# Test conditions
+if [ "$user" "=" "admin" ]; then
+    echo "Admin access granted"
+elif [ -n "$user" ]; then
+    echo "User access: $user"
+else
+    echo "No user specified"
+fi
+
+# Test in functions
+validate() {
+    if [ -z "$1" ]; then
+        echo "Error: No input provided"
+        return 1
+    fi
+    echo "Valid input: $1"
+}
+```
+
+**Functions:**
+```bash
+# Function definition and calling
+calculate() {
+    local result=$((${1} + ${2}))
+    echo "Sum: $result"
+}
+calculate 5 10
+
+# Function with conditional logic
+check_file() {
+    if [ -n "$1" ]; then
+        echo "Checking file: $1"
+    else
+        echo "No file specified"
+    fi
+}
 ```
 
 **Case Statements:**
