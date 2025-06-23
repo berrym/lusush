@@ -291,30 +291,7 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         return execute_assignment_modern(executor, command->val.str);
     }
     
-    // Debug: Print complete command AST structure
-    if (command->first_child) {
-        fprintf(stderr, "DEBUG: Command '%s' children:\n", command->val.str ? command->val.str : "NULL");
-        node_t *child = command->first_child;
-        int child_num = 0;
-        while (child) {
-            fprintf(stderr, "DEBUG: Child %d - type %d, value '%s'\n", child_num, child->type, 
-                   child->val.str ? child->val.str : "NULL");
-            if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_FD) {
-                fprintf(stderr, "DEBUG:   Redirection node - checking children:\n");
-                node_t *redir_child = child->first_child;
-                int redir_child_num = 0;
-                while (redir_child) {
-                    fprintf(stderr, "DEBUG:     Redir child %d - type %d, value '%s'\n", 
-                           redir_child_num, redir_child->type,
-                           redir_child->val.str ? redir_child->val.str : "NULL");
-                    redir_child = redir_child->next_sibling;
-                    redir_child_num++;
-                }
-            }
-            child = child->next_sibling;
-            child_num++;
-        }
-    }
+
 
     // Setup redirections before command execution
     int redir_result = setup_redirections(command);
@@ -325,12 +302,6 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     // Build argument vector (excluding redirection nodes)
     int argc;
     char **argv = build_argv_from_ast(executor, command, &argc);
-    
-    // Debug: Print command arguments
-    fprintf(stderr, "DEBUG: Command arguments (argc=%d):\n", argc);
-    for (int i = 0; i < argc; i++) {
-        fprintf(stderr, "DEBUG: argv[%d] = '%s'\n", i, argv[i] ? argv[i] : "NULL");
-    }
     if (!argv || argc == 0) {
         return 1;
     }
@@ -687,15 +658,43 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         return NULL;
     }
     
-    // Count arguments (excluding redirection nodes)
+    // Count arguments (excluding redirection nodes and here document delimiters)
     int count = 0;
     if (command->val.str) count++; // Command name
     
+    // First pass: find here document delimiters to exclude
+    char *heredoc_delimiters[10] = {0}; // Support up to 10 here documents
+    int delimiter_count = 0;
+    
     node_t *child = command->first_child;
+    while (child && delimiter_count < 10) {
+        if (child->type == NODE_REDIR_HEREDOC || child->type == NODE_REDIR_HEREDOC_STRIP) {
+            if (child->val.str) {
+                heredoc_delimiters[delimiter_count] = strdup(child->val.str);
+                delimiter_count++;
+            }
+        }
+        child = child->next_sibling;
+    }
+    
+    // Second pass: count arguments excluding redirections and here document delimiters
+    child = command->first_child;
     while (child) {
         // Skip redirection nodes
         if (!is_redirection_node(child)) {
-            if (child->val.str) count++;
+            if (child->val.str) {
+                // Check if this is a here document delimiter
+                bool is_delimiter = false;
+                for (int i = 0; i < delimiter_count; i++) {
+                    if (heredoc_delimiters[i] && strcmp(child->val.str, heredoc_delimiters[i]) == 0) {
+                        is_delimiter = true;
+                        break;
+                    }
+                }
+                if (!is_delimiter) {
+                    count++;
+                }
+            }
         }
         child = child->next_sibling;
     }
@@ -720,19 +719,24 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
         i++;
     }
     
-    // Add arguments (excluding redirection nodes)
+    // Add arguments (excluding redirection nodes and here document delimiters)
     child = command->first_child;
     while (child && i < count) {
-        // Debug: Check redirection node identification
-        fprintf(stderr, "DEBUG: Processing child - type %d, is_redirection_node: %s, val: '%s'\n", 
-               child->type, is_redirection_node(child) ? "true" : "false", 
-               child->val.str ? child->val.str : "NULL");
-        
         // Skip redirection nodes
         if (!is_redirection_node(child)) {
             if (child->val.str) {
-                argv[i] = expand_if_needed_modern(executor, child->val.str);
-                i++;
+                // Check if this is a here document delimiter
+                bool is_delimiter = false;
+                for (int j = 0; j < delimiter_count; j++) {
+                    if (heredoc_delimiters[j] && strcmp(child->val.str, heredoc_delimiters[j]) == 0) {
+                        is_delimiter = true;
+                        break;
+                    }
+                }
+                if (!is_delimiter) {
+                    argv[i] = expand_if_needed_modern(executor, child->val.str);
+                    i++;
+                }
             }
         }
         child = child->next_sibling;
@@ -740,6 +744,13 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
     
     argv[i] = NULL;
     *argc = i;
+    
+    // Free delimiter strings
+    for (int j = 0; j < delimiter_count; j++) {
+        if (heredoc_delimiters[j]) {
+            free(heredoc_delimiters[j]);
+        }
+    }
     
     return argv;
 }

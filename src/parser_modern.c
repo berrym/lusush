@@ -541,10 +541,10 @@ static node_t *parse_redirection(parser_modern_t *parser) {
         char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
         
-        // Advance past the delimiter token
+        // Advance past the delimiter token first
         modern_tokenizer_advance(parser->tokenizer);
         
-        // Collect the here document content
+        // Collect the here document content (this will advance the tokenizer further)
         char *content = collect_heredoc_content(parser, delimiter, strip_tabs);
         if (!content) {
             free(delimiter);
