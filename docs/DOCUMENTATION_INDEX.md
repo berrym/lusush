@@ -1,7 +1,7 @@
 # LUSUSH DOCUMENTATION INDEX
 
-**Last Updated**: June 21, 2025  
-**Shell Version**: 0.6.0-dev
+**Last Updated**: December 21, 2024  
+**Shell Version**: 0.7.0-dev
 
 ## Current Active Documentation
 
@@ -9,6 +9,12 @@
 - **[Project Status](../PROJECT_STATUS_CURRENT.md)** - Current functional status and technical overview
 - **[Development Next Steps](../NEXT_STEPS_CURRENT.md)** - Immediate priorities and development roadmap
 - **[README](../README.md)** - Main project overview, quick start, and usage guide
+- **[POSIX Roadmap](../POSIX_ROADMAP.md)** - POSIX feature implementation roadmap and priorities
+
+### Implementation Documentation
+- **[Test Builtin Implementation](../TEST_BUILTIN_IMPLEMENTATION.md)** - Complete documentation of test/[ builtin implementation
+- **[Case Statement Completion](../CASE_STATEMENT_COMPLETION.md)** - Documentation of case statement implementation
+- **[Modern Parameter Expansion Summary](../MODERN_PARAMETER_EXPANSION_SUMMARY.md)** - Parameter expansion implementation details
 
 ### Technical Reference
 - **Build System**: See `meson.build` for current build configuration
