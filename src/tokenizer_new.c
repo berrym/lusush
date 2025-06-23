@@ -380,6 +380,14 @@ static modern_token_t *tokenize_next(modern_tokenizer_t *tokenizer) {
     }
     
     // Handle multi-character operators
+    // Handle != as a word token (for test expressions)
+    if (c == '!' && tokenizer->position + 1 < tokenizer->input_length && 
+        tokenizer->input[tokenizer->position + 1] == '=') {
+        tokenizer->position += 2;
+        tokenizer->column += 2;
+        return token_new(MODERN_TOK_WORD, "!=", 2, start_line, start_column, start_pos);
+    }
+    
     if (c == '&' && tokenizer->position + 1 < tokenizer->input_length && 
         tokenizer->input[tokenizer->position + 1] == '&') {
         tokenizer->position += 2;

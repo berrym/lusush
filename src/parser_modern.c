@@ -408,19 +408,15 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     command->val.str = strdup(current->text);
     modern_tokenizer_advance(parser->tokenizer);
     
+
+    
     // Parse arguments and redirections
     while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_SEMICOLON) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_NEWLINE) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_PIPE) &&
            !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_AND) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_OR) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DONE) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_FI) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_THEN) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ELSE) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_ELIF) &&
-           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_DO)) {
+           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_LOGICAL_OR)) {
         
         modern_token_t *arg_token = modern_tokenizer_current(parser->tokenizer);
         if (!arg_token) break;
@@ -443,8 +439,9 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             }
             add_child_node(command, redir_node);
         }
-        // Handle regular arguments
+        // Handle regular arguments (including keywords that should be treated as words)
         else if (modern_token_is_word_like(arg_token->type) || 
+                 modern_token_is_keyword(arg_token->type) ||
                  arg_token->type == MODERN_TOK_VARIABLE ||
                  arg_token->type == MODERN_TOK_EXPANDABLE_STRING ||
                  arg_token->type == MODERN_TOK_COMMAND_SUB ||

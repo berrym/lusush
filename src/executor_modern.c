@@ -273,6 +273,9 @@ static int execute_command_list_modern(executor_modern_t *executor, node_t *list
     while (current) {
         last_result = execute_node_modern(executor, current);
         
+        // Update exit status after each command in the sequence
+        set_exit_status(last_result);
+        
         if (executor->debug) {
             printf("DEBUG: Command result: %d\n", last_result);
         }

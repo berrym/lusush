@@ -43,6 +43,10 @@ int main(int argc, char **argv) {
         // Execute the command string and exit
         int exit_status = parse_and_execute(shell_opts.command_string);
         
+        // Flush output buffers before exit to ensure all output is displayed
+        fflush(stdout);
+        fflush(stderr);
+        
         // Clean up and exit
         free(shell_opts.command_string);
         exit(exit_status);
