@@ -51,10 +51,16 @@ const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
  * bin_exit:
  *      Exit the shell.
  */
-int bin_exit(int argc __attribute__((unused)),
-             char **argv __attribute__((unused))) {
-    exit_flag = true;
-    return 0;
+int bin_exit(int argc, char **argv) {
+    int exit_code = 0;
+    
+    // Parse exit code argument if provided
+    if (argc > 1) {
+        exit_code = atoi(argv[1]);
+    }
+    
+    // Exit immediately with the specified code
+    exit(exit_code);
 }
 
 /**

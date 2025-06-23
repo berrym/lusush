@@ -17,6 +17,8 @@ static node_t *parse_command_list(parser_modern_t *parser);
 static node_t *parse_pipeline(parser_modern_t *parser);
 static node_t *parse_simple_command(parser_modern_t *parser);
 static node_t *parse_control_structure(parser_modern_t *parser);
+static node_t *parse_brace_group(parser_modern_t *parser);
+static node_t *parse_subshell(parser_modern_t *parser);
 static node_t *parse_if_statement(parser_modern_t *parser);
 static node_t *parse_while_statement(parser_modern_t *parser);
 static node_t *parse_for_statement(parser_modern_t *parser);
@@ -317,6 +319,16 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     modern_token_t *current = modern_tokenizer_current(parser->tokenizer);
     if (!current) return NULL;
     
+    // Check for brace group
+    if (current->type == MODERN_TOK_LBRACE) {
+        return parse_brace_group(parser);
+    }
+    
+    // Check for subshell
+    if (current->type == MODERN_TOK_LPAREN) {
+        return parse_subshell(parser);
+    }
+    
     // Check for control structures
     if (modern_token_is_keyword(current->type)) {
         if (getenv("NEW_PARSER_DEBUG")) {
@@ -463,6 +475,106 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     }
     
     return command;
+}
+
+// Parse brace group { commands; }
+static node_t *parse_brace_group(parser_modern_t *parser) {
+    modern_token_t *current = modern_tokenizer_current(parser->tokenizer);
+    if (!current || current->type != MODERN_TOK_LBRACE) {
+        parser_error(parser, "Expected '{'");
+        return NULL;
+    }
+    
+    // Create brace group node
+    node_t *group_node = new_node(NODE_BRACE_GROUP);
+    if (!group_node) {
+        parser_error(parser, "Failed to create brace group node");
+        return NULL;
+    }
+    
+    // Consume '{'
+    modern_tokenizer_advance(parser->tokenizer);
+    
+    // Skip whitespace and newlines after '{'
+    skip_separators(parser);
+    
+    // Parse commands until '}'
+    while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_RBRACE) &&
+           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF) &&
+           !parser->has_error) {
+        
+        node_t *command = parse_logical_expression(parser);
+        if (!command) {
+            if (!parser->has_error) {
+                break; // End of input
+            }
+            free_node_tree(group_node);
+            return NULL;
+        }
+        
+        add_child_node(group_node, command);
+        
+        // Skip separators between commands
+        skip_separators(parser);
+    }
+    
+    // Expect '}'
+    if (!expect_token(parser, MODERN_TOK_RBRACE)) {
+        free_node_tree(group_node);
+        return NULL;
+    }
+    
+    return group_node;
+}
+
+// Parse subshell ( commands )
+static node_t *parse_subshell(parser_modern_t *parser) {
+    modern_token_t *current = modern_tokenizer_current(parser->tokenizer);
+    if (!current || current->type != MODERN_TOK_LPAREN) {
+        parser_error(parser, "Expected '('");
+        return NULL;
+    }
+    
+    // Create subshell node
+    node_t *subshell_node = new_node(NODE_SUBSHELL);
+    if (!subshell_node) {
+        parser_error(parser, "Failed to create subshell node");
+        return NULL;
+    }
+    
+    // Consume '('
+    modern_tokenizer_advance(parser->tokenizer);
+    
+    // Skip whitespace and newlines after '('
+    skip_separators(parser);
+    
+    // Parse commands until ')'
+    while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_RPAREN) &&
+           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF) &&
+           !parser->has_error) {
+        
+        node_t *command = parse_logical_expression(parser);
+        if (!command) {
+            if (!parser->has_error) {
+                break; // End of input
+            }
+            free_node_tree(subshell_node);
+            return NULL;
+        }
+        
+        add_child_node(subshell_node, command);
+        
+        // Skip separators between commands
+        skip_separators(parser);
+    }
+    
+    // Expect ')'
+    if (!expect_token(parser, MODERN_TOK_RPAREN)) {
+        free_node_tree(subshell_node);
+        return NULL;
+    }
+    
+    return subshell_node;
 }
 
 // Parse redirection

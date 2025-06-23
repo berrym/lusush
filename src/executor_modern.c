@@ -50,6 +50,8 @@ static int execute_external_command(executor_modern_t *executor, char **argv);
 static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr);
 static int execute_external_command_with_setup(executor_modern_t *executor, char **argv, bool redirect_stderr, node_t *command);
 static int execute_builtin_command(executor_modern_t *executor, char **argv);
+static int execute_brace_group_modern(executor_modern_t *executor, node_t *group);
+static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell);
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
@@ -253,6 +255,10 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             return execute_logical_or_modern(executor, node);
         case NODE_FUNCTION:
             return execute_function_definition_modern(executor, node);
+        case NODE_BRACE_GROUP:
+            return execute_brace_group_modern(executor, node);
+        case NODE_SUBSHELL:
+            return execute_subshell_modern(executor, node);
         case NODE_VAR:
             // Variable nodes are typically handled by their parent
             return 0;
@@ -942,6 +948,73 @@ static int execute_external_command_with_redirection(executor_modern_t *executor
         int status;
         waitpid(pid, &status, 0);
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    }
+}
+
+// Execute brace group { commands; }
+static int execute_brace_group_modern(executor_modern_t *executor, node_t *group) {
+    if (!group || group->type != NODE_BRACE_GROUP) {
+        return 1;
+    }
+    
+    int last_result = 0;
+    node_t *command = group->first_child;
+    
+    while (command) {
+        last_result = execute_node_modern(executor, command);
+        
+        if (executor->debug) {
+            printf("DEBUG: Brace group command result: %d\n", last_result);
+        }
+        
+        command = command->next_sibling;
+    }
+    
+    return last_result;
+}
+
+// Execute subshell ( commands )
+static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell) {
+    if (!subshell || subshell->type != NODE_SUBSHELL) {
+        return 1;
+    }
+    
+    // Fork a new process for the subshell
+    pid_t pid = fork();
+    if (pid == -1) {
+        executor_error(executor, "Failed to fork for subshell");
+        return 1;
+    }
+    
+    if (pid == 0) {
+        // Child process - execute commands in subshell environment
+        int last_result = 0;
+        node_t *command = subshell->first_child;
+        
+        while (command) {
+            last_result = execute_node_modern(executor, command);
+            command = command->next_sibling;
+        }
+        
+
+        
+        // Exit with the last command's result
+        exit(last_result);
+    } else {
+        // Parent process - wait for subshell to complete
+        int status;
+        waitpid(pid, &status, 0);
+        
+        int result;
+        if (WIFEXITED(status)) {
+            result = WEXITSTATUS(status);
+        } else {
+            result = 1; // Abnormal termination
+        }
+        
+
+        
+        return result;
     }
 }
 

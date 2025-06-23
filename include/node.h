@@ -30,6 +30,8 @@ typedef enum {
     NODE_UNTIL,        // until loop
     NODE_CASE,         // case statement
     NODE_FUNCTION,     // function definition
+    NODE_BRACE_GROUP,  // brace group { commands; }
+    NODE_SUBSHELL,     // subshell ( commands )
     // Logical operators
     NODE_LOGICAL_AND,  // && operator
     NODE_LOGICAL_OR,   // || operator
