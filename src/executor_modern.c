@@ -25,6 +25,12 @@
 static int execute_node_modern(executor_modern_t *executor, node_t *node);
 static int execute_command_modern(executor_modern_t *executor, node_t *command);
 static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline);
+static int execute_function_definition_modern(executor_modern_t *executor, node_t *function);
+static int execute_function_call_modern(executor_modern_t *executor, const char *function_name, char **argv, int argc);
+static bool is_function_defined(executor_modern_t *executor, const char *function_name);
+static function_def_t *find_function(executor_modern_t *executor, const char *function_name);
+static int store_function(executor_modern_t *executor, const char *function_name, node_t *body);
+static node_t *copy_ast_node(node_t *node);
 static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
 static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
 static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
@@ -63,6 +69,7 @@ executor_modern_t *executor_modern_new(void) {
     executor->exit_status = 0;
     executor->error_message = NULL;
     executor->has_error = false;
+    executor->functions = NULL;
     
     return executor;
 }
@@ -73,6 +80,17 @@ void executor_modern_free(executor_modern_t *executor) {
         if (executor->symtable) {
             symtable_manager_free(executor->symtable);
         }
+        
+        // Free function table
+        function_def_t *func = executor->functions;
+        while (func) {
+            function_def_t *next = func->next;
+            free(func->name);
+            free_node_tree(func->body);
+            free(func);
+            func = next;
+        }
+        
         free(executor);
     }
 }
@@ -196,6 +214,8 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
             return execute_logical_and_modern(executor, node);
         case NODE_LOGICAL_OR:
             return execute_logical_or_modern(executor, node);
+        case NODE_FUNCTION:
+            return execute_function_definition_modern(executor, node);
         case NODE_VAR:
             // Variable nodes are typically handled by their parent
             return 0;
@@ -250,7 +270,9 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     }
     
     int result;
-    if (is_builtin_command(argv[0])) {
+    if (is_function_defined(executor, argv[0])) {
+        result = execute_function_call_modern(executor, argv[0], argv, argc);
+    } else if (is_builtin_command(argv[0])) {
         result = execute_builtin_command(executor, argv);
     } else {
         result = execute_external_command(executor, argv);
@@ -785,6 +807,187 @@ static int execute_case_modern(executor_modern_t *executor, node_t *node) {
     
     free(test_word);
     return result;
+}
+
+// Execute function definition
+static int execute_function_definition_modern(executor_modern_t *executor, node_t *node) {
+    if (!executor || !node || node->type != NODE_FUNCTION) {
+        return 1;
+    }
+    
+    char *function_name = node->val.str;
+    if (!function_name) {
+        executor_error(executor, "Function definition missing name");
+        return 1;
+    }
+    
+    // Get function body
+    node_t *body = node->first_child;
+    if (!body) {
+        executor_error(executor, "Function definition missing body");
+        return 1;
+    }
+    
+    // Store function in function table
+    if (store_function(executor, function_name, body) != 0) {
+        executor_error(executor, "Failed to define function");
+        return 1;
+    }
+    
+    if (executor->debug) {
+        printf("DEBUG: Defined function '%s'\n", function_name);
+    }
+    
+    return 0;
+}
+
+// Check if a function is defined
+static bool is_function_defined(executor_modern_t *executor, const char *function_name) {
+    return find_function(executor, function_name) != NULL;
+}
+
+// Execute function call
+static int execute_function_call_modern(executor_modern_t *executor, const char *function_name, char **argv, int argc) {
+    if (!executor || !function_name) {
+        return 1;
+    }
+    
+    function_def_t *func = find_function(executor, function_name);
+    if (!func) {
+        executor_error(executor, "Function not found");
+        return 1;
+    }
+    
+    if (executor->debug) {
+        printf("DEBUG: Calling function '%s' with %d args\n", function_name, argc - 1);
+    }
+    
+    // Create new scope for function
+    if (symtable_push_scope(executor->symtable, SCOPE_FUNCTION, function_name) != 0) {
+        executor_error(executor, "Failed to create function scope");
+        return 1;
+    }
+    
+    // Set positional parameters ($1, $2, etc.)
+    for (int i = 1; i < argc; i++) {
+        char param_name[16];
+        snprintf(param_name, sizeof(param_name), "%d", i);
+        if (symtable_set_local_var(executor->symtable, param_name, argv[i]) != 0) {
+            symtable_pop_scope(executor->symtable);
+            executor_error(executor, "Failed to set function parameter");
+            return 1;
+        }
+    }
+    
+    // Set $# (argument count)
+    char argc_str[16];
+    snprintf(argc_str, sizeof(argc_str), "%d", argc - 1);
+    symtable_set_local_var(executor->symtable, "#", argc_str);
+    
+    // Execute function body
+    int result = execute_node_modern(executor, func->body);
+    
+    // Restore previous scope
+    symtable_pop_scope(executor->symtable);
+    
+    return result;
+}
+
+// Find function in function table
+static function_def_t *find_function(executor_modern_t *executor, const char *function_name) {
+    if (!executor || !function_name) {
+        return NULL;
+    }
+    
+    function_def_t *func = executor->functions;
+    while (func) {
+        if (strcmp(func->name, function_name) == 0) {
+            return func;
+        }
+        func = func->next;
+    }
+    return NULL;
+}
+
+// Store function in function table
+static int store_function(executor_modern_t *executor, const char *function_name, node_t *body) {
+    if (!executor || !function_name || !body) {
+        return 1;
+    }
+    
+    // Check if function already exists and remove it
+    function_def_t **current = &executor->functions;
+    while (*current) {
+        if (strcmp((*current)->name, function_name) == 0) {
+            function_def_t *to_remove = *current;
+            *current = (*current)->next;
+            free(to_remove->name);
+            free_node_tree(to_remove->body);
+            free(to_remove);
+            break;
+        }
+        current = &(*current)->next;
+    }
+    
+    // Create new function definition
+    function_def_t *new_func = malloc(sizeof(function_def_t));
+    if (!new_func) {
+        return 1;
+    }
+    
+    new_func->name = strdup(function_name);
+    if (!new_func->name) {
+        free(new_func);
+        return 1;
+    }
+    
+    // Create a deep copy of the body AST
+    new_func->body = copy_ast_node(body);
+    if (!new_func->body) {
+        free(new_func->name);
+        free(new_func);
+        return 1;
+    }
+    
+    // Add to front of function list
+    new_func->next = executor->functions;
+    executor->functions = new_func;
+    
+    return 0;
+}
+
+// Copy AST node recursively
+static node_t *copy_ast_node(node_t *node) {
+    if (!node) return NULL;
+    
+    node_t *copy = new_node(node->type);
+    if (!copy) return NULL;
+    
+    // Copy value
+    copy->val_type = node->val_type;
+    if (node->val.str) {
+        copy->val.str = strdup(node->val.str);
+        if (!copy->val.str) {
+            free_node_tree(copy);
+            return NULL;
+        }
+    } else {
+        copy->val = node->val;
+    }
+    
+    // Copy children
+    node_t *child = node->first_child;
+    while (child) {
+        node_t *child_copy = copy_ast_node(child);
+        if (!child_copy) {
+            free_node_tree(copy);
+            return NULL;
+        }
+        add_child_node(copy, child_copy);
+        child = child->next_sibling;
+    }
+    
+    return copy;
 }
 
 // Helper function to check if a string is empty or null

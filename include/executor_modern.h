@@ -14,6 +14,13 @@
 #include "node.h"
 #include <stdbool.h>
 
+// Function definition storage
+typedef struct function_def {
+    char *name;
+    node_t *body;
+    struct function_def *next;
+} function_def_t;
+
 // Execution context for maintaining state
 typedef struct executor_modern {
     bool interactive;                // Interactive mode flag
@@ -22,6 +29,7 @@ typedef struct executor_modern {
     const char *error_message;      // Last error message
     bool has_error;                 // Error flag
     symtable_manager_t *symtable;   // Modern symbol table manager
+    function_def_t *functions;      // Function definition table
 } executor_modern_t;
 
 // Main execution interface

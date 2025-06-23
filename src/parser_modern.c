@@ -21,6 +21,8 @@ static node_t *parse_if_statement(parser_modern_t *parser);
 static node_t *parse_while_statement(parser_modern_t *parser);
 static node_t *parse_for_statement(parser_modern_t *parser);
 static node_t *parse_case_statement(parser_modern_t *parser);
+static node_t *parse_function_definition(parser_modern_t *parser);
+static bool is_function_definition(parser_modern_t *parser);
 static void parser_error(parser_modern_t *parser, const char *message);
 static bool expect_token(parser_modern_t *parser, modern_token_type_t expected);
 
@@ -328,12 +330,19 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
                 return parse_for_statement(parser);
             case MODERN_TOK_CASE:
                 return parse_case_statement(parser);
+            case MODERN_TOK_FUNCTION:
+                return parse_function_definition(parser);
             default:
                 // Other keywords not implemented yet
                 printf("DEBUG: Unhandled keyword type %d (%s)\n", 
                        current->type, modern_token_type_name(current->type));
                 return NULL;
         }
+    }
+    
+    // Check for function definition (word followed by ())
+    if (modern_token_is_word_like(current->type) && is_function_definition(parser)) {
+        return parse_function_definition(parser);
     }
     
     // Check for assignment (word followed by =)
@@ -858,4 +867,110 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
         return NULL;
     }
     return case_node;
+}
+
+// Helper function to check if current position is a function definition
+static bool is_function_definition(parser_modern_t *parser) {
+    if (!parser || !parser->tokenizer) return false;
+    
+    modern_token_t *current = modern_tokenizer_current(parser->tokenizer);
+    if (!current || !modern_token_is_word_like(current->type)) {
+        return false;
+    }
+    
+    modern_token_t *next = modern_tokenizer_peek(parser->tokenizer);
+    if (!next || next->type != MODERN_TOK_LPAREN) {
+        return false;
+    }
+    
+    // We have word() - this looks like a function definition
+    return true;
+}
+
+// Parse function definition: name() { commands; } or function name() { commands; }
+static node_t *parse_function_definition(parser_modern_t *parser) {
+    modern_token_t *current = modern_tokenizer_current(parser->tokenizer);
+    
+    // Handle "function" keyword form
+    if (current && current->type == MODERN_TOK_FUNCTION) {
+        modern_tokenizer_advance(parser->tokenizer);
+        current = modern_tokenizer_current(parser->tokenizer);
+    }
+    
+    if (!current || !modern_token_is_word_like(current->type)) {
+        parser_error(parser, "Expected function name");
+        return NULL;
+    }
+    
+    // Create function node
+    node_t *function_node = new_node(NODE_FUNCTION);
+    if (!function_node) return NULL;
+    
+    // Store function name
+    function_node->val.str = strdup(current->text);
+    if (!function_node->val.str) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    modern_tokenizer_advance(parser->tokenizer);
+    
+    // Expect '('
+    if (!expect_token(parser, MODERN_TOK_LPAREN)) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    
+    // Expect ')'
+    if (!expect_token(parser, MODERN_TOK_RPAREN)) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    
+    // Skip separators before '{'
+    skip_separators(parser);
+    
+    // Expect '{'
+    if (!expect_token(parser, MODERN_TOK_LBRACE)) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    
+    // Skip separators after '{'
+    skip_separators(parser);
+    
+    // Parse function body until '}'
+    node_t *body = NULL;
+    while (!modern_tokenizer_match(parser->tokenizer, MODERN_TOK_RBRACE) &&
+           !modern_tokenizer_match(parser->tokenizer, MODERN_TOK_EOF)) {
+        
+        node_t *command = parse_simple_command(parser);
+        if (!command) {
+            break; // Can't parse more commands
+        }
+        
+        if (!body) {
+            body = command;
+        } else {
+            // Link commands as siblings
+            node_t *last = body;
+            while (last->next_sibling) last = last->next_sibling;
+            last->next_sibling = command;
+        }
+        
+        // Skip separators after command
+        skip_separators(parser);
+    }
+    
+    // Add body as child of function
+    if (body) {
+        add_child_node(function_node, body);
+    }
+    
+    // Expect '}'
+    if (!expect_token(parser, MODERN_TOK_RBRACE)) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    
+    return function_node;
 }
