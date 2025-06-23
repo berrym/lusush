@@ -393,9 +393,11 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
     
     // Parse regular command
     if (!modern_token_is_word_like(current->type) && current->type != MODERN_TOK_LBRACKET) {
+
         parser_error(parser, "Expected command name");
         return NULL;
     }
+
     
     node_t *command = new_node(NODE_COMMAND);
     if (!command) return NULL;
@@ -429,7 +431,8 @@ static node_t *parse_simple_command(parser_modern_t *parser) {
             arg_token->type == MODERN_TOK_BACKQUOTE ||
             arg_token->type == MODERN_TOK_RBRACKET ||
             arg_token->type == MODERN_TOK_REDIRECT_IN ||
-            arg_token->type == MODERN_TOK_REDIRECT_OUT) {
+            arg_token->type == MODERN_TOK_REDIRECT_OUT ||
+            arg_token->type == MODERN_TOK_ASSIGN) {
             
             node_t *arg_node = new_node(NODE_VAR);
             if (!arg_node) {

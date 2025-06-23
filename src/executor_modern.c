@@ -268,6 +268,9 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     
     if (executor->debug) {
         printf("DEBUG: Executing command: %s with %d args\n", argv[0], argc - 1);
+        for (int i = 0; i < argc; i++) {
+            printf("DEBUG: argv[%d] = '%s'\n", i, argv[i]);
+        }
     }
     
     int result;
@@ -858,8 +861,8 @@ static int execute_assignment_modern(executor_modern_t *executor, const char *as
     // Expand the value using modern expansion
     char *value = expand_if_needed_modern(executor, eq + 1);
     
-    // Set the variable in the modern symbol table
-    int result = symtable_set_var(executor->symtable, var_name, value ? value : "", SYMVAR_NONE);
+    // Set the variable in the global scope by default (shell behavior)
+    int result = symtable_set_global_var(executor->symtable, var_name, value ? value : "");
     
     if (executor->debug) {
         printf("DEBUG: Assignment %s=%s (result: %d)\n", var_name, value ? value : "", result);

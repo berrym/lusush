@@ -1,0 +1,1 @@
+cond() { if [ "$1" = "test" ]; then echo "match"; fi; }; cond test
