@@ -603,8 +603,23 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
 static char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
     if (!executor || !text) return NULL;
     
-    // Check for expansions starting with $
-    if (text[0] == '$') {
+    // Check if this looks like it contains variables (has $)
+    // This is a heuristic for expandable strings
+    const char *first_dollar = strchr(text, '$');
+    if (first_dollar) {
+        // Count dollar signs to determine if we have multiple variables
+        int dollar_count = 0;
+        for (const char *p = text; *p; p++) {
+            if (*p == '$') dollar_count++;
+        }
+        
+        // If we have multiple dollar signs or the first dollar is not at position 0,
+        // treat as quoted string with multiple expansions
+        if (dollar_count > 1 || first_dollar != text) {
+            return expand_quoted_string_modern(executor, text);
+        }
+        
+        // Single expansion starting at position 0
         if (strncmp(text, "$((", 3) == 0) {
             return expand_arithmetic_modern(executor, text);
         } else if (strncmp(text, "$(", 2) == 0) {
@@ -617,12 +632,6 @@ static char *expand_if_needed_modern(executor_modern_t *executor, const char *te
     // Check for backtick command substitution
     if (text[0] == '`') {
         return expand_command_substitution_modern(executor, text);
-    }
-    
-    // Check if this looks like it contains variables (has $ in the middle)
-    // This is a heuristic for expandable strings
-    if (strchr(text, '$')) {
-        return expand_quoted_string_modern(executor, text);
     }
     
     // Regular text - just duplicate
@@ -935,12 +944,8 @@ static int execute_function_definition_modern(executor_modern_t *executor, node_
         return 1;
     }
     
-    // Get function body
+    // Get function body (can be NULL for empty function bodies)
     node_t *body = node->first_child;
-    if (!body) {
-        executor_error(executor, "Function definition missing body");
-        return 1;
-    }
     
     // Store function in function table
     if (store_function(executor, function_name, body) != 0) {
@@ -1031,7 +1036,7 @@ static function_def_t *find_function(executor_modern_t *executor, const char *fu
 
 // Store function in function table
 static int store_function(executor_modern_t *executor, const char *function_name, node_t *body) {
-    if (!executor || !function_name || !body) {
+    if (!executor || !function_name) {
         return 1;
     }
     
@@ -1063,8 +1068,10 @@ static int store_function(executor_modern_t *executor, const char *function_name
     }
     
     // Create a deep copy of the body AST (including sibling chain)
+    // Allow NULL bodies for empty functions
     new_func->body = copy_ast_chain(body);
-    if (!new_func->body) {
+    if (!new_func->body && body != NULL) {
+        // Only fail if body was non-NULL but copy failed
         free(new_func->name);
         free(new_func);
         return 1;
@@ -1811,6 +1818,8 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
     
     size_t len = strlen(str);
     if (len == 0) return strdup("");
+    
+
     
     // Allocate a buffer for expansion (estimate double the original size)
     size_t buffer_size = len * 2 + 256;

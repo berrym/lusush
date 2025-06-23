@@ -555,5 +555,6 @@ bool modern_token_is_operator(modern_token_type_t type) {
 }
 
 bool modern_token_is_word_like(modern_token_type_t type) {
-    return type == MODERN_TOK_WORD || type == MODERN_TOK_STRING || type == MODERN_TOK_NUMBER;
+    return type == MODERN_TOK_WORD || type == MODERN_TOK_STRING || 
+           type == MODERN_TOK_EXPANDABLE_STRING || type == MODERN_TOK_NUMBER;
 }
