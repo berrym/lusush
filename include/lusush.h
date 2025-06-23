@@ -69,7 +69,7 @@ typedef struct string_builder {
 // parser functions
 node_t *parse_command(token_t *tok);
 node_t *parse_redirection(token_t *redir_tok, token_t *target_tok);
-int parse_and_execute(source_t *);
+int parse_and_execute(const char *command);
 
 // symbol table variable functions
 char *get_shell_varp(char *, char *);

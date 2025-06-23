@@ -9,7 +9,7 @@
 #include "../include/node.h"
 #include "../include/parser_modern.h"
 #include "../include/executor_modern.h"
-#include "../include/scanner_old.h"
+
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -40,12 +40,7 @@ int main(int argc, char **argv) {
         }
         
         // Execute the command string and exit
-        source_t src;
-        src.buf = shell_opts.command_string;
-        src.bufsize = strlen(shell_opts.command_string);
-        src.pos = INIT_SRC_POS;
-        
-        int exit_status = parse_and_execute(&src);
+        int exit_status = parse_and_execute(shell_opts.command_string);
         
         // Clean up and exit
         free(shell_opts.command_string);
@@ -64,14 +59,8 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        // Create a source structure from input
-        source_t src;
-        src.buf = line;
-        src.bufsize = strlen(line);
-        src.pos = INIT_SRC_POS;
-
         // Execute using unified modern parser
-        parse_and_execute(&src);
+        parse_and_execute(line);
 
         if (shell_type() != NORMAL_SHELL) {
             linenoiseFree(line);
@@ -85,14 +74,14 @@ int main(int argc, char **argv) {
     }
 }
 
-int parse_and_execute(source_t *src) {
+int parse_and_execute(const char *command) {
     // Use unified modern executor for all commands
     executor_modern_t *executor = executor_modern_new();
     if (!executor) {
         return 1;
     }
     
-    int exit_status = executor_modern_execute_command_line(executor, src->buf);
+    int exit_status = executor_modern_execute_command_line(executor, command);
     
     executor_modern_free(executor);
     

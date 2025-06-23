@@ -6,7 +6,7 @@
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/prompt.h"
-#include "../../include/scanner_old.h"
+
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
 
@@ -142,14 +142,8 @@ int bin_history(int argc __attribute__((unused)),
             history_save();
         }
 
-        // Create a source struct from history entry
-        source_t src;
-        src.buf = line;
-        src.bufsize = strlen(line);
-        src.pos = INIT_SRC_POS;
-
-        // Execute the source struct
-        parse_and_execute(&src);
+        // Execute the history entry
+        parse_and_execute(line);
         break;
     default:
         history_usage();
@@ -549,14 +543,8 @@ int bin_source(int argc, char **argv) {
             line[read - 1] = '\0';
         }
         
-        // Create a source structure from input
-        source_t src;
-        src.buf = line;
-        src.bufsize = strlen(line);
-        src.pos = INIT_SRC_POS;
-        
         // Parse and execute the line
-        parse_and_execute(&src);
+        parse_and_execute(line);
     }
     
     free(line);
@@ -724,13 +712,8 @@ int bin_eval(int argc, char **argv) {
         strcat(command, argv[i]);
     }
     
-    // Create a source structure and execute
-    source_t src;
-    src.buf = command;
-    src.bufsize = strlen(command);
-    src.pos = INIT_SRC_POS;
-    
-    int result = parse_and_execute(&src);
+    // Execute the command string
+    int result = parse_and_execute(command);
     
     free(command);
     return result;

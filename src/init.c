@@ -9,7 +9,7 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
-#include "../include/scanner_old.h"
+
 #include "../include/signals.h"
 #include "../include/symtable.h"
 #include "../include/version.h"
