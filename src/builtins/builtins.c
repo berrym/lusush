@@ -23,6 +23,8 @@ int bin_bg(int argc, char **argv);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
 #include <ctype.h>
 
 // Table of builtin commands
@@ -59,6 +61,7 @@ builtin builtins[] = {
     {   "return",     "return from functions",        bin_return},
     {     "trap",     "set signal handlers",          bin_trap},
     {     "exec",     "replace shell with command",   bin_exec},
+    {     "wait",     "wait for background jobs",     bin_wait},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -1139,4 +1142,136 @@ int bin_exec(int argc, char **argv) {
     
     // exec failure should exit the shell with error status
     exit(127);
+}/**
+ * bin_wait:
+ *      Wait for background jobs to complete
+ */
+int bin_wait(int argc, char **argv) {
+    // Get the current executor to access job control
+    extern executor_modern_t *current_executor;
+    
+    if (!current_executor) {
+        // If no executor, there are no jobs to wait for
+        return 0;
+    }
+    
+    // If no arguments, wait for all background jobs
+    if (argc == 1) {
+        // Update job statuses first
+        executor_modern_update_job_status(current_executor);
+        
+        // Wait for all running jobs
+        job_t *job = current_executor->jobs;
+        int last_exit_status = 0;
+        
+        while (job) {
+            if (job->state == JOB_RUNNING) {
+                int status;
+                pid_t result = waitpid(-job->pgid, &status, 0);
+                
+                if (result > 0) {
+                    if (WIFEXITED(status)) {
+                        last_exit_status = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        last_exit_status = 128 + WTERMSIG(status);
+                    } else {
+                        last_exit_status = 1;
+                    }
+                    
+                    // Mark job as done
+                    job->state = JOB_DONE;
+                }
+            }
+            job = job->next;
+        }
+        
+        // Clean up completed jobs
+        executor_modern_update_job_status(current_executor);
+        
+        return last_exit_status;
+    }
+    
+    // Wait for specific job(s) or process(es)
+    int overall_exit_status = 0;
+    
+    for (int i = 1; i < argc; i++) {
+        char *endptr;
+        long target = strtol(argv[i], &endptr, 10);
+        
+        // Check for job ID syntax (%n)
+        bool is_job_id = false;
+        int job_or_pid = (int)target;
+        
+        if (argv[i][0] == '%') {
+            is_job_id = true;
+            // Re-parse without the % sign
+            job_or_pid = (int)strtol(argv[i] + 1, &endptr, 10);
+            if (*endptr != '\0' || job_or_pid <= 0) {
+                fprintf(stderr, "wait: %s: not a valid job ID\n", argv[i]);
+                return 1;
+            }
+        } else {
+            if (*endptr != '\0' || target <= 0) {
+                fprintf(stderr, "wait: %s: arguments must be process or job IDs\n", argv[i]);
+                return 1;
+            }
+        }
+        
+        if (is_job_id) {
+            // Wait for specific job
+            job_t *job = executor_modern_find_job(current_executor, job_or_pid);
+            if (!job) {
+                fprintf(stderr, "wait: %%%d: no such job\n", job_or_pid);
+                return 127;
+            }
+            
+            if (job->state == JOB_RUNNING) {
+                int status;
+                pid_t result = waitpid(-job->pgid, &status, 0);
+                
+                if (result > 0) {
+                    if (WIFEXITED(status)) {
+                        overall_exit_status = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        overall_exit_status = 128 + WTERMSIG(status);
+                    } else {
+                        overall_exit_status = 1;
+                    }
+                    
+                    job->state = JOB_DONE;
+                }
+            } else if (job->state == JOB_DONE) {
+                // Job already completed - return 0
+                overall_exit_status = 0;
+            }
+        } else {
+            // Wait for specific PID
+            int status;
+            pid_t result = waitpid(job_or_pid, &status, 0);
+            
+            if (result == -1) {
+                if (errno == ECHILD) {
+                    // Process doesn't exist or not a child
+                    fprintf(stderr, "wait: pid %d is not a child of this shell\n", job_or_pid);
+                    return 127;
+                } else {
+                    perror("wait");
+                    return 1;
+                }
+            } else if (result > 0) {
+                if (WIFEXITED(status)) {
+                    overall_exit_status = WEXITSTATUS(status);
+                } else if (WIFSIGNALED(status)) {
+                    overall_exit_status = 128 + WTERMSIG(status);
+                } else {
+                    overall_exit_status = 1;
+                }
+            }
+        }
+    }
+    
+    // Clean up completed jobs
+    executor_modern_update_job_status(current_executor);
+    
+    return overall_exit_status;
 }

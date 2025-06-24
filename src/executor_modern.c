@@ -529,6 +529,9 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
         free(filtered_argv);
     }
     
+    // Update exit status for $? variable
+    set_exit_status(result);
+    
     return result;
 }
 
