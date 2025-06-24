@@ -609,6 +609,22 @@ char *arithm_expand(const char *orig_expr) {
             }
             last_op = NULL;
             current += nchars;
+        } else if (*current == '$' && valid_name_char(*(current + 1))) {
+            // Handle $variable syntax in arithmetic expressions
+            current++; // Skip the '$'
+            int nchars;
+            char *var_name = get_var_name(current, &nchars);
+            if (var_name) {
+                push_numstackv(&ctx, var_name);
+                free(var_name);
+            } else {
+                push_numstackl(&ctx, 0); // Undefined variable = 0
+            }
+            if (ctx.errflag) {
+                break;
+            }
+            last_op = NULL;
+            current += nchars;
         } else if (valid_name_char(*current)) {
             // Parse variable name
             int nchars;

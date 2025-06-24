@@ -342,10 +342,27 @@ static int execute_command(executor_t *executor, node_t *command) {
     // Check for standalone parameter expansion ${...}
     if (command->val.str && command->val.str[0] == '$' &&
         command->val.str[1] == '{') {
+
+        // Expand the command parameter expansion
         char *result = expand_variable(executor, command->val.str);
         if (result) {
             free(result);
         }
+
+        // Also process any arguments that are parameter expansions
+        node_t *child = command->first_child;
+        while (child) {
+            if (child->val.str && child->val.str[0] == '$' &&
+                child->val.str[1] == '{') {
+
+                char *arg_result = expand_variable(executor, child->val.str);
+                if (arg_result) {
+                    free(arg_result);
+                }
+            }
+            child = child->next_sibling;
+        }
+
         return 0; // Success
     }
 
@@ -369,8 +386,10 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     if (all_param_expansions && argc > 0) {
+
         // Execute all parameter expansions
         for (int i = 0; i < argc; i++) {
+
             char *result = expand_variable(executor, argv[i]);
             if (result) {
                 free(result);
