@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         last_exit_status = exit_status;
         set_exit_status(exit_status);
 
-        if (shell_type() != NORMAL_SHELL) {
+        if (is_interactive_shell()) {
             linenoiseFree(line);
         } else {
             free_input_buffers();

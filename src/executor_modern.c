@@ -2406,20 +2406,26 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
     
     // Special case: if var_text is exactly "$$", treat it as shell PID
     if (strcmp(var_text, "$$") == 0) {
-        char *value = get_shell_varp("$", NULL);
-        return value ? strdup(value) : strdup("");
+        extern pid_t shell_pid;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+        return strdup(buffer);
     }
     
     // Special case: if var_text is exactly "$", treat it as shell PID
     if (strcmp(var_text, "$") == 0) {
-        char *value = get_shell_varp("$", NULL);
-        return value ? strdup(value) : strdup("");
+        extern pid_t shell_pid;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+        return strdup(buffer);
     }
     
     // Special case: if var_text is exactly "$?", treat it as exit status
     if (strcmp(var_text, "$?") == 0) {
-        char *value = get_shell_varp("?", NULL);
-        return value ? strdup(value) : strdup("");
+        extern int last_exit_status;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
+        return strdup(buffer);
     }
     
     const char *var_name = var_text + 1;
@@ -2445,6 +2451,7 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
         
         // Check for special single-character variables first
         if (var_name[0] == '?' || var_name[0] == '$' || var_name[0] == '#' || 
+            var_name[0] == '*' || var_name[0] == '@' || var_name[0] == '!' ||
             (var_name[0] >= '0' && var_name[0] <= '9')) {
             name_len = 1;
         } else {
@@ -2463,13 +2470,116 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
                 // Look up in modern symbol table
                 char *value = symtable_get_var(executor->symtable, name);
                 
-                // If not found in symbol table and it's a special variable, 
-                // fall back to legacy API
-                if (!value && name_len == 1 && (name[0] == '?' || name[0] == '$' || name[0] == '#')) {
-                    char *legacy_value = get_shell_varp(name, NULL);
-                    if (legacy_value) {
-                        free(name);
-                        return strdup(legacy_value);
+                // If not found in symbol table and it's a special variable, handle it directly
+                if (!value && name_len == 1) {
+                    extern int shell_argc;
+                    extern char **shell_argv;
+                    extern int last_exit_status;
+                    extern pid_t shell_pid;
+                    extern pid_t last_background_pid;
+                    
+                    char buffer[1024];
+                    
+                    switch (name[0]) {
+                        case '?':  // Exit status of last command
+                            snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
+                            free(name);
+                            return strdup(buffer);
+                            
+                        case '$':  // Shell process ID
+                            snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+                            free(name);
+                            return strdup(buffer);
+                            
+                        case '#':  // Number of positional parameters
+                            snprintf(buffer, sizeof(buffer), "%d", shell_argc > 1 ? shell_argc - 1 : 0);
+                            free(name);
+                            return strdup(buffer);
+                            
+                        case '!':  // Process ID of last background command
+                            if (last_background_pid > 0) {
+                                snprintf(buffer, sizeof(buffer), "%d", (int)last_background_pid);
+                                free(name);
+                                return strdup(buffer);
+                            } else {
+                                free(name);
+                                return strdup("");
+                            }
+                            
+                        case '*':  // All positional parameters as single word
+                            if (shell_argc > 1) {
+                                size_t total_len = 0;
+                                for (int i = 1; i < shell_argc; i++) {
+                                    if (shell_argv[i]) {
+                                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
+                                    }
+                                }
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i < shell_argc; i++) {
+                                            if (shell_argv[i]) {
+                                                if (i > 1) strcat(result, " ");
+                                                strcat(result, shell_argv[i]);
+                                            }
+                                        }
+                                        free(name);
+                                        return result;
+                                    }
+                                }
+                            }
+                            free(name);
+                            return strdup("");
+                            
+                        case '@':  // All positional parameters as separate words
+                            // Note: This should ideally preserve word boundaries, but for now
+                            // we'll implement it similarly to $* for compatibility
+                            if (shell_argc > 1) {
+                                size_t total_len = 0;
+                                for (int i = 1; i < shell_argc; i++) {
+                                    if (shell_argv[i]) {
+                                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
+                                    }
+                                }
+                                if (total_len > 0) {
+                                    char *result = malloc(total_len);
+                                    if (result) {
+                                        result[0] = '\0';
+                                        for (int i = 1; i < shell_argc; i++) {
+                                            if (shell_argv[i]) {
+                                                if (i > 1) strcat(result, " ");
+                                                strcat(result, shell_argv[i]);
+                                            }
+                                        }
+                                        free(name);
+                                        return result;
+                                    }
+                                }
+                            }
+                            free(name);
+                            return strdup("");
+                            
+                        default:
+                            if (name[0] >= '0' && name[0] <= '9') {
+                                // Handle positional parameters $0, $1, $2, etc.
+                                int pos = name[0] - '0';
+                                
+                                if (pos == 0) {
+                                    // $0 is the script/shell name
+                                    free(name);
+                                    return strdup((shell_argc > 0 && shell_argv[0]) ? shell_argv[0] : "lusush");
+                                } else if (pos > 0 && pos < shell_argc && shell_argv[pos]) {
+                                    // $1, $2, etc. are script arguments
+                                    free(name);
+                                    return strdup(shell_argv[pos]);
+                                } else {
+                                    // Parameter doesn't exist, return empty string
+                                    free(name);
+                                    return strdup("");
+                                }
+                            }
+                            break;
                     }
                 }
                 
@@ -2862,40 +2972,53 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                     result[result_pos++] = str[i++];
                 }
             } else {
-                // Simple $var format
-                while (var_end < len && (isalnum(str[var_end]) || str[var_end] == '_')) {
-                    var_end++;
+                // Simple $var format - handle special variables and regular variables
+                size_t var_name_len = 0;
+                
+                // Check for special single-character variables first
+                if (str[var_start] == '?' || str[var_start] == '$' || str[var_start] == '#' || 
+                    str[var_start] == '*' || str[var_start] == '@' || str[var_start] == '!' ||
+                    (str[var_start] >= '0' && str[var_start] <= '9')) {
+                    var_name_len = 1;
+                } else {
+                    // Regular variable names (alphanumeric + underscore)
+                    while (var_start + var_name_len < len && 
+                           (isalnum(str[var_start + var_name_len]) || str[var_start + var_name_len] == '_')) {
+                        var_name_len++;
+                    }
                 }
                 
-                if (var_end > var_start) {
-                    // Extract variable name
-                    size_t var_name_len = var_end - var_start;
-                    char *var_name = malloc(var_name_len + 1);
-                    if (var_name) {
-                        strncpy(var_name, &str[var_start], var_name_len);
-                        var_name[var_name_len] = '\0';
+                if (var_name_len > 0) {
+                    // Create variable expression for expansion
+                    char *var_expr = malloc(var_name_len + 2); // +2 for '$' and null terminator
+                    if (var_expr) {
+                        var_expr[0] = '$';
+                        strncpy(&var_expr[1], &str[var_start], var_name_len);
+                        var_expr[var_name_len + 1] = '\0';
                         
-                        // Get variable value
-                        char *var_value = symtable_get_var(executor->symtable, var_name);
+                        // Use the main variable expansion function
+                        char *var_value = expand_variable_modern(executor, var_expr);
                         if (var_value) {
                             size_t value_len = strlen(var_value);
                             // Ensure buffer is large enough
                             while (result_pos + value_len >= buffer_size) {
                                 buffer_size *= 2;
-                                result = realloc(result, buffer_size);
-                                if (!result) {
-                                    free(var_name);
+                                char *new_result = realloc(result, buffer_size);
+                                if (!new_result) {
+                                    free(result);
                                     free(var_value);
+                                    free(var_expr);
                                     return strdup("");
                                 }
+                                result = new_result;
                             }
                             strcpy(&result[result_pos], var_value);
                             result_pos += value_len;
                             free(var_value);
                         }
                         
-                        free(var_name);
-                        i = var_end;
+                        free(var_expr);
+                        i = var_start + var_name_len;
                     } else {
                         result[result_pos++] = str[i++];
                     }
@@ -3073,6 +3196,10 @@ int executor_modern_execute_background(executor_modern_t *executor, node_t *comm
     } else {
         // Parent process - add to job list
         setpgid(pid, pid); // Set child's process group
+        
+        // Store the background PID for $! variable
+        extern pid_t last_background_pid;
+        last_background_pid = pid;
         
         job_t *job = executor_modern_add_job(executor, pid, command_line);
         if (job) {

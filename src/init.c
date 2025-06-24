@@ -28,8 +28,10 @@ extern char **environ;
 
 bool exit_flag = false;
 
-// The type of shell instance
+// POSIX-compliant shell type tracking
 static int SHELL_TYPE;
+static bool IS_LOGIN_SHELL = false;
+static bool IS_INTERACTIVE_SHELL = false;
 
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
@@ -55,6 +57,10 @@ static void process_shebang(FILE *file) {
 }
 
 int shell_type(void) { return SHELL_TYPE; }
+
+// POSIX-compliant shell type functions
+bool is_interactive_shell(void) { return IS_INTERACTIVE_SHELL; }
+bool is_login_shell(void) { return IS_LOGIN_SHELL; }
 
 int init(int argc, char **argv, FILE **in) {
     struct stat st; // stat buffer
@@ -108,39 +114,66 @@ int init(int argc, char **argv, FILE **in) {
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
 
-    // Determine the shell type
-    if (**argv == '-') {
-        SHELL_TYPE = LOGIN_SHELL;
-    } else if (optind && argv[optind] && *argv[optind]) {
-        // Check that argv[optind] is a regular file
+    // POSIX-compliant shell type determination
+    
+    // 1. Determine if this is a login shell
+    IS_LOGIN_SHELL = (**argv == '-') || shell_opts.login_shell;
+    
+    // 2. Determine interactive vs non-interactive
+    bool has_script_file = (optind && argv[optind] && *argv[optind]);
+    bool forced_interactive = shell_opts.interactive;
+    bool stdin_is_terminal = isatty(STDIN_FILENO);
+    
+    if (shell_opts.command_mode) {
+        // -c command mode: always non-interactive
+        IS_INTERACTIVE_SHELL = false;
+        SHELL_TYPE = SHELL_NON_INTERACTIVE;
+        *in = stdin; // Not used in -c mode
+    } else if (has_script_file) {
+        // Script file execution: always non-interactive
+        IS_INTERACTIVE_SHELL = false;
+        SHELL_TYPE = SHELL_NON_INTERACTIVE;
+        
+        // Check that the script file is valid
         stat(argv[optind], &st);
         if (!(S_ISREG(st.st_mode))) {
-            error_message("error: `init`: %s is not a regular file",
-                          argv[optind]);
+            error_message("error: `init`: %s is not a regular file", argv[optind]);
+            // Fall back to interactive mode
+            IS_INTERACTIVE_SHELL = true;
+            SHELL_TYPE = SHELL_INTERACTIVE;
             optind = 0;
-            SHELL_TYPE = INTERACTIVE_SHELL;
-            // Set input to stdin for interactive mode (including piped input)
             *in = stdin;
-
-            linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
-                                          linenoiseUtf8NextCharLen,
-                                          linenoiseUtf8ReadCode);
-            linenoiseSetMultiLine(get_shell_varb("MULTILINE_EDIT", true));
-            build_prompt();
         } else {
-            SHELL_TYPE = NORMAL_SHELL;
             if ((*in = fopen(argv[optind], "r")) == NULL) {
                 error_syscall("error: `init`: fopen");
             } else {
-                // Process shebang line if present
                 process_shebang(*in);
             }
         }
-    } else {
-        optind = 0;
-        SHELL_TYPE = INTERACTIVE_SHELL;
-        // Set input to stdin for interactive mode (including piped input)
+    } else if (forced_interactive || (stdin_is_terminal && !shell_opts.stdin_mode)) {
+        // Interactive shell: stdin is terminal OR forced with -i
+        IS_INTERACTIVE_SHELL = true;
+        SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
+    } else {
+        // Non-interactive: piped input, -s mode, or stdin not a terminal
+        IS_INTERACTIVE_SHELL = false;
+        SHELL_TYPE = SHELL_NON_INTERACTIVE;
+        *in = stdin;
+    }
+    
+    // Set up interactive shell features if needed
+    if (IS_INTERACTIVE_SHELL) {
+        linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
+                                      linenoiseUtf8NextCharLen,
+                                      linenoiseUtf8ReadCode);
+        linenoiseSetMultiLine(get_shell_varb("MULTILINE_EDIT", true));
+        build_prompt();
+    }
+    
+    // For login shells, set the appropriate type
+    if (IS_LOGIN_SHELL) {
+        SHELL_TYPE = SHELL_LOGIN;
     }
 
     // Get and set shell's ppid in environment
@@ -160,11 +193,23 @@ int init(int argc, char **argv, FILE **in) {
     snprintf(shell_pid_str, sizeof(shell_pid_str), "%d", (int)shell_pid);
     set_shell_varp("$", shell_pid_str);
     
-    // Set shell name/script name
-    set_shell_varp("0", argv[0]);
+    // Set shell name/script name and positional parameters
+    if (shell_type() == NORMAL_SHELL && optind > 0 && argv[optind]) {
+        // Running a script - set up script arguments
+        set_shell_varp("0", argv[optind]); // Script name
+        
+        // Update global shell_argc and shell_argv for script arguments
+        extern int shell_argc;
+        extern char **shell_argv;
+        shell_argc = argc - optind;  // Number of script args (including script name)
+        shell_argv = &argv[optind];  // Pointer to script args
+    } else {
+        // Interactive or command mode - use shell arguments
+        set_shell_varp("0", argv[0]);
+    }
 
-    // Initialize history
-    if (shell_type() != NORMAL_SHELL) {
+    // Initialize history for interactive shells
+    if (IS_INTERACTIVE_SHELL) {
         init_history();
     }
 
@@ -177,12 +222,12 @@ int init(int argc, char **argv, FILE **in) {
     // Set memory cleanup procedures on termination
     atexit(free_global_symtable);
     atexit(free_aliases);
-    if (shell_type() == NORMAL_SHELL) {
+    if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);
     }
 
     // Process shebang if the shell is invoked with a script
-    if (shell_type() == NORMAL_SHELL && *in) {
+    if (!IS_INTERACTIVE_SHELL && *in && has_script_file) {
         process_shebang(*in);
     }
 

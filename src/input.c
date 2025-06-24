@@ -452,7 +452,7 @@ static char *get_single_line(FILE *in) {
 
 // Enhanced get_input for non-interactive mode
 char *get_input(FILE *in) {
-    if (shell_type() == INTERACTIVE_SHELL) {
+    if (is_interactive_shell()) {
         // Interactive mode - delegate to linenoise version
         return ln_gets();
     }
@@ -699,7 +699,7 @@ char *get_input_complete(FILE *in) {
 
 // Unified input function providing consistent multiline behavior
 char *get_unified_input(FILE *in) {
-    if (shell_type() == INTERACTIVE_SHELL) {
+    if (is_interactive_shell()) {
         // Interactive mode - use enhanced linenoise (matches shell type detection)
         return ln_gets();
     } else {
