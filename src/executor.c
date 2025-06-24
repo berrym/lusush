@@ -1,36 +1,36 @@
 /**
  * Modern Execution Engine Implementation
  *
- * Clean, efficient execution engine designed for the modern parser and tokenizer.
- * Handles command execution, control structures, pipelines, and variable management
- * with proper POSIX compliance.
+ * Clean, efficient execution engine designed for the modern parser and
+ * tokenizer. Handles command execution, control structures, pipelines, and
+ * variable management with proper POSIX compliance.
  */
 
 #define _POSIX_C_SOURCE 200809L
 #define _GNU_SOURCE
 
 #include "../include/executor.h"
-#include "../include/parser.h"
-#include "../include/symtable.h"
-#include "../include/node.h"
-#include "../include/redirection.h"
-#include "../include/builtins.h"
+
 #include "../include/alias.h"
 #include "../include/alias_expand.h"
 #include "../include/arithmetic.h"
+#include "../include/builtins.h"
+#include "../include/node.h"
+#include "../include/parser.h"
+#include "../include/redirection.h"
+#include "../include/symtable.h"
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <fcntl.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <glob.h>
 #include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 // Global executor pointer for job control builtins
 executor_t *current_executor = NULL;
@@ -41,10 +41,15 @@ static int execute_node(executor_t *executor, node_t *node);
 static int execute_command(executor_t *executor, node_t *command);
 static int execute_pipeline(executor_t *executor, node_t *pipeline);
 static int execute_function_definition(executor_t *executor, node_t *function);
-static int execute_function_call(executor_t *executor, const char *function_name, char **argv, int argc);
-static bool is_function_defined(executor_t *executor, const char *function_name);
-static function_def_t *find_function(executor_t *executor, const char *function_name);
-static int store_function(executor_t *executor, const char *function_name, node_t *body);
+static int execute_function_call(executor_t *executor,
+                                 const char *function_name, char **argv,
+                                 int argc);
+static bool is_function_defined(executor_t *executor,
+                                const char *function_name);
+static function_def_t *find_function(executor_t *executor,
+                                     const char *function_name);
+static int store_function(executor_t *executor, const char *function_name,
+                          node_t *body);
 static node_t *copy_ast_node(node_t *node);
 static node_t *copy_ast_chain(node_t *node);
 static int execute_if(executor_t *executor, node_t *if_node);
@@ -54,11 +59,18 @@ static int execute_case(executor_t *executor, node_t *case_node);
 static int execute_logical_and(executor_t *executor, node_t *and_node);
 static int execute_logical_or(executor_t *executor, node_t *or_node);
 static int execute_command_list(executor_t *executor, node_t *list);
-static char **build_argv_from_ast(executor_t *executor, node_t *command, int *argc);
+static char **build_argv_from_ast(executor_t *executor, node_t *command,
+                                  int *argc);
 static int execute_external_command(executor_t *executor, char **argv);
-static int execute_external_command_with_redirection(executor_t *executor, char **argv, bool redirect_stderr);
-static int add_to_argv_list(char ***argv_list, int *argv_count, int *argv_capacity, char *arg);
-static int execute_external_command_with_setup(executor_t *executor, char **argv, bool redirect_stderr, node_t *command);
+static int execute_external_command_with_redirection(executor_t *executor,
+                                                     char **argv,
+                                                     bool redirect_stderr);
+static int add_to_argv_list(char ***argv_list, int *argv_count,
+                            int *argv_capacity, char *arg);
+static int execute_external_command_with_setup(executor_t *executor,
+                                               char **argv,
+                                               bool redirect_stderr,
+                                               node_t *command);
 static int execute_builtin_command(executor_t *executor, char **argv);
 static int execute_brace_group(executor_t *executor, node_t *group);
 static int execute_subshell(executor_t *executor, node_t *subshell);
@@ -72,7 +84,8 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count);
 static bool needs_brace_expansion(const char *str);
 static void initialize_job_control(executor_t *executor);
 static char *expand_arithmetic(executor_t *executor, const char *arith_text);
-static char *expand_command_substitution(executor_t *executor, const char *cmd_text);
+static char *expand_command_substitution(executor_t *executor,
+                                         const char *cmd_text);
 char *expand_if_needed(executor_t *executor, const char *text);
 static char *expand_quoted_string(executor_t *executor, const char *str);
 static bool is_assignment(const char *text);
@@ -215,8 +228,6 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
         return 1;
     }
 
-
-
     // Parse the input
     parser_t *parser = parser_new(input);
     if (!parser) {
@@ -247,9 +258,9 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
 
 // Core node execution dispatcher
 static int execute_node(executor_t *executor, node_t *node) {
-    if (!node) return 0;
-
-
+    if (!node) {
+        return 0;
+    }
 
     if (executor->debug) {
         printf("DEBUG: Executing node type %d\n", node->type);
@@ -259,44 +270,46 @@ static int execute_node(executor_t *executor, node_t *node) {
     }
 
     switch (node->type) {
-        case NODE_COMMAND:
-            return execute_command(executor, node);
-        case NODE_PIPE:
-            return execute_pipeline(executor, node);
-        case NODE_IF:
-            return execute_if(executor, node);
-        case NODE_WHILE:
-            return execute_while(executor, node);
-        case NODE_FOR:
-            return execute_for(executor, node);
-        case NODE_CASE:
-            return execute_case(executor, node);
-        case NODE_LOGICAL_AND:
-            return execute_logical_and(executor, node);
-        case NODE_LOGICAL_OR:
-            return execute_logical_or(executor, node);
-        case NODE_FUNCTION:
-            return execute_function_definition(executor, node);
-        case NODE_BRACE_GROUP:
-            return execute_brace_group(executor, node);
-        case NODE_SUBSHELL:
-            return execute_subshell(executor, node);
-        case NODE_BACKGROUND:
-            return executor_execute_background(executor, node);
-        case NODE_VAR:
-            // Variable nodes are typically handled by their parent
-            return 0;
-        default:
-            if (executor->debug) {
-                printf("DEBUG: Unknown node type %d, skipping\n", node->type);
-            }
-            return 0;
+    case NODE_COMMAND:
+        return execute_command(executor, node);
+    case NODE_PIPE:
+        return execute_pipeline(executor, node);
+    case NODE_IF:
+        return execute_if(executor, node);
+    case NODE_WHILE:
+        return execute_while(executor, node);
+    case NODE_FOR:
+        return execute_for(executor, node);
+    case NODE_CASE:
+        return execute_case(executor, node);
+    case NODE_LOGICAL_AND:
+        return execute_logical_and(executor, node);
+    case NODE_LOGICAL_OR:
+        return execute_logical_or(executor, node);
+    case NODE_FUNCTION:
+        return execute_function_definition(executor, node);
+    case NODE_BRACE_GROUP:
+        return execute_brace_group(executor, node);
+    case NODE_SUBSHELL:
+        return execute_subshell(executor, node);
+    case NODE_BACKGROUND:
+        return executor_execute_background(executor, node);
+    case NODE_VAR:
+        // Variable nodes are typically handled by their parent
+        return 0;
+    default:
+        if (executor->debug) {
+            printf("DEBUG: Unknown node type %d, skipping\n", node->type);
+        }
+        return 0;
     }
 }
 
 // Execute command list (sequence of commands)
 static int execute_command_list(executor_t *executor, node_t *list) {
-    if (!list) return 0;
+    if (!list) {
+        return 0;
+    }
 
     int last_result = 0;
     node_t *current = list;
@@ -322,8 +335,6 @@ static int execute_command(executor_t *executor, node_t *command) {
     if (!command || command->type != NODE_COMMAND) {
         return 1;
     }
-
-
 
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {
@@ -351,7 +362,8 @@ static int execute_command(executor_t *executor, node_t *command) {
             redirect_stderr = true;
             break;
         } else if (i + 2 < argc && strcmp(argv[i], "2") == 0 &&
-                   strcmp(argv[i+1], ">") == 0 && strcmp(argv[i+2], "/dev/null") == 0) {
+                   strcmp(argv[i + 1], ">") == 0 &&
+                   strcmp(argv[i + 2], "/dev/null") == 0) {
             redirect_stderr = true;
             break;
         }
@@ -375,7 +387,8 @@ static int execute_command(executor_t *executor, node_t *command) {
                 // Skip this token
                 continue;
             } else if (i + 2 < argc && strcmp(argv[i], "2") == 0 &&
-                       strcmp(argv[i+1], ">") == 0 && strcmp(argv[i+2], "/dev/null") == 0) {
+                       strcmp(argv[i + 1], ">") == 0 &&
+                       strcmp(argv[i + 2], "/dev/null") == 0) {
                 // Skip these three tokens
                 i += 2;
                 continue;
@@ -392,7 +405,8 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     if (executor->debug) {
-        printf("DEBUG: Executing command: %s with %d args\n", filtered_argv[0], filtered_argc - 1);
+        printf("DEBUG: Executing command: %s with %d args\n", filtered_argv[0],
+               filtered_argc - 1);
         for (int i = 0; i < filtered_argc; i++) {
             printf("DEBUG: argv[%d] = '%s'\n", i, filtered_argv[i]);
         }
@@ -421,11 +435,13 @@ static int execute_command(executor_t *executor, node_t *command) {
             }
 
             // Expand the full command line with recursive expansion
-            char *recursive_expanded = expand_aliases_recursive(filtered_argv[0], 10); // max depth 10
+            char *recursive_expanded =
+                expand_aliases_recursive(filtered_argv[0], 10); // max depth 10
             char *expanded_command = NULL;
 
             if (recursive_expanded) {
-                // If recursive expansion succeeded, use it to build full command
+                // If recursive expansion succeeded, use it to build full
+                // command
                 if (filtered_argc > 1) {
                     // Add original arguments to recursively expanded command
                     size_t len = strlen(recursive_expanded) + 1;
@@ -448,9 +464,11 @@ static int execute_command(executor_t *executor, node_t *command) {
                 // Fall back to simple first-word expansion
                 expanded_command = expand_first_word_alias(original_command);
             }
-            if (expanded_command && strcmp(expanded_command, original_command) != 0) {
+            if (expanded_command &&
+                strcmp(expanded_command, original_command) != 0) {
                 // Create new argv array for expanded command
-                char **new_argv = malloc(256 * sizeof(char*)); // reasonable limit
+                char **new_argv =
+                    malloc(256 * sizeof(char *)); // reasonable limit
                 if (new_argv) {
                     // Tokenize expanded command into new argv
                     char *expanded_copy = strdup(expanded_command);
@@ -466,7 +484,8 @@ static int execute_command(executor_t *executor, node_t *command) {
 
                     // Only replace if we successfully created the new argv
                     if (new_argc > 0) {
-                        // Free old argv only if it's not the same as original argv
+                        // Free old argv only if it's not the same as original
+                        // argv
                         if (filtered_argv != argv) {
                             for (int i = 0; i < filtered_argc; i++) {
                                 free(filtered_argv[i]);
@@ -492,7 +511,8 @@ static int execute_command(executor_t *executor, node_t *command) {
 
     int result;
     if (is_function_defined(executor, filtered_argv[0])) {
-        result = execute_function_call(executor, filtered_argv[0], filtered_argv, filtered_argc);
+        result = execute_function_call(executor, filtered_argv[0],
+                                       filtered_argv, filtered_argc);
     } else if (is_builtin_command(filtered_argv[0])) {
         // For builtin commands, handle redirections in parent process
         redirection_state_t redir_state;
@@ -516,7 +536,8 @@ static int execute_command(executor_t *executor, node_t *command) {
         }
     } else {
         // For external commands, pass redirection info to child process
-        result = execute_external_command_with_setup(executor, filtered_argv, redirect_stderr, command);
+        result = execute_external_command_with_setup(executor, filtered_argv,
+                                                     redirect_stderr, command);
     }
 
     // Free argv
@@ -723,14 +744,16 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         while (word) {
             if (word->val.str) {
                 // Set loop variable in current (loop) scope
-                if (symtable_set_local_var(executor->symtable, var_name, word->val.str) != 0) {
+                if (symtable_set_local_var(executor->symtable, var_name,
+                                           word->val.str) != 0) {
                     set_executor_error(executor, "Failed to set loop variable");
                     symtable_pop_scope(executor->symtable);
                     return 1;
                 }
 
                 if (executor->debug) {
-                    printf("DEBUG: FOR loop setting %s=%s\n", var_name, word->val.str);
+                    printf("DEBUG: FOR loop setting %s=%s\n", var_name,
+                           word->val.str);
                 }
 
                 // Execute body
@@ -799,7 +822,8 @@ static int execute_logical_or(executor_t *executor, node_t *or_node) {
 }
 
 // Helper function to add arguments to dynamic list (C99 compliant)
-static int add_to_argv_list(char ***argv_list, int *argv_count, int *argv_capacity, char *arg) {
+static int add_to_argv_list(char ***argv_list, int *argv_count,
+                            int *argv_capacity, char *arg) {
     if (*argv_count >= *argv_capacity) {
         *argv_capacity = *argv_capacity ? *argv_capacity * 2 : 8;
         char **new_list = realloc(*argv_list, *argv_capacity * sizeof(char *));
@@ -813,7 +837,8 @@ static int add_to_argv_list(char ***argv_list, int *argv_count, int *argv_capaci
 }
 
 // Build argv from AST
-static char **build_argv_from_ast(executor_t *executor, node_t *command, int *argc) {
+static char **build_argv_from_ast(executor_t *executor, node_t *command,
+                                  int *argc) {
     if (!executor || !command || !argc) {
         return NULL;
     }
@@ -829,7 +854,8 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
 
     node_t *child = command->first_child;
     while (child && delimiter_count < 10) {
-        if (child->type == NODE_REDIR_HEREDOC || child->type == NODE_REDIR_HEREDOC_STRIP) {
+        if (child->type == NODE_REDIR_HEREDOC ||
+            child->type == NODE_REDIR_HEREDOC_STRIP) {
             if (child->val.str) {
                 heredoc_delimiters[delimiter_count] = strdup(child->val.str);
                 delimiter_count++;
@@ -841,7 +867,8 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
     // Add command name (no glob expansion for command names)
     if (command->val.str) {
         char *expanded_cmd = expand_if_needed(executor, command->val.str);
-        if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_cmd)) {
+        if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity,
+                              expanded_cmd)) {
             free(expanded_cmd);
             goto cleanup_and_fail;
         }
@@ -856,7 +883,8 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                 // Check if this is a here document delimiter
                 bool is_delimiter = false;
                 for (int i = 0; i < delimiter_count; i++) {
-                    if (heredoc_delimiters[i] && strcmp(child->val.str, heredoc_delimiters[i]) == 0) {
+                    if (heredoc_delimiters[i] &&
+                        strcmp(child->val.str, heredoc_delimiters[i]) == 0) {
                         is_delimiter = true;
                         break;
                     }
@@ -871,46 +899,61 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                         expanded_arg = strdup(child->val.str);
                     } else if (child->type == NODE_STRING_EXPANDABLE) {
                         // Double-quoted strings: expand variables but not globs
-                        expanded_arg = expand_quoted_string(executor, child->val.str);
+                        expanded_arg =
+                            expand_quoted_string(executor, child->val.str);
                     } else if (child->type == NODE_ARITH_EXP) {
                         // Arithmetic expansion: $((expr))
-                        expanded_arg = expand_arithmetic(executor, child->val.str);
+                        expanded_arg =
+                            expand_arithmetic(executor, child->val.str);
                     } else if (child->type == NODE_COMMAND_SUB) {
                         // Command substitution: $(cmd) or `cmd`
-                        expanded_arg = expand_command_substitution(executor, child->val.str);
+                        expanded_arg = expand_command_substitution(
+                            executor, child->val.str);
                     } else {
                         // Regular variables and other expandable content
-                        expanded_arg = expand_if_needed(executor, child->val.str);
+                        expanded_arg =
+                            expand_if_needed(executor, child->val.str);
                     }
 
                     if (getenv("NEW_PARSER_DEBUG")) {
-                        fprintf(stderr, "DEBUG: Processing argument: '%s' -> '%s'\n",
+                        fprintf(stderr,
+                                "DEBUG: Processing argument: '%s' -> '%s'\n",
                                 child->val.str, expanded_arg);
                     }
 
                     // Check if argument needs brace expansion first
                     if (needs_brace_expansion(expanded_arg)) {
                         int brace_count;
-                        char **brace_results = expand_brace_pattern(expanded_arg, &brace_count);
+                        char **brace_results =
+                            expand_brace_pattern(expanded_arg, &brace_count);
 
                         if (brace_results) {
-                            // Process each brace expansion result for potential glob expansion
+                            // Process each brace expansion result for potential
+                            // glob expansion
                             for (int j = 0; j < brace_count; j++) {
                                 if (needs_glob_expansion(brace_results[j])) {
                                     int glob_count;
-                                    char **glob_results = expand_glob_pattern(brace_results[j], &glob_count);
+                                    char **glob_results = expand_glob_pattern(
+                                        brace_results[j], &glob_count);
 
                                     if (glob_results) {
-                                        // Add all glob results, free brace result since we won't use it
+                                        // Add all glob results, free brace
+                                        // result since we won't use it
                                         free(brace_results[j]);
                                         for (int k = 0; k < glob_count; k++) {
-                                            if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, glob_results[k])) {
-                                                // Cleanup remaining strings on failure
-                                                for (int l = k; l < glob_count; l++) {
+                                            if (!add_to_argv_list(
+                                                    &argv_list, &argv_count,
+                                                    &argv_capacity,
+                                                    glob_results[k])) {
+                                                // Cleanup remaining strings on
+                                                // failure
+                                                for (int l = k; l < glob_count;
+                                                     l++) {
                                                     free(glob_results[l]);
                                                 }
                                                 free(glob_results);
-                                                for (int l = j + 1; l < brace_count; l++) {
+                                                for (int l = j + 1;
+                                                     l < brace_count; l++) {
                                                     free(brace_results[l]);
                                                 }
                                                 free(brace_results);
@@ -920,9 +963,14 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                                         }
                                         free(glob_results);
                                     } else {
-                                        // Glob expansion failed, use brace result
-                                        if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, brace_results[j])) {
-                                            for (int l = j + 1; l < brace_count; l++) {
+                                        // Glob expansion failed, use brace
+                                        // result
+                                        if (!add_to_argv_list(
+                                                &argv_list, &argv_count,
+                                                &argv_capacity,
+                                                brace_results[j])) {
+                                            for (int l = j + 1; l < brace_count;
+                                                 l++) {
                                                 free(brace_results[l]);
                                             }
                                             free(brace_results);
@@ -931,9 +979,13 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                                         }
                                     }
                                 } else {
-                                    // No glob expansion needed, use brace result directly
-                                    if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, brace_results[j])) {
-                                        for (int l = j + 1; l < brace_count; l++) {
+                                    // No glob expansion needed, use brace
+                                    // result directly
+                                    if (!add_to_argv_list(
+                                            &argv_list, &argv_count,
+                                            &argv_capacity, brace_results[j])) {
+                                        for (int l = j + 1; l < brace_count;
+                                             l++) {
                                             free(brace_results[l]);
                                         }
                                         free(brace_results);
@@ -944,15 +996,21 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                             }
                             free(brace_results);
                         } else {
-                            // Brace expansion failed, fall back to normal expansion
+                            // Brace expansion failed, fall back to normal
+                            // expansion
                             if (needs_glob_expansion(expanded_arg)) {
                                 int glob_count;
-                                char **glob_results = expand_glob_pattern(expanded_arg, &glob_count);
+                                char **glob_results = expand_glob_pattern(
+                                    expanded_arg, &glob_count);
 
                                 if (glob_results) {
                                     for (int j = 0; j < glob_count; j++) {
-                                        if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, glob_results[j])) {
-                                            for (int k = j; k < glob_count; k++) {
+                                        if (!add_to_argv_list(
+                                                &argv_list, &argv_count,
+                                                &argv_capacity,
+                                                glob_results[j])) {
+                                            for (int k = j; k < glob_count;
+                                                 k++) {
                                                 free(glob_results[k]);
                                             }
                                             free(glob_results);
@@ -962,30 +1020,40 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                                     }
                                     free(glob_results);
                                 } else {
-                                    if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_arg)) {
+                                    if (!add_to_argv_list(
+                                            &argv_list, &argv_count,
+                                            &argv_capacity, expanded_arg)) {
                                         free(expanded_arg);
                                         goto cleanup_and_fail;
                                     }
-                                    expanded_arg = NULL; // Ownership transferred
+                                    expanded_arg =
+                                        NULL; // Ownership transferred
                                 }
                             } else {
-                                if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_arg)) {
+                                if (!add_to_argv_list(&argv_list, &argv_count,
+                                                      &argv_capacity,
+                                                      expanded_arg)) {
                                     free(expanded_arg);
                                     goto cleanup_and_fail;
                                 }
                                 expanded_arg = NULL; // Ownership transferred
                             }
                         }
-                        if (expanded_arg) free(expanded_arg);
+                        if (expanded_arg) {
+                            free(expanded_arg);
+                        }
                     } else if (needs_glob_expansion(expanded_arg)) {
                         // No brace expansion, check for glob expansion
                         int glob_count;
-                        char **glob_results = expand_glob_pattern(expanded_arg, &glob_count);
+                        char **glob_results =
+                            expand_glob_pattern(expanded_arg, &glob_count);
 
                         if (glob_results) {
                             // Add all glob results
                             for (int j = 0; j < glob_count; j++) {
-                                if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, glob_results[j])) {
+                                if (!add_to_argv_list(&argv_list, &argv_count,
+                                                      &argv_capacity,
+                                                      glob_results[j])) {
                                     // Cleanup on failure
                                     for (int k = j; k < glob_count; k++) {
                                         free(glob_results[k]);
@@ -995,22 +1063,28 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command, int *ar
                                     goto cleanup_and_fail;
                                 }
                             }
-                            free(glob_results); // Free the array but not the strings
+                            free(glob_results); // Free the array but not the
+                                                // strings
                         } else {
                             // Glob expansion failed, use original
-                            if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_arg)) {
+                            if (!add_to_argv_list(&argv_list, &argv_count,
+                                                  &argv_capacity,
+                                                  expanded_arg)) {
                                 free(expanded_arg);
                                 goto cleanup_and_fail;
                             }
                         }
-                        free(expanded_arg); // We copied the strings or used them
+                        free(
+                            expanded_arg); // We copied the strings or used them
                     } else {
                         // No expansion needed
-                        if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_arg)) {
+                        if (!add_to_argv_list(&argv_list, &argv_count,
+                                              &argv_capacity, expanded_arg)) {
                             free(expanded_arg);
                             goto cleanup_and_fail;
                         }
-                        // expanded_arg ownership transferred to argv_list, don't free
+                        // expanded_arg ownership transferred to argv_list,
+                        // don't free
                     }
                 }
             }
@@ -1064,7 +1138,9 @@ cleanup_delimiters:
 
 // Expand variable/arithmetic/command substitution if needed
 char *expand_if_needed(executor_t *executor, const char *text) {
-    if (!executor || !text) return NULL;
+    if (!executor || !text) {
+        return NULL;
+    }
 
     // Check for tilde expansion first
     if (text[0] == '~') {
@@ -1073,7 +1149,8 @@ char *expand_if_needed(executor_t *executor, const char *text) {
             // Tilde was expanded, now check if result needs variable expansion
             const char *first_dollar = strchr(tilde_expanded, '$');
             if (first_dollar) {
-                char *final_result = expand_quoted_string(executor, tilde_expanded);
+                char *final_result =
+                    expand_quoted_string(executor, tilde_expanded);
                 free(tilde_expanded);
                 return final_result;
             }
@@ -1091,11 +1168,13 @@ char *expand_if_needed(executor_t *executor, const char *text) {
         // Count dollar signs to determine if we have multiple variables
         int dollar_count = 0;
         for (const char *p = text; *p; p++) {
-            if (*p == '$') dollar_count++;
+            if (*p == '$') {
+                dollar_count++;
+            }
         }
 
-        // If we have multiple dollar signs or the first dollar is not at position 0,
-        // treat as quoted string with multiple expansions
+        // If we have multiple dollar signs or the first dollar is not at
+        // position 0, treat as quoted string with multiple expansions
         if (dollar_count > 1 || first_dollar != text) {
             return expand_quoted_string(executor, text);
         }
@@ -1124,7 +1203,9 @@ static int execute_external_command(executor_t *executor, char **argv) {
     return execute_external_command_with_redirection(executor, argv, false);
 }
 
-static int execute_external_command_with_redirection(executor_t *executor, char **argv, bool redirect_stderr) {
+static int execute_external_command_with_redirection(executor_t *executor,
+                                                     char **argv,
+                                                     bool redirect_stderr) {
     if (!argv || !argv[0]) {
         return 1;
     }
@@ -1204,8 +1285,6 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
             command = command->next_sibling;
         }
 
-
-
         // Exit with the last command's result
         exit(last_result);
     } else {
@@ -1220,8 +1299,6 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
             result = 1; // Abnormal termination
         }
 
-
-
         return result;
     }
 }
@@ -1233,12 +1310,8 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
         return NULL;
     }
 
-
-
     glob_t globbuf;
     int glob_result = glob(pattern, GLOB_NOSORT, NULL, &globbuf);
-
-
 
     if (glob_result == GLOB_NOMATCH) {
         // No matches - return original pattern (POSIX behavior)
@@ -1288,7 +1361,9 @@ static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
 
 // Check if a string contains glob patterns that need expansion
 static bool needs_glob_expansion(const char *str) {
-    if (!str) return false;
+    if (!str) {
+        return false;
+    }
 
     // Check for glob metacharacters: *, ?, and character classes [...]
     while (*str) {
@@ -1302,7 +1377,9 @@ static bool needs_glob_expansion(const char *str) {
 
 // Check if a string contains brace patterns that need expansion
 static bool needs_brace_expansion(const char *str) {
-    if (!str) return false;
+    if (!str) {
+        return false;
+    }
 
     // Check for brace expansion patterns: {a,b,c}
     const char *p = str;
@@ -1326,8 +1403,6 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
         *expanded_count = 0;
         return NULL;
     }
-
-
 
     // Find the first brace pattern
     const char *open = strchr(pattern, '{');
@@ -1380,7 +1455,9 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
     // Count comma-separated items
     int item_count = 1;
     for (const char *p = content; *p; p++) {
-        if (*p == ',') item_count++;
+        if (*p == ',') {
+            item_count++;
+        }
     }
 
     // Allocate result array
@@ -1440,8 +1517,6 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
         strcat(result[result_index], item);
         strcat(result[result_index], suffix);
 
-
-
         free(item);
         result_index++;
 
@@ -1461,7 +1536,10 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
 }
 
 // Execute external command with full redirection setup in child process
-static int execute_external_command_with_setup(executor_t *executor, char **argv, bool redirect_stderr, node_t *command) {
+static int execute_external_command_with_setup(executor_t *executor,
+                                               char **argv,
+                                               bool redirect_stderr,
+                                               node_t *command) {
     if (!argv || !argv[0]) {
         return 1;
     }
@@ -1517,7 +1595,9 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
         if (strcmp(argv[0], builtins[i].name) == 0) {
             // Count arguments
             int argc = 0;
-            while (argv[argc]) argc++;
+            while (argv[argc]) {
+                argc++;
+            }
 
             int result = builtins[i].func(argc, argv);
 
@@ -1535,9 +1615,7 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
 }
 
 // Check if command is builtin
-static bool is_builtin_command(const char *cmd) {
-    return is_builtin(cmd);
-}
+static bool is_builtin_command(const char *cmd) { return is_builtin(cmd); }
 
 // Execute test builtin command
 static int execute_test_builtin(executor_t *executor, char **argv) {
@@ -1547,11 +1625,13 @@ static int execute_test_builtin(executor_t *executor, char **argv) {
 
     // Count arguments
     int argc = 0;
-    while (argv[argc]) argc++;
+    while (argv[argc]) {
+        argc++;
+    }
 
     // Handle [ command - must end with ]
     if (strcmp(argv[0], "[") == 0) {
-        if (argc < 2 || strcmp(argv[argc-1], "]") != 0) {
+        if (argc < 2 || strcmp(argv[argc - 1], "]") != 0) {
             return 1; // Missing closing ]
         }
         argc--; // Don't count the closing ]
@@ -1647,7 +1727,9 @@ static int execute_test_builtin(executor_t *executor, char **argv) {
 
 // Check if text is an assignment
 static bool is_assignment(const char *text) {
-    if (!text) return false;
+    if (!text) {
+        return false;
+    }
 
     // Look for '=' not at the beginning
     const char *eq = strchr(text, '=');
@@ -1657,15 +1739,21 @@ static bool is_assignment(const char *text) {
 // Execute assignment
 // Execute assignment using modern symbol table
 static int execute_assignment(executor_t *executor, const char *assignment) {
-    if (!executor || !assignment) return 1;
+    if (!executor || !assignment) {
+        return 1;
+    }
 
     char *eq = strchr(assignment, '=');
-    if (!eq) return 1;
+    if (!eq) {
+        return 1;
+    }
 
     // Split into variable and value
     size_t var_len = eq - assignment;
     char *var_name = malloc(var_len + 1);
-    if (!var_name) return 1;
+    if (!var_name) {
+        return 1;
+    }
 
     strncpy(var_name, assignment, var_len);
     var_name[var_len] = '\0';
@@ -1674,10 +1762,12 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     char *value = expand_if_needed(executor, eq + 1);
 
     // Set the variable in the global scope by default (shell behavior)
-    int result = symtable_set_global_var(executor->symtable, var_name, value ? value : "");
+    int result = symtable_set_global_var(executor->symtable, var_name,
+                                         value ? value : "");
 
     if (executor->debug) {
-        printf("DEBUG: Assignment %s=%s (result: %d)\n", var_name, value ? value : "", result);
+        printf("DEBUG: Assignment %s=%s (result: %d)\n", var_name,
+               value ? value : "", result);
     }
 
     free(var_name);
@@ -1730,7 +1820,9 @@ static int execute_case(executor_t *executor, node_t *node) {
                     node_t *commands = case_item->first_child;
                     while (commands) {
                         result = execute_node(executor, commands);
-                        if (result != 0) break;
+                        if (result != 0) {
+                            break;
+                        }
                         commands = commands->next_sibling;
                     }
                 }
@@ -1776,12 +1868,15 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
 }
 
 // Check if a function is defined
-static bool is_function_defined(executor_t *executor, const char *function_name) {
+static bool is_function_defined(executor_t *executor,
+                                const char *function_name) {
     return find_function(executor, function_name) != NULL;
 }
 
 // Execute function call
-static int execute_function_call(executor_t *executor, const char *function_name, char **argv, int argc) {
+static int execute_function_call(executor_t *executor,
+                                 const char *function_name, char **argv,
+                                 int argc) {
     if (!executor || !function_name) {
         return 1;
     }
@@ -1793,11 +1888,13 @@ static int execute_function_call(executor_t *executor, const char *function_name
     }
 
     if (executor->debug) {
-        printf("DEBUG: Calling function '%s' with %d args\n", function_name, argc - 1);
+        printf("DEBUG: Calling function '%s' with %d args\n", function_name,
+               argc - 1);
     }
 
     // Create new scope for function
-    if (symtable_push_scope(executor->symtable, SCOPE_FUNCTION, function_name) != 0) {
+    if (symtable_push_scope(executor->symtable, SCOPE_FUNCTION,
+                            function_name) != 0) {
         set_executor_error(executor, "Failed to create function scope");
         return 1;
     }
@@ -1806,7 +1903,8 @@ static int execute_function_call(executor_t *executor, const char *function_name
     for (int i = 1; i < argc; i++) {
         char param_name[16];
         snprintf(param_name, sizeof(param_name), "%d", i);
-        if (symtable_set_local_var(executor->symtable, param_name, argv[i]) != 0) {
+        if (symtable_set_local_var(executor->symtable, param_name, argv[i]) !=
+            0) {
             symtable_pop_scope(executor->symtable);
             set_executor_error(executor, "Failed to set function parameter");
             return 1;
@@ -1823,7 +1921,9 @@ static int execute_function_call(executor_t *executor, const char *function_name
     node_t *command = func->body;
     while (command) {
         result = execute_node(executor, command);
-        if (result != 0) break; // Stop on first error
+        if (result != 0) {
+            break; // Stop on first error
+        }
         command = command->next_sibling;
     }
 
@@ -1834,7 +1934,8 @@ static int execute_function_call(executor_t *executor, const char *function_name
 }
 
 // Find function in function table
-static function_def_t *find_function(executor_t *executor, const char *function_name) {
+static function_def_t *find_function(executor_t *executor,
+                                     const char *function_name) {
     if (!executor || !function_name) {
         return NULL;
     }
@@ -1850,11 +1951,11 @@ static function_def_t *find_function(executor_t *executor, const char *function_
 }
 
 // Store function in function table
-static int store_function(executor_t *executor, const char *function_name, node_t *body) {
+static int store_function(executor_t *executor, const char *function_name,
+                          node_t *body) {
     if (!executor || !function_name) {
         return 1;
     }
-
 
     // Check if function already exists and remove it
     function_def_t **current = &executor->functions;
@@ -1892,7 +1993,7 @@ static int store_function(executor_t *executor, const char *function_name, node_
         return 1;
     }
 
-// Add to front of function list
+    // Add to front of function list
     new_func->next = executor->functions;
     executor->functions = new_func;
 
@@ -1901,10 +2002,14 @@ static int store_function(executor_t *executor, const char *function_name, node_
 
 // Copy AST node recursively
 static node_t *copy_ast_node(node_t *node) {
-    if (!node) return NULL;
+    if (!node) {
+        return NULL;
+    }
 
     node_t *copy = new_node(node->type);
-    if (!copy) return NULL;
+    if (!copy) {
+        return NULL;
+    }
 
     // Copy value
     copy->val_type = node->val_type;
@@ -1935,10 +2040,14 @@ static node_t *copy_ast_node(node_t *node) {
 
 // Copy AST node chain (including siblings)
 static node_t *copy_ast_chain(node_t *node) {
-    if (!node) return NULL;
+    if (!node) {
+        return NULL;
+    }
 
     node_t *first_copy = copy_ast_node(node);
-    if (!first_copy) return NULL;
+    if (!first_copy) {
+        return NULL;
+    }
 
     node_t *current_copy = first_copy;
     node_t *current_orig = node->next_sibling;
@@ -1961,24 +2070,28 @@ static node_t *copy_ast_chain(node_t *node) {
 }
 
 // Helper function to check if a string is empty or null
-static bool is_empty_or_null(const char *str) {
-    return !str || str[0] == '\0';
-}
+static bool is_empty_or_null(const char *str) { return !str || str[0] == '\0'; }
 
 // Helper function to extract substring
 static char *extract_substring(const char *str, int offset, int length) {
-    if (!str) return strdup("");
+    if (!str) {
+        return strdup("");
+    }
 
     int str_len = strlen(str);
 
     // Handle negative offset (from end)
     if (offset < 0) {
         offset = str_len + offset;
-        if (offset < 0) offset = 0;
+        if (offset < 0) {
+            offset = 0;
+        }
     }
 
     // Bounds check
-    if (offset >= str_len) return strdup("");
+    if (offset >= str_len) {
+        return strdup("");
+    }
 
     // Calculate actual length
     int remaining = str_len - offset;
@@ -1987,7 +2100,9 @@ static char *extract_substring(const char *str, int offset, int length) {
     }
 
     char *result = malloc(length + 1);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     strncpy(result, str + offset, length);
     result[length] = '\0';
@@ -1997,19 +2112,29 @@ static char *extract_substring(const char *str, int offset, int length) {
 
 // Simple glob pattern matching for parameter expansion
 static bool match_pattern(const char *str, const char *pattern) {
-    if (!str || !pattern) return false;
+    if (!str || !pattern) {
+        return false;
+    }
 
     // Handle simple cases
-    if (*pattern == '\0') return *str == '\0';
+    if (*pattern == '\0') {
+        return *str == '\0';
+    }
     if (*pattern == '*') {
-        if (*(pattern + 1) == '\0') return true; // * matches everything
+        if (*(pattern + 1) == '\0') {
+            return true; // * matches everything
+        }
         // Try matching at each position
         for (const char *s = str; *s; s++) {
-            if (match_pattern(s, pattern + 1)) return true;
+            if (match_pattern(s, pattern + 1)) {
+                return true;
+            }
         }
         return match_pattern(str, pattern + 1);
     }
-    if (*str == '\0') return false;
+    if (*str == '\0') {
+        return false;
+    }
 
     // Handle character matching
     if (*pattern == '?' || *pattern == *str) {
@@ -2020,15 +2145,20 @@ static bool match_pattern(const char *str, const char *pattern) {
 }
 
 // Find shortest match from beginning (for # operator)
-static int find_prefix_match(const char *str, const char *pattern, bool longest) {
-    if (!str || !pattern) return 0;
+static int find_prefix_match(const char *str, const char *pattern,
+                             bool longest) {
+    if (!str || !pattern) {
+        return 0;
+    }
 
     int str_len = strlen(str);
     int match_len = 0;
 
     for (int i = 0; i <= str_len; i++) {
         char *substr = malloc(i + 1);
-        if (!substr) break;
+        if (!substr) {
+            break;
+        }
 
         strncpy(substr, str, i);
         substr[i] = '\0';
@@ -2047,8 +2177,11 @@ static int find_prefix_match(const char *str, const char *pattern, bool longest)
 }
 
 // Find shortest match from end (for % operator)
-static int find_suffix_match(const char *str, const char *pattern, bool longest) {
-    if (!str || !pattern) return 0;
+static int find_suffix_match(const char *str, const char *pattern,
+                             bool longest) {
+    if (!str || !pattern) {
+        return 0;
+    }
 
     int str_len = strlen(str);
     int match_len = 0;
@@ -2068,11 +2201,15 @@ static int find_suffix_match(const char *str, const char *pattern, bool longest)
 
 // Case conversion functions
 static char *convert_case_first_upper(const char *str) {
-    if (!str) return strdup("");
+    if (!str) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
     char *result = malloc(len + 1);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     strcpy(result, str);
     if (len > 0 && islower(result[0])) {
@@ -2083,11 +2220,15 @@ static char *convert_case_first_upper(const char *str) {
 }
 
 static char *convert_case_first_lower(const char *str) {
-    if (!str) return strdup("");
+    if (!str) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
     char *result = malloc(len + 1);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     strcpy(result, str);
     if (len > 0 && isupper(result[0])) {
@@ -2098,11 +2239,15 @@ static char *convert_case_first_lower(const char *str) {
 }
 
 static char *convert_case_all_upper(const char *str) {
-    if (!str) return strdup("");
+    if (!str) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
     char *result = malloc(len + 1);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     for (size_t i = 0; i < len; i++) {
         result[i] = toupper(str[i]);
@@ -2113,11 +2258,15 @@ static char *convert_case_all_upper(const char *str) {
 }
 
 static char *convert_case_all_lower(const char *str) {
-    if (!str) return strdup("");
+    if (!str) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
     char *result = malloc(len + 1);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     for (size_t i = 0; i < len; i++) {
         result[i] = tolower(str[i]);
@@ -2127,13 +2276,18 @@ static char *convert_case_all_lower(const char *str) {
     return result;
 }
 
-// Recursively expand variables within a string (for parameter expansion defaults)
+// Recursively expand variables within a string (for parameter expansion
+// defaults)
 static char *expand_variables_in_string(executor_t *executor, const char *str) {
-    if (!str || !executor) return strdup("");
+    if (!str || !executor) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
     char *result = malloc(len * 2 + 1); // Start with double size
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     size_t result_pos = 0;
     size_t result_size = len * 2 + 1;
@@ -2150,10 +2304,13 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
                 while (var_end < len && str[var_end] != '}') {
                     var_end++;
                 }
-                if (var_end < len) var_end++; // Include }
+                if (var_end < len) {
+                    var_end++; // Include }
+                }
             } else {
                 // Handle $var format
-                while (var_end < len && (isalnum(str[var_end]) || str[var_end] == '_')) {
+                while (var_end < len &&
+                       (isalnum(str[var_end]) || str[var_end] == '_')) {
                     var_end++;
                 }
             }
@@ -2214,8 +2371,11 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
 }
 
 // Parse parameter expansion inside ${...}
-static char *parse_parameter_expansion(executor_t *executor, const char *expansion) {
-    if (!expansion) return strdup("");
+static char *parse_parameter_expansion(executor_t *executor,
+                                       const char *expansion) {
+    if (!expansion) {
+        return strdup("");
+    }
 
     // Handle length expansion: ${#var}
     if (expansion[0] == '#') {
@@ -2234,7 +2394,8 @@ static char *parse_parameter_expansion(executor_t *executor, const char *expansi
 
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":", "#", "%", "^", ",", "-", "+", NULL};
+    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":",
+                               "#",  "%",  "^",  ",",  "-",  "+",  NULL};
     int op_type = -1;
 
     // Find the first valid operator that's not part of a pattern
@@ -2248,12 +2409,14 @@ static char *parse_parameter_expansion(executor_t *executor, const char *expansi
                     continue; // Skip this match, it's part of ://
                 }
                 // Check if this is part of :+ or :-
-                if (found > expansion && (found[-1] == '+' || found[-1] == '-')) {
+                if (found > expansion &&
+                    (found[-1] == '+' || found[-1] == '-')) {
                     continue; // Skip this match, it's part of :+ or :-
                 }
             }
 
-            // If we haven't found an operator yet, or this one comes first, use it
+            // If we haven't found an operator yet, or this one comes first, use
+            // it
             if (!op_pos || found < op_pos) {
                 op_pos = found;
                 op_type = i;
@@ -2265,7 +2428,9 @@ static char *parse_parameter_expansion(executor_t *executor, const char *expansi
         // Extract variable name
         size_t var_len = op_pos - expansion;
         char *var_name = malloc(var_len + 1);
-        if (!var_name) return strdup("");
+        if (!var_name) {
+            return strdup("");
+        }
 
         strncpy(var_name, expansion, var_len);
         var_name[var_len] = '\0';
@@ -2275,145 +2440,156 @@ static char *parse_parameter_expansion(executor_t *executor, const char *expansi
         const char *default_value = op_pos + strlen(operators[op_type]);
 
         // Expand variables in default value
-        char *expanded_default = expand_variables_in_string(executor, default_value);
+        char *expanded_default =
+            expand_variables_in_string(executor, default_value);
 
         char *result = NULL;
 
         switch (op_type) {
-            case 0: // ${var:-default} - use default if var is unset or empty
-                if (is_empty_or_null(var_value)) {
-                    result = strdup(expanded_default);
-                } else {
-                    result = strdup(var_value);
-                }
-                break;
+        case 0: // ${var:-default} - use default if var is unset or empty
+            if (is_empty_or_null(var_value)) {
+                result = strdup(expanded_default);
+            } else {
+                result = strdup(var_value);
+            }
+            break;
 
-            case 1: // ${var:+alternative} - use alternative if var is set and non-empty
-                if (!is_empty_or_null(var_value)) {
-                    result = strdup(expanded_default);
-                } else {
-                    result = strdup("");
-                }
-                break;
+        case 1: // ${var:+alternative} - use alternative if var is set and
+                // non-empty
+            if (!is_empty_or_null(var_value)) {
+                result = strdup(expanded_default);
+            } else {
+                result = strdup("");
+            }
+            break;
 
-            case 2: // ${var##pattern} - remove longest match of pattern from beginning
-                if (var_value) {
-                    int match_len = find_prefix_match(var_value, expanded_default, true);
-                    result = strdup(var_value + match_len);
-                } else {
-                    result = strdup("");
-                }
-                break;
+        case 2: // ${var##pattern} - remove longest match of pattern from
+                // beginning
+            if (var_value) {
+                int match_len =
+                    find_prefix_match(var_value, expanded_default, true);
+                result = strdup(var_value + match_len);
+            } else {
+                result = strdup("");
+            }
+            break;
 
-            case 3: // ${var%%pattern} - remove longest match of pattern from end
-                if (var_value) {
-                    int str_len = strlen(var_value);
-                    int match_len = find_suffix_match(var_value, expanded_default, true);
-                    int result_len = str_len - match_len;
-                    result = malloc(result_len + 1);
-                    if (result) {
-                        strncpy(result, var_value, result_len);
-                        result[result_len] = '\0';
-                    } else {
-                        result = strdup("");
-                    }
-                } else {
-                    result = strdup("");
-                }
-                break;
-
-            case 4: // ${var^^} - convert all characters to uppercase
-                if (var_value) {
-                    result = convert_case_all_upper(var_value);
+        case 3: // ${var%%pattern} - remove longest match of pattern from end
+            if (var_value) {
+                int str_len = strlen(var_value);
+                int match_len =
+                    find_suffix_match(var_value, expanded_default, true);
+                int result_len = str_len - match_len;
+                result = malloc(result_len + 1);
+                if (result) {
+                    strncpy(result, var_value, result_len);
+                    result[result_len] = '\0';
                 } else {
                     result = strdup("");
                 }
-                break;
+            } else {
+                result = strdup("");
+            }
+            break;
 
-            case 5: // ${var,,} - convert all characters to lowercase
-                if (var_value) {
-                    result = convert_case_all_lower(var_value);
+        case 4: // ${var^^} - convert all characters to uppercase
+            if (var_value) {
+                result = convert_case_all_upper(var_value);
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 5: // ${var,,} - convert all characters to lowercase
+            if (var_value) {
+                result = convert_case_all_lower(var_value);
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 6: // ${var:offset:length} - substring expansion
+            if (var_value) {
+                // Parse offset and optional length (with variable expansion)
+                char *expanded_offset_str =
+                    expand_variables_in_string(executor, expanded_default);
+                char *endptr;
+                int offset = strtol(expanded_offset_str, &endptr, 10);
+                int length = -1;
+
+                if (*endptr == ':') {
+                    length = strtol(endptr + 1, NULL, 10);
+                }
+
+                result = extract_substring(var_value, offset, length);
+                free(expanded_offset_str);
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 7: // ${var#pattern} - remove shortest match of pattern from
+                // beginning
+            if (var_value) {
+                int match_len =
+                    find_prefix_match(var_value, expanded_default, false);
+                result = strdup(var_value + match_len);
+            } else {
+                result = strdup("");
+            }
+            break;
+
+        case 8: // ${var%pattern} - remove shortest match of pattern from end
+            if (var_value) {
+                int str_len = strlen(var_value);
+                int match_len =
+                    find_suffix_match(var_value, expanded_default, false);
+                int result_len = str_len - match_len;
+                result = malloc(result_len + 1);
+                if (result) {
+                    strncpy(result, var_value, result_len);
+                    result[result_len] = '\0';
                 } else {
                     result = strdup("");
                 }
-                break;
+            } else {
+                result = strdup("");
+            }
+            break;
 
-            case 6: // ${var:offset:length} - substring expansion
-                if (var_value) {
-                    // Parse offset and optional length (with variable expansion)
-                    char *expanded_offset_str = expand_variables_in_string(executor, expanded_default);
-                    char *endptr;
-                    int offset = strtol(expanded_offset_str, &endptr, 10);
-                    int length = -1;
+        case 9: // ${var^} - convert first character to uppercase
+            if (var_value) {
+                result = convert_case_first_upper(var_value);
+            } else {
+                result = strdup("");
+            }
+            break;
 
-                    if (*endptr == ':') {
-                        length = strtol(endptr + 1, NULL, 10);
-                    }
+        case 10: // ${var,} - convert first character to lowercase
+            if (var_value) {
+                result = convert_case_first_lower(var_value);
+            } else {
+                result = strdup("");
+            }
+            break;
 
-                    result = extract_substring(var_value, offset, length);
-                    free(expanded_offset_str);
-                } else {
-                    result = strdup("");
-                }
-                break;
+        case 11: // ${var-default} - use default if var is unset (but not if
+                 // empty)
+            if (!var_value) {
+                result = strdup(expanded_default);
+            } else {
+                result = strdup(var_value);
+            }
+            break;
 
-            case 7: // ${var#pattern} - remove shortest match of pattern from beginning
-                if (var_value) {
-                    int match_len = find_prefix_match(var_value, expanded_default, false);
-                    result = strdup(var_value + match_len);
-                } else {
-                    result = strdup("");
-                }
-                break;
-
-            case 8: // ${var%pattern} - remove shortest match of pattern from end
-                if (var_value) {
-                    int str_len = strlen(var_value);
-                    int match_len = find_suffix_match(var_value, expanded_default, false);
-                    int result_len = str_len - match_len;
-                    result = malloc(result_len + 1);
-                    if (result) {
-                        strncpy(result, var_value, result_len);
-                        result[result_len] = '\0';
-                    } else {
-                        result = strdup("");
-                    }
-                } else {
-                    result = strdup("");
-                }
-                break;
-
-            case 9: // ${var^} - convert first character to uppercase
-                if (var_value) {
-                    result = convert_case_first_upper(var_value);
-                } else {
-                    result = strdup("");
-                }
-                break;
-
-            case 10: // ${var,} - convert first character to lowercase
-                if (var_value) {
-                    result = convert_case_first_lower(var_value);
-                } else {
-                    result = strdup("");
-                }
-                break;
-
-            case 11: // ${var-default} - use default if var is unset (but not if empty)
-                if (!var_value) {
-                    result = strdup(expanded_default);
-                } else {
-                    result = strdup(var_value);
-                }
-                break;
-
-            case 12: // ${var+alternative} - use alternative if var is set (even if empty)
-                if (var_value) {
-                    result = strdup(expanded_default);
-                } else {
-                    result = strdup("");
-                }
-                break;
+        case 12: // ${var+alternative} - use alternative if var is set (even if
+                 // empty)
+            if (var_value) {
+                result = strdup(expanded_default);
+            } else {
+                result = strdup("");
+            }
+            break;
         }
 
         free(var_name);
@@ -2426,7 +2602,8 @@ static char *parse_parameter_expansion(executor_t *executor, const char *expansi
     return value ? strdup(value) : strdup("");
 }
 
-// Expand variable reference using modern symbol table with advanced parameter expansion
+// Expand variable reference using modern symbol table with advanced parameter
+// expansion
 static char *expand_variable(executor_t *executor, const char *var_text) {
     if (!executor || !var_text || var_text[0] != '$') {
         return strdup(var_text ? var_text : "");
@@ -2484,7 +2661,8 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
             name_len = 1;
         } else {
             // Regular variable names (alphanumeric + underscore)
-            while (var_name[name_len] && (isalnum(var_name[name_len]) || var_name[name_len] == '_')) {
+            while (var_name[name_len] &&
+                   (isalnum(var_name[name_len]) || var_name[name_len] == '_')) {
                 name_len++;
             }
         }
@@ -2498,7 +2676,8 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                 // Look up in modern symbol table
                 char *value = symtable_get_var(executor->symtable, name);
 
-                // If not found in symbol table and it's a special variable, handle it directly
+                // If not found in symbol table and it's a special variable,
+                // handle it directly
                 if (!value && name_len == 1) {
                     extern int shell_argc;
                     extern char **shell_argv;
@@ -2509,105 +2688,118 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                     char buffer[1024];
 
                     switch (name[0]) {
-                        case '?':  // Exit status of last command
-                            snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
+                    case '?': // Exit status of last command
+                        snprintf(buffer, sizeof(buffer), "%d",
+                                 last_exit_status);
+                        free(name);
+                        return strdup(buffer);
+
+                    case '$': // Shell process ID
+                        snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+                        free(name);
+                        return strdup(buffer);
+
+                    case '#': // Number of positional parameters
+                        snprintf(buffer, sizeof(buffer), "%d",
+                                 shell_argc > 1 ? shell_argc - 1 : 0);
+                        free(name);
+                        return strdup(buffer);
+
+                    case '!': // Process ID of last background command
+                        if (last_background_pid > 0) {
+                            snprintf(buffer, sizeof(buffer), "%d",
+                                     (int)last_background_pid);
                             free(name);
                             return strdup(buffer);
-
-                        case '$':  // Shell process ID
-                            snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+                        } else {
                             free(name);
-                            return strdup(buffer);
+                            return strdup("");
+                        }
 
-                        case '#':  // Number of positional parameters
-                            snprintf(buffer, sizeof(buffer), "%d", shell_argc > 1 ? shell_argc - 1 : 0);
-                            free(name);
-                            return strdup(buffer);
+                    case '*': // All positional parameters as single word
+                        if (shell_argc > 1) {
+                            size_t total_len = 0;
+                            for (int i = 1; i < shell_argc; i++) {
+                                if (shell_argv[i]) {
+                                    total_len += strlen(shell_argv[i]) +
+                                                 1; // +1 for space
+                                }
+                            }
+                            if (total_len > 0) {
+                                char *result = malloc(total_len);
+                                if (result) {
+                                    result[0] = '\0';
+                                    for (int i = 1; i < shell_argc; i++) {
+                                        if (shell_argv[i]) {
+                                            if (i > 1) {
+                                                strcat(result, " ");
+                                            }
+                                            strcat(result, shell_argv[i]);
+                                        }
+                                    }
+                                    free(name);
+                                    return result;
+                                }
+                            }
+                        }
+                        free(name);
+                        return strdup("");
 
-                        case '!':  // Process ID of last background command
-                            if (last_background_pid > 0) {
-                                snprintf(buffer, sizeof(buffer), "%d", (int)last_background_pid);
+                    case '@': // All positional parameters as separate words
+                        // Note: This should ideally preserve word boundaries,
+                        // but for now we'll implement it similarly to $* for
+                        // compatibility
+                        if (shell_argc > 1) {
+                            size_t total_len = 0;
+                            for (int i = 1; i < shell_argc; i++) {
+                                if (shell_argv[i]) {
+                                    total_len += strlen(shell_argv[i]) +
+                                                 1; // +1 for space
+                                }
+                            }
+                            if (total_len > 0) {
+                                char *result = malloc(total_len);
+                                if (result) {
+                                    result[0] = '\0';
+                                    for (int i = 1; i < shell_argc; i++) {
+                                        if (shell_argv[i]) {
+                                            if (i > 1) {
+                                                strcat(result, " ");
+                                            }
+                                            strcat(result, shell_argv[i]);
+                                        }
+                                    }
+                                    free(name);
+                                    return result;
+                                }
+                            }
+                        }
+                        free(name);
+                        return strdup("");
+
+                    default:
+                        if (name[0] >= '0' && name[0] <= '9') {
+                            // Handle positional parameters $0, $1, $2, etc.
+                            int pos = name[0] - '0';
+
+                            if (pos == 0) {
+                                // $0 is the script/shell name
                                 free(name);
-                                return strdup(buffer);
+                                return strdup((shell_argc > 0 && shell_argv[0])
+                                                  ? shell_argv[0]
+                                                  : "lusush");
+                            } else if (pos > 0 && pos < shell_argc &&
+                                       shell_argv[pos]) {
+                                // $1, $2, etc. are script arguments
+                                free(name);
+                                return strdup(shell_argv[pos]);
                             } else {
+                                // Parameter doesn't exist, return empty string
                                 free(name);
                                 return strdup("");
                             }
-
-                        case '*':  // All positional parameters as single word
-                            if (shell_argc > 1) {
-                                size_t total_len = 0;
-                                for (int i = 1; i < shell_argc; i++) {
-                                    if (shell_argv[i]) {
-                                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
-                                    }
-                                }
-                                if (total_len > 0) {
-                                    char *result = malloc(total_len);
-                                    if (result) {
-                                        result[0] = '\0';
-                                        for (int i = 1; i < shell_argc; i++) {
-                                            if (shell_argv[i]) {
-                                                if (i > 1) strcat(result, " ");
-                                                strcat(result, shell_argv[i]);
-                                            }
-                                        }
-                                        free(name);
-                                        return result;
-                                    }
-                                }
-                            }
-                            free(name);
-                            return strdup("");
-
-                        case '@':  // All positional parameters as separate words
-                            // Note: This should ideally preserve word boundaries, but for now
-                            // we'll implement it similarly to $* for compatibility
-                            if (shell_argc > 1) {
-                                size_t total_len = 0;
-                                for (int i = 1; i < shell_argc; i++) {
-                                    if (shell_argv[i]) {
-                                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
-                                    }
-                                }
-                                if (total_len > 0) {
-                                    char *result = malloc(total_len);
-                                    if (result) {
-                                        result[0] = '\0';
-                                        for (int i = 1; i < shell_argc; i++) {
-                                            if (shell_argv[i]) {
-                                                if (i > 1) strcat(result, " ");
-                                                strcat(result, shell_argv[i]);
-                                            }
-                                        }
-                                        free(name);
-                                        return result;
-                                    }
-                                }
-                            }
-                            free(name);
-                            return strdup("");
-
-                        default:
-                            if (name[0] >= '0' && name[0] <= '9') {
-                                // Handle positional parameters $0, $1, $2, etc.
-                                int pos = name[0] - '0';
-
-                                if (pos == 0) {
-                                    // $0 is the script/shell name
-                                    free(name);
-                                    return strdup((shell_argc > 0 && shell_argv[0]) ? shell_argv[0] : "lusush");
-                                } else if (pos > 0 && pos < shell_argc && shell_argv[pos]) {
-                                    // $1, $2, etc. are script arguments
-                                    free(name);
-                                    return strdup(shell_argv[pos]);
-                                } else {
-                                    // Parameter doesn't exist, return empty string
-                                    free(name);
-                                    return strdup("");
-                                }
-                            }
-                            break;
+                        }
+                        break;
                     }
                 }
 
@@ -2683,12 +2875,15 @@ static char *expand_tilde(const char *text) {
     }
 }
 
-// Modern arithmetic expansion using extracted and modernized shunting yard algorithm
+// Modern arithmetic expansion using extracted and modernized shunting yard
+// algorithm
 extern char *arithm_expand(const char *orig_expr);
 
 // Expand arithmetic expression using modern implementation
 static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
-    if (!executor || !arith_text) return strdup("0");
+    if (!executor || !arith_text) {
+        return strdup("0");
+    }
 
     // Use the modern arithmetic evaluator
     char *result = arithm_expand(arith_text);
@@ -2699,29 +2894,39 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     return strdup("0");
 }
 
-static char *expand_command_substitution(executor_t *executor, const char *cmd_text) {
-    if (!executor || !cmd_text) return strdup("");
+static char *expand_command_substitution(executor_t *executor,
+                                         const char *cmd_text) {
+    if (!executor || !cmd_text) {
+        return strdup("");
+    }
 
     // Extract command from $(command) or `command` format
     char *command = NULL;
-    if (strncmp(cmd_text, "$(", 2) == 0 && cmd_text[strlen(cmd_text) - 1] == ')') {
+    if (strncmp(cmd_text, "$(", 2) == 0 &&
+        cmd_text[strlen(cmd_text) - 1] == ')') {
         // Extract from $(command)
         size_t len = strlen(cmd_text) - 3; // Remove $( and )
         command = malloc(len + 1);
-        if (!command) return strdup("");
+        if (!command) {
+            return strdup("");
+        }
         strncpy(command, cmd_text + 2, len);
         command[len] = '\0';
     } else if (cmd_text[0] == '`' && cmd_text[strlen(cmd_text) - 1] == '`') {
         // Extract from `command`
         size_t len = strlen(cmd_text) - 2; // Remove backticks
         command = malloc(len + 1);
-        if (!command) return strdup("");
+        if (!command) {
+            return strdup("");
+        }
         strncpy(command, cmd_text + 1, len);
         command[len] = '\0';
     } else {
         // Already extracted command
         command = strdup(cmd_text);
-        if (!command) return strdup("");
+        if (!command) {
+            return strdup("");
+        }
     }
 
     // Create a pipe to capture command output
@@ -2741,7 +2946,7 @@ static char *expand_command_substitution(executor_t *executor, const char *cmd_t
 
     if (pid == 0) {
         // Child process - execute command
-        close(pipefd[0]); // Close read end
+        close(pipefd[0]);               // Close read end
         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
         close(pipefd[1]);
 
@@ -2787,7 +2992,8 @@ static char *expand_command_substitution(executor_t *executor, const char *cmd_t
 
         // Null terminate and remove trailing newlines
         output[output_len] = '\0';
-        while (output_len > 0 && (output[output_len - 1] == '\n' || output[output_len - 1] == '\r')) {
+        while (output_len > 0 && (output[output_len - 1] == '\n' ||
+                                  output[output_len - 1] == '\r')) {
             output[--output_len] = '\0';
         }
 
@@ -2797,17 +3003,21 @@ static char *expand_command_substitution(executor_t *executor, const char *cmd_t
 
 // Expand variables within double-quoted strings
 static char *expand_quoted_string(executor_t *executor, const char *str) {
-    if (!executor || !str) return strdup("");
+    if (!executor || !str) {
+        return strdup("");
+    }
 
     size_t len = strlen(str);
-    if (len == 0) return strdup("");
-
-
+    if (len == 0) {
+        return strdup("");
+    }
 
     // Allocate a buffer for expansion (estimate double the original size)
     size_t buffer_size = len * 2 + 256;
     char *result = malloc(buffer_size);
-    if (!result) return strdup("");
+    if (!result) {
+        return strdup("");
+    }
 
     size_t result_pos = 0;
     size_t i = 0;
@@ -2835,11 +3045,13 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                     size_t full_arith_len = arith_end - arith_start;
                     char *full_arith_expr = malloc(full_arith_len + 1);
                     if (full_arith_expr) {
-                        strncpy(full_arith_expr, &str[arith_start], full_arith_len);
+                        strncpy(full_arith_expr, &str[arith_start],
+                                full_arith_len);
                         full_arith_expr[full_arith_len] = '\0';
 
                         // Expand arithmetic expression
-                        char *arith_result = expand_arithmetic(executor, full_arith_expr);
+                        char *arith_result =
+                            expand_arithmetic(executor, full_arith_expr);
                         if (arith_result) {
                             size_t result_len = strlen(arith_result);
                             // Ensure buffer is large enough
@@ -2887,7 +3099,8 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                             paren_depth--;
                         }
                     } else {
-                        if (str[cmd_end] == quote_char && (cmd_end == 0 || str[cmd_end - 1] != '\\')) {
+                        if (str[cmd_end] == quote_char &&
+                            (cmd_end == 0 || str[cmd_end - 1] != '\\')) {
                             in_quotes = false;
                             quote_char = 0;
                         }
@@ -2904,7 +3117,8 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                         full_cmd_expr[full_cmd_len] = '\0';
 
                         // Expand command substitution
-                        char *cmd_result = expand_command_substitution(executor, full_cmd_expr);
+                        char *cmd_result = expand_command_substitution(
+                            executor, full_cmd_expr);
                         if (cmd_result) {
                             size_t result_len = strlen(cmd_result);
                             // Ensure buffer is large enough
@@ -2939,8 +3153,9 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 
             // Handle ${var} format
             if (str[var_start] == '{') {
-                var_start++; // Skip opening brace
-                var_end = var_start; // Start looking for closing brace after opening brace
+                var_start++;         // Skip opening brace
+                var_end = var_start; // Start looking for closing brace after
+                                     // opening brace
                 while (var_end < len && str[var_end] != '}') {
                     var_end++;
                 }
@@ -2953,7 +3168,8 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                         var_name[var_name_len] = '\0';
 
                         // Get variable value
-                        char *var_value = symtable_get_var(executor->symtable, var_name);
+                        char *var_value =
+                            symtable_get_var(executor->symtable, var_name);
                         if (var_value) {
                             size_t value_len = strlen(var_value);
                             // Ensure buffer is large enough
@@ -2978,25 +3194,29 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                     result[result_pos++] = str[i++];
                 }
             } else {
-                // Simple $var format - handle special variables and regular variables
+                // Simple $var format - handle special variables and regular
+                // variables
                 size_t var_name_len = 0;
 
                 // Check for special single-character variables first
-                if (str[var_start] == '?' || str[var_start] == '$' || str[var_start] == '#' ||
-                    str[var_start] == '*' || str[var_start] == '@' || str[var_start] == '!' ||
+                if (str[var_start] == '?' || str[var_start] == '$' ||
+                    str[var_start] == '#' || str[var_start] == '*' ||
+                    str[var_start] == '@' || str[var_start] == '!' ||
                     (str[var_start] >= '0' && str[var_start] <= '9')) {
                     var_name_len = 1;
                 } else {
                     // Regular variable names (alphanumeric + underscore)
                     while (var_start + var_name_len < len &&
-                           (isalnum(str[var_start + var_name_len]) || str[var_start + var_name_len] == '_')) {
+                           (isalnum(str[var_start + var_name_len]) ||
+                            str[var_start + var_name_len] == '_')) {
                         var_name_len++;
                     }
                 }
 
                 if (var_name_len > 0) {
                     // Create variable expression for expansion
-                    char *var_expr = malloc(var_name_len + 2); // +2 for '$' and null terminator
+                    char *var_expr = malloc(
+                        var_name_len + 2); // +2 for '$' and null terminator
                     if (var_expr) {
                         var_expr[0] = '$';
                         strncpy(&var_expr[1], &str[var_start], var_name_len);
@@ -3037,7 +3257,9 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             if (result_pos >= buffer_size - 1) {
                 buffer_size *= 2;
                 result = realloc(result, buffer_size);
-                if (!result) return strdup("");
+                if (!result) {
+                    return strdup("");
+                }
             }
             result[result_pos++] = str[i++];
         }
@@ -3049,16 +3271,19 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 // ========== JOB CONTROL IMPLEMENTATION ==========
 
 #include "../include/executor.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/wait.h>
+
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 // Initialize job control in executor
 static void initialize_job_control(executor_t *executor) {
-    if (!executor) return;
+    if (!executor) {
+        return;
+    }
 
     executor->jobs = NULL;
     executor->next_job_id = 1;
@@ -3068,7 +3293,9 @@ static void initialize_job_control(executor_t *executor) {
 // Create a new process structure
 static process_t *create_process(pid_t pid, const char *command) {
     process_t *proc = malloc(sizeof(process_t));
-    if (!proc) return NULL;
+    if (!proc) {
+        return NULL;
+    }
 
     proc->pid = pid;
     proc->command = command ? strdup(command) : NULL;
@@ -3089,11 +3316,16 @@ static void free_process_list(process_t *processes) {
 }
 
 // Add a new job to the job list
-job_t *executor_add_job(executor_t *executor, pid_t pgid, const char *command_line) {
-    if (!executor) return NULL;
+job_t *executor_add_job(executor_t *executor, pid_t pgid,
+                        const char *command_line) {
+    if (!executor) {
+        return NULL;
+    }
 
     job_t *job = malloc(sizeof(job_t));
-    if (!job) return NULL;
+    if (!job) {
+        return NULL;
+    }
 
     job->job_id = executor->next_job_id++;
     job->pgid = pgid;
@@ -3109,7 +3341,9 @@ job_t *executor_add_job(executor_t *executor, pid_t pgid, const char *command_li
 
 // Find job by ID
 job_t *executor_find_job(executor_t *executor, int job_id) {
-    if (!executor) return NULL;
+    if (!executor) {
+        return NULL;
+    }
 
     job_t *job = executor->jobs;
     while (job) {
@@ -3123,7 +3357,9 @@ job_t *executor_find_job(executor_t *executor, int job_id) {
 
 // Remove job from job list
 void executor_remove_job(executor_t *executor, int job_id) {
-    if (!executor || !executor->jobs) return;
+    if (!executor || !executor->jobs) {
+        return;
+    }
 
     job_t *job = executor->jobs;
     job_t *prev = NULL;
@@ -3148,7 +3384,9 @@ void executor_remove_job(executor_t *executor, int job_id) {
 
 // Update job status by checking all processes
 void executor_update_job_status(executor_t *executor) {
-    if (!executor) return;
+    if (!executor) {
+        return;
+    }
 
     job_t *job = executor->jobs;
     while (job) {
@@ -3178,7 +3416,9 @@ void executor_update_job_status(executor_t *executor) {
 
 // Execute command in background
 int executor_execute_background(executor_t *executor, node_t *command) {
-    if (!executor || !command) return 1;
+    if (!executor || !command) {
+        return 1;
+    }
 
     // Build command line for display
     char *command_line = NULL;
@@ -3218,7 +3458,9 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 
 // Built-in jobs command
 int executor_builtin_jobs(executor_t *executor, char **argv) {
-    if (!executor) return 1;
+    if (!executor) {
+        return 1;
+    }
 
     // Update job statuses first
     executor_update_job_status(executor);
@@ -3227,16 +3469,22 @@ int executor_builtin_jobs(executor_t *executor, char **argv) {
     while (job) {
         const char *state_str;
         switch (job->state) {
-            case JOB_RUNNING: state_str = "Running"; break;
-            case JOB_STOPPED: state_str = "Stopped"; break;
-            case JOB_DONE: state_str = "Done"; break;
-            default: state_str = "Unknown"; break;
+        case JOB_RUNNING:
+            state_str = "Running";
+            break;
+        case JOB_STOPPED:
+            state_str = "Stopped";
+            break;
+        case JOB_DONE:
+            state_str = "Done";
+            break;
+        default:
+            state_str = "Unknown";
+            break;
         }
 
-        printf("[%d]%c %-20s %s\n", job->job_id,
-               job->foreground ? '+' : '-',
-               state_str,
-               job->command_line ? job->command_line : "unknown");
+        printf("[%d]%c %-20s %s\n", job->job_id, job->foreground ? '+' : '-',
+               state_str, job->command_line ? job->command_line : "unknown");
 
         job = job->next;
     }
@@ -3246,7 +3494,9 @@ int executor_builtin_jobs(executor_t *executor, char **argv) {
 
 // Built-in fg command
 int executor_builtin_fg(executor_t *executor, char **argv) {
-    if (!executor) return 1;
+    if (!executor) {
+        return 1;
+    }
 
     int job_id = 1; // Default to job 1
     if (argv[1]) {
@@ -3291,7 +3541,9 @@ int executor_builtin_fg(executor_t *executor, char **argv) {
 
 // Built-in bg command
 int executor_builtin_bg(executor_t *executor, char **argv) {
-    if (!executor) return 1;
+    if (!executor) {
+        return 1;
+    }
 
     int job_id = 1; // Default to job 1
     if (argv[1]) {
@@ -3314,7 +3566,8 @@ int executor_builtin_bg(executor_t *executor, char **argv) {
     job->foreground = false;
     kill(-job->pgid, SIGCONT);
 
-    printf("[%d]+ %s &\n", job_id, job->command_line ? job->command_line : "unknown");
+    printf("[%d]+ %s &\n", job_id,
+           job->command_line ? job->command_line : "unknown");
 
     return 0;
 }

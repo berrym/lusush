@@ -2,7 +2,6 @@
 #define LUSUSH_H
 
 #include "node.h"
-
 #include "version.h"
 
 #include <fcntl.h>
@@ -87,21 +86,21 @@ typedef enum {
 // POSIX shell options structure
 typedef struct shell_options {
     // Command-line invocation modes
-    bool command_mode;          // -c flag: execute command string
-    char *command_string;       // -c argument: command to execute
-    bool stdin_mode;            // -s flag: read from stdin
-    bool interactive;           // -i flag: force interactive mode
-    bool login_shell;           // -l flag: login shell behavior
-    
+    bool command_mode;    // -c flag: execute command string
+    char *command_string; // -c argument: command to execute
+    bool stdin_mode;      // -s flag: read from stdin
+    bool interactive;     // -i flag: force interactive mode
+    bool login_shell;     // -l flag: login shell behavior
+
     // Shell behavior flags
-    bool exit_on_error;         // -e flag: exit on command failure
-    bool trace_execution;       // -x flag: trace command execution
-    bool syntax_check;          // -n flag: syntax check only
-    bool unset_error;           // -u flag: error on unset variables
-    bool verbose;               // -v flag: print input lines
-    bool no_globbing;           // -f flag: disable pathname expansion
-    bool hash_commands;         // -h flag: command hashing
-    bool job_control;           // -m flag: enable job control
+    bool exit_on_error;   // -e flag: exit on command failure
+    bool trace_execution; // -x flag: trace command execution
+    bool syntax_check;    // -n flag: syntax check only
+    bool unset_error;     // -u flag: error on unset variables
+    bool verbose;         // -v flag: print input lines
+    bool no_globbing;     // -f flag: disable pathname expansion
+    bool hash_commands;   // -h flag: command hashing
+    bool job_control;     // -m flag: enable job control
 } shell_options_t;
 
 // Global shell options

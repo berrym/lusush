@@ -1,6 +1,6 @@
 /**
  * Execution Engine for POSIX Shell
- * 
+ *
  * This execution engine is designed specifically to work with the
  * tokenizer and parser. It handles the AST structure and provides
  * clean, efficient execution of shell commands and control structures.
@@ -9,9 +9,10 @@
 #ifndef EXECUTOR_H
 #define EXECUTOR_H
 
+#include "node.h"
 #include "parser.h"
 #include "symtable.h"
-#include "node.h"
+
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -23,11 +24,7 @@ typedef struct function_def {
 } function_def_t;
 
 // Job states
-typedef enum {
-    JOB_RUNNING,
-    JOB_STOPPED,
-    JOB_DONE
-} job_state_t;
+typedef enum { JOB_RUNNING, JOB_STOPPED, JOB_DONE } job_state_t;
 
 // Process in a job
 typedef struct process {
@@ -50,25 +47,25 @@ typedef struct job {
 
 // Loop control states
 typedef enum {
-    LOOP_NORMAL,    // Normal execution
-    LOOP_BREAK,     // Break out of loop
-    LOOP_CONTINUE   // Continue to next iteration
+    LOOP_NORMAL,  // Normal execution
+    LOOP_BREAK,   // Break out of loop
+    LOOP_CONTINUE // Continue to next iteration
 } loop_control_t;
 
 // Execution context for maintaining state
 typedef struct executor {
-    bool interactive;                // Interactive mode flag
-    bool debug;                     // Debug mode flag
-    int exit_status;                // Last command exit status
-    const char *error_message;      // Last error message
-    bool has_error;                 // Error flag
-    symtable_manager_t *symtable;   // Symbol table manager
-    function_def_t *functions;      // Function definition table
-    job_t *jobs;                    // Job control list
-    int next_job_id;                // Next job ID to assign
-    pid_t shell_pgid;               // Shell process group ID
-    loop_control_t loop_control;    // Loop control state
-    int loop_depth;                 // Current loop nesting depth
+    bool interactive;             // Interactive mode flag
+    bool debug;                   // Debug mode flag
+    int exit_status;              // Last command exit status
+    const char *error_message;    // Last error message
+    bool has_error;               // Error flag
+    symtable_manager_t *symtable; // Symbol table manager
+    function_def_t *functions;    // Function definition table
+    job_t *jobs;                  // Job control list
+    int next_job_id;              // Next job ID to assign
+    pid_t shell_pgid;             // Shell process group ID
+    loop_control_t loop_control;  // Loop control state
+    int loop_depth;               // Current loop nesting depth
 } executor_t;
 
 // Main execution interface
@@ -94,7 +91,8 @@ char *expand_if_needed(executor_t *executor, const char *text);
 
 // Job control functions
 int executor_execute_background(executor_t *executor, node_t *command);
-job_t *executor_add_job(executor_t *executor, pid_t pgid, const char *command_line);
+job_t *executor_add_job(executor_t *executor, pid_t pgid,
+                        const char *command_line);
 void executor_update_job_status(executor_t *executor);
 job_t *executor_find_job(executor_t *executor, int job_id);
 void executor_remove_job(executor_t *executor, int job_id);

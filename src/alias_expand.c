@@ -1,14 +1,15 @@
-#include "../include/alias.h"
 #include "../include/alias_expand.h"
-#include "../include/expand.h"
-#include "../include/errors.h"
-#include "../include/strings.h"
-#include "../include/lusush.h"
 
+#include "../include/alias.h"
+#include "../include/errors.h"
+#include "../include/expand.h"
+#include "../include/lusush.h"
+#include "../include/strings.h"
+
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 /**
  * expand_aliases_recursive:
@@ -20,32 +21,33 @@ char *expand_aliases_recursive(const char *name, int max_depth) {
     if (!name || max_depth <= 0) {
         return NULL;
     }
-    
+
     // Look up the initial alias
     char *value = lookup_alias(name);
     if (!value) {
         return NULL;
     }
-    
+
     // Make a copy we can modify
     char *result = strdup(value);
     if (!result) {
         return NULL;
     }
-    
+
     // Parse the first word of the alias value
     // This is a simplified approach - a real implementation would use
     // the shell's tokenizer to properly handle word splitting
     char *first_word = result;
     char *space = strchr(result, ' ');
     if (space) {
-        *space = '\0';  // Temporarily split string
-        
+        *space = '\0'; // Temporarily split string
+
         // Check if the first word is also an alias
         char *recursive = expand_aliases_recursive(first_word, max_depth - 1);
         if (recursive) {
             // Rebuild the string with the expanded alias
-            char *new_result = calloc(strlen(recursive) + strlen(space + 1) + 2, 1);
+            char *new_result =
+                calloc(strlen(recursive) + strlen(space + 1) + 2, 1);
             if (new_result) {
                 strcpy(new_result, recursive);
                 strcat(new_result, " ");
@@ -56,7 +58,7 @@ char *expand_aliases_recursive(const char *name, int max_depth) {
             }
             free(recursive);
         }
-        
+
         // Restore the string
         *space = ' ';
     } else {
@@ -67,7 +69,7 @@ char *expand_aliases_recursive(const char *name, int max_depth) {
             return recursive;
         }
     }
-    
+
     return result;
 }
 
@@ -81,26 +83,26 @@ char *expand_first_word_alias(const char *command) {
     if (!command) {
         return NULL;
     }
-    
+
     // Find the first word
     char *copy = strdup(command);
     if (!copy) {
         return NULL;
     }
-    
+
     // Split at first space
     char *space = strchr(copy, ' ');
     if (space) {
         *space = '\0';
     }
-    
+
     // Try to expand the alias
     char *alias_value = lookup_alias(copy);
     if (!alias_value) {
         free(copy);
-        return strdup(command);  // No alias found, return original
+        return strdup(command); // No alias found, return original
     }
-    
+
     // Construct the new command with the alias expansion
     char *result;
     if (space) {
@@ -115,7 +117,7 @@ char *expand_first_word_alias(const char *command) {
         // Command was just the alias
         result = strdup(alias_value);
     }
-    
+
     free(copy);
     return result;
 }
@@ -128,14 +130,14 @@ char *expand_first_word_alias(const char *command) {
  */
 bool is_special_alias_char(char c) {
     switch (c) {
-        case '.':
-        case '_':
-        case '!':
-        case '%':
-        case ',':
-        case '@':
-            return true;
-        default:
-            return isalnum(c);
+    case '.':
+    case '_':
+    case '!':
+    case '%':
+    case ',':
+    case '@':
+        return true;
+    default:
+        return isalnum(c);
     }
 }

@@ -94,8 +94,6 @@ void error_abort(const char *fmt, ...) {
     exit(EXIT_FAILURE); // should never happen
 }
 
-
-
 /*
  * NOTE: NECESSARALY FATAL
  * sigsegv_handler:

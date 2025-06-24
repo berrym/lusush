@@ -9,7 +9,6 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
-
 #include "../include/signals.h"
 #include "../include/symtable.h"
 #include "../include/version.h"
@@ -38,12 +37,14 @@ static void usage(int err);
 
 // Function to handle shebang processing
 static void process_shebang(FILE *file) {
-    if (!file) return;
-    
+    if (!file) {
+        return;
+    }
+
     // Check if the first line starts with #!
     long pos = ftell(file);
     char line[256];
-    
+
     if (fgets(line, sizeof(line), file) != NULL) {
         if (strncmp(line, "#!", 2) == 0) {
             // This is a shebang line - we just consume it and continue
@@ -51,7 +52,7 @@ static void process_shebang(FILE *file) {
             return;
         }
     }
-    
+
     // Not a shebang line, rewind to beginning
     fseek(file, pos, SEEK_SET);
 }
@@ -87,16 +88,17 @@ int init(int argc, char **argv, FILE **in) {
             size_t name_len = eq - *env_ptr;
             char *name = malloc(name_len + 1);
             if (!name) {
-                error_abort("Failed to allocate memory for environment variable name");
+                error_abort(
+                    "Failed to allocate memory for environment variable name");
             }
-            
+
             strncpy(name, *env_ptr, name_len);
             name[name_len] = '\0';
-            
+
             // Set variable and mark as exported
             symtable_set_global(name, eq + 1);
             symtable_export_global(name);
-            
+
             free(name);
         } else {
             // Environment variable without value (set but empty)
@@ -107,7 +109,7 @@ int init(int argc, char **argv, FILE **in) {
     }
 
     init_shell_opts();
-    
+
     // Initialize POSIX shell options with defaults
     init_posix_options();
 
@@ -115,15 +117,15 @@ int init(int argc, char **argv, FILE **in) {
     size_t optind = parse_opts(argc, argv);
 
     // POSIX-compliant shell type determination
-    
+
     // 1. Determine if this is a login shell
     IS_LOGIN_SHELL = (**argv == '-') || shell_opts.login_shell;
-    
+
     // 2. Determine interactive vs non-interactive
     bool has_script_file = (optind && argv[optind] && *argv[optind]);
     bool forced_interactive = shell_opts.interactive;
     bool stdin_is_terminal = isatty(STDIN_FILENO);
-    
+
     if (shell_opts.command_mode) {
         // -c command mode: always non-interactive
         IS_INTERACTIVE_SHELL = false;
@@ -133,11 +135,12 @@ int init(int argc, char **argv, FILE **in) {
         // Script file execution: always non-interactive
         IS_INTERACTIVE_SHELL = false;
         SHELL_TYPE = SHELL_NON_INTERACTIVE;
-        
+
         // Check that the script file is valid
         stat(argv[optind], &st);
         if (!(S_ISREG(st.st_mode))) {
-            error_message("error: `init`: %s is not a regular file", argv[optind]);
+            error_message("error: `init`: %s is not a regular file",
+                          argv[optind]);
             // Fall back to interactive mode
             IS_INTERACTIVE_SHELL = true;
             SHELL_TYPE = SHELL_INTERACTIVE;
@@ -150,7 +153,8 @@ int init(int argc, char **argv, FILE **in) {
                 process_shebang(*in);
             }
         }
-    } else if (forced_interactive || (stdin_is_terminal && !shell_opts.stdin_mode)) {
+    } else if (forced_interactive ||
+               (stdin_is_terminal && !shell_opts.stdin_mode)) {
         // Interactive shell: stdin is terminal OR forced with -i
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
@@ -161,7 +165,7 @@ int init(int argc, char **argv, FILE **in) {
         SHELL_TYPE = SHELL_NON_INTERACTIVE;
         *in = stdin;
     }
-    
+
     // Set up interactive shell features if needed
     if (IS_INTERACTIVE_SHELL) {
         linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
@@ -170,7 +174,7 @@ int init(int argc, char **argv, FILE **in) {
         linenoiseSetMultiLine(symtable_get_global_bool("MULTILINE_EDIT", true));
         build_prompt();
     }
-    
+
     // For login shells, set the appropriate type
     if (IS_LOGIN_SHELL) {
         SHELL_TYPE = SHELL_LOGIN;
@@ -183,26 +187,27 @@ int init(int argc, char **argv, FILE **in) {
     setenv("PPID", ppid_str, 1);
     symtable_set_global("PPID", ppid_str);
     symtable_export_global("PPID");
-    
+
     // Set initial exit status
     set_exit_status(0);
-    
+
     // Set shell PID ($$ special variable)
     pid_t shell_pid = getpid();
     char shell_pid_str[32];
     snprintf(shell_pid_str, sizeof(shell_pid_str), "%d", (int)shell_pid);
     symtable_set_global("$", shell_pid_str);
-    
+
     // Set shell name/script name and positional parameters
     if (shell_type() == NORMAL_SHELL && optind > 0 && argv[optind]) {
         // Running a script - set up script arguments
         symtable_set_global("0", argv[optind]); // Script name
-        
+
         // Update global shell_argc and shell_argv for script arguments
         extern int shell_argc;
         extern char **shell_argv;
-        shell_argc = argc - optind;  // Number of script args (including script name)
-        shell_argv = &argv[optind];  // Pointer to script args
+        shell_argc =
+            argc - optind; // Number of script args (including script name)
+        shell_argv = &argv[optind]; // Pointer to script args
     } else {
         // Interactive or command mode - use shell arguments
         symtable_set_global("0", argv[0]);
@@ -241,9 +246,9 @@ static int parse_opts(int argc, char **argv) {
     const char *sopts = "hVc:silexnuvfm";
     // array describing valid long options
     const struct option lopts[] = {
-        {"help",    0, NULL, 'h'},
+        {   "help", 0, NULL, 'h'},
         {"version", 0, NULL, 'V'},
-        {  NULL,    0, NULL,   0}
+        {     NULL, 0, NULL,   0}
     };
 
     do {
@@ -331,7 +336,8 @@ static void usage(int err) {
     printf("  -l               Act as login shell\n");
     printf("  -e               Exit immediately on command failure (set -e)\n");
     printf("  -x               Trace command execution (set -x)\n");
-    printf("  -n               Syntax check mode - read but don't execute (set -n)\n");
+    printf("  -n               Syntax check mode - read but don't execute (set "
+           "-n)\n");
     printf("  -u               Treat unset variables as error (set -u)\n");
     printf("  -v               Verbose mode - print input lines (set -v)\n");
     printf("  -f               Disable pathname expansion (set -f)\n");
@@ -339,7 +345,8 @@ static void usage(int err) {
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");
-    printf("  Use 'set -o option' or 'set +o option' to control shell behavior\n");
+    printf(
+        "  Use 'set -o option' or 'set +o option' to control shell behavior\n");
     printf("  Available options: errexit, xtrace, noexec, nounset, verbose,\n");
     printf("                     noglob, hashall, monitor\n");
     printf("\nFor more information, see the manual or documentation.\n");

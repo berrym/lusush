@@ -8,15 +8,13 @@
 #include "../include/init.h"
 #include "../include/input.h"
 #include "../include/linenoise/linenoise.h"
-
-#include "../include/symtable.h"
 #include "../include/signals.h"
-
+#include "../include/symtable.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 // Forward declarations
 
@@ -59,7 +57,8 @@ int main(int argc, char **argv) {
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
         // Read complete command(s) using unified input system
-        // This ensures consistent parsing behavior between interactive and non-interactive modes
+        // This ensures consistent parsing behavior between interactive and
+        // non-interactive modes
         line = get_unified_input(in);
 
         if (line == NULL) {

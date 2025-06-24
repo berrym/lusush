@@ -1,6 +1,6 @@
 /**
  * POSIX Shell Parser - Clean Recursive Descent Implementation
- * 
+ *
  * This parser uses the tokenizer and implements a proper recursive descent
  * parser for POSIX shell grammar. It handles control structures, commands,
  * pipelines, and proper token boundary management.
@@ -9,8 +9,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "tokenizer.h"
 #include "node.h"
+#include "tokenizer.h"
 
 // Parser state
 typedef struct parser {

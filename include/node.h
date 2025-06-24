@@ -10,37 +10,37 @@ typedef enum {
     NODE_VAR,
     NODE_STRING_LITERAL,    // Single-quoted string - no expansion
     NODE_STRING_EXPANDABLE, // Double-quoted string - variable expansion
-    NODE_ARITH_EXP,        // Arithmetic expansion $((expr))
-    NODE_COMMAND_SUB,      // Command substitution $(cmd)
+    NODE_ARITH_EXP,         // Arithmetic expansion $((expr))
+    NODE_COMMAND_SUB,       // Command substitution $(cmd)
     NODE_PIPE,
-    NODE_REDIR_IN,     // '<'
-    NODE_REDIR_OUT,    // '>'
-    NODE_REDIR_APPEND, // '>>'
-    NODE_REDIR_ERR,    // '2>'
-    NODE_REDIR_ERR_APPEND, // '2>>'
-    NODE_REDIR_HEREDOC,    // '<<'
+    NODE_REDIR_IN,            // '<'
+    NODE_REDIR_OUT,           // '>'
+    NODE_REDIR_APPEND,        // '>>'
+    NODE_REDIR_ERR,           // '2>'
+    NODE_REDIR_ERR_APPEND,    // '2>>'
+    NODE_REDIR_HEREDOC,       // '<<'
     NODE_REDIR_HEREDOC_STRIP, // '<<-'
-    NODE_REDIR_HERESTRING, // '<<<'
-    NODE_REDIR_BOTH,       // '&>'
-    NODE_REDIR_FD,         // '&1', '&2', etc.
-    NODE_REDIR_CLOBBER,    // '>|'
+    NODE_REDIR_HERESTRING,    // '<<<'
+    NODE_REDIR_BOTH,          // '&>'
+    NODE_REDIR_FD,            // '&1', '&2', etc.
+    NODE_REDIR_CLOBBER,       // '>|'
     // List types for semantic clarity
     NODE_COMMAND_LIST, // Sequence of commands separated by semicolons
     NODE_PIPELINE,     // Sequence of commands connected by pipes
     // Control structures
-    NODE_IF,           // if statement
-    NODE_FOR,          // for loop
-    NODE_WHILE,        // while loop
-    NODE_UNTIL,        // until loop
-    NODE_CASE,         // case statement
-    NODE_FUNCTION,     // function definition
-    NODE_BRACE_GROUP,  // brace group { commands; }
-    NODE_SUBSHELL,     // subshell ( commands )
+    NODE_IF,          // if statement
+    NODE_FOR,         // for loop
+    NODE_WHILE,       // while loop
+    NODE_UNTIL,       // until loop
+    NODE_CASE,        // case statement
+    NODE_FUNCTION,    // function definition
+    NODE_BRACE_GROUP, // brace group { commands; }
+    NODE_SUBSHELL,    // subshell ( commands )
     // Logical operators
-    NODE_LOGICAL_AND,  // && operator
-    NODE_LOGICAL_OR,   // || operator
+    NODE_LOGICAL_AND, // && operator
+    NODE_LOGICAL_OR,  // || operator
     // Job control
-    NODE_BACKGROUND,   // & operator (background execution)
+    NODE_BACKGROUND, // & operator (background execution)
 } node_type_t;
 
 typedef enum {

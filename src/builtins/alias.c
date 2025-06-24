@@ -273,7 +273,8 @@ char *parse_alias_var_name(char *src) {
  *      Parse a substring between quotes that represents the alias substitution
  *      value.
  */
-char *parse_alias_var_value(char *src, const char delim __attribute__((unused))) {
+char *parse_alias_var_value(char *src,
+                            const char delim __attribute__((unused))) {
     // Find the first '='
     char *eq = strchr(src, '=');
     if (!eq) {
@@ -282,14 +283,19 @@ char *parse_alias_var_value(char *src, const char delim __attribute__((unused)))
     }
     // Skip whitespace after '='
     char *p = eq + 1;
-    while (*p && isspace((unsigned char)*p)) p++;
+    while (*p && isspace((unsigned char)*p)) {
+        p++;
+    }
     // Take the rest of the string as the value, trim trailing whitespace
     char *end = p + strlen(p);
-    while (end > p && isspace((unsigned char)*(end - 1))) end--;
+    while (end > p && isspace((unsigned char)*(end - 1))) {
+        end--;
+    }
     size_t len = end - p;
     char *val = alloc_str(len + 1, false);
     if (!val) {
-        error_message("error: `alias`: insufficient memory to complete operation");
+        error_message(
+            "error: `alias`: insufficient memory to complete operation");
         return NULL;
     }
     strncpy(val, p, len);

@@ -73,16 +73,19 @@ void setopt(int argc, char **argv) {
                     case MULTILINE_EDIT:
                         multiline_edit = !multiline_edit;
                         linenoiseSetMultiLine(multiline_edit);
-                        symtable_set_global_int("MULTILINE_EDIT", multiline_edit);
+                        symtable_set_global_int("MULTILINE_EDIT",
+                                                multiline_edit);
                         break;
                     case HISTORY_NO_DUPS:
                         history_no_dups = !history_no_dups;
                         linenoiseHistoryNoDups(history_no_dups);
-                        symtable_set_global_int("HISTORY_NO_DUPS", history_no_dups);
+                        symtable_set_global_int("HISTORY_NO_DUPS",
+                                                history_no_dups);
                         break;
                     case NO_WORD_EXPAND:
                         no_word_expand = !no_word_expand;
-                        symtable_set_global_int("NO_WORD_EXPAND", no_word_expand);
+                        symtable_set_global_int("NO_WORD_EXPAND",
+                                                no_word_expand);
                         break;
                     default:
                         break;

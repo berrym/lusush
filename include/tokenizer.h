@@ -1,8 +1,9 @@
 /**
  * Tokenizer for POSIX Shell - Designed for Recursive Descent Parsing
- * 
+ *
  * This tokenizer provides a clean, simple design that properly
- * supports recursive descent parsing with lookahead and proper token boundaries.
+ * supports recursive descent parsing with lookahead and proper token
+ * boundaries.
  */
 
 #ifndef TOKENIZER_H
@@ -14,49 +15,50 @@
 // Simple, clean token classification for parser
 typedef enum {
     // Basic token types
-    TOK_EOF,          // End of input
-    TOK_WORD,         // Regular word (command, argument, variable name)
-    TOK_STRING,       // Quoted string ('...' - literal)
-    TOK_EXPANDABLE_STRING, // Double-quoted string ("...") - needs variable expansion
-    TOK_NUMBER,       // Numeric literal
-    TOK_VARIABLE,     // Variable reference ($var, ${var}, etc.)
-    
+    TOK_EOF,               // End of input
+    TOK_WORD,              // Regular word (command, argument, variable name)
+    TOK_STRING,            // Quoted string ('...' - literal)
+    TOK_EXPANDABLE_STRING, // Double-quoted string ("...") - needs variable
+                           // expansion
+    TOK_NUMBER,            // Numeric literal
+    TOK_VARIABLE,          // Variable reference ($var, ${var}, etc.)
+
     // Operators and separators
-    TOK_SEMICOLON,    // ;
-    TOK_PIPE,         // |
-    TOK_AND,          // &
-    TOK_LOGICAL_AND,  // &&
-    TOK_LOGICAL_OR,   // ||
-    TOK_REDIRECT_IN,  // <
-    TOK_REDIRECT_OUT, // >
-    TOK_APPEND,       // >>
-    TOK_HEREDOC,      // <<
+    TOK_SEMICOLON,     // ;
+    TOK_PIPE,          // |
+    TOK_AND,           // &
+    TOK_LOGICAL_AND,   // &&
+    TOK_LOGICAL_OR,    // ||
+    TOK_REDIRECT_IN,   // <
+    TOK_REDIRECT_OUT,  // >
+    TOK_APPEND,        // >>
+    TOK_HEREDOC,       // <<
     TOK_HEREDOC_STRIP, // <<-
-    TOK_HERESTRING,   // <<<
-    TOK_REDIRECT_ERR, // 2>
+    TOK_HERESTRING,    // <<<
+    TOK_REDIRECT_ERR,  // 2>
     TOK_REDIRECT_BOTH, // &>
-    TOK_APPEND_ERR,   // 2>>
-    TOK_REDIRECT_FD,  // &1, &2, etc.
-    TOK_ASSIGN,       // =
-    TOK_PLUS,         // +
-    TOK_MINUS,        // -
-    TOK_MULTIPLY,     // *
-    TOK_DIVIDE,       // /
-    TOK_MODULO,       // %
-    TOK_GLOB,         // * (when used for globbing)
-    TOK_QUESTION,     // ?
-    TOK_COMMAND_SUB,  // $(...) 
-    TOK_ARITH_EXP,    // $((...))
-    TOK_BACKQUOTE,    // `
-    
+    TOK_APPEND_ERR,    // 2>>
+    TOK_REDIRECT_FD,   // &1, &2, etc.
+    TOK_ASSIGN,        // =
+    TOK_PLUS,          // +
+    TOK_MINUS,         // -
+    TOK_MULTIPLY,      // *
+    TOK_DIVIDE,        // /
+    TOK_MODULO,        // %
+    TOK_GLOB,          // * (when used for globbing)
+    TOK_QUESTION,      // ?
+    TOK_COMMAND_SUB,   // $(...)
+    TOK_ARITH_EXP,     // $((...))
+    TOK_BACKQUOTE,     // `
+
     // Delimiters
-    TOK_LPAREN,       // (
-    TOK_RPAREN,       // )
-    TOK_LBRACE,       // {
-    TOK_RBRACE,       // }
-    TOK_LBRACKET,     // [
-    TOK_RBRACKET,     // ]
-    
+    TOK_LPAREN,   // (
+    TOK_RPAREN,   // )
+    TOK_LBRACE,   // {
+    TOK_RBRACE,   // }
+    TOK_LBRACKET, // [
+    TOK_RBRACKET, // ]
+
     // Keywords (recognized contextually)
     TOK_IF,
     TOK_THEN,
@@ -72,23 +74,23 @@ typedef enum {
     TOK_ESAC,
     TOK_UNTIL,
     TOK_FUNCTION,
-    
+
     // Special
-    TOK_NEWLINE,      // \n (significant in shell)
-    TOK_WHITESPACE,   // Spaces, tabs (usually ignored)
-    TOK_COMMENT,      // # comment
-    TOK_ERROR         // Invalid token
+    TOK_NEWLINE,    // \n (significant in shell)
+    TOK_WHITESPACE, // Spaces, tabs (usually ignored)
+    TOK_COMMENT,    // # comment
+    TOK_ERROR       // Invalid token
 } token_type_t;
 
 // Token structure for parser
 typedef struct token {
     token_type_t type;
-    char *text;           // Token text (null-terminated)
-    size_t length;        // Token length
-    size_t line;          // Line number (1-based)
-    size_t column;        // Column number (1-based)
-    size_t position;      // Absolute position in input
-    struct token *next;   // For token stream
+    char *text;         // Token text (null-terminated)
+    size_t length;      // Token length
+    size_t line;        // Line number (1-based)
+    size_t column;      // Column number (1-based)
+    size_t position;    // Absolute position in input
+    struct token *next; // For token stream
 } token_t;
 
 // Tokenizer state for parser

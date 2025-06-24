@@ -1,14 +1,15 @@
 /**
  * Comprehensive Symbol Table Implementation for Lusush Shell
- * 
- * This provides a unified, modern POSIX-compliant variable scoping system that handles:
+ *
+ * This provides a unified, modern POSIX-compliant variable scoping system that
+ * handles:
  * - Global variables (persistent across commands)
  * - Local variables (function scope)
  * - Loop variables (for/while scope)
  * - Subshell variables (isolated scope)
  * - Environment variables (exported variables)
  * - Special variables ($?, $!, $$, etc.)
- * 
+ *
  * POSIX Scoping Rules:
  * 1. Global scope: Variables persist across commands
  * 2. Function scope: Local variables shadow global ones
@@ -30,10 +31,10 @@ typedef struct symvar symvar_t;
 
 // Variable types
 typedef enum {
-    SYMVAR_STRING,      // Regular string variable
-    SYMVAR_INTEGER,     // Integer variable (for arithmetic)
-    SYMVAR_ARRAY,       // Array variable (bash extension)
-    SYMVAR_FUNCTION     // Function definition
+    SYMVAR_STRING,  // Regular string variable
+    SYMVAR_INTEGER, // Integer variable (for arithmetic)
+    SYMVAR_ARRAY,   // Array variable (bash extension)
+    SYMVAR_FUNCTION // Function definition
 } symvar_type_t;
 
 // Variable flags
@@ -48,39 +49,39 @@ typedef enum {
 
 // Scope types for different contexts
 typedef enum {
-    SCOPE_GLOBAL,       // Global shell scope
-    SCOPE_FUNCTION,     // Function local scope
-    SCOPE_LOOP,         // Loop iteration scope (for/while)
-    SCOPE_SUBSHELL,     // Subshell scope
-    SCOPE_CONDITIONAL   // Conditional execution scope (if/case)
+    SCOPE_GLOBAL,     // Global shell scope
+    SCOPE_FUNCTION,   // Function local scope
+    SCOPE_LOOP,       // Loop iteration scope (for/while)
+    SCOPE_SUBSHELL,   // Subshell scope
+    SCOPE_CONDITIONAL // Conditional execution scope (if/case)
 } scope_type_t;
 
 // Variable entry structure
 struct symvar {
-    char *name;                  // Variable name
-    char *value;                 // Variable value (string representation)
-    symvar_type_t type;          // Variable type
-    symvar_flags_t flags;        // Variable flags
-    size_t scope_level;          // Scope level where defined
-    symvar_t *next;              // Next variable in hash chain
+    char *name;           // Variable name
+    char *value;          // Variable value (string representation)
+    symvar_type_t type;   // Variable type
+    symvar_flags_t flags; // Variable flags
+    size_t scope_level;   // Scope level where defined
+    symvar_t *next;       // Next variable in hash chain
 };
 
 // Symbol table scope structure
 struct symtable_scope {
-    scope_type_t scope_type;     // Type of scope
-    size_t level;                // Scope nesting level
-    size_t hash_size;            // Hash table size
-    symvar_t **vars;             // Hash table of variables
-    symtable_scope_t *parent;    // Parent scope
-    char *scope_name;            // Name of scope (for debugging)
+    scope_type_t scope_type;  // Type of scope
+    size_t level;             // Scope nesting level
+    size_t hash_size;         // Hash table size
+    symvar_t **vars;          // Hash table of variables
+    symtable_scope_t *parent; // Parent scope
+    char *scope_name;         // Name of scope (for debugging)
 };
 
 // Symbol table manager
 typedef struct {
-    symtable_scope_t *current_scope;    // Current active scope
-    symtable_scope_t *global_scope;     // Global scope reference
-    size_t max_scope_level;             // Maximum nesting depth
-    bool debug_mode;                    // Debug output enabled
+    symtable_scope_t *current_scope; // Current active scope
+    symtable_scope_t *global_scope;  // Global scope reference
+    size_t max_scope_level;          // Maximum nesting depth
+    bool debug_mode;                 // Debug output enabled
 } symtable_manager_t;
 
 // Legacy compatibility structures (for string management system)
@@ -120,15 +121,19 @@ void symtable_manager_free(symtable_manager_t *manager);
 void symtable_manager_set_debug(symtable_manager_t *manager, bool debug);
 
 // Scope management
-int symtable_push_scope(symtable_manager_t *manager, scope_type_t type, const char *name);
+int symtable_push_scope(symtable_manager_t *manager, scope_type_t type,
+                        const char *name);
 int symtable_pop_scope(symtable_manager_t *manager);
 size_t symtable_current_level(symtable_manager_t *manager);
 const char *symtable_current_scope_name(symtable_manager_t *manager);
 
 // Low-level variable operations
-int symtable_set_var(symtable_manager_t *manager, const char *name, const char *value, symvar_flags_t flags);
-int symtable_set_local_var(symtable_manager_t *manager, const char *name, const char *value);
-int symtable_set_global_var(symtable_manager_t *manager, const char *name, const char *value);
+int symtable_set_var(symtable_manager_t *manager, const char *name,
+                     const char *value, symvar_flags_t flags);
+int symtable_set_local_var(symtable_manager_t *manager, const char *name,
+                           const char *value);
+int symtable_set_global_var(symtable_manager_t *manager, const char *name,
+                            const char *value);
 char *symtable_get_var(symtable_manager_t *manager, const char *name);
 int symtable_unset_var(symtable_manager_t *manager, const char *name);
 bool symtable_var_exists(symtable_manager_t *manager, const char *name);
@@ -188,7 +193,8 @@ void symtable_free_environment_array(char **env);
 // CONVENIENCE MACROS
 // ============================================================================
 
-#define symtable_set(mgr, name, value) symtable_set_var(mgr, name, value, SYMVAR_NONE)
+#define symtable_set(mgr, name, value)                                         \
+    symtable_set_var(mgr, name, value, SYMVAR_NONE)
 #define symtable_get(mgr, name) symtable_get_var(mgr, name)
 #define symtable_export(mgr, name) symtable_export_var(mgr, name)
 
@@ -200,9 +206,12 @@ void symtable_free_environment_array(char **env);
 
 // Advanced operations (direct modern API access)
 #define symtable_manager() symtable_get_global_manager()
-#define symtable_push_function_scope(name) symtable_push_scope(symtable_manager(), SCOPE_FUNCTION, name)
-#define symtable_push_loop_scope(name) symtable_push_scope(symtable_manager(), SCOPE_LOOP, name)
-#define symtable_push_subshell_scope(name) symtable_push_scope(symtable_manager(), SCOPE_SUBSHELL, name)
+#define symtable_push_function_scope(name)                                     \
+    symtable_push_scope(symtable_manager(), SCOPE_FUNCTION, name)
+#define symtable_push_loop_scope(name)                                         \
+    symtable_push_scope(symtable_manager(), SCOPE_LOOP, name)
+#define symtable_push_subshell_scope(name)                                     \
+    symtable_push_scope(symtable_manager(), SCOPE_SUBSHELL, name)
 #define symtable_pop_current_scope() symtable_pop_scope(symtable_manager())
 
 // ============================================================================
