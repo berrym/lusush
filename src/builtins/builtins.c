@@ -58,6 +58,7 @@ builtin builtins[] = {
     { "continue",     "continue to next loop iteration", bin_continue},
     {   "return",     "return from functions",        bin_return},
     {     "trap",     "set signal handlers",          bin_trap},
+    {     "exec",     "replace shell with command",   bin_exec},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -1066,4 +1067,76 @@ int bin_trap(int argc, char **argv) {
     }
     
     return 0;
+}/**
+ * bin_exec:
+ *      Replace shell process with command or modify file descriptors
+ */
+int bin_exec(int argc, char **argv) {
+    // If no arguments, exec does nothing and returns success
+    if (argc == 1) {
+        return 0;
+    }
+    
+    // Check for redirection-only exec (exec < file, exec > file, etc.)
+    bool has_redirections = false;
+    bool has_command = false;
+    
+    // Scan arguments to determine if this is redirection-only or command exec
+    for (int i = 1; i < argc; i++) {
+        if (strchr(argv[i], '<') || strchr(argv[i], '>')) {
+            has_redirections = true;
+        } else if (argv[i][0] != '<' && argv[i][0] != '>' && 
+                   !isdigit(argv[i][0])) {
+            has_command = true;
+            break;
+        }
+    }
+    
+    // If only redirections, handle file descriptor manipulation
+    if (has_redirections && !has_command) {
+        // TODO: Implement redirection-only exec
+        // For now, we'll focus on command replacement exec
+        fprintf(stderr, "exec: redirection-only exec not yet implemented\n");
+        return 1;
+    }
+    
+    // Command replacement exec - find the command to execute
+    char *command = NULL;
+    char **exec_argv = NULL;
+    int exec_argc = 0;
+    
+    // Find the first non-redirection argument as the command
+    int cmd_start = 1;
+    while (cmd_start < argc && (argv[cmd_start][0] == '<' || 
+                                argv[cmd_start][0] == '>' || 
+                                isdigit(argv[cmd_start][0]))) {
+        cmd_start++;
+    }
+    
+    if (cmd_start >= argc) {
+        fprintf(stderr, "exec: no command specified\n");
+        return 1;
+    }
+    
+    command = argv[cmd_start];
+    exec_argc = argc - cmd_start;
+    exec_argv = &argv[cmd_start];
+    
+    // Execute EXIT traps before replacing the process
+    execute_exit_traps();
+    
+    // Flush all output streams before exec
+    fflush(stdout);
+    fflush(stderr);
+    fflush(stdin);
+    
+    // Try to execute the command using execvp
+    // This replaces the current process entirely
+    execvp(command, exec_argv);
+    
+    // If we get here, exec failed
+    perror("exec");
+    
+    // exec failure should exit the shell with error status
+    exit(127);
 }
