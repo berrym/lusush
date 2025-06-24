@@ -2393,8 +2393,8 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":",
-                               "#",  "%",  "^",  ",",  "-",  "+",  NULL};
+    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":", "#",
+                               "%",  "^",  ",",  "-",  "+",  ":=", "=", NULL};
     int op_type = -1;
 
     // Find the first valid operator that's not part of a pattern
@@ -2589,6 +2589,28 @@ static char *parse_parameter_expansion(executor_t *executor,
                 result = strdup("");
             }
             break;
+
+        case 13: // ${var:=default} - assign default if var is unset or empty
+                 // and return it
+            if (is_empty_or_null(var_value)) {
+                symtable_set_var(executor->symtable, var_name, expanded_default,
+                                 SYMVAR_NONE);
+                result = strdup(expanded_default);
+            } else {
+                result = strdup(var_value);
+            }
+            break;
+
+        case 14: // ${var=default} - assign default if var is unset and return
+                 // it
+            if (!var_value) {
+                symtable_set_var(executor->symtable, var_name, expanded_default,
+                                 SYMVAR_NONE);
+                result = strdup(expanded_default);
+            } else {
+                result = strdup(var_value);
+            }
+            break;
         }
 
         free(var_name);
@@ -2636,6 +2658,7 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
 
     // Handle ${var} format with advanced parameter expansion
     if (var_name[0] == '{') {
+
         char *close = strchr(var_name, '}');
         if (close) {
             size_t len = close - var_name - 1;
@@ -2645,6 +2668,7 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                 expansion[len] = '\0';
 
                 char *result = parse_parameter_expansion(executor, expansion);
+
                 free(expansion);
                 return result;
             }
@@ -3152,6 +3176,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 
             // Handle ${var} format
             if (str[var_start] == '{') {
+
                 var_start++;         // Skip opening brace
                 var_end = var_start; // Start looking for closing brace after
                                      // opening brace
@@ -3165,10 +3190,11 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                     if (var_name) {
                         strncpy(var_name, &str[var_start], var_name_len);
                         var_name[var_name_len] = '\0';
-
-                        // Get variable value
+                        // Use parameter expansion to handle operators like =,
+                        // :-, etc.
                         char *var_value =
-                            symtable_get_var(executor->symtable, var_name);
+                            parse_parameter_expansion(executor, var_name);
+
                         if (var_value) {
                             size_t value_len = strlen(var_value);
                             // Ensure buffer is large enough
@@ -3250,6 +3276,74 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                 } else {
                     result[result_pos++] = str[i++];
                 }
+            }
+        } else if (str[i] == '\\' && i + 1 < len) {
+            // Handle escape sequences
+            char next_char = str[i + 1];
+            char escape_char;
+
+            switch (next_char) {
+            case 'n':
+                escape_char = '\n';
+                break;
+            case 't':
+                escape_char = '\t';
+                break;
+            case 'r':
+                escape_char = '\r';
+                break;
+            case 'b':
+                escape_char = '\b';
+                break;
+            case 'f':
+                escape_char = '\f';
+                break;
+            case 'v':
+                escape_char = '\v';
+                break;
+            case 'a':
+                escape_char = '\a';
+                break;
+            case '\\':
+                escape_char = '\\';
+                break;
+            case '"':
+                escape_char = '"';
+                break;
+            case '$':
+                escape_char = '$';
+                break;
+            default:
+                // Not a recognized escape sequence, keep backslash
+                escape_char = '\\';
+                i++; // Only advance by 1 to process next char normally
+                break;
+            }
+
+            if (next_char == 'n' || next_char == 't' || next_char == 'r' ||
+                next_char == 'b' || next_char == 'f' || next_char == 'v' ||
+                next_char == 'a' || next_char == '\\' || next_char == '"' ||
+                next_char == '$') {
+                // Valid escape sequence, skip both backslash and next char
+                if (result_pos >= buffer_size - 1) {
+                    buffer_size *= 2;
+                    result = realloc(result, buffer_size);
+                    if (!result) {
+                        return strdup("");
+                    }
+                }
+                result[result_pos++] = escape_char;
+                i += 2; // Skip both backslash and next character
+            } else {
+                // Invalid escape sequence, include backslash literally
+                if (result_pos >= buffer_size - 1) {
+                    buffer_size *= 2;
+                    result = realloc(result, buffer_size);
+                    if (!result) {
+                        return strdup("");
+                    }
+                }
+                result[result_pos++] = str[i++];
             }
         } else {
             // Regular character
