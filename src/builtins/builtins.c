@@ -67,6 +67,7 @@ builtin builtins[] = {
     {    "umask",     "set/display file creation mask", bin_umask},
     {   "ulimit",     "set/display resource limits",   bin_ulimit},
     {    "times",     "display process times",          bin_times},
+    {   "getopts",    "parse command options",          bin_getopts},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -1651,4 +1652,220 @@ int bin_times(int argc, char **argv) {
            (int)(child_system_time / 60), child_system_time - (int)(child_system_time / 60) * 60);
     
     return 0;
+}
+
+/**
+ * bin_getopts:
+ *      Parse command options for shell scripts
+ */
+int bin_getopts(int argc, char **argv) {
+    if (argc < 3) {
+        fprintf(stderr, "getopts: usage: getopts optstring name [args...]\n");
+        return 1;
+    }
+    
+    char *optstring = argv[1];
+    char *varname = argv[2];
+    
+    // Get current OPTIND value from environment
+    char *optind_str = get_shell_varp("OPTIND", NULL);
+    int current_optind = optind_str ? atoi(optind_str) : 1;
+    
+    // Determine arguments to parse
+    char **parse_args;
+    int parse_argc;
+    
+    if (argc > 3) {
+        // Use provided arguments
+        parse_args = &argv[3];
+        parse_argc = argc - 3;
+    } else {
+        // Use positional parameters - get from shell environment
+        // For now, use a simple implementation
+        parse_args = NULL;
+        parse_argc = 0;
+        
+        // Try to get positional parameters from shell variables
+        char *argc_str = get_shell_varp("#", NULL);
+        if (argc_str) {
+            parse_argc = atoi(argc_str);
+            if (parse_argc > 0) {
+                parse_args = malloc((parse_argc + 1) * sizeof(char*));
+                for (int i = 0; i < parse_argc; i++) {
+                    char param_name[16];
+                    snprintf(param_name, sizeof(param_name), "%d", i + 1);
+                    char *param_val = get_shell_varp(param_name, NULL);
+                    parse_args[i] = param_val ? strdup(param_val) : strdup("");
+                }
+                parse_args[parse_argc] = NULL;
+            }
+        }
+    }
+    
+    // Check if we have arguments to parse
+    if (parse_argc == 0 || current_optind > parse_argc) {
+        // No more arguments
+        set_shell_varp("OPTIND", "1");  // Reset for next getopts call
+        if (argc <= 3 && parse_args) {
+            for (int i = 0; i < parse_argc; i++) {
+                free(parse_args[i]);
+            }
+            free(parse_args);
+        }
+        return 1;
+    }
+    
+    // Get current argument to parse
+    char *current_arg = parse_args[current_optind - 1];
+    
+    // Static variables to maintain state between calls
+    static char *current_option_arg = NULL;
+    static int option_pos = 0;
+    
+    // Check if we're continuing with a combined option (like -abc)
+    if (option_pos == 0) {
+        // Starting new argument
+        if (!current_arg || current_arg[0] != '-' || strcmp(current_arg, "-") == 0) {
+            // Not an option or single dash
+            set_shell_varp("OPTIND", "1");
+            if (argc <= 3 && parse_args) {
+                for (int i = 0; i < parse_argc; i++) {
+                    free(parse_args[i]);
+                }
+                free(parse_args);
+            }
+            return 1;
+        }
+        
+        if (strcmp(current_arg, "--") == 0) {
+            // End of options marker
+            char next_optind[16];
+            snprintf(next_optind, sizeof(next_optind), "%d", current_optind + 1);
+            set_shell_varp("OPTIND", next_optind);
+            if (argc <= 3 && parse_args) {
+                for (int i = 0; i < parse_argc; i++) {
+                    free(parse_args[i]);
+                }
+                free(parse_args);
+            }
+            return 1;
+        }
+        
+        current_option_arg = current_arg;
+        option_pos = 1; // Skip the initial '-'
+    }
+    
+    // Get current option character
+    char opt_char = current_option_arg[option_pos];
+    if (opt_char == '\0') {
+        // Move to next argument
+        current_optind++;
+        option_pos = 0;
+        char next_optind[16];
+        snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
+        set_shell_varp("OPTIND", next_optind);
+        if (argc <= 3 && parse_args) {
+            for (int i = 0; i < parse_argc; i++) {
+                free(parse_args[i]);
+            }
+            free(parse_args);
+        }
+        return bin_getopts(argc, argv); // Recursive call to process next argument
+    }
+    
+    // Check if option is valid
+    bool silent_mode = (optstring[0] == ':');
+    char *opt_pos = strchr(silent_mode ? optstring + 1 : optstring, opt_char);
+    
+    if (!opt_pos) {
+        // Invalid option
+        if (silent_mode) {
+            set_shell_varp(varname, "?");
+            char optarg_val[2] = {opt_char, '\0'};
+            set_shell_varp("OPTARG", optarg_val);
+        } else {
+            fprintf(stderr, "getopts: illegal option -- %c\n", opt_char);
+            set_shell_varp(varname, "?");
+            set_shell_varp("OPTARG", "");
+        }
+        option_pos++;
+        char next_optind[16];
+        snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
+        set_shell_varp("OPTIND", next_optind);
+        if (argc <= 3 && parse_args) {
+            for (int i = 0; i < parse_argc; i++) {
+                free(parse_args[i]);
+            }
+            free(parse_args);
+        }
+        return 0;
+    }
+    
+    // Check if option requires an argument
+    bool needs_arg = (opt_pos[1] == ':');
+    
+    if (needs_arg) {
+        char *arg_value = NULL;
+        
+        if (current_option_arg[option_pos + 1] != '\0') {
+            // Argument is attached (like -fvalue)
+            arg_value = &current_option_arg[option_pos + 1];
+            option_pos = 0; // Move to next argument
+            current_optind++;
+        } else {
+            // Argument should be in next parameter
+            if (current_optind < parse_argc) {
+                arg_value = parse_args[current_optind];
+                current_optind++;
+                option_pos = 0;
+            } else {
+                // Missing argument
+                if (silent_mode) {
+                    set_shell_varp(varname, ":");
+                    char optarg_val[2] = {opt_char, '\0'};
+                    set_shell_varp("OPTARG", optarg_val);
+                } else {
+                    fprintf(stderr, "getopts: option requires an argument -- %c\n", opt_char);
+                    set_shell_varp(varname, "?");
+                    set_shell_varp("OPTARG", "");
+                }
+                char next_optind[16];
+                snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
+                set_shell_varp("OPTIND", next_optind);
+                if (argc <= 3 && parse_args) {
+                    for (int i = 0; i < parse_argc; i++) {
+                        free(parse_args[i]);
+                    }
+                    free(parse_args);
+                }
+                return 0;
+            }
+        }
+        
+        // Set option and argument
+        char opt_val[2] = {opt_char, '\0'};
+        set_shell_varp(varname, opt_val);
+        set_shell_varp("OPTARG", arg_value ? arg_value : "");
+    } else {
+        // Option doesn't take an argument
+        char opt_val[2] = {opt_char, '\0'};
+        set_shell_varp(varname, opt_val);
+        set_shell_varp("OPTARG", "");
+        option_pos++;
+    }
+    
+    // Update OPTIND
+    char next_optind[16];
+    snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
+    set_shell_varp("OPTIND", next_optind);
+    
+    // Clean up if we allocated parse_args
+    if (argc <= 3 && parse_args) {
+        for (int i = 0; i < parse_argc; i++) {
+            free(parse_args[i]);
+        }
+        free(parse_args);
+    }
+    
+    return 0; // Found an option
 }
