@@ -2960,13 +2960,11 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                                 result = realloc(result, buffer_size);
                                 if (!result) {
                                     free(var_name);
-                                    free(var_value);
                                     return strdup("");
                                 }
                             }
                             strcpy(&result[result_pos], var_value);
                             result_pos += value_len;
-                            free(var_value);
                         }
                         
                         free(var_name);

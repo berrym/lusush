@@ -45,7 +45,6 @@ src = ['src/builtins/alias.c',
        'src/symtable.c',
 
        'src/tokenizer_new.c',
-       'src/wordexp.c',
       ]
 
 add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
