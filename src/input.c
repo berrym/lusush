@@ -7,7 +7,7 @@
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
-#include "../include/symtable_unified.h"
+#include "../include/symtable.h"
 
 #include <errno.h>
 #include <stdbool.h>

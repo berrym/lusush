@@ -1,6 +1,6 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
-#include "../include/symtable_unified.h"
+#include "../include/symtable.h"
 
 #include <getopt.h>
 #include <stdbool.h>

@@ -14,7 +14,7 @@
 #include "../include/node.h"
 #include "../include/redirection.h"
 #include "../include/executor_modern.h"
-#include "../include/symtable_unified.h"
+#include "../include/symtable.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -10,7 +10,7 @@
 #define EXECUTOR_MODERN_H
 
 #include "parser_modern.h"
-#include "symtable_modern.h"
+#include "symtable.h"
 #include "node.h"
 #include <stdbool.h>
 #include <sys/types.h>

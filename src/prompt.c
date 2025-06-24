@@ -4,7 +4,6 @@
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
-#include "../include/symtable_unified.h"
 
 #include <getopt.h>
 #include <limits.h>

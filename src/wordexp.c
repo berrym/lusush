@@ -1,7 +1,6 @@
 #include "../include/lusush.h"
 #include "../include/errors.h"
 #include "../include/symtable.h"
-#include "../include/symtable_unified.h"
 #include "../include/strings.h"
 #include "../include/arithmetic_modern.h"
 

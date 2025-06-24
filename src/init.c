@@ -12,7 +12,6 @@
 
 #include "../include/signals.h"
 #include "../include/symtable.h"
-#include "../include/symtable_unified.h"
 #include "../include/version.h"
 
 #include <getopt.h>

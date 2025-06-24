@@ -85,7 +85,7 @@ executor_modern_t *executor_modern_new(void) {
     }
     
     // Use global symbol table manager from modernized legacy interface
-    executor->symtable = get_global_symtable_manager();
+    executor->symtable = symtable_get_global_manager();
     if (!executor->symtable) {
         free(executor);
         return NULL;

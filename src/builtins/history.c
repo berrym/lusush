@@ -4,7 +4,7 @@
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
-#include "../../include/symtable_unified.h"
+#include "../../include/symtable.h"
 
 #include <fcntl.h>
 #include <stdio.h>

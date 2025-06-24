@@ -16,7 +16,7 @@
 #include "../include/arithmetic_modern.h"
 #include "../include/lusush.h"
 #include "../include/errors.h"
-#include "../include/symtable_modern.h"
+#include "../include/symtable.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -25,8 +25,8 @@
 #include <string.h>
 #include <sys/types.h>
 
-// Get global symbol table manager (defined in executor_modern.c)
-extern symtable_manager_t *get_global_symtable_manager(void);
+// Get global symbol table manager (defined in symtable.c)
+extern symtable_manager_t *symtable_get_global_manager(void);
 
 #define MAXOPSTACK 64
 #define MAXNUMSTACK 64
@@ -281,7 +281,7 @@ static ssize_t long_value(stack_item_t *item) {
             return item->val;
         case ITEM_VAR_PTR: {
             if (item->var_name) {
-                symtable_manager_t *manager = get_global_symtable_manager();
+                symtable_manager_t *manager = symtable_get_global_manager();
                 if (manager) {
                     char *value = symtable_get_var(manager, item->var_name);
                     if (value) {
@@ -429,7 +429,7 @@ static char *get_var_name(const char *expr, int *nchars) {
     name[*nchars] = '\0';
     
     // Ensure variable exists in symbol table with default value "0"
-    symtable_manager_t *manager = get_global_symtable_manager();
+    symtable_manager_t *manager = symtable_get_global_manager();
     if (manager && !symtable_var_exists(manager, name)) {
         symtable_set_var(manager, name, "0", SYMVAR_NONE);
     }
