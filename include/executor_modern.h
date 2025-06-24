@@ -48,6 +48,13 @@ typedef struct job {
     struct job *next;
 } job_t;
 
+// Loop control states
+typedef enum {
+    LOOP_NORMAL,    // Normal execution
+    LOOP_BREAK,     // Break out of loop
+    LOOP_CONTINUE   // Continue to next iteration
+} loop_control_t;
+
 // Execution context for maintaining state
 typedef struct executor_modern {
     bool interactive;                // Interactive mode flag
@@ -60,6 +67,8 @@ typedef struct executor_modern {
     job_t *jobs;                    // Job control list
     int next_job_id;                // Next job ID to assign
     pid_t shell_pgid;               // Shell process group ID
+    loop_control_t loop_control;    // Loop control state
+    int loop_depth;                 // Current loop nesting depth
 } executor_modern_t;
 
 // Main execution interface

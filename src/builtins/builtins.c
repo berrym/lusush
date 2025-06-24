@@ -53,6 +53,8 @@ builtin builtins[] = {
     {       "fg",    "bring job to foreground",        bin_fg},
     {       "bg",    "send job to background",         bin_bg},
     {    "shift",     "shift positional parameters",  bin_shift},
+    {    "break",     "break out of loops",           bin_break},
+    { "continue",     "continue to next loop iteration", bin_continue},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -864,6 +866,91 @@ int bin_shift(int argc, char **argv) {
         // Update argc to reflect the new parameter count
         shell_argc -= shift_count;
     }
+    
+    return 0;
+}
+/**
+ * bin_break:
+ *      Break out of enclosing loop
+ */
+int bin_break(int argc, char **argv) {
+    // Get the current executor to set loop control state
+    extern executor_modern_t *current_executor;
+    
+    if (!current_executor) {
+        fprintf(stderr, "break: not currently in a loop\n");
+        return 1;
+    }
+    
+    // Check if we're actually in a loop
+    if (current_executor->loop_depth <= 0) {
+        fprintf(stderr, "break: not currently in a loop\n");
+        return 1;
+    }
+    
+    // Parse optional level argument (break n)
+    int break_level = 1;
+    if (argc > 1) {
+        char *endptr;
+        break_level = strtol(argv[1], &endptr, 10);
+        
+        if (*endptr != '\0' || break_level <= 0) {
+            fprintf(stderr, "break: %s: numeric argument required\n", argv[1]);
+            return 1;
+        }
+        
+        if (break_level > current_executor->loop_depth) {
+            fprintf(stderr, "break: %d: cannot break %d levels (only %d nested)\n", 
+                    break_level, break_level, current_executor->loop_depth);
+            return 1;
+        }
+    }
+    
+    // Set loop control state to break
+    current_executor->loop_control = LOOP_BREAK;
+    
+    return 0;
+}
+
+/**
+ * bin_continue:
+ *      Continue to next iteration of enclosing loop
+ */
+int bin_continue(int argc, char **argv) {
+    // Get the current executor to set loop control state
+    extern executor_modern_t *current_executor;
+    
+    if (!current_executor) {
+        fprintf(stderr, "continue: not currently in a loop\n");
+        return 1;
+    }
+    
+    // Check if we're actually in a loop
+    if (current_executor->loop_depth <= 0) {
+        fprintf(stderr, "continue: not currently in a loop\n");
+        return 1;
+    }
+    
+    // Parse optional level argument (continue n)
+    int continue_level = 1;
+    if (argc > 1) {
+        char *endptr;
+        continue_level = strtol(argv[1], &endptr, 10);
+        
+        if (*endptr != '\0' || continue_level <= 0) {
+            fprintf(stderr, "continue: %s: numeric argument required\n", argv[1]);
+            return 1;
+        }
+        
+        if (continue_level > current_executor->loop_depth) {
+            fprintf(stderr, "continue: %d: cannot continue %d levels (only %d nested)\n", 
+                    continue_level, continue_level, current_executor->loop_depth);
+            return 1;
+        }
+    }
+    
+    // Set loop control state to continue
+    current_executor->loop_control = LOOP_CONTINUE;
     
     return 0;
 }
