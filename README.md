@@ -1,53 +1,41 @@
 # Lusush Shell
 
-A POSIX-compliant shell with modern architecture. Version 0.7.0-dev
+A shell implementation with modern architecture targeting POSIX compliance. Version 1.0.0-dev
 
-Lusush is a functional shell implementing core POSIX shell features with a modern, modular architecture. The shell successfully handles basic commands, variable operations, pipeline execution, and has partial control structure support.
+Lusush is a functional shell implementing many POSIX shell features with a modern, modular architecture. The shell successfully handles interactive commands, variable operations, pipeline execution, and control structures, with ongoing work toward complete POSIX compliance.
 
-## Current Status
+## Current Status: ~60-70% POSIX Compliant
 
-**Working Features:**
-- ✅ **Simple Commands**: Full execution of basic shell commands
+**Interactive Features Complete (49/49 tests passing):**
+- ✅ **Command Execution**: Full execution of basic shell commands
 - ✅ **Variable Assignment and Expansion**: Complete variable handling including arithmetic expansion  
-- ✅ **Complete Modern Parameter Expansion**: Full POSIX parameter expansion specification (94% test success)
-  - Default values: `${var:-default}`, `${var-default}`
-  - Alternative values: `${var:+alternative}`, `${var+alternative}`
-  - Length expansion: `${#var}`
-  - Substring expansion: `${var:offset:length}`
-  - Pattern matching: `${var#pattern}`, `${var##pattern}`, `${var%pattern}`, `${var%%pattern}`
-  - Case conversion: `${var^}`, `${var,}`, `${var^^}`, `${var,,}`
-- ✅ **Case Statements**: Complete POSIX-compliant case statement implementation (100% test success)
-  - Exact pattern matching: `case word in pattern) commands ;; esac`
-  - Wildcard patterns: `*` (any string), `?` (any character)
-  - Multiple patterns: `pattern1|pattern2|pattern3) commands ;;`
-  - Variable expansion in test words: `case $var in pattern) ...`
-  - Variable expansion in patterns: `case word in $pattern) ...`
-  - Multiple commands per case: `case word in pattern) cmd1; cmd2; cmd3 ;; esac`
-- ✅ **Test Builtin**: Complete POSIX-compliant test/[ builtin implementation
-  - String comparisons: `=`, `!=`, `-z`, `-n` for equality and empty/non-empty tests
-  - Numeric comparisons: `-eq`, `-ne`, `-lt`, `-le`, `-gt`, `-ge` for all numeric operations
-  - Both command forms: `test condition` and `[ condition ]` with proper validation
-  - Proper exit codes enabling conditional execution with `&&` and `||` operators
-- ✅ **Function Definitions**: Near-complete POSIX-compliant function implementation (93% working)
-  - Function definition syntax: `name() { commands; }` and `function name() { commands; }`
-  - Function calling with argument passing and parameter access (`$1`, `$2`, etc.)
-  - Multiple variable expansion in functions: `"$1-$2"` works correctly
-  - Quoted variable assignments in functions: `var="value with spaces"` fully functional
-  - Empty function bodies: `empty() { }; empty` works silently without errors
-  - Variable scoping with proper global assignment from functions
-  - Conditional logic in functions using test builtin and if statements with bracket syntax
-  - Function redefinition support and complex multi-command bodies
-  - Full support for test conditions in functions: `if [ "$1" = "test" ]; then echo "match"; fi`
-- ✅ **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
-- ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
-- ✅ **Quoted String Variable Expansion**: Full support for "$var" and "${var}" in double quotes
+- ✅ **Quoting**: Proper single quote (literal) and double quote (expandable) handling
+- ✅ **Arithmetic Expansion**: Full `$((expression))` support with operators and variables
+- ✅ **Command Substitution**: Both `$(command)` and backtick syntax working
+- ✅ **I/O Redirection**: Complete redirection system (>, <, >>, <<, <<<, 2>, &>, 2>&1)
+- ✅ **Here Documents**: Multi-line input with variable expansion and tab stripping
 - ✅ **Pipeline Execution**: Multi-command pipelines work reliably
-- ✅ **String Processing**: Proper distinction between literal ('...') and expandable ("...") strings
-- ✅ **Modern Symbol Table**: POSIX-compliant variable scoping with complete integration
-- ✅ **Control Structures**: FOR/WHILE loops, IF statements, and CASE statements with proper variable scoping
+- ✅ **Logical Operators**: Full support for `&&` and `||` conditional execution
+- ✅ **Control Structures**: FOR/WHILE loops, IF statements, and CASE statements
+- ✅ **Function Definitions**: Complete function definition and execution
+- ✅ **Job Control**: Background processes with & operator
+- ✅ **Globbing**: Pathname expansion with *, ?, and [...] patterns
+- ✅ **Parameter Expansion**: Basic `${var:-default}` and similar patterns
+- ✅ **Built-in Commands**: cd, pwd, echo, export, test, read, source, alias, and others
 
-**Next Priorities:**
-- 🔄 **Function Completion**: Complete function implementation to 100% success rate (currently 93%)
+**Critical Missing POSIX Features:**
+- ❌ **Signal Handling**: trap command not implemented
+- ❌ **Script Execution**: Cannot run scripts with command line arguments
+- ❌ **Positional Parameters**: $1, $2, $3, etc. not working
+- ❌ **Special Variables**: $?, $$, $!, $#, $*, $@ not implemented
+- ❌ **Control Flow Built-ins**: break, continue, return, shift not implemented
+- ❌ **Process Management**: exec, wait commands missing
+- ❌ **System Built-ins**: times, umask, ulimit, getopts missing
+- ❌ **Tilde Expansion**: ~ not expanding to $HOME
+- ❌ **Complete Job Control**: wait command and signal integration missing
+
+**Current Development Priority:**
+- 🔄 **Phase 1**: Implement positional parameters and special variables for script execution
   - Address remaining I/O redirection edge case in error handling
   - Minor refinements for advanced function error scenarios
 - 🔄 **Here Documents**: `<<` and `<<-` here document functionality
