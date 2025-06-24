@@ -1240,6 +1240,7 @@ static node_t *parse_case_statement(parser_modern_t *parser) {
                 if (modern_token_is_word_like(pattern_token->type) ||
                     pattern_token->type == MODERN_TOK_MULTIPLY ||
                     pattern_token->type == MODERN_TOK_QUESTION ||
+                    pattern_token->type == MODERN_TOK_GLOB ||
                     pattern_token->type == MODERN_TOK_VARIABLE) {
                     
                     size_t token_len = strlen(pattern_token->text);
