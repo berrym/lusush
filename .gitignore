@@ -1,4 +1,9 @@
-builddir
+builddir/
+
+# Test binaries
+debug_simple_test
+test_all_implementations
+test_enhanced_symtable
 buildDir
 .idea
 .vscode
