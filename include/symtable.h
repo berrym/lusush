@@ -25,8 +25,11 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+// Forward declaration for libhashtable
+typedef struct ht_strstr ht_strstr_t;
+
 // Forward declarations
-typedef struct symtable_scope symtable_scope_t;
+typedef struct symtable_scope_enhanced symtable_scope_t;
 typedef struct symvar symvar_t;
 
 // Variable types
@@ -66,23 +69,17 @@ struct symvar {
     symvar_t *next;       // Next variable in hash chain
 };
 
-// Symbol table scope structure
-struct symtable_scope {
+// Enhanced symbol table scope structure using libhashtable
+struct symtable_scope_enhanced {
     scope_type_t scope_type;  // Type of scope
     size_t level;             // Scope nesting level
-    size_t hash_size;         // Hash table size
-    symvar_t **vars;          // Hash table of variables
+    ht_strstr_t *vars_ht;     // libhashtable ht_strstr_t for variables
     symtable_scope_t *parent; // Parent scope
     char *scope_name;         // Name of scope (for debugging)
 };
 
-// Symbol table manager
-typedef struct {
-    symtable_scope_t *current_scope; // Current active scope
-    symtable_scope_t *global_scope;  // Global scope reference
-    size_t max_scope_level;          // Maximum nesting depth
-    bool debug_mode;                 // Debug output enabled
-} symtable_manager_t;
+// Symbol table manager (forward declaration for implementation)
+typedef struct symtable_manager symtable_manager_t;
 
 // Legacy compatibility structures (for string management system)
 typedef enum {
