@@ -2697,7 +2697,6 @@ static char *expand_arithmetic_modern(executor_modern_t *executor, const char *a
     return strdup("0");
 }
 
-// Expand command substitution $(command) or `command` - Modern implementation
 static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text) {
     if (!executor || !cmd_text) return strdup("");
     
@@ -2872,12 +2871,24 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                 size_t cmd_start = i;
                 size_t cmd_end = i + 2;
                 int paren_depth = 1;
+                bool in_quotes = false;
+                char quote_char = 0;
                 
                 while (cmd_end < len && paren_depth > 0) {
-                    if (str[cmd_end] == '(') {
-                        paren_depth++;
-                    } else if (str[cmd_end] == ')') {
-                        paren_depth--;
+                    if (!in_quotes) {
+                        if (str[cmd_end] == '"' || str[cmd_end] == '\'') {
+                            in_quotes = true;
+                            quote_char = str[cmd_end];
+                        } else if (str[cmd_end] == '(') {
+                            paren_depth++;
+                        } else if (str[cmd_end] == ')') {
+                            paren_depth--;
+                        }
+                    } else {
+                        if (str[cmd_end] == quote_char && (cmd_end == 0 || str[cmd_end - 1] != '\\')) {
+                            in_quotes = false;
+                            quote_char = 0;
+                        }
                     }
                     cmd_end++;
                 }
