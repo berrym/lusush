@@ -55,6 +55,7 @@ builtin builtins[] = {
     {    "shift",     "shift positional parameters",  bin_shift},
     {    "break",     "break out of loops",           bin_break},
     { "continue",     "continue to next loop iteration", bin_continue},
+    {   "return",     "return from functions",        bin_return},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -953,4 +954,34 @@ int bin_continue(int argc, char **argv) {
     current_executor->loop_control = LOOP_CONTINUE;
     
     return 0;
+}/**
+ * bin_return:
+ *      Return from function with optional exit code
+ */
+int bin_return(int argc, char **argv) {
+    int return_code = 0; // Default return code
+    
+    // Parse optional return code argument
+    if (argc > 1) {
+        char *endptr;
+        return_code = strtol(argv[1], &endptr, 10);
+        
+        // Validate that the argument is a valid number
+        if (*endptr != '\0') {
+            fprintf(stderr, "return: %s: numeric argument required\n", argv[1]);
+            return 1;
+        }
+    }
+    
+    // For now, we'll implement return by setting a special exit code
+    // The function execution mechanism will need to be updated to handle this
+    // TODO: Add proper function return mechanism to executor
+    
+    // Set the last exit status to the return code
+    extern int last_exit_status;
+    last_exit_status = return_code;
+    
+    // Return a special exit code that the executor can recognize as "function return"
+    // We'll use a specific value that doesn't conflict with normal exit codes
+    return 200 + (return_code & 0xFF); // 200-255 range for function returns
 }

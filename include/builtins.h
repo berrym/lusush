@@ -37,6 +37,7 @@ int bin_set(int, char **);
 int bin_shift(int, char **);
 int bin_break(int, char **);
 int bin_continue(int, char **);
+int bin_return(int, char **);
 bool is_builtin(const char *);
 
 #endif
