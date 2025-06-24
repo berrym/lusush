@@ -18,14 +18,16 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <glob.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <ctype.h>
+#include <glob.h>
+#include <pwd.h>
 
 // Global executor pointer for job control builtins
 executor_modern_t *current_executor = NULL;
@@ -59,6 +61,7 @@ static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell
 static bool is_builtin_command(const char *cmd);
 static void executor_error(executor_modern_t *executor, const char *message);
 static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
+static char *expand_tilde_modern(const char *text);
 static char **expand_glob_pattern(const char *pattern, int *expanded_count);
 static bool needs_glob_expansion(const char *str);
 static char **expand_brace_pattern(const char *pattern, int *expanded_count);
@@ -1055,6 +1058,24 @@ cleanup_delimiters:
 // Expand variable/arithmetic/command substitution if needed
 char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
     if (!executor || !text) return NULL;
+    
+    // Check for tilde expansion first
+    if (text[0] == '~') {
+        char *tilde_expanded = expand_tilde_modern(text);
+        if (tilde_expanded && strcmp(tilde_expanded, text) != 0) {
+            // Tilde was expanded, now check if result needs variable expansion
+            const char *first_dollar = strchr(tilde_expanded, '$');
+            if (first_dollar) {
+                char *final_result = expand_quoted_string_modern(executor, tilde_expanded);
+                free(tilde_expanded);
+                return final_result;
+            }
+            return tilde_expanded;
+        }
+        if (tilde_expanded) {
+            free(tilde_expanded);
+        }
+    }
     
     // Check if this looks like it contains variables (has $)
     // This is a heuristic for expandable strings
@@ -2590,6 +2611,69 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
     }
     
     return strdup("");
+}
+
+// Expand tilde (~) to home directory
+static char *expand_tilde_modern(const char *text) {
+    if (!text || text[0] != '~') {
+        return strdup(text ? text : "");
+    }
+    
+    // Find the end of the tilde expression (until '/' or end of string)
+    const char *slash = strchr(text, '/');
+    const char *rest = slash ? slash : "";
+    size_t tilde_len = slash ? (size_t)(slash - text) : strlen(text);
+    
+    if (tilde_len == 1) {
+        // Simple ~ expansion to $HOME
+        const char *home = getenv("HOME");
+        if (!home) {
+            // Fallback if HOME is not set
+            struct passwd *pw = getpwuid(getuid());
+            home = pw ? pw->pw_dir : "/";
+        }
+        
+        if (strlen(rest) == 0) {
+            return strdup(home);
+        } else {
+            size_t result_len = strlen(home) + strlen(rest) + 1;
+            char *result = malloc(result_len);
+            if (result) {
+                strcpy(result, home);
+                strcat(result, rest);
+            }
+            return result;
+        }
+    } else {
+        // ~user expansion to user's home directory
+        char *username = malloc(tilde_len);
+        if (!username) {
+            return strdup(text);
+        }
+        
+        strncpy(username, text + 1, tilde_len - 1);
+        username[tilde_len - 1] = '\0';
+        
+        struct passwd *pw = getpwnam(username);
+        free(username);
+        
+        if (!pw) {
+            // User not found, return original text
+            return strdup(text);
+        }
+        
+        if (strlen(rest) == 0) {
+            return strdup(pw->pw_dir);
+        } else {
+            size_t result_len = strlen(pw->pw_dir) + strlen(rest) + 1;
+            char *result = malloc(result_len);
+            if (result) {
+                strcpy(result, pw->pw_dir);
+                strcat(result, rest);
+            }
+            return result;
+        }
+    }
 }
 
 // Modern arithmetic evaluator with proper operator precedence
