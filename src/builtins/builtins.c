@@ -10,6 +10,7 @@
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
 #include "../../include/executor_modern.h"
+#include "../../include/signals.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,6 +57,7 @@ builtin builtins[] = {
     {    "break",     "break out of loops",           bin_break},
     { "continue",     "continue to next loop iteration", bin_continue},
     {   "return",     "return from functions",        bin_return},
+    {     "trap",     "set signal handlers",          bin_trap},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -984,4 +986,81 @@ int bin_return(int argc, char **argv) {
     // Return a special exit code that the executor can recognize as "function return"
     // We'll use a specific value that doesn't conflict with normal exit codes
     return 200 + (return_code & 0xFF); // 200-255 range for function returns
+}/**
+ * bin_trap:
+ *      Set or display signal traps
+ */
+int bin_trap(int argc, char **argv) {
+    // If no arguments, list all traps
+    if (argc == 1) {
+        list_traps();
+        return 0;
+    }
+    
+    // Handle special options
+    if (argc == 2 && strcmp(argv[1], "-l") == 0) {
+        // List available signals
+        printf("EXIT  0) exit from shell\n");
+        printf("HUP   1) hangup\n");
+        printf("INT   2) interrupt\n");
+        printf("QUIT  3) quit\n");
+        printf("TERM  15) software termination signal\n");
+        printf("USR1  10) user defined signal 1\n");
+        printf("USR2  12) user defined signal 2\n");
+        return 0;
+    }
+    
+    // Parse arguments: trap [-l] [action] [signal ...]
+    int arg_index = 1;
+    
+    // Skip -l option if present
+    if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+        arg_index = 2;
+    }
+    
+    // Need at least action argument
+    if (arg_index >= argc) {
+        fprintf(stderr, "trap: usage: trap [-l] [action] [signal ...]\n");
+        return 1;
+    }
+    
+    const char *action = argv[arg_index++];
+    
+    // If no signals specified, this is an error
+    if (arg_index >= argc) {
+        fprintf(stderr, "trap: usage: trap [-l] [action] [signal ...]\n");
+        return 1;
+    }
+    
+    // Process each signal
+    for (int i = arg_index; i < argc; i++) {
+        int signal = get_signal_number(argv[i]);
+        
+        if (signal < 0) {
+            fprintf(stderr, "trap: %s: invalid signal specification\n", argv[i]);
+            return 1;
+        }
+        
+        // Handle special cases
+        if (strcmp(action, "-") == 0) {
+            // Reset to default
+            remove_trap(signal);
+        } else if (strcmp(action, "") == 0 || strcmp(action, "\"\"") == 0) {
+            // Ignore signal
+            if (signal == 0) {
+                // EXIT trap - remove it
+                remove_trap(signal);
+            } else {
+                set_trap(signal, "");
+            }
+        } else {
+            // Set trap command
+            if (set_trap(signal, action) != 0) {
+                fprintf(stderr, "trap: failed to set trap for signal %s\n", argv[i]);
+                return 1;
+            }
+        }
+    }
+    
+    return 0;
 }
