@@ -100,8 +100,10 @@ int remove_trap(int signal) {
             free(current->command);
             free(current);
             
-            // Reset signal handler to default
-            set_signal_handler(signal, SIG_DFL);
+            // Reset signal handler to default (but not for EXIT trap which is special)
+            if (signal != 0) {
+                set_signal_handler(signal, SIG_DFL);
+            }
             
             return 0;
         }
@@ -140,4 +142,14 @@ int get_signal_number(const char *signame) {
     if (strcmp(signame, "EXIT") == 0) return 0; // Special case for EXIT trap
     
     return -1; // Unknown signal
+}
+
+// Execute EXIT traps (signal 0)
+void execute_exit_traps(void) {
+    trap_entry_t *trap = find_trap(0); // EXIT is signal 0
+    if (trap && trap->command) {
+        // Execute the EXIT trap command
+        // For now, we'll use system() - this could be improved to use the shell's executor
+        system(trap->command);
+    }
 }

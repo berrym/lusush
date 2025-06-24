@@ -74,7 +74,10 @@ int bin_exit(int argc, char **argv) {
         exit_code = atoi(argv[1]);
     }
     
-    // Exit immediately with the specified code
+    // Execute EXIT traps before terminating
+    execute_exit_traps();
+    
+    // Exit with the specified code
     exit(exit_code);
 }
 

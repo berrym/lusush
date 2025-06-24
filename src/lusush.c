@@ -10,6 +10,7 @@
 #include "../include/parser_modern.h"
 #include "../include/executor_modern.h"
 #include "../include/symtable.h"
+#include "../include/signals.h"
 
 
 #include <stdbool.h>
@@ -49,6 +50,9 @@ int main(int argc, char **argv) {
         
         // Clean up and exit
         free(shell_opts.command_string);
+        
+        // Execute EXIT traps before terminating
+        execute_exit_traps();
         exit(exit_status);
     }
 
@@ -79,6 +83,9 @@ int main(int argc, char **argv) {
     if (in) {
         fclose(in);
     }
+    
+    // Execute EXIT traps before shell terminates normally
+    execute_exit_traps();
 }
 
 int parse_and_execute(const char *command) {

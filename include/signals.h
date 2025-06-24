@@ -22,5 +22,6 @@ int set_trap(int signal, const char *command);
 int remove_trap(int signal);
 void list_traps(void);
 int get_signal_number(const char *signame);
+void execute_exit_traps(void);
 
 #endif
