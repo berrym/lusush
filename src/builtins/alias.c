@@ -343,22 +343,23 @@ char *expand_aliases_recursive(const char *name, int max_depth) {
     }
 
     // Check if the first word is also an alias
-    char *recursive = expand_aliases_recursive(first_token->text, max_depth - 1);
+    char *recursive =
+        expand_aliases_recursive(first_token->text, max_depth - 1);
     if (recursive) {
         // Build new command with expanded first word
         size_t recursive_len = strlen(recursive);
         size_t remaining_len = strlen(result) - strlen(first_token->text);
         char *new_result = malloc(recursive_len + remaining_len + 2);
-        
+
         if (new_result) {
             strcpy(new_result, recursive);
-            
+
             // Add the rest of the original command after the first word
             const char *rest = result + strlen(first_token->text);
             if (*rest) {
                 strcat(new_result, rest);
             }
-            
+
             free(result);
             free(recursive);
             tokenizer_free(tokenizer);
@@ -407,7 +408,7 @@ char *expand_first_word_alias(const char *command) {
     size_t alias_len = strlen(alias_value);
     size_t rest_len = strlen(rest_of_command);
     char *result = malloc(alias_len + rest_len + 1);
-    
+
     if (result) {
         strcpy(result, alias_value);
         strcat(result, rest_of_command);

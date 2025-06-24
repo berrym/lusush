@@ -126,7 +126,7 @@ typedef struct {
 } test_case_t;
 
 test_case_t test_cases[] = {
-    {                      "if true\nthen\n    echo success\nfi","if true then echo success fi",
+    {                           "if true\nthen\n    echo success\nfi","if true then echo success fi",
      "Basic IF statement"                                                                                                                                                  },
     {                         "for i in 1 2 3\ndo\n    echo $i\ndone",                                "for i in 1 2 3 do echo $i done",
      "Basic FOR loop"                                                                                                                                                      },
@@ -141,11 +141,11 @@ test_case_t test_cases[] = {
      "Multiline double-quoted string"                                                                                                                                      },
     {                                        "echo hello\necho world",                                         "echo hello echo world",
      "Multiple simple commands"                                                                                                                                            },
-    {                                                                "case $var in\n    pattern1)\n        echo match1\n        ;;\n    *)\n   "
-     "     echo default\n        ;;\nesac", "case $var in pattern1) echo match1 ;; *) echo default ;; esac",
-     "CASE statement"                                                                },
+    {                      "case $var in\n    pattern1)\n        echo match1\n        ;;\n    *)\n   "
+                      "     echo default\n        ;;\nesac", "case $var in pattern1) echo match1 ;; *) echo default ;; esac",
+     "CASE statement"                                                                                                                                                      },
     {"function myfunc() {\n    echo \"in function\"\n    return 0\n}",
-     "function myfunc() { echo \"in function\" return 0 }",               "Function definition"                                                                                                                 }
+     "function myfunc() { echo \"in function\" return 0 }",               "Function definition"                                                                            }
 };
 
 int main() {

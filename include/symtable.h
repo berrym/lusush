@@ -270,7 +270,8 @@ void free_symtable_libht(void);
 void *get_libht_manager(void);
 
 // Enhanced variable operations
-int symtable_set_var_enhanced(const char *name, const char *value, symvar_flags_t flags);
+int symtable_set_var_enhanced(const char *name, const char *value,
+                              symvar_flags_t flags);
 char *symtable_get_var_enhanced(const char *name);
 
 // Enhanced scope operations
@@ -295,7 +296,8 @@ void free_symtable_opt(void);
 void *get_opt_manager(void);
 
 // Optimized variable operations
-int symtable_set_var_opt_api(const char *name, const char *value, symvar_flags_t flags);
+int symtable_set_var_opt_api(const char *name, const char *value,
+                             symvar_flags_t flags);
 char *symtable_get_var_opt_api(const char *name);
 
 // Optimized scope operations

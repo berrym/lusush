@@ -2298,7 +2298,8 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
 
             // Handle ${var} format
             if (var_start < len && str[var_start] == '{') {
-                var_start++; // Skip {
+                var_start++;         // Skip {
+                var_end = var_start; // Reset var_end to start after {
                 while (var_end < len && str[var_end] != '}') {
                     var_end++;
                 }
