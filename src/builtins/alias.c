@@ -4,6 +4,7 @@
 #include "../../include/libhashtable/ht.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
+#include "../../include/tokenizer.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -301,6 +302,139 @@ char *parse_alias_var_value(char *src,
     strncpy(val, p, len);
     val[len] = '\0';
     return val;
+}
+
+/**
+ * expand_aliases_recursive:
+ *     Expand an alias name recursively, with cycle detection.
+ *     Uses the modern tokenizer for proper word splitting.
+ *     Returns a newly allocated string with the expanded alias value,
+ *     or NULL if the alias doesn't exist or can't be expanded.
+ */
+char *expand_aliases_recursive(const char *name, int max_depth) {
+    if (!name || max_depth <= 0) {
+        return NULL;
+    }
+
+    // Look up the initial alias
+    char *value = lookup_alias(name);
+    if (!value) {
+        return NULL;
+    }
+
+    // Make a copy we can work with
+    char *result = strdup(value);
+    if (!result) {
+        return NULL;
+    }
+
+    // Use tokenizer to properly parse the alias value
+    tokenizer_t *tokenizer = tokenizer_new(result);
+    if (!tokenizer) {
+        free(result);
+        return NULL;
+    }
+
+    // Get the first token to check for recursive expansion
+    token_t *first_token = tokenizer_current(tokenizer);
+    if (!first_token || first_token->type != TOK_WORD) {
+        tokenizer_free(tokenizer);
+        return result; // Return as-is if no valid word token
+    }
+
+    // Check if the first word is also an alias
+    char *recursive = expand_aliases_recursive(first_token->text, max_depth - 1);
+    if (recursive) {
+        // Build new command with expanded first word
+        size_t recursive_len = strlen(recursive);
+        size_t remaining_len = strlen(result) - strlen(first_token->text);
+        char *new_result = malloc(recursive_len + remaining_len + 2);
+        
+        if (new_result) {
+            strcpy(new_result, recursive);
+            
+            // Add the rest of the original command after the first word
+            const char *rest = result + strlen(first_token->text);
+            if (*rest) {
+                strcat(new_result, rest);
+            }
+            
+            free(result);
+            free(recursive);
+            tokenizer_free(tokenizer);
+            return new_result;
+        }
+        free(recursive);
+    }
+
+    tokenizer_free(tokenizer);
+    return result;
+}
+
+/**
+ * expand_first_word_alias:
+ *     Expand only the first word of a command line as an alias.
+ *     Uses the modern tokenizer for proper word boundaries.
+ *     This matches the POSIX behavior where only the first word
+ *     of a simple command can be an alias.
+ */
+char *expand_first_word_alias(const char *command) {
+    if (!command) {
+        return NULL;
+    }
+
+    // Use tokenizer to properly identify the first word
+    tokenizer_t *tokenizer = tokenizer_new(command);
+    if (!tokenizer) {
+        return strdup(command); // Return original on tokenizer failure
+    }
+
+    token_t *first_token = tokenizer_current(tokenizer);
+    if (!first_token || first_token->type != TOK_WORD) {
+        tokenizer_free(tokenizer);
+        return strdup(command); // Return original if no word token
+    }
+
+    // Try to expand the first word as an alias
+    char *alias_value = lookup_alias(first_token->text);
+    if (!alias_value) {
+        tokenizer_free(tokenizer);
+        return strdup(command); // No alias found, return original
+    }
+
+    // Construct the new command with the alias expansion
+    const char *rest_of_command = command + strlen(first_token->text);
+    size_t alias_len = strlen(alias_value);
+    size_t rest_len = strlen(rest_of_command);
+    char *result = malloc(alias_len + rest_len + 1);
+    
+    if (result) {
+        strcpy(result, alias_value);
+        strcat(result, rest_of_command);
+    }
+
+    tokenizer_free(tokenizer);
+    return result ? result : strdup(command);
+}
+
+/**
+ * is_special_alias_char:
+ *     Check if a character is special in alias names.
+ *     POSIX allows some special characters in alias names
+ *     that aren't allowed in variable names.
+ */
+bool is_special_alias_char(char c) {
+    switch (c) {
+    case '.':
+    case '_':
+    case '!':
+    case '%':
+    case ',':
+    case '@':
+        return true;
+    default:
+        return isalnum(c);
+    }
 }
 
 // /**

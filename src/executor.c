@@ -11,7 +11,6 @@
 #include "../include/executor.h"
 
 #include "../include/alias.h"
-#include "../include/alias_expand.h"
 #include "../include/arithmetic.h"
 #include "../include/builtins.h"
 #include "../include/node.h"

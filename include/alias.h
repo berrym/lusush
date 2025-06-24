@@ -17,4 +17,9 @@ char *src_str_from_argv(size_t, char **, const char *);
 char *parse_alias_var_name(char *);
 char *parse_alias_var_value(char *, const char);
 
+// Modern alias expansion functions using tokenizer
+char *expand_aliases_recursive(const char *name, int max_depth);
+char *expand_first_word_alias(const char *command);
+bool is_special_alias_char(char c);
+
 #endif
