@@ -2,6 +2,7 @@
 #include "../include/errors.h"
 #include "../include/symtable.h"
 #include "../include/strings.h"
+#include "../include/arithmetic_modern.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -787,8 +788,8 @@ expansion_t arithm_expand_exp(const char *str, const exp_ctx_t *ctx) {
     strncpy(expr, expr_start, expr_len);
     expr[expr_len] = '\0';
     
-    // For now, delegate to the existing arithm_expand function
-    char *arith_result = arithm_expand(expr);
+    // Use the modern arithmetic expansion implementation
+    char *arith_result = arithm_expand_modern(expr);
     
     if (arith_result) {
         result.expanded = arith_result;
