@@ -85,7 +85,28 @@
   - Process isolation: Independent execution environments for subshells
   - Command grouping: Proper parsing and execution of grouped command sequences
 
-### Recently Implemented - Legacy Wordexp System Removal and Memory Leak Fix (COMPLETED - December 24, 2024)
+### Recently Implemented - Core System File Naming Simplification (COMPLETED - December 24, 2024)
+
+**MAJOR ACHIEVEMENT: Simplified Core System File Names**
+- ✅ **Renamed all core system files** to remove modern and new suffixes
+- ✅ **Standardized naming convention** throughout codebase
+- ✅ **Updated all includes and references** in source and header files
+- ✅ **Simplified build system** with clean file names
+- ✅ **Eliminated naming confusion** between legacy and current implementations
+
+**File Renamings:**
+- tokenizer_new.h/c → tokenizer.h/c
+- parser_modern.h/c → parser.h/c
+- executor_modern.h/c → executor.h/c
+- arithmetic_modern.h/c → arithmetic.h/c
+
+**Benefits:**
+- Clear, standard C project naming convention
+- No more confusion about which is the current implementation
+- Simplified include statements throughout codebase
+- Improved code maintainability and clarity
+
+### Previously Implemented - Legacy Wordexp System Removal and Memory Leak Fix (COMPLETED - December 24, 2024)
 
 **MAJOR ACHIEVEMENT: Complete Legacy Parameter Expansion System Removal**
 - ✅ **Removed entire legacy wordexp system** (src/wordexp.c, include/wordexp.h)
@@ -280,12 +301,12 @@
   - Proper conditional execution with short-circuiting
   - Integration with all shell features and constructs
   - Comprehensive test coverage and real-world usage patterns
-- **Modern Symbol Table**: Complete POSIX-compliant symbol table with proper scoping
+- **Symbol Table**: Complete POSIX-compliant symbol table with proper scoping
   - Support for global, function, loop, subshell, and conditional scopes
   - Proper variable isolation and cleanup
   - Clean API for variable operations and scope management
   - Tested and verified independently
-- **Complete Symbol Table Integration**: Modern executor fully updated to use new symbol table
+- **Complete Symbol Table Integration**: Executor fully updated to use unified symbol table
   - Loop scope management (FOR loops now create proper isolated scopes)
   - Variable assignment using modern symbol table API
   - Variable expansion using modern symbol table API
@@ -303,24 +324,24 @@
 
 ## Technical Architecture
 
-### Modern Components (Complete Implementation)
-- **Modern Tokenizer**: Complete POSIX-compliant token classification system
+### Core Components (Complete Implementation)
+- **Tokenizer**: Complete POSIX-compliant token classification system
   - Distinguishes between literal strings ('...') and expandable strings ("...")
   - Proper variable, arithmetic, and command substitution tokenization
-- **Modern Parser**: Recursive descent parser implementing POSIX shell grammar
+- **Parser**: Recursive descent parser implementing POSIX shell grammar
   - Handles expandable string tokens for variable expansion
   - Complete control structure parsing (if/for/while)
-- **Modern Executor**: Clean execution engine designed for new AST structure  
+- **Executor**: Clean execution engine designed for AST structure
   - Integrated with modern symbol table for all variable operations
   - Complete quoted string variable expansion support
-- **Modern Symbol Table**: POSIX-compliant variable scoping with proper scope management
+- **Symbol Table**: POSIX-compliant variable scoping with proper scope management
   - Fully integrated throughout the execution pipeline
 - **Command Routing**: Intelligent complexity analysis for parser selection
 
 ### Symbol Table Architecture (UNIFIED)
 ```
 Unified Symbol Table System (symtable.h/c):
-├── Core Modern API (symtable_manager_t operations)
+├── Core API (symtable_manager_t operations)
 ├── Convenience API (symtable_get_global, symtable_set_global)
 ├── System Interface (init_symtable, set_exit_status)
 └── Legacy Compatibility (string management system)
@@ -341,7 +362,6 @@ Input → Analysis → Tokenizer → Parser → AST → Executor → Output
                       ↓           ↓       ↓       ↓        ↓
                 Token Stream   Grammar  Node Tree Commands Variables
                                                     ↓        ↓
-                                               Modern    Modern
                                                Executor  Symbol Table
 ```
 
