@@ -27,6 +27,7 @@ int bin_bg(int argc, char **argv);
 #include <errno.h>
 #include <ctype.h>
 #include <sys/resource.h>
+#include <sys/times.h>
 
 // Table of builtin commands
 builtin builtins[] = {
@@ -65,6 +66,7 @@ builtin builtins[] = {
     {     "wait",     "wait for background jobs",     bin_wait},
     {    "umask",     "set/display file creation mask", bin_umask},
     {   "ulimit",     "set/display resource limits",   bin_ulimit},
+    {    "times",     "display process times",          bin_times},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -1606,6 +1608,47 @@ int bin_ulimit(int argc, char **argv) {
         perror("ulimit: setrlimit");
         return 1;
     }
+    
+    return 0;
+}
+
+/**
+ * bin_times:
+ *      Display user and system times for shell and children
+ */
+int bin_times(int argc, char **argv) {
+    (void)argc;  // Suppress unused parameter warning
+    (void)argv;  // Suppress unused parameter warning
+    
+    struct tms tms_buf;
+    clock_t real_time;
+    
+    // Get process times
+    real_time = times(&tms_buf);
+    if (real_time == (clock_t)-1) {
+        perror("times");
+        return 1;
+    }
+    
+    // Get clock ticks per second for conversion
+    long ticks_per_sec = sysconf(_SC_CLK_TCK);
+    if (ticks_per_sec <= 0) {
+        ticks_per_sec = 100;  // Default fallback
+    }
+    
+    // Convert ticks to seconds and format output
+    double user_time = (double)tms_buf.tms_utime / ticks_per_sec;
+    double system_time = (double)tms_buf.tms_stime / ticks_per_sec;
+    double child_user_time = (double)tms_buf.tms_cutime / ticks_per_sec;
+    double child_system_time = (double)tms_buf.tms_cstime / ticks_per_sec;
+    
+    // Output in POSIX format: user_time system_time child_user_time child_system_time
+    printf("%.2dm%.3fs %.2dm%.3fs\n", 
+           (int)(user_time / 60), user_time - (int)(user_time / 60) * 60,
+           (int)(system_time / 60), system_time - (int)(system_time / 60) * 60);
+    printf("%.2dm%.3fs %.2dm%.3fs\n",
+           (int)(child_user_time / 60), child_user_time - (int)(child_user_time / 60) * 60,
+           (int)(child_system_time / 60), child_system_time - (int)(child_system_time / 60) * 60);
     
     return 0;
 }
