@@ -2,7 +2,7 @@
 #define LUSUSH_H
 
 #include "node.h"
-#include "scanner_old.h"
+
 #include "version.h"
 
 #include <fcntl.h>
@@ -68,8 +68,6 @@ typedef struct string_builder {
 } str_builder_t;
 
 // parser functions
-node_t *parse_command(token_t *tok);
-node_t *parse_redirection(token_t *redir_tok, token_t *target_tok);
 int parse_and_execute(const char *command);
 
 // symbol table variable functions

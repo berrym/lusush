@@ -39,12 +39,12 @@ src = ['src/builtins/alias.c',
        'src/pattern.c',
        'src/posix_opts.c',
        'src/prompt.c',
-       'src/scanner_old.c',
+
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
        'src/symtable_modern.c',
-       'src/token_pushback.c',
+
        'src/tokenizer_new.c',
        'src/wordexp.c',
       ]
