@@ -5,9 +5,9 @@
  * with correct token boundary management and error handling.
  */
 
-#include "parser.h"
-#include "tokenizer.h"
-#include "node.h"
+#include "../include/parser.h"
+#include "../include/tokenizer.h"
+#include "../include/node.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

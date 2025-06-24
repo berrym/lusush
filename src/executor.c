@@ -6,16 +6,16 @@
  * with proper POSIX compliance.
  */
 
-#include "executor.h"
-#include "parser.h"
-#include "tokenizer.h"
-#include "symtable.h"
-#include "node.h"
-#include "redirection.h"
-#include "builtins.h"
-#include "alias.h"
-#include "alias_expand.h"
-#include "arithmetic.h"
+#include "../include/executor.h"
+#include "../include/parser.h"
+#include "../include/tokenizer.h"
+#include "../include/symtable.h"
+#include "../include/node.h"
+#include "../include/redirection.h"
+#include "../include/builtins.h"
+#include "../include/alias.h"
+#include "../include/alias_expand.h"
+#include "../include/arithmetic.h"
 
 
 #include <stdlib.h>
@@ -3046,7 +3046,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 }
 // ========== JOB CONTROL IMPLEMENTATION ==========
 
-#include "executor.h"
+#include "../include/executor.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
