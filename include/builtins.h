@@ -34,6 +34,7 @@ int bin_eval(int, char **);
 int bin_true(int, char **);
 int bin_false(int, char **);
 int bin_set(int, char **);
+int bin_shift(int, char **);
 bool is_builtin(const char *);
 
 #endif

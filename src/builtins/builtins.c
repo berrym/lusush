@@ -52,6 +52,7 @@ builtin builtins[] = {
     {     "jobs",         "list active jobs",      bin_jobs},
     {       "fg",    "bring job to foreground",        bin_fg},
     {       "bg",    "send job to background",         bin_bg},
+    {    "shift",     "shift positional parameters",  bin_shift},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -819,4 +820,50 @@ int bin_bg(int argc, char **argv) {
     }
     fprintf(stderr, "bg: no current job\n");
     return 1;
+}
+
+/**
+ * bin_shift:
+ *      Shift positional parameters left by n positions
+ */
+int bin_shift(int argc, char **argv) {
+    int shift_count = 1; // Default shift by 1
+    
+    // Parse optional shift count argument
+    if (argc > 1) {
+        char *endptr;
+        shift_count = strtol(argv[1], &endptr, 10);
+        
+        // Validate that the argument is a valid number
+        if (*endptr != '\0' || shift_count < 0) {
+            fprintf(stderr, "shift: %s: numeric argument required\n", argv[1]);
+            return 1;
+        }
+    }
+    
+    // Get current positional parameters
+    extern int shell_argc;
+    extern char **shell_argv;
+    
+    // Calculate available parameters to shift (excluding script name at argv[0])
+    int available_params = shell_argc > 1 ? shell_argc - 1 : 0;
+    
+    // If shift count exceeds available parameters, limit to available count
+    // This matches POSIX behavior - don't error, just shift what's available
+    if (shift_count > available_params) {
+        shift_count = available_params;
+    }
+    
+    // Perform the shift by adjusting shell_argc and shell_argv
+    if (shift_count > 0 && shell_argc > 1) {
+        // Shift the argv array
+        for (int i = 1; i < shell_argc - shift_count; i++) {
+            shell_argv[i] = shell_argv[i + shift_count];
+        }
+        
+        // Update argc to reflect the new parameter count
+        shell_argc -= shift_count;
+    }
+    
+    return 0;
 }
