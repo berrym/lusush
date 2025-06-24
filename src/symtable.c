@@ -134,12 +134,7 @@ symtable_t *symtable_stack_pop(void) {
     return &dummy_symtable;
 }
 
-// Dump local symbol table (legacy interface)
-void dump_local_symtable(void) {
-    if (global_manager) {
-        symtable_dump_all_scopes(global_manager);
-    }
-}
+
 
 // Free symbol table (legacy interface)
 void free_symtable(symtable_t *symtable) {
@@ -153,78 +148,6 @@ symtable_t *new_symtable(size_t level) {
 }
 
 // Legacy variable access functions that actually work
-
-// Get shell variable with default (string)
-char *get_shell_varp(char *name, char *default_value) {
-    if (!global_manager || !name) {
-        return default_value;
-    }
-    
-    char *value = symtable_get_var(global_manager, name);
-    if (value && strlen(value) > 0) {
-        return value;
-    }
-    
-    return default_value;
-}
-
-// Get shell variable as integer with default
-int get_shell_vari(char *name, int default_value) {
-    if (!global_manager || !name) {
-        return default_value;
-    }
-    
-    char *value = symtable_get_var(global_manager, name);
-    if (value && strlen(value) > 0) {
-        return atoi(value);
-    }
-    
-    return default_value;
-}
-
-// Get shell variable as long with default
-ssize_t get_shell_varl(char *name, int default_value) {
-    if (!global_manager || !name) {
-        return default_value;
-    }
-    
-    char *value = symtable_get_var(global_manager, name);
-    if (value && strlen(value) > 0) {
-        return (ssize_t)atol(value);
-    }
-    
-    return default_value;
-}
-
-// Set shell variable (string)
-void set_shell_varp(char *name, char *value) {
-    if (global_manager && name) {
-        symtable_set_var(global_manager, name, value ? value : "", SYMVAR_NONE);
-    }
-}
-
-// Set shell variable as integer
-void set_shell_vari(char *name, int value) {
-    if (global_manager && name) {
-        char value_str[32];
-        snprintf(value_str, sizeof(value_str), "%d", value);
-        symtable_set_var(global_manager, name, value_str, SYMVAR_NONE);
-    }
-}
-
-// Export variable to environment
-void export_shell_var(char *name) {
-    if (global_manager && name) {
-        symtable_export_var(global_manager, name);
-    }
-}
-
-// Unset shell variable
-void unset_shell_var(char *name) {
-    if (global_manager && name) {
-        symtable_unset_var(global_manager, name);
-    }
-}
 
 // Get environment array for exec functions
 char **get_environ_array(void) {
@@ -251,24 +174,4 @@ void set_exit_status(int status) {
         snprintf(status_str, sizeof(status_str), "%d", status);
         symtable_set_var(global_manager, "?", status_str, SYMVAR_NONE);
     }
-}
-
-// Get shell boolean variable with default
-bool get_shell_varb(const char *name, bool default_value) {
-    if (!global_manager || !name) {
-        return default_value;
-    }
-    
-    char *value = symtable_get_var(global_manager, name);
-    if (value) {
-        return (strcmp(value, "1") == 0 || 
-                strcmp(value, "true") == 0 || 
-                strcmp(value, "yes") == 0 ||
-                strcmp(value, "on") == 0 ||
-                strcmp(value, "TRUE") == 0 || 
-                strcmp(value, "YES") == 0 ||
-                strcmp(value, "ON") == 0);
-    }
-    
-    return default_value;
 }

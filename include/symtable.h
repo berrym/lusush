@@ -61,23 +61,14 @@ symtable_t *get_local_symtable(void);
 symtable_t *get_global_symtable(void);
 symtable_stack_t *get_symtable_stack(void);
 void init_symtable(void);
-void dump_local_symtable(void);
 void free_symtable(symtable_t *);
 void free_global_symtable(void);
 void symtable_entry_setval(symtable_entry_t *, char *);
 
-// Shell variable functions
-char *get_shell_varp(char *, char *);
-int get_shell_vari(char *, int);
-ssize_t get_shell_varl(char *, int);
-void set_shell_varp(char *, char *);
-void set_shell_vari(char *, int);
-void export_shell_var(char *);
-void unset_shell_var(char *);
+// Environment and special functions (still used by some components)
 char **get_environ_array(void);
 void free_environ_array(char **);
 void set_exit_status(int);
-bool get_shell_varb(const char *, bool);
 
 // Modern symtable access for new code
 #include "symtable_modern.h"

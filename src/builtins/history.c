@@ -4,6 +4,7 @@
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
+#include "../../include/symtable_unified.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -16,7 +17,7 @@ static const char *histfn = ".lusushist"; // The history filename
 
 static char *__get_histfilename(void) {
     char *fn = NULL;
-    char *home = get_shell_varp("HOME", "");
+    char *home = symtable_get_global_default("HOME", "");
     if (home == NULL) {
         error_return("error: `history_save`");
         return NULL;

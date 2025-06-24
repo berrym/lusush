@@ -9,6 +9,7 @@
 
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
+#include "../../include/symtable_unified.h"
 #include "../../include/executor_modern.h"
 #include "../../include/signals.h"
 
@@ -322,7 +323,7 @@ int bin_unset(int argc __attribute__((unused)),
     }
     
     // Use legacy API function for unsetting variables
-    unset_shell_var(argv[1]);
+    symtable_unset_global(argv[1]);
     return 0;
 }
 
@@ -332,7 +333,7 @@ int bin_unset(int argc __attribute__((unused)),
  */
 int bin_dump(int argc __attribute__((unused)),
              char **argv __attribute__((unused))) {
-    dump_local_symtable();
+    symtable_debug_dump_all_scopes();
     return 0;
 }
 
@@ -511,11 +512,11 @@ int bin_export(int argc, char **argv) {
                 return 1;
             }
             
-            // Set variable value using legacy API
-            set_shell_varp(name, (char*)value);
+            // Set variable value using modern API
+            symtable_set_global(name, value);
             
-            // Export the variable using legacy API
-            export_shell_var(name);
+            // Export the variable using modern API
+            symtable_export_global(name);
             
             free(name);
         } else if (i + 2 < argc && strcmp(argv[i + 1], "=") == 0) {
@@ -529,11 +530,11 @@ int bin_export(int argc, char **argv) {
                 return 1;
             }
             
-            // Set variable value using legacy API
-            set_shell_varp((char*)name, (char*)value);
+            // Set variable value using modern API
+            symtable_set_global(name, value);
             
-            // Export the variable using legacy API
-            export_shell_var((char*)name);
+            // Export the variable using modern API
+            symtable_export_global(name);
             
             // Skip the = and value tokens
             i += 2;
@@ -545,14 +546,14 @@ int bin_export(int argc, char **argv) {
             }
             
             // Check if variable exists and get its value
-            char *current_value = get_shell_varp(argv[i], NULL);
+            char *current_value = symtable_get_global(argv[i]);
             if (current_value) {
                 // Variable exists - just export it
-                export_shell_var(argv[i]);
+                symtable_export_global(argv[i]);
             } else {
                 // Variable doesn't exist - create with empty value and export
-                set_shell_varp(argv[i], "");
-                export_shell_var(argv[i]);
+                symtable_set_global(argv[i], "");
+                symtable_export_global(argv[i]);
             }
         }
     }
@@ -720,8 +721,8 @@ int bin_read(int argc, char **argv) {
         line[read - 1] = '\0';
     }
     
-    // Set the variable using legacy API
-    set_shell_varp(argv[1], line);
+    // Set the variable using modern API
+    symtable_set_global(argv[1], line);
     
     free(line);
     return 0;
@@ -1668,7 +1669,7 @@ int bin_getopts(int argc, char **argv) {
     char *varname = argv[2];
     
     // Get current OPTIND value from environment
-    char *optind_str = get_shell_varp("OPTIND", NULL);
+    char *optind_str = symtable_get_global("OPTIND");
     int current_optind = optind_str ? atoi(optind_str) : 1;
     
     // Determine arguments to parse
@@ -1686,7 +1687,7 @@ int bin_getopts(int argc, char **argv) {
         parse_argc = 0;
         
         // Try to get positional parameters from shell variables
-        char *argc_str = get_shell_varp("#", NULL);
+        char *argc_str = symtable_get_global("#");
         if (argc_str) {
             parse_argc = atoi(argc_str);
             if (parse_argc > 0) {
@@ -1694,7 +1695,7 @@ int bin_getopts(int argc, char **argv) {
                 for (int i = 0; i < parse_argc; i++) {
                     char param_name[16];
                     snprintf(param_name, sizeof(param_name), "%d", i + 1);
-                    char *param_val = get_shell_varp(param_name, NULL);
+                    char *param_val = symtable_get_global(param_name);
                     parse_args[i] = param_val ? strdup(param_val) : strdup("");
                 }
                 parse_args[parse_argc] = NULL;
@@ -1705,7 +1706,7 @@ int bin_getopts(int argc, char **argv) {
     // Check if we have arguments to parse
     if (parse_argc == 0 || current_optind > parse_argc) {
         // No more arguments
-        set_shell_varp("OPTIND", "1");  // Reset for next getopts call
+        symtable_set_global("OPTIND", "1");  // Reset for next getopts call
         if (argc <= 3 && parse_args) {
             for (int i = 0; i < parse_argc; i++) {
                 free(parse_args[i]);
@@ -1727,7 +1728,7 @@ int bin_getopts(int argc, char **argv) {
         // Starting new argument
         if (!current_arg || current_arg[0] != '-' || strcmp(current_arg, "-") == 0) {
             // Not an option or single dash
-            set_shell_varp("OPTIND", "1");
+            symtable_set_global("OPTIND", "1");
             if (argc <= 3 && parse_args) {
                 for (int i = 0; i < parse_argc; i++) {
                     free(parse_args[i]);
@@ -1741,7 +1742,7 @@ int bin_getopts(int argc, char **argv) {
             // End of options marker
             char next_optind[16];
             snprintf(next_optind, sizeof(next_optind), "%d", current_optind + 1);
-            set_shell_varp("OPTIND", next_optind);
+            symtable_set_global("OPTIND", next_optind);
             if (argc <= 3 && parse_args) {
                 for (int i = 0; i < parse_argc; i++) {
                     free(parse_args[i]);
@@ -1763,7 +1764,7 @@ int bin_getopts(int argc, char **argv) {
         option_pos = 0;
         char next_optind[16];
         snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
-        set_shell_varp("OPTIND", next_optind);
+        symtable_set_global("OPTIND", next_optind);
         if (argc <= 3 && parse_args) {
             for (int i = 0; i < parse_argc; i++) {
                 free(parse_args[i]);
@@ -1780,18 +1781,18 @@ int bin_getopts(int argc, char **argv) {
     if (!opt_pos) {
         // Invalid option
         if (silent_mode) {
-            set_shell_varp(varname, "?");
+            symtable_set_global(varname, "?");
             char optarg_val[2] = {opt_char, '\0'};
-            set_shell_varp("OPTARG", optarg_val);
+            symtable_set_global("OPTARG", optarg_val);
         } else {
             fprintf(stderr, "getopts: illegal option -- %c\n", opt_char);
-            set_shell_varp(varname, "?");
-            set_shell_varp("OPTARG", "");
+            symtable_set_global(varname, "?");
+            symtable_set_global("OPTARG", "");
         }
         option_pos++;
         char next_optind[16];
         snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
-        set_shell_varp("OPTIND", next_optind);
+        symtable_set_global("OPTIND", next_optind);
         if (argc <= 3 && parse_args) {
             for (int i = 0; i < parse_argc; i++) {
                 free(parse_args[i]);
@@ -1821,17 +1822,17 @@ int bin_getopts(int argc, char **argv) {
             } else {
                 // Missing argument
                 if (silent_mode) {
-                    set_shell_varp(varname, ":");
+                    symtable_set_global(varname, ":");
                     char optarg_val[2] = {opt_char, '\0'};
-                    set_shell_varp("OPTARG", optarg_val);
+                    symtable_set_global("OPTARG", optarg_val);
                 } else {
                     fprintf(stderr, "getopts: option requires an argument -- %c\n", opt_char);
-                    set_shell_varp(varname, "?");
-                    set_shell_varp("OPTARG", "");
+                    symtable_set_global(varname, "?");
+                    symtable_set_global("OPTARG", "");
                 }
                 char next_optind[16];
                 snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
-                set_shell_varp("OPTIND", next_optind);
+                symtable_set_global("OPTIND", next_optind);
                 if (argc <= 3 && parse_args) {
                     for (int i = 0; i < parse_argc; i++) {
                         free(parse_args[i]);
@@ -1844,20 +1845,20 @@ int bin_getopts(int argc, char **argv) {
         
         // Set option and argument
         char opt_val[2] = {opt_char, '\0'};
-        set_shell_varp(varname, opt_val);
-        set_shell_varp("OPTARG", arg_value ? arg_value : "");
+        symtable_set_global(varname, opt_val);
+        symtable_set_global("OPTARG", arg_value ? arg_value : "");
     } else {
         // Option doesn't take an argument
         char opt_val[2] = {opt_char, '\0'};
-        set_shell_varp(varname, opt_val);
-        set_shell_varp("OPTARG", "");
+        symtable_set_global(varname, opt_val);
+        symtable_set_global("OPTARG", "");
         option_pos++;
     }
     
     // Update OPTIND
     char next_optind[16];
     snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
-    set_shell_varp("OPTIND", next_optind);
+    symtable_set_global("OPTIND", next_optind);
     
     // Clean up if we allocated parse_args
     if (argc <= 3 && parse_args) {

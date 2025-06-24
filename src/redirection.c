@@ -14,6 +14,7 @@
 #include "../include/node.h"
 #include "../include/redirection.h"
 #include "../include/executor_modern.h"
+#include "../include/symtable_unified.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,8 +34,7 @@ static int setup_here_document_with_processing(executor_modern_t *executor, cons
 static int setup_here_string(const char *content);
 static char *expand_redirection_target(const char *target);
 
-// Forward declaration for shell variable access
-extern char *get_shell_varp(char *name, char *default_value);
+
 
 // External function from executor_modern.c
 extern char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
@@ -623,7 +623,7 @@ static char *expand_redirection_target(const char *target) {
                         char *var_value = getenv(var_name);
                         if (!var_value) {
                             // Try shell variables (for things like $?, $$, etc.)
-                            var_value = get_shell_varp(var_name, NULL);
+                            var_value = symtable_get_global(var_name);
                         }
                         
 

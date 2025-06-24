@@ -12,6 +12,7 @@
 
 #include "../include/signals.h"
 #include "../include/symtable.h"
+#include "../include/symtable_unified.h"
 #include "../include/version.h"
 
 #include <getopt.h>
@@ -94,14 +95,14 @@ int init(int argc, char **argv, FILE **in) {
             name[name_len] = '\0';
             
             // Set variable and mark as exported
-            set_shell_varp(name, eq + 1);
-            export_shell_var(name);
+            symtable_set_global(name, eq + 1);
+            symtable_export_global(name);
             
             free(name);
         } else {
             // Environment variable without value (set but empty)
-            set_shell_varp(*env_ptr, "");
-            export_shell_var(*env_ptr);
+            symtable_set_global(*env_ptr, "");
+            symtable_export_global(*env_ptr);
         }
         env_ptr++;
     }
@@ -167,7 +168,7 @@ int init(int argc, char **argv, FILE **in) {
         linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                       linenoiseUtf8NextCharLen,
                                       linenoiseUtf8ReadCode);
-        linenoiseSetMultiLine(get_shell_varb("MULTILINE_EDIT", true));
+        linenoiseSetMultiLine(symtable_get_global_bool("MULTILINE_EDIT", true));
         build_prompt();
     }
     
@@ -181,8 +182,8 @@ int init(int argc, char **argv, FILE **in) {
     char ppid_str[32];
     snprintf(ppid_str, sizeof(ppid_str), "%d", ppid);
     setenv("PPID", ppid_str, 1);
-    set_shell_varp("PPID", ppid_str);
-    export_shell_var("PPID");
+    symtable_set_global("PPID", ppid_str);
+    symtable_export_global("PPID");
     
     // Set initial exit status
     set_exit_status(0);
@@ -191,12 +192,12 @@ int init(int argc, char **argv, FILE **in) {
     pid_t shell_pid = getpid();
     char shell_pid_str[32];
     snprintf(shell_pid_str, sizeof(shell_pid_str), "%d", (int)shell_pid);
-    set_shell_varp("$", shell_pid_str);
+    symtable_set_global("$", shell_pid_str);
     
     // Set shell name/script name and positional parameters
     if (shell_type() == NORMAL_SHELL && optind > 0 && argv[optind]) {
         // Running a script - set up script arguments
-        set_shell_varp("0", argv[optind]); // Script name
+        symtable_set_global("0", argv[optind]); // Script name
         
         // Update global shell_argc and shell_argv for script arguments
         extern int shell_argc;
@@ -205,7 +206,7 @@ int init(int argc, char **argv, FILE **in) {
         shell_argv = &argv[optind];  // Pointer to script args
     } else {
         // Interactive or command mode - use shell arguments
-        set_shell_varp("0", argv[0]);
+        symtable_set_global("0", argv[0]);
     }
 
     // Initialize history for interactive shells

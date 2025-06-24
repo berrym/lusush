@@ -7,6 +7,7 @@
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
+#include "../include/symtable_unified.h"
 
 #include <errno.h>
 #include <stdbool.h>
@@ -418,21 +419,21 @@ static bool is_input_complete(const input_state_t *state) {
 // Get appropriate prompt based on input state
 static const char *get_continuation_prompt(const input_state_t *state) {
     if (state->in_here_doc) {
-        return get_shell_varp("PS3", "heredoc> ");
+        return symtable_get_global_default("PS3", "heredoc> ");
     } else if (state->in_single_quote) {
-        return get_shell_varp("PS4", "quote> ");
+        return symtable_get_global_default("PS4", "quote> ");
     } else if (state->in_double_quote) {
-        return get_shell_varp("PS4", "dquote> ");
+        return symtable_get_global_default("PS4", "dquote> ");
     } else if (state->control_depth > 0) {
-        return get_shell_varp("PS2", "> ");
+        return symtable_get_global_default("PS2", "> ");
     } else if (state->brace_depth > 0 || state->paren_depth > 0 || state->bracket_depth > 0) {
-        return get_shell_varp("PS2", "> ");
+        return symtable_get_global_default("PS2", "> ");
     } else if (state->in_function_def) {
-        return get_shell_varp("PS2", "function> ");
+        return symtable_get_global_default("PS2", "function> ");
     } else if (state->in_arithmetic || state->in_command_subst) {
-        return get_shell_varp("PS2", "> ");
+        return symtable_get_global_default("PS2", "> ");
     } else {
-        return get_shell_varp("PS2", "> ");
+        return symtable_get_global_default("PS2", "> ");
     }
 }
 
@@ -485,7 +486,7 @@ char *ln_gets(void) {
         const char *prompt;
         if (first_line) {
             build_prompt();
-            prompt = get_shell_varp("PS1", "% ");
+            prompt = symtable_get_global_default("PS1", "% ");
         } else {
             prompt = get_continuation_prompt(&state);
         }

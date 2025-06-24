@@ -1,6 +1,7 @@
 #include "../include/lusush.h"
 #include "../include/errors.h"
 #include "../include/symtable.h"
+#include "../include/symtable_unified.h"
 #include "../include/strings.h"
 #include "../include/arithmetic_modern.h"
 
@@ -148,7 +149,7 @@ void reset_expansion_context(exp_ctx_t *ctx) {
 
 // Utility functions
 bool is_expansion_disabled(void) {
-    return get_shell_vari("NO_WORD_EXPAND", false);
+    return symtable_get_global_int("NO_WORD_EXPAND", false);
 }
 
 bool should_expand_tilde(const char *str, size_t pos, const exp_ctx_t *ctx) {
@@ -253,7 +254,7 @@ static const char *get_special_var(const char *name) {
         case '?':
             if (name[1] == '\0') {
                 // Read exit status from symbol table (set by set_exit_status)
-                char *val = get_shell_varp("?", NULL);
+                char *val = symtable_get_global("?");
                 if (val) {
                     return val;
                 }
@@ -265,7 +266,7 @@ static const char *get_special_var(const char *name) {
         case '$':
             if (name[1] == '\0') {
                 // Read shell PID from symbol table (set in init.c)
-                char *val = get_shell_varp("$", NULL);
+                char *val = symtable_get_global("$");
                 if (val) {
                     return val;
                 }
@@ -378,9 +379,9 @@ expansion_t tilde_expand(const char *str, const exp_ctx_t *ctx) {
     
     // Null tilde prefix (~) - use $HOME or getpwuid
     if (end == 1) {
-        const symtable_entry_t *entry = get_symtable_entry("HOME");
-        if (entry && entry->val) {
-            home = entry->val;
+        char *home_val = symtable_get_global("HOME");
+        if (home_val) {
+            home = home_val;
         } else {
             // Fall back to password database
             struct passwd *pass = getpwuid(getuid());
@@ -524,9 +525,9 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
     const char *var_value = get_special_var(actual_var_name);
     bool var_exists = (var_value != NULL);
     if (!var_value) {
-        const symtable_entry_t *entry = get_symtable_entry(actual_var_name);
-        var_exists = (entry && entry->val);
-        var_value = var_exists ? entry->val : "";
+        var_value = symtable_get_global(actual_var_name);
+        var_exists = (var_value != NULL);
+        var_value = var_exists ? var_value : "";
     }        // Handle parameter expansion operations
         if (param_expansion_op) {
             char *op = param_expansion_op;
@@ -537,7 +538,7 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
             expansion_default = op + 1;
             if (!var_exists || strlen(var_value) == 0) {
                 // Variable is unset or empty, assign the default value
-                set_shell_varp(actual_var_name, expansion_default);
+                symtable_set_global(actual_var_name, expansion_default);
                 var_value = expansion_default;
             }
         } else if (strncmp(op, ":-", 2) == 0) {
@@ -550,7 +551,7 @@ expansion_t var_expand(const char *str, const exp_ctx_t *ctx) {
             // ${var:=default} - assign default if var is unset or empty
             expansion_default = op + 2;
             if (!var_exists || strlen(var_value) == 0) {
-                set_shell_varp(actual_var_name, expansion_default);
+                symtable_set_global(actual_var_name, expansion_default);
                 var_value = expansion_default;
             }
         } else if (strncmp(op, ":+", 2) == 0) {
@@ -1132,8 +1133,8 @@ word_t *field_split(const char *str) {
         return NULL;
     }
     
-    const symtable_entry_t *entry = get_symtable_entry("IFS");
-    const char *IFS = entry ? entry->val : " \t\n";
+    char *ifs_val = symtable_get_global("IFS");
+    const char *IFS = ifs_val ? ifs_val : " \t\n";
     
     // Empty IFS means no field splitting
     if (!*IFS) {

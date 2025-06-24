@@ -4,6 +4,7 @@
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/symtable_unified.h"
 
 #include <getopt.h>
 #include <limits.h>
@@ -370,8 +371,8 @@ void build_prompt(void) {
     }
 
     // Set the prompt environment variables
-    set_shell_varp("PS1", prompt);
-    set_shell_varp("PS2", PS2);
+    symtable_set_global("PS1", prompt);
+    symtable_set_global("PS2", PS2);
 
     if (colors) {
         free(colors);

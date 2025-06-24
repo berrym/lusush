@@ -1,5 +1,6 @@
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
+#include "../include/symtable_unified.h"
 
 #include <getopt.h>
 #include <stdbool.h>
@@ -33,9 +34,9 @@ static void setopt_usage(void) {
 }
 
 void init_shell_opts(void) {
-    set_shell_vari("MULTILINE_EDIT", multiline_edit);
-    set_shell_vari("HISTORY_NO_DUPS", history_no_dups);
-    set_shell_vari("NO_WORD_EXPAND", no_word_expand);
+    symtable_set_global_int("MULTILINE_EDIT", multiline_edit);
+    symtable_set_global_int("HISTORY_NO_DUPS", history_no_dups);
+    symtable_set_global_int("NO_WORD_EXPAND", no_word_expand);
 }
 
 void setopt(int argc, char **argv) {
@@ -72,16 +73,16 @@ void setopt(int argc, char **argv) {
                     case MULTILINE_EDIT:
                         multiline_edit = !multiline_edit;
                         linenoiseSetMultiLine(multiline_edit);
-                        set_shell_vari("MULTILINE_EDIT", multiline_edit);
+                        symtable_set_global_int("MULTILINE_EDIT", multiline_edit);
                         break;
                     case HISTORY_NO_DUPS:
                         history_no_dups = !history_no_dups;
                         linenoiseHistoryNoDups(history_no_dups);
-                        set_shell_vari("HISTORY_NO_DUPS", history_no_dups);
+                        symtable_set_global_int("HISTORY_NO_DUPS", history_no_dups);
                         break;
                     case NO_WORD_EXPAND:
                         no_word_expand = !no_word_expand;
-                        set_shell_vari("NO_WORD_EXPAND", no_word_expand);
+                        symtable_set_global_int("NO_WORD_EXPAND", no_word_expand);
                         break;
                     default:
                         break;
