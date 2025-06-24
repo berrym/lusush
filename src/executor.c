@@ -359,6 +359,31 @@ static int execute_command(executor_t *executor, node_t *command) {
         return 1;
     }
 
+    // Check if all arguments are parameter expansions
+    bool all_param_expansions = true;
+    for (int i = 0; i < argc; i++) {
+        if (!argv[i] || argv[i][0] != '$' || argv[i][1] != '{') {
+            all_param_expansions = false;
+            break;
+        }
+    }
+
+    if (all_param_expansions && argc > 0) {
+        // Execute all parameter expansions
+        for (int i = 0; i < argc; i++) {
+            char *result = expand_variable(executor, argv[i]);
+            if (result) {
+                free(result);
+            }
+        }
+        // Free argv and return success
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+        free(argv);
+        return 0;
+    }
+
     // Check for stderr redirection pattern (2>/dev/null or 2> /dev/null)
     bool redirect_stderr = false;
     char **filtered_argv = NULL;
