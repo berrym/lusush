@@ -42,7 +42,8 @@ src = ['src/builtins/alias.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',
-
+       'src/symtable_libht.c',
+       'src/symtable_libht_v2.c',
        'src/tokenizer.c',
       ]
 

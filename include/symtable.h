@@ -259,4 +259,54 @@ symtable_stack_t *get_symtable_stack(void);
 void free_symtable(symtable_t *symtable);
 void symtable_entry_setval(symtable_entry_t *entry, char *val);
 
+// ============================================================================
+// ENHANCED SYMBOL TABLE (libhashtable implementation)
+// ============================================================================
+
+// Feature detection
+bool symtable_libht_available(void);
+const char *symtable_implementation_info(void);
+
+// Enhanced API (feature flag controlled)
+void init_symtable_libht(void);
+void free_symtable_libht(void);
+void *get_libht_manager(void);
+
+// Enhanced variable operations
+int symtable_set_var_enhanced(const char *name, const char *value, symvar_flags_t flags);
+char *symtable_get_var_enhanced(const char *name);
+
+// Enhanced scope operations
+int symtable_push_scope_enhanced(scope_type_t type, const char *name);
+int symtable_pop_scope_enhanced(void);
+
+// Performance and testing
+void symtable_benchmark_comparison(int iterations);
+int symtable_libht_test(void);
+
+// ============================================================================
+// OPTIMIZED SYMBOL TABLE (libhashtable v2 implementation)
+// ============================================================================
+
+// Feature detection
+bool symtable_opt_available(void);
+const char *symtable_opt_implementation_info(void);
+
+// Optimized API (feature flag controlled)
+void init_symtable_opt(void);
+void free_symtable_opt(void);
+void *get_opt_manager(void);
+
+// Optimized variable operations
+int symtable_set_var_opt_api(const char *name, const char *value, symvar_flags_t flags);
+char *symtable_get_var_opt_api(const char *name);
+
+// Optimized scope operations
+int symtable_push_scope_opt_api(scope_type_t type, const char *name);
+int symtable_pop_scope_opt_api(void);
+
+// Performance and testing
+void symtable_benchmark_opt_comparison(int iterations);
+int symtable_opt_test(void);
+
 #endif // SYMTABLE_H
