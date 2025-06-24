@@ -1,22 +1,23 @@
 /*
  * Modern Arithmetic Expansion Module for Lusush Shell
- * 
+ *
  * This module provides POSIX-compliant arithmetic expansion using the shunting yard algorithm.
  * It replaces the legacy shunt.c implementation with a modern, clean interface that integrates
  * with the modern shell architecture.
- * 
+ *
  * Based on the shunting yard algorithm implementation from:
  * - Original: http://en.literateprograms.org/Shunting_yard_algorithm_(C)
  * - Modified by Mohammed Isam for Layla shell
  * - Further modernized for Lusush shell
- * 
+ *
  * Copyright (c) 2024 Michael Berry <trismegustis@gmail.com>
  */
 
 #include "../include/arithmetic.h"
+
 #include "../include/lusush.h"
-#include "../include/errors.h"
 #include "../include/symtable.h"
+
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -38,7 +39,7 @@ typedef struct {
         ITEM_LONG_INT = 1,
         ITEM_VAR_PTR = 2
     } type;
-    
+
     union {
         ssize_t val;
         char *var_name;  // Store variable name instead of pointer
@@ -75,7 +76,7 @@ typedef struct {
 // Cleanup function for arithmetic context
 static void arithm_context_cleanup(arithm_context_t *ctx) {
     if (!ctx) return;
-    
+
     // Free any variable names stored in the number stack
     for (int i = 0; i < ctx->nnumstack; i++) {
         if (ctx->numstack[i].type == ITEM_VAR_PTR && ctx->numstack[i].var_name) {
@@ -83,7 +84,7 @@ static void arithm_context_cleanup(arithm_context_t *ctx) {
             ctx->numstack[i].var_name = NULL;
         }
     }
-    
+
     if (ctx->error_message) {
         free(ctx->error_message);
         ctx->error_message = NULL;
@@ -217,7 +218,7 @@ static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
         arithm_set_error("negative exponent not supported");
         return 0;
     }
-    
+
     ssize_t result = 1;
     for (ssize_t i = 0; i < exp; i++) {
         result *= base;
@@ -386,7 +387,7 @@ static op_t *get_op(const char *expr) {
 static ssize_t get_num(const char *expr, int *nchars) {
     char *endptr;
     ssize_t result;
-    
+
     if (expr[0] == '0' && (expr[1] == 'x' || expr[1] == 'X')) {
         // Hexadecimal
         result = strtol(expr, &endptr, 16);
@@ -397,7 +398,7 @@ static ssize_t get_num(const char *expr, int *nchars) {
         // Decimal
         result = strtol(expr, &endptr, 10);
     }
-    
+
     *nchars = endptr - expr;
     return result;
 }
@@ -406,34 +407,34 @@ static ssize_t get_num(const char *expr, int *nchars) {
 static char *get_var_name(const char *expr, int *nchars) {
     const char *start = expr;
     *nchars = 0;
-    
+
     // Variable names start with letter or underscore
     if (!isalpha(*expr) && *expr != '_') {
         return NULL;
     }
-    
+
     // Count valid name characters
     while (valid_name_char(*expr)) {
         expr++;
         (*nchars)++;
     }
-    
+
     // Extract variable name
     char *name = malloc(*nchars + 1);
     if (!name) {
         arithm_set_error("memory allocation failed");
         return NULL;
     }
-    
+
     strncpy(name, start, *nchars);
     name[*nchars] = '\0';
-    
+
     // Ensure variable exists in symbol table with default value "0"
     symtable_manager_t *manager = symtable_get_global_manager();
     if (manager && !symtable_var_exists(manager, name)) {
         symtable_set_var(manager, name, "0", SYMVAR_NONE);
     }
-    
+
     return name;
 }
 
@@ -445,10 +446,10 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
         while (ctx->nopstack > 0 && ctx->opstack[ctx->nopstack - 1]->op != '(') {
             op_t *pop_op = pop_opstack(ctx);
             if (ctx->errflag) return;
-            
+
             stack_item_t a1 = pop_numstack(ctx);
             if (ctx->errflag) return;
-            
+
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
             } else {
@@ -458,7 +459,7 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
             }
             if (ctx->errflag) return;
         }
-        
+
         if (ctx->nopstack > 0 && ctx->opstack[ctx->nopstack - 1]->op == '(') {
             pop_opstack(ctx); // Remove the '('
         } else {
@@ -469,13 +470,13 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
         while (ctx->nopstack > 0 && ctx->opstack[ctx->nopstack - 1]->op != '(' &&
                ((op->assoc == ASSOC_LEFT && op->prec >= ctx->opstack[ctx->nopstack - 1]->prec) ||
                 (op->assoc == ASSOC_RIGHT && op->prec > ctx->opstack[ctx->nopstack - 1]->prec))) {
-            
+
             op_t *pop_op = pop_opstack(ctx);
             if (ctx->errflag) return;
-            
+
             stack_item_t a1 = pop_numstack(ctx);
             if (ctx->errflag) return;
-            
+
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
             } else {
@@ -523,15 +524,15 @@ char *arithm_expand(const char *orig_expr) {
     if (!orig_expr) {
         return strdup("0");
     }
-    
+
     // Initialize context
     arithm_context_t ctx = {0};
     arithm_clear_error();
-    
+
     // Parse expression and remove $(( )) wrapper if present
     const char *expr;
     char *cleaned_expr = NULL;
-    
+
     if (strncmp(orig_expr, "$((", 3) == 0) {
         size_t len = strlen(orig_expr);
         if (len >= 5 && orig_expr[len-2] == ')' && orig_expr[len-1] == ')') {
@@ -552,20 +553,20 @@ char *arithm_expand(const char *orig_expr) {
     } else {
         expr = orig_expr;
     }
-    
+
     // Tokenize and evaluate expression using clearer state management
     const char *current = expr;
     op_t start_op = {'X', 0, ASSOC_NONE, 0, 0, NULL};
     op_t *last_op = &start_op;
-    
+
     while (*current && !ctx.errflag) {
         // Skip whitespace
         while (*current && isspace(*current)) {
             current++;
         }
-        
+
         if (!*current) break;
-        
+
         // Try to parse an operator first
         op_t *op = get_op(current);
         if (op) {
@@ -580,7 +581,7 @@ char *arithm_expand(const char *orig_expr) {
                     break;
                 }
             }
-            
+
             shunt_op(&ctx, op);
             if (ctx.errflag) break;
             last_op = op;
@@ -611,15 +612,15 @@ char *arithm_expand(const char *orig_expr) {
             break;
         }
     }
-    
+
     // Process remaining operators
     while (ctx.nopstack > 0 && !ctx.errflag) {
         op_t *op = pop_opstack(&ctx);
         if (ctx.errflag) break;
-        
+
         stack_item_t a1 = pop_numstack(&ctx);
         if (ctx.errflag) break;
-        
+
         if (op->unary) {
             push_numstackl(&ctx, op->eval(&a1, NULL));
         } else {
@@ -629,25 +630,25 @@ char *arithm_expand(const char *orig_expr) {
         }
         if (ctx.errflag) break;
     }
-    
+
     // Clean up
     if (cleaned_expr) {
         free(cleaned_expr);
     }
-    
+
     // Check for errors
     if (ctx.errflag || arithm_error_flag) {
         arithm_context_cleanup(&ctx);
         return NULL;
     }
-    
+
     // Should have exactly one result
     if (ctx.nnumstack != 1) {
         arithm_set_error("invalid arithmetic expression");
         arithm_context_cleanup(&ctx);
         return NULL;
     }
-    
+
     // Format result
     ssize_t result = long_value(&ctx.numstack[0]);
     char *result_str = malloc(32);
@@ -656,7 +657,7 @@ char *arithm_expand(const char *orig_expr) {
         arithm_context_cleanup(&ctx);
         return NULL;
     }
-    
+
     snprintf(result_str, 32, "%ld", result);
     arithm_context_cleanup(&ctx);
     return result_str;

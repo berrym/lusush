@@ -3,12 +3,12 @@
  */
 
 #include "../include/lusush.h"
+
+#include "../include/executor.h"
 #include "../include/init.h"
 #include "../include/input.h"
 #include "../include/linenoise/linenoise.h"
-#include "../include/node.h"
-#include "../include/parser.h"
-#include "../include/executor.h"
+
 #include "../include/symtable.h"
 #include "../include/signals.h"
 
@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <ctype.h>
 
 // Forward declarations
 
@@ -40,17 +39,17 @@ int main(int argc, char **argv) {
         if (shell_opts.verbose) {
             fprintf(stderr, "%s\n", shell_opts.command_string);
         }
-        
+
         // Execute the command string and exit
         int exit_status = parse_and_execute(shell_opts.command_string);
-        
+
         // Flush output buffers before exit to ensure all output is displayed
         fflush(stdout);
         fflush(stderr);
-        
+
         // Clean up and exit
         free(shell_opts.command_string);
-        
+
         // Execute EXIT traps before terminating
         execute_exit_traps();
         exit(exit_status);
@@ -83,7 +82,7 @@ int main(int argc, char **argv) {
     if (in) {
         fclose(in);
     }
-    
+
     // Execute EXIT traps before shell terminates normally
     execute_exit_traps();
 }
@@ -94,12 +93,10 @@ int parse_and_execute(const char *command) {
     if (!executor) {
         return 1;
     }
-    
+
     int exit_status = executor_execute_command_line(executor, command);
-    
+
     executor_free(executor);
-    
+
     return exit_status;
 }
-
-
