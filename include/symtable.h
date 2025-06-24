@@ -25,8 +25,8 @@
 #include <sys/types.h>
 
 // Forward declarations
-typedef struct symtable_modern symtable_modern_t;
-typedef struct symvar_modern symvar_modern_t;
+typedef struct symtable_scope symtable_scope_t;
+typedef struct symvar symvar_t;
 
 // Variable types
 typedef enum {
@@ -56,29 +56,29 @@ typedef enum {
 } scope_type_t;
 
 // Variable entry structure
-struct symvar_modern {
+struct symvar {
     char *name;                  // Variable name
     char *value;                 // Variable value (string representation)
     symvar_type_t type;          // Variable type
     symvar_flags_t flags;        // Variable flags
     size_t scope_level;          // Scope level where defined
-    symvar_modern_t *next;       // Next variable in hash chain
+    symvar_t *next;              // Next variable in hash chain
 };
 
 // Symbol table scope structure
-struct symtable_modern {
+struct symtable_scope {
     scope_type_t scope_type;     // Type of scope
     size_t level;                // Scope nesting level
     size_t hash_size;            // Hash table size
-    symvar_modern_t **vars;      // Hash table of variables
-    symtable_modern_t *parent;   // Parent scope
+    symvar_t **vars;             // Hash table of variables
+    symtable_scope_t *parent;    // Parent scope
     char *scope_name;            // Name of scope (for debugging)
 };
 
 // Symbol table manager
 typedef struct {
-    symtable_modern_t *current_scope;   // Current active scope
-    symtable_modern_t *global_scope;    // Global scope reference
+    symtable_scope_t *current_scope;    // Current active scope
+    symtable_scope_t *global_scope;     // Global scope reference
     size_t max_scope_level;             // Maximum nesting depth
     bool debug_mode;                    // Debug output enabled
 } symtable_manager_t;

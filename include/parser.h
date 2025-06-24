@@ -1,34 +1,34 @@
 /**
- * Modern POSIX Shell Parser - Clean Recursive Descent Implementation
+ * POSIX Shell Parser - Clean Recursive Descent Implementation
  * 
- * This parser uses the new tokenizer and implements a proper recursive descent
+ * This parser uses the tokenizer and implements a proper recursive descent
  * parser for POSIX shell grammar. It handles control structures, commands,
  * pipelines, and proper token boundary management.
  */
 
-#ifndef PARSER_MODERN_H
-#define PARSER_MODERN_H
+#ifndef PARSER_H
+#define PARSER_H
 
 #include "tokenizer.h"
 #include "node.h"
 
 // Parser state
-typedef struct parser_modern {
-    modern_tokenizer_t *tokenizer;
+typedef struct parser {
+    tokenizer_t *tokenizer;
     const char *error_message;
     bool has_error;
-} parser_modern_t;
+} parser_t;
 
 // Parser interface
-parser_modern_t *parser_modern_new(const char *input);
-void parser_modern_free(parser_modern_t *parser);
+parser_t *parser_new(const char *input);
+void parser_free(parser_t *parser);
 
 // Main parsing functions
-node_t *parser_modern_parse(parser_modern_t *parser);
-node_t *parser_modern_parse_command_line(parser_modern_t *parser);
+node_t *parser_parse(parser_t *parser);
+node_t *parser_parse_command_line(parser_t *parser);
 
 // Error handling
-bool parser_modern_has_error(parser_modern_t *parser);
-const char *parser_modern_error(parser_modern_t *parser);
+bool parser_has_error(parser_t *parser);
+const char *parser_error(parser_t *parser);
 
-#endif // PARSER_MODERN_H
+#endif // PARSER_H

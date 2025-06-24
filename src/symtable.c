@@ -48,12 +48,12 @@ static size_t hash_name(const char *name, size_t table_size) {
 }
 
 // Find variable in scope chain
-static symvar_modern_t *find_var(symtable_modern_t *scope, const char *name) {
+static symvar_t *find_var(symtable_scope_t *scope, const char *name) {
     if (!scope || !name) return NULL;
     
     while (scope) {
         size_t hash = hash_name(name, scope->hash_size);
-        symvar_modern_t *var = scope->vars[hash];
+        symvar_t *var = scope->vars[hash];
         
         while (var) {
             if (strcmp(var->name, name) == 0 && !(var->flags & SYMVAR_UNSET)) {
@@ -69,13 +69,13 @@ static symvar_modern_t *find_var(symtable_modern_t *scope, const char *name) {
 }
 
 // Free all variables in a scope
-static void free_scope_vars(symtable_modern_t *scope) {
+static void free_scope_vars(symtable_scope_t *scope) {
     if (!scope || !scope->vars) return;
     
     for (size_t i = 0; i < scope->hash_size; i++) {
-        symvar_modern_t *var = scope->vars[i];
+        symvar_t *var = scope->vars[i];
         while (var) {
-            symvar_modern_t *next = var->next;
+            symvar_t *next = var->next;
             free(var->name);
             free(var->value);
             free(var);
@@ -97,7 +97,7 @@ symtable_manager_t *symtable_manager_new(void) {
     }
     
     // Create global scope
-    symtable_modern_t *global = calloc(1, sizeof(symtable_modern_t));
+    symtable_scope_t *global = calloc(1, sizeof(symtable_scope_t));
     if (!global) {
         free(manager);
         return NULL;
@@ -106,7 +106,7 @@ symtable_manager_t *symtable_manager_new(void) {
     global->scope_type = SCOPE_GLOBAL;
     global->level = 0;
     global->hash_size = DEFAULT_HASH_SIZE;
-    global->vars = calloc(DEFAULT_HASH_SIZE, sizeof(symvar_modern_t *));
+    global->vars = calloc(DEFAULT_HASH_SIZE, sizeof(symvar_t *));
     global->parent = NULL;
     global->scope_name = strdup("global");
     
@@ -163,13 +163,13 @@ int symtable_push_scope(symtable_manager_t *manager, scope_type_t type, const ch
         return -1;
     }
     
-    symtable_modern_t *new_scope = calloc(1, sizeof(symtable_modern_t));
+    symtable_scope_t *new_scope = calloc(1, sizeof(symtable_scope_t));
     if (!new_scope) return -1;
     
     new_scope->scope_type = type;
     new_scope->level = manager->current_scope->level + 1;
     new_scope->hash_size = DEFAULT_HASH_SIZE;
-    new_scope->vars = calloc(DEFAULT_HASH_SIZE, sizeof(symvar_modern_t *));
+    new_scope->vars = calloc(DEFAULT_HASH_SIZE, sizeof(symvar_t *));
     new_scope->parent = manager->current_scope;
     new_scope->scope_name = strdup(name);
     
@@ -198,7 +198,7 @@ int symtable_pop_scope(symtable_manager_t *manager) {
         return -1; // Can't pop global scope
     }
     
-    symtable_modern_t *old_scope = manager->current_scope;
+    symtable_scope_t *old_scope = manager->current_scope;
     manager->current_scope = old_scope->parent;
     
     if (manager->debug_mode) {
@@ -228,11 +228,11 @@ const char *symtable_current_scope_name(symtable_manager_t *manager) {
 int symtable_set_var(symtable_manager_t *manager, const char *name, const char *value, symvar_flags_t flags) {
     if (!manager || !name) return -1;
     
-    symtable_modern_t *scope = manager->current_scope;
+    symtable_scope_t *scope = manager->current_scope;
     size_t hash = hash_name(name, scope->hash_size);
     
     // Check if variable already exists in current scope
-    symvar_modern_t *var = scope->vars[hash];
+    symvar_t *var = scope->vars[hash];
     while (var) {
         if (strcmp(var->name, name) == 0) {
             // Update existing variable
@@ -256,7 +256,7 @@ int symtable_set_var(symtable_manager_t *manager, const char *name, const char *
     }
     
     // Create new variable
-    var = calloc(1, sizeof(symvar_modern_t));
+    var = calloc(1, sizeof(symvar_t));
     if (!var) return -1;
     
     var->name = strdup(name);
@@ -293,7 +293,7 @@ int symtable_set_local_var(symtable_manager_t *manager, const char *name, const 
 int symtable_set_global_var(symtable_manager_t *manager, const char *name, const char *value) {
     if (!manager || !name) return -1;
     
-    symtable_modern_t *old_scope = manager->current_scope;
+    symtable_scope_t *old_scope = manager->current_scope;
     manager->current_scope = manager->global_scope;
     int result = symtable_set_var(manager, name, value, SYMVAR_NONE);
     manager->current_scope = old_scope;
@@ -305,7 +305,7 @@ int symtable_set_global_var(symtable_manager_t *manager, const char *name, const
 char *symtable_get_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) return NULL;
     
-    symvar_modern_t *var = find_var(manager->current_scope, name);
+    symvar_t *var = find_var(manager->current_scope, name);
     return var ? var->value : NULL;
 }
 
@@ -313,7 +313,7 @@ char *symtable_get_var(symtable_manager_t *manager, const char *name) {
 bool symtable_var_exists(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) return false;
     
-    symvar_modern_t *var = find_var(manager->current_scope, name);
+    symvar_t *var = find_var(manager->current_scope, name);
     return var && !(var->flags & SYMVAR_UNSET);
 }
 
@@ -321,7 +321,7 @@ bool symtable_var_exists(symtable_manager_t *manager, const char *name) {
 int symtable_unset_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) return -1;
     
-    symvar_modern_t *var = find_var(manager->current_scope, name);
+    symvar_t *var = find_var(manager->current_scope, name);
     if (var) {
         var->flags |= SYMVAR_UNSET;
         free(var->value);
@@ -340,7 +340,7 @@ int symtable_unset_var(symtable_manager_t *manager, const char *name) {
 int symtable_export_var(symtable_manager_t *manager, const char *name) {
     if (!manager || !name) return -1;
     
-    symvar_modern_t *var = find_var(manager->current_scope, name);
+    symvar_t *var = find_var(manager->current_scope, name);
     if (var) {
         var->flags |= SYMVAR_EXPORTED;
         if (manager->debug_mode) {
@@ -357,7 +357,7 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope_type) {
     if (!manager) return;
     
     const char *type_names[] = {"GLOBAL", "FUNCTION", "LOOP", "SUBSHELL", "CONDITIONAL"};
-    symtable_modern_t *scope = manager->current_scope;
+    symtable_scope_t *scope = manager->current_scope;
     
     // Find the scope of the requested type
     while (scope && scope->scope_type != scope_type) {
@@ -373,7 +373,7 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope_type) {
            type_names[scope_type], scope->scope_name, scope->level);
     
     for (size_t i = 0; i < scope->hash_size; i++) {
-        symvar_modern_t *var = scope->vars[i];
+        symvar_t *var = scope->vars[i];
         while (var) {
             if (!(var->flags & SYMVAR_UNSET)) {
                 printf("  %s = '%s'", var->name, var->value);
@@ -391,7 +391,7 @@ void symtable_dump_scope(symtable_manager_t *manager, scope_type_t scope_type) {
 void symtable_dump_all_scopes(symtable_manager_t *manager) {
     if (!manager) return;
     
-    symtable_modern_t *scope = manager->current_scope;
+    symtable_scope_t *scope = manager->current_scope;
     while (scope) {
         symtable_dump_scope(manager, scope->scope_type);
         scope = scope->parent;

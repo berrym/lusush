@@ -490,11 +490,11 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
 }
 
 // Error handling functions
-void arithm_init_modern(void) {
+void arithm_init(void) {
     arithm_clear_error();
 }
 
-void arithm_cleanup_modern(void) {
+void arithm_cleanup(void) {
     arithm_clear_error();
 }
 
@@ -519,7 +519,7 @@ void arithm_clear_error(void) {
 }
 
 // Main arithmetic expansion function
-char *arithm_expand_modern(const char *orig_expr) {
+char *arithm_expand(const char *orig_expr) {
     if (!orig_expr) {
         return strdup("0");
     }

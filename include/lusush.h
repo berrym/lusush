@@ -166,7 +166,7 @@ bool sb_append_len(str_builder_t *sb, const char *str, size_t len);
 char *sb_finalize(str_builder_t *sb);
 
 char *pos_params_expand(char *tmp, bool in_double_quotes);
-char *arithm_expand(char *orig_expr);
+char *arithm_expand(const char *orig_expr);
 
 // pattern matching functions
 bool has_glob_chars(char *p, size_t len);

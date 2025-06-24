@@ -1,22 +1,21 @@
-#ifndef ARITHMETIC_MODERN_H
-#define ARITHMETIC_MODERN_H
+#ifndef ARITHMETIC_H
+#define ARITHMETIC_H
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
 /**
- * Modern Arithmetic Expansion Module
+ * Arithmetic Expansion Module
  * 
  * Provides POSIX-compliant arithmetic expansion using the shunting yard algorithm.
  * Supports all POSIX arithmetic operators, variables, and proper error handling.
  * 
- * This module replaces the legacy wordexp.c arithmetic functionality with a
- * clean, modern implementation suitable for the modern shell architecture.
+ * This module provides arithmetic functionality for the shell architecture.
  */
 
 /**
- * arithm_expand_modern:
+ * arithm_expand:
  *      Evaluate arithmetic expression with full POSIX operator support
  * 
  * @param orig_expr: Arithmetic expression string (with or without $(( )) wrapper)
@@ -35,24 +34,24 @@
  * - Variables and numeric literals
  * - Octal (0123) and hexadecimal (0x123) numbers
  */
-char *arithm_expand_modern(const char *orig_expr);
+char *arithm_expand(const char *orig_expr);
 
 /**
- * arithm_init_modern:
+ * arithm_init:
  *      Initialize the arithmetic expansion module
  * 
  * Call this once during shell initialization to set up any required
  * state for arithmetic evaluation.
  */
-void arithm_init_modern(void);
+void arithm_init(void);
 
 /**
- * arithm_cleanup_modern:
+ * arithm_cleanup:
  *      Clean up arithmetic expansion module resources
  * 
  * Call this during shell shutdown to free any allocated resources.
  */
-void arithm_cleanup_modern(void);
+void arithm_cleanup(void);
 
 /**
  * Error handling for arithmetic operations
@@ -82,4 +81,4 @@ void arithm_set_error(const char *message);
  */
 void arithm_clear_error(void);
 
-#endif /* ARITHMETIC_MODERN_H */
+#endif /* ARITHMETIC_H */

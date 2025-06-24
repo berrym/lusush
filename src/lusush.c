@@ -89,15 +89,15 @@ int main(int argc, char **argv) {
 }
 
 int parse_and_execute(const char *command) {
-    // Use unified modern executor for all commands
-    executor_modern_t *executor = executor_modern_new();
+    // Use unified executor for all commands
+    executor_t *executor = executor_new();
     if (!executor) {
         return 1;
     }
     
-    int exit_status = executor_modern_execute_command_line(executor, command);
+    int exit_status = executor_execute_command_line(executor, command);
     
-    executor_modern_free(executor);
+    executor_free(executor);
     
     return exit_status;
 }

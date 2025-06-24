@@ -32,54 +32,54 @@
 #include <pwd.h>
 
 // Global executor pointer for job control builtins
-executor_modern_t *current_executor = NULL;
+executor_t *current_executor = NULL;
 
 // Forward declarations
-// Forward declarations - updated for modern symtable
-static int execute_node_modern(executor_modern_t *executor, node_t *node);
-static int execute_command_modern(executor_modern_t *executor, node_t *command);
-static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline);
-static int execute_function_definition_modern(executor_modern_t *executor, node_t *function);
-static int execute_function_call_modern(executor_modern_t *executor, const char *function_name, char **argv, int argc);
-static bool is_function_defined(executor_modern_t *executor, const char *function_name);
-static function_def_t *find_function(executor_modern_t *executor, const char *function_name);
-static int store_function(executor_modern_t *executor, const char *function_name, node_t *body);
+// Forward declarations - updated for symtable
+static int execute_node(executor_t *executor, node_t *node);
+static int execute_command(executor_t *executor, node_t *command);
+static int execute_pipeline(executor_t *executor, node_t *pipeline);
+static int execute_function_definition(executor_t *executor, node_t *function);
+static int execute_function_call(executor_t *executor, const char *function_name, char **argv, int argc);
+static bool is_function_defined(executor_t *executor, const char *function_name);
+static function_def_t *find_function(executor_t *executor, const char *function_name);
+static int store_function(executor_t *executor, const char *function_name, node_t *body);
 static node_t *copy_ast_node(node_t *node);
 static node_t *copy_ast_chain(node_t *node);
-static int execute_if_modern(executor_modern_t *executor, node_t *if_node);
-static int execute_while_modern(executor_modern_t *executor, node_t *while_node);
-static int execute_for_modern(executor_modern_t *executor, node_t *for_node);
-static int execute_case_modern(executor_modern_t *executor, node_t *case_node);
-static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_node);
-static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_node);
-static int execute_command_list_modern(executor_modern_t *executor, node_t *list);
-static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc);
-static int execute_external_command(executor_modern_t *executor, char **argv);
-static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr);
-static int execute_external_command_with_setup(executor_modern_t *executor, char **argv, bool redirect_stderr, node_t *command);
-static int execute_builtin_command(executor_modern_t *executor, char **argv);
-static int execute_brace_group_modern(executor_modern_t *executor, node_t *group);
-static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell);
+static int execute_if(executor_t *executor, node_t *if_node);
+static int execute_while(executor_t *executor, node_t *while_node);
+static int execute_for(executor_t *executor, node_t *for_node);
+static int execute_case(executor_t *executor, node_t *case_node);
+static int execute_logical_and(executor_t *executor, node_t *and_node);
+static int execute_logical_or(executor_t *executor, node_t *or_node);
+static int execute_command_list(executor_t *executor, node_t *list);
+static char **build_argv_from_ast(executor_t *executor, node_t *command, int *argc);
+static int execute_external_command(executor_t *executor, char **argv);
+static int execute_external_command_with_redirection(executor_t *executor, char **argv, bool redirect_stderr);
+static int execute_external_command_with_setup(executor_t *executor, char **argv, bool redirect_stderr, node_t *command);
+static int execute_builtin_command(executor_t *executor, char **argv);
+static int execute_brace_group(executor_t *executor, node_t *group);
+static int execute_subshell(executor_t *executor, node_t *subshell);
 static bool is_builtin_command(const char *cmd);
-static void executor_error(executor_modern_t *executor, const char *message);
-static char *expand_variable_modern(executor_modern_t *executor, const char *var_text);
-static char *expand_tilde_modern(const char *text);
+static void set_executor_error(executor_t *executor, const char *message);
+static char *expand_variable(executor_t *executor, const char *var_text);
+static char *expand_tilde(const char *text);
 static char **expand_glob_pattern(const char *pattern, int *expanded_count);
 static bool needs_glob_expansion(const char *str);
 static char **expand_brace_pattern(const char *pattern, int *expanded_count);
 static bool needs_brace_expansion(const char *str);
-static void initialize_job_control(executor_modern_t *executor);
-static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text);
-static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text);
-char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
-static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str);
+static void initialize_job_control(executor_t *executor);
+static char *expand_arithmetic(executor_t *executor, const char *arith_text);
+static char *expand_command_substitution(executor_t *executor, const char *cmd_text);
+char *expand_if_needed(executor_t *executor, const char *text);
+static char *expand_quoted_string(executor_t *executor, const char *str);
 static bool is_assignment(const char *text);
-static int execute_assignment_modern(executor_modern_t *executor, const char *assignment);
+static int execute_assignment(executor_t *executor, const char *assignment);
 static bool match_pattern(const char *str, const char *pattern);
 
 // Create new executor with global symtable
-executor_modern_t *executor_modern_new(void) {
-    executor_modern_t *executor = malloc(sizeof(executor_modern_t));
+executor_t *executor_new(void) {
+    executor_t *executor = malloc(sizeof(executor_t));
     if (!executor) {
         return NULL;
     }
@@ -103,8 +103,8 @@ executor_modern_t *executor_modern_new(void) {
 }
 
 // Create new executor with external symtable
-executor_modern_t *executor_modern_new_with_symtable(symtable_manager_t *symtable) {
-    executor_modern_t *executor = malloc(sizeof(executor_modern_t));
+executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
+    executor_t *executor = malloc(sizeof(executor_t));
     if (!executor) {
         return NULL;
     }
@@ -124,7 +124,7 @@ executor_modern_t *executor_modern_new_with_symtable(symtable_manager_t *symtabl
 }
 
 // Free executor
-void executor_modern_free(executor_modern_t *executor) {
+void executor_free(executor_t *executor) {
     if (executor) {
         // Don't free global symtable - it's managed globally
         
@@ -143,7 +143,7 @@ void executor_modern_free(executor_modern_t *executor) {
 }
 
 // Set debug mode
-void executor_modern_set_debug(executor_modern_t *executor, bool debug) {
+void executor_set_debug(executor_t *executor, bool debug) {
     if (executor) {
         executor->debug = debug;
         if (executor->symtable) {
@@ -153,14 +153,14 @@ void executor_modern_set_debug(executor_modern_t *executor, bool debug) {
 }
 
 // Set interactive mode
-void executor_modern_set_interactive(executor_modern_t *executor, bool interactive) {
+void executor_set_interactive(executor_t *executor, bool interactive) {
     if (executor) {
         executor->interactive = interactive;
     }
 }
 
 // Set external symtable
-void executor_modern_set_symtable(executor_modern_t *executor, symtable_manager_t *symtable) {
+void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable) {
     if (executor) {
         // Don't free the old symtable if it exists - it might be external
         executor->symtable = symtable;
@@ -168,16 +168,16 @@ void executor_modern_set_symtable(executor_modern_t *executor, symtable_manager_
 }
 
 // Check for errors
-bool executor_modern_has_error(executor_modern_t *executor) {
+bool executor_has_error(executor_t *executor) {
     return executor && executor->has_error;
 }
 
-const char *executor_modern_error(executor_modern_t *executor) {
+const char *executor_error(executor_t *executor) {
     return executor ? executor->error_message : "Invalid executor";
 }
 
 // Set error
-static void executor_error(executor_modern_t *executor, const char *message) {
+static void set_executor_error(executor_t *executor, const char *message) {
     if (executor) {
         executor->error_message = message;
         executor->has_error = true;
@@ -185,7 +185,7 @@ static void executor_error(executor_modern_t *executor, const char *message) {
 }
 
 // Main execution entry point
-int executor_modern_execute(executor_modern_t *executor, node_t *ast) {
+int executor_execute(executor_t *executor, node_t *ast) {
     if (!executor || !ast) {
         return 1;
     }
@@ -196,19 +196,19 @@ int executor_modern_execute(executor_modern_t *executor, node_t *ast) {
     // Check if this is a command sequence (has siblings) or a single command
     if (ast->next_sibling) {
         // This is a command sequence, execute all siblings
-        int result = execute_command_list_modern(executor, ast);
+        int result = execute_command_list(executor, ast);
         executor->exit_status = result;
         return result;
     } else {
         // Single command, execute normally
-        int result = execute_node_modern(executor, ast);
+        int result = execute_node(executor, ast);
         executor->exit_status = result;
         return result;
     }
 }
 
 // Execute command line (parse and execute)
-int executor_modern_execute_command_line(executor_modern_t *executor, const char *input) {
+int executor_execute_command_line(executor_t *executor, const char *input) {
     if (!executor || !input) {
         return 1;
     }
@@ -216,35 +216,35 @@ int executor_modern_execute_command_line(executor_modern_t *executor, const char
 
     
     // Parse the input
-    parser_modern_t *parser = parser_modern_new(input);
+    parser_t *parser = parser_new(input);
     if (!parser) {
-        executor_error(executor, "Failed to create parser");
+        set_executor_error(executor, "Failed to create parser");
         return 1;
     }
     
-    node_t *ast = parser_modern_parse(parser);
+    node_t *ast = parser_parse(parser);
     
-    if (parser_modern_has_error(parser)) {
-        executor_error(executor, parser_modern_error(parser));
-        parser_modern_free(parser);
+    if (parser_has_error(parser)) {
+        set_executor_error(executor, parser_error(parser));
+        parser_free(parser);
         return 1;
     }
 
     if (!ast) {
-        parser_modern_free(parser);
+        parser_free(parser);
         return 0; // Empty command
     }
     
-    int result = executor_modern_execute(executor, ast);
+    int result = executor_execute(executor, ast);
     
     free_node_tree(ast);
-    parser_modern_free(parser);
+    parser_free(parser);
     
     return result;
 }
 
 // Core node execution dispatcher
-static int execute_node_modern(executor_modern_t *executor, node_t *node) {
+static int execute_node(executor_t *executor, node_t *node) {
     if (!node) return 0;
     
 
@@ -258,29 +258,29 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
     
     switch (node->type) {
         case NODE_COMMAND:
-            return execute_command_modern(executor, node);
+            return execute_command(executor, node);
         case NODE_PIPE:
-            return execute_pipeline_modern(executor, node);
+            return execute_pipeline(executor, node);
         case NODE_IF:
-            return execute_if_modern(executor, node);
+            return execute_if(executor, node);
         case NODE_WHILE:
-            return execute_while_modern(executor, node);
+            return execute_while(executor, node);
         case NODE_FOR:
-            return execute_for_modern(executor, node);
+            return execute_for(executor, node);
         case NODE_CASE:
-            return execute_case_modern(executor, node);
+            return execute_case(executor, node);
         case NODE_LOGICAL_AND:
-            return execute_logical_and_modern(executor, node);
+            return execute_logical_and(executor, node);
         case NODE_LOGICAL_OR:
-            return execute_logical_or_modern(executor, node);
+            return execute_logical_or(executor, node);
         case NODE_FUNCTION:
-            return execute_function_definition_modern(executor, node);
+            return execute_function_definition(executor, node);
         case NODE_BRACE_GROUP:
-            return execute_brace_group_modern(executor, node);
+            return execute_brace_group(executor, node);
         case NODE_SUBSHELL:
-            return execute_subshell_modern(executor, node);
+            return execute_subshell(executor, node);
         case NODE_BACKGROUND:
-            return executor_modern_execute_background(executor, node);
+            return executor_execute_background(executor, node);
         case NODE_VAR:
             // Variable nodes are typically handled by their parent
             return 0;
@@ -293,14 +293,14 @@ static int execute_node_modern(executor_modern_t *executor, node_t *node) {
 }
 
 // Execute command list (sequence of commands)
-static int execute_command_list_modern(executor_modern_t *executor, node_t *list) {
+static int execute_command_list(executor_t *executor, node_t *list) {
     if (!list) return 0;
     
     int last_result = 0;
     node_t *current = list;
     
     while (current) {
-        last_result = execute_node_modern(executor, current);
+        last_result = execute_node(executor, current);
         
         // Update exit status after each command in the sequence
         set_exit_status(last_result);
@@ -316,7 +316,7 @@ static int execute_command_list_modern(executor_modern_t *executor, node_t *list
 }
 
 // Execute a simple command
-static int execute_command_modern(executor_modern_t *executor, node_t *command) {
+static int execute_command(executor_t *executor, node_t *command) {
     if (!command || command->type != NODE_COMMAND) {
         return 1;
     }
@@ -325,7 +325,7 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {
-        return execute_assignment_modern(executor, command->val.str);
+        return execute_assignment(executor, command->val.str);
     }
 
     // Check if command has redirections
@@ -490,7 +490,7 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
     
     int result;
     if (is_function_defined(executor, filtered_argv[0])) {
-        result = execute_function_call_modern(executor, filtered_argv[0], filtered_argv, filtered_argc);
+        result = execute_function_call(executor, filtered_argv[0], filtered_argv, filtered_argc);
     } else if (is_builtin_command(filtered_argv[0])) {
         // For builtin commands, handle redirections in parent process
         redirection_state_t redir_state;
@@ -538,7 +538,7 @@ static int execute_command_modern(executor_modern_t *executor, node_t *command) 
 }
 
 // Execute pipeline
-static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline) {
+static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     if (!pipeline || pipeline->type != NODE_PIPE) {
         return 1;
     }
@@ -550,19 +550,19 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
     node_t *right = left ? left->next_sibling : NULL;
     
     if (!left || !right) {
-        executor_error(executor, "Malformed pipeline");
+        set_executor_error(executor, "Malformed pipeline");
         return 1;
     }
     
     int pipe_fd[2];
     if (pipe(pipe_fd) == -1) {
-        executor_error(executor, "Failed to create pipe");
+        set_executor_error(executor, "Failed to create pipe");
         return 1;
     }
     
     pid_t left_pid = fork();
     if (left_pid == -1) {
-        executor_error(executor, "Failed to fork for pipeline");
+        set_executor_error(executor, "Failed to fork for pipeline");
         close(pipe_fd[0]);
         close(pipe_fd[1]);
         return 1;
@@ -574,13 +574,13 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
         dup2(pipe_fd[1], STDOUT_FILENO);
         close(pipe_fd[1]);
         
-        int result = execute_node_modern(executor, left);
+        int result = execute_node(executor, left);
         exit(result);
     }
     
     pid_t right_pid = fork();
     if (right_pid == -1) {
-        executor_error(executor, "Failed to fork for pipeline");
+        set_executor_error(executor, "Failed to fork for pipeline");
         close(pipe_fd[0]);
         close(pipe_fd[1]);
         waitpid(left_pid, NULL, 0);
@@ -593,7 +593,7 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
         dup2(pipe_fd[0], STDIN_FILENO);
         close(pipe_fd[0]);
         
-        int result = execute_node_modern(executor, right);
+        int result = execute_node(executor, right);
         exit(result);
     }
     
@@ -610,7 +610,7 @@ static int execute_pipeline_modern(executor_modern_t *executor, node_t *pipeline
 }
 
 // Execute if statement
-static int execute_if_modern(executor_modern_t *executor, node_t *if_node) {
+static int execute_if(executor_t *executor, node_t *if_node) {
     if (!if_node || if_node->type != NODE_IF) {
         return 1;
     }
@@ -620,12 +620,12 @@ static int execute_if_modern(executor_modern_t *executor, node_t *if_node) {
     node_t *else_body = then_body ? then_body->next_sibling : NULL;
     
     if (!condition || !then_body) {
-        executor_error(executor, "Malformed if statement");
+        set_executor_error(executor, "Malformed if statement");
         return 1;
     }
     
-    // Execute condition
-    int condition_result = execute_node_modern(executor, condition);
+    // Execute condition  
+    int condition_result = execute_node(executor, condition);
     
     if (executor->debug) {
         printf("DEBUG: IF condition result: %d\n", condition_result);
@@ -633,16 +633,16 @@ static int execute_if_modern(executor_modern_t *executor, node_t *if_node) {
     
     // Execute appropriate body
     if (condition_result == 0) { // Success in shell terms
-        return execute_node_modern(executor, then_body);
+        return execute_node(executor, then_body);
     } else if (else_body) {
-        return execute_node_modern(executor, else_body);
+        return execute_node(executor, else_body);
     }
     
     return 0;
 }
 
 // Execute while loop
-static int execute_while_modern(executor_modern_t *executor, node_t *while_node) {
+static int execute_while(executor_t *executor, node_t *while_node) {
     if (!while_node || while_node->type != NODE_WHILE) {
         return 1;
     }
@@ -651,7 +651,7 @@ static int execute_while_modern(executor_modern_t *executor, node_t *while_node)
     node_t *body = condition ? condition->next_sibling : NULL;
     
     if (!condition || !body) {
-        executor_error(executor, "Malformed while loop");
+        set_executor_error(executor, "Malformed while loop");
         return 1;
     }
     
@@ -661,7 +661,7 @@ static int execute_while_modern(executor_modern_t *executor, node_t *while_node)
     
     while (iteration < max_iterations) {
         // Execute condition
-        int condition_result = execute_node_modern(executor, condition);
+        int condition_result = execute_node(executor, condition);
         
         if (executor->debug) {
             printf("DEBUG: WHILE iteration %d, condition result: %d\n", 
@@ -674,13 +674,13 @@ static int execute_while_modern(executor_modern_t *executor, node_t *while_node)
         }
         
         // Execute body
-        last_result = execute_node_modern(executor, body);
+        last_result = execute_node(executor, body);
         
         iteration++;
     }
     
     if (iteration >= max_iterations) {
-        executor_error(executor, "While loop exceeded maximum iterations");
+        set_executor_error(executor, "While loop exceeded maximum iterations");
         return 1;
     }
     
@@ -688,14 +688,14 @@ static int execute_while_modern(executor_modern_t *executor, node_t *while_node)
 }
 
 // Execute for loop
-static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
+static int execute_for(executor_t *executor, node_t *for_node) {
     if (!for_node || for_node->type != NODE_FOR) {
         return 1;
     }
     
     const char *var_name = for_node->val.str;
     if (!var_name) {
-        executor_error(executor, "For loop missing variable name");
+        set_executor_error(executor, "For loop missing variable name");
         return 1;
     }
     
@@ -703,13 +703,13 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
     node_t *body = word_list ? word_list->next_sibling : NULL;
     
     if (!body) {
-        executor_error(executor, "For loop missing body");
+        set_executor_error(executor, "For loop missing body");
         return 1;
     }
     
     // Push loop scope
     if (symtable_push_scope(executor->symtable, SCOPE_LOOP, "for-loop") != 0) {
-        executor_error(executor, "Failed to create loop scope");
+        set_executor_error(executor, "Failed to create loop scope");
         return 1;
     }
     
@@ -722,7 +722,7 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
             if (word->val.str) {
                 // Set loop variable in current (loop) scope
                 if (symtable_set_local_var(executor->symtable, var_name, word->val.str) != 0) {
-                    executor_error(executor, "Failed to set loop variable");
+                    set_executor_error(executor, "Failed to set loop variable");
                     symtable_pop_scope(executor->symtable);
                     return 1;
                 }
@@ -732,7 +732,7 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
                 }
                 
                 // Execute body
-                last_result = execute_node_modern(executor, body);
+                last_result = execute_node(executor, body);
             }
             word = word->next_sibling;
         }
@@ -745,7 +745,7 @@ static int execute_for_modern(executor_modern_t *executor, node_t *for_node) {
 }
 
 // Execute logical AND operator (&&)
-static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_node) {
+static int execute_logical_and(executor_t *executor, node_t *and_node) {
     if (!and_node || and_node->type != NODE_LOGICAL_AND) {
         return 1;
     }
@@ -754,16 +754,16 @@ static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_n
     node_t *right = left ? left->next_sibling : NULL;
     
     if (!left || !right) {
-        executor_error(executor, "Logical AND missing operands");
+        set_executor_error(executor, "Logical AND missing operands");
         return 1;
     }
     
     // Execute left command
-    int left_result = execute_node_modern(executor, left);
+    int left_result = execute_node(executor, left);
     
     // Only execute right command if left succeeded (exit code 0)
     if (left_result == 0) {
-        return execute_node_modern(executor, right);
+        return execute_node(executor, right);
     }
     
     // Left failed, return its exit code without executing right
@@ -771,7 +771,7 @@ static int execute_logical_and_modern(executor_modern_t *executor, node_t *and_n
 }
 
 // Execute logical OR operator (||)
-static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_node) {
+static int execute_logical_or(executor_t *executor, node_t *or_node) {
     if (!or_node || or_node->type != NODE_LOGICAL_OR) {
         return 1;
     }
@@ -780,16 +780,16 @@ static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_nod
     node_t *right = left ? left->next_sibling : NULL;
     
     if (!left || !right) {
-        executor_error(executor, "Logical OR missing operands");
+        set_executor_error(executor, "Logical OR missing operands");
         return 1;
     }
     
     // Execute left command
-    int left_result = execute_node_modern(executor, left);
+    int left_result = execute_node(executor, left);
     
-    // Only execute right command if left failed (exit code != 0)
+    // Only execute right command if left failed (non-zero exit code)
     if (left_result != 0) {
-        return execute_node_modern(executor, right);
+        return execute_node(executor, right);
     }
     
     // Left succeeded, return its exit code without executing right
@@ -797,7 +797,7 @@ static int execute_logical_or_modern(executor_modern_t *executor, node_t *or_nod
 }
 
 // Build argv from AST
-static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, int *argc) {
+static char **build_argv_from_ast(executor_t *executor, node_t *command, int *argc) {
     if (!executor || !command || !argc) {
         return NULL;
     }
@@ -838,7 +838,7 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
     
     // Add command name (no glob expansion for command names)
     if (command->val.str) {
-        char *expanded_cmd = expand_if_needed_modern(executor, command->val.str);
+        char *expanded_cmd = expand_if_needed(executor, command->val.str);
         if (!add_to_argv_list(expanded_cmd)) {
             free(expanded_cmd);
             goto cleanup_and_fail;
@@ -869,16 +869,16 @@ static char **build_argv_from_ast(executor_modern_t *executor, node_t *command, 
                         expanded_arg = strdup(child->val.str);
                     } else if (child->type == NODE_STRING_EXPANDABLE) {
                         // Double-quoted strings: expand variables but not globs
-                        expanded_arg = expand_quoted_string_modern(executor, child->val.str);
+                        expanded_arg = expand_quoted_string(executor, child->val.str);
                     } else if (child->type == NODE_ARITH_EXP) {
                         // Arithmetic expansion: $((expr))
-                        expanded_arg = expand_arithmetic_modern(executor, child->val.str);
+                        expanded_arg = expand_arithmetic(executor, child->val.str);
                     } else if (child->type == NODE_COMMAND_SUB) {
                         // Command substitution: $(cmd) or `cmd`
-                        expanded_arg = expand_command_substitution_modern(executor, child->val.str);
+                        expanded_arg = expand_command_substitution(executor, child->val.str);
                     } else {
                         // Regular variables and other expandable content
-                        expanded_arg = expand_if_needed_modern(executor, child->val.str);
+                        expanded_arg = expand_if_needed(executor, child->val.str);
                     }
                     
                     if (getenv("NEW_PARSER_DEBUG")) {
@@ -1061,17 +1061,17 @@ cleanup_delimiters:
 }
 
 // Expand variable/arithmetic/command substitution if needed
-char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
+char *expand_if_needed(executor_t *executor, const char *text) {
     if (!executor || !text) return NULL;
     
     // Check for tilde expansion first
     if (text[0] == '~') {
-        char *tilde_expanded = expand_tilde_modern(text);
+        char *tilde_expanded = expand_tilde(text);
         if (tilde_expanded && strcmp(tilde_expanded, text) != 0) {
             // Tilde was expanded, now check if result needs variable expansion
             const char *first_dollar = strchr(tilde_expanded, '$');
             if (first_dollar) {
-                char *final_result = expand_quoted_string_modern(executor, tilde_expanded);
+                char *final_result = expand_quoted_string(executor, tilde_expanded);
                 free(tilde_expanded);
                 return final_result;
             }
@@ -1095,22 +1095,22 @@ char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
         // If we have multiple dollar signs or the first dollar is not at position 0,
         // treat as quoted string with multiple expansions
         if (dollar_count > 1 || first_dollar != text) {
-            return expand_quoted_string_modern(executor, text);
+            return expand_quoted_string(executor, text);
         }
         
         // Single expansion starting at position 0
         if (strncmp(text, "$((", 3) == 0) {
-            return expand_arithmetic_modern(executor, text);
+            return expand_arithmetic(executor, text);
         } else if (strncmp(text, "$(", 2) == 0) {
-            return expand_command_substitution_modern(executor, text);
+            return expand_command_substitution(executor, text);
         } else {
-            return expand_variable_modern(executor, text);
+            return expand_variable(executor, text);
         }
     }
     
     // Check for backtick command substitution
     if (text[0] == '`') {
-        return expand_command_substitution_modern(executor, text);
+        return expand_command_substitution(executor, text);
     }
     
     // Regular text - just duplicate
@@ -1118,18 +1118,18 @@ char *expand_if_needed_modern(executor_modern_t *executor, const char *text) {
 }
 
 // Execute external command
-static int execute_external_command(executor_modern_t *executor, char **argv) {
+static int execute_external_command(executor_t *executor, char **argv) {
     return execute_external_command_with_redirection(executor, argv, false);
 }
 
-static int execute_external_command_with_redirection(executor_modern_t *executor, char **argv, bool redirect_stderr) {
+static int execute_external_command_with_redirection(executor_t *executor, char **argv, bool redirect_stderr) {
     if (!argv || !argv[0]) {
         return 1;
     }
     
     pid_t pid = fork();
     if (pid == -1) {
-        executor_error(executor, "Failed to fork");
+        set_executor_error(executor, "Failed to fork");
         return 1;
     }
     
@@ -1158,7 +1158,7 @@ static int execute_external_command_with_redirection(executor_modern_t *executor
 }
 
 // Execute brace group { commands; }
-static int execute_brace_group_modern(executor_modern_t *executor, node_t *group) {
+static int execute_brace_group(executor_t *executor, node_t *group) {
     if (!group || group->type != NODE_BRACE_GROUP) {
         return 1;
     }
@@ -1167,7 +1167,7 @@ static int execute_brace_group_modern(executor_modern_t *executor, node_t *group
     node_t *command = group->first_child;
     
     while (command) {
-        last_result = execute_node_modern(executor, command);
+        last_result = execute_node(executor, command);
         
         if (executor->debug) {
             printf("DEBUG: Brace group command result: %d\n", last_result);
@@ -1180,7 +1180,7 @@ static int execute_brace_group_modern(executor_modern_t *executor, node_t *group
 }
 
 // Execute subshell ( commands )
-static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell) {
+static int execute_subshell(executor_t *executor, node_t *subshell) {
     if (!subshell || subshell->type != NODE_SUBSHELL) {
         return 1;
     }
@@ -1188,7 +1188,7 @@ static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell
     // Fork a new process for the subshell
     pid_t pid = fork();
     if (pid == -1) {
-        executor_error(executor, "Failed to fork for subshell");
+        set_executor_error(executor, "Failed to fork for subshell");
         return 1;
     }
     
@@ -1198,7 +1198,7 @@ static int execute_subshell_modern(executor_modern_t *executor, node_t *subshell
         node_t *command = subshell->first_child;
         
         while (command) {
-            last_result = execute_node_modern(executor, command);
+            last_result = execute_node(executor, command);
             command = command->next_sibling;
         }
         
@@ -1459,14 +1459,14 @@ static char **expand_brace_pattern(const char *pattern, int *expanded_count) {
 }
 
 // Execute external command with full redirection setup in child process
-static int execute_external_command_with_setup(executor_modern_t *executor, char **argv, bool redirect_stderr, node_t *command) {
+static int execute_external_command_with_setup(executor_t *executor, char **argv, bool redirect_stderr, node_t *command) {
     if (!argv || !argv[0]) {
         return 1;
     }
     
     pid_t pid = fork();
     if (pid == -1) {
-        executor_error(executor, "Failed to fork");
+        set_executor_error(executor, "Failed to fork");
         return 1;
     }
     
@@ -1500,9 +1500,9 @@ static int execute_external_command_with_setup(executor_modern_t *executor, char
 }
 
 // Execute builtin command
-static int execute_test_builtin(executor_modern_t *executor, char **argv);
+static int execute_test_builtin(executor_t *executor, char **argv);
 
-static int execute_builtin_command(executor_modern_t *executor, char **argv) {
+static int execute_builtin_command(executor_t *executor, char **argv) {
     if (!argv || !argv[0]) {
         return 1;
     }
@@ -1538,7 +1538,7 @@ static bool is_builtin_command(const char *cmd) {
 }
 
 // Execute test builtin command
-static int execute_test_builtin(executor_modern_t *executor, char **argv) {
+static int execute_test_builtin(executor_t *executor, char **argv) {
     if (!argv || !argv[0]) {
         return 1;
     }
@@ -1654,7 +1654,7 @@ static bool is_assignment(const char *text) {
 
 // Execute assignment
 // Execute assignment using modern symbol table
-static int execute_assignment_modern(executor_modern_t *executor, const char *assignment) {
+static int execute_assignment(executor_t *executor, const char *assignment) {
     if (!executor || !assignment) return 1;
     
     char *eq = strchr(assignment, '=');
@@ -1669,7 +1669,7 @@ static int execute_assignment_modern(executor_modern_t *executor, const char *as
     var_name[var_len] = '\0';
     
     // Expand the value using modern expansion
-    char *value = expand_if_needed_modern(executor, eq + 1);
+    char *value = expand_if_needed(executor, eq + 1);
     
     // Set the variable in the global scope by default (shell behavior)
     int result = symtable_set_global_var(executor->symtable, var_name, value ? value : "");
@@ -1685,13 +1685,13 @@ static int execute_assignment_modern(executor_modern_t *executor, const char *as
 }
 
 // Execute case statement
-static int execute_case_modern(executor_modern_t *executor, node_t *node) {
+static int execute_case(executor_t *executor, node_t *node) {
     if (!executor || !node || node->type != NODE_CASE) {
         return 1;
     }
     
     // Get the test word and expand variables in it
-    char *test_word = expand_if_needed_modern(executor, node->val.str);
+    char *test_word = expand_if_needed(executor, node->val.str);
     if (!test_word) {
         return 1;
     }
@@ -1719,7 +1719,7 @@ static int execute_case_modern(executor_modern_t *executor, node_t *node) {
         char *pattern = strtok(pattern_copy, "|");
         while (pattern && !matched) {
             // Expand variables in pattern
-            char *expanded_pattern = expand_if_needed_modern(executor, pattern);
+            char *expanded_pattern = expand_if_needed(executor, pattern);
             if (expanded_pattern) {
                 if (match_pattern(test_word, expanded_pattern)) {
                     matched = true;
@@ -1727,7 +1727,7 @@ static int execute_case_modern(executor_modern_t *executor, node_t *node) {
                     // Execute commands for this case item
                     node_t *commands = case_item->first_child;
                     while (commands) {
-                        result = execute_node_modern(executor, commands);
+                        result = execute_node(executor, commands);
                         if (result != 0) break;
                         commands = commands->next_sibling;
                     }
@@ -1746,14 +1746,14 @@ static int execute_case_modern(executor_modern_t *executor, node_t *node) {
 }
 
 // Execute function definition
-static int execute_function_definition_modern(executor_modern_t *executor, node_t *node) {
+static int execute_function_definition(executor_t *executor, node_t *node) {
     if (!executor || !node || node->type != NODE_FUNCTION) {
         return 1;
     }
     
     char *function_name = node->val.str;
     if (!function_name) {
-        executor_error(executor, "Function definition missing name");
+        set_executor_error(executor, "Function definition missing name");
         return 1;
     }
     
@@ -1762,7 +1762,7 @@ static int execute_function_definition_modern(executor_modern_t *executor, node_
     
     // Store function in function table
     if (store_function(executor, function_name, body) != 0) {
-        executor_error(executor, "Failed to define function");
+        set_executor_error(executor, "Failed to define function");
         return 1;
     }
     
@@ -1774,19 +1774,19 @@ static int execute_function_definition_modern(executor_modern_t *executor, node_
 }
 
 // Check if a function is defined
-static bool is_function_defined(executor_modern_t *executor, const char *function_name) {
+static bool is_function_defined(executor_t *executor, const char *function_name) {
     return find_function(executor, function_name) != NULL;
 }
 
 // Execute function call
-static int execute_function_call_modern(executor_modern_t *executor, const char *function_name, char **argv, int argc) {
+static int execute_function_call(executor_t *executor, const char *function_name, char **argv, int argc) {
     if (!executor || !function_name) {
         return 1;
     }
     
     function_def_t *func = find_function(executor, function_name);
     if (!func) {
-        executor_error(executor, "Function not found");
+        set_executor_error(executor, "Function not found");
         return 1;
     }
     
@@ -1796,7 +1796,7 @@ static int execute_function_call_modern(executor_modern_t *executor, const char 
     
     // Create new scope for function
     if (symtable_push_scope(executor->symtable, SCOPE_FUNCTION, function_name) != 0) {
-        executor_error(executor, "Failed to create function scope");
+        set_executor_error(executor, "Failed to create function scope");
         return 1;
     }
     
@@ -1806,7 +1806,7 @@ static int execute_function_call_modern(executor_modern_t *executor, const char 
         snprintf(param_name, sizeof(param_name), "%d", i);
         if (symtable_set_local_var(executor->symtable, param_name, argv[i]) != 0) {
             symtable_pop_scope(executor->symtable);
-            executor_error(executor, "Failed to set function parameter");
+            set_executor_error(executor, "Failed to set function parameter");
             return 1;
         }
     }
@@ -1820,7 +1820,7 @@ static int execute_function_call_modern(executor_modern_t *executor, const char 
     int result = 0;
     node_t *command = func->body;
     while (command) {
-        result = execute_node_modern(executor, command);
+        result = execute_node(executor, command);
         if (result != 0) break; // Stop on first error
         command = command->next_sibling;
     }
@@ -1832,7 +1832,7 @@ static int execute_function_call_modern(executor_modern_t *executor, const char 
 }
 
 // Find function in function table
-static function_def_t *find_function(executor_modern_t *executor, const char *function_name) {
+static function_def_t *find_function(executor_t *executor, const char *function_name) {
     if (!executor || !function_name) {
         return NULL;
     }
@@ -1848,7 +1848,7 @@ static function_def_t *find_function(executor_modern_t *executor, const char *fu
 }
 
 // Store function in function table
-static int store_function(executor_modern_t *executor, const char *function_name, node_t *body) {
+static int store_function(executor_t *executor, const char *function_name, node_t *body) {
     if (!executor || !function_name) {
         return 1;
     }
@@ -2126,7 +2126,7 @@ static char *convert_case_all_lower(const char *str) {
 }
 
 // Recursively expand variables within a string (for parameter expansion defaults)
-static char *expand_variables_in_string(executor_modern_t *executor, const char *str) {
+static char *expand_variables_in_string(executor_t *executor, const char *str) {
     if (!str || !executor) return strdup("");
     
     size_t len = strlen(str);
@@ -2164,7 +2164,7 @@ static char *expand_variables_in_string(executor_modern_t *executor, const char 
                     strncpy(var_expr, &str[i], var_len);
                     var_expr[var_len] = '\0';
                     
-                    char *var_value = expand_variable_modern(executor, var_expr);
+                    char *var_value = expand_variable(executor, var_expr);
                     if (var_value) {
                         size_t value_len = strlen(var_value);
                         
@@ -2212,7 +2212,7 @@ static char *expand_variables_in_string(executor_modern_t *executor, const char 
 }
 
 // Parse parameter expansion inside ${...}
-static char *parse_parameter_expansion(executor_modern_t *executor, const char *expansion) {
+static char *parse_parameter_expansion(executor_t *executor, const char *expansion) {
     if (!expansion) return strdup("");
     
     // Handle length expansion: ${#var}
@@ -2425,7 +2425,7 @@ static char *parse_parameter_expansion(executor_modern_t *executor, const char *
 }
 
 // Expand variable reference using modern symbol table with advanced parameter expansion
-static char *expand_variable_modern(executor_modern_t *executor, const char *var_text) {
+static char *expand_variable(executor_t *executor, const char *var_text) {
     if (!executor || !var_text || var_text[0] != '$') {
         return strdup(var_text ? var_text : "");
     }
@@ -2619,7 +2619,7 @@ static char *expand_variable_modern(executor_modern_t *executor, const char *var
 }
 
 // Expand tilde (~) to home directory
-static char *expand_tilde_modern(const char *text) {
+static char *expand_tilde(const char *text) {
     if (!text || text[0] != '~') {
         return strdup(text ? text : "");
     }
@@ -2682,14 +2682,14 @@ static char *expand_tilde_modern(const char *text) {
 }
 
 // Modern arithmetic expansion using extracted and modernized shunting yard algorithm
-extern char *arithm_expand_modern(const char *orig_expr);
+extern char *arithm_expand(const char *orig_expr);
 
 // Expand arithmetic expression using modern implementation
-static char *expand_arithmetic_modern(executor_modern_t *executor, const char *arith_text) {
+static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
     if (!executor || !arith_text) return strdup("0");
     
     // Use the modern arithmetic evaluator
-    char *result = arithm_expand_modern(arith_text);
+    char *result = arithm_expand(arith_text);
     if (result) {
         return result;
     }
@@ -2697,7 +2697,7 @@ static char *expand_arithmetic_modern(executor_modern_t *executor, const char *a
     return strdup("0");
 }
 
-static char *expand_command_substitution_modern(executor_modern_t *executor, const char *cmd_text) {
+static char *expand_command_substitution(executor_t *executor, const char *cmd_text) {
     if (!executor || !cmd_text) return strdup("");
     
     // Extract command from $(command) or `command` format
@@ -2794,7 +2794,7 @@ static char *expand_command_substitution_modern(executor_modern_t *executor, con
 }
 
 // Expand variables within double-quoted strings
-static char *expand_quoted_string_modern(executor_modern_t *executor, const char *str) {
+static char *expand_quoted_string(executor_t *executor, const char *str) {
     if (!executor || !str) return strdup("");
     
     size_t len = strlen(str);
@@ -2837,7 +2837,7 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                         full_arith_expr[full_arith_len] = '\0';
                         
                         // Expand arithmetic expression
-                        char *arith_result = expand_arithmetic_modern(executor, full_arith_expr);
+                        char *arith_result = expand_arithmetic(executor, full_arith_expr);
                         if (arith_result) {
                             size_t result_len = strlen(arith_result);
                             // Ensure buffer is large enough
@@ -2902,7 +2902,7 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                         full_cmd_expr[full_cmd_len] = '\0';
                         
                         // Expand command substitution
-                        char *cmd_result = expand_command_substitution_modern(executor, full_cmd_expr);
+                        char *cmd_result = expand_command_substitution(executor, full_cmd_expr);
                         if (cmd_result) {
                             size_t result_len = strlen(cmd_result);
                             // Ensure buffer is large enough
@@ -3001,7 +3001,7 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
                         var_expr[var_name_len + 1] = '\0';
                         
                         // Use the main variable expansion function
-                        char *var_value = expand_variable_modern(executor, var_expr);
+                        char *var_value = expand_variable(executor, var_expr);
                         if (var_value) {
                             size_t value_len = strlen(var_value);
                             // Ensure buffer is large enough
@@ -3055,7 +3055,7 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
 #include <string.h>
 
 // Initialize job control in executor
-static void initialize_job_control(executor_modern_t *executor) {
+static void initialize_job_control(executor_t *executor) {
     if (!executor) return;
     
     executor->jobs = NULL;
@@ -3087,7 +3087,7 @@ static void free_process_list(process_t *processes) {
 }
 
 // Add a new job to the job list
-job_t *executor_modern_add_job(executor_modern_t *executor, pid_t pgid, const char *command_line) {
+job_t *executor_add_job(executor_t *executor, pid_t pgid, const char *command_line) {
     if (!executor) return NULL;
     
     job_t *job = malloc(sizeof(job_t));
@@ -3106,7 +3106,7 @@ job_t *executor_modern_add_job(executor_modern_t *executor, pid_t pgid, const ch
 }
 
 // Find job by ID
-job_t *executor_modern_find_job(executor_modern_t *executor, int job_id) {
+job_t *executor_find_job(executor_t *executor, int job_id) {
     if (!executor) return NULL;
     
     job_t *job = executor->jobs;
@@ -3120,7 +3120,7 @@ job_t *executor_modern_find_job(executor_modern_t *executor, int job_id) {
 }
 
 // Remove job from job list
-void executor_modern_remove_job(executor_modern_t *executor, int job_id) {
+void executor_remove_job(executor_t *executor, int job_id) {
     if (!executor || !executor->jobs) return;
     
     job_t *job = executor->jobs;
@@ -3145,7 +3145,7 @@ void executor_modern_remove_job(executor_modern_t *executor, int job_id) {
 }
 
 // Update job status by checking all processes
-void executor_modern_update_job_status(executor_modern_t *executor) {
+void executor_update_job_status(executor_t *executor) {
     if (!executor) return;
     
     job_t *job = executor->jobs;
@@ -3161,7 +3161,7 @@ void executor_modern_update_job_status(executor_modern_t *executor) {
                     job->state = JOB_DONE;
                     printf("[%d]+ Done                    %s\n", job->job_id, 
                            job->command_line ? job->command_line : "unknown");
-                    executor_modern_remove_job(executor, job->job_id);
+                    executor_remove_job(executor, job->job_id);
                 } else if (WIFSTOPPED(status)) {
                     job->state = JOB_STOPPED;
                     printf("[%d]+ Stopped                 %s\n", job->job_id, 
@@ -3175,7 +3175,7 @@ void executor_modern_update_job_status(executor_modern_t *executor) {
 }
 
 // Execute command in background
-int executor_modern_execute_background(executor_modern_t *executor, node_t *command) {
+int executor_execute_background(executor_t *executor, node_t *command) {
     if (!executor || !command) return 1;
     
     // Build command line for display
@@ -3195,7 +3195,7 @@ int executor_modern_execute_background(executor_modern_t *executor, node_t *comm
         setpgid(0, 0);
         
         // Execute the command
-        int result = execute_node_modern(executor, command->first_child);
+        int result = execute_node(executor, command->first_child);
         exit(result);
     } else {
         // Parent process - add to job list
@@ -3205,7 +3205,7 @@ int executor_modern_execute_background(executor_modern_t *executor, node_t *comm
         extern pid_t last_background_pid;
         last_background_pid = pid;
         
-        job_t *job = executor_modern_add_job(executor, pid, command_line);
+        job_t *job = executor_add_job(executor, pid, command_line);
         if (job) {
             printf("[%d] %d\n", job->job_id, pid);
         }
@@ -3215,11 +3215,11 @@ int executor_modern_execute_background(executor_modern_t *executor, node_t *comm
 }
 
 // Built-in jobs command
-int executor_modern_builtin_jobs(executor_modern_t *executor, char **argv) {
+int executor_builtin_jobs(executor_t *executor, char **argv) {
     if (!executor) return 1;
     
     // Update job statuses first
-    executor_modern_update_job_status(executor);
+    executor_update_job_status(executor);
     
     job_t *job = executor->jobs;
     while (job) {
@@ -3243,7 +3243,7 @@ int executor_modern_builtin_jobs(executor_modern_t *executor, char **argv) {
 }
 
 // Built-in fg command
-int executor_modern_builtin_fg(executor_modern_t *executor, char **argv) {
+int executor_builtin_fg(executor_t *executor, char **argv) {
     if (!executor) return 1;
     
     int job_id = 1; // Default to job 1
@@ -3251,7 +3251,7 @@ int executor_modern_builtin_fg(executor_modern_t *executor, char **argv) {
         job_id = atoi(argv[1]);
     }
     
-    job_t *job = executor_modern_find_job(executor, job_id);
+    job_t *job = executor_find_job(executor, job_id);
     if (!job) {
         fprintf(stderr, "fg: %d: no such job\n", job_id);
         return 1;
@@ -3275,7 +3275,7 @@ int executor_modern_builtin_fg(executor_modern_t *executor, char **argv) {
     waitpid(-job->pgid, &status, WUNTRACED);
     
     if (WIFEXITED(status) || WIFSIGNALED(status)) {
-        executor_modern_remove_job(executor, job_id);
+        executor_remove_job(executor, job_id);
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     } else if (WIFSTOPPED(status)) {
         job->state = JOB_STOPPED;
@@ -3288,7 +3288,7 @@ int executor_modern_builtin_fg(executor_modern_t *executor, char **argv) {
 }
 
 // Built-in bg command
-int executor_modern_builtin_bg(executor_modern_t *executor, char **argv) {
+int executor_builtin_bg(executor_t *executor, char **argv) {
     if (!executor) return 1;
     
     int job_id = 1; // Default to job 1
@@ -3296,7 +3296,7 @@ int executor_modern_builtin_bg(executor_modern_t *executor, char **argv) {
         job_id = atoi(argv[1]);
     }
     
-    job_t *job = executor_modern_find_job(executor, job_id);
+    job_t *job = executor_find_job(executor, job_id);
     if (!job) {
         fprintf(stderr, "bg: %d: no such job\n", job_id);
         return 1;

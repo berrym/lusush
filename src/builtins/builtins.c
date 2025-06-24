@@ -803,7 +803,7 @@ int bin_set(int argc, char **argv) {
 }
 
 // Global executor pointer for job control builtins
-extern executor_modern_t *current_executor;
+extern executor_t *current_executor;
 
 /**
  * bin_jobs:
@@ -811,7 +811,7 @@ extern executor_modern_t *current_executor;
  */
 int bin_jobs(int argc, char **argv) {
     if (current_executor) {
-        return executor_modern_builtin_jobs(current_executor, argv);
+        return executor_builtin_jobs(current_executor, argv);
     }
     return 1;
 }
@@ -822,7 +822,7 @@ int bin_jobs(int argc, char **argv) {
  */
 int bin_fg(int argc, char **argv) {
     if (current_executor) {
-        return executor_modern_builtin_fg(current_executor, argv);
+        return executor_builtin_fg(current_executor, argv);
     }
     fprintf(stderr, "fg: no current job\n");
     return 1;
@@ -834,7 +834,7 @@ int bin_fg(int argc, char **argv) {
  */
 int bin_bg(int argc, char **argv) {
     if (current_executor) {
-        return executor_modern_builtin_bg(current_executor, argv);
+        return executor_builtin_bg(current_executor, argv);
     }
     fprintf(stderr, "bg: no current job\n");
     return 1;
@@ -891,7 +891,7 @@ int bin_shift(int argc, char **argv) {
  */
 int bin_break(int argc, char **argv) {
     // Get the current executor to set loop control state
-    extern executor_modern_t *current_executor;
+    extern executor_t *current_executor;
     
     if (!current_executor) {
         fprintf(stderr, "break: not currently in a loop\n");
@@ -934,7 +934,7 @@ int bin_break(int argc, char **argv) {
  */
 int bin_continue(int argc, char **argv) {
     // Get the current executor to set loop control state
-    extern executor_modern_t *current_executor;
+    extern executor_t *current_executor;
     
     if (!current_executor) {
         fprintf(stderr, "continue: not currently in a loop\n");
@@ -1154,7 +1154,7 @@ int bin_exec(int argc, char **argv) {
  */
 int bin_wait(int argc, char **argv) {
     // Get the current executor to access job control
-    extern executor_modern_t *current_executor;
+    extern executor_t *current_executor;
     
     if (!current_executor) {
         // If no executor, there are no jobs to wait for
@@ -1163,8 +1163,7 @@ int bin_wait(int argc, char **argv) {
     
     // If no arguments, wait for all background jobs
     if (argc == 1) {
-        // Update job statuses first
-        executor_modern_update_job_status(current_executor);
+        executor_update_job_status(current_executor);
         
         // Wait for all running jobs
         job_t *job = current_executor->jobs;
@@ -1192,7 +1191,7 @@ int bin_wait(int argc, char **argv) {
         }
         
         // Clean up completed jobs
-        executor_modern_update_job_status(current_executor);
+        executor_update_job_status(current_executor);
         
         return last_exit_status;
     }
@@ -1225,7 +1224,7 @@ int bin_wait(int argc, char **argv) {
         
         if (is_job_id) {
             // Wait for specific job
-            job_t *job = executor_modern_find_job(current_executor, job_or_pid);
+            job_t *job = executor_find_job(current_executor, job_or_pid);
             if (!job) {
                 fprintf(stderr, "wait: %%%d: no such job\n", job_or_pid);
                 return 127;
@@ -1277,7 +1276,7 @@ int bin_wait(int argc, char **argv) {
     }
     
     // Clean up completed jobs
-    executor_modern_update_job_status(current_executor);
+    executor_update_job_status(current_executor);
     
     return overall_exit_status;
 }

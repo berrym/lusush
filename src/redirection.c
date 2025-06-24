@@ -27,23 +27,23 @@
 #include <ctype.h>
 
 // Forward declarations
-static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node);
+static int handle_redirection_node(executor_t *executor, node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
 static int setup_here_document_with_content(const char *content);
-static int setup_here_document_with_processing(executor_modern_t *executor, const char *content, bool strip_tabs, bool expand_vars);
+static int setup_here_document_with_processing(executor_t *executor, const char *content, bool strip_tabs, bool expand_vars);
 static int setup_here_string(const char *content);
 static char *expand_redirection_target(const char *target);
 
 
 
 // External function from executor_modern.c
-extern char *expand_if_needed_modern(executor_modern_t *executor, const char *text);
+extern char *expand_if_needed(executor_t *executor, const char *text);
 
 // Forward declaration for file descriptor redirection
 static int setup_fd_redirection(const char *redir_text);
 
 // Setup redirections for a command
-int setup_redirections(executor_modern_t *executor, node_t *command) {
+int setup_redirections(executor_t *executor, node_t *command) {
     if (!command) {
         return 0; // No redirections to setup
     }
@@ -102,7 +102,7 @@ int setup_redirections(executor_modern_t *executor, node_t *command) {
 }
 
 // Handle individual redirection node
-static int handle_redirection_node(executor_modern_t *executor, node_t *redir_node) {
+static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     if (!redir_node) {
         return 1;
     }
@@ -430,7 +430,7 @@ static int setup_here_document_with_content(const char *content) {
 }
 
 // Setup here document with variable expansion and tab stripping
-static int setup_here_document_with_processing(executor_modern_t *executor, const char *content, bool strip_tabs, bool expand_vars) {
+static int setup_here_document_with_processing(executor_t *executor, const char *content, bool strip_tabs, bool expand_vars) {
     if (!content) {
         return 1;
     }
@@ -475,7 +475,7 @@ static int setup_here_document_with_processing(executor_modern_t *executor, cons
         char *final_line = processed_line;
         if (expand_vars && executor) {
             // Use the executor's variable expansion function
-            char *expanded_line = expand_if_needed_modern(executor, processed_line);
+            char *expanded_line = expand_if_needed(executor, processed_line);
             if (expanded_line) {
                 final_line = expanded_line;
             }
