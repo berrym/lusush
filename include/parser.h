@@ -9,7 +9,7 @@
 #ifndef PARSER_MODERN_H
 #define PARSER_MODERN_H
 
-#include "tokenizer_new.h"
+#include "tokenizer.h"
 #include "node.h"
 
 // Parser state

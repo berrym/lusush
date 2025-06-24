@@ -7,8 +7,8 @@
 #include "../include/input.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/node.h"
-#include "../include/parser_modern.h"
-#include "../include/executor_modern.h"
+#include "../include/parser.h"
+#include "../include/executor.h"
 #include "../include/symtable.h"
 #include "../include/signals.h"
 

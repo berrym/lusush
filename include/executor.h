@@ -9,7 +9,7 @@
 #ifndef EXECUTOR_MODERN_H
 #define EXECUTOR_MODERN_H
 
-#include "parser_modern.h"
+#include "parser.h"
 #include "symtable.h"
 #include "node.h"
 #include <stdbool.h>

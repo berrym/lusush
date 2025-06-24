@@ -13,7 +13,7 @@
  * Copyright (c) 2024 Michael Berry <trismegustis@gmail.com>
  */
 
-#include "../include/arithmetic_modern.h"
+#include "../include/arithmetic.h"
 #include "../include/lusush.h"
 #include "../include/errors.h"
 #include "../include/symtable.h"

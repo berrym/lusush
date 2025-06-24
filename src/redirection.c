@@ -13,7 +13,7 @@
 
 #include "../include/node.h"
 #include "../include/redirection.h"
-#include "../include/executor_modern.h"
+#include "../include/executor.h"
 #include "../include/symtable.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -17,7 +17,7 @@
  * - Here documents (<<, <<-)
  */
 #include "node.h"
-#include "executor_modern.h"
+#include "executor.h"
 
 // Main redirection setup function
 // Called by the executor to setup all redirections for a command

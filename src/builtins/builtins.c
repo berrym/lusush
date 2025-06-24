@@ -9,7 +9,7 @@
 
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
-#include "../../include/executor_modern.h"
+#include "../../include/executor.h"
 #include "../../include/signals.h"
 
 #include <stdio.h>

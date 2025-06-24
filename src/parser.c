@@ -5,8 +5,8 @@
  * with correct token boundary management and error handling.
  */
 
-#include "parser_modern.h"
-#include "tokenizer_new.h"
+#include "parser.h"
+#include "tokenizer.h"
 #include "node.h"
 #include <stdlib.h>
 #include <stdio.h>

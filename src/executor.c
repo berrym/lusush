@@ -6,16 +6,16 @@
  * with proper POSIX compliance.
  */
 
-#include "executor_modern.h"
-#include "parser_modern.h"
-#include "tokenizer_new.h"
+#include "executor.h"
+#include "parser.h"
+#include "tokenizer.h"
 #include "symtable.h"
 #include "node.h"
 #include "redirection.h"
 #include "builtins.h"
 #include "alias.h"
 #include "alias_expand.h"
-#include "arithmetic_modern.h"
+#include "arithmetic.h"
 
 
 #include <stdlib.h>
@@ -3046,7 +3046,7 @@ static char *expand_quoted_string_modern(executor_modern_t *executor, const char
 }
 // ========== JOB CONTROL IMPLEMENTATION ==========
 
-#include "executor_modern.h"
+#include "executor.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
