@@ -78,7 +78,7 @@ int setup_redirections(executor_t *executor, node_t *command) {
 
 
         
-        if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_FD) {
+        if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_CLOBBER) {
             // Skip stderr redirections (already processed in first pass)
             if (child->type == NODE_REDIR_ERR || child->type == NODE_REDIR_ERR_APPEND || 
                 (child->type == NODE_REDIR_FD && child->val.str && strstr(child->val.str, "2>"))) {
@@ -794,7 +794,7 @@ bool is_redirection_node(node_t *node) {
         return false;
     }
     
-    return (node->type >= NODE_REDIR_IN && node->type <= NODE_REDIR_FD);
+    return (node->type >= NODE_REDIR_IN && node->type <= NODE_REDIR_CLOBBER);
 }
 
 // Count redirection nodes in a command

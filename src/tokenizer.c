@@ -280,7 +280,7 @@ static token_type_t classify_word(const char *text, size_t length, bool enable_k
 
 // Check if character can be part of an operator
 static bool is_operator_char(char c) {
-    return strchr(";|&<>=+*/%?(){}[]#!", c) != NULL;
+    return strchr(";|&<>=+*%?(){}[]#!", c) != NULL;
 }
 
 // Check if character can be part of a word
@@ -360,13 +360,29 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 token_type_t type = (quote_char == '"') ? TOK_EXPANDABLE_STRING : TOK_STRING;
                 return token_new(type, &tokenizer->input[start], length, 
                                start_line, start_column, start_pos);
+            } else if (curr == '\\' && quote_char == '"' && 
+                       tokenizer->position + 1 < tokenizer->input_length) {
+                // Handle escape sequences in double quotes
+                tokenizer->position++; // Skip backslash
+                tokenizer->column++;
+                if (tokenizer->position < tokenizer->input_length) {
+                    char escaped = tokenizer->input[tokenizer->position];
+                    if (escaped == '\n') {
+                        tokenizer->line++;
+                        tokenizer->column = 1;
+                    } else {
+                        tokenizer->column++;
+                    }
+                    tokenizer->position++;
+                }
             } else if (curr == '\n') {
                 tokenizer->line++;
                 tokenizer->column = 1;
+                tokenizer->position++;
             } else {
                 tokenizer->column++;
+                tokenizer->position++;
             }
-            tokenizer->position++;
         }
         
         // Unterminated string
@@ -597,10 +613,7 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 tokenizer->column++;
                 return token_new(TOK_MULTIPLY, "*", 1, start_line, start_column, start_pos);
                 
-            case '/':
-                tokenizer->position++;
-                tokenizer->column++;
-                return token_new(TOK_DIVIDE, "/", 1, start_line, start_column, start_pos);
+
                 
             case '%':
                 tokenizer->position++;
@@ -644,6 +657,54 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         }
     }
     
+    // Handle numbered file descriptor redirections first
+    if (isdigit(c)) {
+        size_t num_start = tokenizer->position;
+        // Read the number
+        while (tokenizer->position < tokenizer->input_length && 
+               isdigit(tokenizer->input[tokenizer->position])) {
+            tokenizer->position++;
+            tokenizer->column++;
+        }
+        
+        // Check if followed by >, >>, or >&
+        if (tokenizer->position < tokenizer->input_length) {
+            if (tokenizer->input[tokenizer->position] == '>') {
+                if (tokenizer->position + 1 < tokenizer->input_length &&
+                    tokenizer->input[tokenizer->position + 1] == '>') {
+                    // Handle N>> (append to file descriptor N)
+                    tokenizer->position += 2;
+                    tokenizer->column += 2;
+                    size_t length = tokenizer->position - num_start;
+                    return token_new(TOK_APPEND_ERR, &tokenizer->input[num_start], length,
+                                   start_line, start_column, start_pos);
+                } else if (tokenizer->position + 1 < tokenizer->input_length &&
+                           tokenizer->input[tokenizer->position + 1] == '&') {
+                    // Check for N>&M pattern (redirect file descriptor N to M)
+                    if (tokenizer->position + 2 < tokenizer->input_length &&
+                        isdigit(tokenizer->input[tokenizer->position + 2])) {
+                        tokenizer->position += 3; // Skip >&M
+                        tokenizer->column += 3;
+                        size_t length = tokenizer->position - num_start;
+                        return token_new(TOK_REDIRECT_FD, &tokenizer->input[num_start], length,
+                                       start_line, start_column, start_pos);
+                    }
+                } else {
+                    // Handle N> (redirect file descriptor N)
+                    tokenizer->position++;
+                    tokenizer->column++;
+                    size_t length = tokenizer->position - num_start;
+                    return token_new(TOK_REDIRECT_ERR, &tokenizer->input[num_start], length,
+                                   start_line, start_column, start_pos);
+                }
+            }
+        }
+        
+        // Not a redirection, reset position and treat as regular number
+        tokenizer->position = num_start;
+        tokenizer->column = start_column;
+    }
+
     // Handle words and numbers
     if (isalnum(c) || is_word_char(c)) {
         size_t start = tokenizer->position;
