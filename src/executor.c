@@ -339,6 +339,16 @@ static int execute_command(executor_t *executor, node_t *command) {
         return execute_assignment(executor, command->val.str);
     }
 
+    // Check for standalone parameter expansion ${...}
+    if (command->val.str && command->val.str[0] == '$' &&
+        command->val.str[1] == '{') {
+        char *result = expand_variable(executor, command->val.str);
+        if (result) {
+            free(result);
+        }
+        return 0; // Success
+    }
+
     // Check if command has redirections
     bool has_redirections = count_redirections(command) > 0;
 
@@ -1726,6 +1736,11 @@ static int execute_test_builtin(executor_t *executor, char **argv) {
 // Check if text is an assignment
 static bool is_assignment(const char *text) {
     if (!text) {
+        return false;
+    }
+
+    // Don't treat parameter expansion ${...} as assignment
+    if (text[0] == '$' && text[1] == '{') {
         return false;
     }
 
