@@ -48,6 +48,7 @@ src = ['src/builtins/alias.c',
 add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
+add_project_arguments('-DSYMTABLE_USE_LIBHASHTABLE_V2=1', language: 'c')
 
 executable('lusush',
            src,
