@@ -65,17 +65,18 @@ if (!add_to_argv_list(&argv_list, &argv_count, &argv_capacity, expanded_arg)) {
 ```c
 // Added to executor.c
 #define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
 ```
 
 **Purpose**: Makes POSIX functions like `strdup` available under strict C99 compilation
+
+**Note**: `_DEFAULT_SOURCE` is already defined globally in the meson build system for better portability compared to `_GNU_SOURCE`
 
 ## Verification and Testing
 
 ### Compilation Testing
 ```bash
 # Strict ISO C99 compliance verification
-gcc -std=c99 -pedantic -Wall -Wextra -c src/executor.c -I include
+gcc -std=c99 -pedantic -Wall -Wextra -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700 -c src/executor.c -I include
 # Result: Compiles cleanly with only unused parameter warnings
 ```
 
@@ -98,7 +99,7 @@ ninja -C builddir
 ### Standards Compliance
 - **ISO C99 Conformant**: Code meets international C standard requirements
 - **Pedantic Mode Clean**: Compiles without warnings under strict pedantic mode
-- **Standard Library Usage**: Proper use of POSIX functions with feature test macros
+- **Standard Library Usage**: Proper use of POSIX functions with `_DEFAULT_SOURCE` feature test macro for enhanced portability
 
 ### Enhanced Portability
 - **Cross-Compiler Compatible**: Works with any ISO C99 compliant compiler

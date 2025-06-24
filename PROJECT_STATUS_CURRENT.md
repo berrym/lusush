@@ -98,7 +98,7 @@
 
 **Technical Changes:**
 - Replaced nested function with static helper function taking parameters by reference
-- Added _POSIX_C_SOURCE 200809L and _GNU_SOURCE feature test macros
+- Added _POSIX_C_SOURCE 200809L feature test macro (_DEFAULT_SOURCE already defined in build system)
 - Updated 13 function call sites to use new parameter signature
 - Maintained identical functionality with improved standards compliance
 
