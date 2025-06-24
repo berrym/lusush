@@ -41,6 +41,7 @@ int bin_return(int, char **);
 int bin_trap(int, char **);
 int bin_exec(int, char **);
 int bin_wait(int, char **);
+int bin_umask(int, char **);
 bool is_builtin(const char *);
 
 #endif

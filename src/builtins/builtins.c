@@ -62,6 +62,7 @@ builtin builtins[] = {
     {     "trap",     "set signal handlers",          bin_trap},
     {     "exec",     "replace shell with command",   bin_exec},
     {     "wait",     "wait for background jobs",     bin_wait},
+    {    "umask",     "set/display file creation mask", bin_umask},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
@@ -1274,4 +1275,43 @@ int bin_wait(int argc, char **argv) {
     executor_modern_update_job_status(current_executor);
     
     return overall_exit_status;
+}
+
+/**
+ * bin_umask:
+ *      Set or display file creation mask
+ */
+int bin_umask(int argc, char **argv) {
+    // If no arguments, display current umask
+    if (argc == 1) {
+        mode_t current_mask = umask(0);  // Get current mask
+        umask(current_mask);             // Restore it
+        printf("%04o\n", current_mask);
+        return 0;
+    }
+    
+    // If one argument, set new umask
+    if (argc == 2) {
+        // Check for empty argument
+        if (argv[1][0] == '\0') {
+            fprintf(stderr, "umask: invalid mode\n");
+            return 1;
+        }
+        
+        char *endptr;
+        long mask_val = strtol(argv[1], &endptr, 8);  // Parse as octal
+        
+        // Validate argument
+        if (*endptr != '\0' || mask_val < 0 || mask_val > 0777) {
+            fprintf(stderr, "umask: %s: invalid mode\n", argv[1]);
+            return 1;
+        }
+        
+        umask((mode_t)mask_val);
+        return 0;
+    }
+    
+    // Too many arguments
+    fprintf(stderr, "umask: too many arguments\n");
+    return 1;
 }
