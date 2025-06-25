@@ -718,59 +718,50 @@ static int execute_if(executor_t *executor, node_t *if_node) {
         return 1;
     }
 
+    // Traverse through all children of the if statement
     node_t *current = if_node->first_child;
     if (!current) {
         set_executor_error(executor, "Malformed if statement");
         return 1;
     }
 
-    // Process if condition and body
+    // First child is always the if condition
     node_t *condition = current;
-    node_t *body = condition->next_sibling;
+    current = current->next_sibling;
 
-    if (!body) {
-        set_executor_error(executor, "Malformed if statement");
+    if (!current) {
+        set_executor_error(executor,
+                           "Malformed if statement - missing then body");
         return 1;
     }
 
-    // Execute initial if condition
+    // Execute the initial if condition
     int condition_result = execute_node(executor, condition);
 
-    if (executor->debug) {
-        printf("DEBUG: IF condition result: %d\n", condition_result);
-    }
-
     if (condition_result == 0) { // Success in shell terms
-        return execute_command_chain(executor, body);
+        // Execute the then body (second child)
+        return execute_command_chain(executor, current);
     }
 
-    // Process elif clauses
-    current = body->next_sibling;
+    // Move to next child (elif condition or else body)
+    current = current->next_sibling;
+
+    // Process elif clauses - they come in pairs (condition, body)
     while (current && current->next_sibling) {
-        // Check if this is an elif condition (has a following body)
-        condition = current;
-        body = condition->next_sibling;
-
         // Execute elif condition
-        condition_result = execute_node(executor, condition);
-
-        if (executor->debug) {
-            printf("DEBUG: ELIF condition result: %d\n", condition_result);
-        }
+        condition_result = execute_node(executor, current);
 
         if (condition_result == 0) { // Success in shell terms
-            return execute_command_chain(executor, body);
+            // Execute elif body (next sibling)
+            return execute_command_chain(executor, current->next_sibling);
         }
 
-        // Move to next elif or else clause
-        current = body->next_sibling;
+        // Move past the elif body to the next elif condition or else body
+        current = current->next_sibling->next_sibling;
     }
 
-    // Handle final else clause if present
+    // Handle final else clause if present (no condition, just body)
     if (current) {
-        if (executor->debug) {
-            printf("DEBUG: Executing ELSE clause\n");
-        }
         return execute_command_chain(executor, current);
     }
 
