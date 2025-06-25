@@ -701,27 +701,60 @@ static int execute_if(executor_t *executor, node_t *if_node) {
         return 1;
     }
 
-    node_t *condition = if_node->first_child;
-    node_t *then_body = condition ? condition->next_sibling : NULL;
-    node_t *else_body = then_body ? then_body->next_sibling : NULL;
-
-    if (!condition || !then_body) {
+    node_t *current = if_node->first_child;
+    if (!current) {
         set_executor_error(executor, "Malformed if statement");
         return 1;
     }
 
-    // Execute condition
+    // Process if condition and body
+    node_t *condition = current;
+    node_t *body = condition->next_sibling;
+
+    if (!body) {
+        set_executor_error(executor, "Malformed if statement");
+        return 1;
+    }
+
+    // Execute initial if condition
     int condition_result = execute_node(executor, condition);
 
     if (executor->debug) {
         printf("DEBUG: IF condition result: %d\n", condition_result);
     }
 
-    // Execute appropriate body
     if (condition_result == 0) { // Success in shell terms
-        return execute_node(executor, then_body);
-    } else if (else_body) {
-        return execute_node(executor, else_body);
+        return execute_node(executor, body);
+    }
+
+    // Process elif clauses
+    current = body->next_sibling;
+    while (current && current->next_sibling) {
+        // Check if this is an elif condition (has a following body)
+        condition = current;
+        body = condition->next_sibling;
+
+        // Execute elif condition
+        condition_result = execute_node(executor, condition);
+
+        if (executor->debug) {
+            printf("DEBUG: ELIF condition result: %d\n", condition_result);
+        }
+
+        if (condition_result == 0) { // Success in shell terms
+            return execute_node(executor, body);
+        }
+
+        // Move to next elif or else clause
+        current = body->next_sibling;
+    }
+
+    // Handle final else clause if present
+    if (current) {
+        if (executor->debug) {
+            printf("DEBUG: Executing ELSE clause\n");
+        }
+        return execute_node(executor, current);
     }
 
     return 0;

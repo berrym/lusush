@@ -1060,14 +1060,55 @@ static node_t *parse_if_statement(parser_t *parser) {
     }
     add_child_node(if_node, then_body);
 
-    // Handle optional semicolon before else/fi
+    // Handle optional semicolon before elif/else/fi
     if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
         tokenizer_advance(parser->tokenizer);
     }
 
-    // Parse optional else
-    // Skip separators before checking for else
+    // Parse optional elif clauses
+    // Skip separators before checking for elif
     skip_separators(parser);
+
+    // Handle multiple elif clauses
+    while (tokenizer_match(parser->tokenizer, TOK_ELIF)) {
+        tokenizer_advance(parser->tokenizer);
+
+        // Parse elif condition
+        node_t *elif_condition = parse_pipeline(parser);
+        if (!elif_condition) {
+            free_node_tree(if_node);
+            return NULL;
+        }
+        add_child_node(if_node, elif_condition);
+
+        // Skip separators before 'then'
+        skip_separators(parser);
+
+        // Expect 'then' after elif condition
+        if (!expect_token(parser, TOK_THEN)) {
+            free_node_tree(if_node);
+            return NULL;
+        }
+
+        // Skip separators after 'then'
+        skip_separators(parser);
+
+        // Parse elif body
+        node_t *elif_body = parse_if_body(parser);
+        if (!elif_body) {
+            free_node_tree(if_node);
+            return NULL;
+        }
+        add_child_node(if_node, elif_body);
+
+        // Handle optional semicolon after elif body
+        if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
+            tokenizer_advance(parser->tokenizer);
+        }
+
+        // Skip separators before next elif/else/fi
+        skip_separators(parser);
+    }
 
     // Handle optional else clause
     if (tokenizer_match(parser->tokenizer, TOK_ELSE)) {
