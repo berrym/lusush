@@ -2178,38 +2178,57 @@ static char *extract_substring(const char *str, int offset, int length) {
     return result;
 }
 
-// Simple glob pattern matching for parameter expansion
+// Enhanced glob pattern matching for parameter expansion with special character
+// support
 static bool match_pattern(const char *str, const char *pattern) {
     if (!str || !pattern) {
         return false;
     }
 
-    // Handle simple cases
-    if (*pattern == '\0') {
-        return *str == '\0';
-    }
-    if (*pattern == '*') {
-        if (*(pattern + 1) == '\0') {
-            return true; // * matches everything
-        }
-        // Try matching at each position
-        for (const char *s = str; *s; s++) {
-            if (match_pattern(s, pattern + 1)) {
+    const char *s = str;
+    const char *p = pattern;
+
+    while (*p) {
+        if (*p == '*') {
+            // Handle wildcard
+            p++; // Skip the *
+
+            // If * is at the end, it matches everything remaining
+            if (*p == '\0') {
                 return true;
             }
+
+            // Try to match the rest of the pattern at each position in the
+            // string
+            while (*s) {
+                if (match_pattern(s, p)) {
+                    return true;
+                }
+                s++;
+            }
+
+            // Try matching the pattern with empty string (for cases like
+            // "*suffix")
+            return match_pattern(s, p);
+        } else if (*p == '?') {
+            // Wildcard matches any single character
+            if (*s == '\0') {
+                return false; // ? can't match empty
+            }
+            s++;
+            p++;
+        } else {
+            // Literal character match (including special chars like : @ / etc.)
+            if (*s != *p) {
+                return false;
+            }
+            s++;
+            p++;
         }
-        return match_pattern(str, pattern + 1);
-    }
-    if (*str == '\0') {
-        return false;
     }
 
-    // Handle character matching
-    if (*pattern == '?' || *pattern == *str) {
-        return match_pattern(str + 1, pattern + 1);
-    }
-
-    return false;
+    // Pattern is exhausted, string should be too for a complete match
+    return *s == '\0';
 }
 
 // Find shortest match from beginning (for # operator)
@@ -2362,6 +2381,62 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
 
     for (size_t i = 0; i < len; i++) {
         if (str[i] == '$') {
+            // Check for command substitution $(...)
+            if (i + 1 < len && str[i + 1] == '(') {
+                // Find matching closing parenthesis using find_closing_brace
+                char *temp_str =
+                    (char *)&str[i + 1]; // Start from the opening parenthesis
+                size_t brace_offset = find_closing_brace(temp_str);
+
+                if (brace_offset > 0) {
+                    // Extract command from $(...)
+                    size_t cmd_len =
+                        brace_offset - 1; // Exclude the closing paren
+                    char *command = malloc(cmd_len + 1);
+                    if (command) {
+                        strncpy(command, &str[i + 2], cmd_len); // Skip $(
+                        command[cmd_len] = '\0';
+
+                        // Execute command substitution - need to wrap in $()
+                        // format
+                        char *wrapped_cmd =
+                            malloc(cmd_len + 4); // +3 for $() +1 for null
+                        if (wrapped_cmd) {
+                            snprintf(wrapped_cmd, cmd_len + 4, "$(%s)",
+                                     command);
+                            char *cmd_result = expand_command_substitution(
+                                executor, wrapped_cmd);
+                            free(wrapped_cmd);
+                            if (cmd_result) {
+                                size_t value_len = strlen(cmd_result);
+
+                                // Ensure buffer is large enough
+                                while (result_pos + value_len >= result_size) {
+                                    result_size *= 2;
+                                    char *new_result =
+                                        realloc(result, result_size);
+                                    if (!new_result) {
+                                        free(result);
+                                        free(cmd_result);
+                                        free(command);
+                                        return strdup("");
+                                    }
+                                    result = new_result;
+                                }
+
+                                strcpy(&result[result_pos], cmd_result);
+                                result_pos += value_len;
+                                free(cmd_result);
+                            }
+                        }
+
+                        free(command);
+                        i = i + 1 + brace_offset; // Skip past the entire $(...)
+                        continue;
+                    }
+                }
+            }
+
             // Find variable name
             size_t var_start = i + 1;
             size_t var_end = var_start;
@@ -2463,24 +2538,39 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Look for parameter expansion operators
     const char *op_pos = NULL;
-    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", ":", "#",
-                               "%",  "^",  ",",  "-",  "+",  ":=", "=", NULL};
+    const char *operators[] = {":-", ":+", "##", "%%", "^^", ",,", "#", "%",
+                               "^",  ",",  "-",  "+",  ":=", "=",  ":", NULL};
     int op_type = -1;
 
-    // Find the first valid operator that's not part of a pattern
+    // Find the first valid operator - prioritize longer operators first
     for (int i = 0; operators[i]; i++) {
         const char *found = strstr(expansion, operators[i]);
         if (found) {
-            // For : operator, make sure it's not part of :// or other patterns
-            if (strcmp(operators[i], ":") == 0) {
-                // Check if this is followed by // (like in URLs)
-                if (found[1] == '/' && found[2] == '/') {
-                    continue; // Skip this match, it's part of ://
+            // Skip single-character operators that are part of longer ones
+            if (strlen(operators[i]) == 1) {
+                // Check if this single char is part of a longer operator
+                bool part_of_longer = false;
+
+                // Check for :- and :+ before processing single :
+                if (strcmp(operators[i], ":") == 0) {
+                    if ((found > expansion &&
+                         (found[-1] == '-' || found[-1] == '+')) ||
+                        (found[1] == '-' || found[1] == '+' ||
+                         found[1] == '=')) {
+                        part_of_longer = true;
+                    }
                 }
-                // Check if this is part of :+ or :-
-                if (found > expansion &&
-                    (found[-1] == '+' || found[-1] == '-')) {
-                    continue; // Skip this match, it's part of :+ or :-
+
+                // Check for ## and %% before processing single # or %
+                if (strcmp(operators[i], "#") == 0 && found[1] == '#') {
+                    part_of_longer = true;
+                }
+                if (strcmp(operators[i], "%") == 0 && found[1] == '%') {
+                    part_of_longer = true;
+                }
+
+                if (part_of_longer) {
+                    continue;
                 }
             }
 
@@ -2577,27 +2667,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 6: // ${var:offset:length} - substring expansion
-            if (var_value) {
-                // Parse offset and optional length (with variable expansion)
-                char *expanded_offset_str =
-                    expand_variables_in_string(executor, expanded_default);
-                char *endptr;
-                int offset = strtol(expanded_offset_str, &endptr, 10);
-                int length = -1;
-
-                if (*endptr == ':') {
-                    length = strtol(endptr + 1, NULL, 10);
-                }
-
-                result = extract_substring(var_value, offset, length);
-                free(expanded_offset_str);
-            } else {
-                result = strdup("");
-            }
-            break;
-
-        case 7: // ${var#pattern} - remove shortest match of pattern from
+        case 6: // ${var#pattern} - remove shortest match of pattern from
                 // beginning
             if (var_value) {
                 int match_len =
@@ -2608,7 +2678,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 8: // ${var%pattern} - remove shortest match of pattern from end
+        case 7: // ${var%pattern} - remove shortest match of pattern from end
             if (var_value) {
                 int str_len = strlen(var_value);
                 int match_len =
@@ -2626,7 +2696,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 9: // ${var^} - convert first character to uppercase
+        case 8: // ${var^} - convert first character to uppercase
             if (var_value) {
                 result = convert_case_first_upper(var_value);
             } else {
@@ -2634,7 +2704,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 10: // ${var,} - convert first character to lowercase
+        case 9: // ${var,} - convert first character to lowercase
             if (var_value) {
                 result = convert_case_first_lower(var_value);
             } else {
@@ -2642,7 +2712,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 11: // ${var-default} - use default if var is unset (but not if
+        case 10: // ${var-default} - use default if var is unset (but not if
                  // empty)
             if (!var_value) {
                 result = strdup(expanded_default);
@@ -2651,7 +2721,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 12: // ${var+alternative} - use alternative if var is set (even if
+        case 11: // ${var+alternative} - use alternative if var is set (even if
                  // empty)
             if (var_value) {
                 result = strdup(expanded_default);
@@ -2660,7 +2730,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 13: // ${var:=default} - assign default if var is unset or empty
+        case 12: // ${var:=default} - assign default if var is unset or empty
                  // and return it
             if (is_empty_or_null(var_value)) {
                 symtable_set_var(executor->symtable, var_name, expanded_default,
@@ -2671,7 +2741,7 @@ static char *parse_parameter_expansion(executor_t *executor,
             }
             break;
 
-        case 14: // ${var=default} - assign default if var is unset and return
+        case 13: // ${var=default} - assign default if var is unset and return
                  // it
             if (!var_value) {
                 symtable_set_var(executor->symtable, var_name, expanded_default,
@@ -2679,6 +2749,26 @@ static char *parse_parameter_expansion(executor_t *executor,
                 result = strdup(expanded_default);
             } else {
                 result = strdup(var_value);
+            }
+            break;
+
+        case 14: // ${var:offset:length} - substring expansion
+            if (var_value) {
+                // Parse offset and optional length (with variable expansion)
+                char *expanded_offset_str =
+                    expand_variables_in_string(executor, expanded_default);
+                char *endptr;
+                int offset = strtol(expanded_offset_str, &endptr, 10);
+                int length = -1;
+
+                if (*endptr == ':') {
+                    length = strtol(endptr + 1, NULL, 10);
+                }
+
+                result = extract_substring(var_value, offset, length);
+                free(expanded_offset_str);
+            } else {
+                result = strdup("");
             }
             break;
         }

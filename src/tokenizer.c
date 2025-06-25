@@ -361,7 +361,7 @@ static bool is_operator_char(char c) {
 
 // Check if character can be part of a word
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@", c) != NULL;
 }
 
 // Skip whitespace (except newlines)
