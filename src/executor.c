@@ -16,6 +16,7 @@
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/redirection.h"
+#include "../include/strings.h"
 #include "../include/symtable.h"
 
 #include <ctype.h>
