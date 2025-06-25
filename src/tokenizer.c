@@ -438,6 +438,64 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     (quote_char == '"') ? TOK_EXPANDABLE_STRING : TOK_STRING;
                 return token_new(type, &tokenizer->input[start], length,
                                  start_line, start_column, start_pos);
+            } else if (curr == '$' && quote_char == '"' &&
+                       tokenizer->position + 1 < tokenizer->input_length &&
+                       tokenizer->input[tokenizer->position + 1] == '(') {
+                // Handle command substitution inside double quotes
+                tokenizer->position += 2; // Skip $(
+                tokenizer->column += 2;
+                int paren_depth = 1;
+
+                // Skip over the entire command substitution, handling nested
+                // quotes
+                while (tokenizer->position < tokenizer->input_length &&
+                       paren_depth > 0) {
+                    char sub_curr = tokenizer->input[tokenizer->position];
+                    if (sub_curr == '(') {
+                        paren_depth++;
+                    } else if (sub_curr == ')') {
+                        paren_depth--;
+                    } else if (sub_curr == '"' || sub_curr == '\'') {
+                        // Handle nested quotes within command substitution
+                        char sub_quote = sub_curr;
+                        tokenizer->position++;
+                        tokenizer->column++;
+                        while (tokenizer->position < tokenizer->input_length) {
+                            char nested_curr =
+                                tokenizer->input[tokenizer->position];
+                            if (nested_curr == sub_quote) {
+                                break; // Found matching quote
+                            } else if (nested_curr == '\\' &&
+                                       tokenizer->position + 1 <
+                                           tokenizer->input_length) {
+                                // Skip escaped character
+                                tokenizer->position++;
+                                tokenizer->column++;
+                            }
+                            if (nested_curr == '\n') {
+                                tokenizer->line++;
+                                tokenizer->column = 1;
+                            } else {
+                                tokenizer->column++;
+                            }
+                            tokenizer->position++;
+                        }
+                    } else if (sub_curr == '\\' &&
+                               tokenizer->position + 1 <
+                                   tokenizer->input_length) {
+                        // Skip escaped character
+                        tokenizer->position++;
+                        tokenizer->column++;
+                    }
+
+                    if (sub_curr == '\n') {
+                        tokenizer->line++;
+                        tokenizer->column = 1;
+                    } else {
+                        tokenizer->column++;
+                    }
+                    tokenizer->position++;
+                }
             } else if (curr == '\\' && quote_char == '"' &&
                        tokenizer->position + 1 < tokenizer->input_length) {
                 // Handle escape sequences in double quotes

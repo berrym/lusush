@@ -3220,7 +3220,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                         }
 
                         free(full_cmd_expr);
-                        i = cmd_end; // Skip past the closing )
+                        i = cmd_end + 1; // Skip past the closing )
                         continue;
                     }
                 }
