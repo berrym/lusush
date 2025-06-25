@@ -2898,6 +2898,114 @@ static char *parse_parameter_expansion(executor_t *executor,
     }
 
     // No operator found, just get the variable value
+    // First check for special variables that aren't in the symbol table
+    if (strlen(expansion) == 1) {
+        extern int shell_argc;
+        extern char **shell_argv;
+        extern int last_exit_status;
+        extern pid_t shell_pid;
+        extern pid_t last_background_pid;
+
+        char buffer[1024];
+
+        switch (expansion[0]) {
+        case '?': // Exit status of last command
+            snprintf(buffer, sizeof(buffer), "%d", last_exit_status);
+            return strdup(buffer);
+
+        case '$': // Shell process ID
+            snprintf(buffer, sizeof(buffer), "%d", (int)shell_pid);
+            return strdup(buffer);
+
+        case '#': // Number of positional parameters
+            snprintf(buffer, sizeof(buffer), "%d",
+                     shell_argc > 1 ? shell_argc - 1 : 0);
+            return strdup(buffer);
+
+        case '!': // Process ID of last background command
+            if (last_background_pid > 0) {
+                snprintf(buffer, sizeof(buffer), "%d",
+                         (int)last_background_pid);
+                return strdup(buffer);
+            } else {
+                return strdup("");
+            }
+
+        case '*': // All positional parameters as single word
+            if (shell_argc > 1) {
+                size_t total_len = 0;
+                for (int i = 1; i < shell_argc; i++) {
+                    if (shell_argv[i]) {
+                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
+                    }
+                }
+                if (total_len > 0) {
+                    char *result = malloc(total_len);
+                    if (result) {
+                        result[0] = '\0';
+                        for (int i = 1; i < shell_argc; i++) {
+                            if (shell_argv[i]) {
+                                if (i > 1) {
+                                    strcat(result, " ");
+                                }
+                                strcat(result, shell_argv[i]);
+                            }
+                        }
+                        return result;
+                    }
+                }
+            }
+            return strdup("");
+
+        case '@': // All positional parameters as separate words
+            if (shell_argc > 1) {
+                size_t total_len = 0;
+                for (int i = 1; i < shell_argc; i++) {
+                    if (shell_argv[i]) {
+                        total_len += strlen(shell_argv[i]) + 1; // +1 for space
+                    }
+                }
+                if (total_len > 0) {
+                    char *result = malloc(total_len);
+                    if (result) {
+                        result[0] = '\0';
+                        for (int i = 1; i < shell_argc; i++) {
+                            if (shell_argv[i]) {
+                                if (i > 1) {
+                                    strcat(result, " ");
+                                }
+                                strcat(result, shell_argv[i]);
+                            }
+                        }
+                        return result;
+                    }
+                }
+            }
+            return strdup("");
+
+        default:
+            if (expansion[0] >= '0' && expansion[0] <= '9') {
+                // Handle positional parameters $0, $1, $2, etc.
+                int pos = expansion[0] - '0';
+
+                if (pos == 0) {
+                    // $0 is the script/shell name
+                    return strdup((shell_argc > 0 && shell_argv[0])
+                                      ? shell_argv[0]
+                                      : "lusush");
+                } else if (pos > 0 && pos < shell_argc && shell_argv[pos]) {
+                    // $1, $2, etc. are script arguments
+                    return strdup(shell_argv[pos]);
+                } else {
+                    // Parameter doesn't exist, return empty string
+                    return strdup("");
+                }
+            }
+            break;
+        }
+    }
+
+    // Fall back to symbol table lookup for regular variables
     char *value = symtable_get_var(executor->symtable, expansion);
     return value ? strdup(value) : strdup("");
 }

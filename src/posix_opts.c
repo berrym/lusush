@@ -183,19 +183,51 @@ int builtin_set(char **args) {
                 symtable_unset_global(param_name);
             }
 
-            // Set new positional parameters
-            int param_num = 1;
-            while (args[i] && param_num <= 99) {
-                char param_name[4];
-                snprintf(param_name, sizeof(param_name), "%d", param_num);
-                symtable_set_global(param_name, args[i]);
-                i++;
-                param_num++;
+            // Count how many new parameters we have
+            int new_argc = 0;
+            int temp_i = i;
+            while (args[temp_i]) {
+                new_argc++;
+                temp_i++;
+            }
+
+            // Free existing shell_argv if it was dynamically allocated
+            if (shell_argv && shell_argv_is_dynamic) {
+                for (int j = 0; j < shell_argc; j++) {
+                    free(shell_argv[j]);
+                }
+                free(shell_argv);
+            }
+
+            // Allocate new shell_argv (include space for program name)
+            shell_argc = new_argc + 1;
+            shell_argv = malloc(shell_argc * sizeof(char *));
+            if (shell_argv) {
+                // Set program name (shell_argv[0])
+                shell_argv[0] = strdup("lusush");
+
+                // Set new positional parameters in both symbol table and global
+                // arrays
+                int param_num = 1;
+                while (args[i] && param_num <= 99) {
+                    char param_name[4];
+                    snprintf(param_name, sizeof(param_name), "%d", param_num);
+                    symtable_set_global(param_name, args[i]);
+
+                    // Also update global shell_argv
+                    shell_argv[param_num] = strdup(args[i]);
+
+                    i++;
+                    param_num++;
+                }
+
+                // Mark shell_argv as dynamically allocated
+                shell_argv_is_dynamic = true;
             }
 
             // Update $# (number of positional parameters)
             char argc_str[4];
-            snprintf(argc_str, sizeof(argc_str), "%d", param_num - 1);
+            snprintf(argc_str, sizeof(argc_str), "%d", new_argc);
             symtable_set_global("#", argc_str);
 
             break; // Process no more arguments after --

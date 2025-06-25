@@ -26,6 +26,7 @@ extern pid_t shell_pid;
 extern char **shell_argv;
 extern int shell_argc;
 extern pid_t last_background_pid;
+extern bool shell_argv_is_dynamic;
 
 #define SOURCE_NAME get_shell_varp("0", SHELL_NAME)
 
