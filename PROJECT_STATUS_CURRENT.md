@@ -53,6 +53,7 @@
 - **Command Substitution**: Both modern `$(command)` and legacy backtick syntax
 - ✅ **Nested Quotes Command Substitution**: Complete support for complex nested quotes (100% working)
   - Command substitution with nested quotes: `echo "Count: $(echo \"a b c\" | wc -w)"` works correctly
+  - Backtick command substitution in double quotes: `echo "Today is \`date +%A\`"` works correctly
   - Tokenizer enhanced to handle command substitution boundaries within double-quoted strings
   - Position calculation fixed in quoted string expansion processing
   - Multiple nested command substitutions supported: `echo "$(echo \"one\") and $(echo \"two\")"`
@@ -92,38 +93,42 @@
   - Process isolation: Independent execution environments for subshells
   - Command grouping: Proper parsing and execution of grouped command sequences
 
-### Recently Implemented - Nested Quotes Command Substitution Fix (COMPLETED - December 2024)
+### Recently Implemented - Complete Command Substitution Enhancement (COMPLETED - December 2024)
 
 **CRITICAL EDGE CASE RESOLUTION COMPLETED**
 
-**Status: ✅ COMPLETE AND VALIDATED - FUNDAMENTAL TOKENIZER ENHANCEMENT**
+**Status: ✅ COMPLETE AND VALIDATED - COMPREHENSIVE COMMAND SUBSTITUTION FIX**
 - Fixed command substitution with nested quotes in double-quoted strings
-- Enhanced tokenizer to handle command substitution boundaries correctly
+- Enhanced tokenizer to handle both $(...) and backtick command substitution boundaries correctly
 - Fixed position calculation in quoted string expansion processing
 - All POSIX regression tests maintained (49/49 still passing)
-- Complex nested command substitution now fully functional
+- Complex nested command substitution now fully functional for both syntaxes
 
 **Technical Achievements:**
 - Enhanced tokenizer logic to recognize command substitution within double quotes
 - Added proper parsing of nested quotes inside $(...) expressions
+- Added backtick command substitution support within double-quoted strings
 - Fixed boundary detection for command substitution with internal quote handling
 - Corrected position advancement in expand_quoted_string function
 - Maintained backward compatibility with all existing functionality
 
-**Critical Fix:**
+**Critical Fixes:**
 - Before: `echo "Count: $(echo "a b c" | wc -w)"` failed due to premature quote termination
 - After: `echo "Count: $(echo "a b c" | wc -w)"` correctly returns "Count: 3"
+- Before: `echo "Today is \`date +%A\`"` showed literal backticks
+- After: `echo "Today is \`date +%A\`"` correctly returns "Today is Tuesday"
 - Multiple nested substitutions: `echo "$(echo "one") and $(echo "two")"` works perfectly
 - Arithmetic integration: `echo $((5 + $(echo 3)))` returns correct result of 8
 
 **Implementation Files:**
-- `src/tokenizer.c` - Enhanced quote parsing logic for command substitution boundaries
-- `src/executor.c` - Fixed position calculation in expand_quoted_string function
-- Comprehensive edge case testing validated all scenarios
+- `src/tokenizer.c` - Enhanced quote parsing logic for both command substitution syntaxes
+- `src/executor.c` - Fixed position calculation and added backtick support in expand_quoted_string
+- Comprehensive edge case testing validated all scenarios for both $() and backtick syntax
 
 **Test Results:**
 - All 49/49 POSIX regression tests still passing
 - Complex nested quotes command substitution diagnostic now shows: "✅ WORKING"
+- Legacy backtick command substitution now fully functional in all contexts
 - No regressions in existing command substitution functionality
 
 ### Previously Implemented - Enhanced Symbol Table System (COMPLETED - December 24, 2024)

@@ -3333,6 +3333,60 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                     result[result_pos++] = str[i++];
                 }
             }
+        } else if (str[i] == '`') {
+            // Handle backtick command substitution
+            size_t cmd_start = i;
+            size_t cmd_end = i + 1;
+
+            // Find closing backtick
+            while (cmd_end < len && str[cmd_end] != '`') {
+                if (str[cmd_end] == '\\' && cmd_end + 1 < len) {
+                    cmd_end += 2; // Skip escaped character
+                } else {
+                    cmd_end++;
+                }
+            }
+
+            if (cmd_end < len && str[cmd_end] == '`') {
+                // Found matching closing backtick
+                size_t full_cmd_len = cmd_end - cmd_start + 1;
+                char *full_cmd_expr = malloc(full_cmd_len + 1);
+                if (full_cmd_expr) {
+                    strncpy(full_cmd_expr, &str[cmd_start], full_cmd_len);
+                    full_cmd_expr[full_cmd_len] = '\0';
+
+                    // Expand command substitution
+                    char *cmd_result =
+                        expand_command_substitution(executor, full_cmd_expr);
+                    if (cmd_result) {
+                        size_t result_len = strlen(cmd_result);
+                        // Ensure buffer is large enough
+                        while (result_pos + result_len >= buffer_size) {
+                            buffer_size *= 2;
+                            char *new_result = realloc(result, buffer_size);
+                            if (!new_result) {
+                                free(result);
+                                free(cmd_result);
+                                free(full_cmd_expr);
+                                return strdup("");
+                            }
+                            result = new_result;
+                        }
+
+                        // Copy command result
+                        strcpy(&result[result_pos], cmd_result);
+                        result_pos += result_len;
+                        free(cmd_result);
+                    }
+
+                    free(full_cmd_expr);
+                    i = cmd_end + 1; // Skip past the closing backtick
+                    continue;
+                }
+            }
+
+            // If we get here, no matching backtick found, treat as literal
+            result[result_pos++] = str[i++];
         } else if (str[i] == '\\' && i + 1 < len) {
             // Handle escape sequences
             char next_char = str[i + 1];

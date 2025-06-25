@@ -496,6 +496,35 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                     }
                     tokenizer->position++;
                 }
+            } else if (curr == '`' && quote_char == '"') {
+                // Handle backtick command substitution inside double quotes
+                tokenizer->position++; // Skip opening backtick
+                tokenizer->column++;
+
+                // Skip over the entire backtick command substitution
+                while (tokenizer->position < tokenizer->input_length) {
+                    char sub_curr = tokenizer->input[tokenizer->position];
+                    if (sub_curr == '`') {
+                        // Found closing backtick, advance past it
+                        tokenizer->position++;
+                        tokenizer->column++;
+                        break;
+                    } else if (sub_curr == '\\' &&
+                               tokenizer->position + 1 <
+                                   tokenizer->input_length) {
+                        // Skip escaped character
+                        tokenizer->position++;
+                        tokenizer->column++;
+                    }
+
+                    if (sub_curr == '\n') {
+                        tokenizer->line++;
+                        tokenizer->column = 1;
+                    } else {
+                        tokenizer->column++;
+                    }
+                    tokenizer->position++;
+                }
             } else if (curr == '\\' && quote_char == '"' &&
                        tokenizer->position + 1 < tokenizer->input_length) {
                 // Handle escape sequences in double quotes
