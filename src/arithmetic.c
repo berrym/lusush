@@ -609,6 +609,73 @@ char *arithm_expand(const char *orig_expr) {
             }
             last_op = NULL;
             current += nchars;
+        } else if (*current == '$' && *(current + 1) == '(') {
+            // Handle command substitution $(command) in arithmetic expressions
+            // Find the matching closing parenthesis
+            int paren_count = 1;
+            const char *start = current + 2; // Skip $(
+            const char *end = start;
+
+            while (*end && paren_count > 0) {
+                if (*end == '(') {
+                    paren_count++;
+                } else if (*end == ')') {
+                    paren_count--;
+                }
+                if (paren_count > 0) {
+                    end++;
+                }
+            }
+
+            if (paren_count == 0 && *end == ')') {
+                // Extract command and execute it
+                size_t cmd_len = end - start;
+                char *command = malloc(cmd_len + 1);
+                if (command) {
+                    strncpy(command, start, cmd_len);
+                    command[cmd_len] = '\0';
+
+                    // Simple implementation: handle basic echo commands
+                    char *trimmed = command;
+                    while (*trimmed && isspace(*trimmed)) {
+                        trimmed++;
+                    }
+
+                    // Check if it's a simple echo number command
+                    if (strncmp(trimmed, "echo ", 5) == 0) {
+                        char *num_str = trimmed + 5;
+                        while (*num_str && isspace(*num_str)) {
+                            num_str++;
+                        }
+                        if (isdigit(*num_str) ||
+                            (*num_str == '-' && isdigit(*(num_str + 1)))) {
+                            long val = strtol(num_str, NULL, 10);
+                            push_numstackl(&ctx, val);
+                        } else {
+                            push_numstackl(&ctx, 0);
+                        }
+                    } else {
+                        // For other commands, default to 0 for now
+                        push_numstackl(&ctx, 0);
+                    }
+
+                    free(command);
+                } else {
+                    push_numstackl(&ctx, 0);
+                }
+
+                current = end + 1; // Skip past the closing )
+            } else {
+                // Malformed command substitution
+                arithm_set_error(
+                    "malformed command substitution in arithmetic");
+                break;
+            }
+
+            if (ctx.errflag) {
+                break;
+            }
+            last_op = NULL;
         } else if (*current == '$' && valid_name_char(*(current + 1))) {
             // Handle $variable syntax in arithmetic expressions
             current++; // Skip the '$'

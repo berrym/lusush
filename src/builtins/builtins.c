@@ -19,6 +19,7 @@
 int bin_jobs(int argc, char **argv);
 int bin_fg(int argc, char **argv);
 int bin_bg(int argc, char **argv);
+int bin_colon(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -67,9 +68,27 @@ builtin builtins[] = {
     {   "ulimit",     "set/display resource limits",    bin_ulimit},
     {    "times",           "display process times",     bin_times},
     {  "getopts",           "parse command options",   bin_getopts},
+    {        ":",            "null command (no-op)",     bin_colon},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtin);
+
+/**
+ * bin_colon:
+ *      Null command - does nothing and returns success.
+ *      Used for parameter expansions and as a no-op.
+ */
+int bin_colon(int argc __attribute__((unused)),
+              char **argv __attribute__((unused))) {
+    if (getenv("PARAM_EXPANSION_DEBUG")) {
+        fprintf(stderr, "DEBUG: colon builtin received %d arguments:\n", argc);
+        for (int i = 0; i < argc; i++) {
+            fprintf(stderr, "  argv[%d] = '%s'\n", i,
+                    argv[i] ? argv[i] : "(null)");
+        }
+    }
+    return 0;
+}
 
 /**
  * bin_exit:

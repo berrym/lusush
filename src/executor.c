@@ -403,6 +403,16 @@ static int execute_command(executor_t *executor, node_t *command) {
         return 0;
     }
 
+    // Process parameter expansion arguments for any command
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '$' && argv[i][1] == '{') {
+            char *result = expand_variable(executor, argv[i]);
+            if (result) {
+                free(result);
+            }
+        }
+    }
+
     // Check for stderr redirection pattern (2>/dev/null or 2> /dev/null)
     bool redirect_stderr = false;
     char **filtered_argv = NULL;
@@ -3163,36 +3173,23 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             }
             // Check for command substitution $(...)
             else if (str[i + 1] == '(') {
-                // Find matching closing parenthesis
+                // Use the robust find_closing_brace function to handle nested
+                // quotes
                 size_t cmd_start = i;
-                size_t cmd_end = i + 2;
-                int paren_depth = 1;
-                bool in_quotes = false;
-                char quote_char = 0;
 
-                while (cmd_end < len && paren_depth > 0) {
-                    if (!in_quotes) {
-                        if (str[cmd_end] == '"' || str[cmd_end] == '\'') {
-                            in_quotes = true;
-                            quote_char = str[cmd_end];
-                        } else if (str[cmd_end] == '(') {
-                            paren_depth++;
-                        } else if (str[cmd_end] == ')') {
-                            paren_depth--;
-                        }
-                    } else {
-                        if (str[cmd_end] == quote_char &&
-                            (cmd_end == 0 || str[cmd_end - 1] != '\\')) {
-                            in_quotes = false;
-                            quote_char = 0;
-                        }
-                    }
-                    cmd_end++;
-                }
+                // Create a temporary string starting from the '(' to use with
+                // find_closing_brace
+                char *temp_str =
+                    (char *)&str[i + 1]; // Start from the opening parenthesis
+                size_t brace_offset = find_closing_brace(temp_str);
 
-                if (paren_depth == 0) {
+                if (brace_offset > 0) {
+                    // Found matching closing parenthesis
+                    size_t cmd_end =
+                        i + 1 + brace_offset; // Points to the closing paren
+
                     // Extract command substitution including $( and )
-                    size_t full_cmd_len = cmd_end - cmd_start;
+                    size_t full_cmd_len = cmd_end - cmd_start + 1;
                     char *full_cmd_expr = malloc(full_cmd_len + 1);
                     if (full_cmd_expr) {
                         strncpy(full_cmd_expr, &str[cmd_start], full_cmd_len);
@@ -3223,7 +3220,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                         }
 
                         free(full_cmd_expr);
-                        i = cmd_end; // Skip past the closing parenthesis
+                        i = cmd_end; // Skip past the closing )
                         continue;
                     }
                 }
