@@ -695,6 +695,23 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     return WEXITSTATUS(right_status);
 }
 
+// Execute a chain of commands connected by next_sibling
+static int execute_command_chain(executor_t *executor, node_t *first_command) {
+    if (!first_command) {
+        return 0;
+    }
+
+    int last_result = 0;
+    node_t *current = first_command;
+
+    while (current) {
+        last_result = execute_node(executor, current);
+        current = current->next_sibling;
+    }
+
+    return last_result;
+}
+
 // Execute if statement
 static int execute_if(executor_t *executor, node_t *if_node) {
     if (!if_node || if_node->type != NODE_IF) {
@@ -724,7 +741,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
     }
 
     if (condition_result == 0) { // Success in shell terms
-        return execute_node(executor, body);
+        return execute_command_chain(executor, body);
     }
 
     // Process elif clauses
@@ -742,7 +759,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
         }
 
         if (condition_result == 0) { // Success in shell terms
-            return execute_node(executor, body);
+            return execute_command_chain(executor, body);
         }
 
         // Move to next elif or else clause
@@ -754,7 +771,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
         if (executor->debug) {
             printf("DEBUG: Executing ELSE clause\n");
         }
-        return execute_node(executor, current);
+        return execute_command_chain(executor, current);
     }
 
     return 0;
@@ -793,7 +810,7 @@ static int execute_while(executor_t *executor, node_t *while_node) {
         }
 
         // Execute body
-        last_result = execute_node(executor, body);
+        last_result = execute_command_chain(executor, body);
 
         iteration++;
     }
@@ -853,7 +870,7 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                 }
 
                 // Execute body
-                last_result = execute_node(executor, body);
+                last_result = execute_command_chain(executor, body);
             }
             word = word->next_sibling;
         }
