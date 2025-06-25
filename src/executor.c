@@ -3351,6 +3351,14 @@ static char *expand_command_substitution(executor_t *executor,
         }
     }
 
+    // Expand variables in the command before executing it
+    char *expanded_command = expand_variables_in_string(executor, command);
+    free(command);
+    if (!expanded_command) {
+        return strdup("");
+    }
+    command = expanded_command;
+
     // Create a pipe to capture command output
     int pipefd[2];
     if (pipe(pipefd) == -1) {
