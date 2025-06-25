@@ -318,7 +318,13 @@ static token_t *token_new(token_type_t type, const char *text, size_t length,
         strncpy(token->text, text, length);
         token->text[length] = '\0';
     } else {
-        token->text = NULL;
+        // Always allocate text, even for empty strings
+        token->text = malloc(1);
+        if (!token->text) {
+            free(token);
+            return NULL;
+        }
+        token->text[0] = '\0';
     }
 
     return token;
