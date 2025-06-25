@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 // Forward declarations for job control builtins
 int bin_jobs(int argc, char **argv);
@@ -662,6 +664,39 @@ int bin_test(int argc, char **argv) {
             // test -e PATH - true if path exists
             struct stat st;
             return (stat(argv[2], &st) == 0) ? 0 : 1;
+        } else if (strcmp(argv[1], "-c") == 0) {
+            // test -c FILE - true if file is character device
+            struct stat st;
+            return (stat(argv[2], &st) == 0 && S_ISCHR(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[1], "-b") == 0) {
+            // test -b FILE - true if file is block device
+            struct stat st;
+            return (stat(argv[2], &st) == 0 && S_ISBLK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[1], "-L") == 0 || strcmp(argv[1], "-h") == 0) {
+            // test -L FILE or -h FILE - true if file is symbolic link
+            struct stat st;
+            return (lstat(argv[2], &st) == 0 && S_ISLNK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[1], "-p") == 0) {
+            // test -p FILE - true if file is named pipe (FIFO)
+            struct stat st;
+            return (stat(argv[2], &st) == 0 && S_ISFIFO(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[1], "-S") == 0) {
+            // test -S FILE - true if file is socket
+            struct stat st;
+            return (stat(argv[2], &st) == 0 && S_ISSOCK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[1], "-r") == 0) {
+            // test -r FILE - true if file is readable
+            return (access(argv[2], R_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[1], "-w") == 0) {
+            // test -w FILE - true if file is writable
+            return (access(argv[2], W_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[1], "-x") == 0) {
+            // test -x FILE - true if file is executable
+            return (access(argv[2], X_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[1], "-s") == 0) {
+            // test -s FILE - true if file exists and is not empty
+            struct stat st;
+            return (stat(argv[2], &st) == 0 && st.st_size > 0) ? 0 : 1;
         }
     }
 
