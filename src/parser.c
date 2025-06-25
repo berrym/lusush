@@ -23,6 +23,7 @@ static node_t *parse_brace_group(parser_t *parser);
 static node_t *parse_subshell(parser_t *parser);
 static node_t *parse_if_statement(parser_t *parser);
 static node_t *parse_while_statement(parser_t *parser);
+static node_t *parse_until_statement(parser_t *parser);
 static node_t *parse_for_statement(parser_t *parser);
 static node_t *parse_case_statement(parser_t *parser);
 static node_t *parse_function_definition(parser_t *parser);
@@ -370,6 +371,8 @@ static node_t *parse_simple_command(parser_t *parser) {
             return parse_if_statement(parser);
         case TOK_WHILE:
             return parse_while_statement(parser);
+        case TOK_UNTIL:
+            return parse_until_statement(parser);
         case TOK_FOR:
             return parse_for_statement(parser);
         case TOK_CASE:
@@ -1198,6 +1201,67 @@ static node_t *parse_while_statement(parser_t *parser) {
     }
 
     return while_node;
+}
+
+// Parse until statement
+static node_t *parse_until_statement(parser_t *parser) {
+    if (!expect_token(parser, TOK_UNTIL)) {
+        return NULL;
+    }
+
+    node_t *until_node = new_node(NODE_UNTIL);
+    if (!until_node) {
+        return NULL;
+    }
+
+    // Parse condition - same logic as while
+    node_t *condition = NULL;
+
+    // Parse condition as a simple command or pipeline
+    if (tokenizer_match(parser->tokenizer, TOK_LBRACKET)) {
+        // Special handling for [ ... ] test commands
+        condition = parse_simple_command(parser);
+    } else {
+        // Regular command condition
+        condition = parse_pipeline(parser);
+    }
+
+    if (!condition) {
+        free_node_tree(until_node);
+        set_parser_error(parser, "Failed to parse until condition");
+        return NULL;
+    }
+    add_child_node(until_node, condition);
+
+    // Skip any separators (semicolons, newlines, whitespace)
+    skip_separators(parser);
+
+    // Now we should see 'do'
+    if (!expect_token(parser, TOK_DO)) {
+        free_node_tree(until_node);
+        return NULL;
+    }
+
+    // Skip separators after 'do' before parsing body
+    skip_separators(parser);
+
+    // Parse body
+    node_t *body = parse_command_body(parser, TOK_DONE);
+    if (!body) {
+        free_node_tree(until_node);
+        return NULL;
+    }
+    add_child_node(until_node, body);
+
+    // Skip separators before 'done'
+    skip_separators(parser);
+
+    if (!expect_token(parser, TOK_DONE)) {
+        free_node_tree(until_node);
+        return NULL;
+    }
+
+    return until_node;
 }
 
 // Parse for statement

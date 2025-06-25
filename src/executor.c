@@ -53,6 +53,7 @@ static node_t *copy_ast_node(node_t *node);
 static node_t *copy_ast_chain(node_t *node);
 static int execute_if(executor_t *executor, node_t *if_node);
 static int execute_while(executor_t *executor, node_t *while_node);
+static int execute_until(executor_t *executor, node_t *until_node);
 static int execute_for(executor_t *executor, node_t *for_node);
 static int execute_case(executor_t *executor, node_t *case_node);
 static int execute_logical_and(executor_t *executor, node_t *and_node);
@@ -277,6 +278,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_if(executor, node);
     case NODE_WHILE:
         return execute_while(executor, node);
+    case NODE_UNTIL:
+        return execute_until(executor, node);
     case NODE_FOR:
         return execute_for(executor, node);
     case NODE_CASE:
@@ -808,6 +811,53 @@ static int execute_while(executor_t *executor, node_t *while_node) {
 
     if (iteration >= max_iterations) {
         set_executor_error(executor, "While loop exceeded maximum iterations");
+        return 1;
+    }
+
+    return last_result;
+}
+
+// Execute until loop
+static int execute_until(executor_t *executor, node_t *until_node) {
+    if (!until_node || until_node->type != NODE_UNTIL) {
+        return 1;
+    }
+
+    node_t *condition = until_node->first_child;
+    node_t *body = condition ? condition->next_sibling : NULL;
+
+    if (!condition || !body) {
+        set_executor_error(executor, "Malformed until loop");
+        return 1;
+    }
+
+    int last_result = 0;
+    int iteration = 0;
+    const int max_iterations = 10000; // Safety limit
+
+    while (iteration < max_iterations) {
+        // Execute condition
+        int condition_result = execute_node(executor, condition);
+
+        if (executor->debug) {
+            printf("DEBUG: UNTIL iteration %d, condition result: %d\n",
+                   iteration, condition_result);
+        }
+
+        // If condition succeeds (returns 0), exit loop
+        // This is the key difference from while loop
+        if (condition_result == 0) {
+            break;
+        }
+
+        // Execute body
+        last_result = execute_command_chain(executor, body);
+
+        iteration++;
+    }
+
+    if (iteration >= max_iterations) {
+        set_executor_error(executor, "Until loop exceeded maximum iterations");
         return 1;
     }
 
