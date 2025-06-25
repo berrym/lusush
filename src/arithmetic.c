@@ -206,6 +206,82 @@ static ssize_t eval_logor(stack_item_t *a1, stack_item_t *a2) {
     return long_value(a1) || long_value(a2);
 }
 
+// Assignment operator evaluation
+static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t value = long_value(a2);
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", value);
+    symtable_set_global(a1->var_name, value_str);
+    return value;
+}
+
+// Pre-increment operator evaluation
+static ssize_t eval_preinc(stack_item_t *a1, stack_item_t *a2) {
+    (void)a2;
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid increment target");
+        return 0;
+    }
+
+    ssize_t value = long_value(a1) + 1;
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", value);
+    symtable_set_global(a1->var_name, value_str);
+    return value;
+}
+
+// Pre-decrement operator evaluation
+static ssize_t eval_predec(stack_item_t *a1, stack_item_t *a2) {
+    (void)a2;
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid decrement target");
+        return 0;
+    }
+
+    ssize_t value = long_value(a1) - 1;
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", value);
+    symtable_set_global(a1->var_name, value_str);
+    return value;
+}
+
+// Post-increment operator evaluation
+static ssize_t eval_postinc(stack_item_t *a1, stack_item_t *a2) {
+    (void)a2;
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid increment target");
+        return 0;
+    }
+
+    ssize_t old_value = long_value(a1);
+    ssize_t new_value = old_value + 1;
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", new_value);
+    symtable_set_global(a1->var_name, value_str);
+    return old_value;
+}
+
+// Post-decrement operator evaluation
+static ssize_t eval_postdec(stack_item_t *a1, stack_item_t *a2) {
+    (void)a2;
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid decrement target");
+        return 0;
+    }
+
+    ssize_t old_value = long_value(a1);
+    ssize_t new_value = old_value - 1;
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", new_value);
+    symtable_set_global(a1->var_name, value_str);
+    return old_value;
+}
+
 static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
     ssize_t base = long_value(a1);
     ssize_t exp = long_value(a2);
@@ -233,6 +309,11 @@ static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
 #define CH_AND 0x07
 #define CH_OR 0x08
 #define CH_EXP 0x09
+#define CH_ASSIGN 0x0A
+#define CH_PREINC 0x0B
+#define CH_PREDEC 0x0C
+#define CH_POSTINC 0x0D
+#define CH_POSTDEC 0x0E
 
 // Operator definitions (only binary operators in main table)
 static op_t operators[] = {
@@ -259,16 +340,25 @@ static op_t operators[] = {
     {   '|', 11,  ASSOC_LEFT, 0, 1,  eval_bitor},
     {CH_AND, 12,  ASSOC_LEFT, 0, 2, eval_logand},
     { CH_OR, 13,  ASSOC_LEFT, 0, 2,  eval_logor},
+    {   '=', 15, ASSOC_RIGHT, 0, 1, eval_assign},
     {     0,  0,           0, 0, 0,        NULL}
 };
 
 // Unary operator definitions (separate from main table)
 static op_t op_uminus = {'-', 2, ASSOC_RIGHT, 1, 1, eval_uminus};
 static op_t op_uplus = {'+', 2, ASSOC_RIGHT, 1, 1, eval_uplus};
+static op_t op_preinc = {CH_PREINC, 2, ASSOC_RIGHT, 1, 2, eval_preinc};
+static op_t op_predec = {CH_PREDEC, 2, ASSOC_RIGHT, 1, 2, eval_predec};
+static op_t op_postinc = {CH_POSTINC, 1, ASSOC_LEFT, 1, 2, eval_postinc};
+static op_t op_postdec = {CH_POSTDEC, 1, ASSOC_LEFT, 1, 2, eval_postdec};
 
 // Operator shortcuts
 #define OP_UMINUS (&op_uminus)
 #define OP_UPLUS (&op_uplus)
+#define OP_PREINC (&op_preinc)
+#define OP_PREDEC (&op_predec)
+#define OP_POSTINC (&op_postinc)
+#define OP_POSTDEC (&op_postdec)
 
 // Get long value from stack item
 static ssize_t long_value(stack_item_t *item) {
@@ -348,10 +438,16 @@ static bool valid_name_char(char c) { return isalnum(c) || c == '_'; }
 
 // Get operator from expression
 static op_t *get_op(const char *expr) {
+    // Check for increment/decrement operators first (they are 2-char)
+    if (expr[0] == '+' && expr[1] == '+') {
+        return OP_PREINC; // Will be handled as pre/post in main parsing
+    } else if (expr[0] == '-' && expr[1] == '-') {
+        return OP_PREDEC; // Will be handled as pre/post in main parsing
+    }
+
+    // Check two-character operators first to avoid conflicts
     for (op_t *op = operators; op->op; op++) {
-        if (op->chars == 1 && *expr == op->op) {
-            return op;
-        } else if (op->chars == 2) {
+        if (op->chars == 2) {
             if (op->op == CH_EQ && expr[0] == '=' && expr[1] == '=') {
                 return op;
             } else if (op->op == CH_NE && expr[0] == '!' && expr[1] == '=') {
@@ -373,6 +469,14 @@ static op_t *get_op(const char *expr) {
             }
         }
     }
+
+    // Then check single-character operators
+    for (op_t *op = operators; op->op; op++) {
+        if (op->chars == 1 && *expr == op->op) {
+            return op;
+        }
+    }
+
     return NULL;
 }
 
