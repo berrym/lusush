@@ -45,6 +45,7 @@ int bin_umask(int, char **);
 int bin_ulimit(int, char **);
 int bin_times(int, char **);
 int bin_getopts(int, char **);
+int bin_local(int, char **);
 bool is_builtin(const char *);
 
 #endif

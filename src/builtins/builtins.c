@@ -70,6 +70,7 @@ builtin builtins[] = {
     {   "ulimit",     "set/display resource limits",    bin_ulimit},
     {    "times",           "display process times",     bin_times},
     {  "getopts",           "parse command options",   bin_getopts},
+    {    "local",         "declare local variables",     bin_local},
     {        ":",            "null command (no-op)",     bin_colon},
 };
 
@@ -1949,4 +1950,96 @@ int bin_getopts(int argc, char **argv) {
     }
 
     return 0; // Found an option
+}
+
+/**
+ * bin_local:
+ *      Declare local variables within function scope.
+ *      Usage: local [name[=value] ...]
+ */
+int bin_local(int argc, char **argv) {
+    if (argc == 1) {
+        // No arguments - just return success (bash behavior)
+        return 0;
+    }
+
+    // Get the current symbol table manager
+    symtable_manager_t *manager = symtable_get_global_manager();
+    if (!manager) {
+        error_message("local: symbol table not available");
+        return 1;
+    }
+
+    // Check if we're in a function scope
+    size_t current_level = symtable_current_level(manager);
+    if (current_level == 0) {
+        error_message("local: can only be used in a function");
+        return 1;
+    }
+
+    // Process each argument
+    for (int i = 1; i < argc; i++) {
+        char *arg = argv[i];
+        char *eq = strchr(arg, '=');
+
+        if (eq) {
+            // Assignment: local var=value
+            size_t name_len = eq - arg;
+            char *name = malloc(name_len + 1);
+            if (!name) {
+                error_message("local: memory allocation failed");
+                return 1;
+            }
+
+            strncpy(name, arg, name_len);
+            name[name_len] = '\0';
+
+            // Validate variable name
+            if (!name[0] || (!isalpha(name[0]) && name[0] != '_')) {
+                error_message("local: invalid variable name");
+                free(name);
+                return 1;
+            }
+
+            for (size_t j = 1; j < name_len; j++) {
+                if (!isalnum(name[j]) && name[j] != '_') {
+                    error_message("local: invalid variable name");
+                    free(name);
+                    return 1;
+                }
+            }
+
+            // Set the local variable
+            char *value = eq + 1;
+            if (symtable_set_local_var(manager, name, value) != 0) {
+                error_message("local: failed to set variable");
+                free(name);
+                return 1;
+            }
+
+            free(name);
+        } else {
+            // Declaration only: local var
+            // Validate variable name
+            if (!arg[0] || (!isalpha(arg[0]) && arg[0] != '_')) {
+                error_message("local: invalid variable name");
+                return 1;
+            }
+
+            for (size_t j = 1; arg[j]; j++) {
+                if (!isalnum(arg[j]) && arg[j] != '_') {
+                    error_message("local: invalid variable name");
+                    return 1;
+                }
+            }
+
+            // Declare the local variable with empty value
+            if (symtable_set_local_var(manager, arg, "") != 0) {
+                error_message("local: failed to declare variable");
+                return 1;
+            }
+        }
+    }
+
+    return 0;
 }
