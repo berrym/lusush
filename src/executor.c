@@ -1826,6 +1826,19 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     strncpy(var_name, assignment, var_len);
     var_name[var_len] = '\0';
 
+    // Validate variable name
+    if (!var_name[0] || (!isalpha(var_name[0]) && var_name[0] != '_')) {
+        free(var_name);
+        return 1;
+    }
+
+    for (size_t i = 1; i < var_len; i++) {
+        if (!isalnum(var_name[i]) && var_name[i] != '_') {
+            free(var_name);
+            return 1;
+        }
+    }
+
     // Expand the value using modern expansion
     char *value = expand_if_needed(executor, eq + 1);
 

@@ -669,6 +669,10 @@ void set_exit_status(int status) {
     char status_str[16];
     snprintf(status_str, sizeof(status_str), "%d", status);
     symtable_set_special_global("?", status_str);
+
+    // Also update the global variable for consistency
+    extern int last_exit_status;
+    last_exit_status = status;
 }
 
 // Environment interface
