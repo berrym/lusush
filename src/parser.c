@@ -544,14 +544,57 @@ static node_t *parse_simple_command(parser_t *parser) {
                  arg_token->type == TOK_ASSIGN || arg_token->type == TOK_GLOB ||
                  arg_token->type == TOK_QUESTION) {
 
-            node_t *arg_node = new_node(NODE_VAR);
-            if (!arg_node) {
-                free_node_tree(command);
-                return NULL;
+            // Check for consecutive tokens that should be concatenated
+            char *concatenated_arg = NULL;
+            size_t total_len = 0;
+            size_t last_end_pos = arg_token->position + strlen(arg_token->text);
+
+            // Collect all consecutive tokens without whitespace
+            while (arg_token && (token_is_word_like(arg_token->type) ||
+                                 token_is_keyword(arg_token->type) ||
+                                 arg_token->type == TOK_VARIABLE ||
+                                 arg_token->type == TOK_RBRACKET ||
+                                 arg_token->type == TOK_ASSIGN ||
+                                 arg_token->type == TOK_GLOB ||
+                                 arg_token->type == TOK_QUESTION)) {
+
+                size_t token_len = strlen(arg_token->text);
+                char *new_arg =
+                    realloc(concatenated_arg, total_len + token_len + 1);
+                if (!new_arg) {
+                    free(concatenated_arg);
+                    free_node_tree(command);
+                    return NULL;
+                }
+                concatenated_arg = new_arg;
+
+                strcpy(concatenated_arg + total_len, arg_token->text);
+                total_len += token_len;
+                last_end_pos = arg_token->position + token_len;
+
+                tokenizer_advance(parser->tokenizer);
+                token_t *next_token = tokenizer_current(parser->tokenizer);
+
+                // Check if the next token is adjacent (no whitespace between)
+                if (next_token && next_token->position != last_end_pos) {
+                    break; // There's whitespace between tokens
+                }
+
+                arg_token = next_token;
             }
-            arg_node->val.str = strdup(arg_token->text);
-            add_child_node(command, arg_node);
-            tokenizer_advance(parser->tokenizer);
+
+            if (concatenated_arg) {
+                concatenated_arg[total_len] = '\0';
+
+                node_t *arg_node = new_node(NODE_VAR);
+                if (!arg_node) {
+                    free(concatenated_arg);
+                    free_node_tree(command);
+                    return NULL;
+                }
+                arg_node->val.str = concatenated_arg;
+                add_child_node(command, arg_node);
+            }
         } else {
             break; // Stop parsing arguments
         }

@@ -172,6 +172,33 @@ int builtin_set(char **args) {
                 error_message("set: invalid option name: %s", args[i]);
                 return 1;
             }
+        } else if (strcmp(arg, "--") == 0) {
+            // Handle -- option: end of options, start of positional parameters
+            i++; // Move past the --
+
+            // Clear existing positional parameters $1, $2, etc.
+            for (int param_num = 1; param_num <= 99; param_num++) {
+                char param_name[4];
+                snprintf(param_name, sizeof(param_name), "%d", param_num);
+                symtable_unset_global(param_name);
+            }
+
+            // Set new positional parameters
+            int param_num = 1;
+            while (args[i] && param_num <= 99) {
+                char param_name[4];
+                snprintf(param_name, sizeof(param_name), "%d", param_num);
+                symtable_set_global(param_name, args[i]);
+                i++;
+                param_num++;
+            }
+
+            // Update $# (number of positional parameters)
+            char argc_str[4];
+            snprintf(argc_str, sizeof(argc_str), "%d", param_num - 1);
+            symtable_set_global("#", argc_str);
+
+            break; // Process no more arguments after --
         } else if (arg[0] == '-' && arg[1] != '\0') {
             // Handle short options like -e, -x, etc.
             for (int j = 1; arg[j]; j++) {
@@ -197,8 +224,8 @@ int builtin_set(char **args) {
                 }
             }
         } else {
-            // Positional parameters (not implemented yet)
-            error_message("set: positional parameters not yet implemented");
+            // Regular positional parameters without -- prefix
+            error_message("set: invalid option: %s", arg);
             return 1;
         }
     }

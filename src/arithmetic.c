@@ -450,12 +450,20 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
 
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
+                if (arithm_error_flag) {
+                    ctx->errflag = true;
+                    return;
+                }
             } else {
                 stack_item_t a2 = pop_numstack(ctx);
                 if (ctx->errflag) {
                     return;
                 }
                 push_numstackl(ctx, pop_op->eval(&a2, &a1));
+                if (arithm_error_flag) {
+                    ctx->errflag = true;
+                    return;
+                }
             }
             if (ctx->errflag) {
                 return;
@@ -488,17 +496,26 @@ static void shunt_op(arithm_context_t *ctx, op_t *op) {
 
             if (pop_op->unary) {
                 push_numstackl(ctx, pop_op->eval(&a1, NULL));
+                if (arithm_error_flag) {
+                    ctx->errflag = true;
+                    return;
+                }
             } else {
                 stack_item_t a2 = pop_numstack(ctx);
                 if (ctx->errflag) {
                     return;
                 }
                 push_numstackl(ctx, pop_op->eval(&a2, &a1));
+                if (arithm_error_flag) {
+                    ctx->errflag = true;
+                    return;
+                }
             }
             if (ctx->errflag) {
                 return;
             }
         }
+
         push_opstack(ctx, op);
     }
 }
@@ -727,12 +744,20 @@ char *arithm_expand(const char *orig_expr) {
 
         if (op->unary) {
             push_numstackl(&ctx, op->eval(&a1, NULL));
+            if (arithm_error_flag) {
+                ctx.errflag = true;
+                break;
+            }
         } else {
             stack_item_t a2 = pop_numstack(&ctx);
             if (ctx.errflag) {
                 break;
             }
             push_numstackl(&ctx, op->eval(&a2, &a1));
+            if (arithm_error_flag) {
+                ctx.errflag = true;
+                break;
+            }
         }
         if (ctx.errflag) {
             break;

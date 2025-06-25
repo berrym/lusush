@@ -2456,13 +2456,28 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
 
             // Handle ${var} format
             if (var_start < len && str[var_start] == '{') {
-                var_start++;         // Skip {
-                var_end = var_start; // Reset var_end to start after {
-                while (var_end < len && str[var_end] != '}') {
-                    var_end++;
-                }
-                if (var_end < len) {
-                    var_end++; // Include }
+                // Use proper brace matching for nested expressions
+                char *brace_str = (char *)&str[var_start];
+                size_t brace_len = find_closing_brace(brace_str);
+
+                if (brace_len > 0) {
+                    // brace_len is the index of the closing brace
+                    var_end = var_start + brace_len +
+                              1; // Point to after closing brace
+                } else {
+                    // Fallback: find closing brace manually with nesting
+                    // support
+                    int brace_count = 1;
+                    var_end = var_start + 1; // Start after opening {
+
+                    while (var_end < len && brace_count > 0) {
+                        if (str[var_end] == '{') {
+                            brace_count++;
+                        } else if (str[var_end] == '}') {
+                            brace_count--;
+                        }
+                        var_end++;
+                    }
                 }
             } else {
                 // Handle $var format
@@ -3087,7 +3102,19 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
         return result;
     }
 
-    return strdup("0");
+    // If arithm_expand returns NULL, there was an error (like division by zero)
+    // Print error message and set exit status to indicate error
+    extern bool arithm_error_flag;
+    extern char *arithm_error_message;
+
+    if (arithm_error_flag && arithm_error_message) {
+        fprintf(stderr, "lusush: arithmetic: %s\n", arithm_error_message);
+    } else {
+        fprintf(stderr, "lusush: arithmetic: evaluation error\n");
+    }
+
+    set_exit_status(1);
+    return strdup("");
 }
 
 static char *expand_command_substitution(executor_t *executor,
@@ -3337,13 +3364,23 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             // Handle ${var} format
             if (str[var_start] == '{') {
 
-                var_start++;         // Skip opening brace
-                var_end = var_start; // Start looking for closing brace after
-                                     // opening brace
-                while (var_end < len && str[var_end] != '}') {
+                // Use proper brace matching for nested expressions
+                int brace_count = 1;
+                var_end = var_start + 1; // Start after opening {
+
+                while (var_end < len && brace_count > 0) {
+                    if (str[var_end] == '{') {
+                        brace_count++;
+                    } else if (str[var_end] == '}') {
+                        brace_count--;
+                    }
                     var_end++;
                 }
-                if (var_end < len) {
+
+                if (brace_count == 0) {
+                    var_start++; // Skip opening brace for variable name
+                                 // extraction
+                    var_end--;   // Point to closing brace
                     // Extract variable name
                     size_t var_name_len = var_end - var_start;
                     char *var_name = malloc(var_name_len + 1);
