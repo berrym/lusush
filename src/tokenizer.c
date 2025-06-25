@@ -646,13 +646,24 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                        next == '$' || next == '!' || next == '@' ||
                        next == '*' || next == '#') {
                 // Simple variable $var, $?, $$, $!, etc.
-                while (tokenizer->position < tokenizer->input_length) {
-                    char curr = tokenizer->input[tokenizer->position];
-                    if (isalnum(curr) || curr == '_') {
-                        tokenizer->position++;
-                        tokenizer->column++;
-                    } else {
-                        break;
+
+                // For special single-character variables, only advance by one
+                if (next == '?' || next == '$' || next == '!' || next == '@' ||
+                    next == '*' || next == '#') {
+                    tokenizer
+                        ->position++; // Just one character for special vars
+                    tokenizer->column++;
+                } else {
+                    // For regular variables, continue until non-identifier
+                    // character
+                    while (tokenizer->position < tokenizer->input_length) {
+                        char curr = tokenizer->input[tokenizer->position];
+                        if (isalnum(curr) || curr == '_') {
+                            tokenizer->position++;
+                            tokenizer->column++;
+                        } else {
+                            break;
+                        }
                     }
                 }
 
