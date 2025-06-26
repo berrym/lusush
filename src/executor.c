@@ -743,7 +743,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
 
     if (condition_result == 0) { // Success in shell terms
         // Execute the then body (second child)
-        return execute_command_chain(executor, current);
+        return execute_node(executor, current);
     }
 
     // Move to next child (elif condition or else body)
@@ -756,7 +756,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
 
         if (condition_result == 0) { // Success in shell terms
             // Execute elif body (next sibling)
-            return execute_command_chain(executor, current->next_sibling);
+            return execute_node(executor, current->next_sibling);
         }
 
         // Move past the elif body to the next elif condition or else body
@@ -765,7 +765,7 @@ static int execute_if(executor_t *executor, node_t *if_node) {
 
     // Handle final else clause if present (no condition, just body)
     if (current) {
-        return execute_command_chain(executor, current);
+        return execute_node(executor, current);
     }
 
     return 0;
