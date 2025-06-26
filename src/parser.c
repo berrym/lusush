@@ -1085,7 +1085,7 @@ static node_t *parse_if_statement(parser_t *parser) {
     }
 
     // Parse condition - parse until we hit 'then' or ';'
-    node_t *condition = parse_pipeline(parser);
+    node_t *condition = parse_logical_expression(parser);
     if (!condition) {
         free_node_tree(if_node);
         return NULL;
@@ -1126,7 +1126,7 @@ static node_t *parse_if_statement(parser_t *parser) {
         tokenizer_advance(parser->tokenizer);
 
         // Parse elif condition
-        node_t *elif_condition = parse_pipeline(parser);
+        node_t *elif_condition = parse_logical_expression(parser);
         if (!elif_condition) {
             free_node_tree(if_node);
             return NULL;

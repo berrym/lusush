@@ -1,1 +1,0 @@
-echo "unclosed quote 2>&1 | grep -q "quote|syntax" && echo "error detected" || echo "no error"
