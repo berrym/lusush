@@ -445,8 +445,12 @@ static node_t *parse_simple_command(parser_t *parser) {
     }
 
     // Parse regular command
-    if (!token_is_word_like(current->type) && current->type != TOK_LBRACKET) {
+    if (current->type == TOK_ERROR) {
+        set_parser_error(parser, "syntax error: unterminated quoted string");
+        return NULL;
+    }
 
+    if (!token_is_word_like(current->type) && current->type != TOK_LBRACKET) {
         set_parser_error(parser, "Expected command name");
         return NULL;
     }

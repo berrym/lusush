@@ -84,6 +84,9 @@ int main(int argc, char **argv) {
 
     // Execute EXIT traps before shell terminates normally
     execute_exit_traps();
+
+    // Exit with the status of the last command executed (POSIX requirement)
+    exit(last_exit_status);
 }
 
 int parse_and_execute(const char *command) {
@@ -94,6 +97,11 @@ int parse_and_execute(const char *command) {
     }
 
     int exit_status = executor_execute_command_line(executor, command);
+
+    // Print error messages to stderr if there were any errors
+    if (executor_has_error(executor)) {
+        fprintf(stderr, "lusush: %s\n", executor_error(executor));
+    }
 
     executor_free(executor);
 
