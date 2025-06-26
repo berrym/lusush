@@ -65,6 +65,11 @@ static int execute_external_command(executor_t *executor, char **argv);
 static int execute_external_command_with_redirection(executor_t *executor,
                                                      char **argv,
                                                      bool redirect_stderr);
+static bool is_stdout_captured(void);
+static bool has_stdout_redirections(node_t *command);
+static int execute_builtin_with_captured_stdout(executor_t *executor,
+                                                char **argv, node_t *command);
+
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg);
 static int execute_external_command_with_setup(executor_t *executor,
@@ -582,25 +587,36 @@ static int execute_command(executor_t *executor, node_t *command) {
         result = execute_function_call(executor, filtered_argv[0],
                                        filtered_argv, filtered_argc);
     } else if (is_builtin_command(filtered_argv[0])) {
-        // For builtin commands, handle redirections in parent process
-        redirection_state_t redir_state;
-        if (has_redirections) {
-            save_file_descriptors(&redir_state);
-            int redir_result = setup_redirections(executor, command);
-            if (redir_result != 0) {
-                restore_file_descriptors(&redir_state);
-                return redir_result;
+        // For builtin commands with stdout redirections, check if stdout is
+        // captured
+        if (has_redirections && has_stdout_redirections(command) &&
+            is_stdout_captured()) {
+            // When stdout is captured externally and command has stdout
+            // redirections, use child process to avoid file descriptor
+            // interference
+            result = execute_builtin_with_captured_stdout(
+                executor, filtered_argv, command);
+        } else {
+            // Normal case: handle redirections in parent process
+            redirection_state_t redir_state;
+            if (has_redirections) {
+                save_file_descriptors(&redir_state);
+                int redir_result = setup_redirections(executor, command);
+                if (redir_result != 0) {
+                    restore_file_descriptors(&redir_state);
+                    return redir_result;
+                }
             }
-        }
 
-        result = execute_builtin_command(executor, filtered_argv);
+            result = execute_builtin_command(executor, filtered_argv);
 
-        // Restore file descriptors after builtin execution
-        if (has_redirections) {
-            // Flush output streams before restoring file descriptors
-            fflush(stdout);
-            fflush(stderr);
-            restore_file_descriptors(&redir_state);
+            // Restore file descriptors after builtin execution
+            if (has_redirections) {
+                // Flush output streams before restoring file descriptors
+                fflush(stdout);
+                fflush(stderr);
+                restore_file_descriptors(&redir_state);
+            }
         }
     } else {
         // For external commands, pass redirection info to child process
@@ -4276,4 +4292,79 @@ int executor_builtin_bg(executor_t *executor, char **argv) {
            job->command_line ? job->command_line : "unknown");
 
     return 0;
+}
+
+// Check if stdout is being captured (piped or redirected to file)
+static bool is_stdout_captured(void) {
+    struct stat stat_buf;
+    if (fstat(STDOUT_FILENO, &stat_buf) == -1) {
+        return false;
+    }
+
+    // If stdout is not a terminal (tty), it's likely being captured
+    return !isatty(STDOUT_FILENO);
+}
+
+// Check if command has redirections that affect stdout
+static bool has_stdout_redirections(node_t *command) {
+    if (!command) {
+        return false;
+    }
+
+    node_t *child = command->first_child;
+    while (child) {
+        // Check for stdout-affecting redirections
+        if (child->type == NODE_REDIR_OUT ||     // >
+            child->type == NODE_REDIR_APPEND ||  // >>
+            child->type == NODE_REDIR_BOTH ||    // &>
+            child->type == NODE_REDIR_CLOBBER) { // >|
+            return true;
+        }
+        child = child->next_sibling;
+    }
+    return false;
+}
+
+// Execute builtin command with redirections in child process when stdout is
+// captured This prevents redirection setup from interfering with the shell's
+// captured stdout
+static int execute_builtin_with_captured_stdout(executor_t *executor,
+                                                char **argv, node_t *command) {
+    if (!argv || !argv[0]) {
+        return 1;
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        set_executor_error(executor,
+                           "Failed to fork for builtin with captured stdout");
+        return 1;
+    }
+
+    if (pid == 0) {
+        // Child process - setup redirections and execute builtin
+        int redir_result = setup_redirections(executor, command);
+        if (redir_result != 0) {
+            exit(1);
+        }
+
+        // Execute the builtin command
+        int result = execute_builtin_command(executor, argv);
+        exit(result);
+    } else {
+        // Parent process - wait for child
+        int status;
+        if (waitpid(pid, &status, 0) == -1) {
+            set_executor_error(executor,
+                               "Failed to wait for builtin child process");
+            return 1;
+        }
+
+        if (WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            return 128 + WTERMSIG(status);
+        }
+        return 1;
+    }
 }
