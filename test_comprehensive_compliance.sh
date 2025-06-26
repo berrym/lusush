@@ -523,7 +523,7 @@ test_variable_operations() {
 
     print_section "Variable Scoping"
     run_test "Local vs global variables" \
-        'global=outside; func() { local=inside; echo $local; }; func; echo ${local:-unset}' \
+        'global=outside; func() { local local=inside; echo $local; }; func; echo ${local:-unset}' \
         "inside
 unset"
 
