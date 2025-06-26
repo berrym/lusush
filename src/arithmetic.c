@@ -702,6 +702,23 @@ char *arithm_expand(const char *orig_expr) {
         // Try to parse an operator first
         op_t *op = get_op(current);
         if (op) {
+            // Handle increment/decrement operators
+            if (op == OP_PREINC || op == OP_PREDEC) {
+                // Check if this should be post-increment/decrement
+                // If the last token was a variable or closing paren, it's
+                // post-increment
+                if (ctx.nnumstack > 0 &&
+                    (ctx.numstack[ctx.nnumstack - 1].type == ITEM_VAR_PTR ||
+                     (last_op && last_op->op == ')'))) {
+                    // Convert to post-increment/decrement
+                    if (op == OP_PREINC) {
+                        op = OP_POSTINC;
+                    } else {
+                        op = OP_POSTDEC;
+                    }
+                }
+            }
+
             // Handle unary operators
             if (last_op && (last_op == &start_op || last_op->op != ')')) {
                 if (op->op == '-') {
