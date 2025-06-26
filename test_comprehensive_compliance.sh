@@ -434,8 +434,8 @@ test_command_substitution() {
         "hello"
 
     run_test "Command substitution in string" \
-        'echo "Today is $(date +%A)" 2>/dev/null || echo "Today is day"' \
-        "Today is day"
+        'echo "Result is $(echo test)"' \
+        "Result is test"
 
     run_test "Nested command substitution" \
         'echo $(echo $(echo nested))' \
@@ -561,7 +561,7 @@ test_control_structures() {
         "greater"
 
     run_test "File existence test" \
-        'if [ -f /dev/null ]; then echo exists; fi' \
+        'if [ -f README.md ]; then echo exists; fi' \
         "exists"
 
     print_section "Loops"
