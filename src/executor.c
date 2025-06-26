@@ -2333,6 +2333,52 @@ static bool match_pattern(const char *str, const char *pattern) {
             }
             s++;
             p++;
+        } else if (*p == '[') {
+            // Character class pattern [abc] or [a-z]
+            if (*s == '\0') {
+                return false; // Character class can't match empty
+            }
+
+            p++; // Skip opening [
+            bool matched = false;
+            bool negated = false;
+
+            // Check for negation [!abc] or [^abc]
+            if (*p == '!' || *p == '^') {
+                negated = true;
+                p++;
+            }
+
+            while (*p && *p != ']') {
+                if (p[1] == '-' && p[2] != ']' && p[2] != '\0') {
+                    // Range pattern like a-z
+                    if (*s >= *p && *s <= p[2]) {
+                        matched = true;
+                    }
+                    p += 3; // Skip a-z
+                } else {
+                    // Single character
+                    if (*s == *p) {
+                        matched = true;
+                    }
+                    p++;
+                }
+            }
+
+            if (*p == ']') {
+                p++; // Skip closing ]
+            }
+
+            // Apply negation if needed
+            if (negated) {
+                matched = !matched;
+            }
+
+            if (!matched) {
+                return false;
+            }
+
+            s++;
         } else {
             // Literal character match (including special chars like : @ / etc.)
             if (*s != *p) {
