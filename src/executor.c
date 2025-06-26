@@ -3436,36 +3436,29 @@ static char *expand_command_substitution(executor_t *executor,
     }
 
     if (pid == 0) {
-        // Child process - execute command with function inheritance
+        // Child process - execute command using lusush's own parser/executor
         close(pipefd[0]);               // Close read end
         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
         close(pipefd[1]);
 
-        // Create a minimal script with function definitions and command
-        char *script = malloc(strlen(command) + 4096);
-        if (!script) {
-            _exit(127);
+        // Parse and execute command using lusush's own parser/executor
+        // This preserves all function definitions and variables in the child
+        parser_t *parser = parser_new(command);
+        int result = 127;
+
+        if (parser) {
+            node_t *ast = parser_parse(parser);
+            if (!parser_has_error(parser) && ast) {
+                // Execute in current context (functions are inherited via fork)
+                result = execute_node(executor, ast);
+                free_node_tree(ast);
+            }
+            parser_free(parser);
         }
 
-        // Build script with function definitions
-        strcpy(script, "");
-        function_def_t *func = executor->functions;
-        while (func) {
-            // Add function definition to script
-            strcat(script, func->name);
-            strcat(script, "() { ");
-            // Simple function body serialization - just echo the command for
-            // now
-            strcat(script, "echo $(($1 * 2)); ");
-            strcat(script, "}; ");
-            func = func->next;
-        }
-        strcat(script, command);
-
-        // Execute script using the shell
-        execl("/bin/sh", "sh", "-c", script, NULL);
-        free(script);
-        _exit(127);
+        // Ensure all output is flushed before exit
+        fflush(stdout);
+        _exit(result);
     } else {
         // Parent process - read output
         close(pipefd[1]); // Close write end
@@ -3484,6 +3477,11 @@ static char *expand_command_substitution(executor_t *executor,
         ssize_t bytes_read;
         char buffer[256];
 
+        // Wait for child process to complete first
+        int status;
+        waitpid(pid, &status, 0);
+
+        // Then read all available output
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
             if (output_len + bytes_read >= output_size) {
                 output_size *= 2;
@@ -3491,7 +3489,6 @@ static char *expand_command_substitution(executor_t *executor,
                 if (!new_output) {
                     free(output);
                     close(pipefd[0]);
-                    waitpid(pid, NULL, 0);
                     return strdup("");
                 }
                 output = new_output;
@@ -3501,7 +3498,6 @@ static char *expand_command_substitution(executor_t *executor,
         }
 
         close(pipefd[0]);
-        waitpid(pid, NULL, 0);
 
         // Null terminate and remove trailing newlines
         output[output_len] = '\0';
