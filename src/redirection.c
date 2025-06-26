@@ -584,111 +584,21 @@ static char *expand_redirection_target(executor_t *executor,
         printf("DEBUG: expand_redirection_target called with: '%s'\n", target);
     }
 
-    // Check if this looks like it needs expansion
-    if (strchr(target, '$')) {
-        // Simple variable expansion - look for $VAR patterns
-        size_t len = strlen(target);
-        size_t result_size = len * 4 + 1; // Allow for expansion
-        char *result = malloc(result_size);
-        if (!result) {
-            return strdup(target);
-        }
+    // Use the comprehensive expansion function that handles all variable types,
+    // including special variables like $$, $?, $#, etc.
+    char *result = expand_if_needed(executor, target);
 
-        size_t result_pos = 0;
-        for (size_t i = 0; i < len; i++) {
-            if (target[i] == '$' && i + 1 < len) {
-                // Extract variable name
-                size_t var_start = i + 1;
-                size_t var_end = var_start;
-
-                // Handle ${VAR} format
-                if (target[var_start] == '{') {
-                    var_start++;
-                    while (var_end < len && target[var_end] != '}') {
-                        var_end++;
-                    }
-                    if (var_end < len) {
-                        var_end++; // Include closing brace
-                    }
-                } else {
-                    // Handle $VAR format
-                    while (var_end < len && (isalnum(target[var_end]) ||
-                                             target[var_end] == '_')) {
-                        var_end++;
-                    }
-                }
-
-                if (var_end > var_start) {
-                    // Extract variable name
-                    size_t name_len = (target[var_start - 1] == '{')
-                                          ? var_end - var_start - 1
-                                          : var_end - var_start;
-                    char *var_name = malloc(name_len + 1);
-                    if (var_name) {
-                        strncpy(var_name, &target[var_start], name_len);
-                        var_name[name_len] = '\0';
-
-                        // Get variable value from environment and shell
-                        // variables
-                        char *var_value = getenv(var_name);
-                        if (!var_value && executor) {
-                            // Try executor scoped variables (including function
-                            // parameters $1, $2, etc.)
-                            var_value =
-                                symtable_get_var(executor->symtable, var_name);
-                        }
-                        if (!var_value) {
-                            // Fall back to global variables for compatibility
-                            var_value = symtable_get_global(var_name);
-                        }
-
-                        if (var_value) {
-                            if (getenv("LUSUSH_DEBUG_REDIR")) {
-                                printf("DEBUG: Found variable %s = '%s'\n",
-                                       var_name, var_value);
-                            }
-                            size_t value_len = strlen(var_value);
-                            // Ensure buffer is large enough
-                            while (result_pos + value_len >= result_size) {
-                                result_size *= 2;
-                                char *new_result = realloc(result, result_size);
-                                if (!new_result) {
-                                    free(result);
-                                    free(var_name);
-                                    return strdup(target);
-                                }
-                                result = new_result;
-                            }
-                            strcpy(&result[result_pos], var_value);
-                            result_pos += value_len;
-                        } else {
-                            if (getenv("LUSUSH_DEBUG_REDIR")) {
-                                printf("DEBUG: Variable %s not found\n",
-                                       var_name);
-                            }
-                        }
-
-                        free(var_name);
-                        i = var_end - 1; // Skip processed characters
-                    }
-                } else {
-                    result[result_pos++] = target[i];
-                }
-            } else {
-                result[result_pos++] = target[i];
-            }
-        }
-        result[result_pos] = '\0';
-        if (getenv("LUSUSH_DEBUG_REDIR")) {
-            printf("DEBUG: expand_redirection_target result: '%s'\n", result);
-        }
-        return result;
+    // If expansion failed, fall back to a copy of the original
+    if (!result) {
+        result = strdup(target);
     }
 
     if (getenv("LUSUSH_DEBUG_REDIR")) {
-        printf("DEBUG: No expansion needed, returning copy of: '%s'\n", target);
+        printf("DEBUG: expand_redirection_target result: '%s'\n",
+               result ? result : "NULL");
     }
-    return strdup(target);
+
+    return result;
 }
 
 // Setup file descriptor redirection (>&2, 2>&1, etc.)
