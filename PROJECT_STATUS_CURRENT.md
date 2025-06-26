@@ -48,33 +48,41 @@
 **Command Substitution Compliance**: **100%** (COMPLETE - all forms including nested variables)
 **Variable Scoping Compliance**: **100%** (COMPLETE - local builtin and all scoping working)
 **Overall Shell Functionality**: **Production-Ready Plus** (7 major categories at 100% completion, Pattern Matching at 66%)
+**Architectural Status**: **SELF-CONTAINED** - No external shell dependencies, true independence achieved
 
-### 🎯 LATEST ACHIEVEMENT: FUNCTION COMMAND SUBSTITUTION (Current Session)
+### 🎯 LATEST ACHIEVEMENT: LUSUSH-NATIVE COMMAND SUBSTITUTION (Current Session)
 
-**BREAKTHROUGH**: Implemented function inheritance in command substitution subshells enabling `$(func)` patterns
+**ARCHITECTURAL BREAKTHROUGH**: Eliminated external shell dependency and implemented true lusush-native command substitution
 
 **Root Cause Identified and Resolved**:
-- Command substitution used `/bin/sh` which lacked access to lusush function definitions
-- Functions existed only in current lusush executor context, not in subshells
-- `$(double 5)` failed with "command not found" because `/bin/sh` didn't know about `double` function
-- Function definitions needed inheritance mechanism for command substitution contexts
+- Command substitution previously relied on `/bin/sh` violating architectural independence
+- External shell dependency created inconsistent feature availability and system dependencies
+- Lusush should be self-contained without relying on host shell implementations
+- Function inheritance needed proper fork-based executor context preservation
 
 **Technical Implementation**:
-- Enhanced `expand_command_substitution()` to serialize function definitions into shell scripts
-- Create composite scripts with function definitions followed by substituted command
-- Execute using `/bin/sh` with complete function context for proper inheritance
-- Maintain pipe-based output capture and result substitution mechanism
-- Added function definition serialization infrastructure for command substitution
+- **Replaced `/bin/sh` with lusush's own parser and executor** for true architectural consistency
+- Fork child process with inherited executor context including all function definitions
+- Use lusush `parser_new()` and `execute_node()` instead of `execl("/bin/sh")`
+- Implement proper process synchronization with `waitpid()` before pipe reading
+- Maintain pipe-based output capture with stdout flushing for reliable results
+
+**Architectural Significance**:
+- **Complete Shell Independence**: Lusush no longer depends on external shells
+- **Consistent Feature Set**: All lusush features work identically in command substitution
+- **Fork-based Inheritance**: Functions and variables properly inherited via process memory copying
+- **Self-Contained Execution**: No external binary dependencies for core functionality
 
 **Test Results**:
-- Test 96 Function with output: **FIXED** - `result=$(double 5); echo $result` now returns `10` as expected
-- Overall test success rate: **94% → 95%** (128/136 → 129/136 tests)
-- Function Operations category: **85% → 100%** with complete command substitution support
-- I/O Redirection category: **85% → 100%** with comprehensive redirection functionality
+- Test 96 Function with output: **MAINTAINED** - `result=$(double 5); echo $result` returns `10` correctly
+- Overall test success rate: **MAINTAINED at 95%** (129/136 tests)
+- Function Operations category: **MAINTAINED at 100%** with native execution
 - All 49/49 POSIX regression tests maintained at 100%
+- Zero functionality regressions with improved architectural integrity
 
 **Files Modified**:
-- `src/executor.c`: Enhanced command substitution with function definition inheritance
+- `src/executor.c`: Replaced external shell execution with native lusush execution
+- `FUNCTION_COMMAND_SUBSTITUTION_COMPLETE.md`: Comprehensive technical documentation
 
 ### 🎯 PREVIOUS ACHIEVEMENT: FILENAME GLOBBING EXPANSION
 

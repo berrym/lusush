@@ -3927,7 +3927,6 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             default:
                 // Not a recognized escape sequence, keep backslash
                 escape_char = '\\';
-                i++; // Only advance by 1 to process next char normally
                 break;
             }
 
@@ -3946,15 +3945,18 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
                 result[result_pos++] = escape_char;
                 i += 2; // Skip both backslash and next character
             } else {
-                // Invalid escape sequence, include backslash literally
-                if (result_pos >= buffer_size - 1) {
+                // Invalid escape sequence, include backslash and next char
+                // literally
+                if (result_pos >= buffer_size - 2) {
                     buffer_size *= 2;
                     result = realloc(result, buffer_size);
                     if (!result) {
                         return strdup("");
                     }
                 }
-                result[result_pos++] = str[i++];
+                result[result_pos++] = '\\';       // Add backslash
+                result[result_pos++] = str[i + 1]; // Add following character
+                i += 2; // Skip both backslash and next character
             }
         } else {
             // Regular character
