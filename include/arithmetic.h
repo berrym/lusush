@@ -39,6 +39,23 @@
 char *arithm_expand(const char *orig_expr);
 
 /**
+ * arithm_expand_with_executor:
+ *      Evaluate arithmetic expression with executor context for scoped
+ * variables
+ *
+ * @param executor: Executor context for scoped variable resolution
+ * @param orig_expr: Arithmetic expression string (with or without $(( ))
+ * wrapper)
+ * @return: String representation of the result, or NULL on error
+ *
+ * This function is identical to arithm_expand but uses the executor's
+ * symbol table for variable resolution, allowing access to function
+ * parameters like $1, $2, etc.
+ */
+typedef struct executor executor_t;
+char *arithm_expand_with_executor(executor_t *executor, const char *orig_expr);
+
+/**
  * arithm_init:
  *      Initialize the arithmetic expansion module
  *

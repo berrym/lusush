@@ -3307,8 +3307,9 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
         return strdup("0");
     }
 
-    // Use the modern arithmetic evaluator
-    char *result = arithm_expand(arith_text);
+    // Use the modern arithmetic evaluator with executor context for scoped
+    // variables
+    char *result = arithm_expand_with_executor(executor, arith_text);
     if (result) {
         return result;
     }

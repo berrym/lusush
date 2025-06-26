@@ -15,6 +15,7 @@
 
 #include "../include/arithmetic.h"
 
+#include "../include/executor.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
 
@@ -40,6 +41,8 @@ typedef struct {
         ssize_t val;
         char *var_name; // Store variable name instead of pointer
     };
+    void *executor_context; // Store executor context for scoped variable
+                            // resolution
 } stack_item_t;
 
 // Operator associativity
@@ -63,6 +66,7 @@ typedef struct {
     int nnumstack;
     bool errflag;
     char *error_message;
+    void *executor; // Store executor context for scoped variable resolution
 } arithm_context_t;
 
 // Cleanup function for arithmetic context
@@ -367,6 +371,21 @@ static ssize_t long_value(stack_item_t *item) {
         return item->val;
     case ITEM_VAR_PTR: {
         if (item->var_name) {
+            // Use executor context if available for scoped variable resolution
+            if (item->executor_context) {
+                // Use proper executor structure from executor.h
+                executor_t *exec = (executor_t *)item->executor_context;
+
+                if (exec && exec->symtable) {
+                    char *value =
+                        symtable_get_var(exec->symtable, item->var_name);
+                    if (value) {
+                        return atol(value);
+                    }
+                }
+            }
+
+            // Fallback to global manager
             symtable_manager_t *manager = symtable_get_global_manager();
             if (manager) {
                 char *value = symtable_get_var(manager, item->var_name);
@@ -412,7 +431,8 @@ static void push_numstackl(arithm_context_t *ctx, ssize_t val) {
     ctx->nnumstack++;
 }
 
-static void push_numstackv(arithm_context_t *ctx, const char *var_name) {
+static void push_numstackv_with_context(arithm_context_t *ctx,
+                                        const char *var_name) {
     if (ctx->nnumstack >= MAXNUMSTACK) {
         ctx->errflag = true;
         arithm_set_error("number stack overflow");
@@ -420,11 +440,16 @@ static void push_numstackv(arithm_context_t *ctx, const char *var_name) {
     }
     ctx->numstack[ctx->nnumstack].type = ITEM_VAR_PTR;
     ctx->numstack[ctx->nnumstack].var_name = strdup(var_name);
+    ctx->numstack[ctx->nnumstack].executor_context = ctx->executor;
     ctx->nnumstack++;
 }
 
+static void push_numstackv(arithm_context_t *ctx, const char *var_name) {
+    push_numstackv_with_context(ctx, var_name);
+}
+
 static stack_item_t pop_numstack(arithm_context_t *ctx) {
-    stack_item_t empty = {ITEM_LONG_INT, {0}};
+    stack_item_t empty = {ITEM_LONG_INT, {0}, NULL};
     if (ctx->nnumstack <= 0) {
         ctx->errflag = true;
         arithm_set_error("number stack underflow");
@@ -501,19 +526,28 @@ static ssize_t get_num(const char *expr, int *nchars) {
 }
 
 // Get variable name from expression
-static char *get_var_name(const char *expr, int *nchars) {
+static char *get_var_name_with_context(arithm_context_t *ctx
+                                       __attribute__((unused)),
+                                       const char *expr, int *nchars) {
     const char *start = expr;
     *nchars = 0;
 
-    // Variable names start with letter or underscore
-    if (!isalpha(*expr) && *expr != '_') {
+    // Variable names start with letter, underscore, or digit (for positional
+    // parameters)
+    if (!isalpha(*expr) && *expr != '_' && !isdigit(*expr)) {
         return NULL;
     }
 
-    // Count valid name characters
-    while (valid_name_char(*expr)) {
+    // For numeric positional parameters like $1, $2, only take the single digit
+    if (isdigit(*expr)) {
+        *nchars = 1;
         expr++;
-        (*nchars)++;
+    } else {
+        // Count valid name characters for regular variables
+        while (valid_name_char(*expr)) {
+            expr++;
+            (*nchars)++;
+        }
     }
 
     // Extract variable name
@@ -526,13 +560,19 @@ static char *get_var_name(const char *expr, int *nchars) {
     strncpy(name, start, *nchars);
     name[*nchars] = '\0';
 
-    // Ensure variable exists in symbol table with default value "0"
+    // Always ensure variable exists in global symbol table with default value
+    // "0" The actual value resolution will happen during evaluation using
+    // executor context
     symtable_manager_t *manager = symtable_get_global_manager();
     if (manager && !symtable_var_exists(manager, name)) {
         symtable_set_var(manager, name, "0", SYMVAR_NONE);
     }
 
     return name;
+}
+
+static char *get_var_name(const char *expr, int *nchars) {
+    return get_var_name_with_context(NULL, expr, nchars);
 }
 
 // Shunting yard algorithm implementation
@@ -648,13 +688,25 @@ void arithm_clear_error(void) {
 }
 
 // Main arithmetic expansion function
+// Forward declaration for the executor-aware version
+static char *arithm_expand_internal(void *executor, const char *orig_expr);
+
 char *arithm_expand(const char *orig_expr) {
+    return arithm_expand_internal(NULL, orig_expr);
+}
+
+char *arithm_expand_with_executor(executor_t *executor, const char *orig_expr) {
+    return arithm_expand_internal(executor, orig_expr);
+}
+
+static char *arithm_expand_internal(void *executor, const char *orig_expr) {
     if (!orig_expr) {
         return strdup("0");
     }
 
     // Initialize context
     arithm_context_t ctx = {0};
+    ctx.executor = executor; // Store executor context in arithmetic context
     arithm_clear_error();
 
     // Parse expression and remove $(( )) wrapper if present
@@ -818,9 +870,9 @@ char *arithm_expand(const char *orig_expr) {
             // Handle $variable syntax in arithmetic expressions
             current++; // Skip the '$'
             int nchars;
-            char *var_name = get_var_name(current, &nchars);
+            char *var_name = get_var_name_with_context(&ctx, current, &nchars);
             if (var_name) {
-                push_numstackv(&ctx, var_name);
+                push_numstackv_with_context(&ctx, var_name);
                 free(var_name);
             } else {
                 push_numstackl(&ctx, 0); // Undefined variable = 0
@@ -833,9 +885,9 @@ char *arithm_expand(const char *orig_expr) {
         } else if (valid_name_char(*current)) {
             // Parse variable name
             int nchars;
-            char *var_name = get_var_name(current, &nchars);
+            char *var_name = get_var_name_with_context(&ctx, current, &nchars);
             if (var_name) {
-                push_numstackv(&ctx, var_name);
+                push_numstackv_with_context(&ctx, var_name);
                 free(var_name);
             } else {
                 push_numstackl(&ctx, 0); // Undefined variable = 0
