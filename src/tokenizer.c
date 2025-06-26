@@ -626,22 +626,27 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                                      start_pos);
                 }
             } else if (next == '{') {
-                // Parameter expansion ${var}
+                // Parameter expansion ${var} with proper nested brace handling
                 tokenizer->position++;
                 tokenizer->column++;
 
+                int brace_count = 1; // We've seen the opening brace
                 while (tokenizer->position < tokenizer->input_length &&
-                       tokenizer->input[tokenizer->position] != '}') {
-                    if (tokenizer->input[tokenizer->position] == '\n') {
+                       brace_count > 0) {
+                    char curr = tokenizer->input[tokenizer->position];
+
+                    if (curr == '{') {
+                        brace_count++;
+                    } else if (curr == '}') {
+                        brace_count--;
+                    } else if (curr == '\n') {
                         tokenizer->line++;
                         tokenizer->column = 0;
+                        tokenizer->position++;
+                        continue;
                     }
-                    tokenizer->position++;
-                    tokenizer->column++;
-                }
 
-                if (tokenizer->position < tokenizer->input_length) {
-                    tokenizer->position++; // Skip closing }
+                    tokenizer->position++;
                     tokenizer->column++;
                 }
 
