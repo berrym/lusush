@@ -367,7 +367,7 @@ static bool is_operator_char(char c) {
 
 // Check if character can be part of a word
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~:@", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@*?[]", c) != NULL;
 }
 
 // Skip whitespace (except newlines)
@@ -831,11 +831,12 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             return token_new(TOK_MINUS, "-", 1, start_line, start_column,
                              start_pos);
 
-        case '*':
-            tokenizer->position++;
-            tokenizer->column++;
-            return token_new(TOK_MULTIPLY, "*", 1, start_line, start_column,
-                             start_pos);
+            // case '*':
+            //     tokenizer->position++;
+            //     tokenizer->column++;
+            //     return token_new(TOK_MULTIPLY, "*", 1, start_line,
+            //     start_column,
+            //                      start_pos);
 
         case '%':
             tokenizer->position++;
@@ -843,11 +844,12 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             return token_new(TOK_MODULO, "%", 1, start_line, start_column,
                              start_pos);
 
-        case '?':
-            tokenizer->position++;
-            tokenizer->column++;
-            return token_new(TOK_QUESTION, "?", 1, start_line, start_column,
-                             start_pos);
+            // case '?':
+            //     tokenizer->position++;
+            //     tokenizer->column++;
+            //     return token_new(TOK_QUESTION, "?", 1, start_line,
+            //     start_column,
+            //                      start_pos);
 
         case '(':
             tokenizer->position++;
