@@ -2093,6 +2093,18 @@ static int execute_function_call(executor_t *executor,
     node_t *command = func->body;
     while (command) {
         result = execute_node(executor, command);
+
+        // Check if this is a function return (special code 200-255)
+        if (result >= 200 && result <= 255) {
+            // Extract the actual return value from the special code
+            int actual_return = result - 200;
+
+            // Restore previous scope before returning
+            symtable_pop_scope(executor->symtable);
+
+            return actual_return;
+        }
+
         if (result != 0) {
             break; // Stop on first error
         }
