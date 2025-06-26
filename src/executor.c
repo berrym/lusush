@@ -910,30 +910,87 @@ static int execute_for(executor_t *executor, node_t *for_node) {
 
     int last_result = 0;
 
-    // Iterate over word list
+    // Build expanded word list for iteration
+    char **expanded_words = NULL;
+    int word_count = 0;
+
+    // Process each word in the word list, expanding and splitting
     if (word_list && word_list->first_child) {
         node_t *word = word_list->first_child;
         while (word) {
             if (word->val.str) {
-                // Set loop variable in current (loop) scope
-                if (symtable_set_local_var(executor->symtable, var_name,
-                                           word->val.str) != 0) {
-                    set_executor_error(executor, "Failed to set loop variable");
-                    symtable_pop_scope(executor->symtable);
-                    return 1;
-                }
+                // Expand the word (handles variables like $files)
+                char *expanded = expand_if_needed(executor, word->val.str);
+                if (expanded) {
+                    // Get IFS for field splitting (default to
+                    // space/tab/newline)
+                    const char *ifs = symtable_get(executor->symtable, "IFS");
+                    if (!ifs) {
+                        ifs = " \t\n"; // Default IFS
+                    }
 
-                if (executor->debug) {
-                    printf("DEBUG: FOR loop setting %s=%s\n", var_name,
-                           word->val.str);
-                }
+                    // Split the expanded string into individual words
+                    char *expanded_copy = strdup(expanded);
+                    char *token = strtok(expanded_copy, ifs);
 
-                // Execute body
-                last_result = execute_command_chain(executor, body);
+                    while (token) {
+                        // Resize array if needed
+                        expanded_words = realloc(
+                            expanded_words, (word_count + 1) * sizeof(char *));
+                        if (!expanded_words) {
+                            set_executor_error(
+                                executor,
+                                "Memory allocation failed in for loop");
+                            free(expanded);
+                            free(expanded_copy);
+                            symtable_pop_scope(executor->symtable);
+                            return 1;
+                        }
+
+                        expanded_words[word_count] = strdup(token);
+                        word_count++;
+                        token = strtok(NULL, ifs);
+                    }
+
+                    free(expanded_copy);
+                    free(expanded);
+                }
             }
             word = word->next_sibling;
         }
     }
+
+    // Iterate over expanded words
+    for (int i = 0; i < word_count; i++) {
+        if (expanded_words[i]) {
+            // Set loop variable in current (loop) scope
+            if (symtable_set_local_var(executor->symtable, var_name,
+                                       expanded_words[i]) != 0) {
+                set_executor_error(executor, "Failed to set loop variable");
+                // Cleanup expanded words
+                for (int j = 0; j < word_count; j++) {
+                    free(expanded_words[j]);
+                }
+                free(expanded_words);
+                symtable_pop_scope(executor->symtable);
+                return 1;
+            }
+
+            if (executor->debug) {
+                printf("DEBUG: FOR loop setting %s=%s\n", var_name,
+                       expanded_words[i]);
+            }
+
+            // Execute body
+            last_result = execute_command_chain(executor, body);
+        }
+    }
+
+    // Cleanup expanded words
+    for (int i = 0; i < word_count; i++) {
+        free(expanded_words[i]);
+    }
+    free(expanded_words);
 
     // Pop loop scope
     symtable_pop_scope(executor->symtable);
