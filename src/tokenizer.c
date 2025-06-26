@@ -797,6 +797,15 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 tokenizer->column += 2;
                 return token_new(TOK_APPEND, ">>", 2, start_line, start_column,
                                  start_pos);
+            } else if (tokenizer->position + 1 < tokenizer->input_length &&
+                       tokenizer->input[tokenizer->position + 1] == '&' &&
+                       tokenizer->position + 2 < tokenizer->input_length &&
+                       isdigit(tokenizer->input[tokenizer->position + 2])) {
+                // Handle >&N pattern (redirect stdout to file descriptor N)
+                tokenizer->position += 3;
+                tokenizer->column += 3;
+                return token_new(TOK_REDIRECT_FD, &tokenizer->input[start_pos],
+                                 3, start_line, start_column, start_pos);
             } else {
                 tokenizer->position++;
                 tokenizer->column++;
