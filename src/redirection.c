@@ -36,8 +36,9 @@ static int setup_here_document_with_processing(executor_t *executor,
                                                const char *content,
                                                bool strip_tabs,
                                                bool expand_vars);
-static int setup_here_string(const char *content);
-static char *expand_redirection_target(const char *target);
+static int setup_here_string(executor_t *executor, const char *content);
+static char *expand_redirection_target(executor_t *executor,
+                                       const char *target);
 
 // External function from executor_modern.c
 extern char *expand_if_needed(executor_t *executor, const char *text);
@@ -153,7 +154,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     }
 
     // Expand variables in the target
-    char *target = expand_redirection_target(target_node->val.str);
+    char *target = expand_redirection_target(executor, target_node->val.str);
     if (!target) {
         return 1;
     }
@@ -283,7 +284,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
 
     case NODE_REDIR_HERESTRING: {
         // Here string: command <<< string
-        result = setup_here_string(target);
+        result = setup_here_string(executor, target);
         break;
     }
 
@@ -525,13 +526,12 @@ static int setup_here_document_with_processing(executor_t *executor,
 }
 
 // Setup here string redirection
-static int setup_here_string(const char *content) {
+static int setup_here_string(executor_t *executor, const char *content) {
 
     if (getenv("LUSUSH_DEBUG_REDIR")) {
         printf("DEBUG: setup_here_string called with: '%s'\n", content);
     }
 
-    // Create a temporary pipe to provide the string as input
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         perror("pipe");
@@ -539,7 +539,7 @@ static int setup_here_string(const char *content) {
     }
 
     // Expand variables in the content first
-    char *expanded_content = expand_redirection_target(content);
+    char *expanded_content = expand_redirection_target(executor, content);
     if (!expanded_content) {
         close(pipefd[0]);
         close(pipefd[1]);
@@ -574,7 +574,8 @@ static int setup_here_string(const char *content) {
 }
 
 // Expand variables in redirection target
-static char *expand_redirection_target(const char *target) {
+static char *expand_redirection_target(executor_t *executor,
+                                       const char *target) {
     if (!target) {
         return NULL;
     }
@@ -630,9 +631,14 @@ static char *expand_redirection_target(const char *target) {
                         // Get variable value from environment and shell
                         // variables
                         char *var_value = getenv(var_name);
+                        if (!var_value && executor) {
+                            // Try executor scoped variables (including function
+                            // parameters $1, $2, etc.)
+                            var_value =
+                                symtable_get_var(executor->symtable, var_name);
+                        }
                         if (!var_value) {
-                            // Try shell variables (for things like $?, $$,
-                            // etc.)
+                            // Fall back to global variables for compatibility
                             var_value = symtable_get_global(var_name);
                         }
 

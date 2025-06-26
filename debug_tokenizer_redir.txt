@@ -1,0 +1,1 @@
+echo "test" > /tmp/file_$VAR

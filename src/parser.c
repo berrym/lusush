@@ -838,15 +838,60 @@ static node_t *parse_redirection(parser_t *parser) {
 
         return redir_node;
     } else {
-        // Regular redirection - just store the target
+        // Regular redirection - handle token concatenation for variables
+        char *concatenated_target = NULL;
+        size_t total_len = 0;
+        size_t last_end_pos =
+            target_token->position + strlen(target_token->text);
+
+        // Collect all consecutive tokens without whitespace (like
+        // /tmp/file_$VAR)
+        token_t *current_token = target_token;
+        while (current_token && (token_is_word_like(current_token->type) ||
+                                 current_token->type == TOK_VARIABLE ||
+                                 current_token->type == TOK_ARITH_EXP ||
+                                 current_token->type == TOK_COMMAND_SUB ||
+                                 current_token->type == TOK_BACKQUOTE)) {
+
+            size_t token_len = strlen(current_token->text);
+            char *new_target =
+                realloc(concatenated_target, total_len + token_len + 1);
+            if (!new_target) {
+                free(concatenated_target);
+                free_node_tree(redir_node);
+                return NULL;
+            }
+            concatenated_target = new_target;
+
+            strcpy(concatenated_target + total_len, current_token->text);
+            total_len += token_len;
+            last_end_pos = current_token->position + token_len;
+
+            tokenizer_advance(parser->tokenizer);
+            current_token = tokenizer_current(parser->tokenizer);
+
+            // Check if the next token is adjacent (no whitespace between)
+            if (current_token && current_token->position != last_end_pos) {
+                break; // There's whitespace between tokens
+            }
+        }
+
+        if (concatenated_target) {
+            concatenated_target[total_len] = '\0';
+        } else {
+            // Fallback to single token
+            concatenated_target = strdup(target_token->text);
+            tokenizer_advance(parser->tokenizer);
+        }
+
         node_t *target_node = new_node(NODE_VAR);
         if (!target_node) {
+            free(concatenated_target);
             free_node_tree(redir_node);
             return NULL;
         }
-        target_node->val.str = strdup(target_token->text);
+        target_node->val.str = concatenated_target;
         add_child_node(redir_node, target_node);
-        tokenizer_advance(parser->tokenizer);
 
         return redir_node;
     }
