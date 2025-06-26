@@ -43,6 +43,7 @@ builtin builtins[] = {
     {"setprompt",           "set prompt attributes", bin_setprompt},
     {    "clear",                "clear the screen",     bin_clear},
     {   "setopt",              "set a shell option",    bin_setopt},
+    {     "type",            "display command type",      bin_type},
     {    "unset",          "unset a shell variable",     bin_unset},
     {     "dump",               "dump symbol table",      bin_dump},
     {     "echo",             "echo text to stdout",      bin_echo},
@@ -131,23 +132,68 @@ int bin_help(int argc __attribute__((unused)),
  */
 int bin_cd(int argc __attribute__((unused)),
            char **argv __attribute__((unused))) {
+    static char *previous_dir = NULL;
+    char *current_dir = NULL;
+    char *target_dir = NULL;
+
+    // Get current directory before changing
+    current_dir = getcwd(NULL, 0);
+    if (!current_dir && errno != ENOENT) {
+        error_return("cd: getcwd");
+        return 1;
+    }
+
     if (argc == 1) {
-        if (chdir(getenv("HOME")) != 0) {
-            error_return("cd");
+        // cd with no arguments - go to HOME
+        target_dir = getenv("HOME");
+        if (!target_dir) {
+            error_message("cd: HOME not set");
+            free(current_dir);
             return 1;
         }
-
-        return 0;
-    }
-
-    if (argc != 2) {
-        error_message("usage: cd pathname");
+    } else if (argc == 2) {
+        if (strcmp(argv[1], "-") == 0) {
+            // cd - : go to previous directory
+            if (!previous_dir) {
+                error_message("cd: OLDPWD not set");
+                free(current_dir);
+                return 1;
+            }
+            target_dir = previous_dir;
+            // Print the directory we're changing to (standard behavior)
+            printf("%s\n", target_dir);
+        } else {
+            target_dir = argv[1];
+        }
+    } else {
+        error_message("usage: cd [pathname | -]");
+        free(current_dir);
         return 1;
     }
 
-    if (chdir(argv[1]) < 0) {
+    // Attempt to change directory
+    if (chdir(target_dir) < 0) {
         error_return("cd");
+        free(current_dir);
         return 1;
+    }
+
+    // Update previous directory
+    if (previous_dir) {
+        free(previous_dir);
+    }
+    previous_dir = current_dir;
+
+    // Set OLDPWD environment variable for compatibility
+    if (previous_dir) {
+        setenv("OLDPWD", previous_dir, 1);
+    }
+
+    // Set PWD environment variable
+    char *new_dir = getcwd(NULL, 0);
+    if (new_dir) {
+        setenv("PWD", new_dir, 1);
+        free(new_dir);
     }
 
     return 0;
@@ -345,6 +391,75 @@ int bin_unset(int argc __attribute__((unused)),
     // Use legacy API function for unsetting variables
     symtable_unset_global(argv[1]);
     return 0;
+}
+
+/**
+ * bin_type:
+ *      Display the type of a command (builtin, function, file, alias, etc.)
+ */
+int bin_type(int argc, char **argv) {
+    if (argc < 2) {
+        error_message("usage: type name [name ...]");
+        return 1;
+    }
+
+    int result = 0;
+    for (int i = 1; i < argc; i++) {
+        const char *name = argv[i];
+
+        // Check if it's a builtin command
+        if (is_builtin(name)) {
+            printf("%s is a shell builtin\n", name);
+            continue;
+        }
+
+        // Check if it's an alias
+        char *alias_value = symtable_get_global("alias");
+        if (alias_value) {
+            // Simple alias check - in a full implementation this would parse
+            // the aliases
+            printf("%s is aliased\n", name);
+            continue;
+        }
+
+        // Check if it's a function (stored in symbol table)
+        char *func_value = symtable_get_global(name);
+        if (func_value && strstr(func_value, "function")) {
+            printf("%s is a function\n", name);
+            continue;
+        }
+
+        // Check if it's an executable file in PATH
+        char *path_env = getenv("PATH");
+        if (path_env) {
+            char *path_copy = strdup(path_env);
+            char *dir = strtok(path_copy, ":");
+            bool found = false;
+
+            while (dir != NULL) {
+                char full_path[1024];
+                snprintf(full_path, sizeof(full_path), "%s/%s", dir, name);
+
+                if (access(full_path, X_OK) == 0) {
+                    printf("%s is %s\n", name, full_path);
+                    found = true;
+                    break;
+                }
+                dir = strtok(NULL, ":");
+            }
+
+            free(path_copy);
+            if (found) {
+                continue;
+            }
+        }
+
+        // Not found
+        printf("%s: not found\n", name);
+        result = 1;
+    }
+
+    return result;
 }
 
 /**
