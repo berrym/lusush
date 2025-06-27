@@ -699,11 +699,11 @@ test_builtin_commands() {
         "hello world"
 
     run_test "pwd command" \
-        'cd /tmp >/dev/null 2>&1; pwd | grep -q "/tmp" && echo "correct"' \
+        'cd /tmp 2>/dev/null; pwd | grep -q "/tmp" && echo "correct"' \
         "correct"
 
     run_test "cd command" \
-        'cd /tmp >/dev/null 2>&1; pwd | grep -q "/tmp" && echo "success"' \
+        'cd /tmp 2>/dev/null; pwd | grep -q "/tmp" && echo "success"' \
         "success"
 
     print_section "Variable Built-ins"
