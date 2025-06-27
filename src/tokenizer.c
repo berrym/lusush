@@ -369,7 +369,7 @@ static bool is_operator_char(char c) {
 
 // Check if character can be part of a word
 static bool is_word_char(char c) {
-    return isalnum(c) || strchr("_.-/~:@*?[]", c) != NULL;
+    return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
 }
 
 // Skip whitespace (except newlines)
@@ -833,10 +833,9 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             break;
 
         case '+':
-            tokenizer->position++;
-            tokenizer->column++;
-            return token_new(TOK_PLUS, "+", 1, start_line, start_column,
-                             start_pos);
+            // Let + be handled as part of words (e.g., date +%Y)
+            // Fall through to word tokenization
+            break;
 
         case '-':
             tokenizer->position++;
@@ -852,10 +851,9 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             //                      start_pos);
 
         case '%':
-            tokenizer->position++;
-            tokenizer->column++;
-            return token_new(TOK_MODULO, "%", 1, start_line, start_column,
-                             start_pos);
+            // Let % be handled as part of words (e.g., +%Y format specifiers)
+            // Fall through to word tokenization
+            break;
 
             // case '?':
             //     tokenizer->position++;
