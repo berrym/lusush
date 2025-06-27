@@ -40,6 +40,7 @@ typedef enum {
     TOK_APPEND_ERR,    // 2>>
     TOK_REDIRECT_FD,   // &1, &2, etc.
     TOK_ASSIGN,        // =
+    TOK_NOT_EQUAL,     // !=
     TOK_PLUS,          // +
     TOK_MINUS,         // -
     TOK_MULTIPLY,      // *

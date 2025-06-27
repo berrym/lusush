@@ -549,7 +549,8 @@ static node_t *parse_simple_command(parser_t *parser) {
                  arg_token->type == TOK_VARIABLE ||
                  arg_token->type == TOK_RBRACKET ||
                  arg_token->type == TOK_ASSIGN || arg_token->type == TOK_GLOB ||
-                 arg_token->type == TOK_QUESTION) {
+                 arg_token->type == TOK_QUESTION ||
+                 arg_token->type == TOK_NOT_EQUAL) {
 
             // Check for consecutive tokens that should be concatenated
             char *concatenated_arg = NULL;
@@ -563,7 +564,8 @@ static node_t *parse_simple_command(parser_t *parser) {
                                  arg_token->type == TOK_RBRACKET ||
                                  arg_token->type == TOK_ASSIGN ||
                                  arg_token->type == TOK_GLOB ||
-                                 arg_token->type == TOK_QUESTION)) {
+                                 arg_token->type == TOK_QUESTION ||
+                                 arg_token->type == TOK_NOT_EQUAL)) {
 
                 size_t token_len = strlen(arg_token->text);
                 char *new_arg =

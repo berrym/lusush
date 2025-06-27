@@ -173,6 +173,8 @@ const char *token_type_name(token_type_t type) {
         return "REDIRECT_FD";
     case TOK_ASSIGN:
         return "ASSIGN";
+    case TOK_NOT_EQUAL:
+        return "NOT_EQUAL";
     case TOK_PLUS:
         return "PLUS";
     case TOK_MINUS:
@@ -818,6 +820,17 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
             tokenizer->column++;
             return token_new(TOK_ASSIGN, "=", 1, start_line, start_column,
                              start_pos);
+
+        case '!':
+            if (tokenizer->position + 1 < tokenizer->input_length &&
+                tokenizer->input[tokenizer->position + 1] == '=') {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_NOT_EQUAL, "!=", 2, start_line,
+                                 start_column, start_pos);
+            }
+            // Just a plain ! - treat as word character for now
+            break;
 
         case '+':
             tokenizer->position++;
