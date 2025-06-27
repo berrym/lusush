@@ -1474,15 +1474,16 @@ static node_t *parse_case_statement(parser_t *parser) {
 
                 token_t *pattern_token = tokenizer_current(parser->tokenizer);
 
-                // Accept word-like tokens, wildcards, brackets, and variables
-                // for patterns
+                // Accept word-like tokens, wildcards, brackets, variables, and
+                // equals for patterns (equals needed for patterns like HOME=*)
                 if (token_is_word_like(pattern_token->type) ||
                     pattern_token->type == TOK_MULTIPLY ||
                     pattern_token->type == TOK_QUESTION ||
                     pattern_token->type == TOK_GLOB ||
                     pattern_token->type == TOK_LBRACKET ||
                     pattern_token->type == TOK_RBRACKET ||
-                    pattern_token->type == TOK_VARIABLE) {
+                    pattern_token->type == TOK_VARIABLE ||
+                    pattern_token->type == TOK_ASSIGN) {
 
                     size_t token_len = strlen(pattern_token->text);
                     char *new_single_pattern = realloc(
