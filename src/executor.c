@@ -20,6 +20,7 @@
 #include "../include/symtable.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
 #include <pwd.h>
@@ -1457,10 +1458,17 @@ static int execute_external_command_with_redirection(executor_t *executor,
         }
 
         execvp(argv[0], argv);
+        // Check errno to determine appropriate exit code
+        int exit_code = 127; // Default: command not found
+        if (errno == EACCES) {
+            exit_code = 126; // Permission denied
+        } else if (errno == ENOENT) {
+            exit_code = 127; // Command not found
+        }
         if (!redirect_stderr) {
             perror(argv[0]);
         }
-        exit(127);
+        exit(exit_code);
     } else {
         // Parent process
         int status;
@@ -1796,10 +1804,17 @@ static int execute_external_command_with_setup(executor_t *executor,
         }
 
         execvp(argv[0], argv);
+        // Check errno to determine appropriate exit code
+        int exit_code = 127; // Default: command not found
+        if (errno == EACCES) {
+            exit_code = 126; // Permission denied
+        } else if (errno == ENOENT) {
+            exit_code = 127; // Command not found
+        }
         if (!redirect_stderr) {
             perror(argv[0]);
         }
-        exit(127);
+        exit(exit_code);
     } else {
         // Parent process
         int status;
