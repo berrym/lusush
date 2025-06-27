@@ -2618,8 +2618,64 @@ static char *expand_variables_in_string(executor_t *executor, const char *str) {
 
     for (size_t i = 0; i < len; i++) {
         if (str[i] == '$') {
+            // Check for arithmetic expansion $((...)
+            if (i + 2 < len && str[i + 1] == '(' && str[i + 2] == '(') {
+                // This is arithmetic expansion $((expr))
+                size_t arith_start = i;
+                size_t arith_end = i + 3;
+                int paren_depth = 2;
+
+                while (arith_end < len && paren_depth > 0) {
+                    if (str[arith_end] == '(') {
+                        paren_depth++;
+                    } else if (str[arith_end] == ')') {
+                        paren_depth--;
+                    }
+                    arith_end++;
+                }
+
+                if (paren_depth == 0) {
+                    // Extract arithmetic expression including $(( and ))
+                    size_t full_arith_len = arith_end - arith_start;
+                    char *full_arith_expr = malloc(full_arith_len + 1);
+                    if (full_arith_expr) {
+                        strncpy(full_arith_expr, &str[arith_start],
+                                full_arith_len);
+                        full_arith_expr[full_arith_len] = '\0';
+
+                        // Expand arithmetic expression
+                        char *arith_result =
+                            expand_arithmetic(executor, full_arith_expr);
+                        if (arith_result) {
+                            size_t result_len = strlen(arith_result);
+
+                            // Ensure buffer is large enough
+                            while (result_pos + result_len >= result_size) {
+                                result_size *= 2;
+                                char *new_result = realloc(result, result_size);
+                                if (!new_result) {
+                                    free(result);
+                                    free(arith_result);
+                                    free(full_arith_expr);
+                                    return strdup("");
+                                }
+                                result = new_result;
+                            }
+
+                            // Copy arithmetic result
+                            strcpy(&result[result_pos], arith_result);
+                            result_pos += result_len;
+                            free(arith_result);
+                        }
+                        free(full_arith_expr);
+                    }
+
+                    i = arith_end - 1; // Skip past the entire $((...)
+                    continue;
+                }
+            }
             // Check for command substitution $(...)
-            if (i + 1 < len && str[i + 1] == '(') {
+            else if (i + 1 < len && str[i + 1] == '(') {
                 // Find matching closing parenthesis using find_closing_brace
                 char *temp_str =
                     (char *)&str[i + 1]; // Start from the opening parenthesis
