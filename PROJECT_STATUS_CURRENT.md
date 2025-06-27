@@ -10,6 +10,8 @@
 Lusush has achieved **exceptional production-ready status** with 97%+ overall compliance and dramatically improved test success rate. The shell demonstrates robust functionality across all major categories with **11 perfect categories at 100% completion**. Recent critical fixes have elevated the shell to production excellence, suitable for deployment in professional environments.
 
 **LATEST ACHIEVEMENTS**: 
+- **CRITICAL TOKENIZATION FIX** - Fixed command arguments with + and % characters (date +%Y now works)
+- **COMMAND SUBSTITUTION IMPROVEMENT** - $(date +%Y) and format specifiers now parse correctly
 - **CRITICAL PRINTF BUILTIN IMPLEMENTATION** - Added comprehensive printf builtin with format specifier support
 - **PERFORMANCE STRESS CATEGORY IMPROVEMENT** - Advanced from 5/8 to 7/8 tests passing
 - **PRINTF FORMAT SPECIFICATION FIX** - Fixed %0100s and other extended format specifiers
@@ -154,13 +156,14 @@ Lusush has achieved **exceptional production-ready status** with 97%+ overall co
 
 ### MAJOR IMPROVEMENTS COMPLETED THIS SESSION
 
-#### ✅ PRINTF BUILTIN IMPLEMENTATION - COMPLETED
+#### ✅ TOKENIZATION AND PRINTF FIXES - COMPLETED
+- **FIXED: Command argument tokenization** - Enhanced tokenizer to handle + and % in arguments
 - **FIXED: Long string processing** - Added comprehensive printf builtin with format specifier support
-- **Root Cause Resolved**: External printf command didn't support %0100s format specifications
-- **Technical Solution**: Implemented full printf builtin with width specifiers, precision, flags
+- **Root Cause Resolved**: + and % were treated as operators instead of word characters in date +%Y
+- **Technical Solution**: Modified is_word_char() to include +% characters, implemented printf builtin
 - **Impact**: Performance Stress category improved from 5/8 to 7/8 tests passing
-- **Files Modified**: src/builtins/builtins.c, include/builtins.h
-- **Verification**: printf "%0100s" | wc -c now correctly outputs 100
+- **Files Modified**: src/tokenizer.c, src/builtins/builtins.c, include/builtins.h
+- **Verification**: date +%Y works, $(date +%Y) works, printf "%0100s" | wc -c outputs 100
 
 #### ✅ CASE PATTERN PARSING - COMPLETED (Previous Session)
 - **FIXED: Environment variable processing** - Fixed `HOME=*` pattern parsing
@@ -176,12 +179,13 @@ Lusush has achieved **exceptional production-ready status** with 97%+ overall co
 
 ### Remaining High-Impact Fix Available
 
-#### 1. Command Substitution Formatting (1 test)
-- **Multiple command substitutions**: Output spacing in complex concatenations
-- **Root Cause**: Command substitution results adding extra spaces around operators
-- **Example**: `echo $(date +%Y)-$(echo test)-$(echo end)` produces ` - test - end` instead of `2025-test-end`
+#### 1. Command Substitution Concatenation Spacing (1 test)
+- **Multiple command substitutions**: Unquoted concatenation adds extra spaces
+- **Root Cause**: Adjacent command substitutions and literals treated as separate arguments
+- **Example**: `echo $(date +%Y)-$(echo test)-$(echo end)` produces `2025 - test - end` instead of `2025-test-end`
+- **Workaround Available**: Quoted version works: `echo "$(date +%Y)-$(echo test)-$(echo end)"` → `2025-test-end`
 - **Impact**: Performance Stress category (final test for 100% completion)
-- **Approach**: Command substitution result formatting refinement
+- **Approach**: Parser enhancement for adjacent token concatenation without quotes
 
 ## Architecture Excellence
 
@@ -197,8 +201,8 @@ src/
 ├── lusush.c         # Main shell loop and initialization
 ├── parser.c         # Recursive descent parser with enhanced pattern support
 ├── executor.c       # Command execution engine with proper error codes
-├── tokenizer.c      # Lexical analysis with != operator support
-├── builtins/        # Built-in commands with POSIX EOF handling
+├── tokenizer.c      # Enhanced lexical analysis with +/% word character support
+├── builtins/        # Built-in commands with printf and POSIX EOF handling
 ├── arithmetic.c     # Mathematical evaluation engine
 └── symtable.c       # Variable management and scoping
 ```

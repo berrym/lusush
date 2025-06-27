@@ -497,54 +497,13 @@ static node_t *parse_simple_command(parser_t *parser) {
 
             add_child_node(command, redir_node);
         }
-        // Handle string literals (single quotes) - no expansion
-        else if (arg_token->type == TOK_STRING) {
-            node_t *arg_node = new_node(NODE_STRING_LITERAL);
-            if (!arg_node) {
-                free_node_tree(command);
-                return NULL;
-            }
-            arg_node->val.str = strdup(arg_token->text);
-            add_child_node(command, arg_node);
-            tokenizer_advance(parser->tokenizer);
-        }
-        // Handle expandable strings (double quotes) - variable expansion
-        else if (arg_token->type == TOK_EXPANDABLE_STRING) {
-            node_t *arg_node = new_node(NODE_STRING_EXPANDABLE);
-            if (!arg_node) {
-                free_node_tree(command);
-                return NULL;
-            }
-            arg_node->val.str = strdup(arg_token->text);
-            add_child_node(command, arg_node);
-            tokenizer_advance(parser->tokenizer);
-        }
-        // Handle arithmetic expansion
-        else if (arg_token->type == TOK_ARITH_EXP) {
-            node_t *arg_node = new_node(NODE_ARITH_EXP);
-            if (!arg_node) {
-                free_node_tree(command);
-                return NULL;
-            }
-            arg_node->val.str = strdup(arg_token->text);
-            add_child_node(command, arg_node);
-            tokenizer_advance(parser->tokenizer);
-        }
-        // Handle command substitution
-        else if (arg_token->type == TOK_COMMAND_SUB ||
-                 arg_token->type == TOK_BACKQUOTE) {
-            node_t *arg_node = new_node(NODE_COMMAND_SUB);
-            if (!arg_node) {
-                free_node_tree(command);
-                return NULL;
-            }
-            arg_node->val.str = strdup(arg_token->text);
-            add_child_node(command, arg_node);
-            tokenizer_advance(parser->tokenizer);
-        }
-        // Handle regular arguments (including keywords that should be treated
-        // as words)
-        else if (token_is_word_like(arg_token->type) ||
+        // Handle all argument tokens with unified concatenation logic
+        else if (arg_token->type == TOK_STRING ||
+                 arg_token->type == TOK_EXPANDABLE_STRING ||
+                 arg_token->type == TOK_ARITH_EXP ||
+                 arg_token->type == TOK_COMMAND_SUB ||
+                 arg_token->type == TOK_BACKQUOTE ||
+                 token_is_word_like(arg_token->type) ||
                  token_is_keyword(arg_token->type) ||
                  arg_token->type == TOK_VARIABLE ||
                  arg_token->type == TOK_RBRACKET ||
@@ -553,12 +512,22 @@ static node_t *parse_simple_command(parser_t *parser) {
                  arg_token->type == TOK_NOT_EQUAL) {
 
             // Check for consecutive tokens that should be concatenated
-            char *concatenated_arg = NULL;
-            size_t total_len = 0;
+            typedef struct {
+                token_type_t type;
+                char *text;
+            } token_info_t;
+
+            token_info_t *collected_tokens = NULL;
+            int token_count = 0;
             size_t last_end_pos = arg_token->position + strlen(arg_token->text);
 
             // Collect all consecutive tokens without whitespace
-            while (arg_token && (token_is_word_like(arg_token->type) ||
+            while (arg_token && (arg_token->type == TOK_STRING ||
+                                 arg_token->type == TOK_EXPANDABLE_STRING ||
+                                 arg_token->type == TOK_ARITH_EXP ||
+                                 arg_token->type == TOK_COMMAND_SUB ||
+                                 arg_token->type == TOK_BACKQUOTE ||
+                                 token_is_word_like(arg_token->type) ||
                                  token_is_keyword(arg_token->type) ||
                                  arg_token->type == TOK_VARIABLE ||
                                  arg_token->type == TOK_RBRACKET ||
@@ -567,20 +536,25 @@ static node_t *parse_simple_command(parser_t *parser) {
                                  arg_token->type == TOK_QUESTION ||
                                  arg_token->type == TOK_NOT_EQUAL)) {
 
-                size_t token_len = strlen(arg_token->text);
-                char *new_arg =
-                    realloc(concatenated_arg, total_len + token_len + 1);
-                if (!new_arg) {
-                    free(concatenated_arg);
+                // Expand collected_tokens array
+                token_info_t *new_tokens = realloc(
+                    collected_tokens, (token_count + 1) * sizeof(token_info_t));
+                if (!new_tokens) {
+                    for (int i = 0; i < token_count; i++) {
+                        free(collected_tokens[i].text);
+                    }
+                    free(collected_tokens);
                     free_node_tree(command);
                     return NULL;
                 }
-                concatenated_arg = new_arg;
+                collected_tokens = new_tokens;
 
-                strcpy(concatenated_arg + total_len, arg_token->text);
-                total_len += token_len;
-                last_end_pos = arg_token->position + token_len;
+                // Store token information
+                collected_tokens[token_count].type = arg_token->type;
+                collected_tokens[token_count].text = strdup(arg_token->text);
+                token_count++;
 
+                last_end_pos = arg_token->position + strlen(arg_token->text);
                 tokenizer_advance(parser->tokenizer);
                 token_t *next_token = tokenizer_current(parser->tokenizer);
 
@@ -592,18 +566,62 @@ static node_t *parse_simple_command(parser_t *parser) {
                 arg_token = next_token;
             }
 
-            if (concatenated_arg) {
-                concatenated_arg[total_len] = '\0';
-
-                node_t *arg_node = new_node(NODE_VAR);
-                if (!arg_node) {
-                    free(concatenated_arg);
-                    free_node_tree(command);
-                    return NULL;
+            // Create nodes based on what we collected
+            if (token_count == 1) {
+                // Single token - create appropriate node type
+                node_t *arg_node = NULL;
+                switch (collected_tokens[0].type) {
+                case TOK_STRING:
+                    arg_node = new_node(NODE_STRING_LITERAL);
+                    break;
+                case TOK_EXPANDABLE_STRING:
+                    arg_node = new_node(NODE_STRING_EXPANDABLE);
+                    break;
+                case TOK_ARITH_EXP:
+                    arg_node = new_node(NODE_ARITH_EXP);
+                    break;
+                case TOK_COMMAND_SUB:
+                case TOK_BACKQUOTE:
+                    arg_node = new_node(NODE_COMMAND_SUB);
+                    break;
+                default:
+                    arg_node = new_node(NODE_VAR);
+                    break;
                 }
-                arg_node->val.str = concatenated_arg;
-                add_child_node(command, arg_node);
+
+                if (arg_node) {
+                    arg_node->val.str = strdup(collected_tokens[0].text);
+                    add_child_node(command, arg_node);
+                }
+            } else if (token_count > 1) {
+                // Multiple tokens - create concatenated string
+                size_t total_len = 0;
+                for (int i = 0; i < token_count; i++) {
+                    total_len += strlen(collected_tokens[i].text);
+                }
+
+                char *concatenated = malloc(total_len + 1);
+                if (concatenated) {
+                    concatenated[0] = '\0';
+                    for (int i = 0; i < token_count; i++) {
+                        strcat(concatenated, collected_tokens[i].text);
+                    }
+
+                    node_t *arg_node = new_node(NODE_STRING_EXPANDABLE);
+                    if (arg_node) {
+                        arg_node->val.str = concatenated;
+                        add_child_node(command, arg_node);
+                    } else {
+                        free(concatenated);
+                    }
+                }
             }
+
+            // Clean up collected tokens
+            for (int i = 0; i < token_count; i++) {
+                free(collected_tokens[i].text);
+            }
+            free(collected_tokens);
         } else {
             break; // Stop parsing arguments
         }
