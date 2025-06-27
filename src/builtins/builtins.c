@@ -882,12 +882,15 @@ int bin_read(int argc, char **argv) {
 
     if (read == -1) {
         if (feof(stdin)) {
-            error_message("read: end of file reached");
+            // POSIX compliance: read should return non-zero on EOF without
+            // output
+            free(line);
+            return 1;
         } else {
             error_message("read: input error");
+            free(line);
+            return 1;
         }
-        free(line);
-        return 1;
     }
 
     // Remove newline

@@ -4,7 +4,7 @@
 [0;36m===============================================================================[0m
 
 [0;36mTesting shell: [1;37m./builddir/lusush[0m
-[0;36mStarted at: [1;37mFri Jun 27 01:07:08 PM EDT 2025[0m
+[0;36mStarted at: [1;37mFri Jun 27 01:34:50 PM EDT 2025[0m
 
 
 [0;34m▓▓▓ CATEGORY: BASIC COMMAND EXECUTION ▓▓▓[0m
@@ -157,8 +157,20 @@
   [0;32m✓[0m Redirect stderr to /dev/null
   [0;32m✓[0m Redirect both stdout and stderr
 [1;33m=== Input Redirection ===[0m
-  [0;31m✗[0m Redirect stdin from /dev/null
-    [0;31mExpected: 'read complete'
-Actual: 'read: end of file reached
-read complete'
-Exit Code: 0[0m
+  [0;32m✓[0m Redirect stdin from /dev/null
+[1;33m=== Pipes ===[0m
+  [0;32m✓[0m Simple pipe
+  [0;32m✓[0m Multi-stage pipe
+[1;33m=== Here Documents ===[0m
+  [0;32m✓[0m Simple here document
+  [0;36mCategory Score: 100% (8/8 tests)[0m
+
+
+[0;34m▓▓▓ CATEGORY: BUILT-IN COMMANDS ▓▓▓[0m
+
+[1;33m=== Essential Built-ins ===[0m
+  [0;32m✓[0m echo command
+  [0;31m✗[0m pwd command
+    [0;31mExpected: 'correct'
+Actual: ''
+Exit Code: 1[0m
