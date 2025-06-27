@@ -47,6 +47,7 @@ builtin builtins[] = {
     {    "unset",          "unset a shell variable",     bin_unset},
     {     "dump",               "dump symbol table",      bin_dump},
     {     "echo",             "echo text to stdout",      bin_echo},
+    {   "printf",                "formatted output",    bin_printf},
     {   "export",          "export shell variables",    bin_export},
     {   "source",                 "source a script",    bin_source},
     {        ".",                 "source a script",    bin_source},
@@ -588,6 +589,257 @@ int bin_echo(int argc, char **argv) {
 
     if (!no_newline) {
         printf("\n");
+    }
+
+    return 0;
+}
+
+/**
+ * bin_printf:
+ *      Printf builtin with POSIX format specifier support.
+ *      Handles width specifiers like %0100s for compatibility.
+ */
+int bin_printf(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "printf: usage: printf format [arguments ...]\n");
+        return 1;
+    }
+
+    const char *format = argv[1];
+    int arg_index = 2;
+
+    for (int i = 0; format[i] != '\0'; i++) {
+        if (format[i] == '%' && format[i + 1] != '\0') {
+            i++; // Skip the %
+
+            // Handle literal %
+            if (format[i] == '%') {
+                putchar('%');
+                continue;
+            }
+
+            // Parse flags, width, precision
+            int width = 0;
+            int precision = -1;
+            bool zero_pad = false;
+            bool left_align = false;
+
+            // Parse flags
+            while (format[i] == '-' || format[i] == '+' || format[i] == ' ' ||
+                   format[i] == '#' || format[i] == '0') {
+                if (format[i] == '0') {
+                    zero_pad = true;
+                }
+                if (format[i] == '-') {
+                    left_align = true;
+                }
+                i++;
+            }
+
+            // Parse width
+            if (isdigit(format[i])) {
+                while (isdigit(format[i])) {
+                    width = width * 10 + (format[i] - '0');
+                    i++;
+                }
+            }
+
+            // Parse precision
+            if (format[i] == '.') {
+                i++;
+                precision = 0;
+                while (isdigit(format[i])) {
+                    precision = precision * 10 + (format[i] - '0');
+                    i++;
+                }
+            }
+
+            // Handle conversion specifier
+            char specifier = format[i];
+            const char *arg = (arg_index < argc) ? argv[arg_index] : "";
+
+            switch (specifier) {
+            case 's': {
+                // String format
+                int len = strlen(arg);
+                int padding = (width > len) ? width - len : 0;
+
+                if (!left_align && padding > 0) {
+                    // Right-align with padding
+                    char pad_char = zero_pad ? '0' : ' ';
+                    for (int p = 0; p < padding; p++) {
+                        putchar(pad_char);
+                    }
+                }
+
+                // Print the string (truncated if precision specified)
+                if (precision >= 0 && precision < len) {
+                    for (int j = 0; j < precision; j++) {
+                        putchar(arg[j]);
+                    }
+                } else {
+                    fputs(arg, stdout);
+                }
+
+                if (left_align && padding > 0) {
+                    // Left-align with padding
+                    for (int p = 0; p < padding; p++) {
+                        putchar(' ');
+                    }
+                }
+
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'd':
+            case 'i': {
+                // Integer format
+                int value = (arg_index < argc) ? atoi(arg) : 0;
+                printf("%*d", width, value);
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'c': {
+                // Character format
+                int value = (arg_index < argc && strlen(arg) > 0) ? arg[0] : 0;
+                putchar(value);
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'x':
+            case 'X': {
+                // Hexadecimal format
+                unsigned int value = (arg_index < argc)
+                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         : 0;
+                printf(specifier == 'x' ? "%*x" : "%*X", width, value);
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'o': {
+                // Octal format
+                unsigned int value = (arg_index < argc)
+                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         : 0;
+                printf("%*o", width, value);
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'u': {
+                // Unsigned integer format
+                unsigned int value = (arg_index < argc)
+                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         : 0;
+                printf("%*u", width, value);
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'f':
+            case 'F': {
+                // Float format
+                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                if (precision >= 0) {
+                    printf("%*.*f", width, precision, value);
+                } else {
+                    printf("%*f", width, value);
+                }
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'g':
+            case 'G': {
+                // General float format
+                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                if (precision >= 0) {
+                    printf(specifier == 'g' ? "%*.*g" : "%*.*G", width,
+                           precision, value);
+                } else {
+                    printf(specifier == 'g' ? "%*g" : "%*G", width, value);
+                }
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            case 'e':
+            case 'E': {
+                // Scientific notation
+                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                if (precision >= 0) {
+                    printf(specifier == 'e' ? "%*.*e" : "%*.*E", width,
+                           precision, value);
+                } else {
+                    printf(specifier == 'e' ? "%*e" : "%*E", width, value);
+                }
+                if (arg_index < argc) {
+                    arg_index++;
+                }
+                break;
+            }
+            default:
+                // Unknown specifier - just print as is
+                putchar('%');
+                putchar(specifier);
+                break;
+            }
+        } else if (format[i] == '\\' && format[i + 1] != '\0') {
+            // Handle escaped characters
+            i++;
+            switch (format[i]) {
+            case 'n':
+                putchar('\n');
+                break;
+            case 't':
+                putchar('\t');
+                break;
+            case 'r':
+                putchar('\r');
+                break;
+            case 'b':
+                putchar('\b');
+                break;
+            case 'f':
+                putchar('\f');
+                break;
+            case 'a':
+                putchar('\a');
+                break;
+            case 'v':
+                putchar('\v');
+                break;
+            case '\\':
+                putchar('\\');
+                break;
+            case '"':
+                putchar('"');
+                break;
+            case '\'':
+                putchar('\'');
+                break;
+            default:
+                // Unknown escape - print as literal
+                putchar('\\');
+                putchar(format[i]);
+                break;
+            }
+        } else {
+            // Regular character
+            putchar(format[i]);
+        }
     }
 
     return 0;
