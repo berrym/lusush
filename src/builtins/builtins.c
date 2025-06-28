@@ -5,6 +5,7 @@
 #include "../../include/errors.h"
 #include "../../include/executor.h"
 #include "../../include/history.h"
+#include "../../include/libhashtable/ht.h"
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
 #include "../../include/prompt.h"
@@ -12,10 +13,12 @@
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
 
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 // Forward declarations for job control builtins
@@ -25,6 +28,7 @@ int bin_bg(int argc, char **argv);
 int bin_colon(int argc, char **argv);
 int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
+int bin_hash(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -33,6 +37,9 @@ int bin_config(int argc, char **argv);
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+// Hash table for remembered command paths
+ht_strstr_t *command_hash = NULL;
 
 // Table of builtin commands
 builtin builtins[] = {
@@ -79,6 +86,7 @@ builtin builtins[] = {
     {        ":",            "null command (no-op)",     bin_colon},
     { "readonly",      "create read-only variables",  bin_readonly},
     {   "config",      "manage shell configuration",    bin_config},
+    {     "hash",      "remember utility locations",      bin_hash},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -2494,5 +2502,150 @@ int bin_readonly(int argc, char **argv) {
  */
 int bin_config(int argc, char **argv) {
     builtin_config(argc, argv);
+    return 0;
+}
+
+/**
+ * init_command_hash:
+ *      Initialize the command hash table for remembering utility locations
+ */
+void init_command_hash(void) {
+    if (command_hash == NULL) {
+        command_hash = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
+    }
+}
+
+/**
+ * free_command_hash:
+ *      Free the command hash table
+ */
+void free_command_hash(void) {
+    if (command_hash != NULL) {
+        ht_strstr_destroy(command_hash);
+        command_hash = NULL;
+    }
+}
+
+/**
+ * find_command_in_path:
+ *      Search for a command in PATH and return its full path
+ */
+char *find_command_in_path(const char *command) {
+    if (!command || command[0] == '\0') {
+        return NULL;
+    }
+
+    // If command contains slash, check if it exists as-is
+    if (strchr(command, '/')) {
+        if (access(command, F_OK) == 0) {
+            return strdup(command);
+        }
+        return NULL;
+    }
+
+    // Search in PATH
+    const char *path_env = getenv("PATH");
+    if (!path_env) {
+        return NULL;
+    }
+
+    char *path_copy = strdup(path_env);
+    if (!path_copy) {
+        return NULL;
+    }
+
+    char *path_dir = strtok(path_copy, ":");
+    char *result = NULL;
+
+    while (path_dir) {
+        // Construct full path
+        size_t dir_len = strlen(path_dir);
+        size_t cmd_len = strlen(command);
+        char *full_path = malloc(dir_len + cmd_len + 2); // +2 for '/' and '\0'
+
+        if (full_path) {
+            snprintf(full_path, dir_len + cmd_len + 2, "%s/%s", path_dir,
+                     command);
+
+            // Check if file exists and is executable
+            if (access(full_path, X_OK) == 0) {
+                result = full_path;
+                break;
+            }
+
+            free(full_path);
+        }
+
+        path_dir = strtok(NULL, ":");
+    }
+
+    free(path_copy);
+    return result;
+}
+
+/**
+ * bin_hash:
+ *      POSIX hash builtin - remember or report utility locations
+ *      Usage: hash [utility...]
+ *             hash -r
+ */
+int bin_hash(int argc, char **argv) {
+    init_command_hash();
+
+    // Handle -r option (forget all remembered locations)
+    if (argc == 2 && strcmp(argv[1], "-r") == 0) {
+        if (command_hash) {
+            ht_strstr_destroy(command_hash);
+            command_hash = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
+        }
+        return 0;
+    }
+
+    // Handle invalid options
+    if (argc >= 2 && argv[1][0] == '-' && strcmp(argv[1], "-r") != 0) {
+        error_message("hash: invalid option");
+        return 2;
+    }
+
+    // No arguments - display all remembered locations
+    if (argc == 1) {
+        if (!command_hash) {
+            return 0;
+        }
+
+        ht_enum_t *enumerator = ht_strstr_enum_create(command_hash);
+        if (enumerator) {
+            const char *key, *value;
+            while (ht_strstr_enum_next(enumerator, &key, &value)) {
+                if (key && value) {
+                    printf("%s\t%s\n", key, value);
+                }
+            }
+            ht_strstr_enum_destroy(enumerator);
+        }
+        return 0;
+    }
+
+    // Arguments provided - find and remember utility locations
+    for (int i = 1; i < argc; i++) {
+        const char *utility = argv[i];
+
+        // Skip if it's a builtin (POSIX requirement)
+        if (is_builtin(utility)) {
+            continue;
+        }
+
+        // Find the utility in PATH
+        char *path = find_command_in_path(utility);
+        if (path) {
+            // Remember this location
+            ht_strstr_insert(command_hash, utility, path);
+            free(path);
+        } else {
+            error_message("hash: %s: not found", utility);
+            return 1;
+        }
+    }
+
     return 0;
 }

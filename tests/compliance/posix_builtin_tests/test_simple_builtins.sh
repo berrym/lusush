@@ -11,7 +11,7 @@ echo
 test_builtin() {
     local name="$1"
     local result
-    result=$($SHELL_PATH -c "type $name" 2>/dev/null)
+    result=$($SHELL_PATH -c "type \"$name\"" 2>/dev/null)
     local exit_code=$?
 
     if [[ $exit_code -eq 0 ]]; then

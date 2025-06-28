@@ -13,6 +13,7 @@
 #include "../include/alias.h"
 #include "../include/arithmetic.h"
 #include "../include/builtins.h"
+#include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/redirection.h"
@@ -244,6 +245,17 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     }
 
     node_t *ast = parser_parse(parser);
+
+    // Check syntax check mode (set -n) - parse but don't execute
+    if (shell_opts.syntax_check) {
+        if (parser_has_error(parser)) {
+            set_executor_error(executor, parser_error(parser));
+            parser_free(parser);
+            return 2; // Syntax error
+        }
+        parser_free(parser);
+        return 0; // Syntax check successful
+    }
 
     if (parser_has_error(parser)) {
         set_executor_error(executor, parser_error(parser));
@@ -738,6 +750,16 @@ static int execute_command_chain(executor_t *executor, node_t *first_command) {
 
     while (current) {
         last_result = execute_node(executor, current);
+
+        // Handle set -e (exit_on_error): exit if command failed and not part of
+        // conditional
+        if (shell_opts.exit_on_error && last_result != 0) {
+            // Don't exit on error for certain contexts (conditionals,
+            // pipelines, etc.) For now, implement basic exit-on-error behavior
+            executor->exit_status = last_result;
+            return last_result;
+        }
+
         current = current->next_sibling;
     }
 
@@ -3299,6 +3321,21 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
 
                 // Look up in modern symbol table
                 char *value = symtable_get_var(executor->symtable, name);
+
+                // Check for unset variable error (set -u)
+                if (!value && shell_opts.unset_error && name_len > 0) {
+                    // Don't error on special variables that have default
+                    // behavior
+                    if (name_len != 1 ||
+                        (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
+                         name[0] != '0' && name[0] != '@' && name[0] != '*')) {
+                        fprintf(stderr, "%s: %s: unbound variable\n", "lusush",
+                                name);
+                        free(name);
+                        exit(1); // POSIX requires shell to exit on unbound
+                                 // variable
+                    }
+                }
 
                 // If not found in symbol table and it's a special variable,
                 // handle it directly

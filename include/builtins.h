@@ -48,6 +48,9 @@ int bin_ulimit(int, char **);
 int bin_times(int, char **);
 int bin_getopts(int, char **);
 int bin_local(int, char **);
+int bin_hash(int, char **);
+void init_command_hash(void);
+void free_command_hash(void);
 bool is_builtin(const char *);
 
 #endif

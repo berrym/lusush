@@ -1,6 +1,7 @@
 #include "../include/init.h"
 
 #include "../include/alias.h"
+#include "../include/builtins.h"
 #include "../include/completion.h"
 #include "../include/config.h"
 #include "../include/errors.h"
@@ -225,12 +226,16 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize aliases
     init_aliases();
 
+    // Initialize command hash table
+    init_command_hash();
+
     // Set line completion function
     linenoiseSetCompletionCallback(lusush_completion_callback);
 
     // Set memory cleanup procedures on termination
     atexit(free_global_symtable);
     atexit(free_aliases);
+    atexit(free_command_hash);
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);

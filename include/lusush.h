@@ -183,8 +183,8 @@ int execute_simple_pipeline(char **commands, int cmd_count);
 int execute_single_command(char *command);
 int execute_pipeline_commands(char ***cmd_args, int *cmd_argc, int cmd_count);
 int setup_redirection(node_t *redir);
-int setup_redirections(node_t *cmd);
-int execute_node(node_t *node);
+// int setup_redirections(node_t *cmd); // Conflicts with redirection.h
+// int execute_node(node_t *node); // Conflicts with executor.c
 int execute_new_parser_command(node_t *cmd);
 int execute_new_parser_pipeline(node_t *pipe_node);
 int execute_new_parser_control_structure(node_t *control_node);
