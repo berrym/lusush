@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -20,6 +21,7 @@ typedef enum {
     COLOR_PROMPT,
     FANCY_PROMPT,
     PRO_PROMPT,
+    GIT_PROMPT,
 } PROMPT_STYLE;
 
 // ANSI foreground color values
@@ -81,6 +83,7 @@ static const prompt_opts prompt_styles[] = {
     { "color",  COLOR_PROMPT},
     { "fancy",  FANCY_PROMPT},
     {   "pro",    PRO_PROMPT},
+    {   "git",    GIT_PROMPT},
 };
 static const int NUM_PROMPT_STYLES =
     sizeof(prompt_styles) / sizeof(prompt_opts);
@@ -142,6 +145,20 @@ static char PS1[MAXLINE + 1] = "% ";
 static char PS2[MAXLINE + 1] = "> ";
 static char PS1_ROOT[MAXLINE + 1] = "# ";
 
+// Git status information
+typedef struct {
+    char branch[256];
+    int has_changes;
+    int has_staged;
+    int has_untracked;
+    int ahead;
+    int behind;
+} git_info_t;
+
+static git_info_t git_info = {0};
+static time_t last_git_check = 0;
+static const int GIT_CACHE_SECONDS = 5; // Cache git status for 5 seconds
+
 /**
  * setprompt_usage:
  *      Print usage information for builtin command setprompt.
@@ -192,6 +209,152 @@ static void set_prompt_bg(BG_COLOR bg) { bg_color = bg; }
  *      Set text attributes for prompt.
  */
 static void set_prompt_attr(TEXT_ATTRIB ta) { attr = ta; }
+
+/**
+ * run_command:
+ *      Execute a command and capture its output.
+ *      Returns 0 on success, non-zero on failure.
+ */
+static int run_command(const char *cmd, char *output, size_t output_size) {
+    FILE *fp;
+    int status;
+
+    if (output) {
+        output[0] = '\0';
+    }
+
+    fp = popen(cmd, "r");
+    if (fp == NULL) {
+        return -1;
+    }
+
+    if (output && output_size > 0) {
+        if (fgets(output, output_size, fp) != NULL) {
+            // Remove trailing newline
+            size_t len = strlen(output);
+            if (len > 0 && output[len - 1] == '\n') {
+                output[len - 1] = '\0';
+            }
+        }
+    }
+
+    status = pclose(fp);
+    return WEXITSTATUS(status);
+}
+
+/**
+ * get_git_branch:
+ *      Get the current git branch name.
+ */
+static int get_git_branch(char *branch, size_t branch_size) {
+    return run_command("git branch --show-current 2>/dev/null", branch,
+                       branch_size);
+}
+
+/**
+ * get_git_status:
+ *      Get git repository status information.
+ */
+static void get_git_status(git_info_t *info) {
+    char output[256];
+
+    // Reset info
+    memset(info, 0, sizeof(git_info_t));
+
+    // Check if we're in a git repository
+    if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
+        return; // Not in a git repository
+    }
+
+    // Get branch name
+    if (get_git_branch(info->branch, sizeof(info->branch)) != 0) {
+        strcpy(info->branch, "unknown");
+    }
+
+    // Check for staged changes
+    if (run_command("git diff --cached --quiet 2>/dev/null", NULL, 0) != 0) {
+        info->has_staged = 1;
+    }
+
+    // Check for unstaged changes
+    if (run_command("git diff --quiet 2>/dev/null", NULL, 0) != 0) {
+        info->has_changes = 1;
+    }
+
+    // Check for untracked files
+    if (run_command("git ls-files --others --exclude-standard 2>/dev/null",
+                    output, sizeof(output)) == 0 &&
+        strlen(output) > 0) {
+        info->has_untracked = 1;
+    }
+
+    // Check ahead/behind status
+    if (run_command(
+            "git rev-list --count --left-right @{upstream}...HEAD 2>/dev/null",
+            output, sizeof(output)) == 0) {
+        sscanf(output, "%d\t%d", &info->behind, &info->ahead);
+    }
+}
+
+/**
+ * update_git_info:
+ *      Update git information with caching.
+ */
+static void update_git_info(void) {
+    time_t now = time(NULL);
+
+    // Use cached info if it's recent enough
+    if (now - last_git_check < GIT_CACHE_SECONDS) {
+        return;
+    }
+
+    get_git_status(&git_info);
+    last_git_check = now;
+}
+
+/**
+ * format_git_prompt:
+ *      Format git information for prompt display.
+ */
+static void format_git_prompt(char *git_prompt, size_t size) {
+    if (strlen(git_info.branch) == 0) {
+        git_prompt[0] = '\0';
+        return;
+    }
+
+    char status_indicators[32] = "";
+
+    // Add status indicators
+    if (git_info.has_staged) {
+        strcat(status_indicators, "+");
+    }
+    if (git_info.has_changes) {
+        strcat(status_indicators, "*");
+    }
+    if (git_info.has_untracked) {
+        strcat(status_indicators, "?");
+    }
+
+    // Format ahead/behind indicators
+    char ahead_behind[32] = "";
+    if (git_info.ahead > 0 && git_info.behind > 0) {
+        snprintf(ahead_behind, sizeof(ahead_behind), "↕%d/%d", git_info.ahead,
+                 git_info.behind);
+    } else if (git_info.ahead > 0) {
+        snprintf(ahead_behind, sizeof(ahead_behind), "↑%d", git_info.ahead);
+    } else if (git_info.behind > 0) {
+        snprintf(ahead_behind, sizeof(ahead_behind), "↓%d", git_info.behind);
+    }
+
+    // Combine all git information
+    if (strlen(status_indicators) > 0 || strlen(ahead_behind) > 0) {
+        snprintf(git_prompt, size, " (%s%s%s%s)", git_info.branch,
+                 strlen(status_indicators) > 0 ? " " : "", status_indicators,
+                 ahead_behind);
+    } else {
+        snprintf(git_prompt, size, " (%s)", git_info.branch);
+    }
+}
 
 /**
  * set_prompt:
@@ -245,8 +408,16 @@ void set_prompt(int argc, char **argv) {
                     case PRO_PROMPT:
                         prompt_style = PRO_PROMPT;
                         break;
+                    case GIT_PROMPT:
+                        prompt_style = GIT_PROMPT;
+                        break;
                     default:
                         break;
+                    }
+
+                    // Update git information for git-aware prompts
+                    if (prompt_style == GIT_PROMPT) {
+                        update_git_info();
                     }
                 }
             }
@@ -320,7 +491,7 @@ void build_prompt(void) {
 
     // Build prompt color sequence
     if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT ||
-        prompt_style == PRO_PROMPT) {
+        prompt_style == PRO_PROMPT || prompt_style == GIT_PROMPT) {
         // Build text colors, and then the formatted prompt string
         if (build_colors() > 0) {
             goto fancy_error;
@@ -328,7 +499,8 @@ void build_prompt(void) {
     }
 
     // Build a prompt string based on style set
-    if (prompt_style == FANCY_PROMPT || prompt_style == PRO_PROMPT) {
+    if (prompt_style == FANCY_PROMPT || prompt_style == PRO_PROMPT ||
+        prompt_style == GIT_PROMPT) {
         // Get user's login name
         if (getlogin_r(u, _POSIX_LOGIN_NAME_MAX) < 0) {
             error_return("error: `build_prompt`: getlogin_r");
@@ -361,6 +533,11 @@ void build_prompt(void) {
     } else if (prompt_style == PRO_PROMPT) {
         sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
                 (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
+    } else if (prompt_style == GIT_PROMPT) {
+        char git_prompt[256] = "";
+        format_git_prompt(git_prompt, sizeof(git_prompt));
+        sprintf(prompt, "%s%s@%s in %s%s%s%s", colors, u, h, d, git_prompt,
+                RESET, (getuid() > 0) ? PS1 : PS1_ROOT);
     } else if (prompt_style == COLOR_PROMPT) {
         sprintf(prompt, "%s%s%s", colors, (getuid() > 0) ? PS1 : PS1_ROOT,
                 RESET);
