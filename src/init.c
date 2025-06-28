@@ -2,6 +2,7 @@
 
 #include "../include/alias.h"
 #include "../include/completion.h"
+#include "../include/config.h"
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/input.h"
@@ -112,6 +113,9 @@ int init(int argc, char **argv, FILE **in) {
 
     // Initialize POSIX shell options with defaults
     init_posix_options();
+
+    // Initialize configuration system
+    config_init();
 
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
@@ -227,6 +231,7 @@ int init(int argc, char **argv, FILE **in) {
     // Set memory cleanup procedures on termination
     atexit(free_global_symtable);
     atexit(free_aliases);
+    // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);
     }

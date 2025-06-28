@@ -1,6 +1,7 @@
 #include "../../include/builtins.h"
 
 #include "../../include/alias.h"
+#include "../../include/config.h"
 #include "../../include/errors.h"
 #include "../../include/executor.h"
 #include "../../include/history.h"
@@ -23,6 +24,7 @@ int bin_fg(int argc, char **argv);
 int bin_bg(int argc, char **argv);
 int bin_colon(int argc, char **argv);
 int bin_readonly(int argc, char **argv);
+int bin_config(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -76,6 +78,7 @@ builtin builtins[] = {
     {    "local",         "declare local variables",     bin_local},
     {        ":",            "null command (no-op)",     bin_colon},
     { "readonly",      "create read-only variables",  bin_readonly},
+    {   "config",      "manage shell configuration",    bin_config},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -2481,5 +2484,15 @@ int bin_readonly(int argc, char **argv) {
         }
     }
 
+    return 0;
+}
+
+/**
+ * bin_config:
+ *      Manage shell configuration
+ *      Usage: config [show|set|get|reload|save] [options]
+ */
+int bin_config(int argc, char **argv) {
+    builtin_config(argc, argv);
     return 0;
 }
