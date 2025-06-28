@@ -302,6 +302,8 @@ static int execute_node(executor_t *executor, node_t *node) {
         return execute_brace_group(executor, node);
     case NODE_SUBSHELL:
         return execute_subshell(executor, node);
+    case NODE_COMMAND_LIST:
+        return execute_command_list(executor, node);
     case NODE_BACKGROUND:
         return executor_execute_background(executor, node);
     case NODE_VAR:
@@ -322,7 +324,15 @@ static int execute_command_list(executor_t *executor, node_t *list) {
     }
 
     int last_result = 0;
-    node_t *current = list;
+    node_t *current;
+
+    // Handle NODE_COMMAND_LIST with children
+    if (list->type == NODE_COMMAND_LIST) {
+        current = list->first_child;
+    } else {
+        // Handle legacy case where list is the first command in a sibling chain
+        current = list;
+    }
 
     while (current) {
         last_result = execute_node(executor, current);

@@ -28,6 +28,7 @@ static node_t *parse_for_statement(parser_t *parser);
 static node_t *parse_case_statement(parser_t *parser);
 static node_t *parse_function_definition(parser_t *parser);
 static bool is_function_definition(parser_t *parser);
+static node_t *parse_logical_expression(parser_t *parser);
 static node_t *parse_redirection(parser_t *parser);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                                      bool strip_tabs);
@@ -150,7 +151,7 @@ static node_t *parse_command_body(parser_t *parser, token_type_t terminator) {
             break;
         }
 
-        node_t *command = parse_pipeline(parser);
+        node_t *command = parse_logical_expression(parser);
         if (!command) {
             if (!parser->has_error) {
                 break; // End of input
@@ -173,8 +174,11 @@ static node_t *parse_command_body(parser_t *parser, token_type_t terminator) {
 
 // Parse command body for IF statements - stops at else, elif, or fi
 static node_t *parse_if_body(parser_t *parser) {
-    node_t *first_command = NULL;
-    node_t *current = NULL;
+    // Create a command list node to hold all commands
+    node_t *command_list = new_node(NODE_COMMAND_LIST);
+    if (!command_list) {
+        return NULL;
+    }
 
     while (!tokenizer_match(parser->tokenizer, TOK_ELSE) &&
            !tokenizer_match(parser->tokenizer, TOK_ELIF) &&
@@ -192,25 +196,23 @@ static node_t *parse_if_body(parser_t *parser) {
             break;
         }
 
-        node_t *command = parse_pipeline(parser);
+        node_t *command = parse_logical_expression(parser);
         if (!command) {
             if (!parser->has_error) {
                 break; // End of input
             }
-            free_node_tree(first_command);
+            free_node_tree(command_list);
             return NULL;
         }
 
-        if (!first_command) {
-            first_command = command;
-            current = command;
-        } else {
-            current->next_sibling = command;
-            current = command;
-        }
+        // Add command as child of the command list
+        add_child_node(command_list, command);
+
+        // Skip separators after command
+        skip_separators(parser);
     }
 
-    return first_command;
+    return command_list;
 }
 
 // Parse logical operators (and_or level)
@@ -1720,7 +1722,7 @@ static node_t *parse_function_definition(parser_t *parser) {
     while (!tokenizer_match(parser->tokenizer, TOK_RBRACE) &&
            !tokenizer_match(parser->tokenizer, TOK_EOF)) {
 
-        node_t *command = parse_simple_command(parser);
+        node_t *command = parse_logical_expression(parser);
         if (!command) {
             break; // Can't parse more commands
         }
