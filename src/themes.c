@@ -1200,86 +1200,114 @@ bool template_process(const char *template, template_context_t *ctx,
     size_t i = 0;
 
     while (i < template_len && output_pos < output_size - 1) {
-        if (template[i] == '%' && i + 1 < template_len &&
-            template[i + 1] == '{') {
-            // Found variable start
-            i += 2; // Skip %{
-            size_t var_start = i;
+        if (template[i] == '%' && i + 1 < template_len) {
+            if (template[i + 1] == '{') {
+                // Found %{variable} format
+                i += 2; // Skip %{
+                size_t var_start = i;
 
-            // Find variable end
-            while (i < template_len && template[i] != '}') {
-                i++;
-            }
-
-            if (i >= template_len) {
-                // Malformed variable, copy literally
-                if (output_pos < output_size - 2) {
-                    output[output_pos++] = '%';
-                    output[output_pos++] = '{';
+                // Find variable end
+                while (i < template_len && template[i] != '}') {
+                    i++;
                 }
-                i = var_start;
-                continue;
-            }
 
-            // Extract variable name
-            size_t var_len = i - var_start;
-            char var_name[64];
-            if (var_len < sizeof(var_name)) {
-                strncpy(var_name, template + var_start, var_len);
-                var_name[var_len] = '\0';
+                if (i >= template_len) {
+                    // Malformed variable, copy literally
+                    if (output_pos < output_size - 2) {
+                        output[output_pos++] = '%';
+                        output[output_pos++] = '{';
+                    }
+                    i = var_start;
+                    continue;
+                }
 
-                // Look up variable
+                // Extract variable name
+                size_t var_len = i - var_start;
+                char var_name[64];
+                if (var_len < sizeof(var_name)) {
+                    strncpy(var_name, template + var_start, var_len);
+                    var_name[var_len] = '\0';
+
+                    // Look up variable
+                    const char *var_value = NULL;
+                    const char *var_color = NULL;
+
+                    for (size_t j = 0; j < ctx->count; j++) {
+                        if (strcmp(ctx->variables[j].name, var_name) == 0) {
+                            var_value = ctx->variables[j].value;
+                            var_color = ctx->variables[j].color;
+                            break;
+                        }
+                    }
+
+                    // If not found in context, try theme colors
+                    if (!var_value) {
+                        var_color = theme_get_color(var_name);
+                        if (strlen(var_color) > 0) {
+                            var_value = var_color;
+                            var_color = NULL; // Don't double-apply color
+                        }
+                    }
+
+                    // Apply variable value
+                    if (var_value) {
+                        // Apply color if specified
+                        if (var_color && strlen(var_color) > 0) {
+                            size_t color_len = strlen(var_color);
+                            if (output_pos + color_len < output_size) {
+                                strcpy(output + output_pos, var_color);
+                                output_pos += color_len;
+                            }
+                        }
+
+                        // Add variable value
+                        size_t value_len = strlen(var_value);
+                        if (output_pos + value_len < output_size) {
+                            strcpy(output + output_pos, var_value);
+                            output_pos += value_len;
+                        }
+
+                        // Add reset if color was applied
+                        if (var_color && strlen(var_color) > 0) {
+                            const char *reset = "\033[0m";
+                            size_t reset_len = strlen(reset);
+                            if (output_pos + reset_len < output_size) {
+                                strcpy(output + output_pos, reset);
+                                output_pos += reset_len;
+                            }
+                        }
+                    }
+                }
+
+                i++; // Skip }
+            } else {
+                // Found %variable format (single character)
+                char var_name[2] = {template[i + 1], '\0'};
+
+                // Look up single character variable
                 const char *var_value = NULL;
-                const char *var_color = NULL;
 
                 for (size_t j = 0; j < ctx->count; j++) {
                     if (strcmp(ctx->variables[j].name, var_name) == 0) {
                         var_value = ctx->variables[j].value;
-                        var_color = ctx->variables[j].color;
                         break;
                     }
                 }
 
-                // If not found in context, try theme colors
-                if (!var_value) {
-                    var_color = theme_get_color(var_name);
-                    if (strlen(var_color) > 0) {
-                        var_value = var_color;
-                        var_color = NULL; // Don't double-apply color
-                    }
-                }
-
-                // Apply variable value
                 if (var_value) {
-                    // Apply color if specified
-                    if (var_color && strlen(var_color) > 0) {
-                        size_t color_len = strlen(var_color);
-                        if (output_pos + color_len < output_size) {
-                            strcpy(output + output_pos, var_color);
-                            output_pos += color_len;
-                        }
-                    }
-
                     // Add variable value
                     size_t value_len = strlen(var_value);
                     if (output_pos + value_len < output_size) {
                         strcpy(output + output_pos, var_value);
                         output_pos += value_len;
                     }
-
-                    // Add reset if color was applied
-                    if (var_color && strlen(var_color) > 0) {
-                        const char *reset = "\033[0m";
-                        size_t reset_len = strlen(reset);
-                        if (output_pos + reset_len < output_size) {
-                            strcpy(output + output_pos, reset);
-                            output_pos += reset_len;
-                        }
-                    }
+                    i += 2; // Skip %var
+                } else {
+                    // Unknown variable, copy literally
+                    output[output_pos++] = template[i];
+                    i++;
                 }
             }
-
-            i++; // Skip }
         } else {
             // Regular character
             output[output_pos++] = template[i];
