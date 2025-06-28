@@ -57,6 +57,7 @@ void complete_history(const char *text, linenoiseCompletions *lc);
 
 // Helper functions
 char *get_completion_word(const char *buf, int *start_pos);
+char *get_first_command(const char *buf);
 int is_command_position(const char *buf, int pos);
 void add_completion_with_suffix(linenoiseCompletions *lc,
                                 const char *completion, const char *suffix);

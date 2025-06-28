@@ -8,11 +8,12 @@
 #include "../../include/libhashtable/ht.h"
 #include "../../include/linenoise/linenoise.h"
 #include "../../include/lusush.h"
+#include "../../include/network.h"
 #include "../../include/prompt.h"
 #include "../../include/signals.h"
-#include "../../include/strings.h"
 #include "../../include/symtable.h"
 #include "../../include/themes.h"
+#include "../../include/version.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -31,6 +32,7 @@ int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
 int bin_hash(int argc, char **argv);
 int bin_theme(int argc, char **argv);
+int bin_network(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -90,6 +92,7 @@ builtin builtins[] = {
     {   "config",      "manage shell configuration",    bin_config},
     {     "hash",      "remember utility locations",      bin_hash},
     {    "theme",             "manage shell themes",     bin_theme},
+    {  "network",    "manage network and SSH hosts",   bin_network},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -2972,6 +2975,189 @@ int bin_theme(int argc, char **argv) {
         // Unknown subcommand
         error_message("theme: unknown subcommand '%s'", argv[1]);
         printf("Use 'theme help' for usage information\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * bin_network:
+ *      Manage network features and SSH host completion
+ *      Phase 3 Target 3: Network Integration
+ */
+int bin_network(int argc, char **argv) {
+    if (!argv) {
+        return 1;
+    }
+
+    // No arguments - show network status and SSH host count
+    if (argc == 1) {
+        ssh_host_cache_t *cache = get_ssh_host_cache();
+        remote_context_t *context = &g_remote_context;
+
+        printf("Network Integration Status:\n");
+        printf("SSH host completion: %s\n",
+               g_network_config.ssh_completion_enabled ? "Enabled"
+                                                       : "Disabled");
+        printf("SSH hosts cached: %zu\n", cache ? cache->count : 0);
+        printf("Remote session: %s\n",
+               context->is_remote_session ? "Yes" : "No");
+        printf("Cloud instance: %s\n",
+               context->is_cloud_instance ? "Yes" : "No");
+
+        if (context->remote_host[0]) {
+            printf("Remote host: %s\n", context->remote_host);
+        }
+        if (context->cloud_provider[0]) {
+            printf("Cloud provider: %s\n", context->cloud_provider);
+        }
+
+        return 0;
+    }
+
+    // Handle subcommands
+    if (argc >= 2) {
+        if (strcmp(argv[1], "hosts") == 0) {
+            // List SSH hosts
+            ssh_host_cache_t *cache = get_ssh_host_cache();
+            if (!cache || cache->count == 0) {
+                printf("No SSH hosts found in cache\n");
+                printf("Check ~/.ssh/config and ~/.ssh/known_hosts\n");
+                return 0;
+            }
+
+            printf("SSH Hosts (%zu total):\n", cache->count);
+            printf("%-25s %-15s %-8s %s\n", "Host/Alias", "Hostname", "Port",
+                   "Source");
+            printf("%-25s %-15s %-8s %s\n", "----------", "--------", "----",
+                   "------");
+
+            for (size_t i = 0; i < cache->count && i < 50; i++) {
+                ssh_host_t *host = &cache->hosts[i];
+                const char *alias =
+                    host->alias[0] ? host->alias : host->hostname;
+                const char *hostname =
+                    host->hostname[0] ? host->hostname : "N/A";
+                const char *port = host->port[0] ? host->port : "22";
+                const char *source =
+                    host->from_config ? "config" : "known_hosts";
+
+                printf("%-25s %-15s %-8s %s\n", alias, hostname, port, source);
+            }
+
+            if (cache->count > 50) {
+                printf("... and %zu more hosts\n", cache->count - 50);
+            }
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "refresh") == 0) {
+            // Refresh SSH host cache
+            printf("Refreshing SSH host cache...\n");
+            refresh_ssh_host_cache();
+            ssh_host_cache_t *cache = get_ssh_host_cache();
+            printf("Loaded %zu SSH hosts\n", cache ? cache->count : 0);
+            return 0;
+        }
+
+        if (strcmp(argv[1], "test") == 0) {
+            // Test network connectivity
+            if (argc >= 3) {
+                const char *hostname = argv[2];
+                int port = (argc >= 4) ? atoi(argv[3]) : 22;
+
+                printf("Testing connectivity to %s:%d...\n", hostname, port);
+                bool result = test_host_connectivity(hostname, port, 5000);
+                printf("Result: %s\n", result ? "Connected" : "Failed");
+                return result ? 0 : 1;
+            } else {
+                printf("Usage: network test <hostname> [port]\n");
+                return 1;
+            }
+        }
+
+        if (strcmp(argv[1], "info") == 0) {
+            // Show detailed network information
+            print_remote_context_info(&g_remote_context);
+            printf("\n");
+            print_network_config(&g_network_config);
+            printf("\n");
+            print_ssh_host_cache_stats(get_ssh_host_cache());
+            return 0;
+        }
+
+        if (strcmp(argv[1], "diagnostics") == 0) {
+            // Run full network diagnostics
+            return run_network_diagnostics();
+        }
+
+        if (strcmp(argv[1], "config") == 0) {
+            // Show or modify network configuration
+            if (argc >= 4 && strcmp(argv[2], "set") == 0) {
+                const char *setting = argv[3];
+                const char *value = (argc >= 5) ? argv[4] : "true";
+
+                if (strcmp(setting, "ssh_completion") == 0) {
+                    g_network_config.ssh_completion_enabled =
+                        (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
+                    printf("SSH completion: %s\n",
+                           g_network_config.ssh_completion_enabled
+                               ? "Enabled"
+                               : "Disabled");
+                } else if (strcmp(setting, "cache_timeout") == 0) {
+                    int timeout = atoi(value);
+                    if (timeout > 0 && timeout <= 60) {
+                        g_network_config.cache_timeout_minutes = timeout;
+                        printf("Cache timeout set to %d minutes\n", timeout);
+                    } else {
+                        printf("Invalid timeout value (1-60 minutes)\n");
+                        return 1;
+                    }
+                } else {
+                    printf("Unknown setting: %s\n", setting);
+                    printf(
+                        "Available settings: ssh_completion, cache_timeout\n");
+                    return 1;
+                }
+                return 0;
+            } else {
+                print_network_config(&g_network_config);
+                return 0;
+            }
+        }
+
+        if (strcmp(argv[1], "help") == 0) {
+            printf("Network command usage:\n");
+            printf("  network                    - Show network status\n");
+            printf("  network hosts              - List SSH hosts from config "
+                   "and known_hosts\n");
+            printf("  network refresh            - Refresh SSH host cache\n");
+            printf(
+                "  network test <host> [port] - Test connectivity to host\n");
+            printf("  network info               - Show detailed network "
+                   "information\n");
+            printf("  network diagnostics        - Run comprehensive network "
+                   "diagnostics\n");
+            printf(
+                "  network config             - Show network configuration\n");
+            printf("  network config set <setting> <value> - Modify network "
+                   "settings\n");
+            printf("  network help               - Show this help message\n");
+            printf("\nFeatures:\n");
+            printf("  - SSH host completion for ssh, scp, rsync commands\n");
+            printf("  - Remote session detection and context awareness\n");
+            printf("  - Cloud provider detection (AWS, GCP, Azure)\n");
+            printf("  - Network connectivity testing and VPN detection\n");
+            printf("  - SSH config and known_hosts parsing\n");
+            printf("\nPhase 3 Target 3: Network Integration - COMPLETE\n");
+            return 0;
+        }
+
+        // Unknown subcommand
+        printf("network: unknown subcommand '%s'\n", argv[1]);
+        printf("Use 'network help' for usage information\n");
         return 1;
     }
 

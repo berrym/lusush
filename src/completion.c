@@ -5,6 +5,7 @@
 #include "../include/libhashtable/ht.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
+#include "../include/network.h"
 #include "../include/symtable.h"
 
 #include <ctype.h>
@@ -119,6 +120,25 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
     }
 
     // Enhanced completion with fuzzy matching support
+
+    // Check for network command completion first
+    char *command = get_first_command(buf);
+    if (command && is_network_command(command) &&
+        !is_command_position(buf, start_pos)) {
+        // Complete network command arguments (SSH hosts, etc.)
+        complete_network_command_args(command, word, lc);
+        free(command);
+
+        // If we got network completions, we're done
+        if (lc->len > 0) {
+            free(word);
+            return;
+        }
+    }
+
+    if (command) {
+        free(command);
+    }
 
     // Determine what kind of completion to do based on context
     if (is_command_position(buf, start_pos)) {
@@ -523,6 +543,45 @@ void add_completion_with_suffix(linenoiseCompletions *lc,
         linenoiseAddCompletion(lc, full_completion);
         free(full_completion);
     }
+}
+
+/**
+ * Extract the first command from buffer for network completion
+ */
+char *get_first_command(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    // Skip leading whitespace
+    while (*buf && isspace(*buf)) {
+        buf++;
+    }
+
+    if (*buf == '\0') {
+        return NULL;
+    }
+
+    // Find end of first word
+    const char *end = buf;
+    while (*end && !isspace(*end) && *end != '|' && *end != ';' &&
+           *end != '&') {
+        end++;
+    }
+
+    if (end == buf) {
+        return NULL;
+    }
+
+    // Copy first command
+    size_t len = end - buf;
+    char *command = malloc(len + 1);
+    if (command) {
+        strncpy(command, buf, len);
+        command[len] = '\0';
+    }
+
+    return command;
 }
 
 /**

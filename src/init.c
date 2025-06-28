@@ -11,6 +11,7 @@
 #include "../include/linenoise/encodings/utf8.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
+#include "../include/network.h"
 #include "../include/prompt.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
@@ -122,6 +123,13 @@ int init(int argc, char **argv, FILE **in) {
 
     // Initialize auto-correction system
     autocorrect_init();
+
+    // Initialize network system (Phase 3 Target 3)
+    if (network_init() != 0) {
+        if (IS_INTERACTIVE_SHELL) {
+            fprintf(stderr, "Warning: Failed to initialize network system\n");
+        }
+    }
 
     // Initialize theme system (Phase 3 Target 2)
     if (!theme_init()) {
@@ -310,6 +318,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_command_hash);
     atexit(autocorrect_cleanup);
     atexit(theme_cleanup);
+    atexit(network_cleanup);
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);
