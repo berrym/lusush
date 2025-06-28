@@ -79,6 +79,15 @@ typedef struct {
     bool confirm_exit;
     int tab_width;
 
+    // Auto-correction settings
+    int autocorrect_max_suggestions;
+    int autocorrect_threshold;
+    bool autocorrect_interactive;
+    bool autocorrect_learn_history;
+    bool autocorrect_builtins;
+    bool autocorrect_external;
+    bool autocorrect_case_sensitive;
+
     // Color settings
     char *color_scheme;
     bool colors_enabled;

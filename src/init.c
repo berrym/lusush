@@ -1,6 +1,7 @@
 #include "../include/init.h"
 
 #include "../include/alias.h"
+#include "../include/autocorrect.h"
 #include "../include/builtins.h"
 #include "../include/completion.h"
 #include "../include/config.h"
@@ -117,6 +118,22 @@ int init(int argc, char **argv, FILE **in) {
 
     // Initialize configuration system
     config_init();
+
+    // Initialize auto-correction system
+    autocorrect_init();
+
+    // Set up auto-correction configuration from config system
+    autocorrect_config_t autocorrect_cfg;
+    autocorrect_get_default_config(&autocorrect_cfg);
+    autocorrect_cfg.enabled = config.spell_correction;
+    autocorrect_cfg.max_suggestions = config.autocorrect_max_suggestions;
+    autocorrect_cfg.similarity_threshold = config.autocorrect_threshold;
+    autocorrect_cfg.interactive_prompts = config.autocorrect_interactive;
+    autocorrect_cfg.learn_from_history = config.autocorrect_learn_history;
+    autocorrect_cfg.correct_builtins = config.autocorrect_builtins;
+    autocorrect_cfg.correct_external = config.autocorrect_external;
+    autocorrect_cfg.case_sensitive = config.autocorrect_case_sensitive;
+    autocorrect_load_config(&autocorrect_cfg);
 
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
@@ -236,6 +253,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_global_symtable);
     atexit(free_aliases);
     atexit(free_command_hash);
+    atexit(autocorrect_cleanup);
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);

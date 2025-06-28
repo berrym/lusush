@@ -33,74 +33,95 @@ static char last_error[256] = "";
 // Configuration option definitions
 static config_option_t config_options[] = {
     // History settings
-    {          "history_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {            "history_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_enabled,"Enable command history",config_validate_bool                                                                                  },
-    {             "history_size",    CONFIG_TYPE_INT,    CONFIG_SECTION_HISTORY,
+    {               "history_size",    CONFIG_TYPE_INT,    CONFIG_SECTION_HISTORY,
      &config.history_size,                       "Maximum history entries",          config_validate_int       },
-    {          "history_no_dups",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {            "history_no_dups",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_no_dups,              "Remove duplicate history entries",
      config_validate_bool                                                                                      },
-    {       "history_timestamps",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {         "history_timestamps",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_timestamps,                     "Add timestamps to history",
      config_validate_bool                                                                                      },
-    {             "history_file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
+    {               "history_file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
      &config.history_file,                             "History file path",       config_validate_string       },
 
     // Completion settings
-    {       "completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {         "completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_enabled,                         "Enable tab completion",         config_validate_bool },
-    {         "fuzzy_completion",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {           "fuzzy_completion",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.fuzzy_completion,           "Enable fuzzy matching in completion",
      config_validate_bool                                                                                      },
-    {     "completion_threshold",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
+    {       "completion_threshold",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
      &config.completion_threshold,              "Fuzzy matching threshold (0-100)",
      config_validate_int                                                                                       },
-    {"completion_case_sensitive",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {  "completion_case_sensitive",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_case_sensitive,                     "Case sensitive completion",
      config_validate_bool                                                                                      },
-    {      "completion_show_all",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {        "completion_show_all",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_show_all,                          "Show all completions",         config_validate_bool},
 
     // Prompt settings
-    {             "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {               "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_style, "Prompt style (normal, color, fancy, pro, git)",
      config_validate_prompt_style                                                                              },
-    {             "prompt_theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {               "prompt_theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_theme,                            "Prompt color theme",       config_validate_string       },
-    {       "git_prompt_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+    {         "git_prompt_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
      &config.git_prompt_enabled,                      "Enable git-aware prompts",
      config_validate_bool                                                                                      },
-    {        "git_cache_timeout",    CONFIG_TYPE_INT,     CONFIG_SECTION_PROMPT,
+    {          "git_cache_timeout",    CONFIG_TYPE_INT,     CONFIG_SECTION_PROMPT,
      &config.git_cache_timeout,           "Git status cache timeout in seconds",
      config_validate_int                                                                                       },
-    {            "prompt_format", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {              "prompt_format", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_format,                   "Custom prompt format string",
      config_validate_string                                                                                    },
 
     // Behavior settings
-    {           "multiline_edit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {             "multiline_edit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.multiline_edit,                      "Enable multiline editing",         config_validate_bool     },
-    {                  "auto_cd",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,   &config.auto_cd,
+    {                    "auto_cd",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,   &config.auto_cd,
      "Auto-cd to directories",         config_validate_bool                                                    },
-    {         "spell_correction",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {           "spell_correction",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.spell_correction,               "Enable command spell correction",
      config_validate_bool                                                                                      },
-    {             "confirm_exit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {"autocorrect_max_suggestions",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_max_suggestions,
+     "Maximum auto-correction suggestions (1-5)",          config_validate_int                                 },
+    {      "autocorrect_threshold",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_threshold,
+     "Auto-correction similarity threshold (0-100)",          config_validate_int                              },
+    {    "autocorrect_interactive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_interactive,           "Show interactive correction prompts",
+     config_validate_bool                                                                                      },
+    {  "autocorrect_learn_history",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_learn_history,                   "Learn commands from history",
+     config_validate_bool                                                                                      },
+    {       "autocorrect_builtins",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_builtins,                   "Suggest builtin corrections",
+     config_validate_bool                                                                                      },
+    {       "autocorrect_external",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_external,          "Suggest external command corrections",
+     config_validate_bool                                                                                      },
+    { "autocorrect_case_sensitive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.autocorrect_case_sensitive,                "Case-sensitive auto-correction",
+     config_validate_bool                                                                                      },
+    {               "confirm_exit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.confirm_exit,                        "Confirm before exiting",         config_validate_bool       },
-    {                "tab_width",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR, &config.tab_width,
+    {                  "tab_width",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR, &config.tab_width,
      "Tab width for display",          config_validate_int                                                     },
 
     // Color settings
-    {             "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
+    {               "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
      &config.color_scheme,                             "Color scheme name", config_validate_color_scheme       },
-    {           "colors_enabled",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {             "colors_enabled",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.colors_enabled,                           "Enable color output",         config_validate_bool     },
 
     // Advanced settings
-    {           "verbose_errors",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {             "verbose_errors",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.verbose_errors,                   "Show verbose error messages",
      config_validate_bool                                                                                      },
-    {               "debug_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {                 "debug_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.debug_mode,                             "Enable debug mode",         config_validate_bool         },
 };
 
@@ -138,6 +159,13 @@ const char *CONFIG_FILE_TEMPLATE =
     "multiline_edit = true\n"
     "auto_cd = false\n"
     "spell_correction = false\n"
+    "autocorrect_max_suggestions = 3\n"
+    "autocorrect_threshold = 40\n"
+    "autocorrect_interactive = true\n"
+    "autocorrect_learn_history = true\n"
+    "autocorrect_builtins = true\n"
+    "autocorrect_external = true\n"
+    "autocorrect_case_sensitive = false\n"
     "confirm_exit = false\n"
     "tab_width = 4\n"
     "color_scheme = default\n"
@@ -226,6 +254,15 @@ void config_set_defaults(void) {
     config.spell_correction = false;
     config.confirm_exit = false;
     config.tab_width = 4;
+
+    // Auto-correction defaults
+    config.autocorrect_max_suggestions = 3;
+    config.autocorrect_threshold = 40;
+    config.autocorrect_interactive = true;
+    config.autocorrect_learn_history = true;
+    config.autocorrect_builtins = true;
+    config.autocorrect_external = true;
+    config.autocorrect_case_sensitive = false;
 
     // Color defaults
     config.color_scheme = strdup("default");

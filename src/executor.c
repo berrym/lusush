@@ -12,7 +12,9 @@
 
 #include "../include/alias.h"
 #include "../include/arithmetic.h"
+#include "../include/autocorrect.h"
 #include "../include/builtins.h"
+#include "../include/config.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/parser.h"
@@ -642,9 +644,64 @@ static int execute_command(executor_t *executor, node_t *command) {
             }
         }
     } else {
-        // For external commands, pass redirection info to child process
-        result = execute_external_command_with_setup(executor, filtered_argv,
-                                                     redirect_stderr, command);
+        // Check if command exists first, offer auto-correction if not
+        if (config.spell_correction && autocorrect_is_enabled()) {
+            // First, check if the command actually exists
+            if (!autocorrect_command_exists(executor, filtered_argv[0])) {
+                // Command doesn't exist, try auto-correction
+                correction_results_t correction_results;
+                int suggestions = autocorrect_find_suggestions(
+                    executor, filtered_argv[0], &correction_results);
+
+                if (suggestions > 0 && config.autocorrect_interactive) {
+                    char selected_command[MAX_COMMAND_LENGTH];
+                    if (autocorrect_prompt_user(&correction_results,
+                                                selected_command)) {
+                        // User selected a correction, replace the command
+                        free(filtered_argv[0]);
+                        filtered_argv[0] = strdup(selected_command);
+
+                        // Learn the corrected command
+                        autocorrect_learn_command(selected_command);
+
+                        // Re-check if it's a builtin or function after
+                        // correction
+                        if (is_builtin_command(filtered_argv[0])) {
+                            result = execute_builtin_command(executor,
+                                                             filtered_argv);
+                        } else if (is_function_defined(executor,
+                                                       filtered_argv[0])) {
+                            result = execute_function_call(
+                                executor, filtered_argv[0], filtered_argv,
+                                filtered_argc);
+                        } else {
+                            // Execute the corrected external command
+                            result = execute_external_command_with_setup(
+                                executor, filtered_argv, redirect_stderr,
+                                command);
+                        }
+                    } else {
+                        // User declined correction, show original error
+                        result = 127; // Command not found
+                    }
+                } else {
+                    // No suggestions or interactive prompts disabled
+                    result = execute_external_command_with_setup(
+                        executor, filtered_argv, redirect_stderr, command);
+                }
+
+                // Clean up correction results
+                autocorrect_free_results(&correction_results);
+            } else {
+                // Command exists, execute normally
+                result = execute_external_command_with_setup(
+                    executor, filtered_argv, redirect_stderr, command);
+            }
+        } else {
+            // Auto-correction disabled, execute normally
+            result = execute_external_command_with_setup(
+                executor, filtered_argv, redirect_stderr, command);
+        }
     }
 
     // Free argv
