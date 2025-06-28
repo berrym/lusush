@@ -41,16 +41,21 @@ This directory contains comprehensive demonstrations of all enhanced UX features
 
 ### Running Demonstrations
 
-1. **From lusush root directory:**
-   ```bash
-   ./tests/debug/demo_all_enhanced_features.sh
-   ```
+**All demos now work from any directory! Run from lusush root directory:**
 
-2. **From tests/debug directory:**
-   ```bash
-   cd tests/debug
-   ./demo_all_enhanced_features.sh
-   ```
+```bash
+# Comprehensive showcase (recommended)
+./tests/debug/demo_all_enhanced_features.sh
+
+# Quick verification first
+./tests/debug/verify_enhanced_features.sh
+
+# Phase-specific demonstrations
+./tests/debug/demo_phase2_enhanced_ux.sh
+./tests/debug/demo_phase3_target1_autocorrect.sh
+./tests/debug/demo_phase3_target2_themes.sh
+./tests/debug/demo_phase3_target3_network.sh
+```
 
 ### Interactive Testing
 
@@ -233,13 +238,15 @@ Start with: `./tests/debug/demo_all_enhanced_features.sh`
 #### Demo Scripts Not Finding lusush Binary
 If you see "Cannot find lusush binary":
 ```bash
-# Ensure you're in the correct directory
+# Build the project first
 cd /path/to/lusush
+ninja -C builddir
+
+# All demos now work from the root directory
 ./tests/debug/demo_all_enhanced_features.sh
 
-# Or build the project first
-ninja -C builddir
-./tests/debug/demo_all_enhanced_features.sh
+# Or run quick verification
+./tests/debug/verify_enhanced_features.sh
 ```
 
 #### No Output from Demo Commands
@@ -285,14 +292,16 @@ ls -la ~/.ssh/config ~/.ssh/known_hosts
 ./builddir/lusush -c "theme set dark"
 
 # Check theme configuration
-./builddir/lusush -c "config show theme"
+./builddir/lusush -c "config show"
 ```
 
 ### Getting Help
+- **Quick verification**: `./tests/debug/verify_enhanced_features.sh`
 - Check `PROJECT_STATUS_CURRENT.md` for current status
 - Run `./builddir/lusush -c "help"` for builtin help
 - Use individual feature demos for targeted testing
 - Verify test status: `./tests/compliance/test_posix_regression.sh`
+- **PATH ISSUES FIXED**: All demos now use absolute paths and work from root directory
 
 ---
 

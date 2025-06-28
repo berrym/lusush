@@ -7,7 +7,10 @@ echo "=== Lusush Multiline History Demo ==="
 echo "Demonstrating working multiline to single-line history conversion"
 echo
 
-SHELL_PATH="./builddir/lusush"
+# Get absolute path to lusush binary
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SHELL_PATH="$PROJECT_ROOT/builddir/lusush"
 HISTORY_FILE="$HOME/.lusushist"
 
 # Colors for output

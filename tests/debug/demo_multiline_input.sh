@@ -7,7 +7,10 @@ echo "=== Lusush Shell Multiline Input Demo ==="
 echo "Demonstrating comprehensive multiline input handling"
 echo
 
-SHELL_PATH="./builddir/lusush"
+# Get absolute path to lusush binary
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SHELL_PATH="$PROJECT_ROOT/builddir/lusush"
 
 # Ensure the shell binary exists
 if [ ! -x "$SHELL_PATH" ]; then

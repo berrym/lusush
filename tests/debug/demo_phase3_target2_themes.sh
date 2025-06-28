@@ -11,11 +11,14 @@ echo "Enterprise-grade customization with built-in themes and corporate identity
 echo "========================================================================"
 echo
 
-SHELL_PATH=${1:-"./builddir/lusush"}
+# Get absolute path to lusush binary
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SHELL_PATH="${1:-"$PROJECT_ROOT/builddir/lusush"}"
 
 if [[ ! -x "$SHELL_PATH" ]]; then
-    echo "❌ Error: Shell not found at $SHELL_PATH"
-    echo "Usage: $0 [path_to_lusush_binary]"
+    echo "Error: Shell not found at $SHELL_PATH"
+    echo "Please build the shell first: ninja -C builddir"
     exit 1
 fi
 

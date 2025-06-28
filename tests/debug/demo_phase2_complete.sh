@@ -21,7 +21,10 @@ MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-LUSUSH_BINARY="./builddir/lusush"
+# Get absolute path to lusush binary
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LUSUSH_BINARY="$PROJECT_ROOT/builddir/lusush"
 DEMO_DIR="/tmp/lusush_phase2_demo_$$"
 
 # Check if lusush binary exists
