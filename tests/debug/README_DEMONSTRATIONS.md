@@ -226,6 +226,74 @@ These demonstrations showcase LUSUSH as the most advanced POSIX-compliant shell 
 
 Start with: `./tests/debug/demo_all_enhanced_features.sh`
 
+## 🔧 TROUBLESHOOTING
+
+### Common Issues and Solutions
+
+#### Demo Scripts Not Finding lusush Binary
+If you see "Cannot find lusush binary":
+```bash
+# Ensure you're in the correct directory
+cd /path/to/lusush
+./tests/debug/demo_all_enhanced_features.sh
+
+# Or build the project first
+ninja -C builddir
+./tests/debug/demo_all_enhanced_features.sh
+```
+
+#### No Output from Demo Commands
+If commands run but show no output:
+```bash
+# Test lusush directly
+./builddir/lusush -c "echo test"
+
+# Check if features are enabled
+./builddir/lusush -c "config show"
+```
+
+#### Permission Denied Errors
+```bash
+# Make demo scripts executable
+chmod +x tests/debug/demo_*.sh
+
+# Ensure lusush binary is executable
+chmod +x builddir/lusush
+```
+
+#### Interactive Features Not Working
+For Ctrl+R, TAB completion, and other interactive features:
+```bash
+# These only work in interactive mode
+./builddir/lusush
+# Then try Ctrl+R, TAB, etc.
+```
+
+#### SSH Host Completion Not Working
+```bash
+# Check if SSH hosts are available
+./builddir/lusush -c "network hosts"
+
+# Verify SSH config files exist
+ls -la ~/.ssh/config ~/.ssh/known_hosts
+```
+
+#### Theme Changes Not Visible
+```bash
+# Verify theme system is working
+./builddir/lusush -c "theme list"
+./builddir/lusush -c "theme set dark"
+
+# Check theme configuration
+./builddir/lusush -c "config show theme"
+```
+
+### Getting Help
+- Check `PROJECT_STATUS_CURRENT.md` for current status
+- Run `./builddir/lusush -c "help"` for builtin help
+- Use individual feature demos for targeted testing
+- Verify test status: `./tests/compliance/test_posix_regression.sh`
+
 ---
 
 *LUSUSH - The Ultimate Shell: POSIX Perfect • Modern • Intelligent • Connected*
