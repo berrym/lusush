@@ -102,6 +102,11 @@ int linenoiseHistorySave(const char *filename);
 int linenoiseHistoryLoad(const char *filename);
 void linenoiseHistoryPrint(void);
 char *linenoiseHistoryGet(int index);
+
+/* Enhanced history features */
+void linenoiseSetHistoryNoDups(int enable);
+int linenoiseHistoryExpansion(const char *line, char **expanded);
+void linenoiseHistoryReverseSearch(struct linenoiseState *l);
 int linenoiseHistoryDelete(int index);
 void linenoiseHistoryNoDups(bool flag);
 int linenoiseHistoryRemoveDups(void);

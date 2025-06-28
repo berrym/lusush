@@ -12,8 +12,97 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+/**
+ * Fuzzy matching algorithm for enhanced completion
+ * Returns a score (0-100) indicating how well the candidate matches the pattern
+ */
+static int fuzzy_match_score(const char *pattern, const char *candidate) {
+    if (!pattern || !candidate) {
+        return 0;
+    }
+
+    int pattern_len = strlen(pattern);
+    int candidate_len = strlen(candidate);
+
+    if (pattern_len == 0) {
+        return 100; // Empty pattern matches everything
+    }
+
+    if (candidate_len == 0) {
+        return 0; // Empty candidate matches nothing
+    }
+
+    // Simple prefix matching gets highest score
+    if (strncmp(pattern, candidate, pattern_len) == 0) {
+        return 95;
+    }
+
+    // Case-insensitive prefix matching
+    int case_match = 1;
+    for (int i = 0; i < pattern_len; i++) {
+        if (tolower(pattern[i]) != tolower(candidate[i])) {
+            case_match = 0;
+            break;
+        }
+    }
+    if (case_match) {
+        return 90;
+    }
+
+    // Subsequence matching - all pattern chars must appear in order
+    int matches = 0;
+    int pattern_idx = 0;
+    int consecutive_matches = 0;
+    int max_consecutive = 0;
+
+    for (int i = 0; i < candidate_len && pattern_idx < pattern_len; i++) {
+        if (tolower(candidate[i]) == tolower(pattern[pattern_idx])) {
+            matches++;
+            pattern_idx++;
+            consecutive_matches++;
+            if (consecutive_matches > max_consecutive) {
+                max_consecutive = consecutive_matches;
+            }
+        } else {
+            consecutive_matches = 0;
+        }
+    }
+
+    // All pattern characters must be found
+    if (pattern_idx < pattern_len) {
+        return 0;
+    }
+
+    // Score based on match ratio and consecutive matches
+    int match_ratio = (matches * 100) / pattern_len;
+    int consecutive_bonus = (max_consecutive * 20) / pattern_len;
+
+    return (match_ratio + consecutive_bonus) / 2;
+}
+
+/**
+ * Forward declarations
+ */
+static void display_completion_context(linenoiseCompletions *lc,
+                                       const char *word);
+static void prioritize_completions(linenoiseCompletions *lc,
+                                   const char *pattern);
+
+/**
+ * Enhanced completion function that uses fuzzy matching
+ */
+static void add_fuzzy_completion(linenoiseCompletions *lc, const char *pattern,
+                                 const char *candidate, const char *suffix,
+                                 int min_score) {
+    int score = fuzzy_match_score(pattern, candidate);
+    if (score >= min_score) {
+        add_completion_with_suffix(lc, candidate, suffix);
+    }
+}
 
 /**
  * Main completion callback for linenoise
@@ -28,6 +117,8 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
     if (!word) {
         return;
     }
+
+    // Enhanced completion with fuzzy matching support
 
     // Determine what kind of completion to do based on context
     if (is_command_position(buf, start_pos)) {
@@ -46,6 +137,16 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
     // Always try history completion as a fallback
     if (lc->len == 0) {
         complete_history(word, lc);
+    }
+
+    // Prioritize completions by relevance
+    if (lc->len > 1) {
+        prioritize_completions(lc, word);
+    }
+
+    // Show completion context for better user experience
+    if (lc->len > 0) {
+        display_completion_context(lc, word);
     }
 
     free(word);
@@ -119,9 +220,14 @@ void complete_builtins(const char *text, linenoiseCompletions *lc) {
 
     size_t text_len = strlen(text);
 
+    // Enhanced fuzzy matching for builtins
     for (size_t i = 0; i < builtins_count; i++) {
+        // Exact prefix match gets priority
         if (strncmp(builtins[i].name, text, text_len) == 0) {
             add_completion_with_suffix(lc, builtins[i].name, " ");
+        } else {
+            // Try fuzzy matching with lower threshold
+            add_fuzzy_completion(lc, text, builtins[i].name, " ", 60);
         }
     }
 }
@@ -149,8 +255,14 @@ void complete_aliases(const char *text, linenoiseCompletions *lc) {
 
     const char *alias_name = NULL, *alias_value = NULL;
     while (ht_strstr_enum_next(aliases_e, &alias_name, &alias_value)) {
-        if (alias_name && strncmp(alias_name, text, text_len) == 0) {
-            add_completion_with_suffix(lc, alias_name, " ");
+        if (alias_name) {
+            // Exact prefix match gets priority
+            if (strncmp(alias_name, text, text_len) == 0) {
+                add_completion_with_suffix(lc, alias_name, " ");
+            } else {
+                // Try fuzzy matching
+                add_fuzzy_completion(lc, text, alias_name, " ", 60);
+            }
         }
     }
 
@@ -183,18 +295,23 @@ void complete_commands(const char *text, linenoiseCompletions *lc) {
         if (d) {
             struct dirent *entry;
             while ((entry = readdir(d)) != NULL) {
-                if (strncmp(entry->d_name, text, text_len) == 0 &&
-                    entry->d_name[0] != '.' &&
-                    strlen(entry->d_name) > text_len) {
-
-                    // Check if it's executable
+                if (entry->d_name[0] != '.') {
+                    // Check if it's executable first
                     char full_path[strlen(dir) + strlen(entry->d_name) + 2];
                     snprintf(full_path, sizeof(full_path), "%s/%s", dir,
                              entry->d_name);
 
                     struct stat st;
                     if (stat(full_path, &st) == 0 && (st.st_mode & S_IXUSR)) {
-                        add_completion_with_suffix(lc, entry->d_name, " ");
+                        // Exact prefix match gets priority
+                        if (strncmp(entry->d_name, text, text_len) == 0 &&
+                            strlen(entry->d_name) > text_len) {
+                            add_completion_with_suffix(lc, entry->d_name, " ");
+                        } else {
+                            // Try fuzzy matching for commands
+                            add_fuzzy_completion(lc, text, entry->d_name, " ",
+                                                 70);
+                        }
                     }
                 }
             }
@@ -244,7 +361,17 @@ void complete_files(const char *text, linenoiseCompletions *lc) {
                 continue;
             }
 
-            if (strncmp(entry->d_name, file_prefix, prefix_len) == 0) {
+            // Enhanced file completion with fuzzy matching
+            bool exact_match =
+                (strncmp(entry->d_name, file_prefix, prefix_len) == 0);
+            bool fuzzy_match = false;
+
+            if (!exact_match && prefix_len > 0) {
+                int score = fuzzy_match_score(file_prefix, entry->d_name);
+                fuzzy_match = (score >= 50); // Lower threshold for files
+            }
+
+            if (exact_match || fuzzy_match) {
                 char *full_completion;
                 if (strcmp(dir_path, "./") == 0) {
                     full_completion = strdup(entry->d_name);
@@ -299,8 +426,20 @@ void complete_variables(const char *text, linenoiseCompletions *lc) {
         char *eq = strchr(*env, '=');
         if (eq) {
             size_t var_len = eq - *env;
-            if (strncmp(*env, var_prefix, prefix_len) == 0 &&
-                var_len > prefix_len) {
+            // Enhanced variable completion with fuzzy matching
+            bool exact_match = (strncmp(*env, var_prefix, prefix_len) == 0 &&
+                                var_len > prefix_len);
+            bool fuzzy_match = false;
+
+            if (!exact_match && prefix_len > 0) {
+                char var_part[var_len + 1];
+                strncpy(var_part, *env, var_len);
+                var_part[var_len] = '\0';
+                int score = fuzzy_match_score(var_prefix, var_part);
+                fuzzy_match = (score >= 60);
+            }
+
+            if (exact_match || fuzzy_match) {
                 char var_name[var_len + 2]; // +2 for $ and null terminator
                 var_name[0] = '$';
                 strncpy(var_name + 1, *env, var_len);
@@ -345,22 +484,68 @@ void complete_history(const char *text, linenoiseCompletions *lc) {
 }
 
 /**
- * Helper function to add completion with suffix
+ * Enhanced completion display with smart formatting
+ */
+static void display_completion_context(linenoiseCompletions *lc,
+                                       const char *word
+                                       __attribute__((unused))) {
+    if (!lc || lc->len == 0) {
+        return;
+    }
+
+    // For many completions, show count
+    if (lc->len > 10) {
+        printf("\n[%zu completions available - press TAB again to show all]\n",
+               lc->len);
+    }
+}
+
+/**
+ * Add completion with appropriate suffix and context awareness
  */
 void add_completion_with_suffix(linenoiseCompletions *lc,
                                 const char *completion, const char *suffix) {
     if (!completion || !suffix) {
-        linenoiseAddCompletion(lc, completion);
         return;
     }
 
-    size_t len = strlen(completion) + strlen(suffix) + 1;
-    char *full_completion = malloc(len);
+    // Avoid duplicate completions
+    for (size_t i = 0; i < lc->len; i++) {
+        if (strcmp(lc->cvec[i], completion) == 0) {
+            return; // Already exists
+        }
+    }
+
+    size_t total_len = strlen(completion) + strlen(suffix) + 1;
+    char *full_completion = malloc(total_len);
     if (full_completion) {
-        snprintf(full_completion, len, "%s%s", completion, suffix);
+        snprintf(full_completion, total_len, "%s%s", completion, suffix);
         linenoiseAddCompletion(lc, full_completion);
         free(full_completion);
-    } else {
-        linenoiseAddCompletion(lc, completion);
+    }
+}
+
+/**
+ * Smart completion prioritization - sorts completions by relevance
+ */
+static void prioritize_completions(linenoiseCompletions *lc,
+                                   const char *pattern) {
+    if (!lc || lc->len <= 1 || !pattern) {
+        return;
+    }
+
+    // Simple bubble sort by fuzzy match score (for small lists)
+    for (size_t i = 0; i < lc->len - 1; i++) {
+        for (size_t j = 0; j < lc->len - i - 1; j++) {
+            int score1 = fuzzy_match_score(pattern, lc->cvec[j]);
+            int score2 = fuzzy_match_score(pattern, lc->cvec[j + 1]);
+
+            if (score1 < score2) {
+                // Swap
+                char *temp = lc->cvec[j];
+                lc->cvec[j] = lc->cvec[j + 1];
+                lc->cvec[j + 1] = temp;
+            }
+        }
     }
 }

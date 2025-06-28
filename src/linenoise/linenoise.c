@@ -148,6 +148,12 @@ static int history_len = 0;
 static char **history = NULL;
 static bool history_no_dups = false;
 
+/* Enhanced history features */
+static int reverse_search_mode = 0;
+static char reverse_search_query[256] = {0};
+static int reverse_search_index = -1;
+static char *reverse_search_original_line = NULL;
+
 enum KEY_ACTION {
     KEY_NULL = 0,   /* NULL */
     CTRL_A = 1,     /* Ctrl+a */
@@ -163,6 +169,7 @@ enum KEY_ACTION {
     ENTER = 13,     /* Enter */
     CTRL_N = 14,    /* Ctrl-n */
     CTRL_P = 16,    /* Ctrl-p */
+    CTRL_R = 18,    /* Ctrl+r */
     CTRL_T = 20,    /* Ctrl-t */
     CTRL_U = 21,    /* Ctrl+u */
     CTRL_W = 23,    /* Ctrl+w */
@@ -995,6 +1002,43 @@ void linenoiseShow(struct linenoiseState *l) {
  * On error writing to the terminal -1 is returned, otherwise 0. */
 int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
     if (l->len + clen <= l->buflen) {
+        if (reverse_search_mode) {
+            /* Add character to search query */
+            size_t query_len = strlen(reverse_search_query);
+            if (query_len < sizeof(reverse_search_query) - 1) {
+                reverse_search_query[query_len] = cbuf[0];
+                reverse_search_query[query_len + 1] = '\0';
+
+                /* Search for match */
+                for (int i = history_len - 1; i >= 0; i--) {
+                    if (history[i] &&
+                        strstr(history[i], reverse_search_query)) {
+                        strncpy(l->buf, history[i], LINENOISE_MAX_LINE - 1);
+                        l->buf[LINENOISE_MAX_LINE - 1] = '\0';
+                        l->len = strlen(l->buf);
+                        l->pos = l->len;
+                        reverse_search_index = i;
+
+                        char search_prompt[512];
+                        snprintf(
+                            search_prompt, sizeof(search_prompt),
+                            "(reverse-i-search)`%s': ", reverse_search_query);
+                        l->prompt = search_prompt;
+                        l->plen = strlen(search_prompt);
+
+                        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+                        return 0;
+                    }
+                }
+
+                /* No match found - beep */
+                if (write(l->ofd, "\x7", 1) == -1) {
+                    /* ignore */
+                }
+            }
+            return 0;
+        }
+
         if (l->len == l->pos) {
             memcpy(&l->buf[l->pos], cbuf, clen);
             l->pos += clen;
@@ -1196,10 +1240,142 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd,
      * initially is just an empty string. */
     linenoiseHistoryAdd("");
 
+    /* Initialize reverse search state */
+    reverse_search_mode = 0;
+    reverse_search_query[0] = '\0';
+    reverse_search_index = -1;
+    if (reverse_search_original_line) {
+        free(reverse_search_original_line);
+        reverse_search_original_line = NULL;
+    }
+
     if (write(l->ofd, prompt, l->plen) == -1) {
         return -1;
     }
     return 0;
+}
+
+/* Enhanced history search functionality */
+static int linenoiseReverseSearch(struct linenoiseState *l) {
+    if (!reverse_search_mode) {
+        /* Enter reverse search mode */
+        reverse_search_mode = 1;
+        reverse_search_query[0] = '\0';
+        reverse_search_index = history_len - 1;
+
+        /* Save original line */
+        if (reverse_search_original_line) {
+            free(reverse_search_original_line);
+        }
+        reverse_search_original_line = malloc(l->len + 1);
+        if (reverse_search_original_line) {
+            memcpy(reverse_search_original_line, l->buf, l->len);
+            reverse_search_original_line[l->len] = '\0';
+        }
+
+        /* Clear buffer and show search prompt */
+        l->buf[0] = '\0';
+        l->len = 0;
+        l->pos = 0;
+
+        /* Update prompt to show reverse search */
+        char search_prompt[512];
+        snprintf(search_prompt, sizeof(search_prompt),
+                 "(reverse-i-search)`': ");
+        l->prompt = search_prompt;
+        l->plen = strlen(search_prompt);
+
+        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+        return 0;
+    }
+
+    /* Already in reverse search - find next match */
+    if (reverse_search_index > 0) {
+        reverse_search_index--;
+        for (int i = reverse_search_index; i >= 0; i--) {
+            if (history[i] && strstr(history[i], reverse_search_query)) {
+                /* Found match */
+                strncpy(l->buf, history[i], LINENOISE_MAX_LINE - 1);
+                l->buf[LINENOISE_MAX_LINE - 1] = '\0';
+                l->len = strlen(l->buf);
+                l->pos = l->len;
+                reverse_search_index = i;
+
+                char search_prompt[512];
+                snprintf(search_prompt, sizeof(search_prompt),
+                         "(reverse-i-search)`%s': ", reverse_search_query);
+                l->prompt = search_prompt;
+                l->plen = strlen(search_prompt);
+
+                refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+                return 0;
+            }
+        }
+    }
+
+    /* No more matches found - beep */
+    if (write(l->ofd, "\x7", 1) == -1) {
+        /* ignore */
+    }
+    return 0;
+}
+
+static void linenoiseExitReverseSearch(struct linenoiseState *l,
+                                       int accept_match) {
+    if (!reverse_search_mode) {
+        return;
+    }
+
+    reverse_search_mode = 0;
+
+    if (!accept_match && reverse_search_original_line) {
+        /* Restore original line */
+        strncpy(l->buf, reverse_search_original_line, LINENOISE_MAX_LINE - 1);
+        l->buf[LINENOISE_MAX_LINE - 1] = '\0';
+        l->len = strlen(l->buf);
+        l->pos = l->len;
+    }
+
+    /* Clean up */
+    if (reverse_search_original_line) {
+        free(reverse_search_original_line);
+        reverse_search_original_line = NULL;
+    }
+
+    reverse_search_query[0] = '\0';
+    reverse_search_index = -1;
+}
+
+/* History expansion support */
+int linenoiseHistoryExpansion(const char *line, char **expanded) {
+    if (!line || !expanded) {
+        return 0;
+    }
+
+    /* Simple history expansion for !! and !n patterns */
+    if (line[0] == '!' && line[1] != '\0') {
+        if (line[1] == '!') {
+            /* !! - last command */
+            if (history_len > 1) {
+                *expanded = strdup(history[history_len - 2]);
+                return 1;
+            }
+        } else if (isdigit(line[1])) {
+            /* !n - command number n */
+            int num = atoi(line + 1);
+            if (num > 0 && num <= history_len) {
+                *expanded = strdup(history[num - 1]);
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/* Public interface for reverse search */
+void linenoiseHistoryReverseSearch(struct linenoiseState *l) {
+    linenoiseReverseSearch(l);
 }
 
 char *linenoiseEditMore =
@@ -1259,6 +1435,12 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
 
     switch (c) {
     case ENTER: /* enter */
+        if (reverse_search_mode) {
+            /* Accept current match and exit reverse search */
+            linenoiseExitReverseSearch(l, 1);
+            /* Note: prompt will be restored by calling code */
+        }
+
         history_len--;
         free(history[history_len]);
         if (mlmode) {
@@ -1314,7 +1496,23 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
     case CTRL_N: /* ctrl-n */
         linenoiseEditHistoryNext(l, LINENOISE_HISTORY_NEXT);
         break;
+    case CTRL_R: /* reverse search */
+        if (reverse_search_mode) {
+            /* Continue search for next match */
+            linenoiseReverseSearch(l);
+        } else {
+            /* Start reverse search */
+            linenoiseReverseSearch(l);
+        }
+        break;
     case ESC: /* escape sequence */
+        if (reverse_search_mode) {
+            /* Exit reverse search on escape */
+            linenoiseExitReverseSearch(l, 0);
+            /* Note: prompt will be restored by calling code */
+            refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+            break;
+        }
         /* Read the next two bytes representing the escape sequence.
          * Use two calls to handle slow terminals returning the two
          * chars at different times. */
@@ -1725,6 +1923,11 @@ int linenoiseHistoryAdd(const char *line) {
     history[history_len] = linecopy;
     history_len++;
     return 1;
+}
+
+/* Enhanced history functions */
+void linenoiseSetHistoryNoDups(int enable) {
+    history_no_dups = enable ? true : false;
 }
 
 void linenoiseHistoryPrint(void) {
