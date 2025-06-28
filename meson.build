@@ -40,7 +40,7 @@ src = ['src/builtins/alias.c',
        'src/pattern.c',
        'src/posix_opts.c',
        'src/prompt.c',
-
+       'src/themes.c',
        'src/signals.c',
        'src/strings.c',
        'src/symtable.c',

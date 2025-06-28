@@ -72,6 +72,22 @@ typedef struct {
     int git_cache_timeout;
     char *prompt_format;
 
+    // Theme settings (Phase 3 Target 2)
+    char *theme_name;
+    bool theme_auto_detect_colors;
+    bool theme_fallback_basic;
+    char *theme_corporate_company;
+    char *theme_corporate_department;
+    char *theme_corporate_project;
+    char *theme_corporate_environment;
+    bool theme_show_company;
+    bool theme_show_department;
+    bool theme_show_right_prompt;
+    bool theme_enable_multiline;
+    bool theme_enable_animations;
+    bool theme_enable_icons;
+    int theme_color_support_override;
+
     // Behavior settings
     bool multiline_edit;
     bool auto_cd;

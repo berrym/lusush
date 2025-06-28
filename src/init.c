@@ -14,6 +14,7 @@
 #include "../include/prompt.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
+#include "../include/themes.h"
 #include "../include/version.h"
 
 #include <getopt.h>
@@ -121,6 +122,60 @@ int init(int argc, char **argv, FILE **in) {
 
     // Initialize auto-correction system
     autocorrect_init();
+
+    // Initialize theme system (Phase 3 Target 2)
+    if (!theme_init()) {
+        if (IS_INTERACTIVE_SHELL) {
+            fprintf(stderr, "Warning: Failed to initialize theme system\n");
+        }
+    } else {
+        // Apply theme configuration from config file
+        if (config.theme_name && strlen(config.theme_name) > 0) {
+            if (!theme_set_active(config.theme_name)) {
+                // Try fallback themes silently
+                if (!theme_set_active("minimal") &&
+                    !theme_set_active("classic")) {
+                    // Only warn in interactive mode
+                    if (IS_INTERACTIVE_SHELL) {
+                        fprintf(stderr,
+                                "Warning: Failed to set theme '%s', using "
+                                "default\n",
+                                config.theme_name);
+                    }
+                }
+            }
+        } else {
+            // Set default theme silently
+            if (!theme_set_active("corporate")) {
+                theme_set_active("minimal"); // Final fallback
+            }
+        }
+
+        // Set up corporate branding if configured
+        if (config.theme_corporate_company ||
+            config.theme_corporate_department) {
+            branding_config_t branding = {0};
+            if (config.theme_corporate_company) {
+                strncpy(branding.company_name, config.theme_corporate_company,
+                        BRAND_TEXT_MAX - 1);
+            }
+            if (config.theme_corporate_department) {
+                strncpy(branding.department, config.theme_corporate_department,
+                        BRAND_TEXT_MAX - 1);
+            }
+            if (config.theme_corporate_project) {
+                strncpy(branding.project, config.theme_corporate_project,
+                        BRAND_TEXT_MAX - 1);
+            }
+            if (config.theme_corporate_environment) {
+                strncpy(branding.environment,
+                        config.theme_corporate_environment, BRAND_TEXT_MAX - 1);
+            }
+            branding.show_company_in_prompt = config.theme_show_company;
+            branding.show_department_in_prompt = config.theme_show_department;
+            theme_set_branding(&branding);
+        }
+    }
 
     // Set up auto-correction configuration from config system
     autocorrect_config_t autocorrect_cfg;
@@ -254,6 +309,7 @@ int init(int argc, char **argv, FILE **in) {
     atexit(free_aliases);
     atexit(free_command_hash);
     atexit(autocorrect_cleanup);
+    atexit(theme_cleanup);
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);

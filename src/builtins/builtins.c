@@ -12,6 +12,7 @@
 #include "../../include/signals.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
+#include "../../include/themes.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@ int bin_colon(int argc, char **argv);
 int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
 int bin_hash(int argc, char **argv);
+int bin_theme(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -87,6 +89,7 @@ builtin builtins[] = {
     { "readonly",      "create read-only variables",  bin_readonly},
     {   "config",      "manage shell configuration",    bin_config},
     {     "hash",      "remember utility locations",      bin_hash},
+    {    "theme",             "manage shell themes",     bin_theme},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -2645,6 +2648,331 @@ int bin_hash(int argc, char **argv) {
             error_message("hash: %s: not found", utility);
             return 1;
         }
+    }
+
+    return 0;
+}
+
+/**
+ * bin_theme:
+ *      Manage shell themes - list, set, and configure themes
+ *      Phase 3 Target 2: Advanced Configuration Themes
+ */
+int bin_theme(int argc, char **argv) {
+    if (!argv) {
+        return 1;
+    }
+
+    // No arguments - show current theme and available themes
+    if (argc == 1) {
+        theme_definition_t *active = theme_get_active();
+        if (active) {
+            printf("Current theme: %s\n", active->name);
+            printf("Description: %s\n", active->description);
+            printf("Category: %s\n",
+                   active->category == THEME_CATEGORY_PROFESSIONAL
+                       ? "Professional"
+                   : active->category == THEME_CATEGORY_CREATIVE  ? "Creative"
+                   : active->category == THEME_CATEGORY_MINIMAL   ? "Minimal"
+                   : active->category == THEME_CATEGORY_CLASSIC   ? "Classic"
+                   : active->category == THEME_CATEGORY_DEVELOPER ? "Developer"
+                                                                  : "Custom");
+        } else {
+            printf("No theme active\n");
+        }
+
+        printf("\nAvailable themes:\n");
+        char **themes = theme_list_available(-1);
+        if (themes) {
+            for (int i = 0; themes[i]; i++) {
+                theme_definition_t *theme = theme_load(themes[i]);
+                if (theme) {
+                    printf("  %-12s - %s\n", theme->name, theme->description);
+                }
+                free(themes[i]);
+            }
+            free(themes);
+        }
+        return 0;
+    }
+
+    // Handle subcommands
+    if (argc >= 2) {
+        if (strcmp(argv[1], "list") == 0) {
+            // List themes by category
+            printf("Available themes:\n\n");
+
+            printf("Professional:\n");
+            char **prof_themes =
+                theme_list_available(THEME_CATEGORY_PROFESSIONAL);
+            if (prof_themes) {
+                for (int i = 0; prof_themes[i]; i++) {
+                    theme_definition_t *theme = theme_load(prof_themes[i]);
+                    if (theme) {
+                        printf("  %-12s - %s\n", theme->name,
+                               theme->description);
+                    }
+                    free(prof_themes[i]);
+                }
+                free(prof_themes);
+            }
+
+            printf("\nDeveloper:\n");
+            char **dev_themes = theme_list_available(THEME_CATEGORY_DEVELOPER);
+            if (dev_themes) {
+                for (int i = 0; dev_themes[i]; i++) {
+                    theme_definition_t *theme = theme_load(dev_themes[i]);
+                    if (theme) {
+                        printf("  %-12s - %s\n", theme->name,
+                               theme->description);
+                    }
+                    free(dev_themes[i]);
+                }
+                free(dev_themes);
+            }
+
+            printf("\nMinimal:\n");
+            char **min_themes = theme_list_available(THEME_CATEGORY_MINIMAL);
+            if (min_themes) {
+                for (int i = 0; min_themes[i]; i++) {
+                    theme_definition_t *theme = theme_load(min_themes[i]);
+                    if (theme) {
+                        printf("  %-12s - %s\n", theme->name,
+                               theme->description);
+                    }
+                    free(min_themes[i]);
+                }
+                free(min_themes);
+            }
+
+            printf("\nCreative:\n");
+            char **creative_themes =
+                theme_list_available(THEME_CATEGORY_CREATIVE);
+            if (creative_themes) {
+                for (int i = 0; creative_themes[i]; i++) {
+                    theme_definition_t *theme = theme_load(creative_themes[i]);
+                    if (theme) {
+                        printf("  %-12s - %s\n", theme->name,
+                               theme->description);
+                    }
+                    free(creative_themes[i]);
+                }
+                free(creative_themes);
+            }
+
+            printf("\nClassic:\n");
+            char **classic_themes =
+                theme_list_available(THEME_CATEGORY_CLASSIC);
+            if (classic_themes) {
+                for (int i = 0; classic_themes[i]; i++) {
+                    theme_definition_t *theme = theme_load(classic_themes[i]);
+                    if (theme) {
+                        printf("  %-12s - %s\n", theme->name,
+                               theme->description);
+                    }
+                    free(classic_themes[i]);
+                }
+                free(classic_themes);
+            }
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "set") == 0) {
+            if (argc < 3) {
+                error_message("theme set: theme name required");
+                return 1;
+            }
+
+            const char *theme_name = argv[2];
+            if (theme_set_active(theme_name)) {
+                printf("Theme set to: %s\n", theme_name);
+
+                // Update configuration
+                if (config.theme_name) {
+                    free(config.theme_name);
+                }
+                config.theme_name = strdup(theme_name);
+
+                // Rebuild prompt with new theme
+                build_prompt();
+
+                return 0;
+            } else {
+                error_message("theme set: theme '%s' not found", theme_name);
+                return 1;
+            }
+        }
+
+        if (strcmp(argv[1], "info") == 0) {
+            const char *theme_name = argc >= 3 ? argv[2] : NULL;
+            theme_definition_t *theme =
+                theme_name ? theme_load(theme_name) : theme_get_active();
+
+            if (!theme) {
+                error_message("theme info: %s", theme_name ? "theme not found"
+                                                           : "no active theme");
+                return 1;
+            }
+
+            printf("Theme: %s\n", theme->name);
+            printf("Description: %s\n", theme->description);
+            printf("Author: %s\n", theme->author);
+            printf("Version: %s\n", theme->version);
+            printf("Category: %s\n",
+                   theme->category == THEME_CATEGORY_PROFESSIONAL
+                       ? "Professional"
+                   : theme->category == THEME_CATEGORY_CREATIVE  ? "Creative"
+                   : theme->category == THEME_CATEGORY_MINIMAL   ? "Minimal"
+                   : theme->category == THEME_CATEGORY_CLASSIC   ? "Classic"
+                   : theme->category == THEME_CATEGORY_DEVELOPER ? "Developer"
+                                                                 : "Custom");
+            printf("Built-in: %s\n", theme->is_built_in ? "Yes" : "No");
+            printf("256-color support: %s\n",
+                   theme->supports_256_color ? "Yes" : "No");
+            printf("True color support: %s\n",
+                   theme->supports_true_color ? "Yes" : "No");
+            printf("Requires Powerline fonts: %s\n",
+                   theme->requires_powerline_fonts ? "Yes" : "No");
+
+            printf("\nFeatures:\n");
+            printf("  Right prompt: %s\n",
+                   theme->templates.enable_right_prompt ? "Yes" : "No");
+            printf("  Multiline: %s\n",
+                   theme->templates.enable_multiline ? "Yes" : "No");
+            printf("  Timestamp: %s\n",
+                   theme->templates.enable_timestamp ? "Yes" : "No");
+            printf("  Git status: %s\n",
+                   theme->templates.enable_git_status ? "Yes" : "No");
+            printf("  Exit code: %s\n",
+                   theme->templates.enable_exit_code ? "Yes" : "No");
+            printf("  Icons: %s\n", theme->effects.enable_icons ? "Yes" : "No");
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "colors") == 0) {
+            theme_definition_t *theme = theme_get_active();
+            if (!theme) {
+                error_message("theme colors: no active theme");
+                return 1;
+            }
+
+            printf("Color scheme for theme: %s\n\n", theme->name);
+
+            // Display color palette with examples
+            printf("Primary:    %sExample text%s\n", theme->colors.primary,
+                   "\033[0m");
+            printf("Secondary:  %sExample text%s\n", theme->colors.secondary,
+                   "\033[0m");
+            printf("Success:    %sExample text%s\n", theme->colors.success,
+                   "\033[0m");
+            printf("Warning:    %sExample text%s\n", theme->colors.warning,
+                   "\033[0m");
+            printf("Error:      %sExample text%s\n", theme->colors.error,
+                   "\033[0m");
+            printf("Info:       %sExample text%s\n", theme->colors.info,
+                   "\033[0m");
+            printf("Text:       %sExample text%s\n", theme->colors.text,
+                   "\033[0m");
+            printf("Text dim:   %sExample text%s\n", theme->colors.text_dim,
+                   "\033[0m");
+            printf("Highlight:  %sExample text%s\n", theme->colors.highlight,
+                   "\033[0m");
+            printf("Git clean:  %sExample text%s\n", theme->colors.git_clean,
+                   "\033[0m");
+            printf("Git dirty:  %sExample text%s\n", theme->colors.git_dirty,
+                   "\033[0m");
+            printf("Git staged: %sExample text%s\n", theme->colors.git_staged,
+                   "\033[0m");
+            printf("Git branch: %sExample text%s\n", theme->colors.git_branch,
+                   "\033[0m");
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "preview") == 0) {
+            const char *theme_name = argc >= 3 ? argv[2] : NULL;
+            theme_definition_t *theme =
+                theme_name ? theme_load(theme_name) : theme_get_active();
+
+            if (!theme) {
+                error_message("theme preview: %s", theme_name
+                                                       ? "theme not found"
+                                                       : "no active theme");
+                return 1;
+            }
+
+            printf("Preview of theme: %s\n\n", theme->name);
+
+            // Temporarily set the theme and generate sample prompts
+            theme_definition_t *original = theme_get_active();
+            if (theme_name) {
+                theme_set_active(theme_name);
+            }
+
+            char sample_prompt[1024];
+            if (theme_generate_primary_prompt(sample_prompt,
+                                              sizeof(sample_prompt))) {
+                printf("Primary prompt: %s\n", sample_prompt);
+            }
+
+            char sample_ps2[256];
+            if (theme_generate_secondary_prompt(sample_ps2,
+                                                sizeof(sample_ps2))) {
+                printf("Secondary prompt: %s\n", sample_ps2);
+            }
+
+            // Restore original theme if we changed it
+            if (theme_name && original) {
+                theme_set_active(original->name);
+            }
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "stats") == 0) {
+            size_t total, builtin, custom;
+            theme_get_statistics(&total, &builtin, &custom);
+
+            printf("Theme system statistics:\n");
+            printf("  Total themes: %zu\n", total);
+            printf("  Built-in themes: %zu\n", builtin);
+            printf("  Custom themes: %zu\n", custom);
+            printf("  Color support: %d\n", theme_detect_color_support());
+            printf("  Theme system version: %s\n", theme_get_version());
+
+            return 0;
+        }
+
+        if (strcmp(argv[1], "help") == 0) {
+            printf("Theme command usage:\n");
+            printf("  theme              - Show current theme and list "
+                   "available themes\n");
+            printf("  theme list         - List all themes by category\n");
+            printf("  theme set <name>   - Set active theme\n");
+            printf("  theme info [name]  - Show detailed theme information\n");
+            printf(
+                "  theme colors       - Show color palette of active theme\n");
+            printf("  theme preview [name] - Preview theme prompts\n");
+            printf("  theme stats        - Show theme system statistics\n");
+            printf("  theme help         - Show this help message\n");
+            printf("\nAvailable built-in themes:\n");
+            printf("  corporate  - Professional theme for business "
+                   "environments\n");
+            printf("  dark       - Modern dark theme with bright accents\n");
+            printf("  light      - Clean light theme with good contrast\n");
+            printf("  colorful   - Vibrant theme for creative workflows\n");
+            printf("  minimal    - Ultra-minimal theme for focused work\n");
+            printf("  classic    - Traditional shell appearance\n");
+
+            return 0;
+        }
+
+        // Unknown subcommand
+        error_message("theme: unknown subcommand '%s'", argv[1]);
+        printf("Use 'theme help' for usage information\n");
+        return 1;
     }
 
     return 0;

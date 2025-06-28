@@ -1,9 +1,11 @@
 #include "../include/prompt.h"
 
+#include "../include/config.h"
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/themes.h"
 
 #include <getopt.h>
 #include <limits.h>
@@ -483,11 +485,25 @@ void set_prompt(int argc, char **argv) {
  *      the current working directory or a plain '% or # '.
  */
 void build_prompt(void) {
+    char prompt[(MAXLINE * 2) + 1] = {'\0'}; // prompt string
+
+    // Phase 3 Target 2: Try theme-aware prompt generation first
+    if (config.theme_name && strlen(config.theme_name) > 0 &&
+        theme_get_active() != NULL) {
+
+        if (theme_generate_primary_prompt(prompt, sizeof(prompt))) {
+            // Successfully generated themed prompt
+            symtable_set_global("PS1", prompt);
+            return;
+        }
+        // If theme generation fails, fall back to traditional prompt
+    }
+
+    // Traditional prompt generation (fallback)
     char u[_POSIX_LOGIN_NAME_MAX + 1] = {'\0'}; // username
     char h[_POSIX_HOST_NAME_MAX + 1] = {'\0'};  // hostname
     char d[_POSIX_PATH_MAX + 1] = {'\0'};       // current working directory
     char t[64] = {'\0'};                        // local time
-    char prompt[(MAXLINE * 2) + 1] = {'\0'};    // prompt string
 
     // Build prompt color sequence
     if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT ||
@@ -548,7 +564,23 @@ void build_prompt(void) {
 
     // Set the prompt environment variables
     symtable_set_global("PS1", prompt);
-    symtable_set_global("PS2", PS2);
+
+    // Phase 3 Target 2: Generate themed PS2 if theme is active
+    char ps2_prompt[MAXLINE + 1] = {'\0'};
+    if (config.theme_name && strlen(config.theme_name) > 0 &&
+        theme_get_active() != NULL) {
+
+        if (theme_generate_secondary_prompt(ps2_prompt, sizeof(ps2_prompt))) {
+            // Successfully generated themed PS2
+            symtable_set_global("PS2", ps2_prompt);
+        } else {
+            // Fall back to default PS2
+            symtable_set_global("PS2", PS2);
+        }
+    } else {
+        // Use traditional PS2
+        symtable_set_global("PS2", PS2);
+    }
 
     if (colors) {
         free(colors);

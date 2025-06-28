@@ -33,95 +33,137 @@ static char last_error[256] = "";
 // Configuration option definitions
 static config_option_t config_options[] = {
     // History settings
-    {            "history_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {             "history_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_enabled,"Enable command history",config_validate_bool                                                                                  },
-    {               "history_size",    CONFIG_TYPE_INT,    CONFIG_SECTION_HISTORY,
+    {                "history_size",    CONFIG_TYPE_INT,    CONFIG_SECTION_HISTORY,
      &config.history_size,                       "Maximum history entries",          config_validate_int       },
-    {            "history_no_dups",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {             "history_no_dups",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_no_dups,              "Remove duplicate history entries",
      config_validate_bool                                                                                      },
-    {         "history_timestamps",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
+    {          "history_timestamps",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_HISTORY,
      &config.history_timestamps,                     "Add timestamps to history",
      config_validate_bool                                                                                      },
-    {               "history_file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
+    {                "history_file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
      &config.history_file,                             "History file path",       config_validate_string       },
 
     // Completion settings
-    {         "completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {          "completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_enabled,                         "Enable tab completion",         config_validate_bool },
-    {           "fuzzy_completion",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {            "fuzzy_completion",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.fuzzy_completion,           "Enable fuzzy matching in completion",
      config_validate_bool                                                                                      },
-    {       "completion_threshold",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
+    {        "completion_threshold",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
      &config.completion_threshold,              "Fuzzy matching threshold (0-100)",
      config_validate_int                                                                                       },
-    {  "completion_case_sensitive",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {   "completion_case_sensitive",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_case_sensitive,                     "Case sensitive completion",
      config_validate_bool                                                                                      },
-    {        "completion_show_all",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+    {         "completion_show_all",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_show_all,                          "Show all completions",         config_validate_bool},
 
     // Prompt settings
-    {               "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {                "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_style, "Prompt style (normal, color, fancy, pro, git)",
      config_validate_prompt_style                                                                              },
-    {               "prompt_theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {                "prompt_theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_theme,                            "Prompt color theme",       config_validate_string       },
-    {         "git_prompt_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+    {          "git_prompt_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
      &config.git_prompt_enabled,                      "Enable git-aware prompts",
      config_validate_bool                                                                                      },
-    {          "git_cache_timeout",    CONFIG_TYPE_INT,     CONFIG_SECTION_PROMPT,
+    {           "git_cache_timeout",    CONFIG_TYPE_INT,     CONFIG_SECTION_PROMPT,
      &config.git_cache_timeout,           "Git status cache timeout in seconds",
      config_validate_int                                                                                       },
-    {              "prompt_format", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+    {               "prompt_format", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_format,                   "Custom prompt format string",
      config_validate_string                                                                                    },
 
+    // Theme settings (Phase 3 Target 2)
+    {                  "theme_name", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+     &config.theme_name,                             "Active theme name",       config_validate_string         },
+    {    "theme_auto_detect_colors",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_auto_detect_colors,            "Auto-detect terminal color support",
+     config_validate_bool                                                                                      },
+    {        "theme_fallback_basic",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_fallback_basic,            "Fallback to basic colors if needed",
+     config_validate_bool                                                                                      },
+    {     "theme_corporate_company", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+     &config.theme_corporate_company,                        "Corporate company name",
+     config_validate_string                                                                                    },
+    {  "theme_corporate_department", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+     &config.theme_corporate_department,                     "Corporate department name",
+     config_validate_string                                                                                    },
+    {     "theme_corporate_project", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+     &config.theme_corporate_project,                        "Corporate project name",
+     config_validate_string                                                                                    },
+    { "theme_corporate_environment", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
+     &config.theme_corporate_environment,                    "Corporate environment name",
+     config_validate_string                                                                                    },
+    {          "theme_show_company",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_show_company,                   "Show company name in prompt",
+     config_validate_bool                                                                                      },
+    {       "theme_show_department",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_show_department,                "Show department name in prompt",
+     config_validate_bool                                                                                      },
+    {     "theme_show_right_prompt",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_show_right_prompt,                      "Enable right-side prompt",
+     config_validate_bool                                                                                      },
+    {      "theme_enable_multiline",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_enable_multiline,                      "Enable multiline prompts",
+     config_validate_bool                                                                                      },
+    {     "theme_enable_animations",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_enable_animations,                      "Enable prompt animations",
+     config_validate_bool                                                                                      },
+    {          "theme_enable_icons",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.theme_enable_icons,                          "Enable Unicode icons",         config_validate_bool },
+    {"theme_color_support_override",    CONFIG_TYPE_INT,     CONFIG_SECTION_PROMPT,
+     &config.theme_color_support_override,
+     "Override color support detection (0/8/256/16777216)",          config_validate_int                       },
+
     // Behavior settings
-    {             "multiline_edit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {              "multiline_edit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.multiline_edit,                      "Enable multiline editing",         config_validate_bool     },
-    {                    "auto_cd",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,   &config.auto_cd,
+    {                     "auto_cd",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,   &config.auto_cd,
      "Auto-cd to directories",         config_validate_bool                                                    },
-    {           "spell_correction",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {            "spell_correction",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.spell_correction,               "Enable command spell correction",
      config_validate_bool                                                                                      },
-    {"autocorrect_max_suggestions",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
+    { "autocorrect_max_suggestions",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_max_suggestions,
      "Maximum auto-correction suggestions (1-5)",          config_validate_int                                 },
-    {      "autocorrect_threshold",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
+    {       "autocorrect_threshold",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_threshold,
      "Auto-correction similarity threshold (0-100)",          config_validate_int                              },
-    {    "autocorrect_interactive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {     "autocorrect_interactive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_interactive,           "Show interactive correction prompts",
      config_validate_bool                                                                                      },
-    {  "autocorrect_learn_history",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {   "autocorrect_learn_history",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_learn_history,                   "Learn commands from history",
      config_validate_bool                                                                                      },
-    {       "autocorrect_builtins",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {        "autocorrect_builtins",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_builtins,                   "Suggest builtin corrections",
      config_validate_bool                                                                                      },
-    {       "autocorrect_external",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {        "autocorrect_external",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_external,          "Suggest external command corrections",
      config_validate_bool                                                                                      },
-    { "autocorrect_case_sensitive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {  "autocorrect_case_sensitive",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.autocorrect_case_sensitive,                "Case-sensitive auto-correction",
      config_validate_bool                                                                                      },
-    {               "confirm_exit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {                "confirm_exit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.confirm_exit,                        "Confirm before exiting",         config_validate_bool       },
-    {                  "tab_width",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR, &config.tab_width,
+    {                   "tab_width",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR, &config.tab_width,
      "Tab width for display",          config_validate_int                                                     },
 
     // Color settings
-    {               "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
+    {                "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
      &config.color_scheme,                             "Color scheme name", config_validate_color_scheme       },
-    {             "colors_enabled",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {              "colors_enabled",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.colors_enabled,                           "Enable color output",         config_validate_bool     },
 
     // Advanced settings
-    {             "verbose_errors",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {              "verbose_errors",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.verbose_errors,                   "Show verbose error messages",
      config_validate_bool                                                                                      },
-    {                 "debug_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+    {                  "debug_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.debug_mode,                             "Enable debug mode",         config_validate_bool         },
 };
 
@@ -154,6 +196,20 @@ const char *CONFIG_FILE_TEMPLATE =
     "git_prompt_enabled = true\n"
     "git_cache_timeout = 5\n"
     "# prompt_format = \"%u@%h in %d%g %% \"\n"
+    "theme_name = corporate\n"
+    "theme_auto_detect_colors = true\n"
+    "theme_fallback_basic = true\n"
+    "# theme_corporate_company = \"\"\n"
+    "# theme_corporate_department = \"\"\n"
+    "# theme_corporate_project = \"\"\n"
+    "# theme_corporate_environment = \"\"\n"
+    "theme_show_company = false\n"
+    "theme_show_department = false\n"
+    "theme_show_right_prompt = true\n"
+    "theme_enable_multiline = true\n"
+    "theme_enable_animations = false\n"
+    "theme_enable_icons = false\n"
+    "theme_color_support_override = 0\n"
     "\n"
     "[behavior]\n"
     "multiline_edit = true\n"
@@ -247,6 +303,22 @@ void config_set_defaults(void) {
     config.git_prompt_enabled = true;
     config.git_cache_timeout = 5;
     config.prompt_format = NULL;
+
+    // Theme defaults (Phase 3 Target 2)
+    config.theme_name = strdup("corporate");
+    config.theme_auto_detect_colors = true;
+    config.theme_fallback_basic = true;
+    config.theme_corporate_company = NULL;
+    config.theme_corporate_department = NULL;
+    config.theme_corporate_project = NULL;
+    config.theme_corporate_environment = NULL;
+    config.theme_show_company = false;
+    config.theme_show_department = false;
+    config.theme_show_right_prompt = true;
+    config.theme_enable_multiline = true;
+    config.theme_enable_animations = false;
+    config.theme_enable_icons = false;
+    config.theme_color_support_override = 0;
 
     // Behavior defaults
     config.multiline_edit = true;
@@ -741,6 +813,23 @@ void config_cleanup(void) {
     }
     if (config.prompt_format) {
         free(config.prompt_format);
+    }
+
+    // Theme cleanup (Phase 3 Target 2)
+    if (config.theme_name) {
+        free(config.theme_name);
+    }
+    if (config.theme_corporate_company) {
+        free(config.theme_corporate_company);
+    }
+    if (config.theme_corporate_department) {
+        free(config.theme_corporate_department);
+    }
+    if (config.theme_corporate_project) {
+        free(config.theme_corporate_project);
+    }
+    if (config.theme_corporate_environment) {
+        free(config.theme_corporate_environment);
     }
     if (config.history_file) {
         free(config.history_file);
