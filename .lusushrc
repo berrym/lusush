@@ -24,7 +24,7 @@ git_cache_timeout = 5
 # prompt_format = "%u@%h in %d%g %% "
 
 [behavior]
-multiline_edit = true
+multiline_edit = false
 auto_cd = false
 spell_correction = false
 confirm_exit = false

@@ -212,7 +212,7 @@ const char *CONFIG_FILE_TEMPLATE =
     "theme_color_support_override = 0\n"
     "\n"
     "[behavior]\n"
-    "multiline_edit = true\n"
+    "multiline_edit = false\n"
     "auto_cd = false\n"
     "spell_correction = false\n"
     "autocorrect_max_suggestions = 3\n"
@@ -321,7 +321,7 @@ void config_set_defaults(void) {
     config.theme_color_support_override = 0;
 
     // Behavior defaults
-    config.multiline_edit = true;
+    config.multiline_edit = false;
     config.auto_cd = false;
     config.spell_correction = false;
     config.confirm_exit = false;

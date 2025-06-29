@@ -256,7 +256,8 @@ int init(int argc, char **argv, FILE **in) {
         linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                       linenoiseUtf8NextCharLen,
                                       linenoiseUtf8ReadCode);
-        linenoiseSetMultiLine(symtable_get_global_bool("MULTILINE_EDIT", true));
+        linenoiseSetMultiLine(
+            symtable_get_global_bool("MULTILINE_EDIT", false));
         build_prompt();
     }
 
