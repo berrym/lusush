@@ -1212,7 +1212,8 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd,
     l->buf = buf;
     l->buflen = buflen;
     l->prompt = prompt;
-    l->plen = strlen(prompt);
+    size_t raw_plen = strlen(prompt);
+    l->plen = promptTextColumnLen(prompt, raw_plen);
     l->oldcolpos = l->pos = 0;
     l->len = 0;
 
@@ -1249,7 +1250,7 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd,
         reverse_search_original_line = NULL;
     }
 
-    if (write(l->ofd, prompt, l->plen) == -1) {
+    if (write(l->ofd, prompt, raw_plen) == -1) {
         return -1;
     }
     return 0;
