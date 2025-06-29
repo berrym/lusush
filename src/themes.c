@@ -1382,9 +1382,12 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
 
     // Get git information if enabled
     if (theme->templates.enable_git_status) {
-        // This would integrate with existing git prompt functionality
-        // For now, use a simple placeholder
-        strncpy(git_info, "", sizeof(git_info) - 1);
+        // Use the existing git prompt functionality from prompt.c
+        update_git_info();
+        format_git_prompt(git_info, sizeof(git_info) - 1);
+
+        // Ensure null termination
+        git_info[sizeof(git_info) - 1] = '\0';
     }
 
     // Add variables to context

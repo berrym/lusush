@@ -302,7 +302,7 @@ static void get_git_status(git_info_t *info) {
  * update_git_info:
  *      Update git information with caching.
  */
-static void update_git_info(void) {
+void update_git_info(void) {
     time_t now = time(NULL);
 
     // Use cached info if it's recent enough
@@ -318,7 +318,7 @@ static void update_git_info(void) {
  * format_git_prompt:
  *      Format git information for prompt display.
  */
-static void format_git_prompt(char *git_prompt, size_t size) {
+void format_git_prompt(char *git_prompt, size_t size) {
     if (strlen(git_info.branch) == 0) {
         git_prompt[0] = '\0';
         return;
