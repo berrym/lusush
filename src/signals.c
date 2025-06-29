@@ -6,15 +6,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 // Global trap list
 trap_entry_t *trap_list = NULL;
 
+// Global variable to track if we're running a child process
+static pid_t current_child_pid = 0;
+
+// SIGINT handler that properly manages shell vs child process behavior
+static void sigint_handler(int signo) {
+    (void)signo; // Suppress unused parameter warning
+
+    if (current_child_pid > 0) {
+        // We have an active child process - send SIGINT to it
+        kill(current_child_pid, SIGINT);
+    } else {
+        // No active child process - just print newline and return to prompt
+        // The shell will handle returning to the prompt naturally
+        printf("\n");
+        fflush(stdout);
+    }
+}
+
 void init_signal_handlers(void) {
-    set_signal_handler(SIGINT, SIG_IGN);
+    set_signal_handler(SIGINT, sigint_handler);
     set_signal_handler(SIGSEGV, sigsegv_handler);
 }
+
+// Function to set the current child PID (called when forking)
+void set_current_child_pid(pid_t pid) { current_child_pid = pid; }
+
+// Function to clear the current child PID (called when child exits)
+void clear_current_child_pid(void) { current_child_pid = 0; }
 
 int set_signal_handler(int signo, void(handler)(int)) {
     struct sigaction sigact;

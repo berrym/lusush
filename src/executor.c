@@ -19,6 +19,7 @@
 #include "../include/node.h"
 #include "../include/parser.h"
 #include "../include/redirection.h"
+#include "../include/signals.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
 
@@ -1560,8 +1561,10 @@ static int execute_external_command_with_redirection(executor_t *executor,
         exit(exit_code);
     } else {
         // Parent process
+        set_current_child_pid(pid);
         int status;
         waitpid(pid, &status, 0);
+        clear_current_child_pid();
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     }
 }
@@ -1906,8 +1909,10 @@ static int execute_external_command_with_setup(executor_t *executor,
         exit(exit_code);
     } else {
         // Parent process
+        set_current_child_pid(pid);
         int status;
         waitpid(pid, &status, 0);
+        clear_current_child_pid();
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     }
 }

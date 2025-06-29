@@ -534,9 +534,23 @@ char *ln_gets(void) {
         line = linenoise(prompt);
         if (!line) {
             if (errno == ENOENT) {
+                // Ctrl-D (EOF) - return accumulated input if any, or NULL
+                if (accumulated_input && *accumulated_input) {
+                    // Return accumulated input and reset for next command
+                    char *result = strdup(accumulated_input);
+                    free(accumulated_input);
+                    accumulated_input = NULL;
+                    accumulated_size = 0;
+                    accumulated_capacity = 0;
+                    init_input_state(&state);
+                    return result;
+                }
                 return NULL;
+            } else if (errno == EAGAIN) {
+                // Ctrl-C (SIGINT) - continue reading, don't exit shell
+                continue;
             }
-            // EOF - return accumulated input if any
+            // Other error or EOF - return accumulated input if any
             if (accumulated_input && *accumulated_input) {
                 char *result = accumulated_input;
                 accumulated_input = NULL;

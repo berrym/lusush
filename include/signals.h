@@ -1,6 +1,8 @@
 #ifndef SIGNALS_H
 #define SIGNALS_H
 
+#include <sys/types.h>
+
 // Trap entry structure for signal handling
 typedef struct trap_entry {
     int signal;
@@ -16,6 +18,10 @@ int set_signal_handler(int, void (*)(int));
 void init_signal_handlers(void);
 void set_sigint_handler(void);
 void set_sigsegv_handler(void);
+
+// Child process management for signal handling
+void set_current_child_pid(pid_t pid);
+void clear_current_child_pid(void);
 
 // Trap management functions
 int set_trap(int signal, const char *command);
