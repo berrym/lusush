@@ -107,9 +107,7 @@ static config_option_t config_options[] = {
     {     "theme_show_right_prompt",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
      &config.theme_show_right_prompt,                      "Enable right-side prompt",
      config_validate_bool                                                                                      },
-    {      "theme_enable_multiline",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
-     &config.theme_enable_multiline,                      "Enable multiline prompts",
-     config_validate_bool                                                                                      },
+
     {     "theme_enable_animations",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
      &config.theme_enable_animations,                      "Enable prompt animations",
      config_validate_bool                                                                                      },
@@ -120,8 +118,6 @@ static config_option_t config_options[] = {
      "Override color support detection (0/8/256/16777216)",          config_validate_int                       },
 
     // Behavior settings
-    {              "multiline_edit",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
-     &config.multiline_edit,                      "Enable multiline editing",         config_validate_bool     },
     {                     "auto_cd",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,   &config.auto_cd,
      "Auto-cd to directories",         config_validate_bool                                                    },
     {            "spell_correction",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
@@ -206,13 +202,12 @@ const char *CONFIG_FILE_TEMPLATE =
     "theme_show_company = false\n"
     "theme_show_department = false\n"
     "theme_show_right_prompt = true\n"
-    "theme_enable_multiline = true\n"
+
     "theme_enable_animations = false\n"
     "theme_enable_icons = false\n"
     "theme_color_support_override = 0\n"
     "\n"
     "[behavior]\n"
-    "multiline_edit = false\n"
     "auto_cd = false\n"
     "spell_correction = false\n"
     "autocorrect_max_suggestions = 3\n"
@@ -315,13 +310,12 @@ void config_set_defaults(void) {
     config.theme_show_company = false;
     config.theme_show_department = false;
     config.theme_show_right_prompt = true;
-    config.theme_enable_multiline = true;
+
     config.theme_enable_animations = false;
     config.theme_enable_icons = false;
     config.theme_color_support_override = 0;
 
     // Behavior defaults
-    config.multiline_edit = false;
     config.auto_cd = false;
     config.spell_correction = false;
     config.confirm_exit = false;
@@ -611,8 +605,7 @@ void config_apply_settings(void) {
     // }
 
     // Apply behavior settings
-    symtable_set_global_int("MULTILINE_EDIT", config.multiline_edit);
-    linenoiseSetMultiLine(config.multiline_edit);
+    // Multiline editing is disabled - single line mode for better reliability
 
     // Apply other settings as needed
     symtable_set_global_int("AUTO_CD", config.auto_cd);

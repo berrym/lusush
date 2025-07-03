@@ -256,8 +256,8 @@ int init(int argc, char **argv, FILE **in) {
         linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                       linenoiseUtf8NextCharLen,
                                       linenoiseUtf8ReadCode);
-        linenoiseSetMultiLine(
-            symtable_get_global_bool("MULTILINE_EDIT", false));
+        // Multiline mode disabled for better reliability and performance
+        linenoiseSetMultiLine(0);
         build_prompt();
     }
 

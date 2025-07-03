@@ -24,7 +24,7 @@ static char *buf = NULL, *buf2 = NULL;
 size_t linecap = MAXLINE + 1;
 ssize_t linelen;
 
-// Multiline input state tracking
+// Enhanced input state tracking
 typedef struct {
     int control_depth;        // Depth of control structures (if/for/while/case)
     int brace_depth;          // Depth of brace groups { }
@@ -56,8 +56,8 @@ static void cleanup_input_state(input_state_t *state) {
     }
 }
 
-// Convert multiline input to single-line format for history storage
-// This makes multiline commands more manageable in history recall
+// Convert complex input to single-line format for history storage
+// This makes complex commands more manageable in history recall
 static char *convert_multiline_for_history(const char *input) {
     if (!input || !*input) {
         return NULL;
@@ -501,7 +501,7 @@ char *get_input(FILE *in) {
     return get_input_complete(in);
 }
 
-// Enhanced linenoise input with comprehensive multiline support
+// Enhanced linenoise input with comprehensive command processing
 char *ln_gets(void) {
     static char *accumulated_input = NULL;
     static size_t accumulated_size = 0;
@@ -620,7 +620,7 @@ char *ln_gets(void) {
 
             // Add to history if non-empty
             if (*result) {
-                // Convert multiline input to single-line format for better
+                // Convert complex input to single-line format for better
                 // history handling
                 char *history_line = convert_multiline_for_history(result);
                 if (history_line) {
@@ -641,7 +641,7 @@ char *ln_gets(void) {
     }
 }
 
-// Enhanced get_input_complete for comprehensive multiline support in
+// Enhanced get_input_complete for comprehensive command processing in
 // non-interactive mode
 char *get_input_complete(FILE *in) {
     static char *accumulated_input = NULL;
@@ -763,7 +763,7 @@ char *get_input_complete(FILE *in) {
     }
 }
 
-// Unified input function providing consistent multiline behavior
+// Unified input function providing consistent input behavior
 char *get_unified_input(FILE *in) {
     if (is_interactive_shell()) {
         // Interactive mode - use enhanced linenoise (matches shell type

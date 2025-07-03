@@ -125,10 +125,7 @@ static theme_definition_t *create_corporate_theme(void) {
     strncpy(theme->templates.secondary_template, "%{border}> %{text}",
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "%{text_dim}%t", TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "%{border}| %{text}",
-            TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = true;
-    theme->templates.enable_multiline = true;
     theme->templates.enable_timestamp = false;
     theme->templates.enable_git_status = true;
     theme->templates.enable_exit_code = false;
@@ -216,10 +213,7 @@ static theme_definition_t *create_dark_theme(void) {
     strncpy(theme->templates.secondary_template,
             "%{primary}└─%{highlight}> %{text}", TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "%{text_dim}%t", TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "%{primary}│ %{text}",
-            TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = true;
-    theme->templates.enable_multiline = true;
     theme->templates.enable_timestamp = true;
     theme->templates.enable_git_status = true;
     theme->templates.enable_exit_code = true;
@@ -304,10 +298,7 @@ static theme_definition_t *create_light_theme(void) {
     strncpy(theme->templates.secondary_template, "%{border}> %{text}",
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "", TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "%{border}  %{text}",
-            TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = false;
-    theme->templates.enable_multiline = false;
     theme->templates.enable_timestamp = false;
     theme->templates.enable_git_status = true;
     theme->templates.enable_exit_code = false;
@@ -392,10 +383,7 @@ static theme_definition_t *create_colorful_theme(void) {
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "%{text_dim}⏰ %t",
             TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "%{border}┃ %{text}",
-            TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = true;
-    theme->templates.enable_multiline = true;
     theme->templates.enable_timestamp = true;
     theme->templates.enable_git_status = true;
     theme->templates.enable_exit_code = true;
@@ -460,9 +448,7 @@ static theme_definition_t *create_minimal_theme(void) {
     strncpy(theme->templates.primary_template, "$ ", TEMPLATE_MAX - 1);
     strncpy(theme->templates.secondary_template, "> ", TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "", TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "  ", TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = false;
-    theme->templates.enable_multiline = false;
     theme->templates.enable_timestamp = false;
     theme->templates.enable_git_status = false;
     theme->templates.enable_exit_code = false;
@@ -528,9 +514,7 @@ static theme_definition_t *create_classic_theme(void) {
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.secondary_template, "> ", TEMPLATE_MAX - 1);
     strncpy(theme->templates.right_prompt, "", TEMPLATE_MAX - 1);
-    strncpy(theme->templates.multiline_prefix, "  ", TEMPLATE_MAX - 1);
     theme->templates.enable_right_prompt = false;
-    theme->templates.enable_multiline = false;
     theme->templates.enable_timestamp = false;
     theme->templates.enable_git_status = true;
     theme->templates.enable_exit_code = false;

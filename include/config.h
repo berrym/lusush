@@ -83,13 +83,11 @@ typedef struct {
     bool theme_show_company;
     bool theme_show_department;
     bool theme_show_right_prompt;
-    bool theme_enable_multiline;
     bool theme_enable_animations;
     bool theme_enable_icons;
     int theme_color_support_override;
 
     // Behavior settings
-    bool multiline_edit;
     bool auto_cd;
     bool spell_correction;
     bool confirm_exit;

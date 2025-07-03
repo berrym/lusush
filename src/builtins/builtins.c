@@ -2844,8 +2844,6 @@ int bin_theme(int argc, char **argv) {
             printf("\nFeatures:\n");
             printf("  Right prompt: %s\n",
                    theme->templates.enable_right_prompt ? "Yes" : "No");
-            printf("  Multiline: %s\n",
-                   theme->templates.enable_multiline ? "Yes" : "No");
             printf("  Timestamp: %s\n",
                    theme->templates.enable_timestamp ? "Yes" : "No");
             printf("  Git status: %s\n",

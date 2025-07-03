@@ -74,9 +74,7 @@ typedef struct {
     char primary_template[TEMPLATE_MAX];   // Main prompt template
     char secondary_template[TEMPLATE_MAX]; // Continuation prompt (PS2)
     char right_prompt[TEMPLATE_MAX];       // Right-side prompt
-    char multiline_prefix[TEMPLATE_MAX];   // Prefix for multiline prompts
     bool enable_right_prompt;              // Show right-side prompt
-    bool enable_multiline;                 // Enable multiline prompts
     bool enable_timestamp;                 // Show timestamp
     bool enable_git_status;                // Show git information
     bool enable_exit_code;                 // Show last command exit code
