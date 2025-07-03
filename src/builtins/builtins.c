@@ -2,6 +2,7 @@
 
 #include "../../include/alias.h"
 #include "../../include/config.h"
+#include "../../include/debug.h"
 #include "../../include/errors.h"
 #include "../../include/executor.h"
 #include "../../include/history.h"
@@ -33,6 +34,7 @@ int bin_config(int argc, char **argv);
 int bin_hash(int argc, char **argv);
 int bin_theme(int argc, char **argv);
 int bin_network(int argc, char **argv);
+int bin_debug(int argc, char **argv);
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -47,52 +49,53 @@ ht_strstr_t *command_hash = NULL;
 
 // Table of builtin commands
 builtin builtins[] = {
-    {     "exit",                      "exit shell",      bin_exit},
-    {     "help",                    "builtin help",      bin_help},
-    {       "cd",                "change directory",        bin_cd},
-    {      "pwd",         "print working directory",       bin_pwd},
-    {  "history",           "print command history",   bin_history},
-    {    "alias",                    "set an alias",     bin_alias},
-    {  "unalias",                  "unset an alias",   bin_unalias},
-    {"setprompt",           "set prompt attributes", bin_setprompt},
-    {    "clear",                "clear the screen",     bin_clear},
-    {   "setopt",              "set a shell option",    bin_setopt},
-    {     "type",            "display command type",      bin_type},
-    {    "unset",          "unset a shell variable",     bin_unset},
-    {     "dump",               "dump symbol table",      bin_dump},
-    {     "echo",             "echo text to stdout",      bin_echo},
-    {   "printf",                "formatted output",    bin_printf},
-    {   "export",          "export shell variables",    bin_export},
-    {   "source",                 "source a script",    bin_source},
-    {        ".",                 "source a script",    bin_source},
-    {     "test",                "test expressions",      bin_test},
-    {        "[",                "test expressions",      bin_test},
-    {     "read",                 "read user input",      bin_read},
-    {     "eval",              "evaluate arguments",      bin_eval},
-    {     "true",           "return success status",      bin_true},
-    {    "false",           "return failure status",     bin_false},
-    {      "set",               "set shell options",       bin_set},
-    {     "jobs",                "list active jobs",      bin_jobs},
-    {       "fg",         "bring job to foreground",        bin_fg},
-    {       "bg",          "send job to background",        bin_bg},
-    {    "shift",     "shift positional parameters",     bin_shift},
-    {    "break",              "break out of loops",     bin_break},
-    { "continue", "continue to next loop iteration",  bin_continue},
-    {   "return",           "return from functions",    bin_return},
-    {     "trap",             "set signal handlers",      bin_trap},
-    {     "exec",      "replace shell with command",      bin_exec},
-    {     "wait",        "wait for background jobs",      bin_wait},
-    {    "umask",  "set/display file creation mask",     bin_umask},
-    {   "ulimit",     "set/display resource limits",    bin_ulimit},
-    {    "times",           "display process times",     bin_times},
-    {  "getopts",           "parse command options",   bin_getopts},
-    {    "local",         "declare local variables",     bin_local},
-    {        ":",            "null command (no-op)",     bin_colon},
-    { "readonly",      "create read-only variables",  bin_readonly},
-    {   "config",      "manage shell configuration",    bin_config},
-    {     "hash",      "remember utility locations",      bin_hash},
-    {    "theme",             "manage shell themes",     bin_theme},
-    {  "network",    "manage network and SSH hosts",   bin_network},
+    {     "exit",                       "exit shell",      bin_exit},
+    {     "help",                     "builtin help",      bin_help},
+    {       "cd",                 "change directory",        bin_cd},
+    {      "pwd",          "print working directory",       bin_pwd},
+    {  "history",            "print command history",   bin_history},
+    {    "alias",                     "set an alias",     bin_alias},
+    {  "unalias",                   "unset an alias",   bin_unalias},
+    {"setprompt",            "set prompt attributes", bin_setprompt},
+    {    "clear",                 "clear the screen",     bin_clear},
+    {   "setopt",               "set a shell option",    bin_setopt},
+    {     "type",             "display command type",      bin_type},
+    {    "unset",           "unset a shell variable",     bin_unset},
+    {     "dump",                "dump symbol table",      bin_dump},
+    {     "echo",              "echo text to stdout",      bin_echo},
+    {   "printf",                 "formatted output",    bin_printf},
+    {   "export",           "export shell variables",    bin_export},
+    {   "source",                  "source a script",    bin_source},
+    {        ".",                  "source a script",    bin_source},
+    {     "test",                 "test expressions",      bin_test},
+    {        "[",                 "test expressions",      bin_test},
+    {     "read",                  "read user input",      bin_read},
+    {     "eval",               "evaluate arguments",      bin_eval},
+    {     "true",            "return success status",      bin_true},
+    {    "false",            "return failure status",     bin_false},
+    {      "set",                "set shell options",       bin_set},
+    {     "jobs",                 "list active jobs",      bin_jobs},
+    {       "fg",          "bring job to foreground",        bin_fg},
+    {       "bg",           "send job to background",        bin_bg},
+    {    "shift",      "shift positional parameters",     bin_shift},
+    {    "break",               "break out of loops",     bin_break},
+    { "continue",  "continue to next loop iteration",  bin_continue},
+    {   "return",            "return from functions",    bin_return},
+    {     "trap",              "set signal handlers",      bin_trap},
+    {     "exec",       "replace shell with command",      bin_exec},
+    {     "wait",         "wait for background jobs",      bin_wait},
+    {    "umask",   "set/display file creation mask",     bin_umask},
+    {   "ulimit",      "set/display resource limits",    bin_ulimit},
+    {    "times",            "display process times",     bin_times},
+    {  "getopts",            "parse command options",   bin_getopts},
+    {    "local",          "declare local variables",     bin_local},
+    {        ":",             "null command (no-op)",     bin_colon},
+    { "readonly",       "create read-only variables",  bin_readonly},
+    {   "config",       "manage shell configuration",    bin_config},
+    {     "hash",       "remember utility locations",      bin_hash},
+    {    "theme",              "manage shell themes",     bin_theme},
+    {  "network",     "manage network and SSH hosts",   bin_network},
+    {    "debug", "advanced debugging and profiling",     bin_debug},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -3162,4 +3165,84 @@ int bin_network(int argc, char **argv) {
     }
 
     return 0;
+}
+
+// Debug builtin command - wrapper for debug system
+int bin_debug(int argc __attribute__((unused)), char **argv) {
+    // Initialize debug context if not already done
+    if (!g_debug_context) {
+        g_debug_context = debug_init();
+        if (!g_debug_context) {
+            fprintf(stderr, "debug: Failed to initialize debug context\n");
+            return 1;
+        }
+    }
+
+    debug_context_t *ctx = g_debug_context;
+
+    // Count arguments
+    int argc_real = 0;
+    while (argv[argc_real]) {
+        argc_real++;
+    }
+
+    // No arguments - show current debug status
+    if (argc_real == 1) {
+        printf("Debug Status:\n");
+        printf("  Enabled: %s\n", ctx->enabled ? "yes" : "no");
+        printf("  Level: %d ", ctx->level);
+        switch (ctx->level) {
+        case DEBUG_NONE:
+            printf("(none)\n");
+            break;
+        case DEBUG_BASIC:
+            printf("(basic)\n");
+            break;
+        case DEBUG_VERBOSE:
+            printf("(verbose)\n");
+            break;
+        case DEBUG_TRACE:
+            printf("(trace)\n");
+            break;
+        case DEBUG_PROFILE:
+            printf("(profile)\n");
+            break;
+        default:
+            printf("(unknown)\n");
+            break;
+        }
+        printf("  Stack Depth: %d\n", ctx->stack_depth);
+        printf("  Total Commands: %ld\n", ctx->total_commands);
+        return 0;
+    }
+
+    // Process subcommands - basic implementation
+    const char *subcmd = argv[1];
+
+    if (strcmp(subcmd, "on") == 0 || strcmp(subcmd, "enable") == 0) {
+        debug_enable(ctx, true);
+        printf("Debug mode enabled\n");
+        return 0;
+    }
+
+    if (strcmp(subcmd, "off") == 0 || strcmp(subcmd, "disable") == 0) {
+        debug_enable(ctx, false);
+        printf("Debug mode disabled\n");
+        return 0;
+    }
+
+    if (strcmp(subcmd, "help") == 0) {
+        printf("Debug command usage:\n");
+        printf("  debug                    - Show debug status\n");
+        printf("  debug on                 - Enable debug mode\n");
+        printf("  debug off                - Disable debug mode\n");
+        printf("  debug help               - Show this help\n");
+        printf(
+            "\nPhase 3 Target 4: Shell Scripting Enhancement - IN PROGRESS\n");
+        return 0;
+    }
+
+    printf("debug: Unknown command '%s'\n", subcmd);
+    printf("debug: Use 'debug help' for usage information\n");
+    return 1;
 }

@@ -15,6 +15,7 @@
 #include "../include/autocorrect.h"
 #include "../include/builtins.h"
 #include "../include/config.h"
+#include "../include/debug.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/parser.h"
@@ -285,12 +286,19 @@ static int execute_node(executor_t *executor, node_t *node) {
         return 0;
     }
 
+    // Enhanced debug tracing
     if (executor->debug) {
         printf("DEBUG: Executing node type %d\n", node->type);
         if (node->val.str) {
             printf("DEBUG: Node value: '%s'\n", node->val.str);
         }
     }
+
+    // Advanced debug system integration
+    DEBUG_TRACE_NODE(node, __FILE__, __LINE__);
+
+    // Check for breakpoints
+    DEBUG_BREAKPOINT_CHECK(__FILE__, __LINE__);
 
     switch (node->type) {
     case NODE_COMMAND:
@@ -721,6 +729,9 @@ static int execute_command(executor_t *executor, node_t *command) {
 
     // Update exit status for $? variable
     set_exit_status(result);
+
+    // Profile function exit
+    DEBUG_PROFILE_EXIT("execute_command");
 
     return result;
 }
@@ -1562,9 +1573,17 @@ static int execute_external_command_with_redirection(executor_t *executor,
     } else {
         // Parent process
         set_current_child_pid(pid);
+
+        // Enhanced debug tracing for external commands
+        DEBUG_TRACE_COMMAND(argv[0], argv, 0);
+        DEBUG_PROFILE_ENTER(argv[0]);
+
         int status;
         waitpid(pid, &status, 0);
         clear_current_child_pid();
+
+        DEBUG_PROFILE_EXIT(argv[0]);
+
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     }
 }
@@ -1910,9 +1929,17 @@ static int execute_external_command_with_setup(executor_t *executor,
     } else {
         // Parent process
         set_current_child_pid(pid);
+
+        // Enhanced debug tracing for external commands with setup
+        DEBUG_TRACE_COMMAND(argv[0], argv, 0);
+        DEBUG_PROFILE_ENTER(argv[0]);
+
         int status;
         waitpid(pid, &status, 0);
         clear_current_child_pid();
+
+        DEBUG_PROFILE_EXIT(argv[0]);
+
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     }
 }
