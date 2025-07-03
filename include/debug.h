@@ -225,5 +225,13 @@ void debug_set_analysis_output_file(debug_context_t *ctx, const char *filename);
 // User interaction functions
 void debug_handle_user_input(debug_context_t *ctx, const char *input);
 void debug_print_help(debug_context_t *ctx);
+void debug_enter_interactive_mode(debug_context_t *ctx);
+void debug_show_context(debug_context_t *ctx, const char *file, int line);
+void debug_show_current_location(debug_context_t *ctx);
+void debug_stack_up(debug_context_t *ctx);
+void debug_stack_down(debug_context_t *ctx);
+void debug_set_variable(debug_context_t *ctx, const char *assignment);
+void debug_evaluate_expression(debug_context_t *ctx, const char *expression);
+bool debug_evaluate_condition(debug_context_t *ctx, const char *condition);
 
 #endif // DEBUG_H
