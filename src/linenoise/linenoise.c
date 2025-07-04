@@ -520,14 +520,27 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Display completions page with navigation info */
+/* Clear previous completion display from screen */
+static void clearCompletionDisplay(struct linenoiseState *ls) {
+    if (ls->completion_lines > 0) {
+        /* Move cursor up to start of completion display */
+        printf("\033[%zuA", ls->completion_lines);
+        /* Clear from cursor to end of screen */
+        printf("\033[J");
+        ls->completion_lines = 0;
+    }
+}
+
+/* Display completions page with proper redrawing and line tracking */
 static void displayCompletionsPage(linenoiseCompletions *lc,
-                                   struct linenoiseState *ls
-                                   __attribute__((unused)),
-                                   size_t page, size_t current_idx) {
+                                   struct linenoiseState *ls, size_t page,
+                                   size_t current_idx) {
     if (!lc || lc->len == 0) {
         return;
     }
+
+    /* Clear previous completion display */
+    clearCompletionDisplay(ls);
 
     size_t page_size = 20;
     size_t start_idx = page * page_size;
@@ -537,15 +550,17 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
     }
 
     size_t total_pages = (lc->len + page_size - 1) / page_size;
+    size_t lines_used = 0;
 
     printf("\n");
+    lines_used++;
 
     if (lc->len <= 6) {
         /* Few completions - show all in single line */
         printf("Completions: ");
         for (size_t i = 0; i < lc->len; i++) {
             if (i == current_idx) {
-                printf("[%s]", lc->cvec[i]);
+                printf("\033[7m%s\033[0m", lc->cvec[i]);
             } else {
                 printf("%s", lc->cvec[i]);
             }
@@ -554,42 +569,54 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
             }
         }
         printf("\n");
+        lines_used++;
     } else if (lc->len <= 20) {
         /* Medium number - show all with current selection highlighted */
-        printf("Completions (%zu) - TAB: next, ESC: cancel:\n", lc->len);
+        printf("Completions (%zu):\n", lc->len);
+        lines_used++;
+
         for (size_t i = 0; i < lc->len; i++) {
             if (i % 4 == 0 && i > 0) {
                 printf("\n");
+                lines_used++;
             }
             if (i == current_idx) {
-                printf("\033[7m%-16s\033[0m",
-                       lc->cvec[i]); /* Reverse video highlight */
+                printf("\033[7m%-16s\033[0m", lc->cvec[i]);
             } else {
                 printf("%-18s", lc->cvec[i]);
             }
         }
         printf("\n");
+        lines_used++;
+
+        printf("TAB: next, Ctrl+P: prev, ESC: cancel\n");
+        lines_used++;
     } else {
         /* Many completions - paged display */
-        printf("Completions page %zu/%zu (showing %zu-%zu of %zu):\n", page + 1,
+        printf("Page %zu/%zu (showing %zu-%zu of %zu):\n", page + 1,
                total_pages, start_idx + 1, end_idx, lc->len);
+        lines_used++;
 
         for (size_t i = start_idx; i < end_idx; i++) {
             if ((i - start_idx) % 4 == 0 && i > start_idx) {
                 printf("\n");
+                lines_used++;
             }
             if (i == current_idx) {
-                printf("\033[7m%-16s\033[0m",
-                       lc->cvec[i]); /* Reverse video highlight */
+                printf("\033[7m%-16s\033[0m", lc->cvec[i]);
             } else {
                 printf("%-18s", lc->cvec[i]);
             }
         }
         printf("\n");
+        lines_used++;
 
-        printf("Navigation: TAB=next, Ctrl+P=prev, Ctrl+N=next page, "
-               "ESC=cancel, ENTER=select\n");
+        printf("TAB: next, Ctrl+P: prev, Ctrl+N: next page, ESC: cancel\n");
+        lines_used++;
     }
+
+    /* Track lines used for proper clearing next time */
+    ls->completion_lines = lines_used;
 }
 
 /* This is an helper function for linenoiseEdit*() and is called when the
@@ -621,6 +648,7 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             if (ls->in_completion == 0) {
                 ls->in_completion = 1;
                 ls->completion_idx = 0;
+                ls->completion_lines = 0;
 
                 /* Enhanced completion behavior */
                 if (lc.len == 1) {
@@ -630,14 +658,14 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                     ls->in_completion = 0;
                     c = 0;
                 } else {
-                    /* Show completions with enhanced paged display */
+                    /* Show completions with clean redrawing display */
                     size_t page = ls->completion_idx / 20;
                     displayCompletionsPage(&lc, ls, page, ls->completion_idx);
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
-                /* Navigate through completions */
+                /* Navigate through completions with clean redraw */
                 ls->completion_idx = (ls->completion_idx + 1) % lc.len;
                 size_t page = ls->completion_idx / 20;
                 displayCompletionsPage(&lc, ls, page, ls->completion_idx);
@@ -675,7 +703,8 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             }
             break;
         case 27: /* escape */
-            /* Re-show original buffer */
+            /* Clear completion display and re-show original buffer */
+            clearCompletionDisplay(ls);
             if (ls->completion_idx < lc.len) {
                 refreshLine(ls);
             }
@@ -683,7 +712,8 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             c = 0;
             break;
         default:
-            /* Update buffer and return */
+            /* Clear completion display and update buffer */
+            clearCompletionDisplay(ls);
             if (ls->completion_idx < lc.len) {
                 nwritten = snprintf(ls->buf, ls->buflen, "%s",
                                     lc.cvec[ls->completion_idx]);

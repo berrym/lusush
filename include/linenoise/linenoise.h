@@ -67,6 +67,7 @@ struct linenoiseState {
     size_t cols;           /* Number of columns in terminal. */
     size_t oldrows;    /* Rows used by last refrehsed line (multiline mode) */
     int history_index; /* The history index we are currently editing. */
+    size_t completion_lines; /* Number of lines used by completion display */
 };
 
 typedef struct linenoiseCompletions {
