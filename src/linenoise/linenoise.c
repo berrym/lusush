@@ -520,7 +520,135 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Display completions with professional, smooth UX */
+/* Enhanced completion mode flag - check shell option */
+extern bool get_enhanced_completion(void);
+
+/* Completion categorization */
+typedef enum {
+    COMPLETION_BUILTIN,
+    COMPLETION_FUNCTION,
+    COMPLETION_EXTERNAL,
+    COMPLETION_FILE,
+    COMPLETION_DIRECTORY,
+    COMPLETION_VARIABLE,
+    COMPLETION_UNKNOWN
+} completion_category_t;
+
+/* Categorize completion based on type */
+static completion_category_t categorize_completion(const char *completion) {
+    if (!completion) {
+        return COMPLETION_UNKNOWN;
+    }
+
+    /* Check for built-in commands */
+    const char *builtins[] = {
+        "cd",    "echo",  "exit",  "export", "pwd",   "set",      "unset",
+        "test",  "alias", "bg",    "fg",     "jobs",  "kill",     "read",
+        "shift", "true",  "false", "return", "break", "continue", "eval",
+        "exec",  "hash",  "type",  "ulimit", "umask", "wait",     NULL};
+
+    for (int i = 0; builtins[i]; i++) {
+        if (strcmp(completion, builtins[i]) == 0) {
+            return COMPLETION_BUILTIN;
+        }
+    }
+
+    /* Check if it's a file/directory */
+    struct stat st;
+    if (stat(completion, &st) == 0) {
+        if (S_ISDIR(st.st_mode)) {
+            return COMPLETION_DIRECTORY;
+        } else {
+            return COMPLETION_FILE;
+        }
+    }
+
+    /* Check if it looks like a variable */
+    if (completion[0] == '$' ||
+        (strlen(completion) > 0 && strchr(completion, '=') != NULL)) {
+        return COMPLETION_VARIABLE;
+    }
+
+    /* Assume external command if not categorized */
+    return COMPLETION_EXTERNAL;
+}
+
+/* Get category display string */
+static const char *get_category_display(completion_category_t category) {
+    switch (category) {
+    case COMPLETION_BUILTIN:
+        return "builtin";
+    case COMPLETION_FUNCTION:
+        return "function";
+    case COMPLETION_EXTERNAL:
+        return "command";
+    case COMPLETION_FILE:
+        return "file";
+    case COMPLETION_DIRECTORY:
+        return "directory";
+    case COMPLETION_VARIABLE:
+        return "variable";
+    default:
+        return "item";
+    }
+}
+
+/* Enhanced single-line menu completion display */
+static void displayCompletionMenu(linenoiseCompletions *lc,
+                                  struct linenoiseState *ls,
+                                  size_t current_idx) {
+    if (!lc || lc->len == 0 || current_idx >= lc->len) {
+        return;
+    }
+
+    const char *current = lc->cvec[current_idx];
+    completion_category_t category = categorize_completion(current);
+    const char *category_str = get_category_display(category);
+
+    /* Clear to end of line and display menu info */
+    printf("\033[K \033[2m[%zu/%zu %s]\033[0m", current_idx + 1, lc->len,
+           category_str);
+
+    /* Move cursor back to end of completion text */
+    char menu_info[64];
+    snprintf(menu_info, sizeof(menu_info), " [%zu/%zu %s]", current_idx + 1,
+             lc->len, category_str);
+    printf("\033[%dD", (int)strlen(menu_info));
+}
+
+/* Simple completion display (fallback) */
+static void displayCompletionsSimple(linenoiseCompletions *lc,
+                                     struct linenoiseState *ls,
+                                     size_t current_idx) {
+    if (!lc || lc->len == 0) {
+        return;
+    }
+
+    if (lc->len == 1) {
+        /* Single completion - auto-complete */
+        return;
+    } else if (lc->len <= 8) {
+        /* Few completions - show all simply */
+        printf("\n");
+        for (size_t i = 0; i < lc->len; i++) {
+            if (i == current_idx) {
+                printf("\033[7m%s\033[0m", lc->cvec[i]);
+            } else {
+                printf("%s", lc->cvec[i]);
+            }
+            if (i < lc->len - 1) {
+                printf("  ");
+            }
+        }
+        printf("\n");
+    } else {
+        /* Many completions - just show count */
+        printf("\n[%zu/%zu] %s (TAB: next, ESC: cancel)\n", current_idx + 1,
+               lc->len, lc->cvec[current_idx]);
+    }
+}
+
+/* Main completion display function */
 static void displayCompletionsPage(linenoiseCompletions *lc,
                                    struct linenoiseState *ls
                                    __attribute__((unused)),
@@ -535,38 +663,13 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
     if (lc->len == 1) {
         /* Single completion - auto-complete */
         return;
-    } else if (lc->len <= 6) {
-        /* Few completions - show all horizontally with enhanced highlighting */
-        printf("\n\033[2m[%zu options]\033[0m ", lc->len);
-        for (size_t i = 0; i < lc->len; i++) {
-            if (i == current_idx) {
-                printf("\033[1;44;37m %s \033[0m", lc->cvec[i]);
-            } else {
-                printf("\033[2m%s\033[0m", lc->cvec[i]);
-            }
-            if (i < lc->len - 1) {
-                printf("  ");
-            }
-        }
-        printf("\n");
-    } else if (lc->len <= 12) {
-        /* Medium completions - show all vertically with current highlighted */
-        printf("\n\033[2m[%zu options - use TAB/Ctrl+P to navigate]\033[0m\n",
-               lc->len);
-        for (size_t i = 0; i < lc->len; i++) {
-            if (i == current_idx) {
-                printf("\033[1;44;37m▶ %s\033[0m\n", lc->cvec[i]);
-            } else {
-                printf("\033[2m  %s\033[0m\n", lc->cvec[i]);
-            }
-        }
-    } else {
-        /* Many completions - show current with context and clear navigation */
-        printf("\n\033[2m[%zu/%zu]\033[0m \033[1;44;37m▶ %s\033[0m",
-               current_idx + 1, lc->len, lc->cvec[current_idx]);
+    }
 
-        /* Show navigation hints */
-        printf("\n\033[2m(TAB: next • Ctrl+P: prev • ESC: cancel)\033[0m\n");
+    /* Use enhanced menu if enabled, otherwise simple display */
+    if (get_enhanced_completion()) {
+        displayCompletionMenu(lc, ls, current_idx);
+    } else {
+        displayCompletionsSimple(lc, ls, current_idx);
     }
 }
 
@@ -609,17 +712,32 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                     ls->in_completion = 0;
                     c = 0;
                 } else {
-                    /* Show completions with professional display */
-                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    /* Show completions */
+                    if (get_enhanced_completion()) {
+                        /* Enhanced mode: just update the prompt line */
+                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                        displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                    } else {
+                        /* Simple mode: show completion list */
+                        displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    }
                     c = 0;
                 }
             } else {
-                /* Navigate through completions smoothly */
+                /* Navigate through completions */
                 ls->completion_idx = (ls->completion_idx + 1) % lc.len;
-                /* Always show updated display for consistent UX */
-                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                if (get_enhanced_completion()) {
+                    /* Enhanced mode: update prompt line only */
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                } else {
+                    /* Simple mode: show updated list if many items */
+                    if (lc.len > 8) {
+                        displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                    }
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                }
                 c = 0;
             }
             break;
@@ -630,9 +748,17 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 } else {
                     ls->completion_idx--;
                 }
-                /* Always show updated display for consistent UX */
-                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                if (get_enhanced_completion()) {
+                    /* Enhanced mode: update prompt line only */
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                } else {
+                    /* Simple mode: show updated list if many items */
+                    if (lc.len > 8) {
+                        displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                    }
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                }
                 c = 0;
             }
             break;
@@ -641,14 +767,27 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 /* Jump forward by 5 items for faster navigation */
                 size_t jump_size = (lc.len > 20) ? 5 : 1;
                 ls->completion_idx = (ls->completion_idx + jump_size) % lc.len;
-                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                if (get_enhanced_completion()) {
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                } else {
+                    if (lc.len > 8) {
+                        displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                    }
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                }
                 c = 0;
             }
             break;
         case 27: /* escape */
             /* Clear completion display and restore original buffer */
-            printf("\033[2K\r"); /* Clear current line */
+            if (get_enhanced_completion()) {
+                /* Enhanced mode: just clear the menu info */
+                printf("\033[K");
+            } else {
+                /* Simple mode: clear any multi-line display */
+                printf("\033[2K\r");
+            }
             refreshLine(ls);
             ls->in_completion = 0;
             c = 0;
@@ -667,6 +806,9 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
         /* Show completion or original buffer */
         if (ls->in_completion && ls->completion_idx < lc.len) {
             refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+            if (get_enhanced_completion()) {
+                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+            }
         } else {
             refreshLine(ls);
         }

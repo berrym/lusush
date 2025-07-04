@@ -82,6 +82,7 @@ typedef enum {
     MULTILINE_EDIT,
     HISTORY_NO_DUPS,
     NO_WORD_EXPAND,
+    ENHANCED_COMPLETION,
 } BOOL_SHELL_OPTS;
 
 // POSIX shell options structure
@@ -109,6 +110,7 @@ extern shell_options_t shell_opts;
 
 void init_shell_opts(void);
 void setopt(int argc, char **argv);
+bool get_enhanced_completion(void);
 
 // POSIX option management functions
 void init_posix_options(void);

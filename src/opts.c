@@ -15,9 +15,10 @@ typedef struct {
 
 // Key-value table for bool shell opts
 static const bool_opts bool_shell_opts[] = {
-    { "MULTILINE_EDIT",  MULTILINE_EDIT},
-    {"HISTORY_NO_DUPS", HISTORY_NO_DUPS},
-    { "NO_WORD_EXPAND",  NO_WORD_EXPAND}
+    {     "MULTILINE_EDIT",      MULTILINE_EDIT},
+    {    "HISTORY_NO_DUPS",     HISTORY_NO_DUPS},
+    {     "NO_WORD_EXPAND",      NO_WORD_EXPAND},
+    {"ENHANCED_COMPLETION", ENHANCED_COMPLETION}
 };
 static const int NUM_BOOL_OPTS = sizeof(bool_shell_opts) / sizeof(bool_opts);
 
@@ -25,6 +26,7 @@ static const int NUM_BOOL_OPTS = sizeof(bool_shell_opts) / sizeof(bool_opts);
 static bool history_no_dups = false;
 static bool multiline_edit = true;
 static bool no_word_expand = false;
+static bool enhanced_completion = true;
 
 static void setopt_usage(void) {
     printf("usage:\n\t-h\t\t\tThis help\n\t");
@@ -37,6 +39,7 @@ void init_shell_opts(void) {
     symtable_set_global_int("MULTILINE_EDIT", multiline_edit);
     symtable_set_global_int("HISTORY_NO_DUPS", history_no_dups);
     symtable_set_global_int("NO_WORD_EXPAND", no_word_expand);
+    symtable_set_global_int("ENHANCED_COMPLETION", enhanced_completion);
 }
 
 void setopt(int argc, char **argv) {
@@ -87,6 +90,11 @@ void setopt(int argc, char **argv) {
                         symtable_set_global_int("NO_WORD_EXPAND",
                                                 no_word_expand);
                         break;
+                    case ENHANCED_COMPLETION:
+                        enhanced_completion = !enhanced_completion;
+                        symtable_set_global_int("ENHANCED_COMPLETION",
+                                                enhanced_completion);
+                        break;
                     default:
                         break;
                     }
@@ -109,6 +117,10 @@ void setopt(int argc, char **argv) {
                         printf("%s: %d\n", bool_shell_opts[i].opt,
                                no_word_expand);
                         break;
+                    case ENHANCED_COMPLETION:
+                        printf("%s: %d\n", bool_shell_opts[i].opt,
+                               enhanced_completion);
+                        break;
                     default:
                         break;
                     }
@@ -129,3 +141,6 @@ void setopt(int argc, char **argv) {
         }
     } while (nopt != -1);
 }
+
+/* Getter function for enhanced completion option */
+bool get_enhanced_completion(void) { return enhanced_completion; }
