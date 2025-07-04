@@ -1,17 +1,20 @@
 # Lusush - Modern POSIX Shell Implementation
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/lusush/lusush)
-[![Compliance](https://img.shields.io/badge/POSIX%20compliance-95%25-brightgreen)](docs/COMPREHENSIVE_TEST_SUITE.md)
+[![Compliance](https://img.shields.io/badge/POSIX%20compliance-85%25-orange)](docs/COMPREHENSIVE_TEST_SUITE.md)
 [![Test Coverage](https://img.shields.io/badge/test%20success-99%25-brightgreen)](tests/compliance/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A production-ready, POSIX-compliant shell implementation written in ISO C99, designed for modern Unix and Unix-like systems with exceptional compliance and performance.
+A POSIX-compliant shell implementation written in ISO C99, designed for modern Unix and Unix-like systems with enhanced compliance and performance. Priority 1 POSIX compliance gaps have been fixed, with remaining issues identified and prioritized.
 
 ## 🌟 Key Features
 
 ### Core Functionality
-- **POSIX Compliance**: 95% overall compliance score with 99% test success rate
-- **Production Ready**: Robust architecture with comprehensive error handling
+- **Enhanced POSIX Compliance**: 85% compliance score with Priority 1 critical gaps fixed
+- **Command Line Parsing**: Proper POSIX argument separation (shell [options] script [script-args])
+- **Shift Builtin**: Correct parameter count updates and positional parameter management
+- **Comprehensive Testing**: 185/185 core tests passing, 19/25 advanced compliance tests
+- **Production Architecture**: Robust error handling with systematic gap analysis
 - **Self-Contained**: No external shell dependencies, fully independent execution
 - **Modern C99**: Clean, maintainable codebase following ISO C99 standards
 

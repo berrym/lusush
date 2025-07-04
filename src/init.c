@@ -334,88 +334,128 @@ int init(int argc, char **argv, FILE **in) {
 }
 
 static int parse_opts(int argc, char **argv) {
-    // next option
-    int nopt = 0;
-    // string of valid short options - include all POSIX options
-    const char *sopts = "hVc:silexnuvfm";
-    // array describing valid long options
-    const struct option lopts[] = {
-        {   "help", 0, NULL, 'h'},
-        {"version", 0, NULL, 'V'},
-        {     NULL, 0, NULL,   0}
-    };
+    // POSIX-compliant argument parsing: shell [options] script [script-args]
+    // Only parse options that come before the script name
+    // Everything after the script name should be treated as script arguments
 
-    do {
-        nopt = getopt_long(argc, argv, sopts, lopts, NULL);
+    int arg_index = 1; // Start from first argument (skip program name)
 
-        switch (nopt) {
-        case 'h':
-            usage(EXIT_SUCCESS);
+    // Manual option parsing to properly handle POSIX argument separation
+    while (arg_index < argc) {
+        char *arg = argv[arg_index];
+
+        // If argument doesn't start with '-', it's the script name
+        // Stop parsing options here - everything after is script arguments
+        if (arg[0] != '-' || strlen(arg) == 1) {
             break;
-        case 'V':
-            printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
-            printf("%s\n", LUSUSH_DESCRIPTION);
-            printf("Copyright (c) 2025. Licensed under MIT License.\n");
-            exit(EXIT_SUCCESS);
-            break;
-        case 'c':
-            // Execute command string
-            shell_opts.command_mode = true;
-            shell_opts.command_string = strdup(optarg);
-            if (!shell_opts.command_string) {
-                error_abort("failed to allocate memory for command string");
-            }
-            break;
-        case 's':
-            // Read commands from standard input
-            shell_opts.stdin_mode = true;
-            break;
-        case 'i':
-            // Force interactive mode
-            shell_opts.interactive = true;
-            break;
-        case 'l':
-            // Login shell behavior
-            shell_opts.login_shell = true;
-            break;
-        case 'e':
-            // Exit immediately on command failure
-            shell_opts.exit_on_error = true;
-            break;
-        case 'x':
-            // Trace command execution
-            shell_opts.trace_execution = true;
-            break;
-        case 'n':
-            // Syntax check mode - read but don't execute
-            shell_opts.syntax_check = true;
-            break;
-        case 'u':
-            // Treat unset variables as error
-            shell_opts.unset_error = true;
-            break;
-        case 'v':
-            // Verbose mode - print input lines as read
-            shell_opts.verbose = true;
-            break;
-        case 'f':
-            // Disable pathname expansion (globbing)
-            shell_opts.no_globbing = true;
-            break;
-        case 'm':
-            // Enable job control
-            shell_opts.job_control = true;
-            break;
-        case '?':
-            usage(EXIT_FAILURE);
-        case -1:
-            break;
-        default:
-            error_abort("unknown error terminating"); // should never happen
         }
-    } while (nopt != -1);
 
-    return optind;
+        // Handle special case: "--" ends option parsing
+        if (strcmp(arg, "--") == 0) {
+            arg_index++; // Skip the "--"
+            break;
+        }
+
+        // Handle long options
+        if (arg[0] == '-' && arg[1] == '-') {
+            if (strcmp(arg, "--help") == 0) {
+                usage(EXIT_SUCCESS);
+            } else if (strcmp(arg, "--version") == 0) {
+                printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
+                printf("%s\n", LUSUSH_DESCRIPTION);
+                printf("Copyright (c) 2025. Licensed under MIT License.\n");
+                exit(EXIT_SUCCESS);
+            } else {
+                fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
+                usage(EXIT_FAILURE);
+            }
+            arg_index++;
+            continue;
+        }
+
+        // Handle short options (can be combined like -abc)
+        for (int i = 1; arg[i] != '\0'; i++) {
+            char opt = arg[i];
+
+            switch (opt) {
+            case 'h':
+                usage(EXIT_SUCCESS);
+                break;
+            case 'V':
+                printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
+                printf("%s\n", LUSUSH_DESCRIPTION);
+                printf("Copyright (c) 2025. Licensed under MIT License.\n");
+                exit(EXIT_SUCCESS);
+                break;
+            case 'c':
+                // Execute command string - requires argument
+                if (arg[i + 1] != '\0') {
+                    // Argument attached to option: -ccommand
+                    shell_opts.command_mode = true;
+                    shell_opts.command_string = strdup(&arg[i + 1]);
+                    if (!shell_opts.command_string) {
+                        error_abort(
+                            "failed to allocate memory for command string");
+                    }
+                    goto next_arg; // Skip rest of this argument
+                } else if (arg_index + 1 < argc) {
+                    // Argument in next parameter: -c command
+                    arg_index++;
+                    shell_opts.command_mode = true;
+                    shell_opts.command_string = strdup(argv[arg_index]);
+                    if (!shell_opts.command_string) {
+                        error_abort(
+                            "failed to allocate memory for command string");
+                    }
+                    goto next_arg;
+                } else {
+                    fprintf(stderr, "%s: option requires an argument -- '%c'\n",
+                            argv[0], opt);
+                    usage(EXIT_FAILURE);
+                }
+                break;
+            case 's':
+                shell_opts.stdin_mode = true;
+                break;
+            case 'i':
+                shell_opts.interactive = true;
+                break;
+            case 'l':
+                shell_opts.login_shell = true;
+                break;
+            case 'e':
+                shell_opts.exit_on_error = true;
+                break;
+            case 'x':
+                shell_opts.trace_execution = true;
+                break;
+            case 'n':
+                shell_opts.syntax_check = true;
+                break;
+            case 'u':
+                shell_opts.unset_error = true;
+                break;
+            case 'v':
+                shell_opts.verbose = true;
+                break;
+            case 'f':
+                shell_opts.no_globbing = true;
+                break;
+            case 'm':
+                shell_opts.job_control = true;
+                break;
+            default:
+                fprintf(stderr, "%s: invalid option -- '%c'\n", argv[0], opt);
+                usage(EXIT_FAILURE);
+            }
+        }
+
+    next_arg:
+        arg_index++;
+    }
+
+    // Return the index of the first non-option argument (script name)
+    return arg_index;
 }
 
 static void usage(int err) {

@@ -1334,6 +1334,25 @@ int bin_shift(int argc, char **argv) {
 
         // Update argc to reflect the new parameter count
         shell_argc -= shift_count;
+
+        // Update shell variables to reflect the new parameter count
+        // Update $# (parameter count)
+        char param_count_str[16];
+        snprintf(param_count_str, sizeof(param_count_str), "%d",
+                 shell_argc > 1 ? shell_argc - 1 : 0);
+        symtable_set_global("#", param_count_str);
+
+        // Update individual positional parameters ($1, $2, etc.)
+        // Clear old parameters first
+        for (int i = 1; i <= 9; i++) {
+            char param_name[3];
+            snprintf(param_name, sizeof(param_name), "%d", i);
+            if (i < shell_argc && shell_argv[i]) {
+                symtable_set_global(param_name, shell_argv[i]);
+            } else {
+                symtable_set_global(param_name, "");
+            }
+        }
     }
 
     return 0;
