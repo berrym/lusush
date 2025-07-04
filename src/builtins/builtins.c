@@ -2191,8 +2191,8 @@ int bin_getopts(int argc, char **argv) {
 
     // Check if we have arguments to parse
     if (parse_argc == 0 || current_optind > parse_argc) {
-        // No more arguments
-        symtable_set_global("OPTIND", "1"); // Reset for next getopts call
+        // No more arguments - OPTIND should point to first non-option argument
+        // Don't reset OPTIND to 1, leave it pointing to where non-options start
         if (argc <= 3 && parse_args) {
             for (int i = 0; i < parse_argc; i++) {
                 free(parse_args[i]);
@@ -2214,8 +2214,9 @@ int bin_getopts(int argc, char **argv) {
         // Starting new argument
         if (!current_arg || current_arg[0] != '-' ||
             strcmp(current_arg, "-") == 0) {
-            // Not an option or single dash
-            symtable_set_global("OPTIND", "1");
+            // Not an option or single dash - OPTIND should point to this
+            // non-option Don't reset OPTIND to 1, it should point to current
+            // position
             if (argc <= 3 && parse_args) {
                 for (int i = 0; i < parse_argc; i++) {
                     free(parse_args[i]);
@@ -2279,6 +2280,13 @@ int bin_getopts(int argc, char **argv) {
             symtable_set_global("OPTARG", "");
         }
         option_pos++;
+
+        // If we've finished processing this argument, move to next
+        if (current_option_arg[option_pos] == '\0') {
+            current_optind++;
+            option_pos = 0;
+        }
+
         char next_optind[16];
         snprintf(next_optind, sizeof(next_optind), "%d", current_optind);
         symtable_set_global("OPTIND", next_optind);
@@ -2306,7 +2314,7 @@ int bin_getopts(int argc, char **argv) {
             // Argument should be in next parameter
             if (current_optind < parse_argc) {
                 arg_value = parse_args[current_optind];
-                current_optind++;
+                current_optind++; // Move past the option argument
                 option_pos = 0;
             } else {
                 // Missing argument
@@ -2339,12 +2347,22 @@ int bin_getopts(int argc, char **argv) {
         char opt_val[2] = {opt_char, '\0'};
         symtable_set_global(varname, opt_val);
         symtable_set_global("OPTARG", arg_value ? arg_value : "");
+
+        // For options with arguments, we need to increment current_optind again
+        // since we consumed both the option and its argument
+        current_optind++;
     } else {
         // Option doesn't take an argument
         char opt_val[2] = {opt_char, '\0'};
         symtable_set_global(varname, opt_val);
         symtable_set_global("OPTARG", "");
         option_pos++;
+
+        // If we've finished processing this argument, move to next
+        if (current_option_arg[option_pos] == '\0') {
+            current_optind++;
+            option_pos = 0;
+        }
     }
 
     // Update OPTIND
