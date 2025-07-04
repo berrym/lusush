@@ -1,0 +1,78 @@
+# Lusush Configuration File
+# Modern shell configuration using the unified config system
+
+# History Configuration
+[history]
+history_enabled = true
+history_size = 10000
+history_no_dups = true
+history_timestamps = false
+history_file = ~/.lusush_history
+
+# Completion Configuration
+[completion]
+completion_enabled = true
+fuzzy_completion = true
+completion_threshold = 70
+completion_case_sensitive = false
+completion_show_all = false
+
+# Prompt and Theme Configuration
+[prompt]
+prompt_style = git
+prompt_theme = default
+git_prompt_enabled = true
+git_cache_timeout = 5
+theme_name = corporate
+theme_auto_detect_colors = true
+theme_fallback_basic = false
+theme_show_right_prompt = true
+theme_enable_animations = false
+theme_enable_icons = false
+
+# Corporate Branding (Optional)
+theme_corporate_company = ""
+theme_corporate_department = ""
+theme_corporate_project = ""
+theme_corporate_environment = ""
+theme_show_company = false
+theme_show_department = false
+
+# Behavior Configuration
+[behavior]
+auto_cd = false
+spell_correction = true
+confirm_exit = false
+tab_width = 4
+no_word_expand = false
+colors_enabled = true
+color_scheme = default
+verbose_errors = false
+debug_mode = false
+
+# Auto-correction Settings
+autocorrect_max_suggestions = 3
+autocorrect_threshold = 60
+autocorrect_interactive = true
+autocorrect_learn_history = true
+autocorrect_builtins = true
+autocorrect_external = true
+autocorrect_case_sensitive = false
+
+# Aliases - Define command shortcuts
+[aliases]
+ll = ls -la
+la = ls -A
+l = ls -CF
+grep = grep --color=auto
+fgrep = fgrep --color=auto
+egrep = egrep --color=auto
+h = history
+c = clear
+e = echo
+..  = cd ..
+... = cd ../..
+
+# Key Bindings (Reserved for future use)
+[keys]
+# Key bindings will be implemented in future versions

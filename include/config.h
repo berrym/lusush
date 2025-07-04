@@ -92,6 +92,7 @@ typedef struct {
     bool spell_correction;
     bool confirm_exit;
     int tab_width;
+    bool no_word_expand;
 
     // Auto-correction settings
     int autocorrect_max_suggestions;
@@ -161,6 +162,8 @@ const char *config_get_last_error(void);
 void config_show_all(void);
 void config_show_section(config_section_t section);
 void config_show_option(const char *key);
+void config_get_value(const char *key);
+void config_set_value(const char *key, const char *value);
 
 // Built-in command integration
 void builtin_config(int argc, char **argv);

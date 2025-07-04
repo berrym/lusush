@@ -160,8 +160,8 @@ run_test "set - show variables" \
     'success' \
     ''
 
-run_test "setopt - shell options" \
-    'setopt' \
+run_test "config - shell options" \
+    'config show' \
     'success' \
     ''
 
@@ -251,7 +251,7 @@ echo "• Information: help, dump, history"
 echo "• Logic: true, false, test, ["
 echo "• Text: echo"
 echo "• Variables: export, unset, set"
-echo "• Control: setopt, setprompt"
+echo "• Control: config, setprompt"
 echo "• Aliases: alias, unalias"
 echo "• Execution: eval, source"
 echo "• I/O: read, clear"

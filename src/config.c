@@ -148,6 +148,9 @@ static config_option_t config_options[] = {
      &config.confirm_exit,                        "Confirm before exiting",         config_validate_bool       },
     {                   "tab_width",    CONFIG_TYPE_INT,   CONFIG_SECTION_BEHAVIOR, &config.tab_width,
      "Tab width for display",          config_validate_int                                                     },
+    {              "no_word_expand",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.no_word_expand,           "Disable word expansion and globbing",
+     config_validate_bool                                                                                      },
 
     // Color settings
     {                "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
@@ -320,6 +323,7 @@ void config_set_defaults(void) {
     config.spell_correction = false;
     config.confirm_exit = false;
     config.tab_width = 4;
+    config.no_word_expand = false;
 
     // Auto-correction defaults
     config.autocorrect_max_suggestions = 3;
@@ -607,11 +611,15 @@ void config_apply_settings(void) {
     // Apply behavior settings
     // Multiline editing is disabled - single line mode for better reliability
 
+    // Apply history settings
+    linenoiseHistoryNoDups(config.history_no_dups);
+
     // Apply other settings as needed
     symtable_set_global_int("AUTO_CD", config.auto_cd);
     symtable_set_global_int("SPELL_CORRECTION", config.spell_correction);
     symtable_set_global_int("CONFIRM_EXIT", config.confirm_exit);
     symtable_set_global_int("COLORS_ENABLED", config.colors_enabled);
+    symtable_set_global_int("NO_WORD_EXPAND", config.no_word_expand);
 }
 
 /**
@@ -726,12 +734,94 @@ void builtin_config(int argc, char **argv) {
         } else {
             config_show_all();
         }
+    } else if (strcmp(argv[1], "get") == 0) {
+        if (argc < 3) {
+            printf("Usage: config get <key>\n");
+            return;
+        }
+        config_get_value(argv[2]);
+    } else if (strcmp(argv[1], "set") == 0) {
+        if (argc < 4) {
+            printf("Usage: config set <key> <value>\n");
+            return;
+        }
+        config_set_value(argv[2], argv[3]);
     } else if (strcmp(argv[1], "reload") == 0) {
         config_init();
         printf("Configuration reloaded.\n");
     } else {
         printf("Unknown config command: %s\n", argv[1]);
     }
+}
+
+/**
+ * config_get_value:
+ *      Get a single configuration value.
+ */
+void config_get_value(const char *key) {
+    for (int i = 0; i < num_config_options; i++) {
+        config_option_t *opt = &config_options[i];
+
+        if (strcmp(opt->name, key) == 0) {
+            switch (opt->type) {
+            case CONFIG_TYPE_BOOL:
+                printf("%s\n", *(bool *)opt->value_ptr ? "true" : "false");
+                break;
+            case CONFIG_TYPE_INT:
+                printf("%d\n", *(int *)opt->value_ptr);
+                break;
+            case CONFIG_TYPE_STRING:
+                printf("%s\n", *(char **)opt->value_ptr
+                                   ? *(char **)opt->value_ptr
+                                   : "");
+                break;
+            }
+            return;
+        }
+    }
+    printf("Unknown configuration key: %s\n", key);
+}
+
+/**
+ * config_set_value:
+ *      Set a single configuration value.
+ */
+void config_set_value(const char *key, const char *value) {
+    for (int i = 0; i < num_config_options; i++) {
+        config_option_t *opt = &config_options[i];
+
+        if (strcmp(opt->name, key) == 0) {
+            switch (opt->type) {
+            case CONFIG_TYPE_BOOL:
+                if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0) {
+                    *(bool *)opt->value_ptr = true;
+                } else if (strcmp(value, "false") == 0 ||
+                           strcmp(value, "0") == 0) {
+                    *(bool *)opt->value_ptr = false;
+                } else {
+                    printf("Invalid boolean value: %s (use true/false)\n",
+                           value);
+                    return;
+                }
+                break;
+            case CONFIG_TYPE_INT:
+                *(int *)opt->value_ptr = atoi(value);
+                break;
+            case CONFIG_TYPE_STRING:
+                if (*(char **)opt->value_ptr) {
+                    free(*(char **)opt->value_ptr);
+                }
+                *(char **)opt->value_ptr = strdup(value);
+                break;
+            }
+            printf("Set %s = %s\n", key, value);
+
+            // Apply the setting immediately
+            config_apply_settings();
+            return;
+        }
+    }
+    printf("Unknown configuration key: %s\n", key);
 }
 
 /**

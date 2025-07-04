@@ -283,17 +283,18 @@ cp /usr/share/lusush/lusushrc ~/.config/lusush/lusushrc
 cat > ~/.config/lusush/lusushrc << 'EOF'
 # Lusush Configuration File
 
-# History settings
-HISTSIZE=10000
-HISTFILESIZE=20000
-HISTFILE=~/.lusush_history
+[history]
+history_size = 10000
+history_file = ~/.lusush_history
+history_no_dups = true
 
-# Enable enhanced features
-setopt -b ENHANCED_COMPLETION
-setopt -b MULTILINE_EDIT
+[completion]
+completion_enabled = true
+fuzzy_completion = true
+completion_threshold = 60
 
-# Set theme
-theme set corporate
+[prompt]
+theme_name = corporate
 
 # Custom aliases
 alias ll='ls -la'

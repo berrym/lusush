@@ -58,7 +58,7 @@ builtin builtins[] = {
     {  "unalias",                   "unset an alias",   bin_unalias},
     {"setprompt",            "set prompt attributes", bin_setprompt},
     {    "clear",                 "clear the screen",     bin_clear},
-    {   "setopt",               "set a shell option",    bin_setopt},
+
     {     "type",             "display command type",      bin_type},
     {    "unset",           "unset a shell variable",     bin_unset},
     {     "dump",                "dump symbol table",      bin_dump},
@@ -367,16 +367,6 @@ int bin_unalias(int argc __attribute__((unused)),
         return 1;
     }
 
-    return 0;
-}
-
-/**
- * bin_setopt:
- *      Set a shell option.
- */
-int bin_setopt(int argc __attribute__((unused)),
-               char **argv __attribute__((unused))) {
-    setopt(argc, argv);
     return 0;
 }
 

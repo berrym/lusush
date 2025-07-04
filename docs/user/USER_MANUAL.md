@@ -277,9 +277,8 @@ PS1='lusush:\w\$ '          # Primary prompt
 PS2='> '                    # Secondary prompt
 
 # Completion settings
-setopt -b ENHANCED_COMPLETION   # Enable enhanced completion
-setopt -b MULTILINE_EDIT        # Enable multiline editing
-setopt -b HISTORY_NO_DUPS       # Prevent duplicate history entries
+config set completion_enabled true    # Enable enhanced completion
+config set history_no_dups true       # Prevent duplicate history entries
 
 # Theme selection
 theme set corporate         # Set corporate theme
@@ -334,13 +333,14 @@ Lusush features an intelligent completion system that categorizes and displays c
 
 ```bash
 # Check current mode
-setopt -g ENHANCED_COMPLETION
+config get completion_enabled
 
 # Toggle between modes
-setopt -b ENHANCED_COMPLETION
+config set completion_enabled false   # Disable
+config set completion_enabled true    # Enable
 
 # View all options
-setopt -v
+config show
 ```
 
 ### Completion Categories
@@ -487,13 +487,13 @@ network hosts remove hostname
 
 ```bash
 # Enable/disable network features
-setopt -b NETWORK_ENABLED
+config set network_enabled true
 
 # Configure SSH completion
-setopt -b SSH_COMPLETION
+config set ssh_completion_enabled true
 
 # Network timeout settings
-LUSUSH_NETWORK_TIMEOUT=5
+config set network_timeout 5
 ```
 
 ## Built-in Commands
@@ -604,11 +604,12 @@ theme show              # Show current theme
 theme info corporate    # Get theme information
 ```
 
-#### `setopt` - Shell Options
+#### `config` - Configuration Management
 ```bash
-setopt -v               # Show valid options
-setopt -b MULTILINE_EDIT # Toggle multiline editing
-setopt -g ENHANCED_COMPLETION # Get option value
+config show             # Show all configuration
+config show completion  # Show completion settings
+config set completion_enabled true # Enable enhanced completion
+config get completion_enabled      # Get option value
 ```
 
 #### `network` - Network Features
@@ -630,14 +631,14 @@ clear                   # Clear terminal screen
 #### Completion Not Working
 ```bash
 # Check if completion is enabled
-setopt -g ENHANCED_COMPLETION
+config get completion_enabled
 
 # Verify completion callback
 echo $LUSUSH_COMPLETION_ENABLED
 
 # Reset completion system
-setopt -b ENHANCED_COMPLETION
-setopt -b ENHANCED_COMPLETION
+config set completion_enabled false
+config set completion_enabled true
 ```
 
 #### Theme Not Loading
@@ -688,16 +689,16 @@ ping google.com
 time lusush -c "exit"
 
 # Disable network features temporarily
-setopt -b NETWORK_ENABLED
+config set network_enabled false
 
 # Reduce history size
-export HISTSIZE=1000
+config set history_size 1000
 ```
 
 #### Slow Completion
 ```bash
 # Switch to simple completion mode
-setopt -b ENHANCED_COMPLETION
+config set completion_enabled false
 
 # Check completion sources
 ls -la ~/.ssh/
@@ -760,7 +761,7 @@ A: User configuration goes in `~/.config/lusush/lusushrc`. System-wide configura
 A: Use the `PS1` variable in your configuration file or select a theme with `theme set`.
 
 **Q: Can I disable enhanced features?**
-A: Yes, use `setopt -b ENHANCED_COMPLETION` to toggle features, or set `LUSUSH_ENHANCED=0` in your configuration.
+A: Yes, use `config set completion_enabled false` to toggle features, or set `completion_enabled = false` in your ~/.lusushrc file.
 
 ### Feature Questions
 
