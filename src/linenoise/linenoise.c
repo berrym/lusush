@@ -520,7 +520,7 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Display completions with minimal output */
+/* Display completions with professional, smooth UX */
 static void displayCompletionsPage(linenoiseCompletions *lc,
                                    struct linenoiseState *ls
                                    __attribute__((unused)),
@@ -535,24 +535,38 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
     if (lc->len == 1) {
         /* Single completion - auto-complete */
         return;
-    } else if (lc->len <= 10) {
-        /* Few completions - show all */
-        printf("\n");
+    } else if (lc->len <= 6) {
+        /* Few completions - show all horizontally with enhanced highlighting */
+        printf("\n\033[2m[%zu options]\033[0m ", lc->len);
         for (size_t i = 0; i < lc->len; i++) {
             if (i == current_idx) {
-                printf("\033[7m%s\033[0m", lc->cvec[i]);
+                printf("\033[1;44;37m %s \033[0m", lc->cvec[i]);
             } else {
-                printf("%s", lc->cvec[i]);
+                printf("\033[2m%s\033[0m", lc->cvec[i]);
             }
             if (i < lc->len - 1) {
                 printf("  ");
             }
         }
         printf("\n");
+    } else if (lc->len <= 12) {
+        /* Medium completions - show all vertically with current highlighted */
+        printf("\n\033[2m[%zu options - use TAB/Ctrl+P to navigate]\033[0m\n",
+               lc->len);
+        for (size_t i = 0; i < lc->len; i++) {
+            if (i == current_idx) {
+                printf("\033[1;44;37m▶ %s\033[0m\n", lc->cvec[i]);
+            } else {
+                printf("\033[2m  %s\033[0m\n", lc->cvec[i]);
+            }
+        }
     } else {
-        /* Many completions - show current selection only */
-        printf("\n[%zu/%zu] \033[7m%s\033[0m (TAB: next, ESC: cancel)\n",
+        /* Many completions - show current with context and clear navigation */
+        printf("\n\033[2m[%zu/%zu]\033[0m \033[1;44;37m▶ %s\033[0m",
                current_idx + 1, lc->len, lc->cvec[current_idx]);
+
+        /* Show navigation hints */
+        printf("\n\033[2m(TAB: next • Ctrl+P: prev • ESC: cancel)\033[0m\n");
     }
 }
 
@@ -587,7 +601,7 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 ls->completion_idx = 0;
                 ls->completion_lines = 0;
 
-                /* Simple completion behavior */
+                /* Enhanced completion behavior */
                 if (lc.len == 1) {
                     /* Only one completion - use it immediately */
                     nwritten = snprintf(ls->buf, ls->buflen, "%s", lc.cvec[0]);
@@ -595,17 +609,16 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                     ls->in_completion = 0;
                     c = 0;
                 } else {
-                    /* Show completions */
+                    /* Show completions with professional display */
                     displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
-                /* Navigate through completions */
+                /* Navigate through completions smoothly */
                 ls->completion_idx = (ls->completion_idx + 1) % lc.len;
-                if (lc.len > 10) {
-                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                }
+                /* Always show updated display for consistent UX */
+                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
                 refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
@@ -617,35 +630,26 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 } else {
                     ls->completion_idx--;
                 }
-                if (lc.len > 10) {
-                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                }
+                /* Always show updated display for consistent UX */
+                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
                 refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
-        case 14: /* Ctrl+N - next page */
-            if (ls->in_completion && lc.len > 20) {
-                size_t page_size = 20;
-                size_t current_page = ls->completion_idx / page_size;
-                size_t total_pages = (lc.len + page_size - 1) / page_size;
-                size_t next_page = (current_page + 1) % total_pages;
-                ls->completion_idx = next_page * page_size;
-                if (ls->completion_idx >= lc.len) {
-                    ls->completion_idx = lc.len - 1;
-                }
-                if (lc.len > 10) {
-                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
-                }
+        case 14: /* Ctrl+N - smart jump forward */
+            if (ls->in_completion && lc.len > 6) {
+                /* Jump forward by 5 items for faster navigation */
+                size_t jump_size = (lc.len > 20) ? 5 : 1;
+                ls->completion_idx = (ls->completion_idx + jump_size) % lc.len;
+                displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
                 refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
         case 27: /* escape */
-            /* Re-show original buffer */
-            if (ls->completion_idx < lc.len) {
-                refreshLine(ls);
-            }
+            /* Clear completion display and restore original buffer */
+            printf("\033[2K\r"); /* Clear current line */
+            refreshLine(ls);
             ls->in_completion = 0;
             c = 0;
             break;
