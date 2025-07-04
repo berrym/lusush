@@ -75,8 +75,9 @@ test_cmdline_args() {
     local test_name="$1"
     local shell_args="$2"
     local script_content="$3"
-    local expected_output="$4"
-    local description="$5"
+    local script_args="$4"
+    local expected_output="$5"
+    local description="$6"
 
     TEST_COUNT=$((TEST_COUNT + 1))
     echo -e "${YELLOW}Test $TEST_COUNT: $test_name${NC}"
@@ -86,10 +87,10 @@ test_cmdline_args() {
     echo "$script_content" > "$temp_script"
     chmod +x "$temp_script"
 
-    # Execute the test with shell arguments
+    # Execute the test with shell arguments and script arguments
     local output
     local exit_code=0
-    local cmd="$SHELL_PATH $shell_args $temp_script"
+    local cmd="$SHELL_PATH $shell_args $temp_script $script_args"
     output=$(eval "$cmd" 2>&1) || exit_code=$?
 
     if [ $exit_code -eq 0 ] && echo "$output" | grep -q "$expected_output"; then
@@ -116,6 +117,7 @@ echo -e "${BLUE}=== COMMAND LINE ARGUMENT PARSING ===${NC}"
 test_cmdline_args "Script with -a argument" \
     "" \
     'echo "Args: $@"' \
+    "-a -b value" \
     "Args: -a -b value" \
     "Script arguments starting with dash should not be parsed as shell options"
 
