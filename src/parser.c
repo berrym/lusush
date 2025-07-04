@@ -1377,8 +1377,26 @@ static node_t *parse_for_statement(parser_t *parser) {
 
         token_t *word_token = tokenizer_current(parser->tokenizer);
         if (token_is_word_like(word_token->type) ||
-            word_token->type == TOK_VARIABLE) {
-            node_t *word_node = new_node(NODE_VAR);
+            word_token->type == TOK_VARIABLE ||
+            word_token->type == TOK_COMMAND_SUB ||
+            word_token->type == TOK_ARITH_EXP ||
+            word_token->type == TOK_BACKQUOTE) {
+
+            node_t *word_node = NULL;
+
+            // Create appropriate node type based on token type
+            if (word_token->type == TOK_COMMAND_SUB) {
+                word_node = new_node(NODE_COMMAND_SUB);
+            } else if (word_token->type == TOK_ARITH_EXP) {
+                word_node = new_node(NODE_ARITH_EXP);
+            } else if (word_token->type == TOK_EXPANDABLE_STRING) {
+                word_node = new_node(NODE_STRING_EXPANDABLE);
+            } else if (word_token->type == TOK_STRING) {
+                word_node = new_node(NODE_STRING_LITERAL);
+            } else {
+                word_node = new_node(NODE_VAR);
+            }
+
             if (!word_node) {
                 free_node_tree(for_node);
                 free_node_tree(word_list);
