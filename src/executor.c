@@ -1021,41 +1021,70 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         node_t *word = word_list->first_child;
         while (word) {
             if (word->val.str) {
-                // Expand the word (handles variables like $files)
-                char *expanded = expand_if_needed(executor, word->val.str);
-                if (expanded) {
-                    // Get IFS for field splitting (default to
-                    // space/tab/newline)
-                    const char *ifs = symtable_get(executor->symtable, "IFS");
-                    if (!ifs) {
-                        ifs = " \t\n"; // Default IFS
+                // Special handling for "$@" to preserve word boundaries
+                if (strcmp(word->val.str, "\"$@\"") == 0 ||
+                    strcmp(word->val.str, "$@") == 0) {
+                    // Handle quoted "$@" - preserve word boundaries
+                    extern int shell_argc;
+                    extern char **shell_argv;
+
+                    for (int i = 1; i < shell_argc; i++) {
+                        if (shell_argv[i]) {
+                            // Resize array if needed
+                            expanded_words =
+                                realloc(expanded_words,
+                                        (word_count + 1) * sizeof(char *));
+                            if (!expanded_words) {
+                                set_executor_error(
+                                    executor,
+                                    "Memory allocation failed in for loop");
+                                symtable_pop_scope(executor->symtable);
+                                return 1;
+                            }
+
+                            expanded_words[word_count] = strdup(shell_argv[i]);
+                            word_count++;
+                        }
                     }
-
-                    // Split the expanded string into individual words
-                    char *expanded_copy = strdup(expanded);
-                    char *token = strtok(expanded_copy, ifs);
-
-                    while (token) {
-                        // Resize array if needed
-                        expanded_words = realloc(
-                            expanded_words, (word_count + 1) * sizeof(char *));
-                        if (!expanded_words) {
-                            set_executor_error(
-                                executor,
-                                "Memory allocation failed in for loop");
-                            free(expanded);
-                            free(expanded_copy);
-                            symtable_pop_scope(executor->symtable);
-                            return 1;
+                } else {
+                    // Normal expansion and splitting for other words
+                    char *expanded = expand_if_needed(executor, word->val.str);
+                    if (expanded) {
+                        // Get IFS for field splitting (default to
+                        // space/tab/newline)
+                        const char *ifs =
+                            symtable_get(executor->symtable, "IFS");
+                        if (!ifs) {
+                            ifs = " \t\n"; // Default IFS
                         }
 
-                        expanded_words[word_count] = strdup(token);
-                        word_count++;
-                        token = strtok(NULL, ifs);
-                    }
+                        // Split the expanded string into individual words
+                        char *expanded_copy = strdup(expanded);
+                        char *token = strtok(expanded_copy, ifs);
 
-                    free(expanded_copy);
-                    free(expanded);
+                        while (token) {
+                            // Resize array if needed
+                            expanded_words =
+                                realloc(expanded_words,
+                                        (word_count + 1) * sizeof(char *));
+                            if (!expanded_words) {
+                                set_executor_error(
+                                    executor,
+                                    "Memory allocation failed in for loop");
+                                free(expanded);
+                                free(expanded_copy);
+                                symtable_pop_scope(executor->symtable);
+                                return 1;
+                            }
+
+                            expanded_words[word_count] = strdup(token);
+                            word_count++;
+                            token = strtok(NULL, ifs);
+                        }
+
+                        free(expanded_copy);
+                        free(expanded);
+                    }
                 }
             }
             word = word->next_sibling;

@@ -53,7 +53,7 @@ test_missing_feature() {
     local exit_code=0
     output=$("$SHELL_PATH" "$temp_script" 2>&1) || exit_code=$?
 
-    if [ $exit_code -eq 0 ] && echo "$output" | grep -q "$expected_output"; then
+    if [ $exit_code -eq 0 ] && echo "$output" | grep -Fq "$expected_output"; then
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED_COUNT=$((PASSED_COUNT + 1))
     else
