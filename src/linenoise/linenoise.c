@@ -520,48 +520,53 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Display all completions in a formatted grid */
-static void displayAllCompletions(linenoiseCompletions *lc,
-                                  struct linenoiseState *ls) {
+/* Display completions intelligently based on count and screen size */
+static void displayCompletions(linenoiseCompletions *lc,
+                               struct linenoiseState *ls
+                               __attribute__((unused))) {
     if (!lc || lc->len == 0) {
         return;
     }
 
-    /* Calculate terminal width for formatting */
-    size_t term_width = ls->cols > 0 ? ls->cols : 80;
+    size_t max_display = 20; /* Maximum completions to display at once */
 
-    /* Find maximum completion length for column alignment */
-    size_t max_len = 0;
-    for (size_t i = 0; i < lc->len; i++) {
-        size_t len = strlen(lc->cvec[i]);
-        if (len > max_len) {
-            max_len = len;
-        }
-    }
-
-    /* Add padding and calculate columns */
-    max_len += 2; /* Add 2 spaces between columns */
-    size_t cols = term_width / max_len;
-    if (cols < 1) {
-        cols = 1;
-    }
-
-    /* Print header */
     printf("\n");
-    if (lc->len <= 20) {
-        printf("Available completions (%zu):\n", lc->len);
-    } else {
-        printf("Available completions (%zu) - showing all:\n", lc->len);
-    }
 
-    /* Print completions in grid format */
-    for (size_t i = 0; i < lc->len; i++) {
-        if (i % cols == 0 && i > 0) {
+    if (lc->len <= 6) {
+        /* Few completions - show all in a single line */
+        printf("Completions: ");
+        for (size_t i = 0; i < lc->len; i++) {
+            printf("%s", lc->cvec[i]);
+            if (i < lc->len - 1) {
+                printf("  ");
+            }
+        }
+        printf("\n");
+    } else if (lc->len <= max_display) {
+        /* Medium number - show in compact grid */
+        printf("Available completions (%zu):\n", lc->len);
+        size_t cols = 4; /* Fixed 4 columns for readability */
+        for (size_t i = 0; i < lc->len; i++) {
+            if (i % cols == 0 && i > 0) {
+                printf("\n");
+            }
+            printf("%-18s", lc->cvec[i]);
+        }
+        if (lc->len % cols != 0) {
             printf("\n");
         }
-        printf("%-*s", (int)max_len, lc->cvec[i]);
+    } else {
+        /* Many completions - show first few and suggest narrowing */
+        printf("Too many completions (%zu). Showing first 8:\n", lc->len);
+        for (size_t i = 0; i < 8; i++) {
+            if (i % 4 == 0 && i > 0) {
+                printf("\n");
+            }
+            printf("%-18s", lc->cvec[i]);
+        }
+        printf("\n... and %zu more. Type more characters to narrow down.\n",
+               lc->len - 8);
     }
-    printf("\n");
 }
 
 /* This is an helper function for linenoiseEdit*() and is called when the
@@ -594,39 +599,47 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 ls->in_completion = 1;
                 ls->completion_idx = 0;
 
-                /* Enhanced completion behavior */
+                /* Intelligent completion behavior */
                 if (lc.len == 1) {
                     /* Only one completion - use it immediately */
                     nwritten = snprintf(ls->buf, ls->buflen, "%s", lc.cvec[0]);
                     ls->len = ls->pos = nwritten;
                     ls->in_completion = 0;
                     c = 0;
-                } else if (lc.len <= 10) {
-                    /* Few completions - show all immediately */
-                    displayAllCompletions(&lc, ls);
+                } else if (lc.len <= 20) {
+                    /* Reasonable number - show them and allow cycling */
+                    displayCompletions(&lc, ls);
                     /* Show first completion */
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 } else {
-                    /* Many completions - show count and first completion */
-                    printf("\n[%zu completions available - press TAB again to "
-                           "show all]\n",
+                    /* Too many - just show count and first completion */
+                    printf("\n%zu completions available. Type more characters "
+                           "to narrow down.\n",
                            lc.len);
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
-                /* Second TAB press or cycling through completions */
-                if (lc.len > 10 && ls->completion_idx == 0) {
-                    /* Second TAB with many completions - show all */
-                    displayAllCompletions(&lc, ls);
-                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
-                    c = 0;
-                } else {
-                    /* Cycle through completions */
+                /* Subsequent TAB presses */
+                if (lc.len <= 20) {
+                    /* Cycle through reasonable number of completions */
                     ls->completion_idx = (ls->completion_idx + 1) % lc.len;
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
+                } else {
+                    /* Too many - show sample on second TAB */
+                    if (ls->completion_idx == 0) {
+                        displayCompletions(&lc, ls);
+                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                        c = 0;
+                    } else {
+                        /* Don't cycle through hundreds of completions */
+                        printf("\nToo many completions to cycle through. Type "
+                               "more characters to narrow down.\n");
+                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                        c = 0;
+                    }
                 }
             }
             break;

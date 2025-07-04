@@ -10,24 +10,27 @@ The original tab completion system had a significant UX flaw:
 - Displayed "press TAB to show all" message but only cycled through completions one by one
 - Users had to repeatedly press TAB to see all options
 - No visual organization of completion results
+- Massive completion dumps (600+ items) that were unreadable and didn't fit on screen
 - Confusing and inefficient user experience
 
 ## Solution Implemented
 
 ### New Intelligent Completion Behavior
 
-The enhanced system now provides three distinct behaviors based on the number of completions:
+The improved system now provides intelligent behaviors based on the number of completions:
 
 1. **Single Completion**: Auto-completes immediately without user interaction
-2. **Few Completions (≤10)**: Shows all options in organized grid format instantly
-3. **Many Completions (>10)**: Shows count message, then displays all on second TAB
+2. **Few Completions (≤6)**: Shows all options in single line format
+3. **Medium Completions (7-20)**: Shows all in compact 4-column grid format
+4. **Many Completions (>20)**: Shows first 8 with message to narrow down, no massive dumps
 
 ### Key Features
 
-- **Grid Display**: Professional column-aligned layout for multiple completions
-- **Smart Thresholds**: Intelligent handling based on completion count
-- **Visual Organization**: Clear, readable presentation of all available options
-- **No More Cycling**: Eliminated the annoying repetitive TAB pressing
+- **Smart Display**: Appropriate formatting for different completion counts
+- **Intelligent Thresholds**: Prevents overwhelming users with too many options
+- **Guided Narrowing**: Encourages users to type more characters when needed
+- **Selective Cycling**: Only allows cycling through manageable sets (≤20 items)
+- **No Massive Dumps**: Prevents displaying hundreds of unreadable completions
 - **Maintained Compatibility**: All existing functionality preserved
 
 ## Technical Implementation
@@ -35,9 +38,9 @@ The enhanced system now provides three distinct behaviors based on the number of
 ### Files Modified
 
 1. **`src/linenoise/linenoise.c`**
-   - Added `displayAllCompletions()` function for grid layout
-   - Modified `completeLine()` function with intelligent behavior logic
-   - Enhanced completion state management
+   - Added `displayCompletions()` function with intelligent display logic
+   - Modified `completeLine()` function with smart thresholds
+   - Enhanced completion state management with proper cycling limits
 
 2. **`src/completion.c`**
    - Removed misleading completion context messages
@@ -47,20 +50,25 @@ The enhanced system now provides three distinct behaviors based on the number of
 ### Code Changes
 
 ```c
-// New function for grid display
-static void displayAllCompletions(linenoiseCompletions *lc, struct linenoiseState *ls) {
-    // Calculate terminal width and format completions in grid
-    // Professional column alignment with proper spacing
+// New function for intelligent display
+static void displayCompletions(linenoiseCompletions *lc, struct linenoiseState *ls) {
+    if (lc->len <= 6) {
+        // Few completions - single line
+    } else if (lc->len <= 20) {
+        // Medium completions - compact grid
+    } else {
+        // Many completions - show sample with guidance
+    }
 }
 
 // Enhanced completion logic
 if (lc.len == 1) {
     // Auto-complete immediately
-} else if (lc.len <= 10) {
-    // Show all in grid format
-    displayAllCompletions(&lc, ls);
+} else if (lc.len <= 20) {
+    // Show appropriately and allow cycling
+    displayCompletions(&lc, ls);
 } else {
-    // Show count, then all on second TAB
+    // Show guidance, prevent cycling through hundreds
 }
 ```
 
@@ -71,12 +79,15 @@ if (lc.len == 1) {
 - Press TAB again: Shows second completion  
 - Press TAB again: Shows third completion
 - Continue cycling through all options one by one
-- Message says "press TAB to show all" but doesn't actually show all
+- Message says "press TAB to show all" but dumps 600+ unreadable completions
+- Massive formatting issues with completions that don't fit on screen
 
 ### After
 - **Single match**: Auto-completes immediately
-- **Few matches**: Shows all options in neat grid instantly
-- **Many matches**: Shows count, then all options in grid on second TAB
+- **Few matches (≤6)**: Shows all options in single line format
+- **Medium matches (7-20)**: Shows all in compact 4-column grid
+- **Many matches (>20)**: Shows first 8 with guidance to narrow down
+- **No cycling through hundreds**: Prevents overwhelming user experience
 
 ## Testing
 
@@ -96,10 +107,11 @@ if (lc.len == 1) {
 ## Benefits Achieved
 
 ### User Experience
-- **Eliminated Confusion**: No more misleading "show all" messages
-- **Faster Completion**: Immediate results for common cases
-- **Better Organization**: Grid layout for multiple options
-- **Reduced Keystrokes**: No more repetitive TAB pressing
+- **Eliminated Confusion**: No more misleading "show all" messages or massive dumps
+- **Prevented Overwhelming**: No more 600+ completion displays that don't fit
+- **Smart Guidance**: Clear direction when there are too many options
+- **Appropriate Cycling**: Only cycles through manageable sets (≤20 items)
+- **Better Organization**: Right-sized display for different completion counts
 
 ### Technical Quality
 - **Maintained Compatibility**: Zero regressions in existing functionality
@@ -109,7 +121,7 @@ if (lc.len == 1) {
 
 ## Impact
 
-This enhancement addresses one of the most frequently encountered UX issues in shell completion systems. The intelligent behavior and grid display bring LUSUSH's completion system in line with modern shell expectations while maintaining its unique enhanced features.
+This enhancement addresses one of the most frequently encountered UX issues in shell completion systems. The intelligent behavior and appropriate display formatting bring LUSUSH's completion system in line with modern shell expectations while preventing the overwhelming dumps that plague many systems.
 
 ### Performance Impact
 - **Minimal Overhead**: Grid display only when needed
@@ -124,6 +136,7 @@ This enhancement addresses one of the most frequently encountered UX issues in s
 ## Future Enhancements
 
 Potential future improvements could include:
+- Selectable completion menu like zsh
 - Syntax highlighting in completion display
 - Fuzzy matching improvements
 - Custom completion display themes
@@ -131,7 +144,7 @@ Potential future improvements could include:
 
 ## Conclusion
 
-The enhanced tab completion system successfully transforms a major UX pain point into a professional, efficient, and intuitive completion experience. This improvement significantly enhances LUSUSH's usability while maintaining its exceptional POSIX compliance and advanced feature set.
+The improved tab completion system successfully transforms a major UX pain point into a professional, efficient, and intuitive completion experience. This improvement significantly enhances LUSUSH's usability by preventing overwhelming completion dumps while maintaining its exceptional POSIX compliance and advanced feature set.
 
 **Status**: ✅ COMPLETE - Production ready with full test coverage
 **Impact**: 🚀 MAJOR - Dramatically improved user experience
