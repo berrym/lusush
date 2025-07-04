@@ -224,6 +224,122 @@ static ssize_t eval_assign(stack_item_t *a1, stack_item_t *a2) {
     return value;
 }
 
+// Compound assignment operators
+static ssize_t eval_addeq(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t current_value = 0;
+    char *current_str = symtable_get_global(a1->var_name);
+    if (current_str) {
+        current_value = strtol(current_str, NULL, 10);
+    }
+
+    ssize_t add_value = long_value(a2);
+    ssize_t result = current_value + add_value;
+
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", result);
+    symtable_set_global(a1->var_name, value_str);
+    return result;
+}
+
+static ssize_t eval_subeq(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t current_value = 0;
+    char *current_str = symtable_get_global(a1->var_name);
+    if (current_str) {
+        current_value = strtol(current_str, NULL, 10);
+    }
+
+    ssize_t sub_value = long_value(a2);
+    ssize_t result = current_value - sub_value;
+
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", result);
+    symtable_set_global(a1->var_name, value_str);
+    return result;
+}
+
+static ssize_t eval_muleq(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t current_value = 0;
+    char *current_str = symtable_get_global(a1->var_name);
+    if (current_str) {
+        current_value = strtol(current_str, NULL, 10);
+    }
+
+    ssize_t mul_value = long_value(a2);
+    ssize_t result = current_value * mul_value;
+
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", result);
+    symtable_set_global(a1->var_name, value_str);
+    return result;
+}
+
+static ssize_t eval_diveq(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t current_value = 0;
+    char *current_str = symtable_get_global(a1->var_name);
+    if (current_str) {
+        current_value = strtol(current_str, NULL, 10);
+    }
+
+    ssize_t div_value = long_value(a2);
+    if (div_value == 0) {
+        arithm_set_error("division by zero");
+        return 0;
+    }
+
+    ssize_t result = current_value / div_value;
+
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", result);
+    symtable_set_global(a1->var_name, value_str);
+    return result;
+}
+
+static ssize_t eval_modeq(stack_item_t *a1, stack_item_t *a2) {
+    if (a1->type != ITEM_VAR_PTR || !a1->var_name) {
+        arithm_set_error("invalid assignment target");
+        return 0;
+    }
+
+    ssize_t current_value = 0;
+    char *current_str = symtable_get_global(a1->var_name);
+    if (current_str) {
+        current_value = strtol(current_str, NULL, 10);
+    }
+
+    ssize_t mod_value = long_value(a2);
+    if (mod_value == 0) {
+        arithm_set_error("modulo by zero");
+        return 0;
+    }
+
+    ssize_t result = current_value % mod_value;
+
+    char value_str[32];
+    snprintf(value_str, sizeof(value_str), "%zd", result);
+    symtable_set_global(a1->var_name, value_str);
+    return result;
+}
+
 // Pre-increment operator evaluation
 static ssize_t eval_preinc(stack_item_t *a1, stack_item_t *a2) {
     (void)a2;
@@ -318,34 +434,44 @@ static ssize_t eval_exp(stack_item_t *a1, stack_item_t *a2) {
 #define CH_PREDEC 0x0C
 #define CH_POSTINC 0x0D
 #define CH_POSTDEC 0x0E
+#define CH_ADDEQ 0x0F
+#define CH_SUBEQ 0x10
+#define CH_MULEQ 0x11
+#define CH_DIVEQ 0x12
+#define CH_MODEQ 0x13
 
 // Operator definitions (only binary operators in main table)
 static op_t operators[] = {
-    {   '(',  0,  ASSOC_NONE, 0, 1,        NULL},
-    {   ')',  0,  ASSOC_NONE, 0, 1,        NULL},
-    {   '!',  2, ASSOC_RIGHT, 1, 1, eval_lognot},
-    {   '~',  2, ASSOC_RIGHT, 1, 1, eval_bitnot},
-    {CH_EXP,  3, ASSOC_RIGHT, 0, 2,    eval_exp},
-    {   '*',  4,  ASSOC_LEFT, 0, 1,    eval_mul},
-    {   '/',  4,  ASSOC_LEFT, 0, 1,    eval_div},
-    {   '%',  4,  ASSOC_LEFT, 0, 1,    eval_mod},
-    {   '+',  5,  ASSOC_LEFT, 0, 1,    eval_add},
-    {   '-',  5,  ASSOC_LEFT, 0, 1,    eval_sub},
-    {CH_LSH,  6,  ASSOC_LEFT, 0, 2,    eval_lsh},
-    {CH_RSH,  6,  ASSOC_LEFT, 0, 2,    eval_rsh},
-    { CH_LT,  7,  ASSOC_LEFT, 0, 1,     eval_lt},
-    { CH_LE,  7,  ASSOC_LEFT, 0, 2,     eval_le},
-    { CH_GT,  7,  ASSOC_LEFT, 0, 1,     eval_gt},
-    { CH_GE,  7,  ASSOC_LEFT, 0, 2,     eval_ge},
-    { CH_EQ,  8,  ASSOC_LEFT, 0, 2,     eval_eq},
-    { CH_NE,  8,  ASSOC_LEFT, 0, 2,     eval_ne},
-    {   '&',  9,  ASSOC_LEFT, 0, 1, eval_bitand},
-    {   '^', 10,  ASSOC_LEFT, 0, 1, eval_bitxor},
-    {   '|', 11,  ASSOC_LEFT, 0, 1,  eval_bitor},
-    {CH_AND, 12,  ASSOC_LEFT, 0, 2, eval_logand},
-    { CH_OR, 13,  ASSOC_LEFT, 0, 2,  eval_logor},
-    {   '=', 15, ASSOC_RIGHT, 0, 1, eval_assign},
-    {     0,  0,           0, 0, 0,        NULL}
+    {     '(',  0,  ASSOC_NONE, 0, 1,        NULL},
+    {     ')',  0,  ASSOC_NONE, 0, 1,        NULL},
+    {     '!',  2, ASSOC_RIGHT, 1, 1, eval_lognot},
+    {     '~',  2, ASSOC_RIGHT, 1, 1, eval_bitnot},
+    {  CH_EXP,  3, ASSOC_RIGHT, 0, 2,    eval_exp},
+    {     '*',  4,  ASSOC_LEFT, 0, 1,    eval_mul},
+    {     '/',  4,  ASSOC_LEFT, 0, 1,    eval_div},
+    {     '%',  4,  ASSOC_LEFT, 0, 1,    eval_mod},
+    {     '+',  5,  ASSOC_LEFT, 0, 1,    eval_add},
+    {     '-',  5,  ASSOC_LEFT, 0, 1,    eval_sub},
+    {  CH_LSH,  6,  ASSOC_LEFT, 0, 2,    eval_lsh},
+    {  CH_RSH,  6,  ASSOC_LEFT, 0, 2,    eval_rsh},
+    {   CH_LT,  7,  ASSOC_LEFT, 0, 1,     eval_lt},
+    {   CH_LE,  7,  ASSOC_LEFT, 0, 2,     eval_le},
+    {   CH_GT,  7,  ASSOC_LEFT, 0, 1,     eval_gt},
+    {   CH_GE,  7,  ASSOC_LEFT, 0, 2,     eval_ge},
+    {   CH_EQ,  8,  ASSOC_LEFT, 0, 2,     eval_eq},
+    {   CH_NE,  8,  ASSOC_LEFT, 0, 2,     eval_ne},
+    {     '&',  9,  ASSOC_LEFT, 0, 1, eval_bitand},
+    {     '^', 10,  ASSOC_LEFT, 0, 1, eval_bitxor},
+    {     '|', 11,  ASSOC_LEFT, 0, 1,  eval_bitor},
+    {  CH_AND, 12,  ASSOC_LEFT, 0, 2, eval_logand},
+    {   CH_OR, 13,  ASSOC_LEFT, 0, 2,  eval_logor},
+    {     '=', 15, ASSOC_RIGHT, 0, 1, eval_assign},
+    {CH_ADDEQ, 15, ASSOC_RIGHT, 0, 2,  eval_addeq},
+    {CH_SUBEQ, 15, ASSOC_RIGHT, 0, 2,  eval_subeq},
+    {CH_MULEQ, 15, ASSOC_RIGHT, 0, 2,  eval_muleq},
+    {CH_DIVEQ, 15, ASSOC_RIGHT, 0, 2,  eval_diveq},
+    {CH_MODEQ, 15, ASSOC_RIGHT, 0, 2,  eval_modeq},
+    {       0,  0,           0, 0, 0,        NULL}
 };
 
 // Unary operator definitions (separate from main table)
@@ -490,6 +616,16 @@ static op_t *get_op(const char *expr) {
             } else if (op->op == CH_OR && expr[0] == '|' && expr[1] == '|') {
                 return op;
             } else if (op->op == CH_EXP && expr[0] == '*' && expr[1] == '*') {
+                return op;
+            } else if (op->op == CH_ADDEQ && expr[0] == '+' && expr[1] == '=') {
+                return op;
+            } else if (op->op == CH_SUBEQ && expr[0] == '-' && expr[1] == '=') {
+                return op;
+            } else if (op->op == CH_MULEQ && expr[0] == '*' && expr[1] == '=') {
+                return op;
+            } else if (op->op == CH_DIVEQ && expr[0] == '/' && expr[1] == '=') {
+                return op;
+            } else if (op->op == CH_MODEQ && expr[0] == '%' && expr[1] == '=') {
                 return op;
             }
         }
