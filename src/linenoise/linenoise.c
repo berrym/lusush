@@ -520,52 +520,75 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Display completions intelligently based on count and screen size */
-static void displayCompletions(linenoiseCompletions *lc,
-                               struct linenoiseState *ls
-                               __attribute__((unused))) {
+/* Display completions page with navigation info */
+static void displayCompletionsPage(linenoiseCompletions *lc,
+                                   struct linenoiseState *ls
+                                   __attribute__((unused)),
+                                   size_t page, size_t current_idx) {
     if (!lc || lc->len == 0) {
         return;
     }
 
-    size_t max_display = 20; /* Maximum completions to display at once */
+    size_t page_size = 20;
+    size_t start_idx = page * page_size;
+    size_t end_idx = start_idx + page_size;
+    if (end_idx > lc->len) {
+        end_idx = lc->len;
+    }
+
+    size_t total_pages = (lc->len + page_size - 1) / page_size;
 
     printf("\n");
 
     if (lc->len <= 6) {
-        /* Few completions - show all in a single line */
+        /* Few completions - show all in single line */
         printf("Completions: ");
         for (size_t i = 0; i < lc->len; i++) {
-            printf("%s", lc->cvec[i]);
+            if (i == current_idx) {
+                printf("[%s]", lc->cvec[i]);
+            } else {
+                printf("%s", lc->cvec[i]);
+            }
             if (i < lc->len - 1) {
                 printf("  ");
             }
         }
         printf("\n");
-    } else if (lc->len <= max_display) {
-        /* Medium number - show in compact grid */
-        printf("Available completions (%zu):\n", lc->len);
-        size_t cols = 4; /* Fixed 4 columns for readability */
+    } else if (lc->len <= 20) {
+        /* Medium number - show all with current selection highlighted */
+        printf("Completions (%zu) - TAB: next, ESC: cancel:\n", lc->len);
         for (size_t i = 0; i < lc->len; i++) {
-            if (i % cols == 0 && i > 0) {
-                printf("\n");
-            }
-            printf("%-18s", lc->cvec[i]);
-        }
-        if (lc->len % cols != 0) {
-            printf("\n");
-        }
-    } else {
-        /* Many completions - show first few and suggest narrowing */
-        printf("Too many completions (%zu). Showing first 8:\n", lc->len);
-        for (size_t i = 0; i < 8; i++) {
             if (i % 4 == 0 && i > 0) {
                 printf("\n");
             }
-            printf("%-18s", lc->cvec[i]);
+            if (i == current_idx) {
+                printf("\033[7m%-16s\033[0m",
+                       lc->cvec[i]); /* Reverse video highlight */
+            } else {
+                printf("%-18s", lc->cvec[i]);
+            }
         }
-        printf("\n... and %zu more. Type more characters to narrow down.\n",
-               lc->len - 8);
+        printf("\n");
+    } else {
+        /* Many completions - paged display */
+        printf("Completions page %zu/%zu (showing %zu-%zu of %zu):\n", page + 1,
+               total_pages, start_idx + 1, end_idx, lc->len);
+
+        for (size_t i = start_idx; i < end_idx; i++) {
+            if ((i - start_idx) % 4 == 0 && i > start_idx) {
+                printf("\n");
+            }
+            if (i == current_idx) {
+                printf("\033[7m%-16s\033[0m",
+                       lc->cvec[i]); /* Reverse video highlight */
+            } else {
+                printf("%-18s", lc->cvec[i]);
+            }
+        }
+        printf("\n");
+
+        printf("Navigation: TAB=next, Ctrl+P=prev, Ctrl+N=next page, "
+               "ESC=cancel, ENTER=select\n");
     }
 }
 
@@ -599,48 +622,56 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 ls->in_completion = 1;
                 ls->completion_idx = 0;
 
-                /* Intelligent completion behavior */
+                /* Enhanced completion behavior */
                 if (lc.len == 1) {
                     /* Only one completion - use it immediately */
                     nwritten = snprintf(ls->buf, ls->buflen, "%s", lc.cvec[0]);
                     ls->len = ls->pos = nwritten;
                     ls->in_completion = 0;
                     c = 0;
-                } else if (lc.len <= 20) {
-                    /* Reasonable number - show them and allow cycling */
-                    displayCompletions(&lc, ls);
-                    /* Show first completion */
-                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
-                    c = 0;
                 } else {
-                    /* Too many - just show count and first completion */
-                    printf("\n%zu completions available. Type more characters "
-                           "to narrow down.\n",
-                           lc.len);
+                    /* Show completions with enhanced paged display */
+                    size_t page = ls->completion_idx / 20;
+                    displayCompletionsPage(&lc, ls, page, ls->completion_idx);
                     refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
-                /* Subsequent TAB presses */
-                if (lc.len <= 20) {
-                    /* Cycle through reasonable number of completions */
-                    ls->completion_idx = (ls->completion_idx + 1) % lc.len;
-                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
-                    c = 0;
+                /* Navigate through completions */
+                ls->completion_idx = (ls->completion_idx + 1) % lc.len;
+                size_t page = ls->completion_idx / 20;
+                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                c = 0;
+            }
+            break;
+        case 16: /* Ctrl+P - previous completion */
+            if (ls->in_completion) {
+                if (ls->completion_idx == 0) {
+                    ls->completion_idx = lc.len - 1;
                 } else {
-                    /* Too many - show sample on second TAB */
-                    if (ls->completion_idx == 0) {
-                        displayCompletions(&lc, ls);
-                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
-                        c = 0;
-                    } else {
-                        /* Don't cycle through hundreds of completions */
-                        printf("\nToo many completions to cycle through. Type "
-                               "more characters to narrow down.\n");
-                        refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
-                        c = 0;
-                    }
+                    ls->completion_idx--;
                 }
+                size_t page = ls->completion_idx / 20;
+                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                c = 0;
+            }
+            break;
+        case 14: /* Ctrl+N - next page */
+            if (ls->in_completion && lc.len > 20) {
+                size_t page_size = 20;
+                size_t current_page = ls->completion_idx / page_size;
+                size_t total_pages = (lc.len + page_size - 1) / page_size;
+                size_t next_page = (current_page + 1) % total_pages;
+                ls->completion_idx = next_page * page_size;
+                if (ls->completion_idx >= lc.len) {
+                    ls->completion_idx = lc.len - 1;
+                }
+                size_t page = ls->completion_idx / 20;
+                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                c = 0;
             }
             break;
         case 27: /* escape */
