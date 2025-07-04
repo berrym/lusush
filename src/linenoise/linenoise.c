@@ -520,43 +520,24 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Clear completion overlay and restore cursor */
-static void clearCompletionDisplay(struct linenoiseState *ls) {
-    if (ls->completion_lines > 0) {
-        /* Move cursor back to original input line */
-        printf("\033[%zuA", ls->completion_lines);
-        /* Clear from cursor to end of screen */
-        printf("\033[J");
-        ls->completion_lines = 0;
-    }
-}
-
-/* Display completion overlay without adding to terminal history */
+/* Display completions with minimal output */
 static void displayCompletionsPage(linenoiseCompletions *lc,
-                                   struct linenoiseState *ls, size_t page,
+                                   struct linenoiseState *ls
+                                   __attribute__((unused)),
+                                   size_t page __attribute__((unused)),
                                    size_t current_idx) {
     if (!lc || lc->len == 0) {
         return;
     }
 
-    /* Clear previous display first */
-    clearCompletionDisplay(ls);
+    (void)page; /* Suppress unused parameter warning */
 
-    size_t page_size = 20;
-    size_t start_idx = page * page_size;
-    size_t end_idx = start_idx + page_size;
-    if (end_idx > lc->len) {
-        end_idx = lc->len;
-    }
-
-    size_t total_pages = (lc->len + page_size - 1) / page_size;
-    size_t display_lines = 0;
-
-    if (lc->len <= 6) {
-        /* Single line for few completions */
-        printf("\r\n\033[K");
-        display_lines = 1;
-        printf("Complete: ");
+    if (lc->len == 1) {
+        /* Single completion - auto-complete */
+        return;
+    } else if (lc->len <= 10) {
+        /* Few completions - show all */
+        printf("\n");
         for (size_t i = 0; i < lc->len; i++) {
             if (i == current_idx) {
                 printf("\033[7m%s\033[0m", lc->cvec[i]);
@@ -564,42 +545,15 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
                 printf("%s", lc->cvec[i]);
             }
             if (i < lc->len - 1) {
-                printf(" ");
+                printf("  ");
             }
         }
+        printf("\n");
     } else {
-        /* Compact display for medium/large sets */
-        printf("\r\n\033[K");
-        display_lines = 1;
-
-        if (lc->len <= 20) {
-            printf("%zu items", lc->len);
-        } else {
-            printf("Page %zu/%zu", page + 1, total_pages);
-        }
-
-        /* Show current selection prominently */
-        printf(" -> \033[7m%s\033[0m", lc->cvec[current_idx]);
-
-        /* Show a few adjacent options */
-        printf(" (");
-        size_t shown = 0;
-        for (size_t i = 0; i < lc->len && shown < 3; i++) {
-            if (i != current_idx) {
-                if (shown > 0) {
-                    printf(" ");
-                }
-                printf("%s", lc->cvec[i]);
-                shown++;
-            }
-        }
-        if (lc->len > 4) {
-            printf("...");
-        }
-        printf(")");
+        /* Many completions - show current selection only */
+        printf("\n[%zu/%zu] \033[7m%s\033[0m (TAB: next, ESC: cancel)\n",
+               current_idx + 1, lc->len, lc->cvec[current_idx]);
     }
-
-    ls->completion_lines = display_lines;
 }
 
 /* This is an helper function for linenoiseEdit*() and is called when the
@@ -633,7 +587,7 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 ls->completion_idx = 0;
                 ls->completion_lines = 0;
 
-                /* Enhanced completion behavior */
+                /* Simple completion behavior */
                 if (lc.len == 1) {
                     /* Only one completion - use it immediately */
                     nwritten = snprintf(ls->buf, ls->buflen, "%s", lc.cvec[0]);
@@ -641,16 +595,18 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                     ls->in_completion = 0;
                     c = 0;
                 } else {
-                    /* Show compact completion overlay */
-                    size_t page = ls->completion_idx / 20;
-                    displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                    /* Show completions */
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
                 /* Navigate through completions */
                 ls->completion_idx = (ls->completion_idx + 1) % lc.len;
-                size_t page = ls->completion_idx / 20;
-                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                if (lc.len > 10) {
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                }
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
@@ -661,8 +617,10 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 } else {
                     ls->completion_idx--;
                 }
-                size_t page = ls->completion_idx / 20;
-                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                if (lc.len > 10) {
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                }
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
@@ -676,14 +634,15 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 if (ls->completion_idx >= lc.len) {
                     ls->completion_idx = lc.len - 1;
                 }
-                size_t page = ls->completion_idx / 20;
-                displayCompletionsPage(&lc, ls, page, ls->completion_idx);
+                if (lc.len > 10) {
+                    displayCompletionsPage(&lc, ls, 0, ls->completion_idx);
+                }
+                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
         case 27: /* escape */
-            /* Clear completion display and re-show original buffer */
-            clearCompletionDisplay(ls);
+            /* Re-show original buffer */
             if (ls->completion_idx < lc.len) {
                 refreshLine(ls);
             }
@@ -691,8 +650,7 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             c = 0;
             break;
         default:
-            /* Clear completion display and update buffer */
-            clearCompletionDisplay(ls);
+            /* Update buffer and return */
             if (ls->completion_idx < lc.len) {
                 nwritten = snprintf(ls->buf, ls->buflen, "%s",
                                     lc.cvec[ls->completion_idx]);
