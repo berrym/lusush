@@ -358,6 +358,11 @@ static int execute_command_list(executor_t *executor, node_t *list) {
     }
 
     while (current) {
+        // Check syntax check mode (set -n) - don't execute commands
+        if (shell_opts.syntax_check) {
+            return 0; // Syntax check mode - don't execute
+        }
+
         last_result = execute_node(executor, current);
 
         // Update exit status after each command in the sequence
@@ -365,6 +370,12 @@ static int execute_command_list(executor_t *executor, node_t *list) {
 
         if (executor->debug) {
             printf("DEBUG: Command result: %d\n", last_result);
+        }
+
+        // Handle set -e (exit_on_error): exit if command failed
+        if (shell_opts.exit_on_error && last_result != 0) {
+            executor->exit_status = last_result;
+            return last_result;
         }
 
         current = current->next_sibling;
@@ -1683,6 +1694,19 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
 // Expand glob pattern using system glob() function
 static char **expand_glob_pattern(const char *pattern, int *expanded_count) {
     if (!pattern || !expanded_count) {
+        *expanded_count = 0;
+        return NULL;
+    }
+
+    // Check if globbing is disabled (set -f)
+    if (shell_opts.no_globbing) {
+        // Return the original pattern without expansion
+        char **result = malloc(sizeof(char *));
+        if (result) {
+            result[0] = strdup(pattern);
+            *expanded_count = 1;
+            return result;
+        }
         *expanded_count = 0;
         return NULL;
     }

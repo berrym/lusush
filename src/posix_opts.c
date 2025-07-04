@@ -150,27 +150,43 @@ int builtin_set(char **args) {
         char *arg = args[i];
 
         // Handle -o and +o options
-        if (strcmp(arg, "-o") == 0 && args[i + 1]) {
-            // Set named option
-            i++; // consume the option name
-            option_mapping_t *opt = find_option_by_name(args[i]);
-            if (opt) {
-                *(opt->flag) = true;
-                printf("set: enabled %s\n", args[i]);
+        if (strcmp(arg, "-o") == 0) {
+            if (args[i + 1]) {
+                // Set named option
+                i++; // consume the option name
+                option_mapping_t *opt = find_option_by_name(args[i]);
+                if (opt) {
+                    *(opt->flag) = true;
+                } else {
+                    error_message("set: invalid option name: %s", args[i]);
+                    return 1;
+                }
             } else {
-                error_message("set: invalid option name: %s", args[i]);
-                return 1;
+                // No argument - show all options
+                printf("Current shell options:\n");
+                for (int j = 0; option_map[j].name; j++) {
+                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+', option_map[j].name);
+                }
+                return 0;
             }
-        } else if (strcmp(arg, "+o") == 0 && args[i + 1]) {
-            // Unset named option
-            i++; // consume the option name
-            option_mapping_t *opt = find_option_by_name(args[i]);
-            if (opt) {
-                *(opt->flag) = false;
-                printf("set: disabled %s\n", args[i]);
+        } else if (strcmp(arg, "+o") == 0) {
+            if (args[i + 1]) {
+                // Unset named option
+                i++; // consume the option name
+                option_mapping_t *opt = find_option_by_name(args[i]);
+                if (opt) {
+                    *(opt->flag) = false;
+                } else {
+                    error_message("set: invalid option name: %s", args[i]);
+                    return 1;
+                }
             } else {
-                error_message("set: invalid option name: %s", args[i]);
-                return 1;
+                // No argument - show all options
+                printf("Current shell options:\n");
+                for (int j = 0; option_map[j].name; j++) {
+                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+', option_map[j].name);
+                }
+                return 0;
             }
         } else if (strcmp(arg, "--") == 0) {
             // Handle -- option: end of options, start of positional parameters
@@ -237,7 +253,6 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
                 if (opt) {
                     *(opt->flag) = true;
-                    printf("set: enabled -%c\n", arg[j]);
                 } else {
                     error_message("set: invalid option: -%c", arg[j]);
                     return 1;
@@ -249,7 +264,6 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
                 if (opt) {
                     *(opt->flag) = false;
-                    printf("set: disabled +%c\n", arg[j]);
                 } else {
                     error_message("set: invalid option: +%c", arg[j]);
                     return 1;
