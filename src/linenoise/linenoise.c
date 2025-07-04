@@ -520,10 +520,10 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
-/* Clear previous completion display from screen */
+/* Clear completion overlay and restore cursor */
 static void clearCompletionDisplay(struct linenoiseState *ls) {
     if (ls->completion_lines > 0) {
-        /* Move cursor up to start of completion display */
+        /* Move cursor back to original input line */
         printf("\033[%zuA", ls->completion_lines);
         /* Clear from cursor to end of screen */
         printf("\033[J");
@@ -531,7 +531,7 @@ static void clearCompletionDisplay(struct linenoiseState *ls) {
     }
 }
 
-/* Display completions page with proper redrawing and line tracking */
+/* Display completion overlay without adding to terminal history */
 static void displayCompletionsPage(linenoiseCompletions *lc,
                                    struct linenoiseState *ls, size_t page,
                                    size_t current_idx) {
@@ -539,7 +539,7 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
         return;
     }
 
-    /* Clear previous completion display */
+    /* Clear previous display first */
     clearCompletionDisplay(ls);
 
     size_t page_size = 20;
@@ -550,14 +550,13 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
     }
 
     size_t total_pages = (lc->len + page_size - 1) / page_size;
-    size_t lines_used = 0;
-
-    printf("\n");
-    lines_used++;
+    size_t display_lines = 0;
 
     if (lc->len <= 6) {
-        /* Few completions - show all in single line */
-        printf("Completions: ");
+        /* Single line for few completions */
+        printf("\r\n\033[K");
+        display_lines = 1;
+        printf("Complete: ");
         for (size_t i = 0; i < lc->len; i++) {
             if (i == current_idx) {
                 printf("\033[7m%s\033[0m", lc->cvec[i]);
@@ -565,58 +564,42 @@ static void displayCompletionsPage(linenoiseCompletions *lc,
                 printf("%s", lc->cvec[i]);
             }
             if (i < lc->len - 1) {
-                printf("  ");
+                printf(" ");
             }
         }
-        printf("\n");
-        lines_used++;
-    } else if (lc->len <= 20) {
-        /* Medium number - show all with current selection highlighted */
-        printf("Completions (%zu):\n", lc->len);
-        lines_used++;
-
-        for (size_t i = 0; i < lc->len; i++) {
-            if (i % 4 == 0 && i > 0) {
-                printf("\n");
-                lines_used++;
-            }
-            if (i == current_idx) {
-                printf("\033[7m%-16s\033[0m", lc->cvec[i]);
-            } else {
-                printf("%-18s", lc->cvec[i]);
-            }
-        }
-        printf("\n");
-        lines_used++;
-
-        printf("TAB: next, Ctrl+P: prev, ESC: cancel\n");
-        lines_used++;
     } else {
-        /* Many completions - paged display */
-        printf("Page %zu/%zu (showing %zu-%zu of %zu):\n", page + 1,
-               total_pages, start_idx + 1, end_idx, lc->len);
-        lines_used++;
+        /* Compact display for medium/large sets */
+        printf("\r\n\033[K");
+        display_lines = 1;
 
-        for (size_t i = start_idx; i < end_idx; i++) {
-            if ((i - start_idx) % 4 == 0 && i > start_idx) {
-                printf("\n");
-                lines_used++;
-            }
-            if (i == current_idx) {
-                printf("\033[7m%-16s\033[0m", lc->cvec[i]);
-            } else {
-                printf("%-18s", lc->cvec[i]);
+        if (lc->len <= 20) {
+            printf("%zu items", lc->len);
+        } else {
+            printf("Page %zu/%zu", page + 1, total_pages);
+        }
+
+        /* Show current selection prominently */
+        printf(" -> \033[7m%s\033[0m", lc->cvec[current_idx]);
+
+        /* Show a few adjacent options */
+        printf(" (");
+        size_t shown = 0;
+        for (size_t i = 0; i < lc->len && shown < 3; i++) {
+            if (i != current_idx) {
+                if (shown > 0) {
+                    printf(" ");
+                }
+                printf("%s", lc->cvec[i]);
+                shown++;
             }
         }
-        printf("\n");
-        lines_used++;
-
-        printf("TAB: next, Ctrl+P: prev, Ctrl+N: next page, ESC: cancel\n");
-        lines_used++;
+        if (lc->len > 4) {
+            printf("...");
+        }
+        printf(")");
     }
 
-    /* Track lines used for proper clearing next time */
-    ls->completion_lines = lines_used;
+    ls->completion_lines = display_lines;
 }
 
 /* This is an helper function for linenoiseEdit*() and is called when the
@@ -658,18 +641,16 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                     ls->in_completion = 0;
                     c = 0;
                 } else {
-                    /* Show completions with clean redrawing display */
+                    /* Show compact completion overlay */
                     size_t page = ls->completion_idx / 20;
                     displayCompletionsPage(&lc, ls, page, ls->completion_idx);
-                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                     c = 0;
                 }
             } else {
-                /* Navigate through completions with clean redraw */
+                /* Navigate through completions */
                 ls->completion_idx = (ls->completion_idx + 1) % lc.len;
                 size_t page = ls->completion_idx / 20;
                 displayCompletionsPage(&lc, ls, page, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
@@ -682,7 +663,6 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 }
                 size_t page = ls->completion_idx / 20;
                 displayCompletionsPage(&lc, ls, page, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
@@ -698,7 +678,6 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 }
                 size_t page = ls->completion_idx / 20;
                 displayCompletionsPage(&lc, ls, page, ls->completion_idx);
-                refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
                 c = 0;
             }
             break;
