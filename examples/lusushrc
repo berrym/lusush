@@ -30,6 +30,9 @@ theme_show_right_prompt = true
 theme_enable_animations = false
 theme_enable_icons = false
 
+# Note: Use 'theme set <name>' command to change themes at runtime
+# Available themes: corporate, dark, light, colorful, minimal, classic
+
 # Corporate Branding (Optional)
 theme_corporate_company = ""
 theme_corporate_department = ""
@@ -76,3 +79,9 @@ e = echo
 # Key Bindings (Reserved for future use)
 [keys]
 # Key bindings will be implemented in future versions
+
+# Example Usage:
+# To change themes at runtime: theme set dark
+# To view all themes: theme list
+# To get theme info: theme info corporate
+# To show theme colors: theme colors

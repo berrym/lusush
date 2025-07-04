@@ -49,53 +49,52 @@ ht_strstr_t *command_hash = NULL;
 
 // Table of builtin commands
 builtin builtins[] = {
-    {     "exit",                       "exit shell",      bin_exit},
-    {     "help",                     "builtin help",      bin_help},
-    {       "cd",                 "change directory",        bin_cd},
-    {      "pwd",          "print working directory",       bin_pwd},
-    {  "history",            "print command history",   bin_history},
-    {    "alias",                     "set an alias",     bin_alias},
-    {  "unalias",                   "unset an alias",   bin_unalias},
-    {"setprompt",            "set prompt attributes", bin_setprompt},
-    {    "clear",                 "clear the screen",     bin_clear},
+    {    "exit",                       "exit shell",     bin_exit},
+    {    "help",                     "builtin help",     bin_help},
+    {      "cd",                 "change directory",       bin_cd},
+    {     "pwd",          "print working directory",      bin_pwd},
+    { "history",            "print command history",  bin_history},
+    {   "alias",                     "set an alias",    bin_alias},
+    { "unalias",                   "unset an alias",  bin_unalias},
+    {   "clear",                 "clear the screen",    bin_clear},
 
-    {     "type",             "display command type",      bin_type},
-    {    "unset",           "unset a shell variable",     bin_unset},
-    {     "dump",                "dump symbol table",      bin_dump},
-    {     "echo",              "echo text to stdout",      bin_echo},
-    {   "printf",                 "formatted output",    bin_printf},
-    {   "export",           "export shell variables",    bin_export},
-    {   "source",                  "source a script",    bin_source},
-    {        ".",                  "source a script",    bin_source},
-    {     "test",                 "test expressions",      bin_test},
-    {        "[",                 "test expressions",      bin_test},
-    {     "read",                  "read user input",      bin_read},
-    {     "eval",               "evaluate arguments",      bin_eval},
-    {     "true",            "return success status",      bin_true},
-    {    "false",            "return failure status",     bin_false},
-    {      "set",                "set shell options",       bin_set},
-    {     "jobs",                 "list active jobs",      bin_jobs},
-    {       "fg",          "bring job to foreground",        bin_fg},
-    {       "bg",           "send job to background",        bin_bg},
-    {    "shift",      "shift positional parameters",     bin_shift},
-    {    "break",               "break out of loops",     bin_break},
-    { "continue",  "continue to next loop iteration",  bin_continue},
-    {   "return",            "return from functions",    bin_return},
-    {     "trap",              "set signal handlers",      bin_trap},
-    {     "exec",       "replace shell with command",      bin_exec},
-    {     "wait",         "wait for background jobs",      bin_wait},
-    {    "umask",   "set/display file creation mask",     bin_umask},
-    {   "ulimit",      "set/display resource limits",    bin_ulimit},
-    {    "times",            "display process times",     bin_times},
-    {  "getopts",            "parse command options",   bin_getopts},
-    {    "local",          "declare local variables",     bin_local},
-    {        ":",             "null command (no-op)",     bin_colon},
-    { "readonly",       "create read-only variables",  bin_readonly},
-    {   "config",       "manage shell configuration",    bin_config},
-    {     "hash",       "remember utility locations",      bin_hash},
-    {    "theme",              "manage shell themes",     bin_theme},
-    {  "network",     "manage network and SSH hosts",   bin_network},
-    {    "debug", "advanced debugging and profiling",     bin_debug},
+    {    "type",             "display command type",     bin_type},
+    {   "unset",           "unset a shell variable",    bin_unset},
+    {    "dump",                "dump symbol table",     bin_dump},
+    {    "echo",              "echo text to stdout",     bin_echo},
+    {  "printf",                 "formatted output",   bin_printf},
+    {  "export",           "export shell variables",   bin_export},
+    {  "source",                  "source a script",   bin_source},
+    {       ".",                  "source a script",   bin_source},
+    {    "test",                 "test expressions",     bin_test},
+    {       "[",                 "test expressions",     bin_test},
+    {    "read",                  "read user input",     bin_read},
+    {    "eval",               "evaluate arguments",     bin_eval},
+    {    "true",            "return success status",     bin_true},
+    {   "false",            "return failure status",    bin_false},
+    {     "set",                "set shell options",      bin_set},
+    {    "jobs",                 "list active jobs",     bin_jobs},
+    {      "fg",          "bring job to foreground",       bin_fg},
+    {      "bg",           "send job to background",       bin_bg},
+    {   "shift",      "shift positional parameters",    bin_shift},
+    {   "break",               "break out of loops",    bin_break},
+    {"continue",  "continue to next loop iteration", bin_continue},
+    {  "return",            "return from functions",   bin_return},
+    {    "trap",              "set signal handlers",     bin_trap},
+    {    "exec",       "replace shell with command",     bin_exec},
+    {    "wait",         "wait for background jobs",     bin_wait},
+    {   "umask",   "set/display file creation mask",    bin_umask},
+    {  "ulimit",      "set/display resource limits",   bin_ulimit},
+    {   "times",            "display process times",    bin_times},
+    { "getopts",            "parse command options",  bin_getopts},
+    {   "local",          "declare local variables",    bin_local},
+    {       ":",             "null command (no-op)",    bin_colon},
+    {"readonly",       "create read-only variables", bin_readonly},
+    {  "config",       "manage shell configuration",   bin_config},
+    {    "hash",       "remember utility locations",     bin_hash},
+    {   "theme",              "manage shell themes",    bin_theme},
+    { "network",     "manage network and SSH hosts",  bin_network},
+    {   "debug", "advanced debugging and profiling",    bin_debug},
 };
 
 const size_t builtins_count = sizeof(builtins) / sizeof(builtins[0]);
@@ -367,16 +366,6 @@ int bin_unalias(int argc __attribute__((unused)),
         return 1;
     }
 
-    return 0;
-}
-
-/**
- * bin_setprompt:
- *      Set prompt attributes.
- */
-int bin_setprompt(int argc __attribute__((unused)),
-                  char **argv __attribute__((unused))) {
-    set_prompt(argc, argv);
     return 0;
 }
 

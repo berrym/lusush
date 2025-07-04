@@ -137,12 +137,10 @@ static const prompt_opts attr_opts[] = {
 };
 static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 
-static const char *RESET = "\x1b[0m";            // ansi color reset
-static char *colors = NULL;                      // ansi color sequence
-static FG_COLOR fg_color = ANSI_FG_GREEN;        // default foreground color
-static BG_COLOR bg_color = ANSI_BG_DEFAULT;      // default background color
-static TEXT_ATTRIB attr = ANSI_BOLD_ON;          // default text attributes
-static PROMPT_STYLE prompt_style = COLOR_PROMPT; // deafult prompt style
+static const char *RESET = "\x1b[0m"; // ansi color reset
+static char *colors = NULL;           // ansi color sequence
+// Static variables for legacy prompt support
+static PROMPT_STYLE prompt_style = COLOR_PROMPT; // default prompt style
 static char PS1[MAXLINE + 1] = "% ";
 static char PS2[MAXLINE + 1] = "> ";
 static char PS1_ROOT[MAXLINE + 1] = "# ";
@@ -161,21 +159,7 @@ static git_info_t git_info = {0};
 static time_t last_git_check = 0;
 static const int GIT_CACHE_SECONDS = 5; // Cache git status for 5 seconds
 
-/**
- * setprompt_usage:
- *      Print usage information for builtin command setprompt.
- */
-static void setprompt_usage(void) {
-    printf("usage:\n\t-h\t\tThis help\n\t");
-    printf("-s STYLE\tset the prompt style\n\t");
-    printf("-a ATTRIBUTE\tset attribute for prompt\n\t");
-    printf("-f COLOR\tset prompt foreground color\n\t");
-    printf("-b COLOR\tset prompt background color\n\t");
-    printf("-1 \"STRING\"\tset PS1 prompt\n\t");
-    printf("-2 \"STRING\"\tset PS2 prompt\n\t");
-    printf("-r \"STRING\"\tset root prompt\n\t");
-    printf("-v\t\tshow valid styles, colors and attributes\n");
-}
+// Legacy setprompt functions removed - use theme system instead
 
 /**
  * build_colors:
@@ -194,23 +178,7 @@ static int build_colors(void) {
     return 0;
 }
 
-/**
- * set_prompt_fg:
- *      Set prompt foreground color.
- */
-static void set_prompt_fg(FG_COLOR fg) { fg_color = fg; }
-
-/**
- * set_prompt_bg:
- *      Set prompt background color.
- */
-static void set_prompt_bg(BG_COLOR bg) { bg_color = bg; }
-
-/**
- * set_prompt_attrib:
- *      Set text attributes for prompt.
- */
-static void set_prompt_attr(TEXT_ATTRIB ta) { attr = ta; }
+// Legacy prompt color/attribute functions removed - use theme system instead
 
 /**
  * run_command:
@@ -354,127 +322,6 @@ void format_git_prompt(char *git_prompt, size_t size) {
     } else {
         snprintf(git_prompt, size, " (%s)", git_info.branch);
     }
-}
-
-/**
- * set_prompt:
- *      Create the command prompt.
- */
-void set_prompt(int argc, char **argv) {
-    int i = 0;
-    int nopt = 0;                          // next option
-    const char *sopts = "hs:f:b:a:1:2:rv"; // string of valid short options
-    // array describing valid long options
-    const struct option lopts[] = {
-        {      "help", 0, NULL, 'h'},
-        {     "style", 1, NULL, 's'},
-        {"foreground", 1, NULL, 'f'},
-        {"background", 1, NULL, 'b'},
-        {"attributes", 1, NULL, 'a'},
-        {       "one", 1, NULL, '1'},
-        {       "two", 1, NULL, '2'},
-        {      "root", 1, NULL, 'r'},
-        {"valid-opts", 0, NULL, 'v'},
-        {        NULL, 0, NULL,   0}
-    };
-
-    optind = 1;
-
-    if (argc < 2) {
-        setprompt_usage();
-        return;
-    }
-
-    do {
-        nopt = getopt_long(argc, argv, sopts, lopts, NULL);
-
-        switch (nopt) {
-        case 'h': // show usage help
-            setprompt_usage();
-            break;
-        case 's': // set prompt style as normal, color or fancy
-            for (i = 0; i < NUM_PROMPT_STYLES; i++) {
-                if (strcmp(optarg, prompt_styles[i].key) == 0) {
-                    switch (prompt_styles[i].val) {
-                    case NORMAL_PROMPT:
-                        prompt_style = NORMAL_PROMPT;
-                        break;
-                    case COLOR_PROMPT:
-                        prompt_style = COLOR_PROMPT;
-                        break;
-                    case FANCY_PROMPT:
-                        prompt_style = FANCY_PROMPT;
-                        break;
-                    case PRO_PROMPT:
-                        prompt_style = PRO_PROMPT;
-                        break;
-                    case GIT_PROMPT:
-                        prompt_style = GIT_PROMPT;
-                        break;
-                    default:
-                        break;
-                    }
-
-                    // Update git information for git-aware prompts
-                    if (prompt_style == GIT_PROMPT) {
-                        update_git_info();
-                    }
-                }
-            }
-            break;
-        case 'a': // set prompt text attribute
-            for (i = 0; i < NUM_VALID_ATTRIB; i++) {
-                if (strcmp(optarg, attr_opts[i].key) == 0) {
-                    set_prompt_attr(attr_opts[i].val);
-                }
-            }
-            break;
-        case 'f': // set prompt foreground color
-            for (i = 0; i < NUM_FG_OPTS; i++) {
-                if (strcmp(optarg, fg_opts[i].key) == 0) {
-                    set_prompt_fg(fg_opts[i].val);
-                }
-            }
-            break;
-        case 'b': // set fancy prompt background color
-            for (i = 0; i < NUM_BG_OPTS; i++) {
-                if (strcmp(optarg, bg_opts[i].key) == 0) {
-                    set_prompt_bg(bg_opts[i].val);
-                }
-            }
-            break;
-        case '1': // set PS1 terminating character
-            strcpy(PS1, optarg);
-            break;
-        case '2':
-            strcpy(PS2, optarg);
-            break;
-        case 'r':
-            strcpy(PS1_ROOT, optarg);
-            break;
-        case 'v': // print valid setprompt options
-            printf("VALID STYLES:\n");
-            for (i = 0; i < NUM_PROMPT_STYLES; i++) {
-                printf("\t%s\n", prompt_styles[i].key);
-            }
-
-            printf("VALID COLORS:\n");
-            for (i = 0; i < NUM_FG_OPTS; i++) {
-                printf("\t%s\n", fg_opts[i].key);
-            }
-
-            printf("VALID ATTRIBUTES:\n");
-            for (i = 0; i < NUM_VALID_ATTRIB; i++) {
-                printf("\t%s\n", attr_opts[i].key);
-            }
-            break;
-        case -1:
-            break;
-        default:
-            setprompt_usage();
-            break;
-        }
-    } while (nopt != -1);
 }
 
 /**

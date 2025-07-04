@@ -165,8 +165,8 @@ run_test "config - shell options" \
     'success' \
     ''
 
-run_test "setprompt - prompt setting" \
-    'setprompt "test> "' \
+run_test "theme - modern prompt system" \
+    'theme set corporate' \
     'success' \
     ''
 
@@ -251,7 +251,7 @@ echo "• Information: help, dump, history"
 echo "• Logic: true, false, test, ["
 echo "• Text: echo"
 echo "• Variables: export, unset, set"
-echo "• Control: config, setprompt"
+echo "• Control: config, theme"
 echo "• Aliases: alias, unalias"
 echo "• Execution: eval, source"
 echo "• I/O: read, clear"

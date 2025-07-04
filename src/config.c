@@ -601,12 +601,7 @@ void config_apply_settings(void) {
     symtable_set_global_int("COMPLETION_THRESHOLD",
                             config.completion_threshold);
 
-    // Apply prompt settings (basic application) - skip for now to avoid crashes
-    // if (config.prompt_style) {
-    //     // Set prompt style via setprompt command
-    //     char *prompt_args[] = {"setprompt", "-s", config.prompt_style, NULL};
-    //     set_prompt(3, prompt_args);
-    // }
+    // Apply prompt settings (handled by theme system)
 
     // Apply behavior settings
     // Multiline editing is disabled - single line mode for better reliability

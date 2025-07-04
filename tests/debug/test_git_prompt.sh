@@ -57,10 +57,10 @@ echo "Initial file" > README.md
 git add README.md > /dev/null 2>&1
 git commit -m "Initial commit" > /dev/null 2>&1
 
-# Test the git prompt
-echo "setprompt -s git" | timeout 3s "$LUSUSH_BINARY" 2>/dev/null
+# Test the git-aware theme
+echo "theme set corporate" | timeout 3s "$LUSUSH_BINARY" 2>/dev/null
 if [ $? -eq 0 ] || [ $? -eq 124 ]; then
-    echo -e "${GREEN}✓ Git prompt style accepted${NC}"
+    echo -e "${GREEN}✓ Git-aware theme accepted${NC}"
 else
     echo -e "${RED}✗ Git prompt style failed${NC}"
 fi
@@ -132,9 +132,9 @@ echo -e "${YELLOW}Test 6: Interactive git prompt demonstration${NC}"
 echo "Testing interactive git prompt features..."
 
 cat > test_git_prompt.lusush << 'EOF'
-# Test git-aware prompt in lusush
-setprompt -s git
-echo "Git prompt activated. Current status should show branch and indicators."
+# Test git-aware theme in lusush
+theme set corporate
+echo "Git-aware theme activated. Current status should show branch and indicators."
 pwd
 git status --porcelain
 exit
@@ -158,9 +158,9 @@ mkdir -p "$TEST_DIR/non_git"
 cd "$TEST_DIR/non_git"
 
 cat > test_non_git.lusush << 'EOF'
-# Test git prompt outside git repository
-setprompt -s git
-echo "Git prompt in non-git directory should work without git info."
+# Test git-aware theme outside git repository
+theme set corporate
+echo "Git-aware theme in non-git directory should work without git info."
 pwd
 exit
 EOF
@@ -180,18 +180,16 @@ echo "Testing prompt style options..."
 cd "$TEST_DIR"
 
 cat > test_prompt_options.lusush << 'EOF'
-# Test all prompt styles including git
-setprompt -v
-echo "--- Testing normal prompt ---"
-setprompt -s normal
-echo "--- Testing color prompt ---"
-setprompt -s color
-echo "--- Testing fancy prompt ---"
-setprompt -s fancy
-echo "--- Testing pro prompt ---"
-setprompt -s pro
-echo "--- Testing git prompt ---"
-setprompt -s git
+# Test all available themes
+theme list
+echo "--- Testing corporate theme ---"
+theme set corporate
+echo "--- Testing dark theme ---"
+theme set dark
+echo "--- Testing light theme ---"
+theme set light
+echo "--- Testing back to corporate ---"
+theme set corporate
 exit
 EOF
 
@@ -211,9 +209,9 @@ cd "$TEST_DIR"
 
 # Create a script that builds prompts multiple times
 cat > test_performance.lusush << 'EOF'
-# Test git prompt performance
-setprompt -s git
-echo "Testing prompt performance..."
+# Test git-aware theme performance
+theme set corporate
+echo "Testing theme performance..."
 for i in $(seq 1 5); do
     echo "Prompt build $i"
 done
@@ -258,7 +256,7 @@ echo ""
 echo -e "${BLUE}MANUAL TESTING INSTRUCTIONS:${NC}"
 echo "1. cd into a git repository"
 echo "2. Start lusush: ./builddir/lusush"
-echo "3. Set git prompt: setprompt -s git"
+echo "3. Set git-aware theme: theme set corporate"
 echo "4. Observe prompt changes as you:"
 echo "   - Modify files (should show *)"
 echo "   - Stage files (should show +)"

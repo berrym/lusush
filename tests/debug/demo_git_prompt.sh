@@ -94,9 +94,9 @@ echo ""
 # Test git prompt setup
 cat > demo1.lusush << 'EOF'
 echo "=== LUSUSH Git-Aware Prompt Demo ==="
-echo "Setting git prompt style..."
-setprompt -s git
-echo "Git prompt activated! You should see branch info in the prompt."
+echo "Setting git-aware theme..."
+theme set corporate
+echo "Git-aware theme activated! You should see branch info in the prompt."
 echo "Current directory contents:"
 ls -la
 exit
@@ -123,7 +123,7 @@ echo ""
 
 cat > demo2.lusush << 'EOF'
 echo "=== Git Status Indicators Demo ==="
-setprompt -s git
+theme set corporate
 echo "Current git status:"
 git status --porcelain
 echo ""
@@ -151,7 +151,7 @@ echo ""
 
 cat > demo3.lusush << 'EOF'
 echo "=== Staged Changes Demo ==="
-setprompt -s git
+theme set corporate
 echo "Current git status:"
 git status --porcelain
 echo ""
@@ -179,7 +179,7 @@ echo ""
 
 cat > demo4.lusush << 'EOF'
 echo "=== Branch Switching Demo ==="
-setprompt -s git
+theme set corporate
 echo "Current branch:"
 git branch --show-current
 echo ""
@@ -207,7 +207,7 @@ echo ""
 
 cat > demo5.lusush << 'EOF'
 echo "=== Clean Repository Demo ==="
-setprompt -s git
+theme set corporate
 echo "Current git status:"
 git status --porcelain
 echo ""
@@ -235,12 +235,12 @@ echo ""
 
 cat > demo6.lusush << 'EOF'
 echo "=== Non-Git Directory Demo ==="
-setprompt -s git
+theme set corporate
 echo "Current directory:"
 pwd
 echo ""
 echo "Prompt should show normal user@host format without git info."
-echo "Git prompt gracefully handles non-git directories!"
+echo "Git-aware theme gracefully handles non-git directories!"
 exit
 EOF
 
@@ -258,8 +258,8 @@ cd "$DEMO_DIR"
 
 cat > demo7.lusush << 'EOF'
 echo "=== Interactive Features Integration Demo ==="
-echo "Setting git prompt..."
-setprompt -s git
+echo "Setting git-aware theme..."
+theme set corporate
 echo ""
 echo "Phase 1 features still work perfectly:"
 echo "• Try Ctrl+R for reverse search (if interactive)"
@@ -267,7 +267,7 @@ echo "• Try TAB completion for fuzzy matching"
 echo "• All 49/49 POSIX regression tests maintained"
 echo "• All 136/136 comprehensive tests passing"
 echo ""
-echo "Phase 2 git prompt adds modern UX on top of POSIX perfection!"
+echo "Modern theme system adds professional UX on top of POSIX perfection!"
 exit
 EOF
 
@@ -306,7 +306,7 @@ echo ""
 echo -e "${BLUE}MANUAL TESTING INSTRUCTIONS:${NC}"
 echo "1. cd into any git repository"
 echo "2. Start lusush: ./builddir/lusush"
-echo "3. Set git prompt: setprompt -s git"
+echo "3. Set git-aware theme: theme set corporate"
 echo "4. Watch the prompt change as you:"
 echo "   • Edit files (shows * for modifications)"
 echo "   • Stage files with 'git add' (shows +)"

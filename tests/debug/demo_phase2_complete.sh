@@ -128,8 +128,8 @@ echo ""
 
 cat > demo2.lusush << 'EOF'
 echo "=== Git-Aware Dynamic Prompts Demo ==="
-echo "Setting git prompt style..."
-setprompt -s git
+echo "Setting git-aware theme..."
+theme set corporate
 echo ""
 echo "Current git status:"
 git status --porcelain
@@ -245,8 +245,8 @@ echo ""
 echo "1. Loading custom configuration..."
 config reload
 echo ""
-echo "2. Setting git-aware prompt from configuration..."
-setprompt -s git
+echo "2. Setting git-aware theme from configuration..."
+theme set corporate
 echo ""
 echo "3. Current git status (mixed states):"
 git status --porcelain
@@ -361,7 +361,7 @@ echo "   • Try Ctrl+R for enhanced reverse search"
 echo "   • Use TAB for fuzzy completion"
 echo "4. Test Phase 2 Target 1 (Git Prompts):"
 echo "   • cd into a git repository"
-echo "   • Run: setprompt -s git"
+echo "   • Run: theme set corporate"
 echo "   • Make changes and observe prompt indicators"
 echo "5. Test Phase 2 Target 2 (Configuration):"
 echo "   • Run: config show"

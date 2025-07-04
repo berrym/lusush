@@ -20,7 +20,6 @@ int bin_pwd(int, char **);
 int bin_history(int, char **);
 int bin_alias(int, char **);
 int bin_unalias(int, char **);
-int bin_setprompt(int, char **);
 int bin_clear(int, char **);
 int bin_type(int, char **);
 int bin_unset(int, char **);
