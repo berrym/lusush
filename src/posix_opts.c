@@ -165,7 +165,8 @@ int builtin_set(char **args) {
                 // No argument - show all options
                 printf("Current shell options:\n");
                 for (int j = 0; option_map[j].name; j++) {
-                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+', option_map[j].name);
+                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',
+                           option_map[j].name);
                 }
                 return 0;
             }
@@ -184,7 +185,8 @@ int builtin_set(char **args) {
                 // No argument - show all options
                 printf("Current shell options:\n");
                 for (int j = 0; option_map[j].name; j++) {
-                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+', option_map[j].name);
+                    printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',
+                           option_map[j].name);
                 }
                 return 0;
             }

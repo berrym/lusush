@@ -88,8 +88,7 @@ static int fuzzy_match_score(const char *pattern, const char *candidate) {
 /**
  * Forward declarations
  */
-static void display_completion_context(linenoiseCompletions *lc,
-                                       const char *word);
+
 static void prioritize_completions(linenoiseCompletions *lc,
                                    const char *pattern);
 
@@ -164,10 +163,8 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
         prioritize_completions(lc, word);
     }
 
-    // Show completion context for better user experience
-    if (lc->len > 0) {
-        display_completion_context(lc, word);
-    }
+    // Completion context is now handled by enhanced linenoise completion
+    // No need to call display_completion_context here
 
     free(word);
 }
@@ -506,19 +503,6 @@ void complete_history(const char *text, linenoiseCompletions *lc) {
 /**
  * Enhanced completion display with smart formatting
  */
-static void display_completion_context(linenoiseCompletions *lc,
-                                       const char *word
-                                       __attribute__((unused))) {
-    if (!lc || lc->len == 0) {
-        return;
-    }
-
-    // For many completions, show count
-    if (lc->len > 10) {
-        printf("\n[%zu completions available - press TAB again to show all]\n",
-               lc->len);
-    }
-}
 
 /**
  * Add completion with appropriate suffix and context awareness

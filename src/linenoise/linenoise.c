@@ -520,6 +520,50 @@ static void refreshLineWithCompletion(struct linenoiseState *ls,
     }
 }
 
+/* Display all completions in a formatted grid */
+static void displayAllCompletions(linenoiseCompletions *lc,
+                                  struct linenoiseState *ls) {
+    if (!lc || lc->len == 0) {
+        return;
+    }
+
+    /* Calculate terminal width for formatting */
+    size_t term_width = ls->cols > 0 ? ls->cols : 80;
+
+    /* Find maximum completion length for column alignment */
+    size_t max_len = 0;
+    for (size_t i = 0; i < lc->len; i++) {
+        size_t len = strlen(lc->cvec[i]);
+        if (len > max_len) {
+            max_len = len;
+        }
+    }
+
+    /* Add padding and calculate columns */
+    max_len += 2; /* Add 2 spaces between columns */
+    size_t cols = term_width / max_len;
+    if (cols < 1) {
+        cols = 1;
+    }
+
+    /* Print header */
+    printf("\n");
+    if (lc->len <= 20) {
+        printf("Available completions (%zu):\n", lc->len);
+    } else {
+        printf("Available completions (%zu) - showing all:\n", lc->len);
+    }
+
+    /* Print completions in grid format */
+    for (size_t i = 0; i < lc->len; i++) {
+        if (i % cols == 0 && i > 0) {
+            printf("\n");
+        }
+        printf("%-*s", (int)max_len, lc->cvec[i]);
+    }
+    printf("\n");
+}
+
 /* This is an helper function for linenoiseEdit*() and is called when the
  * user types the <tab> key in order to complete the string currently in the
  * input.
@@ -549,13 +593,42 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             if (ls->in_completion == 0) {
                 ls->in_completion = 1;
                 ls->completion_idx = 0;
+
+                /* Enhanced completion behavior */
+                if (lc.len == 1) {
+                    /* Only one completion - use it immediately */
+                    nwritten = snprintf(ls->buf, ls->buflen, "%s", lc.cvec[0]);
+                    ls->len = ls->pos = nwritten;
+                    ls->in_completion = 0;
+                    c = 0;
+                } else if (lc.len <= 10) {
+                    /* Few completions - show all immediately */
+                    displayAllCompletions(&lc, ls);
+                    /* Show first completion */
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    c = 0;
+                } else {
+                    /* Many completions - show count and first completion */
+                    printf("\n[%zu completions available - press TAB again to "
+                           "show all]\n",
+                           lc.len);
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    c = 0;
+                }
             } else {
-                ls->completion_idx = (ls->completion_idx + 1) % (lc.len + 1);
-                if (ls->completion_idx == lc.len) {
-                    linenoiseBeep();
+                /* Second TAB press or cycling through completions */
+                if (lc.len > 10 && ls->completion_idx == 0) {
+                    /* Second TAB with many completions - show all */
+                    displayAllCompletions(&lc, ls);
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    c = 0;
+                } else {
+                    /* Cycle through completions */
+                    ls->completion_idx = (ls->completion_idx + 1) % lc.len;
+                    refreshLineWithCompletion(ls, &lc, REFRESH_ALL);
+                    c = 0;
                 }
             }
-            c = 0;
             break;
         case 27: /* escape */
             /* Re-show original buffer */
