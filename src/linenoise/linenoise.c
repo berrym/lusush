@@ -1013,11 +1013,42 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
     
-    /* Bottom-line protection: add newline at start of session */
-    static int session_started = 0;
-    if (!session_started && (flags & REFRESH_WRITE) && isatty(fd)) {
-        write(fd, "\n", 1);
-        session_started = 1;
+    /* Bottom-line protection: detect if we're at bottom before refresh */
+    if ((flags & REFRESH_WRITE) && isatty(fd)) {
+        struct winsize ws;
+        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
+            /* Query current cursor position */
+            write(fd, "\x1b[6n", 4);
+            char pos_buf[32];
+            unsigned int i = 0;
+            int cursor_row = 0;
+            
+            /* Read response with timeout protection */
+            fd_set readfds;
+            struct timeval timeout;
+            FD_ZERO(&readfds);
+            FD_SET(l->ifd, &readfds);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 100000; /* 100ms timeout */
+            
+            if (select(l->ifd + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                while (i < sizeof(pos_buf) - 1) {
+                    if (read(l->ifd, pos_buf + i, 1) != 1) break;
+                    if (pos_buf[i] == 'R') break;
+                    i++;
+                }
+                pos_buf[i] = '\0';
+                
+                if (pos_buf[0] == '\x1b' && pos_buf[1] == '[') {
+                    sscanf(pos_buf + 2, "%d", &cursor_row);
+                    
+                    /* If at or near bottom, add newline for safety */
+                    if (cursor_row >= (int)ws.ws_row) {
+                        write(fd, "\n", 1);
+                    }
+                }
+            }
+        }
     }
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
