@@ -1012,6 +1012,13 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t len = l->len;
     size_t pos = l->pos;
     struct abuf ab;
+    
+    /* Bottom-line protection: add newline at start of session */
+    static int session_started = 0;
+    if (!session_started && (flags & REFRESH_WRITE) && isatty(fd)) {
+        write(fd, "\n", 1);
+        session_started = 1;
+    }
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
         int chlen = nextCharLen(buf, len, 0, NULL);

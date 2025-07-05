@@ -138,8 +138,11 @@ static const prompt_opts attr_opts[] = {
 static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 
 static const char *RESET = "\x1b[0m"; // ansi color reset
-static char *colors = NULL;           // ansi color sequence
+static char *colors = NULL;                      // ansi color sequence
 // Static variables for legacy prompt support
+static FG_COLOR fg_color = ANSI_FG_GREEN;        // default foreground color
+static BG_COLOR bg_color = ANSI_BG_DEFAULT;      // default background color
+static TEXT_ATTRIB attr = ANSI_BOLD_ON;          // default text attributes
 static PROMPT_STYLE prompt_style = COLOR_PROMPT; // default prompt style
 static char PS1[MAXLINE + 1] = "% ";
 static char PS2[MAXLINE + 1] = "> ";
