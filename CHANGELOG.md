@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **iTerm2 Bottom-line Terminal Handling**
   - Resolved line consumption issue when prompt reaches bottom of terminal in iTerm2
-  - Implemented ongoing cursor position detection for continuous protection
+  - Implemented smart protection that only triggers on new prompts, not during editing
   - Fixed static variable limitation that caused protection to work only once per session
+  - Fixed excessive protection triggering during history navigation and arrow key usage
   - Maintains natural terminal scrolling behavior while preventing line loss
-  - Automatic iTerm2 detection with real-time cursor position queries
+  - Automatic iTerm2 detection with intelligent cursor position queries
   - Cross-platform compatibility maintained for all terminal types
 
 ### Changed
