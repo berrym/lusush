@@ -1018,11 +1018,11 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
         const char *term_program = getenv("TERM_PROGRAM");
         const char *iterm_session = getenv("ITERM_SESSION_ID");
-        
+
         /* Detect iTerm2 */
-        int is_iterm2 = (iterm_session != NULL) || 
-                       (term_program && strstr(term_program, "iTerm"));
-        
+        int is_iterm2 = (iterm_session != NULL) ||
+                        (term_program && strstr(term_program, "iTerm"));
+
         if (is_iterm2) {
             /* For iTerm2: Check cursor position on each refresh */
             struct winsize ws;
@@ -1032,28 +1032,32 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
                 char pos_buf[32];
                 unsigned int i = 0;
                 int cursor_row = 0;
-                
+
                 fd_set readfds;
                 struct timeval timeout;
                 FD_ZERO(&readfds);
                 FD_SET(l->ifd, &readfds);
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 50000; /* 50ms quick check */
-                
+
                 if (select(l->ifd + 1, &readfds, NULL, NULL, &timeout) > 0) {
                     while (i < sizeof(pos_buf) - 1) {
-                        if (read(l->ifd, pos_buf + i, 1) != 1) break;
-                        if (pos_buf[i] == 'R') break;
+                        if (read(l->ifd, pos_buf + i, 1) != 1) {
+                            break;
+                        }
+                        if (pos_buf[i] == 'R') {
+                            break;
+                        }
                         i++;
                     }
                     pos_buf[i] = '\0';
-                    
+
                     if (pos_buf[0] == '\x1b' && pos_buf[1] == '[') {
                         sscanf(pos_buf + 2, "%d", &cursor_row);
-                        
+
                         /* If at bottom line, create protective space */
                         if (cursor_row >= (int)ws.ws_row) {
-                            write(fd, "\n", 1);  /* Add protective newline */
+                            write(fd, "\n", 1); /* Add protective newline */
                         }
                     }
                 } else {
