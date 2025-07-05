@@ -74,6 +74,17 @@ echo "$(which lusush)" | sudo tee -a /etc/shells
 chsh -s $(which lusush)
 ```
 
+### macOS/iTerm2 Compatibility
+Lusush includes specialized handling for macOS terminal environments:
+
+- **iTerm2 Support**: Optimized bottom-line handling prevents line consumption issues
+- **Terminal.app Compatible**: Works seamlessly with macOS default terminal
+- **tmux Integration**: Full support for tmux sessions and window management
+- **Homebrew Ready**: Available through standard macOS package management
+
+For iTerm2 users, lusush automatically detects and adapts to iTerm2's terminal behavior,
+providing smooth operation without line consumption at the bottom of the terminal.
+
 ## 📖 Documentation
 
 ### User Documentation

@@ -118,6 +118,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -1013,17 +1014,32 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection: prevent line consumption without cursor queries
-     */
+    /* Bottom-line protection: Minimal conservative approach */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
-        /* Simple approach: ensure we never refresh at the very bottom line */
-        static int bottom_margin_created = 0;
-        if (!bottom_margin_created) {
-            /* Create a one-line margin at bottom of screen to prevent scroll
-             * issues */
+        static int protection_applied = 0;
+        const char *term_program = getenv("TERM_PROGRAM");
+        const char *iterm_session = getenv("ITERM_SESSION_ID");
+        
+        /* Detect iTerm2 */
+        int is_iterm2 = (iterm_session != NULL) || 
+                       (term_program && strstr(term_program, "iTerm"));
+        
+        if (is_iterm2 && !protection_applied) {
+            /* Minimal approach: Only create margin once, no cleanup */
+            struct winsize ws;
+            if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
+                /* Simply ensure we have one line of margin at bottom */
+                char cmd[32];
+                snprintf(cmd, sizeof(cmd), "\x1b[%d;1H", (int)ws.ws_row);
+                write(fd, cmd, strlen(cmd));  /* Move to last line */
+                write(fd, "\n", 1);          /* Add margin */
+                protection_applied = 1;
+            }
+        } else if (!is_iterm2 && !protection_applied) {
+            /* Standard approach for other terminals */
             write(fd, "\x1b[999;1H", 7); /* Move to bottom line */
             write(fd, "\n", 1);          /* Add newline to create margin */
-            bottom_margin_created = 1;
+            protection_applied = 1;
         }
     }
 

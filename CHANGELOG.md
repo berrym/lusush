@@ -14,9 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installation guides for multiple platforms
 - Repository cleanup and archival system
 
+### Fixed
+- **iTerm2 Bottom-line Terminal Handling**
+  - Resolved line consumption issue when prompt reaches bottom of terminal in iTerm2
+  - Implemented minimal conservative protection that creates protective margin
+  - Maintains natural terminal scrolling behavior while preventing line loss
+  - Automatic iTerm2 detection and specialized handling
+  - Cross-platform compatibility maintained for all terminal types
+
 ### Changed
 - Reorganized documentation structure for production
-- Updated README.md for production readiness
+- Updated README.md for production readiness with macOS/iTerm2 compatibility section
 - Archived development-specific files to maintain clean repository
 
 ## [1.0.0] - 2025-07-03
