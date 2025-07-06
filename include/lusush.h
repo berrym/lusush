@@ -165,11 +165,7 @@ char *sb_finalize(str_builder_t *sb);
 char *pos_params_expand(char *tmp, bool in_double_quotes);
 char *arithm_expand(const char *orig_expr);
 
-// pattern matching functions
-bool has_glob_chars(char *p, size_t len);
-size_t match_prefix(const char *pattern, char *str, bool longest);
-size_t match_suffix(const char *pattern, char *str, bool longest);
-char **get_filename_matches(const char *pattern, glob_t *matches);
+
 
 // command execution functions
 char *search_path(char *fn);
