@@ -2,6 +2,7 @@
 #define CONFIG_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 
 // Configuration file paths
@@ -152,6 +153,21 @@ void config_apply_settings(void);
 int config_create_user_config(void);
 char *config_get_user_config_path(void);
 char *config_get_system_config_path(void);
+
+// Script execution support for traditional shell compatibility
+int config_execute_startup_scripts(void);
+int config_execute_login_scripts(void);
+int config_execute_logout_scripts(void);
+int config_execute_script_file(const char *path);
+bool config_should_execute_scripts(void);
+void config_set_script_execution(bool enabled);
+
+// Traditional shell script file detection
+char *config_get_profile_script_path(void);
+char *config_get_login_script_path(void);
+char *config_get_rc_script_path(void);
+char *config_get_logout_script_path(void);
+bool config_script_exists(const char *path);
 
 // Configuration error handling
 void config_error(const char *format, ...);

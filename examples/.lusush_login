@@ -1,0 +1,176 @@
+#!/usr/bin/env lusush
+# Example .lusush_login script for LUSUSH Shell
+# This file is executed by login shells for lusush-specific login initialization
+# Complements .profile for shell-specific login configuration
+
+# ============================================================================
+# LUSUSH Login Shell Configuration
+# ============================================================================
+# This script runs after .profile but before .lusushrc.sh for login shells
+# Use this for lusush-specific login configuration that shouldn't be in .profile
+
+# Display login banner
+echo "==============================================="
+echo "  LUSUSH Shell - Modern POSIX-Compliant Shell"
+echo "  Version: $(lusush --version 2>/dev/null || echo 'Development')"
+echo "  Login: $(date)"
+echo "==============================================="
+
+# Set lusush-specific environment variables
+export LUSUSH_LOGIN_TIME=$(date +%s)
+export LUSUSH_SESSION_ID="lusush_$$_$(date +%s)"
+
+# Configure lusush-specific login settings
+if [ -n "$PS1" ]; then
+    # Set corporate theme for login shells
+    theme set corporate
+
+    # Configure corporate branding if in corporate environment
+    if [ -n "$COMPANY_NAME" ]; then
+        config set theme_corporate_company "$COMPANY_NAME"
+        config set theme_show_company true
+    fi
+
+    if [ -n "$DEPARTMENT" ]; then
+        config set theme_corporate_department "$DEPARTMENT"
+        config set theme_show_department true
+    fi
+
+    # Configure enhanced history for login sessions
+    config set history_enabled true
+    config set history_size 50000
+    config set history_no_dups true
+    config set history_timestamps true
+
+    # Enable advanced features for login shells
+    config set completion_enabled true
+    config set fuzzy_completion true
+    config set completion_show_all true
+    config set spell_correction true
+    config set autocorrect_interactive true
+fi
+
+# Load system-wide lusush login configuration
+if [ -f /etc/lusush/login.sh ]; then
+    . /etc/lusush/login.sh
+fi
+
+# Load user-specific login extensions
+if [ -d "$HOME/.lusush.d/login" ]; then
+    for script in "$HOME/.lusush.d/login"/*.sh; do
+        if [ -r "$script" ]; then
+            . "$script"
+        fi
+    done
+fi
+
+# Set up login-specific aliases
+alias logout='config_execute_logout_scripts; exit'
+alias login-info='echo "Login session: $LUSUSH_SESSION_ID started at $(date -d @$LUSUSH_LOGIN_TIME)"'
+
+# Configure SSH agent if available
+if command -v ssh-agent >/dev/null 2>&1 && [ -z "$SSH_AUTH_SOCK" ]; then
+    eval $(ssh-agent -s) >/dev/null 2>&1
+    echo "SSH agent started for login session"
+fi
+
+# Load SSH keys if ssh-add is available
+if command -v ssh-add >/dev/null 2>&1 && [ -n "$SSH_AUTH_SOCK" ]; then
+    if [ -f "$HOME/.ssh/id_rsa" ] || [ -f "$HOME/.ssh/id_ed25519" ]; then
+        ssh-add 2>/dev/null
+        echo "SSH keys loaded"
+    fi
+fi
+
+# Display system information for login shells
+if [ -n "$PS1" ]; then
+    echo ""
+    echo "System Information:"
+    echo "  Hostname: $(hostname)"
+    echo "  User: $(whoami)"
+    echo "  Shell: $0"
+    echo "  Terminal: ${TERM:-unknown}"
+    echo "  Login Shell: Yes"
+
+    # Show load average if available
+    if [ -f /proc/loadavg ]; then
+        echo "  Load Average: $(cat /proc/loadavg | cut -d' ' -f1-3)"
+    fi
+
+    # Show disk usage of home directory
+    if command -v df >/dev/null 2>&1; then
+        echo "  Home Disk Usage: $(df -h "$HOME" | tail -1 | awk '{print $3"/"$2" ("$5")"}')"
+    fi
+
+    # Show last login information
+    if command -v last >/dev/null 2>&1; then
+        echo "  Last Login: $(last -1 $(whoami) | head -1 | awk '{print $3" "$4" "$5" "$6}')"
+    fi
+
+    echo ""
+fi
+
+# Check for important system messages
+if [ -f /etc/motd ]; then
+    echo "System Messages:"
+    cat /etc/motd
+    echo ""
+fi
+
+# Check for user mail
+if [ -f "/var/mail/$(whoami)" ] && [ -s "/var/mail/$(whoami)" ]; then
+    echo "You have mail in /var/mail/$(whoami)"
+fi
+
+# Load tmux session if available and not already in tmux
+if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ]; then
+    # Check if there's an existing session
+    if tmux list-sessions >/dev/null 2>&1; then
+        echo "Tmux sessions available. Use 'tmux attach' to connect."
+    fi
+fi
+
+# Set up login-specific functions
+login_session_info() {
+    echo "Login Session Information:"
+    echo "  Session ID: $LUSUSH_SESSION_ID"
+    echo "  Login Time: $(date -d @$LUSUSH_LOGIN_TIME)"
+    echo "  Session Duration: $(($(date +%s) - $LUSUSH_LOGIN_TIME)) seconds"
+    echo "  Current Theme: $(theme info 2>/dev/null | head -1 || echo 'default')"
+    echo "  PID: $$"
+    echo "  PPID: $PPID"
+}
+
+# Check for software updates (optional)
+if command -v apt >/dev/null 2>&1 && [ -f /usr/lib/update-notifier/apt-check ]; then
+    updates=$(/usr/lib/update-notifier/apt-check 2>&1 | cut -d';' -f1)
+    if [ "$updates" -gt 0 ]; then
+        echo "System updates available: $updates packages"
+    fi
+fi
+
+# Display welcome message
+if [ -n "$PS1" ]; then
+    echo "Welcome to your LUSUSH login shell session!"
+    echo "Type 'login-info' for session information"
+    echo "Type 'theme list' to see available themes"
+    echo "Type 'config show' to see current configuration"
+    echo ""
+fi
+
+# Log login event
+if [ -w "$HOME" ]; then
+    echo "$(date): Login shell started (PID: $$)" >> "$HOME/.lusush_login.log"
+fi
+
+# Set up exit trap for login shells
+cleanup_login() {
+    if [ -w "$HOME" ]; then
+        echo "$(date): Login shell ended (PID: $$, Duration: $(($(date +%s) - $LUSUSH_LOGIN_TIME))s)" >> "$HOME/.lusush_login.log"
+    fi
+}
+
+trap cleanup_login EXIT
+
+# Export login-specific functions
+export -f login_session_info

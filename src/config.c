@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 // Global configuration instance
@@ -168,6 +169,244 @@ static config_option_t config_options[] = {
 
 static const int num_config_options =
     sizeof(config_options) / sizeof(config_option_t);
+
+// Script execution support for traditional shell compatibility
+static bool script_execution_enabled = true;
+
+// Traditional shell script file paths
+#define PROFILE_SCRIPT_FILE ".profile"
+#define LOGIN_SCRIPT_FILE ".lusush_login"
+#define RC_SCRIPT_FILE ".lusushrc.sh"
+#define LOGOUT_SCRIPT_FILE ".lusush_logout"
+
+/**
+ * config_should_execute_scripts:
+ *      Check if script execution is enabled.
+ */
+bool config_should_execute_scripts(void) { return script_execution_enabled; }
+
+/**
+ * config_set_script_execution:
+ *      Enable or disable script execution.
+ */
+void config_set_script_execution(bool enabled) {
+    script_execution_enabled = enabled;
+}
+
+/**
+ * config_get_profile_script_path:
+ *      Get the path to the profile script file.
+ */
+char *config_get_profile_script_path(void) {
+    const char *home = getenv("HOME");
+    if (!home) {
+        return NULL;
+    }
+
+    char *path = malloc(strlen(home) + strlen(PROFILE_SCRIPT_FILE) + 2);
+    if (!path) {
+        return NULL;
+    }
+
+    sprintf(path, "%s/%s", home, PROFILE_SCRIPT_FILE);
+    return path;
+}
+
+/**
+ * config_get_login_script_path:
+ *      Get the path to the login script file.
+ */
+char *config_get_login_script_path(void) {
+    const char *home = getenv("HOME");
+    if (!home) {
+        return NULL;
+    }
+
+    char *path = malloc(strlen(home) + strlen(LOGIN_SCRIPT_FILE) + 2);
+    if (!path) {
+        return NULL;
+    }
+
+    sprintf(path, "%s/%s", home, LOGIN_SCRIPT_FILE);
+    return path;
+}
+
+/**
+ * config_get_rc_script_path:
+ *      Get the path to the RC script file.
+ */
+char *config_get_rc_script_path(void) {
+    const char *home = getenv("HOME");
+    if (!home) {
+        return NULL;
+    }
+
+    char *path = malloc(strlen(home) + strlen(RC_SCRIPT_FILE) + 2);
+    if (!path) {
+        return NULL;
+    }
+
+    sprintf(path, "%s/%s", home, RC_SCRIPT_FILE);
+    return path;
+}
+
+/**
+ * config_get_logout_script_path:
+ *      Get the path to the logout script file.
+ */
+char *config_get_logout_script_path(void) {
+    const char *home = getenv("HOME");
+    if (!home) {
+        return NULL;
+    }
+
+    char *path = malloc(strlen(home) + strlen(LOGOUT_SCRIPT_FILE) + 2);
+    if (!path) {
+        return NULL;
+    }
+
+    sprintf(path, "%s/%s", home, LOGOUT_SCRIPT_FILE);
+    return path;
+}
+
+/**
+ * config_script_exists:
+ *      Check if a script file exists and is readable.
+ */
+bool config_script_exists(const char *path) {
+    if (!path) {
+        return false;
+    }
+
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        return false;
+    }
+
+    return S_ISREG(st.st_mode) && (access(path, R_OK) == 0);
+}
+
+/**
+ * config_execute_script_file:
+ *      Execute a shell script file.
+ */
+int config_execute_script_file(const char *path) {
+    if (!path || !config_script_exists(path)) {
+        return -1;
+    }
+
+    // Use the same approach as bin_source builtin
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        return -1;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int result = 0;
+
+    while ((read = getline(&line, &len, file)) != -1) {
+        // Remove newline
+        if (line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+        }
+
+        // Skip empty lines and comments
+        if (line[0] == '\0' || line[0] == '#') {
+            continue;
+        }
+
+        // Parse and execute the line
+        extern int parse_and_execute(const char *command);
+        int line_result = parse_and_execute(line);
+        if (line_result != 0) {
+            result = line_result;
+        }
+    }
+
+    free(line);
+    fclose(file);
+    return result;
+}
+
+/**
+ * config_execute_startup_scripts:
+ *      Execute startup scripts for interactive shells.
+ */
+int config_execute_startup_scripts(void) {
+    if (!config_should_execute_scripts()) {
+        return 0;
+    }
+
+    int result = 0;
+
+    // Execute .lusushrc.sh if it exists (lusush-specific RC script)
+    char *rc_path = config_get_rc_script_path();
+    if (rc_path && config_script_exists(rc_path)) {
+        if (config_execute_script_file(rc_path) != 0) {
+            result = -1;
+        }
+    }
+    free(rc_path);
+
+    return result;
+}
+
+/**
+ * config_execute_login_scripts:
+ *      Execute login scripts for login shells.
+ */
+int config_execute_login_scripts(void) {
+    if (!config_should_execute_scripts()) {
+        return 0;
+    }
+
+    int result = 0;
+
+    // Execute .profile if it exists (POSIX standard)
+    char *profile_path = config_get_profile_script_path();
+    if (profile_path && config_script_exists(profile_path)) {
+        if (config_execute_script_file(profile_path) != 0) {
+            result = -1;
+        }
+    }
+    free(profile_path);
+
+    // Execute .lusush_login if it exists (lusush-specific login script)
+    char *login_path = config_get_login_script_path();
+    if (login_path && config_script_exists(login_path)) {
+        if (config_execute_script_file(login_path) != 0) {
+            result = -1;
+        }
+    }
+    free(login_path);
+
+    return result;
+}
+
+/**
+ * config_execute_logout_scripts:
+ *      Execute logout scripts when shell exits.
+ */
+int config_execute_logout_scripts(void) {
+    if (!config_should_execute_scripts()) {
+        return 0;
+    }
+
+    int result = 0;
+
+    // Execute .lusush_logout if it exists
+    char *logout_path = config_get_logout_script_path();
+    if (logout_path && config_script_exists(logout_path)) {
+        if (config_execute_script_file(logout_path) != 0) {
+            result = -1;
+        }
+    }
+    free(logout_path);
+
+    return result;
+}
 
 // Configuration file template
 const char *CONFIG_FILE_TEMPLATE =

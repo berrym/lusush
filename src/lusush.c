@@ -4,6 +4,7 @@
 
 #include "../include/lusush.h"
 
+#include "../include/config.h"
 #include "../include/executor.h"
 #include "../include/init.h"
 #include "../include/input.h"
@@ -80,6 +81,11 @@ int main(int argc, char **argv) {
 
     if (in) {
         fclose(in);
+    }
+
+    // Execute logout scripts if this is a login shell
+    if (is_login_shell()) {
+        config_execute_logout_scripts();
     }
 
     // Execute EXIT traps before shell terminates normally

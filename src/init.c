@@ -121,6 +121,16 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize configuration system
     config_init();
 
+    // Execute login scripts for login shells
+    if (IS_LOGIN_SHELL) {
+        config_execute_login_scripts();
+    }
+
+    // Execute startup scripts for interactive shells
+    if (IS_INTERACTIVE_SHELL) {
+        config_execute_startup_scripts();
+    }
+
     // Initialize auto-correction system
     autocorrect_init();
 
