@@ -1055,6 +1055,11 @@ void config_get_value(const char *key) {
                                    ? *(char **)opt->value_ptr
                                    : "");
                 break;
+            case CONFIG_TYPE_COLOR:
+                printf("%s\n", *(char **)opt->value_ptr
+                                   ? *(char **)opt->value_ptr
+                                   : "");
+                break;
             }
             return;
         }
@@ -1092,6 +1097,17 @@ void config_set_value(const char *key, const char *value) {
                     free(*(char **)opt->value_ptr);
                 }
                 *(char **)opt->value_ptr = strdup(value);
+                break;
+            case CONFIG_TYPE_COLOR:
+                if (config_validate_color(value)) {
+                    if (*(char **)opt->value_ptr) {
+                        free(*(char **)opt->value_ptr);
+                    }
+                    *(char **)opt->value_ptr = strdup(value);
+                } else {
+                    printf("Invalid color value: %s\n", value);
+                    return;
+                }
                 break;
             }
             printf("Set %s = %s\n", key, value);
