@@ -165,13 +165,39 @@ static config_option_t config_options[] = {
      config_validate_bool                                                                                      },
     {                  "debug_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.debug_mode,                             "Enable debug mode",         config_validate_bool         },
+
+    // Network settings
+    {      "ssh_completion_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_NETWORK,
+     &config.ssh_completion_enabled,                    "Enable SSH host completion",
+     config_validate_bool                                                                                      },
+    {     "cloud_discovery_enabled",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_NETWORK,
+     &config.cloud_discovery_enabled,                   "Enable cloud host discovery",
+     config_validate_bool                                                                                      },
+    {             "cache_ssh_hosts",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_NETWORK,
+     &config.cache_ssh_hosts,               "Cache SSH hosts for performance",
+     config_validate_bool                                                                                      },
+    {       "cache_timeout_minutes",    CONFIG_TYPE_INT,    CONFIG_SECTION_NETWORK,
+     &config.cache_timeout_minutes,             "SSH host cache timeout in minutes",
+     config_validate_int                                                                                       },
+    {         "show_remote_context",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_NETWORK,
+     &config.show_remote_context,                 "Show remote context in prompt",
+     config_validate_bool                                                                                      },
+    {           "auto_detect_cloud",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_NETWORK,
+     &config.auto_detect_cloud,                 "Auto-detect cloud environment",
+     config_validate_bool                                                                                      },
+    {        "max_completion_hosts",    CONFIG_TYPE_INT,    CONFIG_SECTION_NETWORK,
+     &config.max_completion_hosts,           "Maximum hosts to show in completion",
+     config_validate_int                                                                                       },
+
+    // Script execution control
+    {            "script_execution",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SCRIPTS,
+     &config.script_execution,                       "Enable script execution",         config_validate_bool   },
 };
 
 static const int num_config_options =
     sizeof(config_options) / sizeof(config_option_t);
 
 // Script execution support for traditional shell compatibility
-static bool script_execution_enabled = true;
 
 // Traditional shell script file paths
 #define PROFILE_SCRIPT_FILE ".profile"
@@ -183,14 +209,14 @@ static bool script_execution_enabled = true;
  * config_should_execute_scripts:
  *      Check if script execution is enabled.
  */
-bool config_should_execute_scripts(void) { return script_execution_enabled; }
+bool config_should_execute_scripts(void) { return config.script_execution; }
 
 /**
  * config_set_script_execution:
  *      Enable or disable script execution.
  */
 void config_set_script_execution(bool enabled) {
-    script_execution_enabled = enabled;
+    config.script_execution = enabled;
 }
 
 /**
@@ -580,6 +606,18 @@ void config_set_defaults(void) {
     // Advanced defaults
     config.verbose_errors = false;
     config.debug_mode = false;
+
+    // Network defaults
+    config.ssh_completion_enabled = true;
+    config.cloud_discovery_enabled = false;
+    config.cache_ssh_hosts = true;
+    config.cache_timeout_minutes = 5;
+    config.show_remote_context = true;
+    config.auto_detect_cloud = true;
+    config.max_completion_hosts = 50;
+
+    // Script execution defaults
+    config.script_execution = true;
 }
 
 /**
@@ -753,6 +791,10 @@ int config_parse_section(const char *section_name) {
         current_section = CONFIG_SECTION_ALIASES;
     } else if (strcmp(section_name, "keys") == 0) {
         current_section = CONFIG_SECTION_KEYS;
+    } else if (strcmp(section_name, "network") == 0) {
+        current_section = CONFIG_SECTION_NETWORK;
+    } else if (strcmp(section_name, "scripts") == 0) {
+        current_section = CONFIG_SECTION_SCRIPTS;
     } else {
         config_warning("Unknown configuration section: %s", section_name);
         current_section = CONFIG_SECTION_NONE;
@@ -958,6 +1000,10 @@ void builtin_config(int argc, char **argv) {
                 section = CONFIG_SECTION_PROMPT;
             } else if (strcmp(argv[2], "behavior") == 0) {
                 section = CONFIG_SECTION_BEHAVIOR;
+            } else if (strcmp(argv[2], "network") == 0) {
+                section = CONFIG_SECTION_NETWORK;
+            } else if (strcmp(argv[2], "scripts") == 0) {
+                section = CONFIG_SECTION_SCRIPTS;
             }
 
             if (section != CONFIG_SECTION_NONE) {
@@ -1076,6 +1122,12 @@ void config_show_all(void) {
 
     printf("\n[behavior]\n");
     config_show_section(CONFIG_SECTION_BEHAVIOR);
+
+    printf("\n[network]\n");
+    config_show_section(CONFIG_SECTION_NETWORK);
+
+    printf("\n[scripts]\n");
+    config_show_section(CONFIG_SECTION_SCRIPTS);
 }
 
 /**

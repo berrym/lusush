@@ -19,7 +19,9 @@ typedef enum {
     CONFIG_SECTION_PROMPT,
     CONFIG_SECTION_BEHAVIOR,
     CONFIG_SECTION_ALIASES,
-    CONFIG_SECTION_KEYS
+    CONFIG_SECTION_KEYS,
+    CONFIG_SECTION_NETWORK,
+    CONFIG_SECTION_SCRIPTS
 } config_section_t;
 
 // Configuration option types
@@ -111,6 +113,18 @@ typedef struct {
     // Advanced settings
     bool verbose_errors;
     bool debug_mode;
+
+    // Network settings
+    bool ssh_completion_enabled;
+    bool cloud_discovery_enabled;
+    bool cache_ssh_hosts;
+    int cache_timeout_minutes;
+    bool show_remote_context;
+    bool auto_detect_cloud;
+    int max_completion_hosts;
+
+    // Script execution control
+    bool script_execution;
 } config_values_t;
 
 // Global configuration instance

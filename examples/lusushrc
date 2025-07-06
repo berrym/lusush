@@ -4,7 +4,7 @@
 # History Configuration
 [history]
 history_enabled = true
-history_size = 10000
+history_size = 1000
 history_no_dups = true
 history_timestamps = false
 history_file = ~/.lusush_history
@@ -23,15 +23,16 @@ prompt_style = git
 prompt_theme = default
 git_prompt_enabled = true
 git_cache_timeout = 5
+prompt_format = ""
+
+# Theme Settings
 theme_name = corporate
 theme_auto_detect_colors = true
 theme_fallback_basic = false
 theme_show_right_prompt = true
 theme_enable_animations = false
 theme_enable_icons = false
-
-# Note: Use 'theme set <name>' command to change themes at runtime
-# Available themes: corporate, dark, light, colorful, minimal, classic
+theme_color_support_override = 0
 
 # Corporate Branding (Optional)
 theme_corporate_company = ""
@@ -62,6 +63,20 @@ autocorrect_builtins = true
 autocorrect_external = true
 autocorrect_case_sensitive = false
 
+# Network Configuration
+[network]
+ssh_completion_enabled = true
+cloud_discovery_enabled = false
+cache_ssh_hosts = true
+cache_timeout_minutes = 5
+show_remote_context = true
+auto_detect_cloud = true
+max_completion_hosts = 50
+
+# Script Execution Control
+[scripts]
+script_execution = true
+
 # Aliases - Define command shortcuts
 [aliases]
 ll = ls -la
@@ -80,8 +95,33 @@ e = echo
 [keys]
 # Key bindings will be implemented in future versions
 
-# Example Usage:
-# To change themes at runtime: theme set dark
-# To view all themes: theme list
-# To get theme info: theme info corporate
-# To show theme colors: theme colors
+# Available Themes:
+# - corporate: Professional theme with git integration and corporate branding
+# - dark: Dark color scheme for low-light environments
+# - light: Light color scheme for bright environments
+# - colorful: Vibrant colors with extensive git status information
+# - minimal: Clean, simple theme with essential information only
+# - classic: Traditional shell appearance with modern features
+
+# Configuration Commands:
+# config show [section]     - Display configuration values
+# config set key value      - Set configuration value
+# config get key            - Get configuration value
+# config reload             - Reload configuration files
+# config save               - Save current configuration
+# theme set <name>          - Change theme
+# theme list                - List available themes
+# theme info <name>         - Show theme information
+# theme colors              - Display theme color palette
+
+# Script Integration:
+# Traditional shell scripts can be used alongside this config file:
+# - ~/.profile              - POSIX login script
+# - ~/.lusush_login         - LUSUSH login script
+# - ~/.lusushrc.sh          - LUSUSH interactive script
+# - ~/.lusush_logout        - LUSUSH logout script
+
+# For advanced configuration, see:
+# - docs/SHELL_SCRIPT_CONFIGURATION.md
+# - examples/.lusushrc.sh
+# - examples/.profile

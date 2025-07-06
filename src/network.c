@@ -80,14 +80,14 @@ int network_load_config(void) {
     // Load from configuration system if available
     extern config_values_t config;
 
-    // Map existing config fields to network config
-    g_network_config.ssh_completion_enabled = true;   // Default enabled
-    g_network_config.cloud_discovery_enabled = false; // Default disabled
-    g_network_config.cache_ssh_hosts = true;
-    g_network_config.cache_timeout_minutes = 5;
-    g_network_config.show_remote_context = true;
-    g_network_config.auto_detect_cloud = true;
-    g_network_config.max_completion_hosts = 50;
+    // Map config fields to network config
+    g_network_config.ssh_completion_enabled = config.ssh_completion_enabled;
+    g_network_config.cloud_discovery_enabled = config.cloud_discovery_enabled;
+    g_network_config.cache_ssh_hosts = config.cache_ssh_hosts;
+    g_network_config.cache_timeout_minutes = config.cache_timeout_minutes;
+    g_network_config.show_remote_context = config.show_remote_context;
+    g_network_config.auto_detect_cloud = config.auto_detect_cloud;
+    g_network_config.max_completion_hosts = config.max_completion_hosts;
 
     return 0;
 }
@@ -100,6 +100,8 @@ void set_network_config_defaults(network_config_t *config) {
         return;
     }
 
+    // Use defaults from main config system
+    extern config_values_t global_config;
     config->ssh_completion_enabled = true;
     config->cloud_discovery_enabled = false;
     config->cache_ssh_hosts = true;
