@@ -434,8 +434,7 @@ static int execute_command(executor_t *executor, node_t *command) {
 
     // Check if all arguments are parameter expansions
     bool all_param_expansions = true;
-    int i;
-    for (i = 0; i < argc; i++) {
+    for (int i = 0; i < argc; i++) {
         if (!argv[i] || argv[i][0] != '$' || argv[i][1] != '{') {
             all_param_expansions = false;
             break;
@@ -445,7 +444,7 @@ static int execute_command(executor_t *executor, node_t *command) {
     if (all_param_expansions && argc > 0) {
 
         // Execute all parameter expansions
-        for (i = 0; i < argc; i++) {
+        for (int i = 0; i < argc; i++) {
 
             char *result = expand_variable(executor, argv[i]);
             if (result) {
@@ -453,7 +452,7 @@ static int execute_command(executor_t *executor, node_t *command) {
             }
         }
         // Free argv and return success
-        for (i = 0; i < argc; i++) {
+        for (int i = 0; i < argc; i++) {
             free(argv[i]);
         }
         free(argv);
@@ -461,7 +460,7 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     // Process parameter expansion arguments for any command
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '$' && argv[i][1] == '{') {
             char *result = expand_variable(executor, argv[i]);
             if (result) {
@@ -476,7 +475,7 @@ static int execute_command(executor_t *executor, node_t *command) {
     int filtered_argc = 0;
 
     // Look for 2>/dev/null pattern in arguments
-    for (i = 0; i < argc; i++) {
+    for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "2>/dev/null") == 0) {
             redirect_stderr = true;
             break;
@@ -493,7 +492,7 @@ static int execute_command(executor_t *executor, node_t *command) {
         filtered_argv = malloc((argc + 1) * sizeof(char *));
         if (!filtered_argv) {
             // Free original argv and return error
-            for (i = 0; i < argc; i++) {
+            for (int i = 0; i < argc; i++) {
                 free(argv[i]);
             }
             free(argv);
@@ -501,7 +500,7 @@ static int execute_command(executor_t *executor, node_t *command) {
         }
 
         int j = 0;
-        for (i = 0; i < argc; i++) {
+        for (int i = 0; i < argc; i++) {
             if (strcmp(argv[i], "2>/dev/null") == 0) {
                 // Skip this token
                 continue;
@@ -526,7 +525,7 @@ static int execute_command(executor_t *executor, node_t *command) {
     if (executor->debug) {
         printf("DEBUG: Executing command: %s with %d args\n", filtered_argv[0],
                filtered_argc - 1);
-        for (i = 0; i < filtered_argc; i++) {
+        for (int i = 0; i < filtered_argc; i++) {
             printf("DEBUG: argv[%d] = '%s'\n", i, filtered_argv[i]);
         }
         if (redirect_stderr) {
@@ -541,14 +540,14 @@ static int execute_command(executor_t *executor, node_t *command) {
         char *original_command = NULL;
         size_t total_len = 1; // for null terminator
 
-        for (i = 0; i < filtered_argc; i++) {
+        for (int i = 0; i < filtered_argc; i++) {
             total_len += strlen(filtered_argv[i]) + (i > 0 ? 1 : 0);
         }
 
         original_command = malloc(total_len);
         if (original_command) {
             strcpy(original_command, filtered_argv[0]);
-            for (i = 1; i < filtered_argc; i++) {
+            for (int i = 1; i < filtered_argc; i++) {
                 strcat(original_command, " ");
                 strcat(original_command, filtered_argv[i]);
             }
@@ -564,13 +563,13 @@ static int execute_command(executor_t *executor, node_t *command) {
                 if (filtered_argc > 1) {
                     // Add original arguments to recursively expanded command
                     size_t len = strlen(recursive_expanded) + 1;
-                    for (i = 1; i < filtered_argc; i++) {
+                    for (int i = 1; i < filtered_argc; i++) {
                         len += strlen(filtered_argv[i]) + 1;
                     }
                     expanded_command = malloc(len);
                     if (expanded_command) {
                         strcpy(expanded_command, recursive_expanded);
-                        for (i = 1; i < filtered_argc; i++) {
+                        for (int i = 1; i < filtered_argc; i++) {
                             strcat(expanded_command, " ");
                             strcat(expanded_command, filtered_argv[i]);
                         }
@@ -606,7 +605,7 @@ static int execute_command(executor_t *executor, node_t *command) {
                         // Free old argv only if it's not the same as original
                         // argv
                         if (filtered_argv != argv) {
-                            for (i = 0; i < filtered_argc; i++) {
+                            for (int i = 0; i < filtered_argc; i++) {
                                 free(filtered_argv[i]);
                             }
                             free(filtered_argv);
@@ -726,14 +725,14 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     // Free argv
-    for (i = 0; i < argc; i++) {
+    for (int i = 0; i < argc; i++) {
         free(argv[i]);
     }
     free(argv);
 
     // Free filtered argv if it was separately allocated
     if (redirect_stderr && filtered_argv) {
-        for (i = 0; i < filtered_argc; i++) {
+        for (int i = 0; i < filtered_argc; i++) {
             free(filtered_argv[i]);
         }
         free(filtered_argv);
@@ -1040,8 +1039,7 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                     extern int shell_argc;
                     extern char **shell_argv;
 
-                    int i;
-                    for (i = 1; i < shell_argc; i++) {
+                    for (int i = 1; i < shell_argc; i++) {
                         if (shell_argv[i]) {
                             // Resize array if needed
                             expanded_words =
@@ -1105,16 +1103,14 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     }
 
     // Iterate over expanded words
-    int i;
-    for (i = 0; i < word_count; i++) {
+    for (int i = 0; i < word_count; i++) {
         if (expanded_words[i]) {
             // Set loop variable in current (loop) scope
             if (symtable_set_local_var(executor->symtable, var_name,
                                        expanded_words[i]) != 0) {
                 set_executor_error(executor, "Failed to set loop variable");
                 // Cleanup expanded words
-                int j;
-                for (j = 0; j < word_count; j++) {
+                for (int j = 0; j < word_count; j++) {
                     free(expanded_words[j]);
                 }
                 free(expanded_words);
@@ -1133,7 +1129,7 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     }
 
     // Cleanup expanded words
-    for (i = 0; i < word_count; i++) {
+    for (int i = 0; i < word_count; i++) {
         free(expanded_words[i]);
     }
     free(expanded_words);
@@ -1257,8 +1253,7 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
             if (child->val.str) {
                 // Check if this is a here document delimiter
                 bool is_delimiter = false;
-                int i;
-                for (i = 0; i < delimiter_count; i++) {
+                for (int i = 0; i < delimiter_count; i++) {
                     if (heredoc_delimiters[i] &&
                         strcmp(child->val.str, heredoc_delimiters[i]) == 0) {
                         is_delimiter = true;
@@ -1306,8 +1301,7 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         if (brace_results) {
                             // Process each brace expansion result for potential
                             // glob expansion
-                            int j;
-                            for (j = 0; j < brace_count; j++) {
+                            for (int j = 0; j < brace_count; j++) {
                                 if (needs_glob_expansion(brace_results[j])) {
                                     int glob_count;
                                     char **glob_results = expand_glob_pattern(
@@ -1317,21 +1311,19 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                         // Add all glob results, free brace
                                         // result since we won't use it
                                         free(brace_results[j]);
-                                        int k;
-                                        for (k = 0; k < glob_count; k++) {
+                                        for (int k = 0; k < glob_count; k++) {
                                             if (!add_to_argv_list(
                                                     &argv_list, &argv_count,
                                                     &argv_capacity,
                                                     glob_results[k])) {
                                                 // Cleanup remaining strings on
                                                 // failure
-                                                int l;
-                                                for (l = k; l < glob_count;
+                                                for (int l = k; l < glob_count;
                                                      l++) {
                                                     free(glob_results[l]);
                                                 }
                                                 free(glob_results);
-                                                for (l = j + 1;
+                                                for (int l = j + 1;
                                                      l < brace_count; l++) {
                                                     free(brace_results[l]);
                                                 }
@@ -1348,8 +1340,7 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                                 &argv_list, &argv_count,
                                                 &argv_capacity,
                                                 brace_results[j])) {
-                                            int l;
-                                            for (l = j + 1; l < brace_count;
+                                            for (int l = j + 1; l < brace_count;
                                                  l++) {
                                                 free(brace_results[l]);
                                             }
@@ -1364,8 +1355,7 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                     if (!add_to_argv_list(
                                             &argv_list, &argv_count,
                                             &argv_capacity, brace_results[j])) {
-                                        int l;
-                                        for (l = j + 1; l < brace_count;
+                                        for (int l = j + 1; l < brace_count;
                                              l++) {
                                             free(brace_results[l]);
                                         }
