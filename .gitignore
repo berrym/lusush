@@ -1,9 +1,64 @@
+# Build directories
 builddir/
+build/
+buildDir/
 
-# Test binaries
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
 debug_simple_test
 test_all_implementations
 test_enhanced_symtable
-buildDir
-.idea
-.vscode
+*.log
+test_output/
+coverage/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Core dumps and debug files
+core
+*.core
+*.dSYM/
+
+# Package manager files
+*.deb
+*.rpm
+*.tar.gz
+*.tar.xz
+
+# Configuration backup files
+*.conf.bak
+*.cfg.old
+.lusushrc.old
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+
+# Profiling and performance files
+*.prof
+*.pprof
+callgrind.out.*
+cachegrind.out.*
+
+# Static analysis output
+*.scan-build/
+cppcheck-report.xml

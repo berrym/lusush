@@ -1,325 +1,209 @@
-# Lusush - Modern POSIX Shell
+# LUSUSH Shell
 
-[![Build Status](https://github.com/lusush/lusush/workflows/CI/badge.svg)](https://github.com/lusush/lusush/actions)
-[![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/lusush/lusush/releases)
-[![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-brightgreen.svg)](docs/COMPLIANCE.md)
+A modern, POSIX-compliant shell with advanced features for professional development environments.
 
-Lusush is a modern, feature-rich shell that combines 100% POSIX compliance with enhanced user experience features. It provides intelligent tab completion, professional themes, network integration, and advanced command-line editing while maintaining full compatibility with existing shell scripts.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-blue.svg)]()
 
-## ✨ Key Features
+## Overview
 
-### 🎯 **100% POSIX Compliance**
-- Full compatibility with POSIX shell standards
-- Runs existing shell scripts without modification
-- Complete built-in command implementation
-- Standards-compliant parameter expansion and arithmetic
+LUSUSH is a feature-rich, production-ready shell designed for developers and system administrators who need reliable, efficient command-line functionality with modern conveniences. Built with a focus on POSIX compliance, performance, and user experience.
 
-### 🚀 **Enhanced User Experience**
-- **Intelligent Tab Completion**: Categorized, context-aware completion system
-- **Optional Real-time Hints**: Smart input suggestions (configurable)
-- **Professional Themes**: Corporate, dark, and light themes with Git integration
-- **Advanced Line Editing**: Powerful command-line editing with history search
-- **Auto-correction**: Smart command correction and suggestions
-- **Network Integration**: SSH host completion and network-aware features
+## Key Features
 
-### 🛠️ **Modern Shell Features**
-- **Advanced Tab Completion**: Clean, categorized completion system
-- **Optional Hints System**: Real-time input suggestions (disabled by default for stability)
-- **Multiline Command Editing**: Seamless editing of complex commands
-- **History Management**: Advanced history with search and deduplication
-- **Job Control**: Full background job management
-- **Configurable**: Extensive customization options
+### Core Functionality
+- **100% POSIX Compliance** - Full compatibility with standard shell operations
+- **Advanced Line Editing** - Professional terminal editing with no artifacts or glitches
+- **Intelligent Tab Completion** - Context-aware completion for commands, files, and variables
+- **Command History** - Persistent history with search and navigation
+- **Variable Management** - Full support for environment and shell variables
 
-## 🚀 Quick Start
+### Modern Enhancements
+- **Professional Themes** - 6 enterprise-grade visual themes
+- **Network Integration** - SSH host completion and network diagnostics
+- **Git Integration** - Git-aware prompts and branch information
+- **Configuration Management** - INI-style configuration with runtime changes
+- **Input Hints** - Optional command suggestions as you type
+
+### Enterprise Features
+- **Cross-Platform** - Reliable operation on Linux, macOS, and BSD systems
+- **Memory Efficient** - Optimized for low resource usage
+- **Extensible** - Plugin architecture for custom functionality
+- **Secure** - Built with security best practices
+
+## Quick Start
 
 ### Installation
 
-#### Using Package Manager (Recommended)
 ```bash
-# Ubuntu/Debian
-sudo apt install lusush
-
-# CentOS/RHEL/Fedora
-sudo dnf install lusush
-
-# macOS (Homebrew)
-brew install lusush
-```
-
-#### Build from Source
-```bash
-git clone https://github.com/lusush/lusush.git
+# Clone the repository
+git clone https://github.com/berrym/lusush.git
 cd lusush
-meson setup builddir --buildtype=release
+
+# Build with Meson
+meson setup builddir
 ninja -C builddir
+
+# Install (optional)
 sudo ninja -C builddir install
 ```
 
-### First Run
-```bash
-# Start Lusush
-lusush
+### Basic Usage
 
-# Test enhanced features
-echo "Hello, Lusush!"
-ls <TAB>  # Try tab completion
-theme list  # View available themes
+```bash
+# Start the shell
+./builddir/lusush
+
+# Configure features
+config set hints_enabled true
+config set theme_name corporate
+
+# Explore built-in help
+help
+theme list
+config show
 ```
 
-### Set as Default Shell
-```bash
-# Add to system shells
-echo "$(which lusush)" | sudo tee -a /etc/shells
-
-# Change default shell
-chsh -s $(which lusush)
-```
-
-### macOS/iTerm2 Compatibility
-Lusush includes specialized handling for macOS terminal environments:
-
-- **iTerm2 Support**: Optimized bottom-line handling prevents line consumption issues
-- **Terminal.app Compatible**: Works seamlessly with macOS default terminal
-- **tmux Integration**: Full support for tmux sessions and window management
-- **Homebrew Ready**: Available through standard macOS package management
-
-For iTerm2 users, lusush automatically detects and adapts to iTerm2's terminal behavior,
-providing smooth operation without line consumption at the bottom of the terminal.
-
-## 📖 Documentation
+## Documentation
 
 ### User Documentation
-- **[User Manual](docs/user/USER_MANUAL.md)** - Complete user guide
-- **[Installation Guide](docs/user/INSTALLATION.md)** - Detailed installation instructions
-- **[Configuration Guide](docs/user/CONFIGURATION.md)** - Customization options
-- **[Feature Guide](docs/user/FEATURES.md)** - Enhanced features overview
+- [Installation Guide](docs/user/INSTALLATION.md) - Complete installation instructions
+- [User Manual](docs/user/USER_MANUAL.md) - Comprehensive usage guide
+- [Configuration Reference](docs/user/CONFIGURATION.md) - All configuration options
 
 ### Developer Documentation
-- **[API Reference](docs/developer/API_REFERENCE.md)** - Programming interface
-- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
-- **[Development Setup](docs/developer/DEVELOPMENT.md)** - Development environment
+- [Contributing Guide](docs/developer/CONTRIBUTING.md) - How to contribute to the project
+- [Architecture Overview](docs/developer/ARCHITECTURE.md) - System design and structure
+- [API Reference](docs/developer/API_REFERENCE.md) - Internal API documentation
 
-## 🎨 Themes and Customization
+### Production Deployment
+- [Deployment Guide](docs/production/DEPLOYMENT.md) - Production setup and configuration
+- [Maintenance Manual](docs/production/MAINTENANCE.md) - Ongoing maintenance procedures
+- [Troubleshooting](docs/production/TROUBLESHOOTING.md) - Common issues and solutions
 
-### Built-in Themes
+## Requirements
+
+### Build Requirements
+- C99-compatible compiler (GCC 4.9+ or Clang 3.4+)
+- Meson build system (0.50.0+)
+- Ninja build tool
+
+### Runtime Requirements
+- POSIX-compatible operating system
+- Terminal with ANSI color support (recommended)
+- 512KB RAM minimum
+
+### Supported Platforms
+- Linux (all major distributions)
+- macOS (10.12+)
+- FreeBSD, OpenBSD, NetBSD
+- Other UNIX-like systems
+
+## Configuration
+
+LUSUSH uses an INI-style configuration system with runtime modification support:
+
 ```bash
-# Professional corporate theme
-theme set corporate
-
-# Modern dark theme
-theme set dark
-
-# Clean light theme
-theme set light
-
-# View all themes
-theme list
-```
-
-### Enhanced Completion
-```bash
-# Single-line menu completion (default)
-cat document.txt [2/4 file]
-
-# Intelligent tab completion with hints
-echo test<TAB>  # Shows completions and hints as you type
-
-# View completion categories
-ls <TAB>  # Shows [file], [directory], [builtin] categories
-```
-
-## 🌐 Network Features
-
-### SSH Integration
-```bash
-# SSH host completion from ~/.ssh/config
-ssh user@<TAB>
-
-# Network status
-network status
-
-# Manage SSH hosts
-network hosts list
-```
-
-### Smart Completion
-- Automatic SSH host detection
-- Network-aware command completion
-- Intelligent path completion
-
-## 🔧 Configuration
-
-### Basic Configuration
-```bash
-# Create configuration file
-cat > ~/.lusushrc << 'EOF'
-# Lusush Configuration
-
-[history]
-history_enabled = true
-history_size = 10000
-history_no_dups = true
-
-[completion]
-completion_enabled = true
-fuzzy_completion = true
-hints_enabled = true
-
-[prompt]
-prompt_style = git
-prompt_theme = default
-
-# Set theme
-theme set corporate
-EOF
-```
-
-### Configuration Management
-```bash
-# View all configuration options
+# View current configuration
 config show
 
-# Configure completion system
-config set completion_enabled true
+# Enable features
 config set hints_enabled true
-config set fuzzy_completion true
+config set git_prompt_enabled true
 
-# Configure history
-config set history_enabled true
-config set history_no_dups true
+# Set theme
+config set theme_name professional
 
-# Check specific setting
-config get completion_enabled
+# Save configuration
+config save
 ```
 
-## 📊 Performance & Compatibility
+## Testing
 
-### System Requirements
-- **OS**: Linux, macOS, Unix-like systems
-- **Memory**: 128MB minimum, 512MB recommended
-- **Storage**: 50MB minimum, 200MB recommended
-- **Terminal**: ANSI color support recommended
-
-### Performance Characteristics
-- **Startup Time**: < 100ms typical
-- **Memory Usage**: 10-20MB typical
-- **Completion Speed**: < 50ms for most operations
-- **POSIX Compliance**: 100% (185/185 tests passing)
-
-## 🧪 Testing
-
-### Test Suite
+### Quick Verification
 ```bash
-# Run all tests
-ninja -C builddir test
-
-# POSIX compliance tests
+# Run POSIX compliance tests
 ./tests/compliance/test_posix_regression.sh
 
-# Comprehensive shell tests
-./tests/compliance/test_shell_compliance_comprehensive.sh
-
-# Enhanced features tests
-./tests/debug/verify_enhanced_features.sh
+# Manual testing
+./tests/manual/test_history_bottom_line.sh
 ```
 
-### Test Results
-- **POSIX Regression**: 49/49 tests passing ✅
-- **Shell Compliance**: 136/136 tests passing ✅
-- **Enhanced Features**: 26/26 tests passing ✅
-- **Overall Success Rate**: 100%
-
-## 📈 Project Status
-
-### Current Version: 1.0.0
-- ✅ **POSIX Compliance**: 100% complete
-- ✅ **Enhanced Completion**: Production ready
-- ✅ **Theme System**: Professional themes available
-- ✅ **Network Integration**: SSH completion working
-- ✅ **Documentation**: Comprehensive user and developer guides
-
-### Roadmap
-- **v1.1**: Plugin system for custom completions
-- **v1.2**: Advanced scripting features
-- **v1.3**: Enhanced debugger integration
-- **v2.0**: Modern shell extensions (async, modules)
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
+### Complete Test Suite
 ```bash
-# Clone repository
-git clone https://github.com/lusush/lusush.git
-cd lusush
+# Run all tests
+meson test -C builddir
 
-# Set up development environment
-meson setup builddir --buildtype=debugoptimized
-ninja -C builddir
-
-# Run tests
-ninja -C builddir test
+# Specific test categories
+./tests/compliance/  # POSIX compliance
+./tests/manual/      # Manual verification
 ```
 
-### Code Style
-- Follow existing code formatting (use `./tools/clang-format-all .`)
-- Write tests for new features
-- Update documentation for user-facing changes
-- Maintain POSIX compliance
+## Examples
 
-## 📋 Comparison
+### Basic Shell Operations
+```bash
+# Command execution
+ls -la | grep "\.txt" | sort
 
-| Feature | Lusush | Bash | Zsh | Fish |
-|---------|--------|------|-----|------|
-| POSIX Compliance | 100% | 95% | 90% | 60% |
-| Enhanced Completion | ✅ | ❌ | ✅ | ✅ |
-| Theme System | ✅ | ❌ | ✅ | ✅ |
-| Network Integration | ✅ | ❌ | ❌ | ❌ |
-| Single-line Menu | ✅ | ❌ | ❌ | ❌ |
-| Auto-correction | ✅ | ❌ | ✅ | ✅ |
-| Memory Usage | Low | Low | Medium | Medium |
-| Startup Time | Fast | Fast | Medium | Medium |
+# Variable operations
+export MY_VAR="hello world"
+echo $MY_VAR
 
-## 🆘 Support
+# Control structures
+for file in *.txt; do echo "Processing $file"; done
+```
 
-### Getting Help
-- **Documentation**: https://lusush.org/docs
-- **GitHub Issues**: https://github.com/lusush/lusush/issues
-- **Discussions**: https://github.com/lusush/lusush/discussions
-- **IRC**: #lusush on irc.libera.chat
+### Advanced Features
+```bash
+# Network completion
+ssh user@<TAB>  # Shows available SSH hosts
 
-### Reporting Bugs
-When reporting issues, please include:
-- System information (`uname -a`)
-- Lusush version (`lusush --version`)
-- Steps to reproduce
-- Expected vs actual behavior
-- Configuration files (if relevant)
+# Git integration
+cd /git/repo    # Prompt shows branch info
 
-## 📜 License
+# Theme switching
+theme set corporate  # Professional appearance
+```
 
-Lusush is released under the BSD 3-Clause License. See [LICENSE](LICENSE) for details.
+## Release History
 
-## 🙏 Acknowledgments
+- [v1.0.3](docs/releases/v1.0.3.md) - Latest stable release with terminal editing fixes
+- [v1.0.2](docs/releases/v1.0.2.md) - Enhanced themes and configuration system
+- [v1.0.1](docs/releases/v1.0.1.md) - Initial production release
+- [v1.0.0](docs/releases/v1.0.0.md) - First stable release
 
-- **linenoise** - Line editing library
-- **meson** - Build system
-- **POSIX standards** - Shell specification
-- **Contributors** - Community developers and testers
+See [CHANGELOG.md](CHANGELOG.md) for complete version history.
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](docs/developer/CONTRIBUTING.md) for details on:
+
+- Code style and standards
+- Development workflow
+- Testing requirements
+- Pull request process
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+### Community
+- **Issues**: [GitHub Issues](https://github.com/berrym/lusush/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/berrym/lusush/discussions)
+
+### Enterprise Support
+For production deployments and enterprise support, see our [Deployment Guide](docs/production/DEPLOYMENT.md).
+
+## Acknowledgments
+
+- Built with [linenoise](https://github.com/antirez/linenoise) for line editing
+- Inspired by modern shell design principles
+- Thanks to all contributors and users
 
 ---
 
-## 📞 Contact
-
-- **Website**: https://lusush.org
-- **Email**: info@lusush.org
-- **GitHub**: https://github.com/lusush/lusush
-- **Twitter**: @lusush_shell
-
----
-
-*Lusush: Where POSIX compliance meets modern user experience.*
-
-[![Star History](https://api.star-history.com/svg?repos=lusush/lusush&type=Date)](https://star-history.com/#lusush/lusush&Date)
+**LUSUSH** - A modern shell for modern developers.
