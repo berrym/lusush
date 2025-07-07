@@ -1392,10 +1392,9 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         /* Try minimal refresh to avoid bottom-line issues */
-        if ((!mlmode &&
-             promptTextColumnLen(l->prompt, l->plen) +
-                     columnPos(l->buf, l->len, l->len) <
-                 l->cols)) {
+        if ((!mlmode && promptTextColumnLen(l->prompt, l->plen) +
+                                columnPos(l->buf, l->len, l->len) <
+                            l->cols)) {
             /* Simple case: clear line and rewrite */
             if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
                 refreshLine(l);
@@ -1406,6 +1405,15 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
                 return;
             }
             if (write(l->ofd, l->buf, l->len) == -1) {
+                refreshLine(l);
+                return;
+            }
+            /* Position cursor correctly after rewrite */
+            char seq[64];
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC",
+                     (int)(promptTextColumnLen(l->prompt, l->plen) +
+                           columnPos(l->buf, l->len, l->pos)));
+            if (write(l->ofd, seq, strlen(seq)) == -1) {
                 refreshLine(l);
                 return;
             }
@@ -1437,10 +1445,9 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->len -= chlen;
         l->buf[l->len] = '\0';
         /* Try minimal refresh to avoid bottom-line issues */
-        if ((!mlmode &&
-             promptTextColumnLen(l->prompt, l->plen) +
-                     columnPos(l->buf, l->len, l->len) <
-                 l->cols)) {
+        if ((!mlmode && promptTextColumnLen(l->prompt, l->plen) +
+                                columnPos(l->buf, l->len, l->len) <
+                            l->cols)) {
             /* Simple case: clear line and rewrite */
             if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
                 refreshLine(l);
@@ -1451,6 +1458,15 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
                 return;
             }
             if (write(l->ofd, l->buf, l->len) == -1) {
+                refreshLine(l);
+                return;
+            }
+            /* Position cursor correctly after rewrite */
+            char seq[64];
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC",
+                     (int)(promptTextColumnLen(l->prompt, l->plen) +
+                           columnPos(l->buf, l->len, l->pos)));
+            if (write(l->ofd, seq, strlen(seq)) == -1) {
                 refreshLine(l);
                 return;
             }

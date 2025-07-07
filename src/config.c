@@ -1,6 +1,7 @@
 #include "../include/config.h"
 
 #include "../include/alias.h"
+#include "../include/completion.h"
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/linenoise/linenoise.h"
@@ -893,6 +894,15 @@ void config_apply_settings(void) {
 
     // Apply history settings
     linenoiseHistoryNoDups(config.history_no_dups);
+
+    // Apply hints system settings
+    if (config.hints_enabled) {
+        linenoiseSetHintsCallback(lusush_hints_callback);
+        linenoiseSetFreeHintsCallback(lusush_free_hints_callback);
+    } else {
+        linenoiseSetHintsCallback(NULL);
+        linenoiseSetFreeHintsCallback(NULL);
+    }
 
     // Apply other settings as needed
     symtable_set_global_int("AUTO_CD", config.auto_cd);
