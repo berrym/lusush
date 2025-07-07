@@ -109,16 +109,17 @@
  */
 
 #include "../../include/linenoise/linenoise.h"
+#include "linenoise.h"
+#include "encodings/utf8.h"
+#include "../../include/termcap.h"
 
 #include <ctype.h>
 #include <errno.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -1014,18 +1015,17 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection: Robust approach that doesn't interfere with cursor positioning */
+    /* Bottom-line protection using termcap capabilities */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
-        struct winsize ws;
-        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
-            /* Simple margin creation without cursor interference */
-            static int protection_done = 0;
-            if (!protection_done) {
-                /* Just ensure we have some margin - don't track cursor position */
-                write(fd, "\x1b[999;1H\n\x1b[A", 9);
-                protection_done = 1;
-            }
+        /* Initialize termcap if not already done */
+        static bool termcap_initialized = false;
+        if (!termcap_initialized) {
+            termcap_init();
+            termcap_initialized = true;
         }
+        
+        /* Ensure safe margin at bottom to prevent line consumption */
+        termcap_create_safe_margin();
     }
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
@@ -1077,7 +1077,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     abAppend(&ab, seq, strlen(seq));
 
     if (flags & REFRESH_WRITE) {
-        /* Move cursor to original position with bounds checking */
+        /* Move cursor to original position with robust bounds checking */
         int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
         if (cursor_pos >= 0 && cursor_pos < l->cols) {
             snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
