@@ -1015,25 +1015,37 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Ultra-conservative bottom-line protection - prevent all line consumption */
+    /* Robust bottom-line protection - check cursor position every time */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
-        static bool protection_applied = false;
-        if (!protection_applied) {
-            struct winsize ws;
-            if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-                /* Always ensure bottom margin exists - no cursor position detection */
-                /* This prevents line consumption in all scenarios */
-                write(fd, "\x1b\x37", 2);  /* Save cursor position */
-                
-                /* Move to last line and create safety margin */
-                char seq[32];
-                snprintf(seq, sizeof(seq), "\x1b[%d;1H", ws.ws_row);
-                write(fd, seq, strlen(seq));
-                write(fd, "\n", 1);  /* Create newline for margin */
-                
-                /* Restore original cursor position */
-                write(fd, "\x1b\x38", 2);  /* Restore cursor position */
-                protection_applied = true;
+        struct winsize ws;
+        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
+            /* Get current cursor position */
+            write(fd, "\x1b[6n", 4);
+            char response[32];
+            int n = 0;
+            
+            /* Read cursor position response with timeout */
+            fd_set readfds;
+            struct timeval timeout;
+            FD_ZERO(&readfds);
+            FD_SET(STDIN_FILENO, &readfds);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 50000; /* 50ms timeout */
+            
+            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                n = read(STDIN_FILENO, response, sizeof(response) - 1);
+            }
+            
+            if (n > 0) {
+                response[n] = '\0';
+                int row = 0, col = 0;
+                if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
+                    /* If at bottom line, create space to prevent consumption */
+                    if (row >= ws.ws_row) {
+                        write(fd, "\n", 1);  /* Create newline for margin */
+                        write(fd, "\x1b[1A", 4);  /* Move back up */
+                    }
+                }
             }
         }
     }
@@ -1393,42 +1405,10 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         
-        /* History-specific bottom-line protection */
-        struct winsize ws;
-        bool at_bottom = false;
-        if (ioctl(l->ofd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
-            /* Check if we're at bottom line to prevent consumption */
-            write(l->ofd, "\x1b[6n", 4);
-            fd_set readfds;
-            struct timeval timeout;
-            char response[32];
-            int row = 0, col = 0;
-            
-            FD_ZERO(&readfds);
-            FD_SET(STDIN_FILENO, &readfds);
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 20000; /* 20ms timeout */
-            
-            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
-                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
-                if (response_len > 0) {
-                    response[response_len] = '\0';
-                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
-                        at_bottom = (row >= ws.ws_row - 1);
-                    }
-                }
-            }
-        }
-        
-        if (at_bottom) {
-            /* At bottom: use direct line replacement to prevent consumption */
-            write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
-            write(l->ofd, l->prompt, l->plen);  /* Write prompt */
-            write(l->ofd, l->buf, l->len);  /* Write history content */
-        } else {
-            /* Not at bottom: safe to use refreshLine */
-            refreshLine(l);
-        }
+        /* Use safe direct line replacement to prevent consumption */
+        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write prompt */
+        write(l->ofd, l->buf, l->len);  /* Write history content */
     }
 }
 
@@ -1454,8 +1434,18 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->len -= chlen;
         l->buf[l->len] = '\0';
         
-        /* Ultra-conservative: always use refreshLine for backspace to prevent issues */
-        refreshLine(l);
+        /* Use safe direct line replacement to prevent consumption */
+        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write prompt */
+        write(l->ofd, l->buf, l->len);  /* Write buffer content */
+        
+        /* Position cursor correctly */
+        size_t cursor_pos = l->plen + columnPos(l->buf, l->len, l->pos);
+        if (cursor_pos > 0) {
+            char seq[64];
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", (int)cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
