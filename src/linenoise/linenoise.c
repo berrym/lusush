@@ -1014,36 +1014,19 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection: Temporarily disabled for cursor bouncing testing */
-    /* 
+    /* Bottom-line protection: Robust approach that doesn't interfere with cursor positioning */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
-        static int protection_applied = 0;
-        const char *term_program = getenv("TERM_PROGRAM");
-        const char *iterm_session = getenv("ITERM_SESSION_ID");
-
-        // Detect iTerm2
-        int is_iterm2 = (iterm_session != NULL) ||
-                        (term_program && strstr(term_program, "iTerm"));
-
-        if (is_iterm2 && !protection_applied) {
-            // Minimal approach: Only create margin once, no cleanup
-            struct winsize ws;
-            if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-                // Simply ensure we have one line of margin at bottom
-                char cmd[32];
-                snprintf(cmd, sizeof(cmd), "\x1b[%d;1H", (int)ws.ws_row);
-                write(fd, cmd, strlen(cmd)); // Move to last line
-                write(fd, "\n", 1);          // Add margin
-                protection_applied = 1;
+        struct winsize ws;
+        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
+            /* Simple margin creation without cursor interference */
+            static int protection_done = 0;
+            if (!protection_done) {
+                /* Just ensure we have some margin - don't track cursor position */
+                write(fd, "\x1b[999;1H\n\x1b[A", 9);
+                protection_done = 1;
             }
-        } else if (!is_iterm2 && !protection_applied) {
-            // Standard approach for other terminals
-            write(fd, "\x1b[999;1H", 7); // Move to bottom line
-            write(fd, "\n", 1);          // Add newline to create margin
-            protection_applied = 1;
         }
     }
-    */
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
         int chlen = nextCharLen(buf, len, 0, NULL);
@@ -1094,10 +1077,16 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     abAppend(&ab, seq, strlen(seq));
 
     if (flags & REFRESH_WRITE) {
-        /* Move cursor to original position. */
-        snprintf(seq, sizeof(seq), "\r\x1b[%dC",
-                 (int)(columnPos(buf, len, pos) + pcollen));
-        abAppend(&ab, seq, strlen(seq));
+        /* Move cursor to original position with bounds checking */
+        int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
+        if (cursor_pos >= 0 && cursor_pos < l->cols) {
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            abAppend(&ab, seq, strlen(seq));
+        } else {
+            /* Fallback: just go to beginning of line */
+            snprintf(seq, sizeof(seq), "\r");
+            abAppend(&ab, seq, strlen(seq));
+        }
     }
 
     if (write(fd, ab.b, ab.len) == -1) {
@@ -1393,7 +1382,8 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         strncpy(l->buf, history[history_len - 1 - l->history_index], l->buflen);
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
-        /* Use proper refresh to avoid cursor positioning issues */
+        
+        /* Always use full refresh for maximum stability */
         refreshLine(l);
     }
 }
@@ -1419,7 +1409,8 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->pos -= chlen;
         l->len -= chlen;
         l->buf[l->len] = '\0';
-        /* Use proper refresh to avoid cursor positioning issues */
+        
+        /* Always use full refresh for maximum stability */
         refreshLine(l);
     }
 }
