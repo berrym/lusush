@@ -17,6 +17,7 @@ Lusush is a modern, feature-rich shell that combines 100% POSIX compliance with 
 
 ### 🚀 **Enhanced User Experience**
 - **Intelligent Tab Completion**: Categorized, context-aware completion system
+- **Real-time Hints**: Smart input suggestions that appear as you type
 - **Professional Themes**: Corporate, dark, and light themes with Git integration
 - **Advanced Line Editing**: Powerful command-line editing with history search
 - **Auto-correction**: Smart command correction and suggestions

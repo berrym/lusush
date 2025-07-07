@@ -61,6 +61,8 @@ static config_option_t config_options[] = {
      config_validate_bool                                                                                      },
     {         "completion_show_all",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_show_all,                          "Show all completions",         config_validate_bool},
+    {               "hints_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.hints_enabled,                            "Enable input hints",         config_validate_bool      },
 
     // Prompt settings
     {                "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
@@ -453,6 +455,7 @@ const char *CONFIG_FILE_TEMPLATE =
     "completion_threshold = 60\n"
     "completion_case_sensitive = false\n"
     "completion_show_all = false\n"
+    "hints_enabled = true\n"
     "\n"
     "[prompt]\n"
     "prompt_style = git\n"
@@ -559,6 +562,7 @@ void config_set_defaults(void) {
     config.completion_threshold = 60;
     config.completion_case_sensitive = false;
     config.completion_show_all = false;
+    config.hints_enabled = true;
 
     // Prompt defaults
     config.prompt_style = strdup("git");

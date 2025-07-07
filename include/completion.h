@@ -47,6 +47,10 @@
 // Completion callback for linenoise
 void lusush_completion_callback(const char *buf, linenoiseCompletions *lc);
 
+// Hints callback for linenoise
+char *lusush_hints_callback(const char *buf, int *color, int *bold);
+void lusush_free_hints_callback(void *hint);
+
 // Individual completion functions
 void complete_commands(const char *text, linenoiseCompletions *lc);
 void complete_files(const char *text, linenoiseCompletions *lc);
@@ -61,5 +65,13 @@ char *get_first_command(const char *buf);
 int is_command_position(const char *buf, int pos);
 void add_completion_with_suffix(linenoiseCompletions *lc,
                                 const char *completion, const char *suffix);
+
+// Hints system functions
+char *generate_command_hint(const char *buf);
+char *generate_file_hint(const char *buf);
+char *generate_variable_hint(const char *buf);
+char *generate_builtin_hint(const char *buf);
+char *get_best_completion_match(const char *text);
+int should_show_hints(const char *buf);
 
 #endif /* COMPLETION_H */

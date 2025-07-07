@@ -67,6 +67,7 @@ typedef struct {
     int completion_threshold;
     bool completion_case_sensitive;
     bool completion_show_all;
+    bool hints_enabled;
 
     // Prompt settings
     char *prompt_style;

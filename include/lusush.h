@@ -165,8 +165,6 @@ char *sb_finalize(str_builder_t *sb);
 char *pos_params_expand(char *tmp, bool in_double_quotes);
 char *arithm_expand(const char *orig_expr);
 
-
-
 // command execution functions
 char *search_path(char *fn);
 int do_exec_cmd(int argc, char **argv);

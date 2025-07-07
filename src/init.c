@@ -323,6 +323,12 @@ int init(int argc, char **argv, FILE **in) {
     // Set line completion function
     linenoiseSetCompletionCallback(lusush_completion_callback);
 
+    // Set hints system callbacks (only if enabled in config)
+    if (config.hints_enabled) {
+        linenoiseSetHintsCallback(lusush_hints_callback);
+        linenoiseSetFreeHintsCallback(lusush_free_hints_callback);
+    }
+
     // Set memory cleanup procedures on termination
     atexit(free_global_symtable);
     atexit(free_aliases);

@@ -2,6 +2,7 @@
 
 #include "../include/alias.h"
 #include "../include/builtins.h"
+#include "../include/config.h"
 #include "../include/libhashtable/ht.h"
 #include "../include/linenoise/linenoise.h"
 #include "../include/lusush.h"
@@ -590,5 +591,359 @@ static void prioritize_completions(linenoiseCompletions *lc,
                 lc->cvec[j + 1] = temp;
             }
         }
+    }
+}
+
+/*
+ * ==============================================================================
+ *                              HINTS SYSTEM
+ * ==============================================================================
+ */
+
+/**
+ * Check if hints should be shown for the current buffer
+ * We show hints when:
+ * - Buffer is not empty
+ * - Buffer doesn't end with a space (user is still typing)
+ * - Buffer is reasonably short (to avoid performance issues)
+ */
+int should_show_hints(const char *buf) {
+    // Check if hints are enabled in configuration
+    if (!config.hints_enabled) {
+        return 0;
+    }
+
+    if (!buf || strlen(buf) == 0) {
+        return 0;
+    }
+
+    size_t len = strlen(buf);
+    if (len > 100) { // Don't show hints for very long commands
+        return 0;
+    }
+
+    // Don't show hints if buffer ends with space (user finished typing word)
+    if (buf[len - 1] == ' ') {
+        return 0;
+    }
+
+    return 1;
+}
+
+/**
+ * Get the best matching completion for a given text
+ * This is used to generate hints by finding the top completion match
+ */
+char *get_best_completion_match(const char *text) {
+    if (!text || strlen(text) == 0) {
+        return NULL;
+    }
+
+    linenoiseCompletions lc = {0, NULL};
+    char *best_match = NULL;
+    int best_score = 0;
+
+    // Try different completion types and find the best match
+    complete_commands(text, &lc);
+    complete_builtins(text, &lc);
+    complete_files(text, &lc);
+    complete_variables(text, &lc);
+
+    // Find the best scoring match
+    for (size_t i = 0; i < lc.len; i++) {
+        int score = fuzzy_match_score(text, lc.cvec[i]);
+        if (score > best_score && score >= 70) { // Minimum threshold
+            best_score = score;
+            free(best_match);
+            best_match = strdup(lc.cvec[i]);
+        }
+    }
+
+    // Clean up completions
+    for (size_t i = 0; i < lc.len; i++) {
+        free(lc.cvec[i]);
+    }
+    free(lc.cvec);
+
+    return best_match;
+}
+
+/**
+ * Generate hint for commands (builtins and executables)
+ */
+char *generate_command_hint(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    // Extract the current word being typed
+    int start_pos = 0;
+    char *word = get_completion_word(buf, &start_pos);
+    if (!word) {
+        return NULL;
+    }
+
+    // Only show hints for command position
+    if (!is_command_position(buf, start_pos)) {
+        free(word);
+        return NULL;
+    }
+
+    char *match = get_best_completion_match(word);
+    free(word);
+
+    if (!match) {
+        return NULL;
+    }
+
+    // Create hint by showing the rest of the command
+    char *current_word = get_completion_word(buf, &start_pos);
+    if (!current_word) {
+        free(match);
+        return NULL;
+    }
+
+    size_t current_len = strlen(current_word);
+    size_t match_len = strlen(match);
+
+    char *hint = NULL;
+    if (match_len > current_len &&
+        strncmp(current_word, match, current_len) == 0) {
+        hint = strdup(match + current_len);
+    }
+
+    free(current_word);
+    free(match);
+    return hint;
+}
+
+/**
+ * Generate hint for file/directory completion
+ */
+char *generate_file_hint(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    int start_pos = 0;
+    char *word = get_completion_word(buf, &start_pos);
+    if (!word) {
+        return NULL;
+    }
+
+    // Only show file hints for non-command positions
+    if (is_command_position(buf, start_pos)) {
+        free(word);
+        return NULL;
+    }
+
+    linenoiseCompletions lc = {0, NULL};
+    complete_files(word, &lc);
+
+    char *hint = NULL;
+    if (lc.len > 0) {
+        // Find the best match
+        int best_score = 0;
+        size_t best_idx = 0;
+
+        for (size_t i = 0; i < lc.len; i++) {
+            int score = fuzzy_match_score(word, lc.cvec[i]);
+            if (score > best_score) {
+                best_score = score;
+                best_idx = i;
+            }
+        }
+
+        if (best_score >= 70) { // Minimum threshold
+            size_t word_len = strlen(word);
+            size_t match_len = strlen(lc.cvec[best_idx]);
+
+            if (match_len > word_len &&
+                strncmp(word, lc.cvec[best_idx], word_len) == 0) {
+                hint = strdup(lc.cvec[best_idx] + word_len);
+            }
+        }
+    }
+
+    // Clean up
+    for (size_t i = 0; i < lc.len; i++) {
+        free(lc.cvec[i]);
+    }
+    free(lc.cvec);
+    free(word);
+
+    return hint;
+}
+
+/**
+ * Generate hint for variable completion
+ */
+char *generate_variable_hint(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    int start_pos = 0;
+    char *word = get_completion_word(buf, &start_pos);
+    if (!word) {
+        return NULL;
+    }
+
+    // Only show variable hints if word starts with $
+    if (word[0] != '$') {
+        free(word);
+        return NULL;
+    }
+
+    linenoiseCompletions lc = {0, NULL};
+    complete_variables(word, &lc);
+
+    char *hint = NULL;
+    if (lc.len > 0) {
+        // Find the best match
+        int best_score = 0;
+        size_t best_idx = 0;
+
+        for (size_t i = 0; i < lc.len; i++) {
+            int score = fuzzy_match_score(word, lc.cvec[i]);
+            if (score > best_score) {
+                best_score = score;
+                best_idx = i;
+            }
+        }
+
+        if (best_score >= 70) { // Minimum threshold
+            size_t word_len = strlen(word);
+            size_t match_len = strlen(lc.cvec[best_idx]);
+
+            if (match_len > word_len &&
+                strncmp(word, lc.cvec[best_idx], word_len) == 0) {
+                hint = strdup(lc.cvec[best_idx] + word_len);
+            }
+        }
+    }
+
+    // Clean up
+    for (size_t i = 0; i < lc.len; i++) {
+        free(lc.cvec[i]);
+    }
+    free(lc.cvec);
+    free(word);
+
+    return hint;
+}
+
+/**
+ * Generate hint for builtin commands with usage information
+ */
+char *generate_builtin_hint(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    int start_pos = 0;
+    char *word = get_completion_word(buf, &start_pos);
+    if (!word) {
+        return NULL;
+    }
+
+    // Only show builtin hints for command position
+    if (!is_command_position(buf, start_pos)) {
+        free(word);
+        return NULL;
+    }
+
+    char *hint = NULL;
+
+    // Check if current word matches a builtin and provide usage hint
+    if (strncmp(word, "cd", strlen(word)) == 0 && strlen(word) < 2) {
+        hint = strdup("d [directory]");
+    } else if (strncmp(word, "echo", strlen(word)) == 0 && strlen(word) < 4) {
+        hint = strdup("ho [text...]");
+    } else if (strncmp(word, "export", strlen(word)) == 0 && strlen(word) < 6) {
+        hint = strdup("port [var=value]");
+    } else if (strncmp(word, "pwd", strlen(word)) == 0 && strlen(word) < 3) {
+        hint = strdup("wd");
+    } else if (strncmp(word, "set", strlen(word)) == 0 && strlen(word) < 3) {
+        hint = strdup("t [options]");
+    } else if (strncmp(word, "unset", strlen(word)) == 0 && strlen(word) < 5) {
+        hint = strdup("set [variable]");
+    } else if (strncmp(word, "exit", strlen(word)) == 0 && strlen(word) < 4) {
+        hint = strdup("it [code]");
+    } else if (strncmp(word, "source", strlen(word)) == 0 && strlen(word) < 6) {
+        hint = strdup("ource [file]");
+    } else if (strncmp(word, "alias", strlen(word)) == 0 && strlen(word) < 5) {
+        hint = strdup("ias [name=value]");
+    } else if (strncmp(word, "unalias", strlen(word)) == 0 &&
+               strlen(word) < 7) {
+        hint = strdup("alias [name]");
+    } else if (strncmp(word, "history", strlen(word)) == 0 &&
+               strlen(word) < 7) {
+        hint = strdup("istory [n]");
+    } else if (strncmp(word, "jobs", strlen(word)) == 0 && strlen(word) < 4) {
+        hint = strdup("obs");
+    } else if (strncmp(word, "fg", strlen(word)) == 0 && strlen(word) < 2) {
+        hint = strdup("g [job]");
+    } else if (strncmp(word, "bg", strlen(word)) == 0 && strlen(word) < 2) {
+        hint = strdup("g [job]");
+    } else if (strncmp(word, "config", strlen(word)) == 0 && strlen(word) < 6) {
+        hint = strdup("onfig [command]");
+    } else if (strncmp(word, "theme", strlen(word)) == 0 && strlen(word) < 5) {
+        hint = strdup("heme [command]");
+    }
+
+    free(word);
+    return hint;
+}
+
+/**
+ * Main hints callback function for linenoise
+ * This function is called to generate hints that appear to the right of the
+ * cursor
+ */
+char *lusush_hints_callback(const char *buf, int *color, int *bold) {
+    if (!buf || !should_show_hints(buf)) {
+        return NULL;
+    }
+
+    // Set default hint appearance (dim gray)
+    *color = 37; // White/gray
+    *bold = 0;   // Not bold (dim)
+
+    char *hint = NULL;
+
+    // Try different hint generators in priority order
+    if (!hint) {
+        hint = generate_builtin_hint(buf);
+    }
+
+    if (!hint) {
+        hint = generate_command_hint(buf);
+    }
+
+    if (!hint) {
+        hint = generate_variable_hint(buf);
+    }
+
+    if (!hint) {
+        hint = generate_file_hint(buf);
+    }
+
+    // If we have a hint, make it more visually distinct
+    if (hint) {
+        // Use a slightly darker gray for hints
+        *color = 90; // Dark gray
+        *bold = 0;   // Keep it dim
+    }
+
+    return hint;
+}
+
+/**
+ * Free hints callback - called to free hints returned by lusush_hints_callback
+ */
+void lusush_free_hints_callback(void *hint) {
+    if (hint) {
+        free(hint);
     }
 }
