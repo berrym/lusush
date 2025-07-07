@@ -1393,8 +1393,42 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         
-        /* Ultra-conservative: always use refreshLine for history to prevent issues */
-        refreshLine(l);
+        /* History-specific bottom-line protection */
+        struct winsize ws;
+        bool at_bottom = false;
+        if (ioctl(l->ofd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
+            /* Check if we're at bottom line to prevent consumption */
+            write(l->ofd, "\x1b[6n", 4);
+            fd_set readfds;
+            struct timeval timeout;
+            char response[32];
+            int row = 0, col = 0;
+            
+            FD_ZERO(&readfds);
+            FD_SET(STDIN_FILENO, &readfds);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 20000; /* 20ms timeout */
+            
+            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
+                if (response_len > 0) {
+                    response[response_len] = '\0';
+                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
+                        at_bottom = (row >= ws.ws_row - 1);
+                    }
+                }
+            }
+        }
+        
+        if (at_bottom) {
+            /* At bottom: use direct line replacement to prevent consumption */
+            write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
+            write(l->ofd, l->prompt, l->plen);  /* Write prompt */
+            write(l->ofd, l->buf, l->len);  /* Write history content */
+        } else {
+            /* Not at bottom: safe to use refreshLine */
+            refreshLine(l);
+        }
     }
 }
 
