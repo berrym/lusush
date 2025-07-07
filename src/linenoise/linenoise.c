@@ -1015,19 +1015,24 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection: Conservative approach to prevent line consumption */
+    /* Ultra-conservative bottom-line protection - prevent all line consumption */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
         static bool protection_applied = false;
         if (!protection_applied) {
             struct winsize ws;
-            if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
-                /* One-time margin creation to prevent line consumption */
-                write(fd, "\x1b\x37", 2);  /* Save cursor */
-                char move_cmd[32];
-                snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;1H", ws.ws_row);
-                write(fd, move_cmd, strlen(move_cmd));  /* Go to bottom */
-                write(fd, "\n", 1);  /* Create safety newline */
-                write(fd, "\x1b\x38", 2);  /* Restore cursor */
+            if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
+                /* Always ensure bottom margin exists - no cursor position detection */
+                /* This prevents line consumption in all scenarios */
+                write(fd, "\x1b\x37", 2);  /* Save cursor position */
+                
+                /* Move to last line and create safety margin */
+                char seq[32];
+                snprintf(seq, sizeof(seq), "\x1b[%d;1H", ws.ws_row);
+                write(fd, seq, strlen(seq));
+                write(fd, "\n", 1);  /* Create newline for margin */
+                
+                /* Restore original cursor position */
+                write(fd, "\x1b\x38", 2);  /* Restore cursor position */
                 protection_applied = true;
             }
         }
@@ -1388,7 +1393,7 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         
-        /* Always use full refresh for maximum stability */
+        /* Ultra-conservative: always use refreshLine for history to prevent issues */
         refreshLine(l);
     }
 }
@@ -1415,7 +1420,7 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->len -= chlen;
         l->buf[l->len] = '\0';
         
-        /* Always use full refresh for maximum stability */
+        /* Ultra-conservative: always use refreshLine for backspace to prevent issues */
         refreshLine(l);
     }
 }
