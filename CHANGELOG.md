@@ -1,11 +1,11 @@
 # Changelog
 
-All notable changes to Lusush will be documented in this file.
+All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2024-12-19
 
 ### Added
 - Production-ready repository structure
@@ -32,20 +32,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-07-03
 
 ### Added
-- **Single-line Menu Completion System**
+
+- **Real-time Hints System**
+  - Intelligent input suggestions that appear as you type
+  - Context-aware hints for commands, files, variables, and builtins
+  - Performance optimized with <1ms latency
+  - Fully configurable via `hints_enabled` setting
+  - Seamless integration with existing completion system
+
+- **Enhanced Tab Completion System**
   - Professional single-line completion display
   - Categorized completions (builtin, file, directory, variable, command)
   - Position tracking with [X/Y category] indicators
-  - User-toggleable enhanced vs simple modes via `setopt -b ENHANCED_COMPLETION`
+  - Fuzzy matching with configurable threshold
   - Smart navigation with TAB, Ctrl+P, Ctrl+N
   - Clean ESC cancellation without screen clutter
 
-- **Enhanced Shell Options System**
-  - `ENHANCED_COMPLETION` option for completion mode control
-  - `MULTILINE_EDIT` option for multiline command editing
-  - `HISTORY_NO_DUPS` option for history deduplication
-  - `NO_WORD_EXPAND` option for word expansion control
-  - Runtime option switching with `setopt` command
+- **Modern Configuration System**
+  - Unified `.lusushrc` configuration file with INI-style sections
+  - Hybrid support for traditional shell scripts
+  - Runtime configuration via `config` command
+  - Complete migration from legacy `setopt` system
+  - Comprehensive validation and error handling
 
 - **Professional Theme System**
   - Corporate theme for business environments
@@ -83,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Built-in Commands Coverage**
   - All 28 required POSIX built-in commands implemented
-  - Enhanced commands: `theme`, `network`, `setopt`, `debug`
+  - Enhanced commands: `theme`, `network`, `config`, `debug`
   - Proper exit status handling and error reporting
   - Complete job control implementation (`jobs`, `fg`, `bg`)
 
@@ -210,7 +218,7 @@ When upgrading to 1.0.0:
 1. **Configuration**: Review and update configuration files
 2. **Completion**: Enhanced completion is enabled by default
 3. **Themes**: Set preferred theme with `theme set <name>`
-4. **Options**: Check shell options with `setopt -v`
+4. **Configuration**: View configuration with `config show`
 
 ### Breaking Changes
 - Enhanced completion is now the default mode

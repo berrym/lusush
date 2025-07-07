@@ -121,8 +121,8 @@ theme list
 # Single-line menu completion (default)
 cat document.txt [2/4 file]
 
-# Toggle between enhanced and simple modes
-setopt -b ENHANCED_COMPLETION
+# Intelligent tab completion with hints
+echo test<TAB>  # Shows completions and hints as you type
 
 # View completion categories
 ls <TAB>  # Shows [file], [directory], [builtin] categories
@@ -152,40 +152,44 @@ network hosts list
 ### Basic Configuration
 ```bash
 # Create configuration file
-mkdir -p ~/.config/lusush
-cat > ~/.config/lusush/lusushrc << 'EOF'
+cat > ~/.lusushrc << 'EOF'
 # Lusush Configuration
 
-# History settings
-HISTSIZE=10000
-HISTFILESIZE=20000
+[history]
+history_enabled = true
+history_size = 10000
+history_no_dups = true
 
-# Enable enhanced features
-setopt -b ENHANCED_COMPLETION
-setopt -b MULTILINE_EDIT
+[completion]
+completion_enabled = true
+fuzzy_completion = true
+hints_enabled = true
+
+[prompt]
+prompt_style = git
+prompt_theme = default
 
 # Set theme
 theme set corporate
-
-# Custom aliases
-alias ll='ls -la'
-alias grep='grep --color=auto'
 EOF
 ```
 
-### Shell Options
+### Configuration Management
 ```bash
-# View available options
-setopt -v
+# View all configuration options
+config show
 
-# Toggle enhanced completion
-setopt -b ENHANCED_COMPLETION
+# Configure completion system
+config set completion_enabled true
+config set hints_enabled true
+config set fuzzy_completion true
 
-# Enable multiline editing
-setopt -b MULTILINE_EDIT
+# Configure history
+config set history_enabled true
+config set history_no_dups true
 
-# Check option status
-setopt -g ENHANCED_COMPLETION
+# Check specific setting
+config get completion_enabled
 ```
 
 ## 📊 Performance & Compatibility
