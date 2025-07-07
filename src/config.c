@@ -455,7 +455,7 @@ const char *CONFIG_FILE_TEMPLATE =
     "completion_threshold = 60\n"
     "completion_case_sensitive = false\n"
     "completion_show_all = false\n"
-    "hints_enabled = true\n"
+    "hints_enabled = false\n"
     "\n"
     "[prompt]\n"
     "prompt_style = git\n"
@@ -562,7 +562,7 @@ void config_set_defaults(void) {
     config.completion_threshold = 60;
     config.completion_case_sensitive = false;
     config.completion_show_all = false;
-    config.hints_enabled = true;
+    config.hints_enabled = false;
 
     // Prompt defaults
     config.prompt_style = strdup("git");
