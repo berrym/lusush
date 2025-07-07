@@ -17,14 +17,15 @@ Lusush is a modern, feature-rich shell that combines 100% POSIX compliance with 
 
 ### 🚀 **Enhanced User Experience**
 - **Intelligent Tab Completion**: Categorized, context-aware completion system
-- **Real-time Hints**: Smart input suggestions that appear as you type
+- **Optional Real-time Hints**: Smart input suggestions (configurable)
 - **Professional Themes**: Corporate, dark, and light themes with Git integration
 - **Advanced Line Editing**: Powerful command-line editing with history search
 - **Auto-correction**: Smart command correction and suggestions
 - **Network Integration**: SSH host completion and network-aware features
 
 ### 🛠️ **Modern Shell Features**
-- **Single-line Menu Completion**: Clean, non-cluttering completion display
+- **Advanced Tab Completion**: Clean, categorized completion system
+- **Optional Hints System**: Real-time input suggestions (disabled by default for stability)
 - **Multiline Command Editing**: Seamless editing of complex commands
 - **History Management**: Advanced history with search and deduplication
 - **Job Control**: Full background job management
