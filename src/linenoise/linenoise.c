@@ -1015,17 +1015,41 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection using termcap capabilities */
+    /* Bottom-line protection: Aggressive approach for Fedora/all systems */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
-        /* Initialize termcap if not already done */
-        static bool termcap_initialized = false;
-        if (!termcap_initialized) {
-            termcap_init();
-            termcap_initialized = true;
+        struct winsize ws;
+        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
+            /* Get current cursor position to check if we're at bottom */
+            write(fd, "\x1b[6n", 4);
+            fd_set readfds;
+            struct timeval timeout;
+            char response[32];
+            int row = 0, col = 0;
+            
+            FD_ZERO(&readfds);
+            FD_SET(STDIN_FILENO, &readfds);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 50000; /* 50ms timeout */
+            
+            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
+                if (response_len > 0) {
+                    response[response_len] = '\0';
+                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
+                        /* If we're at or near bottom line, create safety margin */
+                        if (row >= ws.ws_row - 1) {
+                            /* Save cursor, move to bottom, create margin, restore */
+                            write(fd, "\x1b\x37", 2);  /* Save cursor */
+                            char move_cmd[32];
+                            snprintf(move_cmd, sizeof(move_cmd), "\x1b[%d;1H", ws.ws_row);
+                            write(fd, move_cmd, strlen(move_cmd));  /* Go to bottom */
+                            write(fd, "\n", 1);  /* Create newline */
+                            write(fd, "\x1b\x38", 2);  /* Restore cursor */
+                        }
+                    }
+                }
+            }
         }
-        
-        /* Ensure safe margin at bottom to prevent line consumption */
-        termcap_create_safe_margin();
     }
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {

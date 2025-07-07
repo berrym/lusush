@@ -20,6 +20,8 @@
 #include <sys/time.h>
 #include <sys/select.h>
 
+
+
 /* Global terminal information */
 static terminal_info_t term_info = {0};
 static bool initialized = false;
