@@ -5,6 +5,13 @@ This directory contains detailed release notes and version history for LUSUSH sh
 ## Available Releases
 
 ### Current Stable Release
+- **[v1.0.5](v1.0.5.md)** - **Interactive excellence** with complete hints system overhaul
+  - Complete resolution of all hints system issues
+  - Flawless terminal behavior at any cursor position
+  - Perfect cursor positioning with git-aware prompts
+  - Professional-grade interactive user experience
+  - Zero regression with enhanced functionality
+
 - **[v1.0.4](v1.0.4.md)** - **First production-ready release** with all critical fixes
   - Complete terminal editing fix suite
   - Professional repository organization
@@ -30,6 +37,7 @@ LUSUSH follows semantic versioning (SemVer) with the following release cadence:
 
 | Version | Release Date | Key Features |
 |---------|--------------|--------------|
+| v1.0.5  | 2025-01-07   | Interactive excellence, complete hints system overhaul, perfect UX |
 | v1.0.4  | 2025-01-07   | Production-ready release, repository cleanup, all critical fixes |
 | v1.0.3  | 2025-01-07   | Terminal editing fixes, hints configuration |
 | v1.0.2  | 2024-12-20   | Professional themes, enhanced configuration |
@@ -37,6 +45,12 @@ LUSUSH follows semantic versioning (SemVer) with the following release cadence:
 | v1.0.0  | 2024-12-10   | Initial stable release |
 
 ## Upgrade Guide
+
+### From v1.0.4 to v1.0.5
+- No breaking changes
+- Enhanced hints system with perfect interactive experience
+- All terminal positioning and cursor issues resolved
+- Maintained full backward compatibility
 
 ### From v1.0.3 to v1.0.4
 - No breaking changes
@@ -70,7 +84,7 @@ lusush --version
 # Download latest release
 git clone https://github.com/berrym/lusush.git
 cd lusush
-git checkout v1.0.4
+git checkout v1.0.5
 
 # Build and install
 meson setup builddir

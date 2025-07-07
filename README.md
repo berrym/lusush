@@ -169,6 +169,7 @@ theme set corporate  # Professional appearance
 
 ## Release History
 
+- [v1.0.5](docs/releases/v1.0.5.md) - **Interactive excellence** with complete hints system overhaul
 - [v1.0.4](docs/releases/v1.0.4.md) - **Production-ready release** with all critical fixes
 - [v1.0.3](docs/releases/v1.0.3.md) - Terminal editing fixes and hints configuration
 - [v1.0.2](docs/releases/v1.0.2.md) - Enhanced themes and configuration system

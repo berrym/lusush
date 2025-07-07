@@ -908,7 +908,11 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int pcollen) {
                 color = 37;
             }
             if (color != -1 || bold != 0) {
-                snprintf(seq, 64, "\033[%d;%d;49m", bold, color);
+                if (bold == 1) {
+                    snprintf(seq, 64, "\033[1;%dm", color);
+                } else {
+                    snprintf(seq, 64, "\033[0;%dm", color);
+                }
             } else {
                 seq[0] = '\0';
             }
@@ -1017,11 +1021,11 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Ultra-conservative bottom-line protection - prevent all line consumption */
-    if ((flags & REFRESH_WRITE) && isatty(fd)) {
+    /* Skip all bottom-line protection when hints are enabled to prevent consumption */
+    if ((flags & REFRESH_WRITE) && isatty(fd) && !hintsCallback) {
         struct winsize ws;
         if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-            /* Check if we're at bottom line and apply protection every time */
+            /* Check if we're at bottom line and apply protection */
             write(fd, "\x1b[6n", 4);
             fd_set readfds;
             struct timeval timeout;
@@ -1045,7 +1049,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
             }
             
             if (at_bottom) {
-                /* At bottom: create safety margin */
+                /* Normal protection: create safety margin */
                 write(fd, "\x1b\x37", 2);  /* Save cursor position */
                 
                 /* Move to last line and create safety margin */
@@ -1086,6 +1090,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
         abAppend(&ab, seq, strlen(seq));
     }
 
+    /* Normal refresh logic (hints handled in linenoiseEditInsert) */
     /* Cursor to left edge */
     snprintf(seq, sizeof(seq), "\r");
     abAppend(&ab, seq, strlen(seq));
@@ -1340,8 +1345,7 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
             if ((!mlmode &&
                  promptTextColumnLen(l->prompt, l->plen) +
                          columnPos(l->buf, l->len, l->len) <
-                     l->cols &&
-                 !hintsCallback)) {
+                     l->cols)) {
                 /* Avoid a full update of the line in the
                  * trivial case. */
                 if (maskmode == 1) {
@@ -1354,8 +1358,63 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
                         return -1;
                     }
                 }
+                
+                /* If hints are enabled, show them inline without full refresh */
+                if (hintsCallback) {
+                    struct abuf ab;
+                    abInit(&ab);
+                    size_t pcollen = l->plen;
+                    refreshShowHints(&ab, l, pcollen);
+                    if (ab.len > 0) {
+                        /* Save current cursor position */
+                        size_t current_pos = pcollen + columnPos(l->buf, l->len, l->pos);
+                        
+                        /* Write hint directly */
+                        if (write(l->ofd, ab.b, ab.len) == -1) {
+                            /* Can't recover... */
+                        }
+                        
+                        /* Position cursor back to correct location (end of actual input) */
+                        char cursor_pos[32];
+                        snprintf(cursor_pos, sizeof(cursor_pos), "\r\033[%dC", (int)current_pos);
+                        if (write(l->ofd, cursor_pos, strlen(cursor_pos)) == -1) {
+                            /* Can't recover... */
+                        }
+                    }
+                    abFree(&ab);
+                }
             } else {
-                refreshLine(l);
+                if (hintsCallback) {
+                    /* For hints with line wrapping: use safe refresh that won't scroll */
+                    char seq[64];
+                    struct abuf ab;
+                    abInit(&ab);
+                    
+                    /* Clear current line only */
+                    snprintf(seq, sizeof(seq), "\r\033[K");
+                    abAppend(&ab, seq, strlen(seq));
+                    
+                    /* Rewrite prompt and content */
+                    abAppend(&ab, l->prompt, strlen(l->prompt));
+                    abAppend(&ab, l->buf, l->len);
+                    
+                    /* Add hints */
+                    size_t pcollen = l->plen;
+                    refreshShowHints(&ab, l, pcollen);
+                    
+                    /* Position cursor correctly at end of actual input */
+                    size_t cursor_pos = columnPos(l->buf, l->len, l->pos) + pcollen;
+                    snprintf(seq, sizeof(seq), "\r\033[%zuC", cursor_pos);
+                    abAppend(&ab, seq, strlen(seq));
+                    
+                    /* Write everything at once to prevent scrolling */
+                    if (write(l->ofd, ab.b, ab.len) == -1) {
+                        /* Can't recover... */
+                    }
+                    abFree(&ab);
+                } else {
+                    refreshLine(l);
+                }
             }
         } else {
             memmove(l->buf + l->pos + clen, l->buf + l->pos, l->len - l->pos);

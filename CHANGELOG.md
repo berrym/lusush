@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-01-07
+
+### Fixed
+- **Complete Hints System Overhaul**
+  - Resolved new prompt line creation for each character typed
+  - Fixed line consumption when prompt at bottom of terminal
+  - Corrected cursor positioning in git branch display
+  - Eliminated all hints-related visual artifacts and terminal interference
+
+- **Interactive Terminal Behavior**
+  - Smooth character-by-character typing with inline hint updates
+  - Content preservation regardless of terminal cursor position
+  - Accurate cursor positioning that preserves git prompt formatting
+  - Professional-grade interactive experience without visual glitches
+
+- **Technical Implementation**
+  - Fixed double-processing of prompt length calculations
+  - Implemented ultra-conservative refresh logic to prevent scrolling
+  - Disabled problematic bottom-line protection when hints enabled
+  - Enhanced terminal control sequences for maximum compatibility
+
+### Changed
+- Repository cleanup: Removed all temporary debug and test scripts
+- Enhanced code quality with clear technical documentation
+- Optimized hints display logic for minimal terminal interference
+
 ## [1.0.0] - 2024-12-19
 
 ### Added
