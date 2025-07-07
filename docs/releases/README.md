@@ -5,13 +5,15 @@ This directory contains detailed release notes and version history for LUSUSH sh
 ## Available Releases
 
 ### Current Stable Release
-- **[v1.0.3](v1.0.3.md)** - Latest stable release with terminal editing fixes
-  - Fixed cursor positioning issues
-  - Enhanced prompt integrity
-  - Improved hints configuration
+- **[v1.0.4](v1.0.4.md)** - **First production-ready release** with all critical fixes
+  - Complete terminal editing fix suite
+  - Professional repository organization
+  - Enhanced configuration system
+  - Enterprise-grade quality and documentation
   - 100% POSIX compliance maintained
 
 ### Previous Releases
+- **[v1.0.3](v1.0.3.md)** - Terminal editing fixes and hints configuration
 - **[v1.0.2](v1.0.2.md)** - Enhanced themes and configuration system
 - **[v1.0.1](v1.0.1.md)** - Initial production release with core features
 - **[v1.0.0](v1.0.0.md)** - First stable release
@@ -28,12 +30,20 @@ LUSUSH follows semantic versioning (SemVer) with the following release cadence:
 
 | Version | Release Date | Key Features |
 |---------|--------------|--------------|
+| v1.0.4  | 2025-01-07   | Production-ready release, repository cleanup, all critical fixes |
 | v1.0.3  | 2025-01-07   | Terminal editing fixes, hints configuration |
 | v1.0.2  | 2024-12-20   | Professional themes, enhanced configuration |
 | v1.0.1  | 2024-12-15   | Core features, POSIX compliance |
 | v1.0.0  | 2024-12-10   | Initial stable release |
 
 ## Upgrade Guide
+
+### From v1.0.3 to v1.0.4
+- No breaking changes
+- Enhanced terminal editing reliability
+- Professional repository organization
+- Improved user experience and documentation
+- All existing configurations remain compatible
 
 ### From v1.0.2 to v1.0.3
 - No breaking changes
@@ -60,7 +70,7 @@ lusush --version
 # Download latest release
 git clone https://github.com/berrym/lusush.git
 cd lusush
-git checkout v1.0.3
+git checkout v1.0.4
 
 # Build and install
 meson setup builddir

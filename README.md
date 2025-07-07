@@ -169,7 +169,8 @@ theme set corporate  # Professional appearance
 
 ## Release History
 
-- [v1.0.3](docs/releases/v1.0.3.md) - Latest stable release with terminal editing fixes
+- [v1.0.4](docs/releases/v1.0.4.md) - **Production-ready release** with all critical fixes
+- [v1.0.3](docs/releases/v1.0.3.md) - Terminal editing fixes and hints configuration
 - [v1.0.2](docs/releases/v1.0.2.md) - Enhanced themes and configuration system
 - [v1.0.1](docs/releases/v1.0.1.md) - Initial production release
 - [v1.0.0](docs/releases/v1.0.0.md) - First stable release
