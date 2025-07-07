@@ -113,17 +113,19 @@
 #include "encodings/utf8.h"
 #include "../../include/termcap.h"
 
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/ioctl.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
+#include <strings.h>
 
 #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
 #define LINENOISE_MAX_LINE 4096
@@ -1015,37 +1017,45 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Robust bottom-line protection - check cursor position every time */
+    /* Ultra-conservative bottom-line protection - prevent all line consumption */
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
         struct winsize ws;
         if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-            /* Get current cursor position */
+            /* Check if we're at bottom line and apply protection every time */
             write(fd, "\x1b[6n", 4);
-            char response[32];
-            int n = 0;
-            
-            /* Read cursor position response with timeout */
             fd_set readfds;
             struct timeval timeout;
+            char response[32];
+            int row = 0, col = 0;
+            bool at_bottom = false;
+            
             FD_ZERO(&readfds);
             FD_SET(STDIN_FILENO, &readfds);
             timeout.tv_sec = 0;
-            timeout.tv_usec = 50000; /* 50ms timeout */
+            timeout.tv_usec = 10000; /* 10ms timeout */
             
             if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
-                n = read(STDIN_FILENO, response, sizeof(response) - 1);
-            }
-            
-            if (n > 0) {
-                response[n] = '\0';
-                int row = 0, col = 0;
-                if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
-                    /* If at bottom line, create space to prevent consumption */
-                    if (row >= ws.ws_row) {
-                        write(fd, "\n", 1);  /* Create newline for margin */
-                        write(fd, "\x1b[1A", 4);  /* Move back up */
+                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
+                if (response_len > 0) {
+                    response[response_len] = '\0';
+                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
+                        at_bottom = (row >= ws.ws_row - 1);
                     }
                 }
+            }
+            
+            if (at_bottom) {
+                /* At bottom: create safety margin */
+                write(fd, "\x1b\x37", 2);  /* Save cursor position */
+                
+                /* Move to last line and create safety margin */
+                char seq[32];
+                snprintf(seq, sizeof(seq), "\x1b[%d;1H", ws.ws_row);
+                write(fd, seq, strlen(seq));
+                write(fd, "\n", 1);  /* Create newline for margin */
+                
+                /* Restore original cursor position */
+                write(fd, "\x1b\x38", 2);  /* Restore cursor position */
             }
         }
     }
@@ -1094,14 +1104,23 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
         refreshShowHints(&ab, l, pcollen);
     }
 
-    /* Erase to right */
+    /* Erase to right with enhanced clearing for macOS artifacts */
     snprintf(seq, sizeof(seq), "\x1b[0K");
     abAppend(&ab, seq, strlen(seq));
+    
+    /* Additional artifact prevention: conservative for macOS */
+    if (flags & REFRESH_WRITE) {
+        if (termcap_is_iterm2()) {
+            /* Conservative clearing for macOS/iTerm2 - don't clear beyond line */
+            snprintf(seq, sizeof(seq), "\x1b[0K");  /* Clear to end of line only */
+            abAppend(&ab, seq, strlen(seq));
+        }
+    }
 
     if (flags & REFRESH_WRITE) {
         /* Move cursor to original position with robust bounds checking */
         int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
-        if (cursor_pos >= 0 && cursor_pos < l->cols) {
+        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
             snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
             abAppend(&ab, seq, strlen(seq));
         } else {
@@ -1354,7 +1373,13 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
 void linenoiseEditMoveLeft(struct linenoiseState *l) {
     if (l->pos > 0) {
         l->pos -= prevCharLen(l->buf, l->len, l->pos, NULL);
-        refreshLine(l);
+        /* Use minimal cursor movement to prevent line consumption */
+        char seq[32];
+        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
@@ -1362,7 +1387,13 @@ void linenoiseEditMoveLeft(struct linenoiseState *l) {
 void linenoiseEditMoveRight(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos += nextCharLen(l->buf, l->len, l->pos, NULL);
-        refreshLine(l);
+        /* Use minimal cursor movement to prevent new prompt creation */
+        char seq[32];
+        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
@@ -1370,7 +1401,11 @@ void linenoiseEditMoveRight(struct linenoiseState *l) {
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
         l->pos = 0;
-        refreshLine(l);
+        /* Move cursor to start of input (after prompt) */
+        char seq[32];
+        int cursor_pos = (int)promptTextColumnLen(l->prompt, strlen(l->prompt));
+        snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+        write(l->ofd, seq, strlen(seq));
     }
 }
 
@@ -1378,7 +1413,13 @@ void linenoiseEditMoveHome(struct linenoiseState *l) {
 void linenoiseEditMoveEnd(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos = l->len;
-        refreshLine(l);
+        /* Move cursor to end of input */
+        char seq[32];
+        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
@@ -1405,9 +1446,38 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         
-        /* Use safe direct line replacement to prevent consumption */
+        /* Enhanced history navigation with macOS artifact prevention */
+        struct winsize ws;
+        bool at_bottom = false;
+        bool is_macos_iterm = termcap_is_iterm2();
+        
+        if (ioctl(l->ofd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
+            /* Check if we're at bottom line to prevent consumption */
+            write(l->ofd, "\x1b[6n", 4);
+            fd_set readfds;
+            struct timeval timeout;
+            char response[32];
+            int row = 0, col = 0;
+            
+            FD_ZERO(&readfds);
+            FD_SET(STDIN_FILENO, &readfds);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 20000; /* 20ms timeout */
+            
+            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
+                if (response_len > 0) {
+                    response[response_len] = '\0';
+                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
+                        at_bottom = (row >= ws.ws_row - 1);
+                    }
+                }
+            }
+        }
+        
+        /* Use safe direct line replacement to prevent consumption and prompt corruption */
         write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
-        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write prompt */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
         write(l->ofd, l->buf, l->len);  /* Write history content */
     }
 }
@@ -1421,7 +1491,20 @@ void linenoiseEditDelete(struct linenoiseState *l) {
                 l->len - l->pos - chlen);
         l->len -= chlen;
         l->buf[l->len] = '\0';
-        refreshLine(l);
+        
+        /* Use minimal refresh to prevent line consumption */
+        char seq[64];
+        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+        
+        /* Clear from cursor to end of line and rewrite content */
+        write(l->ofd, "\x1b[0K", 4);  /* Clear to end of line */
+        write(l->ofd, l->buf + l->pos, l->len - l->pos);  /* Write remaining content */
+        
+        /* Move cursor back to correct position */
+        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
@@ -1434,12 +1517,12 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->len -= chlen;
         l->buf[l->len] = '\0';
         
-        /* Use safe direct line replacement to prevent consumption */
+        /* Use safe direct line replacement to prevent consumption and cursor jumping */
         write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
-        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write prompt */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
         write(l->ofd, l->buf, l->len);  /* Write buffer content */
         
-        /* Position cursor correctly */
+        /* Position cursor correctly using l->plen directly (no double calculation) */
         size_t cursor_pos = l->plen + columnPos(l->buf, l->len, l->pos);
         if (cursor_pos > 0) {
             char seq[64];

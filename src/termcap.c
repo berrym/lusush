@@ -241,6 +241,7 @@ bool termcap_is_iterm2(void) {
            (term_program && strstr(term_program, "iTerm"));
 }
 
+
 /* Check if terminal is tmux */
 bool termcap_is_tmux(void) {
     const char *tmux = getenv("TMUX");
