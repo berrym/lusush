@@ -1131,6 +1131,15 @@ void config_set_value(const char *key, const char *value) {
             return;
         }
     }
+    
+    // Check for common typos and provide helpful suggestions
+    if (strcmp(key, "hints_enable") == 0) {
+        printf("Unknown configuration key: %s\n", key);
+        printf("Did you mean 'hints_enabled'? (note the 'd' at the end)\n");
+        printf("Try: config set hints_enabled %s\n", value);
+        return;
+    }
+    
     printf("Unknown configuration key: %s\n", key);
 }
 
