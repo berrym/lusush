@@ -1391,7 +1391,27 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         strncpy(l->buf, history[history_len - 1 - l->history_index], l->buflen);
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
-        refreshLine(l);
+        /* Try minimal refresh to avoid bottom-line issues */
+        if ((!mlmode &&
+             promptTextColumnLen(l->prompt, l->plen) +
+                     columnPos(l->buf, l->len, l->len) <
+                 l->cols)) {
+            /* Simple case: clear line and rewrite */
+            if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
+                refreshLine(l);
+                return;
+            }
+            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) {
+                refreshLine(l);
+                return;
+            }
+            if (write(l->ofd, l->buf, l->len) == -1) {
+                refreshLine(l);
+                return;
+            }
+        } else {
+            refreshLine(l);
+        }
     }
 }
 
@@ -1416,7 +1436,27 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->pos -= chlen;
         l->len -= chlen;
         l->buf[l->len] = '\0';
-        refreshLine(l);
+        /* Try minimal refresh to avoid bottom-line issues */
+        if ((!mlmode &&
+             promptTextColumnLen(l->prompt, l->plen) +
+                     columnPos(l->buf, l->len, l->len) <
+                 l->cols)) {
+            /* Simple case: clear line and rewrite */
+            if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
+                refreshLine(l);
+                return;
+            }
+            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) {
+                refreshLine(l);
+                return;
+            }
+            if (write(l->ofd, l->buf, l->len) == -1) {
+                refreshLine(l);
+                return;
+            }
+        } else {
+            refreshLine(l);
+        }
     }
 }
 
