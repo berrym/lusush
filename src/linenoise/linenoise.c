@@ -1475,31 +1475,10 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
             }
         }
         
-        if (at_bottom) {
-            /* At bottom: use very conservative clearing to prevent over-clearing */
-            if (is_macos_iterm) {
-                /* For macOS/iTerm2: minimal clearing to preserve prompt */
-                write(l->ofd, "\r", 1);  /* Go to start of line */
-                /* Move cursor to after prompt and clear only user input area */
-                char seq[32];
-                snprintf(seq, sizeof(seq), "\x1b[%dC", (int)l->plen);
-                write(l->ofd, seq, strlen(seq));
-                write(l->ofd, "\x1b[0K", 4);  /* Clear from cursor to end of line */
-                write(l->ofd, l->buf, l->len);  /* Write history content */
-                usleep(1000); /* Brief pause for macOS terminal processing */
-            } else {
-                write(l->ofd, "\r", 1);  /* Go to start of line */
-                /* Move cursor to after prompt and clear only user input area */
-                char seq[32];
-                snprintf(seq, sizeof(seq), "\x1b[%dC", (int)l->plen);
-                write(l->ofd, seq, strlen(seq));
-                write(l->ofd, "\x1b[0K", 4);  /* Clear from cursor to end of line */
-                write(l->ofd, l->buf, l->len);  /* Write history content */
-            }
-        } else {
-            /* Not at bottom: safe to use refreshLine */
-            refreshLine(l);
-        }
+        /* Use safe direct line replacement to prevent consumption and prompt corruption */
+        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
+        write(l->ofd, l->buf, l->len);  /* Write history content */
     }
 }
 
@@ -1538,21 +1517,16 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->len -= chlen;
         l->buf[l->len] = '\0';
         
-        /* Enhanced backspace with minimal refresh to prevent prompt redraw */
-        char seq[64];
-        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+        /* Use safe direct line replacement to prevent consumption and cursor jumping */
+        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
+        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
+        write(l->ofd, l->buf, l->len);  /* Write buffer content */
         
-        /* Move cursor to correct position and clear to end of line */
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            write(l->ofd, seq, strlen(seq));
-        }
-        write(l->ofd, "\x1b[0K", 4);  /* Clear to end of line */
-        write(l->ofd, l->buf + l->pos, l->len - l->pos);  /* Write remaining content */
-        
-        /* Move cursor back to correct position after writing */
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+        /* Position cursor correctly using l->plen directly (no double calculation) */
+        size_t cursor_pos = l->plen + columnPos(l->buf, l->len, l->pos);
+        if (cursor_pos > 0) {
+            char seq[64];
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", (int)cursor_pos);
             write(l->ofd, seq, strlen(seq));
         }
     }
