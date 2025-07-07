@@ -1014,34 +1014,36 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Bottom-line protection: Minimal conservative approach */
+    /* Bottom-line protection: Temporarily disabled for cursor bouncing testing */
+    /* 
     if ((flags & REFRESH_WRITE) && isatty(fd)) {
         static int protection_applied = 0;
         const char *term_program = getenv("TERM_PROGRAM");
         const char *iterm_session = getenv("ITERM_SESSION_ID");
 
-        /* Detect iTerm2 */
+        // Detect iTerm2
         int is_iterm2 = (iterm_session != NULL) ||
                         (term_program && strstr(term_program, "iTerm"));
 
         if (is_iterm2 && !protection_applied) {
-            /* Minimal approach: Only create margin once, no cleanup */
+            // Minimal approach: Only create margin once, no cleanup
             struct winsize ws;
             if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-                /* Simply ensure we have one line of margin at bottom */
+                // Simply ensure we have one line of margin at bottom
                 char cmd[32];
                 snprintf(cmd, sizeof(cmd), "\x1b[%d;1H", (int)ws.ws_row);
-                write(fd, cmd, strlen(cmd)); /* Move to last line */
-                write(fd, "\n", 1);          /* Add margin */
+                write(fd, cmd, strlen(cmd)); // Move to last line
+                write(fd, "\n", 1);          // Add margin
                 protection_applied = 1;
             }
         } else if (!is_iterm2 && !protection_applied) {
-            /* Standard approach for other terminals */
-            write(fd, "\x1b[999;1H", 7); /* Move to bottom line */
-            write(fd, "\n", 1);          /* Add newline to create margin */
+            // Standard approach for other terminals
+            write(fd, "\x1b[999;1H", 7); // Move to bottom line
+            write(fd, "\n", 1);          // Add newline to create margin
             protection_applied = 1;
         }
     }
+    */
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
         int chlen = nextCharLen(buf, len, 0, NULL);
@@ -1391,35 +1393,8 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         strncpy(l->buf, history[history_len - 1 - l->history_index], l->buflen);
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
-        /* Try minimal refresh to avoid bottom-line issues */
-        if ((!mlmode && promptTextColumnLen(l->prompt, l->plen) +
-                                columnPos(l->buf, l->len, l->len) <
-                            l->cols)) {
-            /* Simple case: clear line and rewrite */
-            if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
-                refreshLine(l);
-                return;
-            }
-            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) {
-                refreshLine(l);
-                return;
-            }
-            if (write(l->ofd, l->buf, l->len) == -1) {
-                refreshLine(l);
-                return;
-            }
-            /* Position cursor correctly after rewrite */
-            char seq[64];
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC",
-                     (int)(promptTextColumnLen(l->prompt, l->plen) +
-                           columnPos(l->buf, l->len, l->pos)));
-            if (write(l->ofd, seq, strlen(seq)) == -1) {
-                refreshLine(l);
-                return;
-            }
-        } else {
-            refreshLine(l);
-        }
+        /* Use proper refresh to avoid cursor positioning issues */
+        refreshLine(l);
     }
 }
 
@@ -1444,35 +1419,8 @@ void linenoiseEditBackspace(struct linenoiseState *l) {
         l->pos -= chlen;
         l->len -= chlen;
         l->buf[l->len] = '\0';
-        /* Try minimal refresh to avoid bottom-line issues */
-        if ((!mlmode && promptTextColumnLen(l->prompt, l->plen) +
-                                columnPos(l->buf, l->len, l->len) <
-                            l->cols)) {
-            /* Simple case: clear line and rewrite */
-            if (write(l->ofd, "\r\x1b[0K", 4) == -1) {
-                refreshLine(l);
-                return;
-            }
-            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) {
-                refreshLine(l);
-                return;
-            }
-            if (write(l->ofd, l->buf, l->len) == -1) {
-                refreshLine(l);
-                return;
-            }
-            /* Position cursor correctly after rewrite */
-            char seq[64];
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC",
-                     (int)(promptTextColumnLen(l->prompt, l->plen) +
-                           columnPos(l->buf, l->len, l->pos)));
-            if (write(l->ofd, seq, strlen(seq)) == -1) {
-                refreshLine(l);
-                return;
-            }
-        } else {
-            refreshLine(l);
-        }
+        /* Use proper refresh to avoid cursor positioning issues */
+        refreshLine(l);
     }
 }
 
