@@ -391,6 +391,14 @@ static void disableRawMode(int fd) {
  * and return it. On error -1 is returned, on success the position of the
  * cursor. */
 static int getCursorPosition(int ifd, int ofd) {
+    int row, col;
+    
+    /* First try to use termcap system for more reliable cursor detection */
+    if (termcap_get_cursor_pos(&row, &col) == TERMCAP_OK) {
+        return col;
+    }
+    
+    /* Fallback to original implementation */
     char buf[32];
     int cols, rows;
     unsigned int i = 0;
@@ -425,6 +433,12 @@ static int getCursorPosition(int ifd, int ofd) {
 /* Try to get the number of columns in the current terminal, or assume 80
  * if it fails. */
 static int getColumns(int ifd, int ofd) {
+    /* First try to use termcap system if available */
+    const terminal_info_t *term_info = termcap_get_info();
+    if (term_info && term_info->is_tty && term_info->cols > 0) {
+        return term_info->cols;
+    }
+    
     struct winsize ws;
 
     if (ioctl(1, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -1076,13 +1090,29 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     if (flags & REFRESH_WRITE) {
         /* Move cursor to original position with robust bounds checking */
         int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            abAppend(&ab, seq, strlen(seq));
+        
+        /* Use termcap for safer cursor positioning if available */
+        const terminal_info_t *term_info = termcap_get_info();
+        if (term_info && term_info->is_tty) {
+            /* Ensure we don't exceed terminal bounds */
+            if (cursor_pos >= 0 && cursor_pos < term_info->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Fallback: just go to beginning of line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            }
         } else {
-            /* Fallback: just go to beginning of line */
-            snprintf(seq, sizeof(seq), "\r");
-            abAppend(&ab, seq, strlen(seq));
+            /* Original bounds checking for non-termcap terminals */
+            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Fallback: just go to beginning of line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            }
         }
     }
 
@@ -1101,14 +1131,22 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 static void refreshMultiLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
+    
+    /* Use termcap for enhanced terminal info if available */
+    const terminal_info_t *term_info = termcap_get_info();
+    int cols = l->cols;
+    if (term_info && term_info->is_tty && term_info->cols > 0) {
+        cols = term_info->cols;
+    }
+    
     int colpos =
-        columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
+        columnPosForMultiLine(l->buf, l->len, l->len, cols, pcollen);
     int colpos2; /* cursor column position. */
-    int rows = (pcollen + colpos + l->cols - 1) /
-               l->cols; /* rows used by current buf. */
+    int rows = (pcollen + colpos + cols - 1) /
+               cols; /* rows used by current buf. */
     rows += promptnewlines;
     int rpos =
-        (pcollen + l->oldcolpos + l->cols) / l->cols; /* cursor relative row. */
+        (pcollen + l->oldcolpos + cols) / cols; /* cursor relative row. */
     rpos += promptnewlines;
     int rpos2; /* rpos after refresh. */
     int col;   /* colum position, zero-based. */
