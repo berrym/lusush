@@ -15,6 +15,7 @@
 #include "../include/prompt.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
+#include "../include/termcap.h"
 #include "../include/themes.h"
 #include "../include/version.h"
 
@@ -138,6 +139,20 @@ int init(int argc, char **argv, FILE **in) {
     if (network_init() != 0) {
         if (IS_INTERACTIVE_SHELL) {
             fprintf(stderr, "Warning: Failed to initialize network system\n");
+        }
+    }
+
+    // Initialize terminal capabilities (Phase 3 Target 4)
+    if (termcap_init() != TERMCAP_OK) {
+        if (IS_INTERACTIVE_SHELL) {
+            fprintf(stderr, "Warning: Failed to initialize terminal capabilities\n");
+        }
+    } else {
+        // Terminal capabilities successfully initialized
+        const terminal_info_t *term_info = termcap_get_info();
+        if (IS_INTERACTIVE_SHELL && term_info->is_tty) {
+            // Create safe bottom margin for interactive shells
+            termcap_ensure_bottom_margin();
         }
     }
 

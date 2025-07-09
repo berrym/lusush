@@ -1,6 +1,7 @@
 #include "../include/signals.h"
 
 #include "../include/errors.h"
+#include "../include/termcap.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -196,4 +197,7 @@ void execute_exit_traps(void) {
         // shell's executor
         system(trap->command);
     }
+    
+    // Cleanup terminal capabilities on exit
+    termcap_cleanup();
 }
