@@ -8,6 +8,7 @@
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/symtable.h"
+#include "../include/termcap.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -113,6 +114,11 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
         return;
     }
 
+    // Get terminal capabilities for completion optimization
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+
     int start_pos = 0;
     char *word = get_completion_word(buf, &start_pos);
     if (!word) {
@@ -162,6 +168,16 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
     // Prioritize completions by relevance
     if (lc->len > 1) {
         prioritize_completions(lc, word);
+    }
+
+    // Limit completions based on terminal width for better display
+    if (has_terminal && lc->len > 0) {
+        // For narrow terminals, limit number of completions shown
+        if (terminal_width < 60 && lc->len > 8) {
+            lc->len = 8;
+        } else if (terminal_width < 100 && lc->len > 16) {
+            lc->len = 16;
+        }
     }
 
     // Completion context is now handled by enhanced linenoise completion

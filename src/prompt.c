@@ -5,6 +5,7 @@
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/termcap.h"
 #include "../include/themes.h"
 
 #include <getopt.h>
@@ -335,6 +336,11 @@ void format_git_prompt(char *git_prompt, size_t size) {
 void build_prompt(void) {
     char prompt[(MAXLINE * 2) + 1] = {'\0'}; // prompt string
 
+    // Get terminal capabilities for prompt optimization
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_color_support = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+
     // Phase 3 Target 2: Try theme-aware prompt generation first
     if (config.theme_name && strlen(config.theme_name) > 0 &&
         theme_get_active() != NULL) {
@@ -353,9 +359,10 @@ void build_prompt(void) {
     char d[_POSIX_PATH_MAX + 1] = {'\0'};       // current working directory
     char t[64] = {'\0'};                        // local time
 
-    // Build prompt color sequence
-    if (prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT ||
-        prompt_style == PRO_PROMPT || prompt_style == GIT_PROMPT) {
+    // Build prompt color sequence (only for terminals with color support)
+    if ((prompt_style == COLOR_PROMPT || prompt_style == FANCY_PROMPT ||
+         prompt_style == PRO_PROMPT || prompt_style == GIT_PROMPT) &&
+        has_color_support) {
         // Build text colors, and then the formatted prompt string
         if (build_colors() > 0) {
             goto fancy_error;
@@ -392,16 +399,31 @@ void build_prompt(void) {
     }
 
     if (prompt_style == FANCY_PROMPT) {
-        sprintf(prompt, "%s%s@%s in %s%s%s", colors, u, h, d, RESET,
-                (getuid() > 0) ? PS1 : PS1_ROOT);
+        if (has_color_support) {
+            sprintf(prompt, "%s%s@%s in %s%s%s", colors, u, h, d, RESET,
+                    (getuid() > 0) ? PS1 : PS1_ROOT);
+        } else {
+            sprintf(prompt, "%s@%s in %s%s", u, h, d, 
+                    (getuid() > 0) ? PS1 : PS1_ROOT);
+        }
     } else if (prompt_style == PRO_PROMPT) {
-        sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
-                (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
+        if (has_color_support) {
+            sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
+                    (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
+        } else {
+            sprintf(prompt, "%s@%s\tin\t%s\t%s\n\r%s", u, h, d, t,
+                    (getuid() > 0) ? PS1 : PS1_ROOT);
+        }
     } else if (prompt_style == GIT_PROMPT) {
         char git_prompt[256] = "";
         format_git_prompt(git_prompt, sizeof(git_prompt));
-        sprintf(prompt, "%s%s@%s in %s%s%s%s", colors, u, h, d, git_prompt,
-                RESET, (getuid() > 0) ? PS1 : PS1_ROOT);
+        if (has_color_support) {
+            sprintf(prompt, "%s%s@%s in %s%s%s%s", colors, u, h, d, git_prompt,
+                    RESET, (getuid() > 0) ? PS1 : PS1_ROOT);
+        } else {
+            sprintf(prompt, "%s@%s in %s%s%s", u, h, d, git_prompt,
+                    (getuid() > 0) ? PS1 : PS1_ROOT);
+        }
     } else if (prompt_style == COLOR_PROMPT) {
         sprintf(prompt, "%s%s%s", colors, (getuid() > 0) ? PS1 : PS1_ROOT,
                 RESET);
