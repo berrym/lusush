@@ -257,6 +257,20 @@ bool template_process(const char *template, template_context_t *ctx,
                       char *output, size_t output_size);
 
 /**
+ * Process template with responsive layout for terminal-aware rendering
+ * @param template Template string with variables
+ * @param ctx Template context with variables
+ * @param output Output buffer
+ * @param output_size Output buffer size
+ * @param terminal_width Terminal width for responsive adjustments
+ * @param use_colors Whether to use color codes
+ * @return true on success, false on failure
+ */
+bool template_process_responsive(const char *template, template_context_t *ctx,
+                               char *output, size_t output_size,
+                               int terminal_width, bool use_colors);
+
+/**
  * Generate primary prompt using active theme
  * @param output Output buffer for generated prompt
  * @param output_size Output buffer size

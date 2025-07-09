@@ -16,6 +16,7 @@
 #include "../include/prompt.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/termcap.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -42,6 +43,7 @@ static const char *THEME_VERSION = "1.0.0";
 
 // Terminal capability detection
 static int terminal_color_support = 0;
+static bool termcap_integrated = false;
 
 // Debug flag
 static bool debug_enabled = false;
@@ -562,8 +564,24 @@ bool theme_init(void) {
     theme_ctx.fallback_to_basic = true;
     theme_ctx.debug_mode = false;
 
-    // Detect terminal capabilities
-    terminal_color_support = theme_detect_color_support();
+    // Integrate with termcap system for enhanced terminal detection
+    const terminal_info_t *term_info = termcap_get_info();
+    if (term_info && term_info->is_tty) {
+        termcap_integrated = true;
+        // Use termcap for more accurate terminal detection
+        terminal_color_support = theme_detect_color_support();
+        
+        // Adjust theme capabilities based on terminal type
+        if (termcap_is_iterm2()) {
+            theme_ctx.auto_detect_capabilities = true;
+        } else if (termcap_is_tmux() || termcap_is_screen()) {
+            // More conservative for multiplexers
+            theme_ctx.auto_detect_capabilities = false;
+        }
+    } else {
+        // Fallback to traditional detection
+        terminal_color_support = theme_detect_color_support();
+    }
 
     // Set initialized flag before registering themes
     theme_system_initialized = true;
@@ -1304,6 +1322,69 @@ bool template_process(const char *template, template_context_t *ctx,
 }
 
 /**
+ * Process template with responsive layout for terminal-aware rendering
+ */
+bool template_process_responsive(const char *template, template_context_t *ctx,
+                               char *output, size_t output_size,
+                               int terminal_width, bool use_colors) {
+    if (!template || !ctx || !output || output_size < 1) {
+        return false;
+    }
+
+    // First, do basic template processing
+    if (!template_process(template, ctx, output, output_size)) {
+        return false;
+    }
+
+    // Apply responsive adjustments based on terminal capabilities
+    if (terminal_width < 60) {
+        // For narrow terminals, simplify the prompt
+        char simple_output[output_size];
+        size_t len = strlen(output);
+        size_t pos = 0;
+        
+        // Remove excessive spacing and decorations for narrow terminals
+        for (size_t i = 0; i < len && pos < output_size - 1; i++) {
+            if (output[i] == '\t') {
+                // Replace tabs with single spaces in narrow terminals
+                simple_output[pos++] = ' ';
+            } else if (output[i] == ' ' && i > 0 && output[i-1] == ' ') {
+                // Skip multiple consecutive spaces
+                continue;
+            } else {
+                simple_output[pos++] = output[i];
+            }
+        }
+        simple_output[pos] = '\0';
+        strncpy(output, simple_output, output_size - 1);
+        output[output_size - 1] = '\0';
+    }
+
+    // Remove color codes if terminal doesn't support colors
+    if (!use_colors) {
+        char no_color_output[output_size];
+        size_t len = strlen(output);
+        size_t pos = 0;
+        
+        for (size_t i = 0; i < len && pos < output_size - 1; i++) {
+            if (output[i] == '\033') {
+                // Skip ANSI escape sequences
+                while (i < len && output[i] != 'm') {
+                    i++;
+                }
+                continue;
+            }
+            no_color_output[pos++] = output[i];
+        }
+        no_color_output[pos] = '\0';
+        strncpy(output, no_color_output, output_size - 1);
+        output[output_size - 1] = '\0';
+    }
+
+    return true;
+}
+
+/**
  * Generate primary prompt using active theme
  */
 bool theme_generate_primary_prompt(char *output, size_t output_size) {
@@ -1318,6 +1399,12 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         output[output_size - 1] = '\0';
         return true;
     }
+
+    // Get terminal capabilities for responsive template rendering
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal && terminal_color_support;
 
     // Create template context
     template_context_t *ctx = template_init_context();
@@ -1374,12 +1461,18 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         git_info[sizeof(git_info) - 1] = '\0';
     }
 
-    // Add variables to context
+    // Add variables to context with terminal-aware formatting
     template_add_variable(ctx, "u", username, NULL, false);
     template_add_variable(ctx, "h", hostname, NULL, false);
     template_add_variable(ctx, "d", directory, NULL, false);
     template_add_variable(ctx, "t", time_str, NULL, false);
     template_add_variable(ctx, "g", git_info, NULL, false);
+    
+    // Add terminal capability variables
+    char term_width_str[16];
+    snprintf(term_width_str, sizeof(term_width_str), "%d", terminal_width);
+    template_add_variable(ctx, "cols", term_width_str, NULL, false);
+    template_add_variable(ctx, "has_colors", use_colors ? "1" : "0", NULL, false);
 
     // Add corporate branding if configured
     const branding_config_t *branding = theme_get_branding();
@@ -1396,9 +1489,10 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         }
     }
 
-    // Process template
-    bool success = template_process(theme->templates.primary_template, ctx,
-                                    output, output_size);
+    // Process template with responsive layout
+    bool success = template_process_responsive(theme->templates.primary_template, ctx,
+                                             output, output_size,
+                                             terminal_width, use_colors);
 
     template_free_context(ctx);
     return success;
@@ -1419,13 +1513,28 @@ bool theme_generate_secondary_prompt(char *output, size_t output_size) {
         return true;
     }
 
+    // Get terminal capabilities for responsive template rendering
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal && terminal_color_support;
+
+    // Create template context
     template_context_t *ctx = template_init_context();
     if (!ctx) {
         return false;
     }
 
-    bool success = template_process(theme->templates.secondary_template, ctx,
-                                    output, output_size);
+    // Add terminal capability variables for consistent access
+    char term_width_str[16];
+    snprintf(term_width_str, sizeof(term_width_str), "%d", terminal_width);
+    template_add_variable(ctx, "cols", term_width_str, NULL, false);
+    template_add_variable(ctx, "has_colors", use_colors ? "1" : "0", NULL, false);
+
+    // Process template with responsive layout
+    bool success = template_process_responsive(theme->templates.secondary_template, ctx,
+                                             output, output_size,
+                                             terminal_width, use_colors);
 
     template_free_context(ctx);
     return success;
