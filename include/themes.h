@@ -359,6 +359,18 @@ void theme_display_startup_branding(void);
  */
 bool theme_generate_brand_prefix(char *output, size_t output_size);
 
+/**
+ * Update dynamic template variables with current terminal state
+ * @param ctx Template context to update
+ */
+void theme_update_dynamic_variables(template_context_t *ctx);
+
+/**
+ * Add terminal-specific dynamic variables to template context
+ * @param ctx Template context to add variables to
+ */
+void theme_add_terminal_variables(template_context_t *ctx);
+
 // =============================================================================
 // BUILT-IN THEME DEFINITIONS
 // =============================================================================

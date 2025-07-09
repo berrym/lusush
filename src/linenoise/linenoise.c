@@ -619,19 +619,47 @@ static void displayCompletionMenu(linenoiseCompletions *lc,
         return;
     }
 
+    /* Get terminal capabilities for better positioning */
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal;
+
     const char *current = lc->cvec[current_idx];
     completion_category_t category = categorize_completion(current);
     const char *category_str = get_category_display(category);
 
-    /* Clear to end of line and display menu info */
-    printf("\033[K \033[2m[%zu/%zu %s]\033[0m", current_idx + 1, lc->len,
-           category_str);
-
-    /* Move cursor back to end of completion text */
+    /* Create menu info with terminal width awareness */
     char menu_info[64];
-    snprintf(menu_info, sizeof(menu_info), " [%zu/%zu %s]", current_idx + 1,
-             lc->len, category_str);
-    printf("\033[%dD", (int)strlen(menu_info));
+    snprintf(menu_info, sizeof(menu_info), " [%zu/%zu %s]", current_idx + 1, lc->len, category_str);
+    
+    /* Check if menu info fits in terminal width */
+    size_t current_line_len = strlen(ls->prompt) + strlen(current);
+    size_t menu_len = strlen(menu_info);
+    
+    if (current_line_len + menu_len < (size_t)terminal_width) {
+        /* Clear to end of line and display menu info */
+        if (use_colors) {
+            printf("\033[K \033[2m%s\033[0m", menu_info);
+        } else {
+            printf("\033[K%s", menu_info);
+        }
+        
+        /* Move cursor back to end of completion text */
+        printf("\033[%dD", (int)menu_len);
+    } else {
+        /* Terminal too narrow for full menu - show simplified version */
+        char simple_menu[32];
+        snprintf(simple_menu, sizeof(simple_menu), " [%zu/%zu]", current_idx + 1, lc->len);
+        
+        if (use_colors) {
+            printf("\033[K \033[2m%s\033[0m", simple_menu);
+        } else {
+            printf("\033[K%s", simple_menu);
+        }
+        
+        printf("\033[%dD", (int)strlen(simple_menu));
+    }
 }
 
 /* Simple completion display (fallback) */
@@ -642,23 +670,52 @@ static void displayCompletionsSimple(linenoiseCompletions *lc,
         return;
     }
 
+    /* Get terminal capabilities for better display */
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal;
+
     if (lc->len == 1) {
         /* Single completion - auto-complete */
         return;
     } else if (lc->len <= 8) {
         /* Few completions - show all simply */
         printf("\n");
+        
+        /* Calculate if completions fit on one line */
+        size_t total_width = 0;
         for (size_t i = 0; i < lc->len; i++) {
-            if (i == current_idx) {
-                printf("\033[7m%s\033[0m", lc->cvec[i]);
-            } else {
-                printf("%s", lc->cvec[i]);
+            total_width += strlen(lc->cvec[i]) + 2; // +2 for spacing
+        }
+        
+        if (total_width < (size_t)terminal_width) {
+            /* Single line display */
+            for (size_t i = 0; i < lc->len; i++) {
+                if (i == current_idx && use_colors) {
+                    printf("\033[7m%s\033[0m", lc->cvec[i]);
+                } else {
+                    printf("%s", lc->cvec[i]);
+                }
+                if (i < lc->len - 1) {
+                    printf("  ");
+                }
             }
-            if (i < lc->len - 1) {
-                printf("  ");
+            printf("\n");
+        } else {
+            /* Multi-line display for narrow terminals */
+            size_t cols = terminal_width > 40 ? 3 : 2;
+            for (size_t i = 0; i < lc->len; i++) {
+                if (i == current_idx && use_colors) {
+                    printf("\033[7m%-20s\033[0m", lc->cvec[i]);
+                } else {
+                    printf("%-20s", lc->cvec[i]);
+                }
+                if ((i + 1) % cols == 0 || i == lc->len - 1) {
+                    printf("\n");
+                }
             }
         }
-        printf("\n");
     } else {
         /* Many completions - just show count */
         printf("\n[%zu/%zu] %s (TAB: next, ESC: cancel)\n", current_idx + 1,
