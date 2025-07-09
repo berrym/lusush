@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-01-09
+
+### Fixed
+- **macOS/iTerm2 Tab Completion**
+  - Removed cursor position queries from line refresh functions that caused input interference
+  - Fixed tab completion displaying cursor sequences instead of completions on macOS/iTerm2
+  - Eliminated cursor position queries from history navigation that interfered with input handling
+  - Maintained proper cursor handling through dedicated termcap module
+
+### Technical Details
+- Modified refreshSingleLine() to prevent cursor position queries during line refresh
+- Updated linenoiseEditHistoryNext() to avoid input stream interference
+- Preserved legitimate cursor position handling in getCursorPosition() for terminal size detection
+- Enhanced compatibility with macOS terminal emulators while maintaining cross-platform functionality
+
 ## [1.0.5] - 2025-01-07
 
 ### Fixed

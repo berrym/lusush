@@ -1021,48 +1021,8 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     size_t pos = l->pos;
     struct abuf ab;
 
-    /* Skip all bottom-line protection when hints are enabled to prevent consumption */
-    if ((flags & REFRESH_WRITE) && isatty(fd) && !hintsCallback) {
-        struct winsize ws;
-        if (ioctl(fd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 1) {
-            /* Check if we're at bottom line and apply protection */
-            write(fd, "\x1b[6n", 4);
-            fd_set readfds;
-            struct timeval timeout;
-            char response[32];
-            int row = 0, col = 0;
-            bool at_bottom = false;
-            
-            FD_ZERO(&readfds);
-            FD_SET(STDIN_FILENO, &readfds);
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 10000; /* 10ms timeout */
-            
-            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
-                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
-                if (response_len > 0) {
-                    response[response_len] = '\0';
-                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
-                        at_bottom = (row >= ws.ws_row - 1);
-                    }
-                }
-            }
-            
-            if (at_bottom) {
-                /* Normal protection: create safety margin */
-                write(fd, "\x1b\x37", 2);  /* Save cursor position */
-                
-                /* Move to last line and create safety margin */
-                char seq[32];
-                snprintf(seq, sizeof(seq), "\x1b[%d;1H", ws.ws_row);
-                write(fd, seq, strlen(seq));
-                write(fd, "\n", 1);  /* Create newline for margin */
-                
-                /* Restore original cursor position */
-                write(fd, "\x1b\x38", 2);  /* Restore cursor position */
-            }
-        }
-    }
+    /* Skip cursor position queries during refresh to prevent input interference on macOS/iTerm2 */
+    /* Bottom-line protection is handled by the termcap module when needed */
 
     while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
         int chlen = nextCharLen(buf, len, 0, NULL);
@@ -1109,18 +1069,9 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
         refreshShowHints(&ab, l, pcollen);
     }
 
-    /* Erase to right with enhanced clearing for macOS artifacts */
+    /* Erase to right */
     snprintf(seq, sizeof(seq), "\x1b[0K");
     abAppend(&ab, seq, strlen(seq));
-    
-    /* Additional artifact prevention: conservative for macOS */
-    if (flags & REFRESH_WRITE) {
-        if (termcap_is_iterm2()) {
-            /* Conservative clearing for macOS/iTerm2 - don't clear beyond line */
-            snprintf(seq, sizeof(seq), "\x1b[0K");  /* Clear to end of line only */
-            abAppend(&ab, seq, strlen(seq));
-        }
-    }
 
     if (flags & REFRESH_WRITE) {
         /* Move cursor to original position with robust bounds checking */
@@ -1505,35 +1456,7 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
         l->buf[l->buflen - 1] = '\0';
         l->len = l->pos = strlen(l->buf);
         
-        /* Enhanced history navigation with macOS artifact prevention */
-        struct winsize ws;
-        bool at_bottom = false;
-        bool is_macos_iterm = termcap_is_iterm2();
-        
-        if (ioctl(l->ofd, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 2) {
-            /* Check if we're at bottom line to prevent consumption */
-            write(l->ofd, "\x1b[6n", 4);
-            fd_set readfds;
-            struct timeval timeout;
-            char response[32];
-            int row = 0, col = 0;
-            
-            FD_ZERO(&readfds);
-            FD_SET(STDIN_FILENO, &readfds);
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 20000; /* 20ms timeout */
-            
-            if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
-                int response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
-                if (response_len > 0) {
-                    response[response_len] = '\0';
-                    if (sscanf(response, "\x1b[%d;%dR", &row, &col) == 2) {
-                        at_bottom = (row >= ws.ws_row - 1);
-                    }
-                }
-            }
-        }
-        
+        /* Enhanced history navigation - avoid cursor position queries that interfere with input */
         /* Use safe direct line replacement to prevent consumption and prompt corruption */
         write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
         write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
