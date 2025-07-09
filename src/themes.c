@@ -1191,25 +1191,25 @@ bool template_add_variable(template_context_t *ctx, const char *name,
 /**
  * Process template with variables
  */
-bool template_process(const char *template, template_context_t *ctx,
+bool template_process(const char *template_str, template_context_t *ctx,
                       char *output, size_t output_size) {
-    if (!template || !ctx || !output || output_size < 1) {
+    if (!template_str || !ctx || !output || output_size < 1) {
         return false;
     }
 
-    size_t template_len = strlen(template);
+    size_t template_len = strlen(template_str);
     size_t output_pos = 0;
     size_t i = 0;
 
     while (i < template_len && output_pos < output_size - 1) {
-        if (template[i] == '%' && i + 1 < template_len) {
-            if (template[i + 1] == '{') {
+        if (template_str[i] == '%' && i + 1 < template_len) {
+            if (template_str[i + 1] == '{') {
                 // Found %{variable} format
                 i += 2; // Skip %{
                 size_t var_start = i;
 
                 // Find variable end
-                while (i < template_len && template[i] != '}') {
+                while (i < template_len && template_str[i] != '}') {
                     i++;
                 }
 
@@ -1227,7 +1227,7 @@ bool template_process(const char *template, template_context_t *ctx,
                 size_t var_len = i - var_start;
                 char var_name[64];
                 if (var_len < sizeof(var_name)) {
-                    strncpy(var_name, template + var_start, var_len);
+                    strncpy(var_name, template_str + var_start, var_len);
                     var_name[var_len] = '\0';
 
                     // Look up variable
@@ -1284,7 +1284,7 @@ bool template_process(const char *template, template_context_t *ctx,
                 i++; // Skip }
             } else {
                 // Found %variable format (single character)
-                char var_name[2] = {template[i + 1], '\0'};
+                char var_name[2] = {template_str[i + 1], '\0'};
 
                 // Look up single character variable
                 const char *var_value = NULL;
@@ -1306,13 +1306,13 @@ bool template_process(const char *template, template_context_t *ctx,
                     i += 2; // Skip %var
                 } else {
                     // Unknown variable, copy literally
-                    output[output_pos++] = template[i];
+                    output[output_pos++] = template_str[i];
                     i++;
                 }
             }
         } else {
             // Regular character
-            output[output_pos++] = template[i];
+            output[output_pos++] = template_str[i];
             i++;
         }
     }
@@ -1324,15 +1324,15 @@ bool template_process(const char *template, template_context_t *ctx,
 /**
  * Process template with responsive layout for terminal-aware rendering
  */
-bool template_process_responsive(const char *template, template_context_t *ctx,
+bool template_process_responsive(const char *template_str, template_context_t *ctx,
                                char *output, size_t output_size,
                                int terminal_width, bool use_colors) {
-    if (!template || !ctx || !output || output_size < 1) {
+    if (!template_str || !ctx || !output || output_size < 1) {
         return false;
     }
 
     // First, do basic template processing
-    if (!template_process(template, ctx, output, output_size)) {
+    if (!template_process(template_str, ctx, output, output_size)) {
         return false;
     }
 

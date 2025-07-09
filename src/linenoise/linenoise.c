@@ -109,8 +109,7 @@
  */
 
 #include "../../include/linenoise/linenoise.h"
-#include "linenoise.h"
-#include "encodings/utf8.h"
+#include "../../include/linenoise/encodings/utf8.h"
 #include "../../include/termcap.h"
 
 
