@@ -126,7 +126,7 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
     if (command && is_network_command(command) &&
         !is_command_position(buf, start_pos)) {
         // Complete network command arguments (SSH hosts, etc.)
-        complete_network_command_args(command, word, lc);
+        complete_network_command_args_with_context(command, word, lc, buf, start_pos);
         free(command);
 
         // If we got network completions, we're done

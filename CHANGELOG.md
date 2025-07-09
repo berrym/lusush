@@ -5,9 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.6] - 2025-01-09
+## [1.0.6] - 2025-01-10
 
 ### Fixed
+- **SSH Completion Bug (Critical Fix)**
+  - Fixed SSH command disappearing during tab completion
+  - Resolved issue where "ssh " + TAB would show only hostname instead of "ssh hostname"
+  - Applied fix to all network commands: ssh, scp, rsync, sftp
+  - Preserved command context during completion operations
+  - Enhanced user experience for remote development workflows
+
 - **macOS/iTerm2 Tab Completion**
   - Removed cursor position queries from line refresh functions that caused input interference
   - Fixed tab completion displaying cursor sequences instead of completions on macOS/iTerm2
@@ -15,10 +22,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Maintained proper cursor handling through dedicated termcap module
 
 ### Technical Details
+- Added complete_network_command_args_with_context() function in network completion system
+- Modified completion callback to generate complete command lines instead of partial completions
+- Implemented context-aware completion that preserves prefix and suffix around current word
+- Enhanced memory management in completion string allocation and cleanup
 - Modified refreshSingleLine() to prevent cursor position queries during line refresh
 - Updated linenoiseEditHistoryNext() to avoid input stream interference
 - Preserved legitimate cursor position handling in getCursorPosition() for terminal size detection
 - Enhanced compatibility with macOS terminal emulators while maintaining cross-platform functionality
+
+### Code Quality
+- Comprehensive bug documentation and analysis
+- Improved error handling in completion system
+- Memory leak prevention in completion functions
+- Enhanced string buffer management and bounds checking
 
 ## [1.0.5] - 2025-01-07
 

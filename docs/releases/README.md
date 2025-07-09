@@ -5,6 +5,13 @@ This directory contains detailed release notes and version history for LUSUSH sh
 ## Available Releases
 
 ### Current Stable Release
+- **[v1.0.6](v1.0.6.md)** - **Enhanced completion experience** with SSH completion bug fix
+  - Fixed SSH command disappearing during tab completion
+  - Resolved command context preservation in network completions
+  - Enhanced user experience for remote development workflows
+  - Maintained full backward compatibility and performance
+  - Applied fix to all network commands: ssh, scp, rsync, sftp
+
 - **[v1.0.5](v1.0.5.md)** - **Interactive excellence** with complete hints system overhaul
   - Complete resolution of all hints system issues
   - Flawless terminal behavior at any cursor position
@@ -37,6 +44,7 @@ LUSUSH follows semantic versioning (SemVer) with the following release cadence:
 
 | Version | Release Date | Key Features |
 |---------|--------------|--------------|
+| v1.0.6  | 2025-01-10   | Enhanced completion experience, SSH completion bug fix |
 | v1.0.5  | 2025-01-07   | Interactive excellence, complete hints system overhaul, perfect UX |
 | v1.0.4  | 2025-01-07   | Production-ready release, repository cleanup, all critical fixes |
 | v1.0.3  | 2025-01-07   | Terminal editing fixes, hints configuration |
@@ -84,7 +92,7 @@ lusush --version
 # Download latest release
 git clone https://github.com/berrym/lusush.git
 cd lusush
-git checkout v1.0.5
+git checkout v1.0.6
 
 # Build and install
 meson setup builddir
