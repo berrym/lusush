@@ -16,6 +16,7 @@
 #include "../include/prompt.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/termcap.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -42,6 +43,7 @@ static const char *THEME_VERSION = "1.0.0";
 
 // Terminal capability detection
 static int terminal_color_support = 0;
+static bool termcap_integrated = false;
 
 // Debug flag
 static bool debug_enabled = false;
@@ -562,8 +564,24 @@ bool theme_init(void) {
     theme_ctx.fallback_to_basic = true;
     theme_ctx.debug_mode = false;
 
-    // Detect terminal capabilities
-    terminal_color_support = theme_detect_color_support();
+    // Integrate with termcap system for enhanced terminal detection
+    const terminal_info_t *term_info = termcap_get_info();
+    if (term_info && term_info->is_tty) {
+        termcap_integrated = true;
+        // Use termcap for more accurate terminal detection
+        terminal_color_support = theme_detect_color_support();
+        
+        // Adjust theme capabilities based on terminal type
+        if (termcap_is_iterm2()) {
+            theme_ctx.auto_detect_capabilities = true;
+        } else if (termcap_is_tmux() || termcap_is_screen()) {
+            // More conservative for multiplexers
+            theme_ctx.auto_detect_capabilities = false;
+        }
+    } else {
+        // Fallback to traditional detection
+        terminal_color_support = theme_detect_color_support();
+    }
 
     // Set initialized flag before registering themes
     theme_system_initialized = true;
@@ -1173,25 +1191,25 @@ bool template_add_variable(template_context_t *ctx, const char *name,
 /**
  * Process template with variables
  */
-bool template_process(const char *template, template_context_t *ctx,
+bool template_process(const char *template_str, template_context_t *ctx,
                       char *output, size_t output_size) {
-    if (!template || !ctx || !output || output_size < 1) {
+    if (!template_str || !ctx || !output || output_size < 1) {
         return false;
     }
 
-    size_t template_len = strlen(template);
+    size_t template_len = strlen(template_str);
     size_t output_pos = 0;
     size_t i = 0;
 
     while (i < template_len && output_pos < output_size - 1) {
-        if (template[i] == '%' && i + 1 < template_len) {
-            if (template[i + 1] == '{') {
+        if (template_str[i] == '%' && i + 1 < template_len) {
+            if (template_str[i + 1] == '{') {
                 // Found %{variable} format
                 i += 2; // Skip %{
                 size_t var_start = i;
 
                 // Find variable end
-                while (i < template_len && template[i] != '}') {
+                while (i < template_len && template_str[i] != '}') {
                     i++;
                 }
 
@@ -1209,7 +1227,7 @@ bool template_process(const char *template, template_context_t *ctx,
                 size_t var_len = i - var_start;
                 char var_name[64];
                 if (var_len < sizeof(var_name)) {
-                    strncpy(var_name, template + var_start, var_len);
+                    strncpy(var_name, template_str + var_start, var_len);
                     var_name[var_len] = '\0';
 
                     // Look up variable
@@ -1266,7 +1284,7 @@ bool template_process(const char *template, template_context_t *ctx,
                 i++; // Skip }
             } else {
                 // Found %variable format (single character)
-                char var_name[2] = {template[i + 1], '\0'};
+                char var_name[2] = {template_str[i + 1], '\0'};
 
                 // Look up single character variable
                 const char *var_value = NULL;
@@ -1288,18 +1306,81 @@ bool template_process(const char *template, template_context_t *ctx,
                     i += 2; // Skip %var
                 } else {
                     // Unknown variable, copy literally
-                    output[output_pos++] = template[i];
+                    output[output_pos++] = template_str[i];
                     i++;
                 }
             }
         } else {
             // Regular character
-            output[output_pos++] = template[i];
+            output[output_pos++] = template_str[i];
             i++;
         }
     }
 
     output[output_pos] = '\0';
+    return true;
+}
+
+/**
+ * Process template with responsive layout for terminal-aware rendering
+ */
+bool template_process_responsive(const char *template_str, template_context_t *ctx,
+                               char *output, size_t output_size,
+                               int terminal_width, bool use_colors) {
+    if (!template_str || !ctx || !output || output_size < 1) {
+        return false;
+    }
+
+    // First, do basic template processing
+    if (!template_process(template_str, ctx, output, output_size)) {
+        return false;
+    }
+
+    // Apply responsive adjustments based on terminal capabilities
+    if (terminal_width < 60) {
+        // For narrow terminals, simplify the prompt
+        char simple_output[output_size];
+        size_t len = strlen(output);
+        size_t pos = 0;
+        
+        // Remove excessive spacing and decorations for narrow terminals
+        for (size_t i = 0; i < len && pos < output_size - 1; i++) {
+            if (output[i] == '\t') {
+                // Replace tabs with single spaces in narrow terminals
+                simple_output[pos++] = ' ';
+            } else if (output[i] == ' ' && i > 0 && output[i-1] == ' ') {
+                // Skip multiple consecutive spaces
+                continue;
+            } else {
+                simple_output[pos++] = output[i];
+            }
+        }
+        simple_output[pos] = '\0';
+        strncpy(output, simple_output, output_size - 1);
+        output[output_size - 1] = '\0';
+    }
+
+    // Remove color codes if terminal doesn't support colors
+    if (!use_colors) {
+        char no_color_output[output_size];
+        size_t len = strlen(output);
+        size_t pos = 0;
+        
+        for (size_t i = 0; i < len && pos < output_size - 1; i++) {
+            if (output[i] == '\033') {
+                // Skip ANSI escape sequences
+                while (i < len && output[i] != 'm') {
+                    i++;
+                }
+                continue;
+            }
+            no_color_output[pos++] = output[i];
+        }
+        no_color_output[pos] = '\0';
+        strncpy(output, no_color_output, output_size - 1);
+        output[output_size - 1] = '\0';
+    }
+
     return true;
 }
 
@@ -1318,6 +1399,12 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         output[output_size - 1] = '\0';
         return true;
     }
+
+    // Get terminal capabilities for responsive template rendering
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal && terminal_color_support;
 
     // Create template context
     template_context_t *ctx = template_init_context();
@@ -1374,12 +1461,18 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         git_info[sizeof(git_info) - 1] = '\0';
     }
 
-    // Add variables to context
+    // Add variables to context with terminal-aware formatting
     template_add_variable(ctx, "u", username, NULL, false);
     template_add_variable(ctx, "h", hostname, NULL, false);
     template_add_variable(ctx, "d", directory, NULL, false);
     template_add_variable(ctx, "t", time_str, NULL, false);
     template_add_variable(ctx, "g", git_info, NULL, false);
+    
+    // Add terminal capability variables
+    theme_add_terminal_variables(ctx);
+    
+    // Update dynamic variables with current state
+    theme_update_dynamic_variables(ctx);
 
     // Add corporate branding if configured
     const branding_config_t *branding = theme_get_branding();
@@ -1396,9 +1489,10 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         }
     }
 
-    // Process template
-    bool success = template_process(theme->templates.primary_template, ctx,
-                                    output, output_size);
+    // Process template with responsive layout
+    bool success = template_process_responsive(theme->templates.primary_template, ctx,
+                                             output, output_size,
+                                             terminal_width, use_colors);
 
     template_free_context(ctx);
     return success;
@@ -1419,13 +1513,28 @@ bool theme_generate_secondary_prompt(char *output, size_t output_size) {
         return true;
     }
 
+    // Get terminal capabilities for responsive template rendering
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal && terminal_color_support;
+
+    // Create template context
     template_context_t *ctx = template_init_context();
     if (!ctx) {
         return false;
     }
 
-    bool success = template_process(theme->templates.secondary_template, ctx,
-                                    output, output_size);
+    // Add terminal capability variables for consistent access
+    theme_add_terminal_variables(ctx);
+    
+    // Update dynamic variables with current state
+    theme_update_dynamic_variables(ctx);
+
+    // Process template with responsive layout
+    bool success = template_process_responsive(theme->templates.secondary_template, ctx,
+                                             output, output_size,
+                                             terminal_width, use_colors);
 
     template_free_context(ctx);
     return success;
@@ -1466,14 +1575,114 @@ void theme_display_startup_branding(void) {
         return;
     }
 
+    // Get terminal capabilities for responsive branding display
+    const terminal_info_t *term_info = termcap_get_info();
+    bool has_terminal = term_info && term_info->is_tty;
+    int terminal_width = term_info ? term_info->cols : 80;
+    bool use_colors = has_terminal && terminal_color_support;
+
     if (strlen(current_branding.logo_ascii) > 0) {
-        printf("%s\n", current_branding.logo_ascii);
+        // Only display logo if terminal is wide enough
+        if (terminal_width >= 60) {
+            printf("%s\n", current_branding.logo_ascii);
+        }
     }
 
     if (strlen(current_branding.company_name) > 0) {
-        const char *primary_color = theme_get_color("primary");
-        printf("%s%s Shell Environment%s\n", primary_color,
-               current_branding.company_name, "\033[0m");
+        const char *primary_color = use_colors ? theme_get_color("primary") : "";
+        const char *reset = use_colors ? "\033[0m" : "";
+        
+        // Center the company name if terminal is wide enough
+        if (terminal_width >= 40) {
+            char company_text[256];
+            snprintf(company_text, sizeof(company_text), "%s Shell Environment", current_branding.company_name);
+            int padding = (terminal_width - strlen(company_text)) / 2;
+            if (padding > 0) {
+                printf("%*s", padding, "");
+            }
+            printf("%s%s%s\n", primary_color, company_text, reset);
+        } else {
+            // Simple display for narrow terminals
+            printf("%s%s%s\n", primary_color, current_branding.company_name, reset);
+        }
+    }
+}
+
+// =============================================================================
+// DYNAMIC TEMPLATE VARIABLES
+// =============================================================================
+
+/**
+ * Update dynamic template variables with current terminal state
+ */
+void theme_update_dynamic_variables(template_context_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+    
+    // Get current terminal capabilities
+    const terminal_info_t *term_info = termcap_get_info();
+    if (!term_info) {
+        return;
+    }
+    
+    // Update terminal size variables
+    char cols_str[16], rows_str[16];
+    snprintf(cols_str, sizeof(cols_str), "%d", term_info->cols);
+    snprintf(rows_str, sizeof(rows_str), "%d", term_info->rows);
+    
+    // Update or add terminal capability variables
+    for (size_t i = 0; i < ctx->count; i++) {
+        if (ctx->variables[i].dynamic) {
+            if (strcmp(ctx->variables[i].name, "cols") == 0) {
+                free(ctx->variables[i].value);
+                ctx->variables[i].value = strdup(cols_str);
+            } else if (strcmp(ctx->variables[i].name, "rows") == 0) {
+                free(ctx->variables[i].value);
+                ctx->variables[i].value = strdup(rows_str);
+            } else if (strcmp(ctx->variables[i].name, "terminal") == 0) {
+                free(ctx->variables[i].value);
+                ctx->variables[i].value = strdup(term_info->term_type ? term_info->term_type : "unknown");
+            } else if (strcmp(ctx->variables[i].name, "has_colors") == 0) {
+                free(ctx->variables[i].value);
+                ctx->variables[i].value = strdup(term_info->is_tty && terminal_color_support ? "1" : "0");
+            }
+        }
+    }
+}
+
+/**
+ * Add terminal-specific dynamic variables to template context
+ */
+void theme_add_terminal_variables(template_context_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+    
+    const terminal_info_t *term_info = termcap_get_info();
+    if (!term_info) {
+        return;
+    }
+    
+    // Add dynamic terminal variables
+    char cols_str[16], rows_str[16];
+    snprintf(cols_str, sizeof(cols_str), "%d", term_info->cols);
+    snprintf(rows_str, sizeof(rows_str), "%d", term_info->rows);
+    
+    template_add_variable(ctx, "cols", cols_str, NULL, true);
+    template_add_variable(ctx, "rows", rows_str, NULL, true);
+    template_add_variable(ctx, "terminal", term_info->term_type ? term_info->term_type : "unknown", NULL, true);
+    template_add_variable(ctx, "has_colors", term_info->is_tty && terminal_color_support ? "1" : "0", NULL, true);
+    
+    // Add platform-specific variables
+    if (termcap_is_iterm2()) {
+        template_add_variable(ctx, "iterm2", "1", NULL, false);
+    }
+    if (termcap_is_tmux()) {
+        template_add_variable(ctx, "tmux", "1", NULL, false);
+    }
+    if (termcap_is_screen()) {
+        template_add_variable(ctx, "screen", "1", NULL, false);
     }
 }
 

@@ -247,14 +247,28 @@ bool template_add_variable(template_context_t *ctx, const char *name,
 
 /**
  * Process template with variables
- * @param template Template string with variables
+ * @param template_str Template string with variables
  * @param ctx Template context with variables
  * @param output Output buffer
  * @param output_size Output buffer size
  * @return true on success, false on failure
  */
-bool template_process(const char *template, template_context_t *ctx,
+bool template_process(const char *template_str, template_context_t *ctx,
                       char *output, size_t output_size);
+
+/**
+ * Process template with responsive layout for terminal-aware rendering
+ * @param template_str Template string with variables
+ * @param ctx Template context with variables
+ * @param output Output buffer
+ * @param output_size Output buffer size
+ * @param terminal_width Terminal width for responsive adjustments
+ * @param use_colors Whether to use color codes
+ * @return true on success, false on failure
+ */
+bool template_process_responsive(const char *template_str, template_context_t *ctx,
+                               char *output, size_t output_size,
+                               int terminal_width, bool use_colors);
 
 /**
  * Generate primary prompt using active theme
@@ -344,6 +358,18 @@ void theme_display_startup_branding(void);
  * @return true on success, false on failure
  */
 bool theme_generate_brand_prefix(char *output, size_t output_size);
+
+/**
+ * Update dynamic template variables with current terminal state
+ * @param ctx Template context to update
+ */
+void theme_update_dynamic_variables(template_context_t *ctx);
+
+/**
+ * Add terminal-specific dynamic variables to template context
+ * @param ctx Template context to add variables to
+ */
+void theme_add_terminal_variables(template_context_t *ctx);
 
 // =============================================================================
 // BUILT-IN THEME DEFINITIONS
