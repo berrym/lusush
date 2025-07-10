@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2025-01-10
+
+### Fixed
+- **Multiline Construct History Conversion (Critical Fix)**
+  - Fixed multiline shell constructs being incorrectly converted to invalid single-line history entries
+  - Resolved "Expected DONE but got EOF" errors when recalling multiline commands from history
+  - Proper semicolon placement in converted commands for valid shell syntax
+  - Enhanced convert_multiline_for_history() function with intelligent parsing logic
+
+- **Shell Construct Syntax Preservation**
+  - For loops: "for i in 1 2 3; do; echo $i; done" (proper semicolon placement)
+  - While loops: "while read line; do; echo $line; done" (correct control flow)
+  - If statements: "if test; then; command; fi" (valid conditional syntax)
+  - Complex nested constructs handled with proper delimiter placement
+  - History recall now produces executable commands that work correctly
+
+### Technical Details
+- Implemented two-pass algorithm for multiline-to-single-line conversion
+- Semicolons added before control keywords (do, then, else, elif) when needed
+- Semicolons placed after control keywords when followed by commands
+- Semicolons inserted before terminators (done, fi) when preceded by commands
+- Enhanced line parsing with proper whitespace handling and empty line skipping
+- Maintains compatibility with LUSUSH parser requirements for control structures
+
+### Code Quality
+- Comprehensive testing of all major shell construct types
+- Validation scripts confirming proper conversion and execution
+- Improved error handling in history conversion functions
+- Better memory management in multiline processing logic
+
 ## [1.0.7] - 2025-01-10
 
 ### Added
