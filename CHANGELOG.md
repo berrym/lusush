@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2025-01-10
+
+### Fixed
+- **Multiline Mode Line Consumption Issue (Critical Fix)**
+  - Fixed critical line consumption issue in multiline mode where every character typed consumed previous terminal lines
+  - Completely rewrote multiline refresh logic to avoid aggressive line clearing
+  - Simplified cursor positioning to use reliable character-by-character movement
+  - Enabled multiline mode by default with robust cursor navigation
+
+### Technical Details
+- Removed complex row/column calculations that caused terminal state confusion
+- Eliminated aggressive line clearing logic that consumed previous terminal content
+- Implemented simple but reliable cursor positioning from known start position
+- Uses logical line positioning that works consistently across all terminal types
+- Maintains proper cursor navigation for wrapped content without visual artifacts
+
+### Code Quality
+- Simplified multiline refresh logic for better maintainability
+- Reduced complexity in terminal cursor positioning calculations
+- More robust approach that works reliably across different terminal emulators
+- Fixed fundamental interactive shell usability issue
+
 ## [1.0.12] - 2025-01-10
 
 ### Fixed

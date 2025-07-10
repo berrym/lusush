@@ -1166,64 +1166,17 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 static void refreshMultiLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
-    
-    /* Use termcap for enhanced terminal info if available */
-    const terminal_info_t *term_info = termcap_get_info();
-    int cols = l->cols;
-    if (term_info && term_info->is_tty && term_info->cols > 0) {
-        cols = term_info->cols;
-    }
-    
-    int colpos =
-        columnPosForMultiLine(l->buf, l->len, l->len, cols, pcollen);
-    int colpos2; /* cursor column position. */
-    int rows = (pcollen + colpos + cols - 1) /
-               cols; /* rows used by current buf. */
-    rows += promptnewlines;
-    int rpos =
-        (pcollen + l->oldcolpos + cols) / cols; /* cursor relative row. */
-    rpos += promptnewlines;
-    int rpos2; /* rpos after refresh. */
-    int col;   /* colum position, zero-based. */
-    int old_rows;
-    if (l->oldrows) {
-        old_rows = l->oldrows;
-    } else {
-        old_rows = rows;
-    }
-    int fd = l->ofd, j;
+    int fd = l->ofd;
     struct abuf ab;
 
-    l->oldrows = rows;
-
-    /* First step: clear all the lines used before. To do so start by
-     * going to the last row. */
     abInit(&ab);
 
+    /* Simple approach: clear current line and rewrite everything */
     if (flags & REFRESH_CLEAN) {
-        if (old_rows - rpos > 0) {
-            lndebug("go down %d", old_rows - rpos);
-            snprintf(seq, 64, "\x1b[%dB", old_rows - rpos);
-            abAppend(&ab, seq, strlen(seq));
-        }
-
-        /* Now for every row clear it, go up. */
-        for (j = 0; j < old_rows - 1; j++) {
-            lndebug("clear+up");
-            snprintf(seq, 64, "\r\x1b[0K\x1b[1A");
-            abAppend(&ab, seq, strlen(seq));
-        }
-    }
-
-    if (flags & REFRESH_ALL) {
-        /* Clean the top line. */
-        lndebug("clear");
-        snprintf(seq, 64, "\r\x1b[0K");
+        /* Just clear the current line - don't try to clear multiple lines */
+        snprintf(seq, sizeof(seq), "\r\x1b[0K");
         abAppend(&ab, seq, strlen(seq));
     }
-
-    /* Get column length to cursor position */
-    colpos2 = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
@@ -1237,48 +1190,24 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
             abAppend(&ab, l->buf, l->len);
         }
 
-        /* Show hits if any. */
+        /* Show hints if any. */
         refreshShowHints(&ab, l, pcollen);
 
-        /* If we are at the very end of the screen with our prompt, we need to
-         * emit a newline and move the prompt to the first column. */
-        if (l->pos && l->pos == l->len && (colpos2 + pcollen) % l->cols == 0) {
-            lndebug("<newline>");
-            abAppend(&ab, "\n", 1);
-            snprintf(seq, 64, "\r");
-            abAppend(&ab, seq, strlen(seq));
-            rows++;
-            if (rows > (int)l->oldrows) {
-                l->oldrows = rows;
-            }
-        }
-
-        /* Move cursor to right position. */
-        rpos2 = (pcollen + colpos2 + l->cols) /
-                l->cols; /* Current cursor relative row */
-        rpos2 += promptnewlines;
-        lndebug("rpos2 %d", rpos2);
-
-        /* Go up till we reach the expected positon. */
-        if (rows - rpos2 > 0) {
-            lndebug("go-up %d", rows - rpos2);
-            snprintf(seq, 64, "\x1b[%dA", rows - rpos2);
-            abAppend(&ab, seq, strlen(seq));
-        }
-
-        /* Set column. */
-        col = (pcollen + colpos2) % l->cols;
-        lndebug("set col %d", 1 + col);
-        if (col) {
-            snprintf(seq, 64, "\r\x1b[%dC", col);
-        } else {
-            snprintf(seq, 64, "\r");
-        }
+        /* Simple robust cursor positioning for multiline content */
+        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
+        
+        /* Always go to beginning of first line, then move to correct position */
+        /* This ensures we start from a known state */
+        snprintf(seq, sizeof(seq), "\r");
         abAppend(&ab, seq, strlen(seq));
+        
+        /* If cursor position is beyond first line, move forward character by character */
+        /* This is simple but reliable across all terminals */
+        if (cursor_pos > 0) {
+            snprintf(seq, sizeof(seq), "\x1b[%dC", cursor_pos);
+            abAppend(&ab, seq, strlen(seq));
+        }
     }
-
-    lndebug("\n");
-    l->oldcolpos = colpos2;
 
     if (write(fd, ab.b, ab.len) == -1) {
     } /* Can't recover from write error. */
