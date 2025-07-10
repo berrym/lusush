@@ -58,6 +58,28 @@ static void cleanup_input_state(input_state_t *state) {
 
 // Convert complex input to single-line format for history storage
 // This makes complex commands more manageable in history recall
+// Helper function to identify line types
+static bool is_control_keyword(const char *line) {
+    return (strcmp(line, "do") == 0 || strcmp(line, "then") == 0 ||
+            strcmp(line, "else") == 0 || strncmp(line, "elif", 4) == 0);
+}
+
+static bool is_terminator(const char *line) {
+    return (strcmp(line, "done") == 0 || strcmp(line, "fi") == 0 ||
+            strcmp(line, "esac") == 0 || strcmp(line, "}") == 0);
+}
+
+static bool is_control_structure_start(const char *line) {
+    return (strncmp(line, "for", 3) == 0 || strncmp(line, "while", 5) == 0 ||
+            strncmp(line, "if", 2) == 0 || strncmp(line, "case", 4) == 0 ||
+            strncmp(line, "until", 5) == 0);
+}
+
+static bool is_regular_command(const char *line) {
+    return (!is_control_keyword(line) && !is_terminator(line) && 
+            !is_control_structure_start(line));
+}
+
 static char *convert_multiline_for_history(const char *input) {
     if (!input || !*input) {
         return NULL;
@@ -103,24 +125,30 @@ static char *convert_multiline_for_history(const char *input) {
             bool need_semicolon = false;
             
             // Check if current line is a control keyword needing semicolon before
-            if (strcmp(lines[i], "do") == 0 || strcmp(lines[i], "then") == 0 ||
-                strcmp(lines[i], "else") == 0 || strncmp(lines[i], "elif", 4) == 0) {
+            if (is_control_keyword(lines[i])) {
                 need_semicolon = true;
             }
             // Check if previous line was a control keyword needing semicolon after
-            else if (strcmp(lines[i-1], "do") == 0 || strcmp(lines[i-1], "then") == 0 ||
-                     strcmp(lines[i-1], "else") == 0 || strncmp(lines[i-1], "elif", 4) == 0) {
+            else if (is_control_keyword(lines[i-1])) {
                 // Only if current line is not a terminator
-                if (strcmp(lines[i], "done") != 0 && strcmp(lines[i], "fi") != 0 && 
-                    strcmp(lines[i], "esac") != 0 && strcmp(lines[i], "}") != 0) {
+                if (!is_terminator(lines[i])) {
                     need_semicolon = true;
                 }
             }
-            // Special case: need semicolon before terminator if previous line was a command
-            else if ((strcmp(lines[i], "done") == 0 || strcmp(lines[i], "fi") == 0 ||
-                      strcmp(lines[i], "esac") == 0 || strcmp(lines[i], "}") == 0) &&
-                     i > 0 && strcmp(lines[i-1], "do") != 0 && strcmp(lines[i-1], "then") != 0 &&
-                     strcmp(lines[i-1], "else") != 0 && strncmp(lines[i-1], "elif", 4) != 0) {
+            // Need semicolon before terminator if previous line was a command
+            else if (is_terminator(lines[i]) && !is_control_keyword(lines[i-1])) {
+                need_semicolon = true;
+            }
+            // Need semicolon between consecutive regular commands
+            else if (is_regular_command(lines[i]) && is_regular_command(lines[i-1])) {
+                need_semicolon = true;
+            }
+            // Need semicolon between control structure start and regular command
+            else if (is_regular_command(lines[i]) && is_control_structure_start(lines[i-1])) {
+                need_semicolon = true;
+            }
+            // Need semicolon between regular command and control structure start
+            else if (is_control_structure_start(lines[i]) && is_regular_command(lines[i-1])) {
                 need_semicolon = true;
             }
             

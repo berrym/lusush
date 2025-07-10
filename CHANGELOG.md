@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2025-01-10
+
+### Fixed
+- **Critical Multiline History Conversion Bug Fix**
+  - Fixed missing semicolons between consecutive commands in multiline loop bodies
+  - Resolved issue where `i=2\nwhile [ $i -le 5 ]\ndo\necho "$i"\ni=$(($i+1))\ndone` was incorrectly converted to `while [ $i -le 5 ]; do; echo "$i" i=$(($i+1)); done` instead of `i=2; while [ $i -le 5 ]; do; echo "$i"; i=$(($i+1)); done`
+  - Added proper semicolon placement between regular commands and control structure starts
+  - All multiline constructs now convert correctly to valid single-line history entries
+
+### Technical Details
+- Enhanced convert_multiline_for_history() function with additional semicolon placement rules
+- Added semicolon insertion between regular commands and control structure starts
+- Added semicolon insertion between control structure starts and regular commands
+- Comprehensive test coverage for all semicolon placement scenarios
+- Maintains backward compatibility with existing history conversion logic
+
+### Code Quality
+- Improved helper function categorization for line types
+- Better separation of concerns in multiline conversion logic
+- Enhanced error handling and edge case coverage
+- Comprehensive testing validates all major shell construct patterns
+
 ## [1.0.8] - 2025-01-10
 
 ### Fixed
