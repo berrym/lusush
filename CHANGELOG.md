@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20] - 2025-01-13
+
+### Fixed
+- **Extra Newline Insertion During History Navigation (Critical Fix)**
+  - Fixed extra newline insertion when navigating from wrapped lines to shorter lines
+  - Eliminated unwanted spacing between prompts during history navigation
+  - Improved cursor positioning logic to prevent extra newlines during multiline clearing
+  - Ensures consistent prompt spacing regardless of command length transitions
+  - Maintains clean, professional display during all history navigation scenarios
+
+### Technical Details
+- **Root Cause**: Multiline clearing logic was adding extra newlines during cursor movement
+- **Solution**: Replaced newline-based clearing with targeted cursor movement commands
+- **Key Changes**: 
+  - Uses `\x1b[B\x1b[0K` (move down + clear line) instead of `\n` for line clearing
+  - Proper cursor positioning with `\x1b[%dA\r` to return to start without extra spacing
+  - Eliminates all newline characters from clearing sequences
+- **Location**: `src/linenoise/linenoise.c` in `linenoiseEditHistoryNext()` function
+- **Impact**: Consistent prompt spacing throughout history navigation
+- **Compatibility**: Maintains all existing functionality without regression
+
+### Performance
+- No performance impact - improved clearing operations remain efficient
+- Maintains responsive navigation experience for all command types
+- Clean visual transitions without display artifacts or spacing issues
+
 ## [1.0.19] - 2025-07-10
 
 ### Fixed
