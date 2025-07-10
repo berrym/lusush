@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2025-01-10
+
+### Fixed
+- **Cursor Movement in Wrapped Lines (Critical Fix)**
+  - Fixed cursor navigation issues with long commands that wrap to multiple lines
+  - Resolved issue where Ctrl+A (home) and other cursor movements didn't work properly across wrapped lines
+  - Enhanced cursor positioning logic in linenoise to handle multiline scenarios correctly
+  - Added configurable multiline mode support with `multiline_mode` setting
+
+### Added
+- **Multiline Mode Configuration**
+  - New `multiline_mode` configuration option in behavior settings
+  - Configurable via `config set multiline_mode true/false`
+  - Default enabled for better handling of long wrapped commands
+  - Proper cursor movement across visual line boundaries
+
+### Technical Details
+- Enhanced cursor movement functions (moveLeft, moveRight, moveHome, moveEnd) to support multiline mode
+- Improved single-line mode with full refresh for wrapped lines
+- Added multiline_mode to configuration system with proper validation
+- Applied multiline settings during shell initialization and configuration changes
+
+### Code Quality
+- Better separation between single-line and multiline cursor handling
+- Improved terminal interaction for complex cursor positioning scenarios
+- Enhanced configuration system extensibility
+
 ## [1.0.9] - 2025-01-10
 
 ### Fixed

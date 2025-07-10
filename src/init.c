@@ -281,8 +281,8 @@ int init(int argc, char **argv, FILE **in) {
         linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
                                       linenoiseUtf8NextCharLen,
                                       linenoiseUtf8ReadCode);
-        // Multiline mode disabled for better reliability and performance
-        linenoiseSetMultiLine(0);
+        // Use multiline mode setting from configuration
+        linenoiseSetMultiLine(config.multiline_mode);
         build_prompt();
     }
 

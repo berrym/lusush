@@ -97,6 +97,7 @@ typedef struct {
     bool confirm_exit;
     int tab_width;
     bool no_word_expand;
+    bool multiline_mode;
 
     // Auto-correction settings
     int autocorrect_max_suggestions;

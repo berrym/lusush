@@ -155,6 +155,9 @@ static config_option_t config_options[] = {
     {              "no_word_expand",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
      &config.no_word_expand,           "Disable word expansion and globbing",
      config_validate_bool                                                                                      },
+    {              "multiline_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.multiline_mode,           "Enable multiline editing mode",
+     config_validate_bool                                                                                      },
 
     // Color settings
     {                "color_scheme", CONFIG_TYPE_STRING,   CONFIG_SECTION_BEHAVIOR,
@@ -594,6 +597,7 @@ void config_set_defaults(void) {
     config.confirm_exit = false;
     config.tab_width = 4;
     config.no_word_expand = false;
+    config.multiline_mode = true;
 
     // Auto-correction defaults
     config.autocorrect_max_suggestions = 3;
@@ -890,7 +894,8 @@ void config_apply_settings(void) {
     // Apply prompt settings (handled by theme system)
 
     // Apply behavior settings
-    // Multiline editing is disabled - single line mode for better reliability
+    // Apply multiline mode setting
+    linenoiseSetMultiLine(config.multiline_mode);
 
     // Apply history settings
     linenoiseHistoryNoDups(config.history_no_dups);
@@ -910,6 +915,7 @@ void config_apply_settings(void) {
     symtable_set_global_int("CONFIRM_EXIT", config.confirm_exit);
     symtable_set_global_int("COLORS_ENABLED", config.colors_enabled);
     symtable_set_global_int("NO_WORD_EXPAND", config.no_word_expand);
+    symtable_set_global_int("MULTILINE_MODE", config.multiline_mode);
 }
 
 /**

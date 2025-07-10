@@ -1477,12 +1477,12 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
 void linenoiseEditMoveLeft(struct linenoiseState *l) {
     if (l->pos > 0) {
         l->pos -= prevCharLen(l->buf, l->len, l->pos, NULL);
-        /* Use minimal cursor movement to prevent line consumption */
-        char seq[32];
-        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            write(l->ofd, seq, strlen(seq));
+        if (mlmode) {
+            /* In multiline mode, do a full refresh to position cursor correctly */
+            refreshLine(l);
+        } else {
+            /* Single line mode: do a full refresh to handle wrapped lines */
+            refreshLine(l);
         }
     }
 }
@@ -1491,12 +1491,12 @@ void linenoiseEditMoveLeft(struct linenoiseState *l) {
 void linenoiseEditMoveRight(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos += nextCharLen(l->buf, l->len, l->pos, NULL);
-        /* Use minimal cursor movement to prevent new prompt creation */
-        char seq[32];
-        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            write(l->ofd, seq, strlen(seq));
+        if (mlmode) {
+            /* In multiline mode, do a full refresh to position cursor correctly */
+            refreshLine(l);
+        } else {
+            /* Single line mode: do a full refresh to handle wrapped lines */
+            refreshLine(l);
         }
     }
 }
@@ -1505,11 +1505,13 @@ void linenoiseEditMoveRight(struct linenoiseState *l) {
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
         l->pos = 0;
-        /* Move cursor to start of input (after prompt) */
-        char seq[32];
-        int cursor_pos = (int)promptTextColumnLen(l->prompt, strlen(l->prompt));
-        snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-        write(l->ofd, seq, strlen(seq));
+        if (mlmode) {
+            /* In multiline mode, do a full refresh to position cursor correctly */
+            refreshLine(l);
+        } else {
+            /* Single line mode: do a full refresh to handle wrapped lines */
+            refreshLine(l);
+        }
     }
 }
 
@@ -1517,12 +1519,12 @@ void linenoiseEditMoveHome(struct linenoiseState *l) {
 void linenoiseEditMoveEnd(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos = l->len;
-        /* Move cursor to end of input */
-        char seq[32];
-        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
-        if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            write(l->ofd, seq, strlen(seq));
+        if (mlmode) {
+            /* In multiline mode, do a full refresh to position cursor correctly */
+            refreshLine(l);
+        } else {
+            /* Single line mode: do a full refresh to handle wrapped lines */
+            refreshLine(l);
         }
     }
 }
