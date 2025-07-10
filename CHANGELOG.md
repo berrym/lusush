@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.21] - 2025-01-13
+
+### Fixed
+- **Artifact Clearing Regression Fix (Critical Fix)**
+  - Fixed regression in v1.0.20 where text artifacts reappeared during history navigation
+  - Restored proper artifact clearing using complete line erasure with cursor movement
+  - Maintained fix for extra newline insertion without breaking artifact clearing
+  - Ensures clean display of short commands after navigating from long commands
+  - Professional quality history navigation with both artifact clearing and proper spacing
+
+### Technical Details
+- **Root Cause**: v1.0.20 simplified clearing logic broke artifact removal by using partial line clearing
+- **Solution**: Restored working v1.0.18 logic but replaced newline characters with cursor movement
+- **Key Changes**: 
+  - Uses complete line erasure with cursor movement commands for multiline clearing
+  - Replaced newline characters with cursor down sequences to prevent extra spacing
+  - Maintains atomic screen updates using abuf pattern for clean transitions
+  - Proper multiline content handling with full line clearing capabilities
+- **Location**: `src/linenoise/linenoise.c` in `linenoiseEditHistoryNext()` function
+- **Impact**: Complete artifact clearing with consistent prompt spacing
+- **Compatibility**: Maintains all existing functionality without regression
+
+### Performance
+- Maintains efficient clearing operations with atomic screen updates
+- Clean visual transitions without display artifacts or spacing issues
+- Responsive navigation experience for all command types and lengths
+- Professional display quality comparable to modern shell implementations
+
 ## [1.0.20] - 2025-01-13
 
 ### Fixed

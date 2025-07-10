@@ -1606,10 +1606,14 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
             l->len = l->pos = strlen(l->buf);
         }
         
-        /* Enhanced history navigation with proper cursor positioning */
+        /* Enhanced history navigation with proper multiline clearing */
         if (mlmode) {
-            /* In multiline mode, handle cursor positioning carefully */
+            /* In multiline mode, clear all lines that might contain old content */
             char seq[64];
+            struct abuf ab;
+            abInit(&ab);
+            
+            /* Calculate current multiline dimensions */
             size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
             int old_rows = l->oldrows;
             if (old_rows <= 0) {
@@ -1618,28 +1622,48 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
                 if (old_rows <= 0) old_rows = 1;
             }
             
-            /* Move to start of current line and clear it */
-            if (write(l->ofd, "\r\x1b[0K", 4) == -1) return;
-            
-            /* If we had multiple lines, clear them without adding newlines */
+            /* Move to start of first line and clear all lines WITHOUT adding newlines */
             if (old_rows > 1) {
-                /* Clear additional lines by moving down and clearing each line */
-                for (int i = 1; i < old_rows; i++) {
-                    if (write(l->ofd, "\x1b[B\x1b[0K", 6) == -1) break;
+                /* Go to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", old_rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+                
+                /* Clear all lines using cursor movement, no newlines */
+                for (int i = 0; i < old_rows; i++) {
+                    snprintf(seq, sizeof(seq), "\x1b[2K");
+                    abAppend(&ab, seq, strlen(seq));
+                    if (i < old_rows - 1) {
+                        /* Move down to next line using cursor movement */
+                        snprintf(seq, sizeof(seq), "\x1b[B");
+                        abAppend(&ab, seq, strlen(seq));
+                    }
                 }
-                /* Move back to start of first line */
-                snprintf(seq, sizeof(seq), "\x1b[%dA\r", old_rows - 1);
-                if (write(l->ofd, seq, strlen(seq)) == -1) return;
+                
+                /* Return to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", old_rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Single line - just clear it */
+                snprintf(seq, sizeof(seq), "\r\x1b[2K");
+                abAppend(&ab, seq, strlen(seq));
             }
             
             /* Write the prompt and new content */
-            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) return;
-            if (write(l->ofd, l->buf, l->len) == -1) return;
+            abAppend(&ab, l->prompt, strlen(l->prompt));
+            abAppend(&ab, l->buf, l->len);
+            
+            /* Write everything at once */
+            if (write(l->ofd, ab.b, ab.len) == -1) {
+                /* Can't recover */
+            }
             
             /* Update state for next navigation */
             l->oldcolpos = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
             l->oldrows = (pcollen + columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen) + l->cols - 1) / l->cols;
             if (l->oldrows <= 0) l->oldrows = 1;
+            
+            /* Clean up buffer */
+            abFree(&ab);
         } else {
             /* In single line mode, use simple line replacement */
             if (write(l->ofd, "\r\x1b[0K", 4) == -1) return; /* Clear current line */
