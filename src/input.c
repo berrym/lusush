@@ -64,88 +64,81 @@ static char *convert_multiline_for_history(const char *input) {
     }
 
     size_t input_len = strlen(input);
-    char *result = malloc(input_len + 1);
+    // Allocate extra space for potential semicolons
+    char *result = malloc(input_len * 2 + 1);
     if (!result) {
         return NULL;
     }
 
-    const char *src = input;
-    char *dst = result;
-    bool in_single_quote = false;
-    bool in_double_quote = false;
-    bool escaped = false;
-    bool last_was_space = false;
-
-    while (*src) {
-        char ch = *src;
-
-        // Handle escaping
-        if (escaped) {
-            if (ch == '\n') {
-                // Backslash-newline continuation: replace with single space
-                if (!last_was_space) {
-                    *dst++ = ' ';
-                    last_was_space = true;
-                }
-            } else {
-                *dst++ = '\\';
-                *dst++ = ch;
-                last_was_space = false;
-            }
-            escaped = false;
-            src++;
-            continue;
-        }
-
-        if (ch == '\\') {
-            escaped = true;
-            src++;
-            continue;
-        }
-
-        // Handle quotes
-        if (ch == '\'' && !in_double_quote) {
-            in_single_quote = !in_single_quote;
-            *dst++ = ch;
-            last_was_space = false;
-        } else if (ch == '"' && !in_single_quote) {
-            in_double_quote = !in_double_quote;
-            *dst++ = ch;
-            last_was_space = false;
-        } else if (ch == '\n') {
-            // Convert newlines to spaces
-            if (in_single_quote || in_double_quote) {
-                // Inside quotes - preserve as literal newline
-                *dst++ = '\\';
-                *dst++ = 'n';
-                last_was_space = false;
-            } else {
-                // Outside quotes - convert to space
-                if (!last_was_space) {
-                    *dst++ = ' ';
-                    last_was_space = true;
-                }
-            }
-        } else if (isspace(ch)) {
-            // Collapse multiple spaces
-            if (!last_was_space) {
-                *dst++ = ' ';
-                last_was_space = true;
-            }
-        } else {
-            *dst++ = ch;
-            last_was_space = false;
-        }
-
-        src++;
+    // Split into lines and build array
+    char *input_copy = strdup(input);
+    if (!input_copy) {
+        free(result);
+        return NULL;
     }
 
-    // Remove trailing whitespace
-    while (dst > result && isspace(*(dst - 1))) {
-        dst--;
+    // First pass: collect all non-empty lines
+    char *lines[256];  // Support up to 256 lines
+    int line_count = 0;
+    char *line = strtok(input_copy, "\n");
+    
+    while (line && line_count < 255) {
+        // Trim leading and trailing whitespace
+        while (*line && isspace(*line)) line++;
+        char *end = line + strlen(line) - 1;
+        while (end > line && isspace(*end)) *end-- = '\0';
+
+        // Skip empty lines
+        if (*line != '\0') {
+            lines[line_count++] = line;
+        }
+        line = strtok(NULL, "\n");
+    }
+
+    // Second pass: build result with proper semicolons
+    char *dst = result;
+    for (int i = 0; i < line_count; i++) {
+        // Add space or semicolon before line if not first
+        if (i > 0) {
+            bool need_semicolon = false;
+            
+            // Check if current line is a control keyword needing semicolon before
+            if (strcmp(lines[i], "do") == 0 || strcmp(lines[i], "then") == 0 ||
+                strcmp(lines[i], "else") == 0 || strncmp(lines[i], "elif", 4) == 0) {
+                need_semicolon = true;
+            }
+            // Check if previous line was a control keyword needing semicolon after
+            else if (strcmp(lines[i-1], "do") == 0 || strcmp(lines[i-1], "then") == 0 ||
+                     strcmp(lines[i-1], "else") == 0 || strncmp(lines[i-1], "elif", 4) == 0) {
+                // Only if current line is not a terminator
+                if (strcmp(lines[i], "done") != 0 && strcmp(lines[i], "fi") != 0 && 
+                    strcmp(lines[i], "esac") != 0 && strcmp(lines[i], "}") != 0) {
+                    need_semicolon = true;
+                }
+            }
+            // Special case: need semicolon before terminator if previous line was a command
+            else if ((strcmp(lines[i], "done") == 0 || strcmp(lines[i], "fi") == 0 ||
+                      strcmp(lines[i], "esac") == 0 || strcmp(lines[i], "}") == 0) &&
+                     i > 0 && strcmp(lines[i-1], "do") != 0 && strcmp(lines[i-1], "then") != 0 &&
+                     strcmp(lines[i-1], "else") != 0 && strncmp(lines[i-1], "elif", 4) != 0) {
+                need_semicolon = true;
+            }
+            
+            if (need_semicolon) {
+                *dst++ = ';';
+                *dst++ = ' ';
+            } else {
+                *dst++ = ' ';
+            }
+        }
+
+        // Copy the line
+        strcpy(dst, lines[i]);
+        dst += strlen(lines[i]);
     }
 
     *dst = '\0';
+    free(input_copy);
 
     // If the result is empty, return NULL
     if (dst == result) {
