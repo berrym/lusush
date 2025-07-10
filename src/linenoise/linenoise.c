@@ -1086,14 +1086,23 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
     int fd = l->ofd;
-    /* Use l->buf, l->len, l->pos directly */
+    char *buf = l->buf;
+    size_t len = l->len;
+    size_t pos = l->pos;
     struct abuf ab;
 
     /* Skip cursor position queries during refresh to prevent input interference on macOS/iTerm2 */
     /* Bottom-line protection is handled by the termcap module when needed */
 
-    /* Don't truncate long lines - handle them as wrapped instead */
-    /* Keep original buffer intact for proper wrapped line handling */
+    while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
+        int chlen = nextCharLen(buf, len, 0, NULL);
+        buf += chlen;
+        len -= chlen;
+        pos -= chlen;
+    }
+    while (pcollen + columnPos(buf, len, len) > l->cols) {
+        len -= prevCharLen(buf, len, len, NULL);
+    }
 
     abInit(&ab);
 
@@ -1120,12 +1129,11 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
         /* Write the prompt and the current buffer content */
         abAppend(&ab, l->prompt, strlen(l->prompt));
         if (maskmode == 1) {
-            unsigned int i;
-            for (i = 0; i < l->len; i++) {
+            while (len--) {
                 abAppend(&ab, "*", 1);
             }
         } else {
-            abAppend(&ab, l->buf, l->len);
+            abAppend(&ab, buf, len);
         }
         /* Show hits if any. */
         refreshShowHints(&ab, l, pcollen);
@@ -1136,18 +1144,31 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     abAppend(&ab, seq, strlen(seq));
 
     if (flags & REFRESH_WRITE) {
-        /* Check if content wraps to multiple lines */
-        int total_content_pos = (int)(columnPos(l->buf, l->len, l->len) + pcollen);
+        /* Move cursor to original position with robust bounds checking */
+        int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
         
-        if (total_content_pos >= (int)l->cols) {
-            /* Content wraps - don't try to position cursor with simple movements */
-            /* The cursor is already at the end after writing content */
-            /* Let subsequent refreshes handle proper positioning */
+        /* Use termcap for safer cursor positioning if available */
+        const terminal_info_t *term_info = termcap_get_info();
+        if (term_info && term_info->is_tty) {
+            /* Ensure we don't exceed terminal bounds */
+            if (cursor_pos >= 0 && cursor_pos < term_info->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Fallback: just go to beginning of line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            }
         } else {
-            /* Single line - can use simple cursor positioning */
-            int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-            abAppend(&ab, seq, strlen(seq));
+            /* Original bounds checking for non-termcap terminals */
+            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Fallback: just go to beginning of line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            }
         }
     }
 
@@ -1166,17 +1187,49 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 static void refreshMultiLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
+    
+    /* Use termcap for enhanced terminal info if available */
+    const terminal_info_t *term_info = termcap_get_info();
+    int cols = l->cols;
+    if (term_info && term_info->is_tty && term_info->cols > 0) {
+        cols = term_info->cols;
+    }
+    
+    int colpos =
+        columnPosForMultiLine(l->buf, l->len, l->len, cols, pcollen);
+    int colpos2; /* cursor column position. */
+    int rows = (pcollen + colpos + cols - 1) /
+               cols; /* rows used by current buf. */
+    rows += promptnewlines;
+    int rpos =
+        (pcollen + l->oldcolpos + cols) / cols; /* cursor relative row. */
+    rpos += promptnewlines;
+    int rpos2; /* rpos after refresh. */
+    int col;   /* colum position, zero-based. */
     int fd = l->ofd;
     struct abuf ab;
 
+    l->oldrows = rows;
+
+    /* First step: clear all the lines used before. To do so start by
+     * going to the last row. */
     abInit(&ab);
 
-    /* Simple approach: clear current line and rewrite everything */
     if (flags & REFRESH_CLEAN) {
-        /* Just clear the current line - don't try to clear multiple lines */
-        snprintf(seq, sizeof(seq), "\r\x1b[0K");
+        /* Conservative clearing - only clear current line to prevent line consumption */
+        snprintf(seq, 64, "\r\x1b[0K");
         abAppend(&ab, seq, strlen(seq));
     }
+
+    if (flags & REFRESH_ALL) {
+        /* Clean the current line only - avoid consuming previous terminal content */
+        lndebug("clear");
+        snprintf(seq, 64, "\r\x1b[0K");
+        abAppend(&ab, seq, strlen(seq));
+    }
+
+    /* Get column length to cursor position */
+    colpos2 = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
@@ -1190,24 +1243,48 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
             abAppend(&ab, l->buf, l->len);
         }
 
-        /* Show hints if any. */
+        /* Show hits if any. */
         refreshShowHints(&ab, l, pcollen);
 
-        /* Simple robust cursor positioning for multiline content */
-        int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
-        
-        /* Always go to beginning of first line, then move to correct position */
-        /* This ensures we start from a known state */
-        snprintf(seq, sizeof(seq), "\r");
-        abAppend(&ab, seq, strlen(seq));
-        
-        /* If cursor position is beyond first line, move forward character by character */
-        /* This is simple but reliable across all terminals */
-        if (cursor_pos > 0) {
-            snprintf(seq, sizeof(seq), "\x1b[%dC", cursor_pos);
+        /* If we are at the very end of the screen with our prompt, we need to
+         * emit a newline and move the prompt to the first column. */
+        if (l->pos && l->pos == l->len && (colpos2 + pcollen) % l->cols == 0) {
+            lndebug("<newline>");
+            abAppend(&ab, "\n", 1);
+            snprintf(seq, 64, "\r");
+            abAppend(&ab, seq, strlen(seq));
+            rows++;
+            if (rows > (int)l->oldrows) {
+                l->oldrows = rows;
+            }
+        }
+
+        /* Move cursor to right position. */
+        rpos2 = (pcollen + colpos2 + l->cols) /
+                l->cols; /* Current cursor relative row */
+        rpos2 += promptnewlines;
+        lndebug("rpos2 %d", rpos2);
+
+        /* Go up till we reach the expected positon. */
+        if (rows - rpos2 > 0) {
+            lndebug("go-up %d", rows - rpos2);
+            snprintf(seq, 64, "\x1b[%dA", rows - rpos2);
             abAppend(&ab, seq, strlen(seq));
         }
+
+        /* Set column. */
+        col = (pcollen + colpos2) % l->cols;
+        lndebug("set col %d", 1 + col);
+        if (col) {
+            snprintf(seq, 64, "\r\x1b[%dC", col);
+        } else {
+            snprintf(seq, 64, "\r");
+        }
+        abAppend(&ab, seq, strlen(seq));
     }
+
+    lndebug("\n");
+    l->oldcolpos = colpos2;
 
     if (write(fd, ab.b, ab.len) == -1) {
     } /* Can't recover from write error. */
@@ -1295,10 +1372,23 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
             l->len += clen;
             ;
             l->buf[l->len] = '\0';
-            if ((!mlmode &&
-                 promptTextColumnLen(l->prompt, l->plen) +
-                         columnPos(l->buf, l->len, l->len) <
-                     l->cols)) {
+            /* Check if we can use optimized path (avoid full refresh) */
+            int can_optimize = 0;
+            if (!mlmode) {
+                /* Single line mode: optimize if prompt + text fits in one line */
+                can_optimize = (promptTextColumnLen(l->prompt, l->plen) +
+                               columnPos(l->buf, l->len, l->len) < l->cols);
+            } else {
+                /* Multi line mode: optimize if we're not at line boundary */
+                size_t pcollen = promptTextColumnLen(l->prompt, l->plen);
+                size_t total_pos = pcollen + columnPos(l->buf, l->len, l->len);
+                
+                /* We can optimize if we're not exactly at the end of a line
+                 * This prevents line wrapping issues while allowing most optimizations */
+                can_optimize = (total_pos % l->cols != 0) && (total_pos % l->cols != l->cols - 1);
+            }
+            
+            if (can_optimize) {
                 /* Avoid a full update of the line in the
                  * trivial case. */
                 if (maskmode == 1) {
@@ -1381,36 +1471,112 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
     return 0;
 }
 
+/* Lightweight cursor positioning for multiline mode */
+static void positionCursorMultiline(struct linenoiseState *l) {
+    char seq[64];
+    size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
+    size_t colpos = columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen);
+    size_t colpos2 = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
+    
+    /* Calculate total rows used by buffer */
+    int rows = (pcollen + colpos + l->cols - 1) / l->cols;
+    rows += promptnewlines;
+    
+    /* Calculate cursor position */
+    int rpos2 = (pcollen + colpos2 + l->cols) / l->cols;
+    rpos2 += promptnewlines;
+    
+    /* Move to correct row */
+    if (rows - rpos2 > 0) {
+        snprintf(seq, sizeof(seq), "\x1b[%dA", rows - rpos2);
+        write(l->ofd, seq, strlen(seq));
+    }
+    
+    /* Set column position */
+    int col = (pcollen + colpos2) % l->cols;
+    if (col) {
+        snprintf(seq, sizeof(seq), "\r\x1b[%dC", col);
+        write(l->ofd, seq, strlen(seq));
+    } else {
+        write(l->ofd, "\r", 1);
+    }
+    
+    /* Update state to track current position */
+    l->oldcolpos = colpos2;
+    l->oldrows = rows;
+}
+
 /* Move cursor on the left. */
 void linenoiseEditMoveLeft(struct linenoiseState *l) {
     if (l->pos > 0) {
         l->pos -= prevCharLen(l->buf, l->len, l->pos, NULL);
-        /* For wrapped lines, use clean refresh to avoid positioning issues */
-        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+        if (mlmode) {
+            /* In multiline mode, use lightweight cursor positioning */
+            positionCursorMultiline(l);
+        } else {
+            /* Use minimal cursor movement to prevent line consumption */
+            char seq[32];
+            int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                write(l->ofd, seq, strlen(seq));
+            }
+        }
     }
 }
 
+/* Move cursor on the right. */
 void linenoiseEditMoveRight(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos += nextCharLen(l->buf, l->len, l->pos, NULL);
-        /* For wrapped lines, use clean refresh to avoid positioning issues */
-        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+        if (mlmode) {
+            /* In multiline mode, use lightweight cursor positioning */
+            positionCursorMultiline(l);
+        } else {
+            /* Use minimal cursor movement to prevent new prompt creation */
+            char seq[32];
+            int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                write(l->ofd, seq, strlen(seq));
+            }
+        }
     }
 }
 
+/* Move cursor to the start of the line. */
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
         l->pos = 0;
-        /* For wrapped lines, use clean refresh to avoid positioning issues */
-        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+        if (mlmode) {
+            /* In multiline mode, use lightweight cursor positioning */
+            positionCursorMultiline(l);
+        } else {
+            /* Move cursor to start of input (after prompt) */
+            char seq[32];
+            int cursor_pos = (int)promptTextColumnLen(l->prompt, strlen(l->prompt));
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            write(l->ofd, seq, strlen(seq));
+        }
     }
 }
 
+/* Move cursor to the end of the line. */
 void linenoiseEditMoveEnd(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos = l->len;
-        /* For wrapped lines, use clean refresh to avoid positioning issues */
-        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
+        if (mlmode) {
+            /* In multiline mode, use lightweight cursor positioning */
+            positionCursorMultiline(l);
+        } else {
+            /* Move cursor to end of input */
+            char seq[32];
+            int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + promptTextColumnLen(l->prompt, strlen(l->prompt)));
+            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
+                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+                write(l->ofd, seq, strlen(seq));
+            }
+        }
     }
 }
 
@@ -1431,17 +1597,78 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
             return;
         } else if (l->history_index >= history_len) {
             l->history_index = history_len - 1;
-            return;
+            /* Clear buffer to show empty line for new command */
+            l->buf[0] = '\0';
+            l->len = l->pos = 0;
+        } else {
+            strncpy(l->buf, history[history_len - 1 - l->history_index], l->buflen);
+            l->buf[l->buflen - 1] = '\0';
+            l->len = l->pos = strlen(l->buf);
         }
-        strncpy(l->buf, history[history_len - 1 - l->history_index], l->buflen);
-        l->buf[l->buflen - 1] = '\0';
-        l->len = l->pos = strlen(l->buf);
         
-        /* Enhanced history navigation - avoid cursor position queries that interfere with input */
-        /* Use safe direct line replacement to prevent consumption and prompt corruption */
-        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
-        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
-        write(l->ofd, l->buf, l->len);  /* Write history content */
+        /* Enhanced history navigation with proper multiline clearing */
+        if (mlmode) {
+            /* In multiline mode, clear all lines that might contain old content */
+            char seq[64];
+            struct abuf ab;
+            abInit(&ab);
+            
+            /* Calculate current multiline dimensions */
+            size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
+            int old_rows = l->oldrows;
+            if (old_rows <= 0) {
+                /* If oldrows not set, calculate based on current content */
+                old_rows = (pcollen + columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen) + l->cols - 1) / l->cols;
+                if (old_rows <= 0) old_rows = 1;
+            }
+            
+            /* Move to start of first line and clear all lines */
+            if (old_rows > 1) {
+                /* Go to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", old_rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+                
+                /* Clear all lines */
+                for (int i = 0; i < old_rows; i++) {
+                    snprintf(seq, sizeof(seq), "\x1b[0K");
+                    abAppend(&ab, seq, strlen(seq));
+                    if (i < old_rows - 1) {
+                        snprintf(seq, sizeof(seq), "\n");
+                        abAppend(&ab, seq, strlen(seq));
+                    }
+                }
+                
+                /* Return to first line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Single line - just clear it */
+                snprintf(seq, sizeof(seq), "\r\x1b[0K");
+                abAppend(&ab, seq, strlen(seq));
+            }
+            
+            /* Write the prompt and new content */
+            abAppend(&ab, l->prompt, strlen(l->prompt));
+            abAppend(&ab, l->buf, l->len);
+            
+            /* Write everything at once */
+            if (write(l->ofd, ab.b, ab.len) == -1) {
+                /* Can't recover */
+            }
+            
+            /* Update state for next navigation */
+            l->oldcolpos = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, pcollen);
+            l->oldrows = (pcollen + columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen) + l->cols - 1) / l->cols;
+            if (l->oldrows <= 0) l->oldrows = 1;
+            
+            /* Clean up buffer */
+            abFree(&ab);
+        } else {
+            /* In single line mode, use simple line replacement */
+            if (write(l->ofd, "\r\x1b[0K", 4) == -1) return; /* Clear current line */
+            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) return; /* Write prompt */
+            if (write(l->ofd, l->buf, l->len) == -1) return; /* Write content */
+        }
     }
 }
 
@@ -1475,22 +1702,25 @@ void linenoiseEditDelete(struct linenoiseState *l) {
 void linenoiseEditBackspace(struct linenoiseState *l) {
     if (l->pos > 0 && l->len > 0) {
         int chlen = prevCharLen(l->buf, l->len, l->pos, NULL);
+        
         memmove(l->buf + l->pos - chlen, l->buf + l->pos, l->len - l->pos);
         l->pos -= chlen;
         l->len -= chlen;
         l->buf[l->len] = '\0';
         
-        /* Use safe direct line replacement to prevent consumption and cursor jumping */
-        write(l->ofd, "\r\x1b[K", 4);  /* Clear current line */
-        write(l->ofd, l->prompt, strlen(l->prompt));  /* Write complete prompt using string length */
-        write(l->ofd, l->buf, l->len);  /* Write buffer content */
-        
-        /* Position cursor correctly using l->plen directly (no double calculation) */
-        size_t cursor_pos = l->plen + columnPos(l->buf, l->len, l->pos);
-        if (cursor_pos > 0) {
-            char seq[64];
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", (int)cursor_pos);
-            write(l->ofd, seq, strlen(seq));
+        if (mlmode) {
+            /* In multiline mode, use basic cursor movement and character deletion */
+            /* This avoids any refresh functions that cause prompt redrawing */
+            char seq[32];
+            
+            /* Move cursor back one character and delete it */
+            snprintf(seq, sizeof(seq), "\x1b[D\x1b[P");
+            if (write(l->ofd, seq, strlen(seq)) == -1) {
+                /* If that fails, just position cursor correctly */
+                positionCursorMultiline(l);
+            }
+        } else {
+            refreshLine(l);
         }
     }
 }
@@ -1915,9 +2145,62 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         }
         break;
     case CTRL_U: /* Ctrl+u, delete the whole line. */
-        l->buf[0] = '\0';
-        l->pos = l->len = 0;
-        refreshLine(l);
+        if (mlmode) {
+            /* In multiline mode, clear entire multiline command */
+            char seq[64];
+            struct abuf ab;
+            abInit(&ab);
+            
+            /* Calculate current multiline dimensions */
+            size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
+            int rows = (pcollen + columnPosForMultiLine(l->buf, l->len, l->len, l->cols, pcollen) + l->cols - 1) / l->cols;
+            
+            /* Move to start of first line and clear all lines of the multiline command */
+            if (rows > 1) {
+                /* Go to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+                
+                /* Clear all lines */
+                for (int i = 0; i < rows; i++) {
+                    snprintf(seq, sizeof(seq), "\x1b[0K");
+                    abAppend(&ab, seq, strlen(seq));
+                    if (i < rows - 1) {
+                        snprintf(seq, sizeof(seq), "\n");
+                        abAppend(&ab, seq, strlen(seq));
+                    }
+                }
+                
+                /* Return to first line */
+                snprintf(seq, sizeof(seq), "\r");
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Single line - just clear it */
+                snprintf(seq, sizeof(seq), "\r\x1b[0K");
+                abAppend(&ab, seq, strlen(seq));
+            }
+            
+            /* Clear the buffer */
+            l->buf[0] = '\0';
+            l->pos = l->len = 0;
+            
+            /* Write just the prompt */
+            abAppend(&ab, l->prompt, strlen(l->prompt));
+            
+            /* Write everything at once */
+            if (write(l->ofd, ab.b, ab.len) == -1) {
+                /* Can't recover... */
+            }
+            abFree(&ab);
+            
+            /* Reset state */
+            l->oldrows = 1;
+            l->oldcolpos = 0;
+        } else {
+            l->buf[0] = '\0';
+            l->pos = l->len = 0;
+            refreshLine(l);
+        }
         break;
     case CTRL_K: /* Ctrl+k, delete from current to end of line. */
         l->buf[l->pos] = '\0';
