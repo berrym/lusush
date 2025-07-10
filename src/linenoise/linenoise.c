@@ -1136,20 +1136,19 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     abAppend(&ab, seq, strlen(seq));
 
     if (flags & REFRESH_WRITE) {
-        /* Calculate cursor position for wrapped lines */
-        int total_cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
-        int cursor_row = total_cursor_pos / l->cols;
-        int cursor_col = total_cursor_pos % l->cols;
+        /* Check if content wraps to multiple lines */
+        int total_content_pos = (int)(columnPos(l->buf, l->len, l->len) + pcollen);
         
-        /* Position cursor correctly for wrapped lines */
-        if (cursor_row > 0) {
-            /* Multi-line case: go to start, then up to correct row, then right to column */
-            snprintf(seq, sizeof(seq), "\r\x1b[%dA\x1b[%dC", cursor_row, cursor_col);
+        if (total_content_pos >= (int)l->cols) {
+            /* Content wraps - don't try to position cursor with simple movements */
+            /* The cursor is already at the end after writing content */
+            /* Let subsequent refreshes handle proper positioning */
         } else {
-            /* Single line case: just move to correct column */
-            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_col);
+            /* Single line - can use simple cursor positioning */
+            int cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
+            abAppend(&ab, seq, strlen(seq));
         }
-        abAppend(&ab, seq, strlen(seq));
     }
 
     if (write(fd, ab.b, ab.len) == -1) {
@@ -1457,35 +1456,32 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
 void linenoiseEditMoveLeft(struct linenoiseState *l) {
     if (l->pos > 0) {
         l->pos -= prevCharLen(l->buf, l->len, l->pos, NULL);
-        /* Always use refresh for cursor movements to avoid positioning issues */
-        refreshLine(l);
+        /* For wrapped lines, use clean refresh to avoid positioning issues */
+        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
     }
 }
 
-/* Move cursor on the right. */
 void linenoiseEditMoveRight(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos += nextCharLen(l->buf, l->len, l->pos, NULL);
-        /* Always use refresh for cursor movements to avoid positioning issues */
-        refreshLine(l);
+        /* For wrapped lines, use clean refresh to avoid positioning issues */
+        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
     }
 }
 
-/* Move cursor to the start of the line. */
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
         l->pos = 0;
-        /* Always use refresh for cursor movements to avoid positioning issues */
-        refreshLine(l);
+        /* For wrapped lines, use clean refresh to avoid positioning issues */
+        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
     }
 }
 
-/* Move cursor to the end of the line. */
 void linenoiseEditMoveEnd(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos = l->len;
-        /* Always use refresh for cursor movements to avoid positioning issues */
-        refreshLine(l);
+        /* For wrapped lines, use clean refresh to avoid positioning issues */
+        refreshLineWithFlags(l, REFRESH_CLEAN | REFRESH_WRITE);
     }
 }
 

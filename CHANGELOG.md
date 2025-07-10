@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] - 2025-01-10
+
+### Fixed
+- **Cursor Positioning in Wrapped Lines (Ongoing Fix)**
+  - Improved cursor positioning logic for wrapped content in terminal windows
+  - Enhanced single-line refresh to better handle wrapped lines without cursor artifacts
+  - Use clean refresh approach for cursor movements to avoid positioning issues
+  - Better detection of wrapped content vs single-line content
+
+### Technical Details
+- Enhanced refreshSingleLine to detect wrapped content and handle appropriately
+- Use REFRESH_CLEAN | REFRESH_WRITE for cursor movements to ensure clean display
+- Improved cursor positioning calculations for wrapped terminal content
+- Better handling of terminal width constraints in cursor positioning
+
+### Known Issues
+- Cursor positioning in wrapped lines on very narrow terminals may still have edge cases
+- Working towards more robust solution for all terminal sizes and wrapping scenarios
+
 ## [1.0.11] - 2025-01-10
 
 ### Fixed
