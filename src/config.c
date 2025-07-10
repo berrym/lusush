@@ -597,7 +597,7 @@ void config_set_defaults(void) {
     config.confirm_exit = false;
     config.tab_width = 4;
     config.no_word_expand = false;
-    config.multiline_mode = true;
+    config.multiline_mode = false;
 
     // Auto-correction defaults
     config.autocorrect_max_suggestions = 3;
@@ -894,8 +894,9 @@ void config_apply_settings(void) {
     // Apply prompt settings (handled by theme system)
 
     // Apply behavior settings
-    // Apply multiline mode setting
-    linenoiseSetMultiLine(config.multiline_mode);
+    // Keep multiline mode disabled to avoid line consumption issues
+    // Use enhanced single-line mode with proper wrapped line handling
+    linenoiseSetMultiLine(false);
 
     // Apply history settings
     linenoiseHistoryNoDups(config.history_no_dups);

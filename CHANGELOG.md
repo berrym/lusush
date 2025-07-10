@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2025-01-10
+
+### Fixed
+- **Proper Wrapped Line Cursor Navigation (Critical Fix)**
+  - Fixed single-line mode to correctly handle wrapped lines without truncation
+  - Resolved issue where long commands were truncated in display causing cursor positioning errors
+  - Enhanced cursor positioning logic to calculate proper row/column for wrapped content
+  - Disabled problematic multiline mode that caused line consumption issues
+
+### Technical Details
+- Removed buffer truncation logic in refreshSingleLine that broke long commands
+- Implemented proper cursor positioning for wrapped lines using row/column calculations
+- Enhanced single-line refresh to handle wrapped content without visual artifacts
+- Kept multiline mode disabled by default to avoid terminal rendering issues
+- Fixed cursor movement functions to use consistent refresh approach
+
+### Code Quality
+- Simplified cursor movement logic to avoid complex positioning calculations
+- Improved single-line mode robustness for long wrapped commands
+- Better handling of terminal boundaries in cursor positioning
+- Maintained backward compatibility with existing functionality
+
 ## [1.0.10] - 2025-01-10
 
 ### Fixed

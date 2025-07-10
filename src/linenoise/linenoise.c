@@ -1086,23 +1086,14 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     char seq[64];
     size_t pcollen = promptTextColumnLen(l->prompt, strlen(l->prompt));
     int fd = l->ofd;
-    char *buf = l->buf;
-    size_t len = l->len;
-    size_t pos = l->pos;
+    /* Use l->buf, l->len, l->pos directly */
     struct abuf ab;
 
     /* Skip cursor position queries during refresh to prevent input interference on macOS/iTerm2 */
     /* Bottom-line protection is handled by the termcap module when needed */
 
-    while ((pcollen + columnPos(buf, len, pos)) >= l->cols) {
-        int chlen = nextCharLen(buf, len, 0, NULL);
-        buf += chlen;
-        len -= chlen;
-        pos -= chlen;
-    }
-    while (pcollen + columnPos(buf, len, len) > l->cols) {
-        len -= prevCharLen(buf, len, len, NULL);
-    }
+    /* Don't truncate long lines - handle them as wrapped instead */
+    /* Keep original buffer intact for proper wrapped line handling */
 
     abInit(&ab);
 
@@ -1129,11 +1120,12 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
         /* Write the prompt and the current buffer content */
         abAppend(&ab, l->prompt, strlen(l->prompt));
         if (maskmode == 1) {
-            while (len--) {
+            unsigned int i;
+            for (i = 0; i < l->len; i++) {
                 abAppend(&ab, "*", 1);
             }
         } else {
-            abAppend(&ab, buf, len);
+            abAppend(&ab, l->buf, l->len);
         }
         /* Show hits if any. */
         refreshShowHints(&ab, l, pcollen);
@@ -1144,32 +1136,20 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     abAppend(&ab, seq, strlen(seq));
 
     if (flags & REFRESH_WRITE) {
-        /* Move cursor to original position with robust bounds checking */
-        int cursor_pos = (int)(columnPos(buf, len, pos) + pcollen);
+        /* Calculate cursor position for wrapped lines */
+        int total_cursor_pos = (int)(columnPos(l->buf, l->len, l->pos) + pcollen);
+        int cursor_row = total_cursor_pos / l->cols;
+        int cursor_col = total_cursor_pos % l->cols;
         
-        /* Use termcap for safer cursor positioning if available */
-        const terminal_info_t *term_info = termcap_get_info();
-        if (term_info && term_info->is_tty) {
-            /* Ensure we don't exceed terminal bounds */
-            if (cursor_pos >= 0 && cursor_pos < term_info->cols) {
-                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-                abAppend(&ab, seq, strlen(seq));
-            } else {
-                /* Fallback: just go to beginning of line */
-                snprintf(seq, sizeof(seq), "\r");
-                abAppend(&ab, seq, strlen(seq));
-            }
+        /* Position cursor correctly for wrapped lines */
+        if (cursor_row > 0) {
+            /* Multi-line case: go to start, then up to correct row, then right to column */
+            snprintf(seq, sizeof(seq), "\r\x1b[%dA\x1b[%dC", cursor_row, cursor_col);
         } else {
-            /* Original bounds checking for non-termcap terminals */
-            if (cursor_pos >= 0 && cursor_pos < (int)l->cols) {
-                snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_pos);
-                abAppend(&ab, seq, strlen(seq));
-            } else {
-                /* Fallback: just go to beginning of line */
-                snprintf(seq, sizeof(seq), "\r");
-                abAppend(&ab, seq, strlen(seq));
-            }
+            /* Single line case: just move to correct column */
+            snprintf(seq, sizeof(seq), "\r\x1b[%dC", cursor_col);
         }
+        abAppend(&ab, seq, strlen(seq));
     }
 
     if (write(fd, ab.b, ab.len) == -1) {
@@ -1477,13 +1457,8 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *cbuf, int clen) {
 void linenoiseEditMoveLeft(struct linenoiseState *l) {
     if (l->pos > 0) {
         l->pos -= prevCharLen(l->buf, l->len, l->pos, NULL);
-        if (mlmode) {
-            /* In multiline mode, do a full refresh to position cursor correctly */
-            refreshLine(l);
-        } else {
-            /* Single line mode: do a full refresh to handle wrapped lines */
-            refreshLine(l);
-        }
+        /* Always use refresh for cursor movements to avoid positioning issues */
+        refreshLine(l);
     }
 }
 
@@ -1491,13 +1466,8 @@ void linenoiseEditMoveLeft(struct linenoiseState *l) {
 void linenoiseEditMoveRight(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos += nextCharLen(l->buf, l->len, l->pos, NULL);
-        if (mlmode) {
-            /* In multiline mode, do a full refresh to position cursor correctly */
-            refreshLine(l);
-        } else {
-            /* Single line mode: do a full refresh to handle wrapped lines */
-            refreshLine(l);
-        }
+        /* Always use refresh for cursor movements to avoid positioning issues */
+        refreshLine(l);
     }
 }
 
@@ -1505,13 +1475,8 @@ void linenoiseEditMoveRight(struct linenoiseState *l) {
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
         l->pos = 0;
-        if (mlmode) {
-            /* In multiline mode, do a full refresh to position cursor correctly */
-            refreshLine(l);
-        } else {
-            /* Single line mode: do a full refresh to handle wrapped lines */
-            refreshLine(l);
-        }
+        /* Always use refresh for cursor movements to avoid positioning issues */
+        refreshLine(l);
     }
 }
 
@@ -1519,13 +1484,8 @@ void linenoiseEditMoveHome(struct linenoiseState *l) {
 void linenoiseEditMoveEnd(struct linenoiseState *l) {
     if (l->pos != l->len) {
         l->pos = l->len;
-        if (mlmode) {
-            /* In multiline mode, do a full refresh to position cursor correctly */
-            refreshLine(l);
-        } else {
-            /* Single line mode: do a full refresh to handle wrapped lines */
-            refreshLine(l);
-        }
+        /* Always use refresh for cursor movements to avoid positioning issues */
+        refreshLine(l);
     }
 }
 
