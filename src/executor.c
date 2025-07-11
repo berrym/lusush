@@ -664,8 +664,35 @@ static int execute_command(executor_t *executor, node_t *command) {
             }
         }
     } else {
-        // Check if command exists first, offer auto-correction if not
-        if (config.spell_correction && autocorrect_is_enabled()) {
+        // Check auto_cd before attempting external command execution
+        int auto_cd_enabled = symtable_get_global_int("AUTO_CD", 0);
+        if (auto_cd_enabled && argc > 0 && argv[0]) {
+            struct stat st;
+            // Check if the command is actually a directory
+            if (stat(argv[0], &st) == 0 && S_ISDIR(st.st_mode)) {
+                // Auto-cd to the directory
+                if (chdir(argv[0]) == 0) {
+                    // Successfully changed directory, update PWD
+                    char *new_pwd = getcwd(NULL, 0);
+                    if (new_pwd) {
+                        symtable_set_global("PWD", new_pwd);
+                        free(new_pwd);
+                    }
+                    result = 0; // Success
+                } else {
+                    // Failed to change directory, show error
+                    perror("cd");
+                    result = 1;
+                }
+            } else {
+                // Not a directory, proceed with normal command execution
+                goto normal_execution;
+            }
+        } else {
+            // Auto-cd disabled, proceed with normal command execution
+            normal_execution:
+            // Check if command exists first, offer auto-correction if not
+            if (config.spell_correction && autocorrect_is_enabled()) {
             // First, check if the command actually exists
             if (!autocorrect_command_exists(executor, filtered_argv[0])) {
                 // Command doesn't exist, try auto-correction
@@ -717,10 +744,11 @@ static int execute_command(executor_t *executor, node_t *command) {
                 result = execute_external_command_with_setup(
                     executor, filtered_argv, redirect_stderr, command);
             }
-        } else {
-            // Auto-correction disabled, execute normally
-            result = execute_external_command_with_setup(
-                executor, filtered_argv, redirect_stderr, command);
+            } else {
+                // Auto-correction disabled, execute normally
+                result = execute_external_command_with_setup(
+                    executor, filtered_argv, redirect_stderr, command);
+            }
         }
     }
 

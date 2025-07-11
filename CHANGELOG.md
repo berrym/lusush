@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.22] - 2025-01-13
+
+### Added
+- **Auto-cd Functionality Implementation (Feature Complete)**
+  - Implemented automatic directory changing when auto_cd is enabled in configuration
+  - When auto_cd is enabled, typing a directory name automatically changes to that directory
+  - Works seamlessly with existing command execution without interference
+  - Proper error handling for non-existent directories and permission issues
+  - Updates PWD environment variable correctly when auto_cd is used
+  - Can be enabled/disabled using config set auto_cd true/false
+
+### Technical Details
+- **Implementation**: Added directory check before external command execution in executor
+- **Location**: src/executor.c in execute_command function
+- **Configuration**: Uses existing auto_cd config setting that was previously defined but not implemented
+- **Integration**: Works with existing autocorrection and command execution systems
+- **Error Handling**: Shows appropriate error messages for permission denied or non-existent paths
+- **State Management**: Properly updates PWD global variable when directory changes succeed
+
+### Usage
+- Enable: config set auto_cd true
+- Disable: config set auto_cd false
+- Example: With auto_cd enabled, typing "Documents" will change to Documents directory if it exists
+- Behavior: Only activates when command is not found and path is an existing directory
+
+### Performance
+- Minimal performance impact with single stat() call for directory checking
+- No impact on normal command execution when auto_cd is disabled
+- Clean integration without affecting existing functionality
+
 ## [1.0.21] - 2025-01-13
 
 ### Fixed
