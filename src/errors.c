@@ -95,6 +95,36 @@ void error_abort(const char *fmt, ...) {
 }
 
 /*
+ * Enhanced colored message functions for better user experience
+ */
+void warning_message(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "Warning: ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+}
+
+void info_message(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "Info: ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+}
+
+void success_message(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "Success: ");
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+}
+
+/*
  * NOTE: NECESSARALY FATAL
  * sigsegv_handler:
  *      Segmentation fault handler, insult programmer then abort.

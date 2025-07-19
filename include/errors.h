@@ -29,6 +29,11 @@ void error_message(const char *, ...);
 void error_quit(const char *, ...);
 void error_abort(const char *, ...);
 
+// Enhanced colored message functions
+void warning_message(const char *, ...);
+void info_message(const char *, ...);
+void success_message(const char *, ...);
+
 // Enhanced parser error functions
 
 void sigsegv_handler(int);

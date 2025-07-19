@@ -457,3 +457,7 @@ void build_prompt(void) {
     }
     colors = NULL;
 }
+
+void rebuild_prompt(void) {
+    build_prompt();
+}
