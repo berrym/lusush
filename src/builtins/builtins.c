@@ -13,6 +13,7 @@
 #include "../../include/prompt.h"
 #include "../../include/signals.h"
 #include "../../include/symtable.h"
+#include "../../include/termcap.h"
 #include "../../include/themes.h"
 #include "../../include/version.h"
 
@@ -57,6 +58,7 @@ builtin builtins[] = {
     {   "alias",                     "set an alias",    bin_alias},
     { "unalias",                   "unset an alias",  bin_unalias},
     {   "clear",                 "clear the screen",    bin_clear},
+    { "termcap",      "terminal capability testing",  bin_termcap},
 
     {    "type",             "display command type",     bin_type},
     {   "unset",           "unset a shell variable",    bin_unset},
@@ -277,96 +279,92 @@ int bin_history(int argc __attribute__((unused)),
 }
 
 /**
- * bin_alias:
- *      Create aliased commands, or print alias values.
+ * bin_termcap:
+ *      Test and demonstrate enhanced termcap functionality.
  */
-int bin_alias(int argc __attribute__((unused)),
-              char **argv __attribute__((unused))) {
-    char *src = NULL, *name = NULL, *val = NULL, *s = NULL;
-
-    if (argc == 1) {     // No arguments given to alias
-        print_aliases(); // Print a list of set aliases
+int bin_termcap(int argc, char **argv) {
+    extern int termcap_run_all_tests(void);
+    extern int termcap_interactive_demo(void);
+    extern void termcap_dump_capabilities(void);
+    
+    if (argc == 1) {
+        // No arguments - show capabilities
+        termcap_dump_capabilities();
         return 0;
     }
-
-    // Print an alias entry
-    if (argc == 2 && strchr(argv[1], '=') == NULL) {
-        s = lookup_alias(argv[1]); // Look up an alias given it's key
-        if (s == NULL) {           // If alias not found
-            error_message("error: `alias`: %s is not an alias", argv[1]);
-            return 1; // Return
+    
+    if (argc == 2) {
+        if (strcmp(argv[1], "test") == 0 || strcmp(argv[1], "--test") == 0) {
+            return termcap_run_all_tests();
+        } else if (strcmp(argv[1], "demo") == 0 || strcmp(argv[1], "--demo") == 0) {
+            return termcap_interactive_demo();
+        } else if (strcmp(argv[1], "capabilities") == 0 || strcmp(argv[1], "--capabilities") == 0) {
+            termcap_dump_capabilities();
+            return 0;
+        } else if (strcmp(argv[1], "integration") == 0 || strcmp(argv[1], "--integration") == 0) {
+            // Enhanced shell integration demo
+            printf("Lusush Enhanced Termcap Integration Demo\n");
+            printf("=========================================\n\n");
+            
+            const terminal_info_t *term_info = termcap_get_info();
+            if (term_info && term_info->is_tty) {
+                success_message("Terminal detected successfully");
+                info_message("Terminal size: %dx%d", term_info->cols, term_info->rows);
+                
+                if (termcap_supports_colors()) {
+                    termcap_print_colored(TERMCAP_GREEN, TERMCAP_DEFAULT, "Color support: ");
+                    printf("✓ Active\n");
+                    
+                    if (termcap_supports_256_colors()) {
+                        termcap_print_colored(TERMCAP_CYAN, TERMCAP_DEFAULT, "256-color mode: ");
+                        printf("✓ Available\n");
+                    }
+                    
+                    if (termcap_supports_truecolor()) {
+                        termcap_print_colored(TERMCAP_MAGENTA, TERMCAP_DEFAULT, "True color mode: ");
+                        printf("✓ Available\n");
+                    }
+                } else {
+                    warning_message("Color support not available");
+                }
+                
+                printf("\nEnhanced prompt example:\n");
+                termcap_print_colored(TERMCAP_CYAN, TERMCAP_DEFAULT, "lusush");
+                printf(":");
+                termcap_print_colored(TERMCAP_BLUE, TERMCAP_DEFAULT, "~/project");
+                printf(" ");
+                termcap_print_colored(TERMCAP_GREEN, TERMCAP_DEFAULT, "$");
+                printf(" ");
+                termcap_reset_all_formatting();
+                printf("\n");
+                
+            } else {
+                warning_message("No terminal detected - running in non-interactive mode");
+            }
+            
+            return 0;
+        } else if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0) {
+            printf("termcap - Enhanced terminal capability testing and demonstration\n\n");
+            printf("Usage: termcap [option]\n\n");
+            printf("Options:\n");
+            printf("  test         Run comprehensive test suite\n");
+            printf("  demo         Run interactive demonstration\n");
+            printf("  capabilities Show terminal capabilities (default)\n");
+            printf("  integration  Show enhanced shell integration demo\n");
+            printf("  help         Show this help message\n\n");
+            printf("The termcap command showcases lusush's enhanced terminal handling,\n");
+            printf("including colors, cursor control, and advanced features.\n");
+            return 0;
+        } else {
+            error_message("termcap: unknown option '%s'", argv[1]);
+            error_message("Run 'termcap help' for usage information");
+            return 1;
         }
-        printf("%s='%s'\n", argv[1], s); // Print the alias entry found
-        return 0;
     }
-
-    // Create a new alias
-    // Reconstruct a source string from argument vector
-    src = src_str_from_argv(argc, argv, " ");
-
-    if (src == NULL) {
-        return 1;
-    }
-
-    // Parse the alias name, the part before =
-    name = parse_alias_var_name(src);
-    if (name == NULL) {
-        error_message("error: `alias`: failed to parse alias name");
-        alias_usage();
-        return 1;
-    }
-
-    // Parse the alias value
-    val = parse_alias_var_value(src, find_opening_quote_type(src));
-    if (val == NULL) {
-        error_message("error: `alias`: failed to parse alias value");
-        alias_usage();
-        return 1;
-    }
-
-    // Check alias is a valid name
-    if (!valid_alias_name(name)) {
-        error_message(
-            "error: `alias`: name cannot contains illegal characters");
-        return 1;
-    }
-
-    // Can't alias builtin commands or keywords
-    if (is_builtin(name)) {
-        error_message("error: `alias`: cannot alias shell keyword: %s", name);
-        return 1;
-    }
-
-    // Set a new alias
-    if (!set_alias(name, val)) {
-        error_message("error: `alias`: failed to create alias");
-        return 1;
-    }
-
-    // Free created strings
-    free_str(src);
-    free_str(name);
-    free_str(val);
-
-    return 0;
-}
-
-/**
- * bin_unalias:
- *      Remove an aliased command.
- */
-int bin_unalias(int argc __attribute__((unused)),
-                char **argv __attribute__((unused))) {
-    switch (argc) {
-    case 2:
-        unset_alias(argv[1]);
-        break;
-    default:
-        unalias_usage();
-        return 1;
-    }
-
-    return 0;
+    
+    error_message("termcap: too many arguments");
+    error_message("Run 'termcap help' for usage information");
+    return 1;
 }
 
 /**
@@ -2817,7 +2815,7 @@ int bin_theme(int argc, char **argv) {
                 config.theme_name = strdup(theme_name);
 
                 // Rebuild prompt with new theme
-                build_prompt();
+                rebuild_prompt();
 
                 return 0;
             } else {
@@ -2880,33 +2878,49 @@ int bin_theme(int argc, char **argv) {
 
             printf("Color scheme for theme: %s\n\n", theme->name);
 
-            // Display color palette with examples
-            printf("Primary:    %sExample text%s\n", theme->colors.primary,
-                   "\033[0m");
-            printf("Secondary:  %sExample text%s\n", theme->colors.secondary,
-                   "\033[0m");
-            printf("Success:    %sExample text%s\n", theme->colors.success,
-                   "\033[0m");
-            printf("Warning:    %sExample text%s\n", theme->colors.warning,
-                   "\033[0m");
-            printf("Error:      %sExample text%s\n", theme->colors.error,
-                   "\033[0m");
-            printf("Info:       %sExample text%s\n", theme->colors.info,
-                   "\033[0m");
-            printf("Text:       %sExample text%s\n", theme->colors.text,
-                   "\033[0m");
-            printf("Text dim:   %sExample text%s\n", theme->colors.text_dim,
-                   "\033[0m");
-            printf("Highlight:  %sExample text%s\n", theme->colors.highlight,
-                   "\033[0m");
-            printf("Git clean:  %sExample text%s\n", theme->colors.git_clean,
-                   "\033[0m");
-            printf("Git dirty:  %sExample text%s\n", theme->colors.git_dirty,
-                   "\033[0m");
-            printf("Git staged: %sExample text%s\n", theme->colors.git_staged,
-                   "\033[0m");
-            printf("Git branch: %sExample text%s\n", theme->colors.git_branch,
-                   "\033[0m");
+            // Display color palette with examples using termcap
+            if (termcap_supports_colors()) {
+                termcap_print_colored(TERMCAP_BLUE, TERMCAP_COLOR_DEFAULT, "Primary:    ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_CYAN, TERMCAP_COLOR_DEFAULT, "Secondary:  ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_GREEN, TERMCAP_COLOR_DEFAULT, "Success:    ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_YELLOW, TERMCAP_COLOR_DEFAULT, "Warning:    ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_RED, TERMCAP_COLOR_DEFAULT, "Error:      ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_CYAN, TERMCAP_COLOR_DEFAULT, "Info:       ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_WHITE, TERMCAP_COLOR_DEFAULT, "Text:       ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_COLOR_BRIGHT_BLACK, TERMCAP_COLOR_DEFAULT, "Text dim:   ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_COLOR_BRIGHT_CYAN, TERMCAP_COLOR_DEFAULT, "Highlight:  ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_GREEN, TERMCAP_COLOR_DEFAULT, "Git clean:  ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_YELLOW, TERMCAP_COLOR_DEFAULT, "Git dirty:  ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_COLOR_BRIGHT_GREEN, TERMCAP_COLOR_DEFAULT, "Git staged: ");
+                printf("Example text\n");
+                termcap_print_colored(TERMCAP_MAGENTA, TERMCAP_COLOR_DEFAULT, "Git branch: ");
+                printf("Example text\n");
+            } else {
+                printf("Primary:    Example text\n");
+                printf("Secondary:  Example text\n");
+                printf("Success:    Example text\n");
+                printf("Warning:    Example text\n");
+                printf("Error:      Example text\n");
+                printf("Info:       Example text\n");
+                printf("Text:       Example text\n");
+                printf("Text dim:   Example text\n");
+                printf("Highlight:  Example text\n");
+                printf("Git clean:  Example text\n");
+                printf("Git dirty:  Example text\n");
+                printf("Git staged: Example text\n");
+                printf("Git branch: Example text\n");
+            }
 
             return 0;
         }

@@ -1,5 +1,6 @@
 #include "../../include/alias.h"
 
+#include "../../include/builtins.h"
 #include "../../include/errors.h"
 #include "../../include/libhashtable/ht.h"
 #include "../../include/lusush.h"
@@ -26,42 +27,46 @@ void init_aliases(void) {
     // set some example aliases
     set_alias("..", "cd ../");
     set_alias("...", "cd ../../");
-    set_alias("day", "echo $(date +'%A')");
-    set_alias("hour", "echo $(date +'%l%p')");
     set_alias("l", "ls --color=auto");
     set_alias("la", "ls -a --color=force");
     set_alias("ll", "ls -alF --color=force");
     set_alias("ls", "ls --color=force");
-    set_alias("month", "echo $(date +'%B')");
-    set_alias("time", "echo $(date +'%T')");
-    set_alias("year", "echo $(date +'%Y')");
 }
 
 /**
  * free_aliases:
  *      Delete the entire alias hash table.
  */
-void free_aliases(void) { ht_strstr_destroy(aliases); }
+void free_aliases(void) {
+    if (aliases) {
+        ht_strstr_destroy(aliases);
+        aliases = NULL;
+    }
+}
 
 /**
  * lookup_alias:
- *      Find the alias value associated with a given key name,
+ *      Find the alias value associated with a given key name.
  */
 char *lookup_alias(const char *key) {
+    if (!aliases || !key) {
+        return NULL;
+    }
     const char *val = ht_strstr_get(aliases, key);
     return (char *)val;
 }
 
 /**
  * print_aliases:
- *      Print out the entire hash table of aliases.
+ *      Print out the entire hash table of aliases in POSIX format.
  */
 void print_aliases(void) {
     const char *k = NULL, *v = NULL;
     aliases_e = ht_strstr_enum_create(aliases);
-    printf("aliases:\n");
+
     while (ht_strstr_enum_next(aliases_e, &k, &v)) {
-        printf("%s='%s'\n", k, v);
+        // POSIX format: alias name='value'
+        printf("alias %s='%s'\n", k, v);
     }
     ht_strstr_enum_destroy(aliases_e);
 }
@@ -71,40 +76,60 @@ void print_aliases(void) {
  *      Insert a new key-value pair into the hash table.
  */
 bool set_alias(const char *key, const char *val) {
-    ht_strstr_insert(aliases, key, val);
-    char *alias = lookup_alias(key);
-    if (alias == NULL) {
+    if (!aliases || !key || !val) {
         return false;
     }
-    return true;
+
+    ht_strstr_insert(aliases, key, val);
+    char *alias = lookup_alias(key);
+    return (alias != NULL);
 }
 
 /**
  * unset_alias:
  *      Remove an entry from the hash table.
  */
-void unset_alias(const char *key) { ht_strstr_remove(aliases, key); };
+void unset_alias(const char *key) {
+    if (aliases && key) {
+        ht_strstr_remove(aliases, key);
+    }
+}
 
 /**
- * valid_name_char:
- *      Check that a character is valid for an alias name.
+ * valid_alias_name_char:
+ *      Check that a character is valid for an alias name per POSIX.
+ *      POSIX allows alphanumeric characters and underscore.
+ *      Some shells extend this to include additional characters.
  */
 bool valid_alias_name_char(char c) {
+    // POSIX base: alphanumeric and underscore
+    if (isalnum((unsigned char)c) || c == '_') {
+        return true;
+    }
+
+    // Common extensions in practice
     switch (c) {
-    case '.':
-    case '_':
-    case '!':
-    case '%':
-    case ',':
-    case '@':
+    case '.': // Often used for navigation aliases
+    case '-': // Common in command names
+    case '+': // Sometimes used
         return true;
     default:
-        if (isalnum((int)c)) {
-            return true;
-        } else {
-            return false;
-        }
+        return false;
     }
+}
+
+/**
+ * skip_whitespace:
+ *      Skip whitespace characters in a string.
+ */
+static const char *skip_whitespace(const char *str) {
+    if (!str) {
+        return NULL;
+    }
+    while (*str && isspace((unsigned char)*str)) {
+        str++;
+    }
+    return str;
 }
 
 /**
@@ -112,20 +137,31 @@ bool valid_alias_name_char(char c) {
  *      Check that an alias key name consists of valid characters.
  */
 bool valid_alias_name(const char *key) {
-    const char *p = key;
-
-    if (!*p) {
+    if (!key || !*key) {
         return false;
     }
 
-    while (*p) {
+    // Check for empty string after trimming whitespace
+    const char *trimmed = skip_whitespace(key);
+    if (!trimmed || !*trimmed) {
+        return false;
+    }
+
+    // First character cannot be a digit (POSIX requirement)
+    if (isdigit((unsigned char)*trimmed)) {
+        return false;
+    }
+
+    const char *p = trimmed;
+    while (*p && !isspace((unsigned char)*p)) {
         if (!valid_alias_name_char(*p)) {
             return false;
         }
         p++;
     }
 
-    return true;
+    // Make sure we processed at least one character
+    return (p > trimmed);
 }
 
 /**
@@ -133,9 +169,14 @@ bool valid_alias_name(const char *key) {
  *      Print how to use the builtin alias command.
  */
 void alias_usage(void) {
-    fprintf(stderr, "usage:\talias (print a list of all aliases)\n"
-                    "\talias name (print the value of an alias)\n"
-                    "\talias name='replacement text' (set an alias)\n");
+    fprintf(stderr, "usage: alias [name[=value] ...]\n"
+                    "       alias [name ...]\n"
+                    "\n"
+                    "Define or display aliases.\n"
+                    "\n"
+                    "Without arguments, print all aliases.\n"
+                    "With name arguments, print the aliases for those names.\n"
+                    "With name=value arguments, define aliases.\n");
 }
 
 /**
@@ -143,125 +184,49 @@ void alias_usage(void) {
  *      Print how to use the builtin unalias command.
  */
 void unalias_usage(void) {
-    fprintf(stderr, "usage:\tunalias name (unset alias with key name)\n");
+    fprintf(stderr, "usage: unalias [-a] name [name ...]\n"
+                    "\n"
+                    "Remove alias definitions.\n"
+                    "\n"
+                    "  -a    remove all alias definitions\n");
 }
 
 /**
- * src_str_from_argv:
- *       Convert elements of an argument vector into a single string
- *       seperating arguments with the string value given in the sep argument.
+ * find_equals:
+ *      Find the first unquoted equals sign in a string.
  */
-char *src_str_from_argv(size_t argc, char **argv, const char *sep) {
-    char *src = NULL;
-
-    src = alloc_str(MAXLINE + 1, false);
-    if (src == NULL) {
-        error_message("alias: unable to allocate source string");
+static const char *find_equals(const char *str) {
+    if (!str) {
         return NULL;
     }
 
-    // recreate a single source string
-    for (size_t i = 0; i < argc; i++) {
-        strcat(src, argv[i]);
-        strcat(src, sep);
-    }
-    null_terminate_str(src);
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+    bool escaped = false;
 
-    return src;
-}
-
-/**
- * parse_alias_var_name:
- *      Parse the word before an equal sign in a whitespace seperated
- *      token source string that represents the alias name.
- */
-char *parse_alias_var_name(char *src) {
-    char *sp = NULL, *ep = NULL, *var = NULL, **argv = NULL;
-    size_t argc = 0, targc = 0, cpos = 0;
-
-    if (check_buffer_bounds(&argc, &targc, &argv)) {
-        argv[argc] = alloc_str(MAXLINE + 1, false);
-        if (argv[argc] == NULL) {
-            error_message(
-                "error: `alias`: insufficient memory to complete operation");
-            return NULL;
-        }
-    } else {
-        error_message(
-            "error: `alias`: insufficient memory to complete operation");
-        return NULL;
-    }
-
-    for (char *p = src; *p; p++) {
-        str_skip_whitespace(p);
-        sp = p;
-
-        // Fill tokens seperated by whitespace, grow buffer if necessary
-        while (!isspace((int)*p) && *p != '=') {
-            argv[argc][cpos] = *p, p++, cpos++;
+    for (const char *p = str; *p; p++) {
+        if (escaped) {
+            escaped = false;
+            continue;
         }
 
-        null_terminate_str(argv[argc]);
-        argc++, cpos = 0;
-
-        if (argc == targc) {
-            if (!check_buffer_bounds(&argc, &targc, &argv)) {
-                error_message("error: `alias`: insufficient memory to complete "
-                              "operation");
-                return NULL;
-            }
-        }
-        argv[argc] = alloc_str(MAXLINE + 1, false);
-        if (argv[argc] == NULL) {
-            error_message(
-                "error: `alias`: insufficient memory to complete operation");
-            return NULL;
+        if (*p == '\\' && !in_single_quote) {
+            escaped = true;
+            continue;
         }
 
-        // '=' found, parse the alias variable name token that precedes it
-        if (*p == '=') {
-            ep = p;
-            p = sp;
+        if (*p == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            continue;
+        }
 
-            // Fill tokens until we reach ep, the address of the '='
-            while (p < ep) {
-                if (!isspace((int)*p)) {
-                    argv[argc][cpos] = *p;
-                    cpos++, p++;
-                } else {
-                    null_terminate_str(argv[argc]);
-                    argc++, cpos = 0;
-                    if (argc == targc) {
-                        if (!check_buffer_bounds(&argc, &targc, &argv)) {
-                            error_message("error: `alias`: insufficient memory "
-                                          "to complete operation");
-                            return NULL;
-                        }
-                    }
-                    argv[argc] = alloc_str(MAXLINE + 1, false);
-                    if (argv[argc] == NULL) {
-                        error_message("error: `alias`: insufficient memory to "
-                                      "complete operation");
-                        return NULL;
-                    }
-                }
-            }
+        if (*p == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            continue;
+        }
 
-            // Ignore parsed empty string tokens
-            while (!*argv[argc]) {
-                argc--;
-            }
-
-            var = strdup(argv[argc]);
-            if (var == NULL) {
-                error_message("error: `alias`: insufficient memory to complete "
-                              "operation");
-                break;
-            }
-
-            free_argv(argc, argv);
-
-            return var;
+        if (*p == '=' && !in_single_quote && !in_double_quote) {
+            return p;
         }
     }
 
@@ -269,38 +234,126 @@ char *parse_alias_var_name(char *src) {
 }
 
 /**
- * parse_alias_var_value:
- *      Parse a substring between quotes that represents the alias substitution
- *      value.
+ * parse_alias_assignment:
+ *      Parse an alias assignment in the form name=value.
+ *      Returns true on success, false on failure.
+ *      On success, *name and *value are set to newly allocated strings.
  */
-char *parse_alias_var_value(char *src,
-                            const char delim __attribute__((unused))) {
-    // Find the first '='
-    char *eq = strchr(src, '=');
-    if (!eq) {
-        error_message("error: `alias`: '=' not found in alias definition");
-        return NULL;
+static bool parse_alias_assignment(const char *assignment, char **name,
+                                   char **value) {
+    if (!assignment || !name || !value) {
+        return false;
     }
-    // Skip whitespace after '='
-    char *p = eq + 1;
-    while (*p && isspace((unsigned char)*p)) {
-        p++;
+
+    *name = NULL;
+    *value = NULL;
+
+    const char *equals = find_equals(assignment);
+    if (!equals) {
+        return false;
     }
-    // Take the rest of the string as the value, trim trailing whitespace
-    char *end = p + strlen(p);
-    while (end > p && isspace((unsigned char)*(end - 1))) {
-        end--;
+
+    // Extract name part
+    size_t name_len = equals - assignment;
+    const char *name_start = skip_whitespace(assignment);
+    const char *name_end = equals;
+
+    // Trim trailing whitespace from name
+    while (name_end > name_start && isspace((unsigned char)*(name_end - 1))) {
+        name_end--;
     }
-    size_t len = end - p;
-    char *val = alloc_str(len + 1, false);
-    if (!val) {
-        error_message(
-            "error: `alias`: insufficient memory to complete operation");
-        return NULL;
+
+    name_len = name_end - name_start;
+    if (name_len == 0) {
+        return false;
     }
-    strncpy(val, p, len);
-    val[len] = '\0';
-    return val;
+
+    *name = malloc(name_len + 1);
+    if (!*name) {
+        return false;
+    }
+    strncpy(*name, name_start, name_len);
+    (*name)[name_len] = '\0';
+
+    // Extract value part
+    const char *value_start = skip_whitespace(equals + 1);
+    const char *value_end = value_start + strlen(value_start);
+
+    // Trim trailing whitespace from value
+    while (value_end > value_start &&
+           isspace((unsigned char)*(value_end - 1))) {
+        value_end--;
+    }
+
+    // Handle quoted values
+    if (value_end > value_start) {
+        char quote_char = 0;
+        if ((*value_start == '\'' || *value_start == '"') &&
+            *(value_end - 1) == *value_start) {
+            quote_char = *value_start;
+            value_start++;
+            value_end--;
+        }
+
+        size_t value_len = value_end - value_start;
+        *value = malloc(value_len + 1);
+        if (!*value) {
+            free(*name);
+            *name = NULL;
+            return false;
+        }
+
+        // Copy value, handling escape sequences if in double quotes
+        size_t j = 0;
+        for (const char *p = value_start; p < value_end; p++) {
+            if (quote_char == '"' && *p == '\\' && p + 1 < value_end) {
+                // Handle common escape sequences in double quotes
+                switch (*(p + 1)) {
+                case 'n':
+                    (*value)[j++] = '\n';
+                    p++;
+                    break;
+                case 't':
+                    (*value)[j++] = '\t';
+                    p++;
+                    break;
+                case 'r':
+                    (*value)[j++] = '\r';
+                    p++;
+                    break;
+                case '\\':
+                    (*value)[j++] = '\\';
+                    p++;
+                    break;
+                case '"':
+                    (*value)[j++] = '"';
+                    p++;
+                    break;
+                case '$':
+                    (*value)[j++] = '$';
+                    p++;
+                    break;
+                default:
+                    (*value)[j++] = *p;
+                    break;
+                }
+            } else {
+                (*value)[j++] = *p;
+            }
+        }
+        (*value)[j] = '\0';
+    } else {
+        // Empty value
+        *value = malloc(1);
+        if (!*value) {
+            free(*name);
+            *name = NULL;
+            return false;
+        }
+        (*value)[0] = '\0';
+    }
+
+    return true;
 }
 
 /**
@@ -423,66 +476,239 @@ char *expand_first_word_alias(const char *command) {
  *     POSIX allows some special characters in alias names
  *     that aren't allowed in variable names.
  */
-bool is_special_alias_char(char c) {
-    switch (c) {
-    case '.':
-    case '_':
-    case '!':
-    case '%':
-    case ',':
-    case '@':
-        return true;
-    default:
-        return isalnum(c);
+bool is_special_alias_char(char c) { return valid_alias_name_char(c); }
+
+/**
+ * contains_shell_operators:
+ *     Check if an alias value contains shell operators that require re-parsing.
+ *     This detects pipes, redirections, logical operators, etc.
+ */
+bool contains_shell_operators(const char *value) {
+    if (!value) {
+        return false;
     }
+
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+    bool escaped = false;
+
+    for (const char *p = value; *p; p++) {
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+
+        if (*p == '\\' && !in_single_quote) {
+            escaped = true;
+            continue;
+        }
+
+        if (*p == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+            continue;
+        }
+
+        if (*p == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+            continue;
+        }
+
+        // Check for shell operators outside of quotes
+        if (!in_single_quote && !in_double_quote) {
+            switch (*p) {
+            case '|': // Pipe
+                if (*(p + 1) == '|') {
+                    return true; // Logical OR ||
+                }
+                return true; // Pipe |
+            case '&':        // Background or logical AND
+                if (*(p + 1) == '&') {
+                    return true; // Logical AND &&
+                }
+                return true; // Background &
+            case '>':        // Redirect out
+            case '<':        // Redirect in
+                return true;
+            case ';': // Command separator
+                return true;
+            case '(': // Subshell
+            case ')':
+                return true;
+            case '{': // Command group
+            case '}':
+                return true;
+            case '`': // Command substitution
+                return true;
+            case '$': // Variable expansion or command substitution
+                if (*(p + 1) == '(') {
+                    return true; // Command substitution $(...)
+                }
+                break;
+            }
+        }
+    }
+
+    return false;
 }
 
-// /**
-//  * parse_alias_var_value:
-//  *      Parse a substring between quotes that represents the alias
-//  substitution
-//  * value.
-//  */
-// char *parse_alias_var_value(char *src, const char delim) {
-//     char *val = NULL, *sp = NULL, *ep = NULL;
+/**
+ * expand_alias_with_shell_operators:
+ *     Enhanced alias expansion that can handle shell operators by re-parsing.
+ *     Returns a newly allocated string with the full command line to execute,
+ *     or NULL if no alias expansion is needed.
+ */
+char *expand_alias_with_shell_operators(const char *command) {
+    if (!command) {
+        return NULL;
+    }
 
-//     if (!delim) {
-//         error_message("error: `alias`: value not properly quoted");
-//         return NULL;
-//     }
+    // Use tokenizer to get the first word
+    tokenizer_t *tokenizer = tokenizer_new(command);
+    if (!tokenizer) {
+        return NULL;
+    }
 
-//     for (char *p = src; *p; p++) {              // for each char in line
-//         if (sp == NULL && *p == delim) {        // find first delimeter
-//             sp = p, sp++;                       // set start ptr
-//         } else if (ep == NULL && *p == delim) { // find second delimeter
-//             ep = p;                             // set end ptr
-//         }
+    token_t *first_token = tokenizer_current(tokenizer);
+    if (!first_token || first_token->type != TOK_WORD) {
+        tokenizer_free(tokenizer);
+        return NULL;
+    }
 
-//         if (sp && ep) {               // if both set
-//             char substr[ep - sp + 1]; // declare substr
-//             p = sp;
+    // Check if first word is an alias
+    char *alias_value = lookup_alias(first_token->text);
+    if (!alias_value) {
+        tokenizer_free(tokenizer);
+        return NULL;
+    }
 
-//             for (size_t i = 0; p < ep; i++, p++) { // copy to substr
-//                 substr[i] = *p;
-//             }
+    // Get the rest of the command after the first word
+    const char *rest_of_command = command + strlen(first_token->text);
 
-//             substr[ep - sp] = '\0'; // nul-terminate
+    // Skip whitespace after first word
+    while (*rest_of_command && isspace((unsigned char)*rest_of_command)) {
+        rest_of_command++;
+    }
 
-//             val = strdup(substr);
-//             if (val == NULL) {
-//                 error_message("error: `alias`: insufficient memory to
-//                 complete "
-//                               "operation");
-//                 return NULL;
-//             }
-//             break;
-//         }
-//     }
+    // Build the expanded command
+    size_t alias_len = strlen(alias_value);
+    size_t rest_len = strlen(rest_of_command);
+    size_t total_len = alias_len + (rest_len > 0 ? rest_len + 1 : 0) + 1;
 
-//     if (ep == NULL) {
-//         error_message("error: `alias`: missing closing quote");
-//         return NULL;
-//     }
+    char *expanded = malloc(total_len);
+    if (!expanded) {
+        tokenizer_free(tokenizer);
+        return NULL;
+    }
 
-//     return val;
-// }
+    strcpy(expanded, alias_value);
+    if (rest_len > 0) {
+        strcat(expanded, " ");
+        strcat(expanded, rest_of_command);
+    }
+
+    tokenizer_free(tokenizer);
+    return expanded;
+}
+
+/**
+ * bin_alias:
+ *      Create aliased commands, or print alias values.
+ *      Improved POSIX-compliant implementation.
+ */
+int bin_alias(int argc, char **argv) {
+    // No arguments: print all aliases
+    if (argc == 1) {
+        print_aliases();
+        return 0;
+    }
+
+    int exit_status = 0;
+
+    // Process each argument
+    for (int i = 1; i < argc; i++) {
+        char *name = NULL;
+        char *value = NULL;
+
+        // Try to parse as assignment (name=value)
+        if (parse_alias_assignment(argv[i], &name, &value)) {
+            // Check if name is valid
+            if (!valid_alias_name(name)) {
+                error_message("alias: invalid alias name: %s", name);
+                free(name);
+                free(value);
+                exit_status = 1;
+                continue;
+            }
+
+            // Can't alias builtin commands or keywords
+            if (is_builtin(name)) {
+                error_message("alias: cannot alias shell keyword: %s", name);
+                free(name);
+                free(value);
+                exit_status = 1;
+                continue;
+            }
+
+            // Set the alias
+            if (!set_alias(name, value)) {
+                error_message("alias: failed to create alias: %s", name);
+                exit_status = 1;
+            }
+
+            free(name);
+            free(value);
+        } else {
+            // Not an assignment, treat as name lookup
+            char *alias_value = lookup_alias(argv[i]);
+            if (alias_value) {
+                printf("alias %s='%s'\n", argv[i], alias_value);
+            } else {
+                error_message("alias: %s: not found", argv[i]);
+                exit_status = 1;
+            }
+        }
+    }
+
+    return exit_status;
+}
+
+/**
+ * bin_unalias:
+ *      Remove aliased commands.
+ *      Improved POSIX-compliant implementation.
+ */
+int bin_unalias(int argc, char **argv) {
+    if (argc < 2) {
+        unalias_usage();
+        return 1;
+    }
+
+    int exit_status = 0;
+
+    // Handle -a option (remove all aliases)
+    if (argc == 2 && strcmp(argv[1], "-a") == 0) {
+        if (aliases) {
+            ht_strstr_destroy(aliases);
+            aliases = ht_strstr_create(HT_STR_CASECMP | HT_SEED_RANDOM);
+        }
+        return 0;
+    }
+
+    // Process each name argument
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-a") == 0) {
+            error_message("unalias: -a must be used alone");
+            exit_status = 1;
+            continue;
+        }
+
+        if (lookup_alias(argv[i])) {
+            unset_alias(argv[i]);
+        } else {
+            error_message("unalias: %s: not found", argv[i]);
+            exit_status = 1;
+        }
+    }
+
+    return exit_status;
+}

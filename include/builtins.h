@@ -21,6 +21,7 @@ int bin_history(int, char **);
 int bin_alias(int, char **);
 int bin_unalias(int, char **);
 int bin_clear(int, char **);
+int bin_termcap(int, char **);
 int bin_type(int, char **);
 int bin_unset(int, char **);
 int bin_dump(int, char **);
