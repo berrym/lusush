@@ -16,7 +16,8 @@ lle_headers = [
   'cursor_math.h',
   'terminal_manager.h',
   'prompt.h',
-  'display.h'
+  'display.h',
+  'theme_integration.h'
 ]
 
 # Create line editor static library
