@@ -32,6 +32,18 @@
 #define LLE_MAX_BUFFER_CAPACITY (100 * 1024)
 
 /**
+ * @brief Cursor movement types for text buffer navigation
+ */
+typedef enum {
+    LLE_MOVE_LEFT,          /**< Move cursor one position left */
+    LLE_MOVE_RIGHT,         /**< Move cursor one position right */
+    LLE_MOVE_HOME,          /**< Move cursor to beginning of buffer */
+    LLE_MOVE_END,           /**< Move cursor to end of buffer */
+    LLE_MOVE_WORD_LEFT,     /**< Move cursor to beginning of previous word */
+    LLE_MOVE_WORD_RIGHT     /**< Move cursor to beginning of next word */
+} lle_cursor_movement_t;
+
+/**
  * @brief Text buffer structure for UTF-8 text storage and manipulation
  *
  * This structure maintains both byte-level and character-level information
@@ -138,5 +150,20 @@ bool lle_text_backspace(lle_text_buffer_t *buffer);
 bool lle_text_delete_range(lle_text_buffer_t *buffer, size_t start, size_t end);
 
 // Task LLE-005: Cursor movement functions
+/**
+ * @brief Move cursor within the text buffer
+ * @param buffer Pointer to text buffer
+ * @param movement Type of cursor movement to perform
+ * @return true on success, false on failure or no movement possible
+ */
+bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movement);
+
+/**
+ * @brief Set cursor to a specific position
+ * @param buffer Pointer to text buffer
+ * @param position New cursor position (0-based byte offset)
+ * @return true on success, false on failure
+ */
+bool lle_text_set_cursor(lle_text_buffer_t *buffer, size_t position);
 
 #endif // LLE_TEXT_BUFFER_H

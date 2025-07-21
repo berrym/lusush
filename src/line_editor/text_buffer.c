@@ -567,3 +567,195 @@ bool lle_text_delete_range(lle_text_buffer_t *buffer, size_t start, size_t end) 
 
     return true;
 }
+
+/**
+ * @brief Check if a character is a word boundary
+ *
+ * Helper function to determine if a character should be considered
+ * a word boundary for word-based cursor movement.
+ *
+ * @param c Character to check
+ * @return true if character is a word boundary, false otherwise
+ *
+ * @note Word boundaries include whitespace and common punctuation
+ */
+static bool lle_is_word_boundary(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' ||
+           c == '.' || c == ',' || c == ';' || c == ':' ||
+           c == '!' || c == '?' || c == '"' || c == '\'' ||
+           c == '(' || c == ')' || c == '[' || c == ']' ||
+           c == '{' || c == '}' || c == '<' || c == '>' ||
+           c == '/' || c == '\\' || c == '|' || c == '@' ||
+           c == '#' || c == '$' || c == '%' || c == '^' ||
+           c == '&' || c == '*' || c == '+' || c == '=' ||
+           c == '-' || c == '_' || c == '`' || c == '~';
+}
+
+/**
+ * @brief Find the start of the previous word
+ *
+ * Helper function to find the beginning of the word before the cursor.
+ * Skips over whitespace and punctuation to find actual word content.
+ *
+ * @param buffer Pointer to text buffer
+ * @param from_pos Starting position to search backwards from
+ * @return Position of previous word start, or 0 if at beginning
+ */
+static size_t lle_find_prev_word_start(lle_text_buffer_t *buffer, size_t from_pos) {
+    if (!buffer || !buffer->buffer || from_pos == 0) {
+        return 0;
+    }
+
+    size_t pos = from_pos;
+    
+    // Move back to skip current position if at word boundary
+    if (pos > 0) {
+        pos--;
+    }
+    
+    // Skip any word boundaries (whitespace, punctuation)
+    while (pos > 0 && lle_is_word_boundary(buffer->buffer[pos])) {
+        pos--;
+    }
+    
+    // Now find the start of this word
+    while (pos > 0 && !lle_is_word_boundary(buffer->buffer[pos - 1])) {
+        pos--;
+    }
+    
+    return pos;
+}
+
+/**
+ * @brief Find the start of the next word
+ *
+ * Helper function to find the beginning of the word after the cursor.
+ * Skips over current word and whitespace to find next word content.
+ *
+ * @param buffer Pointer to text buffer
+ * @param from_pos Starting position to search forwards from
+ * @return Position of next word start, or buffer length if at end
+ */
+static size_t lle_find_next_word_start(lle_text_buffer_t *buffer, size_t from_pos) {
+    if (!buffer || !buffer->buffer || from_pos >= buffer->length) {
+        return buffer ? buffer->length : 0;
+    }
+
+    size_t pos = from_pos;
+    
+    // Skip current word (non-boundary characters)
+    while (pos < buffer->length && !lle_is_word_boundary(buffer->buffer[pos])) {
+        pos++;
+    }
+    
+    // Skip word boundaries (whitespace, punctuation)
+    while (pos < buffer->length && lle_is_word_boundary(buffer->buffer[pos])) {
+        pos++;
+    }
+    
+    return pos;
+}
+
+/**
+ * @brief Move cursor within the text buffer
+ *
+ * Moves the cursor according to the specified movement type.
+ * Performs bounds checking to ensure cursor stays within valid range.
+ *
+ * @param buffer Pointer to text buffer
+ * @param movement Type of cursor movement to perform
+ * @return true on success, false on failure or no movement possible
+ *
+ * @note Movement is bounded by buffer content (0 <= cursor <= length)
+ * @note Word movement uses common word boundary characters
+ */
+bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movement) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate current cursor position
+    if (buffer->cursor_pos > buffer->length) {
+        return false;
+    }
+
+    size_t new_pos = buffer->cursor_pos;
+    bool moved = false;
+
+    switch (movement) {
+        case LLE_MOVE_LEFT:
+            if (buffer->cursor_pos > 0) {
+                new_pos = buffer->cursor_pos - 1;
+                moved = true;
+            }
+            break;
+
+        case LLE_MOVE_RIGHT:
+            if (buffer->cursor_pos < buffer->length) {
+                new_pos = buffer->cursor_pos + 1;
+                moved = true;
+            }
+            break;
+
+        case LLE_MOVE_HOME:
+            if (buffer->cursor_pos != 0) {
+                new_pos = 0;
+                moved = true;
+            }
+            break;
+
+        case LLE_MOVE_END:
+            if (buffer->cursor_pos != buffer->length) {
+                new_pos = buffer->length;
+                moved = true;
+            }
+            break;
+
+        case LLE_MOVE_WORD_LEFT:
+            new_pos = lle_find_prev_word_start(buffer, buffer->cursor_pos);
+            moved = (new_pos != buffer->cursor_pos);
+            break;
+
+        case LLE_MOVE_WORD_RIGHT:
+            new_pos = lle_find_next_word_start(buffer, buffer->cursor_pos);
+            moved = (new_pos != buffer->cursor_pos);
+            break;
+
+        default:
+            return false; // Invalid movement type
+    }
+
+    if (moved) {
+        buffer->cursor_pos = new_pos;
+        return true;
+    }
+
+    return false; // No movement occurred
+}
+
+/**
+ * @brief Set cursor to a specific position
+ *
+ * Sets the cursor to the specified position with bounds checking.
+ * Position must be within valid range (0 to buffer length inclusive).
+ *
+ * @param buffer Pointer to text buffer
+ * @param position New cursor position (0-based byte offset)
+ * @return true on success, false on failure
+ *
+ * @note Position is clamped to valid range [0, buffer->length]
+ * @note Position at buffer->length is valid (cursor after last character)
+ */
+bool lle_text_set_cursor(lle_text_buffer_t *buffer, size_t position) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate and clamp position to valid range
+    if (position > buffer->length) {
+        return false;
+    }
+
+    buffer->cursor_pos = position;
+    return true;
+}

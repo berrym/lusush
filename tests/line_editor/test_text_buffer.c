@@ -845,6 +845,285 @@ LLE_TEST(delete_range_entire_buffer) {
     lle_text_buffer_destroy(buffer);
 }
 
+// =====================================
+// LLE-005: Cursor Movement Tests
+// =====================================
+
+// Test: Move cursor left basic functionality
+LLE_TEST(move_cursor_left_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    // Move left
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 4);
+    
+    // Move left again
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 3);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor left at beginning
+LLE_TEST(move_cursor_left_at_beginning) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text and move cursor to beginning
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    buffer->cursor_pos = 0;
+    
+    // Try to move left - should fail
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor right basic functionality
+LLE_TEST(move_cursor_right_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text and move cursor to beginning
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    buffer->cursor_pos = 0;
+    
+    // Move right
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1);
+    
+    // Move right again
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 2);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor right at end
+LLE_TEST(move_cursor_right_at_end) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text - cursor should be at end
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    // Try to move right - should fail
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor home
+LLE_TEST(move_cursor_home) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text - cursor at end
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11);
+    
+    // Move to home
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_HOME));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    // Try to move home again - should fail (no movement)
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_HOME));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor end
+LLE_TEST(move_cursor_end) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text and move cursor to beginning
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    buffer->cursor_pos = 0;
+    
+    // Move to end
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_END));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11);
+    
+    // Try to move end again - should fail (no movement)
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_END));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor word left
+LLE_TEST(move_cursor_word_left) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello beautiful world"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello beautiful world"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 21);
+    
+    // Move word left - should go to start of "world" (position 16)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 16);
+    
+    // Move word left again - should go to start of "beautiful" (position 6)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 6);
+    
+    // Move word left again - should go to start of "hello" (position 0)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    // Try to move word left again - should fail
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Move cursor word right
+LLE_TEST(move_cursor_word_right) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text and move cursor to beginning
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello beautiful world"));
+    buffer->cursor_pos = 0;
+    
+    // Move word right - should go to start of "beautiful" (position 6)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 6);
+    
+    // Move word right again - should go to start of "world" (position 16)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 16);
+    
+    // Move word right again - should go to end (position 21)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 21);
+    
+    // Try to move word right again - should fail
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 21);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Word movement with punctuation
+LLE_TEST(move_cursor_word_with_punctuation) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text with punctuation: "hello, world!"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello, world!"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 13);
+    
+    // Move word left - should go to start of "world" (position 7)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 7);
+    
+    // Move word left again - should go to start of "hello" (position 0)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Set cursor position basic functionality
+LLE_TEST(set_cursor_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Set cursor to various positions
+    LLE_ASSERT(lle_text_set_cursor(buffer, 0));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    LLE_ASSERT(lle_text_set_cursor(buffer, 5));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    LLE_ASSERT(lle_text_set_cursor(buffer, 11));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Set cursor position with invalid position
+LLE_TEST(set_cursor_invalid_position) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text (length 5)
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Try to set cursor beyond buffer length
+    LLE_ASSERT(!lle_text_set_cursor(buffer, 10));
+    
+    // Cursor should remain unchanged
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Set cursor with NULL pointer
+LLE_TEST(set_cursor_null_pointer) {
+    LLE_ASSERT(!lle_text_set_cursor(NULL, 0));
+}
+
+// Test: Move cursor with NULL pointer
+LLE_TEST(move_cursor_null_pointer) {
+    LLE_ASSERT(!lle_text_move_cursor(NULL, LLE_MOVE_LEFT));
+}
+
+// Test: Move cursor in empty buffer
+LLE_TEST(move_cursor_empty_buffer) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Try various movements in empty buffer
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_HOME));
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_END));
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    
+    // Cursor should remain at 0
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Word movement edge cases
+LLE_TEST(move_cursor_word_edge_cases) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Test with only spaces
+    LLE_ASSERT(lle_text_insert_string(buffer, "   "));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 3);
+    
+    // Word left should go to beginning
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    // Word right should go to end
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 3);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
 // Main test runner
 int main(void) {
     printf("Running LLE Text Buffer Tests\n");
@@ -896,6 +1175,23 @@ int main(void) {
     RUN_TEST(delete_range_at_beginning);
     RUN_TEST(delete_range_at_end);
     RUN_TEST(delete_range_entire_buffer);
+    
+    // LLE-005: Cursor movement tests
+    RUN_TEST(move_cursor_left_basic);
+    RUN_TEST(move_cursor_left_at_beginning);
+    RUN_TEST(move_cursor_right_basic);
+    RUN_TEST(move_cursor_right_at_end);
+    RUN_TEST(move_cursor_home);
+    RUN_TEST(move_cursor_end);
+    RUN_TEST(move_cursor_word_left);
+    RUN_TEST(move_cursor_word_right);
+    RUN_TEST(move_cursor_word_with_punctuation);
+    RUN_TEST(set_cursor_basic);
+    RUN_TEST(set_cursor_invalid_position);
+    RUN_TEST(set_cursor_null_pointer);
+    RUN_TEST(move_cursor_null_pointer);
+    RUN_TEST(move_cursor_empty_buffer);
+    RUN_TEST(move_cursor_word_edge_cases);
     
     printf("\n============================\n");
     printf("Tests completed: %d/%d passed\n", tests_passed, tests_run);
