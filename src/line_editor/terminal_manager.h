@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "cursor_math.h"
+#include "termcap/lle_termcap.h"
 
 /**
  * @file terminal_manager.h
@@ -54,14 +55,18 @@ typedef struct {
  * - Manages raw mode state and restoration
  * - Caches capability detection results
  * - Handles file descriptor management
+ * - Integrates with LLE termcap system for professional terminal handling
  */
 typedef struct {
     lle_terminal_geometry_t geometry;      /**< Current terminal dimensions and prompt info */
     lle_terminal_state_t saved_state;      /**< Saved state for restoration */
+    const lle_terminal_info_t *termcap_info; /**< Terminal info from integrated termcap system */
     uint32_t capabilities;                 /**< Terminal capability flags (lle_terminal_capabilities_t) */
     bool capabilities_initialized;         /**< Whether capabilities have been detected */
+    bool termcap_initialized;             /**< Whether termcap system is initialized */
     bool in_raw_mode;                     /**< Whether terminal is in raw mode */
     bool geometry_valid;                  /**< Whether geometry information is current */
+    bool is_iterm2;                       /**< Whether running in iTerm2 (for optimizations) */
     int stdin_fd;                         /**< Standard input file descriptor */
     int stdout_fd;                        /**< Standard output file descriptor */
     int stderr_fd;                        /**< Standard error file descriptor */
@@ -147,7 +152,21 @@ bool lle_terminal_manager_is_valid(const lle_terminal_manager_t *tm);
  */
 int lle_terminal_get_capabilities_string(const lle_terminal_manager_t *tm, char *buffer, size_t buffer_size);
 
-// Task LLE-010: Terminal initialization functions
+/**
+ * @brief Update terminal geometry from termcap system
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_update_geometry(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Check if terminal is iTerm2 (for optimizations)
+ * @param tm Pointer to terminal manager structure
+ * @return true if iTerm2, false otherwise
+ */
+bool lle_terminal_is_iterm2(const lle_terminal_manager_t *tm);
+
+// Task LLE-010: Terminal initialization functions (COMPLETED)
 // Task LLE-011: Terminal output functions
 
 #endif // LLE_TERMINAL_MANAGER_H

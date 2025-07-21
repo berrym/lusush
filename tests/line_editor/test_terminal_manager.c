@@ -362,13 +362,23 @@ LLE_TEST(terminal_get_size_null_pointer) {
 // Test: Capability detection
 LLE_TEST(terminal_detect_capabilities) {
     lle_terminal_manager_t tm = {0};
-    tm.stdout_fd = STDOUT_FILENO;
     
-    LLE_ASSERT(lle_terminal_detect_capabilities(&tm));
-    LLE_ASSERT(tm.capabilities_initialized);
+    // Initialize terminal manager properly first
+    lle_terminal_init_result_t result = lle_terminal_init(&tm);
+    LLE_ASSERT(result == LLE_TERM_INIT_SUCCESS || result == LLE_TERM_INIT_ERROR_NOT_TTY);
     
-    // Capabilities should be detected (may vary by environment)
-    // Just verify the function works
+    if (result == LLE_TERM_INIT_SUCCESS) {
+        LLE_ASSERT(tm.capabilities_initialized);
+        LLE_ASSERT(tm.termcap_initialized);
+        
+        // Clean up
+        lle_terminal_cleanup(&tm);
+    }
+    
+    // Test direct capability detection (should fail without termcap init)
+    lle_terminal_manager_t tm2 = {0};
+    tm2.stdout_fd = STDOUT_FILENO;
+    LLE_ASSERT(!lle_terminal_detect_capabilities(&tm2));
 }
 
 // Test: Capability detection with NULL pointer

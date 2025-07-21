@@ -11,6 +11,7 @@
  */
 
 #include "terminal_manager.h"
+#include "termcap/lle_termcap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -20,121 +21,125 @@
 #include <stdio.h>
 
 /**
- * @brief Get terminal size using ioctl
+ * @brief Update terminal geometry from termcap system
  *
- * Uses the TIOCGWINSZ ioctl to get the current terminal size.
- * Falls back to environment variables if ioctl fails.
- *
- * @param tm Pointer to terminal manager structure
- * @return true on success, false on failure
- */
-static bool lle_get_terminal_size_ioctl(lle_terminal_manager_t *tm) {
-    struct winsize ws;
-    
-    if (ioctl(tm->stdout_fd, TIOCGWINSZ, &ws) == -1) {
-        return false;
-    }
-    
-    if (ws.ws_col == 0 || ws.ws_row == 0) {
-        return false;
-    }
-    
-    tm->geometry.width = ws.ws_col;
-    tm->geometry.height = ws.ws_row;
-    return true;
-}
-
-/**
- * @brief Get terminal size from environment variables
- *
- * Fallback method to get terminal size from COLUMNS and LINES
- * environment variables when ioctl is not available.
+ * Uses the integrated termcap system to get accurate terminal geometry
+ * information with enhanced capabilities and iTerm2 optimizations.
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
  */
-static bool lle_get_terminal_size_env(lle_terminal_manager_t *tm) {
-    const char *cols_str = getenv("COLUMNS");
-    const char *lines_str = getenv("LINES");
-    
-    if (!cols_str || !lines_str) {
+bool lle_terminal_update_geometry(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
         return false;
     }
     
-    int cols = atoi(cols_str);
-    int lines = atoi(lines_str);
+    // Update termcap size information
+    lle_termcap_update_size();
     
-    if (cols <= 0 || lines <= 0) {
+    // Get updated terminal info from termcap
+    tm->termcap_info = lle_termcap_get_info();
+    if (!tm->termcap_info) {
         return false;
     }
     
-    tm->geometry.width = (size_t)cols;
-    tm->geometry.height = (size_t)lines;
+    // Update geometry from termcap info
+    tm->geometry.width = (size_t)tm->termcap_info->cols;
+    tm->geometry.height = (size_t)tm->termcap_info->rows;
+    
+    // Validate geometry
+    if (tm->geometry.width <= 0 || tm->geometry.height <= 0) {
+        // Use defaults if termcap returns invalid values
+        tm->geometry.width = LLE_DEFAULT_TERMINAL_WIDTH;
+        tm->geometry.height = LLE_DEFAULT_TERMINAL_HEIGHT;
+        tm->geometry_valid = false;
+        return false;
+    }
+    
+    tm->geometry_valid = true;
     return true;
 }
 
 /**
- * @brief Detect terminal capabilities by querying terminal
+ * @brief Check if terminal is iTerm2 (for optimizations)
  *
- * Detects various terminal capabilities through environment variables
- * and terminal queries. Updates the capabilities flags accordingly.
+ * Uses the integrated termcap system to detect iTerm2 for
+ * platform-specific optimizations.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true if iTerm2, false otherwise
+ */
+bool lle_terminal_is_iterm2(const lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    return tm->is_iterm2;
+}
+
+/**
+ * @brief Detect terminal capabilities using integrated termcap system
+ *
+ * Uses the integrated termcap system for comprehensive capability detection
+ * with enhanced support for modern terminals and iTerm2 optimizations.
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
  */
 bool lle_terminal_detect_capabilities(lle_terminal_manager_t *tm) {
-    if (!tm) {
+    if (!tm || !tm->termcap_initialized) {
         return false;
     }
     
+    // Use termcap to detect capabilities
+    int result = lle_termcap_detect_capabilities();
+    if (result != LLE_TERMCAP_OK && result != LLE_TERMCAP_NOT_TERMINAL) {
+        return false;
+    }
+    
+    // Get termcap capability information
+    if (!tm->termcap_info) {
+        tm->termcap_info = lle_termcap_get_info();
+        if (!tm->termcap_info) {
+            return false;
+        }
+    }
+    
+    // Map termcap capabilities to LLE terminal capabilities
     tm->capabilities = 0;
     
-    // Check for color support
-    const char *term = getenv("TERM");
-    if (term) {
-        if (strstr(term, "color") || strstr(term, "xterm") || 
-            strstr(term, "screen") || strstr(term, "tmux")) {
-            tm->capabilities |= LLE_TERM_CAP_COLORS;
-        }
-        
-        if (strstr(term, "256color") || strstr(term, "xterm-256")) {
-            tm->capabilities |= LLE_TERM_CAP_256_COLORS;
-        }
+    if (tm->termcap_info->caps.colors) {
+        tm->capabilities |= LLE_TERM_CAP_COLORS;
     }
     
-    // Check COLORTERM for additional color support
-    const char *colorterm = getenv("COLORTERM");
-    if (colorterm) {
-        if (strstr(colorterm, "truecolor") || strstr(colorterm, "24bit")) {
-            tm->capabilities |= LLE_TERM_CAP_COLORS | LLE_TERM_CAP_256_COLORS;
-        }
+    if (tm->termcap_info->caps.colors_256) {
+        tm->capabilities |= LLE_TERM_CAP_256_COLORS;
     }
     
-    // Most modern terminals support these features
-    if (isatty(tm->stdout_fd)) {
+    if (tm->termcap_info->caps.unicode) {
+        tm->capabilities |= LLE_TERM_CAP_UTF8;
+    }
+    
+    if (tm->termcap_info->caps.mouse) {
+        tm->capabilities |= LLE_TERM_CAP_MOUSE;
+    }
+    
+    if (tm->termcap_info->caps.bracketed_paste) {
+        tm->capabilities |= LLE_TERM_CAP_BRACKETED_PASTE;
+    }
+    
+    if (tm->termcap_info->caps.alternate_screen) {
+        tm->capabilities |= LLE_TERM_CAP_ALTERNATE_SCREEN;
+    }
+    
+    // Most terminals support basic cursor movement and screen clearing
+    if (tm->termcap_info->is_tty) {
         tm->capabilities |= LLE_TERM_CAP_CURSOR_MOVEMENT;
         tm->capabilities |= LLE_TERM_CAP_CLEAR_SCREEN;
     }
     
-    // Check for UTF-8 support
-    const char *lang = getenv("LANG");
-    const char *lc_all = getenv("LC_ALL");
-    const char *lc_ctype = getenv("LC_CTYPE");
-    
-    if ((lang && strstr(lang, "UTF-8")) ||
-        (lc_all && strstr(lc_all, "UTF-8")) ||
-        (lc_ctype && strstr(lc_ctype, "UTF-8"))) {
-        tm->capabilities |= LLE_TERM_CAP_UTF8;
-    }
-    
-    // Modern terminals often support these features
-    if (term && (strstr(term, "xterm") || strstr(term, "screen") || 
-                 strstr(term, "tmux") || strstr(term, "alacritty") ||
-                 strstr(term, "kitty"))) {
-        tm->capabilities |= LLE_TERM_CAP_ALTERNATE_SCREEN;
-        tm->capabilities |= LLE_TERM_CAP_BRACKETED_PASTE;
-        tm->capabilities |= LLE_TERM_CAP_MOUSE;
-    }
+    // Check for iTerm2 for platform-specific optimizations
+    tm->is_iterm2 = lle_termcap_is_iterm2();
     
     tm->capabilities_initialized = true;
     return true;
@@ -225,8 +230,8 @@ bool lle_terminal_exit_raw_mode(lle_terminal_manager_t *tm) {
 /**
  * @brief Get current terminal size and update geometry
  *
- * Updates the terminal geometry information by querying the current
- * terminal size through various methods.
+ * Updates the terminal geometry information using the integrated
+ * termcap system for accurate and comprehensive terminal sizing.
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
@@ -236,14 +241,16 @@ bool lle_terminal_get_size(lle_terminal_manager_t *tm) {
         return false;
     }
     
-    // Try ioctl first
-    if (lle_get_terminal_size_ioctl(tm)) {
-        tm->geometry_valid = true;
-        return true;
+    // Use termcap system for terminal geometry
+    if (tm->termcap_initialized) {
+        return lle_terminal_update_geometry(tm);
     }
     
-    // Fall back to environment variables
-    if (lle_get_terminal_size_env(tm)) {
+    // Fallback to basic ioctl if termcap not available
+    struct winsize ws;
+    if (ioctl(tm->stdout_fd, TIOCGWINSZ, &ws) != -1 && ws.ws_col > 0 && ws.ws_row > 0) {
+        tm->geometry.width = ws.ws_col;
+        tm->geometry.height = ws.ws_row;
         tm->geometry_valid = true;
         return true;
     }
@@ -257,10 +264,11 @@ bool lle_terminal_get_size(lle_terminal_manager_t *tm) {
 }
 
 /**
- * @brief Initialize terminal manager with default settings
+ * @brief Initialize terminal manager with integrated termcap system
  *
- * Performs complete terminal manager initialization including file
- * descriptor setup, capability detection, and geometry detection.
+ * Performs complete terminal manager initialization using the integrated
+ * termcap system for professional-grade terminal handling with iTerm2
+ * optimizations and comprehensive capability detection.
  *
  * @param tm Pointer to terminal manager structure
  * @return LLE_TERM_INIT_SUCCESS on success, error code on failure
@@ -278,23 +286,47 @@ lle_terminal_init_result_t lle_terminal_init(lle_terminal_manager_t *tm) {
     tm->stdout_fd = STDOUT_FILENO;
     tm->stderr_fd = STDERR_FILENO;
     
-    // Verify file descriptors are valid TTYs
-    if (!isatty(tm->stdin_fd) || !isatty(tm->stdout_fd)) {
-        return LLE_TERM_INIT_ERROR_NOT_TTY;
+    // Initialize integrated termcap system
+    int termcap_result = lle_termcap_init();
+    if (termcap_result == LLE_TERMCAP_OK || termcap_result == LLE_TERMCAP_NOT_TERMINAL) {
+        tm->termcap_initialized = true;
+        tm->termcap_info = lle_termcap_get_info();
+    } else {
+        tm->termcap_initialized = false;
+        tm->termcap_info = NULL;
     }
     
-    // Detect terminal capabilities
+    // Verify file descriptors are valid TTYs (unless in non-terminal mode)
+    if (termcap_result != LLE_TERMCAP_NOT_TERMINAL) {
+        if (!isatty(tm->stdin_fd) || !isatty(tm->stdout_fd)) {
+            if (tm->termcap_initialized) {
+                lle_termcap_cleanup();
+            }
+            return LLE_TERM_INIT_ERROR_NOT_TTY;
+        }
+    }
+    
+    // Detect terminal capabilities using termcap
     if (!lle_terminal_detect_capabilities(tm)) {
+        if (tm->termcap_initialized) {
+            lle_termcap_cleanup();
+        }
         return LLE_TERM_INIT_ERROR_CAPABILITIES;
     }
     
-    // Get terminal geometry
+    // Get terminal geometry using termcap
     if (!lle_terminal_get_size(tm)) {
+        if (tm->termcap_initialized) {
+            lle_termcap_cleanup();
+        }
         return LLE_TERM_INIT_ERROR_GEOMETRY;
     }
     
     // Validate the resulting geometry
     if (!lle_validate_terminal_geometry(&tm->geometry)) {
+        if (tm->termcap_initialized) {
+            lle_termcap_cleanup();
+        }
         return LLE_TERM_INIT_ERROR_GEOMETRY;
     }
     
@@ -305,7 +337,7 @@ lle_terminal_init_result_t lle_terminal_init(lle_terminal_manager_t *tm) {
  * @brief Clean up terminal manager and restore original state
  *
  * Performs complete cleanup including exiting raw mode, restoring
- * terminal state, and freeing allocated resources.
+ * terminal state, cleaning up termcap system, and freeing allocated resources.
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
@@ -322,6 +354,11 @@ bool lle_terminal_cleanup(lle_terminal_manager_t *tm) {
         if (!lle_terminal_exit_raw_mode(tm)) {
             success = false;
         }
+    }
+    
+    // Clean up integrated termcap system
+    if (tm->termcap_initialized) {
+        lle_termcap_cleanup();
     }
     
     // Free saved terminal state
@@ -425,6 +462,12 @@ int lle_terminal_get_capabilities_string(const lle_terminal_manager_t *tm, char 
         written += result;
     }
     
+    if (tm->termcap_info && tm->termcap_info->caps.truecolor) {
+        result = snprintf(buffer + written, buffer_size - written, "truecolor ");
+        if (result < 0 || (size_t)result >= buffer_size - written) return -1;
+        written += result;
+    }
+    
     if (tm->capabilities & LLE_TERM_CAP_CURSOR_MOVEMENT) {
         result = snprintf(buffer + written, buffer_size - written, "cursor ");
         if (result < 0 || (size_t)result >= buffer_size - written) return -1;
@@ -445,6 +488,12 @@ int lle_terminal_get_capabilities_string(const lle_terminal_manager_t *tm, char 
     
     if (tm->capabilities & LLE_TERM_CAP_BRACKETED_PASTE) {
         result = snprintf(buffer + written, buffer_size - written, "paste ");
+        if (result < 0 || (size_t)result >= buffer_size - written) return -1;
+        written += result;
+    }
+    
+    if (tm->is_iterm2) {
+        result = snprintf(buffer + written, buffer_size - written, "iterm2 ");
         if (result < 0 || (size_t)result >= buffer_size - written) return -1;
         written += result;
     }
