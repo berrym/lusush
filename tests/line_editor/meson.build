@@ -1,7 +1,8 @@
 # LLE Test Configuration
 
 lle_test_sources = [
-  'test_text_buffer.c'
+  'test_text_buffer.c',
+  'test_cursor_math.c'
 ]
 
 # Individual component tests
