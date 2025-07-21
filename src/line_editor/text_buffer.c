@@ -11,6 +11,7 @@
  */
 
 #include "text_buffer.h"
+#include "unicode.h"
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -592,6 +593,50 @@ static bool lle_is_word_boundary(char c) {
 }
 
 /**
+ * @brief Check if a UTF-8 character at a position is a word boundary
+ *
+ * Unicode-aware word boundary detection that handles multibyte characters.
+ * Considers ASCII punctuation, whitespace, and non-alphanumeric Unicode
+ * characters as word boundaries.
+ *
+ * @param text UTF-8 text buffer
+ * @param byte_pos Byte position in the text
+ * @return true if character at position is a word boundary
+ */
+static bool lle_is_unicode_word_boundary(const char *text, size_t byte_pos) {
+    if (!text || text[byte_pos] == '\0') {
+        return true; // End of string is a boundary
+    }
+    
+    // Get the character bytes at this position
+    size_t char_bytes = lle_utf8_char_bytes(text, byte_pos);
+    
+    if (char_bytes == 0) {
+        return true; // Invalid UTF-8 is considered a boundary
+    }
+    
+    if (char_bytes == 1) {
+        // ASCII character - use existing boundary detection
+        return lle_is_word_boundary(text[byte_pos]);
+    }
+    
+    // For multibyte UTF-8 characters, use basic heuristics
+    uint8_t first_byte = (uint8_t)text[byte_pos];
+    
+    // CJK characters (rough detection) - each character is its own word
+    if (char_bytes == 3) {
+        // Common CJK ranges (simplified detection)
+        if (first_byte >= 0xE4 && first_byte <= 0xE9) {
+            return true; // CJK characters are word boundaries
+        }
+    }
+    
+    // For other multibyte characters (accented Latin, etc.), 
+    // assume they are word characters (not boundaries)
+    return false;
+}
+
+/**
  * @brief Find the start of the previous word
  *
  * Helper function to find the beginning of the word before the cursor.
@@ -608,19 +653,23 @@ static size_t lle_find_prev_word_start(lle_text_buffer_t *buffer, size_t from_po
 
     size_t pos = from_pos;
     
-    // Move back to skip current position if at word boundary
+    // Move back by one character (Unicode-aware)
     if (pos > 0) {
-        pos--;
+        pos = lle_utf8_prev_char(buffer->buffer, pos);
     }
     
     // Skip any word boundaries (whitespace, punctuation)
-    while (pos > 0 && lle_is_word_boundary(buffer->buffer[pos])) {
-        pos--;
+    while (pos > 0 && lle_is_unicode_word_boundary(buffer->buffer, pos)) {
+        pos = lle_utf8_prev_char(buffer->buffer, pos);
     }
     
-    // Now find the start of this word
-    while (pos > 0 && !lle_is_word_boundary(buffer->buffer[pos - 1])) {
-        pos--;
+    // Now find the start of this word (Unicode-aware)
+    while (pos > 0) {
+        size_t prev_pos = lle_utf8_prev_char(buffer->buffer, pos);
+        if (lle_is_unicode_word_boundary(buffer->buffer, prev_pos)) {
+            break;
+        }
+        pos = prev_pos;
     }
     
     return pos;
@@ -643,14 +692,14 @@ static size_t lle_find_next_word_start(lle_text_buffer_t *buffer, size_t from_po
 
     size_t pos = from_pos;
     
-    // Skip current word (non-boundary characters)
-    while (pos < buffer->length && !lle_is_word_boundary(buffer->buffer[pos])) {
-        pos++;
+    // Skip current word (non-boundary characters) - Unicode-aware
+    while (pos < buffer->length && !lle_is_unicode_word_boundary(buffer->buffer, pos)) {
+        pos = lle_utf8_next_char(buffer->buffer, pos);
     }
     
-    // Skip word boundaries (whitespace, punctuation)
-    while (pos < buffer->length && lle_is_word_boundary(buffer->buffer[pos])) {
-        pos++;
+    // Skip word boundaries (whitespace, punctuation) - Unicode-aware
+    while (pos < buffer->length && lle_is_unicode_word_boundary(buffer->buffer, pos)) {
+        pos = lle_utf8_next_char(buffer->buffer, pos);
     }
     
     return pos;
@@ -685,15 +734,15 @@ bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movem
     switch (movement) {
         case LLE_MOVE_LEFT:
             if (buffer->cursor_pos > 0) {
-                new_pos = buffer->cursor_pos - 1;
-                moved = true;
+                new_pos = lle_utf8_prev_char(buffer->buffer, buffer->cursor_pos);
+                moved = (new_pos != buffer->cursor_pos);
             }
             break;
 
         case LLE_MOVE_RIGHT:
             if (buffer->cursor_pos < buffer->length) {
-                new_pos = buffer->cursor_pos + 1;
-                moved = true;
+                new_pos = lle_utf8_next_char(buffer->buffer, buffer->cursor_pos);
+                moved = (new_pos != buffer->cursor_pos);
             }
             break;
 
@@ -758,4 +807,78 @@ bool lle_text_set_cursor(lle_text_buffer_t *buffer, size_t position) {
 
     buffer->cursor_pos = position;
     return true;
+}
+
+/**
+ * @brief Get cursor position in Unicode characters (not bytes)
+ *
+ * Converts the byte-based cursor position to a character-based position
+ * by counting Unicode characters from the beginning of the buffer.
+ *
+ * @param buffer Pointer to text buffer
+ * @return Character position of cursor, or SIZE_MAX on error
+ */
+size_t lle_text_get_cursor_char_pos(const lle_text_buffer_t *buffer) {
+    if (!buffer || !buffer->buffer) {
+        return SIZE_MAX;
+    }
+
+    if (buffer->cursor_pos == 0) {
+        return 0;
+    }
+
+    // Count characters from start to cursor position
+    return lle_utf8_count_chars(buffer->buffer, buffer->cursor_pos);
+}
+
+/**
+ * @brief Set cursor position by Unicode character index
+ *
+ * Converts a character-based position to the corresponding byte position
+ * and sets the cursor to that location.
+ *
+ * @param buffer Pointer to text buffer
+ * @param char_pos Character position (0-based Unicode character index)
+ * @return true on success, false on failure
+ */
+bool lle_text_set_cursor_char_pos(lle_text_buffer_t *buffer, size_t char_pos) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    if (char_pos == 0) {
+        buffer->cursor_pos = 0;
+        return true;
+    }
+
+    // Convert character position to byte position
+    size_t byte_pos = lle_utf8_char_at(buffer->buffer, char_pos);
+
+    if (byte_pos == SIZE_MAX) {
+        return false; // Invalid character position
+    }
+
+    buffer->cursor_pos = byte_pos;
+    return true;
+}
+
+/**
+ * @brief Get the display width of text up to cursor position
+ *
+ * Calculates the display width considering Unicode characters that may
+ * have different display widths (e.g., CJK characters, emojis).
+ * Currently uses character count as an approximation.
+ *
+ * @param buffer Pointer to text buffer
+ * @return Display width in characters, considering Unicode width
+ */
+size_t lle_text_get_cursor_display_width(const lle_text_buffer_t *buffer) {
+    if (!buffer || !buffer->buffer) {
+        return 0;
+    }
+
+    // For now, use character count as display width
+    // This is a simplification - in the future, this could be enhanced
+    // to handle zero-width characters, double-width CJK characters, etc.
+    return lle_utf8_count_chars(buffer->buffer, buffer->cursor_pos);
 }

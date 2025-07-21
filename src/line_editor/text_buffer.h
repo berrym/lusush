@@ -166,4 +166,27 @@ bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movem
  */
 bool lle_text_set_cursor(lle_text_buffer_t *buffer, size_t position);
 
+// Task LLE-028: Unicode cursor movement functions
+/**
+ * @brief Get cursor position in Unicode characters (not bytes)
+ * @param buffer Pointer to text buffer
+ * @return Character position of cursor, or SIZE_MAX on error
+ */
+size_t lle_text_get_cursor_char_pos(const lle_text_buffer_t *buffer);
+
+/**
+ * @brief Set cursor position by Unicode character index
+ * @param buffer Pointer to text buffer
+ * @param char_pos Character position (0-based Unicode character index)
+ * @return true on success, false on failure
+ */
+bool lle_text_set_cursor_char_pos(lle_text_buffer_t *buffer, size_t char_pos);
+
+/**
+ * @brief Get the display width of text up to cursor position
+ * @param buffer Pointer to text buffer
+ * @return Display width in characters, considering Unicode width
+ */
+size_t lle_text_get_cursor_display_width(const lle_text_buffer_t *buffer);
+
 #endif // LLE_TEXT_BUFFER_H
