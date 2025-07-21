@@ -16,14 +16,11 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "../themes.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// Forward declarations
-struct theme_definition_t;
-struct color_scheme_t;
 
 /**
  * @brief Maximum length for theme element names
@@ -78,8 +75,8 @@ typedef struct {
     lle_theme_colors_t colors;              // LLE-specific colors
     
     // Integration with Lusush theme system
-    struct theme_definition_t *lusush_theme; // Pointer to active Lusush theme
-    struct color_scheme_t *color_scheme;     // Pointer to color scheme
+    theme_definition_t *lusush_theme; // Pointer to active Lusush theme
+    color_scheme_t *color_scheme;     // Pointer to color scheme
     
     // Terminal capabilities
     int color_support;                      // Terminal color support level

@@ -12,11 +12,282 @@
  */
 
 #include "input_handler.h"
+#include "terminal_manager.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <errno.h>
+
+// ============================================================================
+// Key Event Processing Functions (LLE-022)
+// ============================================================================
+
+/**
+ * @brief Escape sequence mapping table
+ */
+typedef struct {
+    const char *sequence;
+    lle_key_type_t key_type;
+    bool ctrl;
+    bool alt;
+    bool shift;
+} lle_escape_mapping_t;
+
+static const lle_escape_mapping_t escape_mappings[] = {
+    // Arrow keys
+    {"[A", LLE_KEY_ARROW_UP, false, false, false},
+    {"[B", LLE_KEY_ARROW_DOWN, false, false, false},
+    {"[C", LLE_KEY_ARROW_RIGHT, false, false, false},
+    {"[D", LLE_KEY_ARROW_LEFT, false, false, false},
+    
+    // Home/End variants
+    {"[H", LLE_KEY_HOME, false, false, false},
+    {"[F", LLE_KEY_END, false, false, false},
+    {"[1~", LLE_KEY_HOME, false, false, false},
+    {"[4~", LLE_KEY_END, false, false, false},
+    {"[7~", LLE_KEY_HOME, false, false, false},
+    {"[8~", LLE_KEY_END, false, false, false},
+    
+    // Page Up/Down
+    {"[5~", LLE_KEY_PAGE_UP, false, false, false},
+    {"[6~", LLE_KEY_PAGE_DOWN, false, false, false},
+    
+    // Insert/Delete
+    {"[2~", LLE_KEY_INSERT, false, false, false},
+    {"[3~", LLE_KEY_DELETE, false, false, false},
+    
+    // Function keys
+    {"OP", LLE_KEY_F1, false, false, false},
+    {"OQ", LLE_KEY_F2, false, false, false},
+    {"OR", LLE_KEY_F3, false, false, false},
+    {"OS", LLE_KEY_F4, false, false, false},
+    {"[15~", LLE_KEY_F5, false, false, false},
+    {"[17~", LLE_KEY_F6, false, false, false},
+    {"[18~", LLE_KEY_F7, false, false, false},
+    {"[19~", LLE_KEY_F8, false, false, false},
+    {"[20~", LLE_KEY_F9, false, false, false},
+    {"[21~", LLE_KEY_F10, false, false, false},
+    {"[23~", LLE_KEY_F11, false, false, false},
+    {"[24~", LLE_KEY_F12, false, false, false},
+    
+    // Shift+Tab
+    {"[Z", LLE_KEY_SHIFT_TAB, false, false, true},
+    
+    // Ctrl+Arrow keys
+    {"[1;5A", LLE_KEY_ARROW_UP, true, false, false},
+    {"[1;5B", LLE_KEY_ARROW_DOWN, true, false, false},
+    {"[1;5C", LLE_KEY_CTRL_ARROW_RIGHT, true, false, false},
+    {"[1;5D", LLE_KEY_CTRL_ARROW_LEFT, true, false, false},
+    
+    // Alt sequences (may start with different prefix)
+    {"b", LLE_KEY_ALT_B, false, true, false},
+    {"f", LLE_KEY_ALT_F, false, true, false},
+    {"d", LLE_KEY_ALT_D, false, true, false},
+    {".", LLE_KEY_ALT_DOT, false, true, false},
+    {"_", LLE_KEY_ALT_UNDERSCORE, false, true, false},
+    {"\x7f", LLE_KEY_ALT_BACKSPACE, false, true, false}, // Alt+Backspace
+    
+    {NULL, LLE_KEY_UNKNOWN, false, false, false} // Sentinel
+};
+
+/**
+ * @brief Read raw bytes from terminal with timeout
+ * @param fd File descriptor to read from
+ * @param buffer Buffer to store data
+ * @param buffer_size Maximum bytes to read
+ * @param timeout_ms Timeout in milliseconds
+ * @return Number of bytes read, 0 on timeout, -1 on error
+ */
+static ssize_t read_with_timeout(int fd, char *buffer, size_t buffer_size, int timeout_ms) {
+    fd_set readfds;
+    struct timeval timeout;
+    
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+    
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    
+    int result = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    if (result == -1) {
+        return -1; // Error
+    } else if (result == 0) {
+        return 0; // Timeout
+    }
+    
+    return read(fd, buffer, buffer_size);
+}
+
+/**
+ * @brief Get current time in milliseconds
+ * @return Current time in milliseconds
+ */
+static uint64_t get_current_time_ms(void) {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+        return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+    }
+    return 0;
+}
+
+bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
+    if (!tm || !event) return false;
+    
+    // Initialize event
+    lle_key_event_init(event);
+    event->timestamp = get_current_time_ms();
+    
+    // Read first character
+    char buffer[16];
+    ssize_t bytes_read = read_with_timeout(tm->stdin_fd, buffer, 1, LLE_DEFAULT_ESCAPE_TIMEOUT_MS);
+    
+    if (bytes_read == -1) {
+        event->type = LLE_KEY_ERROR;
+        return false;
+    } else if (bytes_read == 0) {
+        event->type = LLE_KEY_TIMEOUT;
+        return false;
+    }
+    
+    unsigned char first_char = (unsigned char)buffer[0];
+    
+    // Handle regular ASCII characters
+    if (first_char >= 32 && first_char <= 126) {
+        event->type = LLE_KEY_CHAR;
+        event->character = first_char;
+        event->raw_sequence[0] = first_char;
+        event->sequence_length = 1;
+        return true;
+    }
+    
+    // Handle control characters
+    if (first_char < 32) {
+        switch (first_char) {
+            case LLE_ASCII_CTRL_A: event->type = LLE_KEY_CTRL_A; break;
+            case LLE_ASCII_CTRL_B: event->type = LLE_KEY_CTRL_B; break;
+            case LLE_ASCII_CTRL_C: event->type = LLE_KEY_CTRL_C; break;
+            case LLE_ASCII_CTRL_D: event->type = LLE_KEY_CTRL_D; break;
+            case LLE_ASCII_CTRL_E: event->type = LLE_KEY_CTRL_E; break;
+            case LLE_ASCII_CTRL_F: event->type = LLE_KEY_CTRL_F; break;
+            case LLE_ASCII_CTRL_G: event->type = LLE_KEY_CTRL_G; break;
+            case LLE_ASCII_CTRL_H: event->type = LLE_KEY_BACKSPACE; break; // Ctrl+H = Backspace
+            case LLE_ASCII_CTRL_I: event->type = LLE_KEY_TAB; break; // Ctrl+I = Tab
+            case LLE_ASCII_CTRL_J: event->type = LLE_KEY_ENTER; break; // Ctrl+J = Enter
+            case LLE_ASCII_CTRL_K: event->type = LLE_KEY_CTRL_K; break;
+            case LLE_ASCII_CTRL_L: event->type = LLE_KEY_CTRL_L; break;
+            case LLE_ASCII_CTRL_M: event->type = LLE_KEY_ENTER; break; // Ctrl+M = Enter
+            case LLE_ASCII_CTRL_N: event->type = LLE_KEY_CTRL_N; break;
+            case LLE_ASCII_CTRL_O: event->type = LLE_KEY_CTRL_O; break;
+            case LLE_ASCII_CTRL_P: event->type = LLE_KEY_CTRL_P; break;
+            case LLE_ASCII_CTRL_Q: event->type = LLE_KEY_CTRL_Q; break;
+            case LLE_ASCII_CTRL_R: event->type = LLE_KEY_CTRL_R; break;
+            case LLE_ASCII_CTRL_S: event->type = LLE_KEY_CTRL_S; break;
+            case LLE_ASCII_CTRL_T: event->type = LLE_KEY_CTRL_T; break;
+            case LLE_ASCII_CTRL_U: event->type = LLE_KEY_CTRL_U; break;
+            case LLE_ASCII_CTRL_V: event->type = LLE_KEY_CTRL_V; break;
+            case LLE_ASCII_CTRL_W: event->type = LLE_KEY_CTRL_W; break;
+            case LLE_ASCII_CTRL_X: event->type = LLE_KEY_CTRL_X; break;
+            case LLE_ASCII_CTRL_Y: event->type = LLE_KEY_CTRL_Y; break;
+            case LLE_ASCII_CTRL_Z: event->type = LLE_KEY_CTRL_Z; break;
+            case LLE_ASCII_ESC:
+                // Handle escape sequences
+                event->type = LLE_KEY_ESCAPE;
+                break;
+            default:
+                event->type = LLE_KEY_UNKNOWN;
+                break;
+        }
+        event->character = first_char;
+        event->raw_sequence[0] = first_char;
+        event->sequence_length = 1;
+        
+        // If it's an escape, try to read the sequence
+        if (first_char == LLE_ASCII_ESC) {
+            // Read more characters to build escape sequence
+            size_t seq_pos = 1;
+            buffer[0] = first_char;
+            
+            while (seq_pos < sizeof(buffer) - 1) {
+                bytes_read = read_with_timeout(tm->stdin_fd, &buffer[seq_pos], 1, 50); // Short timeout for sequence
+                if (bytes_read <= 0) break;
+                
+                seq_pos++;
+                
+                // Check if we have a complete sequence
+                buffer[seq_pos] = '\0';
+                if (lle_input_parse_escape_sequence(buffer + 1, event)) {
+                    // Copy raw sequence
+                    memcpy(event->raw_sequence, buffer, seq_pos);
+                    event->sequence_length = seq_pos;
+                    return true;
+                }
+            }
+            
+            // If we couldn't parse as escape sequence, treat as plain ESC
+            event->type = LLE_KEY_ESCAPE;
+            event->raw_sequence[0] = LLE_ASCII_ESC;
+            event->sequence_length = 1;
+        }
+        
+        return true;
+    }
+    
+    // Handle high ASCII / DEL
+    if (first_char == LLE_ASCII_DEL) {
+        event->type = LLE_KEY_BACKSPACE; // DEL often means backspace
+        event->character = first_char;
+        event->raw_sequence[0] = first_char;
+        event->sequence_length = 1;
+        return true;
+    }
+    
+    // Handle potential UTF-8 or other multi-byte sequences
+    event->type = LLE_KEY_UNKNOWN;
+    event->character = first_char;
+    event->raw_sequence[0] = first_char;
+    event->sequence_length = 1;
+    
+    return true;
+}
+
+bool lle_input_parse_escape_sequence(const char *seq, lle_key_event_t *event) {
+    if (!seq || !event) return false;
+    
+    // Check against our mapping table
+    for (const lle_escape_mapping_t *mapping = escape_mappings; mapping->sequence; mapping++) {
+        if (strcmp(seq, mapping->sequence) == 0) {
+            event->type = mapping->key_type;
+            event->ctrl = mapping->ctrl;
+            event->alt = mapping->alt;
+            event->shift = mapping->shift;
+            return true;
+        }
+    }
+    
+    // Handle Alt+key sequences that start without '[' 
+    if (strlen(seq) == 1) {
+        for (const lle_escape_mapping_t *mapping = escape_mappings; mapping->sequence; mapping++) {
+            if (mapping->alt && strcmp(seq, mapping->sequence) == 0) {
+                event->type = mapping->key_type;
+                event->ctrl = mapping->ctrl;
+                event->alt = mapping->alt;
+                event->shift = mapping->shift;
+                return true;
+            }
+        }
+    }
+    
+    return false; // Unknown sequence
+}
+
+bool lle_input_is_printable(const lle_key_event_t *event) {
+    // This is a wrapper around the existing function for consistency with the API
+    return lle_key_is_printable(event);
+}
 
 // ============================================================================
 // Key Type Name Mappings

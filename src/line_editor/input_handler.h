@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "terminal_manager.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -350,6 +351,33 @@ bool lle_key_event_equals(const lle_key_event_t *event1, const lle_key_event_t *
  * @return true if event matches binding, false otherwise
  */
 bool lle_key_event_matches_binding(const lle_key_event_t *event, const lle_key_binding_t *binding);
+
+// ============================================================================
+// Key Event Processing Functions (LLE-022)
+// ============================================================================
+
+/**
+ * Read key from terminal and convert to key event
+ * @param tm Pointer to terminal manager structure
+ * @param event Pointer to key event structure to populate
+ * @return true on success, false on error or timeout
+ */
+bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event);
+
+/**
+ * Parse escape sequence into key event
+ * @param seq Escape sequence string (without leading ESC)
+ * @param event Pointer to key event structure to populate
+ * @return true if sequence was recognized, false otherwise
+ */
+bool lle_input_parse_escape_sequence(const char *seq, lle_key_event_t *event);
+
+/**
+ * Check if key event represents printable character
+ * @param event Pointer to key event structure
+ * @return true if printable, false otherwise
+ */
+bool lle_input_is_printable(const lle_key_event_t *event);
 
 // ============================================================================
 // Input Configuration Functions
