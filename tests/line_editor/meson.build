@@ -1,0 +1,24 @@
+# LLE Test Configuration
+
+lle_test_sources = [
+  'test_text_buffer.c'
+]
+
+# Individual component tests
+foreach test_src : lle_test_sources
+  test_name = test_src.split('.')[0]
+  test_exe = executable(test_name,
+                       test_src,
+                       dependencies: [lle_dep],
+                       include_directories: inc,
+                       install: false)
+  test(test_name, test_exe)
+endforeach
+
+# Performance benchmark (disabled until benchmark.c is implemented)
+# benchmark_exe = executable('lle_benchmark',
+#                           'benchmark.c',
+#                           dependencies: [lle_dep],
+#                           include_directories: inc,
+#                           c_args: ['-O2'],
+#                           install: false)

@@ -9,7 +9,8 @@ project('lusush',
 
 inc = include_directories('include',
                           'include/libhashtable',
-                          'include/linenoise')
+                          'include/linenoise',
+                          'src')
 
 src = ['src/builtins/alias.c',
        'src/builtins/builtins.c',
@@ -59,6 +60,11 @@ add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
+# Include LLE subdirectory
+subdir('src/line_editor')
+subdir('tests/line_editor')
+
 executable('lusush',
            src,
-           include_directories: inc)
+           include_directories: inc,
+           dependencies: [lle_dep])

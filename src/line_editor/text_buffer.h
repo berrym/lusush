@@ -51,7 +51,42 @@ typedef struct {
 } lle_text_buffer_t;
 
 // Function declarations will be added as tasks are implemented
+
 // Task LLE-002: Text buffer initialization functions
+/**
+ * @brief Create a new text buffer with specified initial capacity
+ * @param initial_capacity Initial buffer capacity in bytes
+ * @return Pointer to newly created text buffer, or NULL on failure
+ */
+lle_text_buffer_t* lle_text_buffer_create(size_t initial_capacity);
+
+/**
+ * @brief Initialize an existing text buffer structure
+ * @param buffer Pointer to text buffer structure to initialize
+ * @param initial_capacity Initial buffer capacity in bytes
+ * @return true on success, false on failure
+ */
+bool lle_text_buffer_init(lle_text_buffer_t *buffer, size_t initial_capacity);
+
+/**
+ * @brief Destroy a text buffer and free all associated memory
+ * @param buffer Pointer to text buffer to destroy
+ */
+void lle_text_buffer_destroy(lle_text_buffer_t *buffer);
+
+/**
+ * @brief Clear the text buffer contents without deallocating memory
+ * @param buffer Pointer to text buffer to clear
+ */
+void lle_text_buffer_clear(lle_text_buffer_t *buffer);
+
+/**
+ * @brief Check if a text buffer is valid and properly initialized
+ * @param buffer Pointer to text buffer to validate
+ * @return true if buffer is valid, false otherwise
+ */
+bool lle_text_buffer_is_valid(lle_text_buffer_t *buffer);
+
 // Task LLE-003: Text insertion functions  
 // Task LLE-004: Text deletion functions
 // Task LLE-005: Cursor movement functions
