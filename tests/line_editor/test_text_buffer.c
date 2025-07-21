@@ -252,6 +252,305 @@ LLE_TEST(buffer_multiple_cycles) {
     }
 }
 
+// =====================================
+// LLE-003: Text Insertion Tests
+// =====================================
+
+// Test: Insert character basic functionality
+LLE_TEST(insert_char_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert a character
+    LLE_ASSERT(lle_text_insert_char(buffer, 'a'));
+    
+    // Verify state
+    LLE_ASSERT_EQ(buffer->length, 1);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1);
+    LLE_ASSERT_EQ(buffer->char_count, 1);
+    LLE_ASSERT_EQ(buffer->buffer[0], 'a');
+    LLE_ASSERT_EQ(buffer->buffer[1], '\0');
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert character with NULL pointer
+LLE_TEST(insert_char_null_pointer) {
+    LLE_ASSERT(!lle_text_insert_char(NULL, 'a'));
+}
+
+// Test: Insert multiple characters
+LLE_TEST(insert_char_multiple) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert multiple characters
+    const char *text = "hello";
+    for (size_t i = 0; i < strlen(text); i++) {
+        LLE_ASSERT(lle_text_insert_char(buffer, text[i]));
+    }
+    
+    // Verify final state
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    LLE_ASSERT_EQ(buffer->char_count, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    LLE_ASSERT_EQ(buffer->buffer[5], '\0');
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert character with buffer resize
+LLE_TEST(insert_char_buffer_resize) {
+    // Create small buffer to force resize
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_MIN_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    size_t original_capacity = buffer->capacity;
+    
+    // Fill buffer to capacity - 2 (leaving space for 1 char + null terminator)
+    for (size_t i = 0; i < original_capacity - 2; i++) {
+        LLE_ASSERT(lle_text_insert_char(buffer, 'x'));
+    }
+    
+    // Insert one more - this should still fit (uses last available space)
+    LLE_ASSERT(lle_text_insert_char(buffer, 'y'));
+    LLE_ASSERT_EQ(buffer->capacity, original_capacity); // No resize yet
+    
+    // Insert one more to trigger resize (no space left for char + null terminator)
+    LLE_ASSERT(lle_text_insert_char(buffer, 'z'));
+    
+    // Verify resize occurred
+    LLE_ASSERT(buffer->capacity > original_capacity);
+    LLE_ASSERT_EQ(buffer->length, original_capacity);
+    LLE_ASSERT_EQ(buffer->buffer[buffer->length - 1], 'z');
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert string basic functionality
+LLE_TEST(insert_string_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert a string
+    const char *test_str = "hello world";
+    LLE_ASSERT(lle_text_insert_string(buffer, test_str));
+    
+    // Verify state
+    size_t expected_len = strlen(test_str);
+    LLE_ASSERT_EQ(buffer->length, expected_len);
+    LLE_ASSERT_EQ(buffer->cursor_pos, expected_len);
+    LLE_ASSERT_EQ(buffer->char_count, expected_len);
+    LLE_ASSERT(strncmp(buffer->buffer, test_str, expected_len) == 0);
+    LLE_ASSERT_EQ(buffer->buffer[expected_len], '\0');
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert string with NULL pointers
+LLE_TEST(insert_string_null_pointer) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Test NULL buffer
+    LLE_ASSERT(!lle_text_insert_string(NULL, "test"));
+    
+    // Test NULL string
+    LLE_ASSERT(!lle_text_insert_string(buffer, NULL));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert empty string
+LLE_TEST(insert_string_empty) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert empty string (should succeed but do nothing)
+    LLE_ASSERT(lle_text_insert_string(buffer, ""));
+    
+    // Verify no change
+    LLE_ASSERT_EQ(buffer->length, 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    LLE_ASSERT_EQ(buffer->char_count, 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert string with buffer resize
+LLE_TEST(insert_string_buffer_resize) {
+    // Create small buffer
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_MIN_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    size_t original_capacity = buffer->capacity;
+    
+    // Insert large string to force resize
+    char large_string[200];
+    memset(large_string, 'x', sizeof(large_string) - 1);
+    large_string[sizeof(large_string) - 1] = '\0';
+    
+    LLE_ASSERT(lle_text_insert_string(buffer, large_string));
+    
+    // Verify resize occurred
+    LLE_ASSERT(buffer->capacity > original_capacity);
+    LLE_ASSERT_EQ(buffer->length, strlen(large_string));
+    LLE_ASSERT(strncmp(buffer->buffer, large_string, strlen(large_string)) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert at arbitrary position basic functionality
+LLE_TEST(insert_at_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // First, insert some initial text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11);
+    
+    // Insert at position 6 (after "hello ")
+    LLE_ASSERT(lle_text_insert_at(buffer, 6, "beautiful "));
+    
+    // Verify result: "hello beautiful world"
+    const char *expected = "hello beautiful world";
+    LLE_ASSERT_EQ(buffer->length, strlen(expected));
+    LLE_ASSERT(strncmp(buffer->buffer, expected, strlen(expected)) == 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 21); // Cursor should have moved
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert at beginning
+LLE_TEST(insert_at_beginning) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert initial text
+    LLE_ASSERT(lle_text_insert_string(buffer, "world"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    // Insert at beginning
+    LLE_ASSERT(lle_text_insert_at(buffer, 0, "hello "));
+    
+    // Verify result: "hello world"
+    const char *expected = "hello world";
+    LLE_ASSERT_EQ(buffer->length, strlen(expected));
+    LLE_ASSERT(strncmp(buffer->buffer, expected, strlen(expected)) == 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 11); // Cursor should have moved
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert at middle position
+LLE_TEST(insert_at_middle) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert initial text
+    LLE_ASSERT(lle_text_insert_string(buffer, "abcdef"));
+    
+    // Set cursor to middle
+    buffer->cursor_pos = 3;
+    
+    // Insert at position 3
+    LLE_ASSERT(lle_text_insert_at(buffer, 3, "XYZ"));
+    
+    // Verify result: "abcXYZdef"
+    const char *expected = "abcXYZdef";
+    LLE_ASSERT_EQ(buffer->length, strlen(expected));
+    LLE_ASSERT(strncmp(buffer->buffer, expected, strlen(expected)) == 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 6); // Cursor should have moved
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert at end position
+LLE_TEST(insert_at_end) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert initial text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Set cursor to beginning
+    buffer->cursor_pos = 0;
+    
+    // Insert at end (position 5)
+    LLE_ASSERT(lle_text_insert_at(buffer, 5, " world"));
+    
+    // Verify result: "hello world"
+    const char *expected = "hello world";
+    LLE_ASSERT_EQ(buffer->length, strlen(expected));
+    LLE_ASSERT(strncmp(buffer->buffer, expected, strlen(expected)) == 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0); // Cursor should not have moved
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Insert at invalid position
+LLE_TEST(insert_at_invalid_position) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert some text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Try to insert beyond buffer length
+    LLE_ASSERT(!lle_text_insert_at(buffer, 10, "test"));
+    
+    // Buffer should be unchanged
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Cursor position updates with various insertions
+LLE_TEST(insert_cursor_position_updates) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert char - cursor should advance
+    LLE_ASSERT(lle_text_insert_char(buffer, 'a'));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1);
+    
+    // Insert string - cursor should advance by string length
+    LLE_ASSERT(lle_text_insert_string(buffer, "bcde"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    // Reset cursor to beginning
+    buffer->cursor_pos = 0;
+    
+    // Insert at cursor position - cursor should advance
+    LLE_ASSERT(lle_text_insert_char(buffer, 'X'));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1);
+    
+    // Insert before cursor position - cursor should advance
+    LLE_ASSERT(lle_text_insert_at(buffer, 0, "Y"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 2);
+    
+    // Insert after cursor position - cursor should not change
+    LLE_ASSERT(lle_text_insert_at(buffer, 7, "Z"));
+    LLE_ASSERT_EQ(buffer->cursor_pos, 2);
+    
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
 // Main test runner
 int main(void) {
     printf("Running LLE Text Buffer Tests\n");
@@ -269,6 +568,22 @@ int main(void) {
     RUN_TEST(buffer_validation);
     RUN_TEST(buffer_zero_initialization);
     RUN_TEST(buffer_multiple_cycles);
+    
+    // LLE-003: Text insertion tests
+    RUN_TEST(insert_char_basic);
+    RUN_TEST(insert_char_null_pointer);
+    RUN_TEST(insert_char_multiple);
+    RUN_TEST(insert_char_buffer_resize);
+    RUN_TEST(insert_string_basic);
+    RUN_TEST(insert_string_null_pointer);
+    RUN_TEST(insert_string_empty);
+    RUN_TEST(insert_string_buffer_resize);
+    RUN_TEST(insert_at_basic);
+    RUN_TEST(insert_at_beginning);
+    RUN_TEST(insert_at_middle);
+    RUN_TEST(insert_at_end);
+    RUN_TEST(insert_at_invalid_position);
+    RUN_TEST(insert_cursor_position_updates);
     
     printf("\n============================\n");
     printf("Tests completed: %d/%d passed\n", tests_passed, tests_run);

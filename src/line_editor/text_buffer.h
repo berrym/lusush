@@ -87,7 +87,32 @@ void lle_text_buffer_clear(lle_text_buffer_t *buffer);
  */
 bool lle_text_buffer_is_valid(lle_text_buffer_t *buffer);
 
-// Task LLE-003: Text insertion functions  
+// Task LLE-003: Text insertion functions
+/**
+ * @brief Insert a single character at the cursor position
+ * @param buffer Pointer to text buffer
+ * @param c Character to insert
+ * @return true on success, false on failure
+ */
+bool lle_text_insert_char(lle_text_buffer_t *buffer, char c);
+
+/**
+ * @brief Insert a string at the cursor position
+ * @param buffer Pointer to text buffer
+ * @param str String to insert (must be null-terminated)
+ * @return true on success, false on failure
+ */
+bool lle_text_insert_string(lle_text_buffer_t *buffer, const char *str);
+
+/**
+ * @brief Insert a string at an arbitrary position
+ * @param buffer Pointer to text buffer
+ * @param pos Byte position where to insert (0-based)
+ * @param str String to insert (must be null-terminated)
+ * @return true on success, false on failure
+ */
+bool lle_text_insert_at(lle_text_buffer_t *buffer, size_t pos, const char *str);
+
 // Task LLE-004: Text deletion functions
 // Task LLE-005: Cursor movement functions
 

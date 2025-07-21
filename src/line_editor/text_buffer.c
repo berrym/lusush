@@ -188,3 +188,231 @@ bool lle_text_buffer_is_valid(lle_text_buffer_t *buffer) {
 
     return true;
 }
+
+/**
+ * @brief Resize text buffer to accommodate new capacity
+ *
+ * Internal helper function to resize the buffer when more space is needed.
+ * Ensures the new capacity meets minimum requirements and doesn't exceed limits.
+ *
+ * @param buffer Pointer to text buffer to resize
+ * @param new_capacity New desired capacity in bytes
+ * @return true on success, false on failure
+ *
+ * @note This function preserves existing content
+ * @note New capacity is adjusted to meet constraints
+ */
+static bool lle_text_buffer_resize(lle_text_buffer_t *buffer, size_t new_capacity) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Adjust capacity to meet constraints
+    if (new_capacity < buffer->length) {
+        new_capacity = buffer->length + LLE_MIN_BUFFER_CAPACITY;
+    }
+    if (new_capacity < LLE_MIN_BUFFER_CAPACITY) {
+        new_capacity = LLE_MIN_BUFFER_CAPACITY;
+    }
+    if (new_capacity > LLE_MAX_BUFFER_CAPACITY) {
+        return false; // Cannot exceed maximum capacity
+    }
+
+    // Reallocate buffer
+    char *new_buffer = realloc(buffer->buffer, new_capacity);
+    if (!new_buffer) {
+        return false;
+    }
+
+    // Update buffer structure
+    buffer->buffer = new_buffer;
+    
+    // Zero-initialize new space
+    if (new_capacity > buffer->capacity) {
+        memset(buffer->buffer + buffer->capacity, 0, new_capacity - buffer->capacity);
+    }
+    
+    buffer->capacity = new_capacity;
+    return true;
+}
+
+/**
+ * @brief Insert a single character at the cursor position
+ *
+ * Inserts a character at the current cursor position, shifting existing
+ * text to the right. The cursor advances by one position after insertion.
+ * Buffer automatically resizes if needed.
+ *
+ * @param buffer Pointer to text buffer
+ * @param c Character to insert
+ * @return true on success, false on failure
+ *
+ * @note For ASCII characters only - UTF-8 support in later tasks
+ * @note Buffer will resize automatically if space is needed
+ */
+bool lle_text_insert_char(lle_text_buffer_t *buffer, char c) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate cursor position
+    if (buffer->cursor_pos > buffer->length) {
+        return false;
+    }
+
+    // Check if we need to resize (need space for new char + null terminator)
+    if (buffer->length + 1 + 1 > buffer->capacity) {
+        size_t new_capacity = buffer->capacity * 2;
+        if (!lle_text_buffer_resize(buffer, new_capacity)) {
+            return false;
+        }
+    }
+
+    // Shift existing text to the right if needed
+    if (buffer->cursor_pos < buffer->length) {
+        memmove(buffer->buffer + buffer->cursor_pos + 1,
+                buffer->buffer + buffer->cursor_pos,
+                buffer->length - buffer->cursor_pos);
+    }
+
+    // Insert the character
+    buffer->buffer[buffer->cursor_pos] = c;
+    
+    // Update counters
+    buffer->length++;
+    buffer->cursor_pos++;
+    buffer->char_count++; // For ASCII, byte count equals character count
+    
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}
+
+/**
+ * @brief Insert a string at the cursor position
+ *
+ * Inserts a null-terminated string at the current cursor position,
+ * shifting existing text to the right. The cursor advances by the
+ * length of the inserted string.
+ *
+ * @param buffer Pointer to text buffer
+ * @param str String to insert (must be null-terminated)
+ * @return true on success, false on failure
+ *
+ * @note String must be valid and null-terminated
+ * @note Buffer will resize automatically if space is needed
+ */
+bool lle_text_insert_string(lle_text_buffer_t *buffer, const char *str) {
+    if (!buffer || !buffer->buffer || !str) {
+        return false;
+    }
+
+    // Validate cursor position
+    if (buffer->cursor_pos > buffer->length) {
+        return false;
+    }
+
+    size_t str_len = strlen(str);
+    if (str_len == 0) {
+        return true; // Nothing to insert, but not an error
+    }
+
+    // Check if we need to resize (need space for string + null terminator)
+    if (buffer->length + str_len + 1 > buffer->capacity) {
+        size_t new_capacity = buffer->capacity;
+        while (buffer->length + str_len + 1 > new_capacity) {
+            new_capacity *= 2;
+        }
+        if (!lle_text_buffer_resize(buffer, new_capacity)) {
+            return false;
+        }
+    }
+
+    // Shift existing text to the right if needed
+    if (buffer->cursor_pos < buffer->length) {
+        memmove(buffer->buffer + buffer->cursor_pos + str_len,
+                buffer->buffer + buffer->cursor_pos,
+                buffer->length - buffer->cursor_pos);
+    }
+
+    // Insert the string
+    memcpy(buffer->buffer + buffer->cursor_pos, str, str_len);
+    
+    // Update counters
+    buffer->length += str_len;
+    buffer->cursor_pos += str_len;
+    buffer->char_count += str_len; // For ASCII, byte count equals character count
+    
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}
+
+/**
+ * @brief Insert a string at an arbitrary position
+ *
+ * Inserts a null-terminated string at the specified position,
+ * shifting existing text to the right. The cursor position is
+ * not automatically updated.
+ *
+ * @param buffer Pointer to text buffer
+ * @param pos Byte position where to insert (0-based)
+ * @param str String to insert (must be null-terminated)
+ * @return true on success, false on failure
+ *
+ * @note Position must be valid (0 <= pos <= length)
+ * @note Cursor position remains unchanged
+ * @note Buffer will resize automatically if space is needed
+ */
+bool lle_text_insert_at(lle_text_buffer_t *buffer, size_t pos, const char *str) {
+    if (!buffer || !buffer->buffer || !str) {
+        return false;
+    }
+
+    // Validate position
+    if (pos > buffer->length) {
+        return false;
+    }
+
+    size_t str_len = strlen(str);
+    if (str_len == 0) {
+        return true; // Nothing to insert, but not an error
+    }
+
+    // Check if we need to resize (need space for string + null terminator)
+    if (buffer->length + str_len + 1 > buffer->capacity) {
+        size_t new_capacity = buffer->capacity;
+        while (buffer->length + str_len + 1 > new_capacity) {
+            new_capacity *= 2;
+        }
+        if (!lle_text_buffer_resize(buffer, new_capacity)) {
+            return false;
+        }
+    }
+
+    // Shift existing text to the right if needed
+    if (pos < buffer->length) {
+        memmove(buffer->buffer + pos + str_len,
+                buffer->buffer + pos,
+                buffer->length - pos);
+    }
+
+    // Insert the string
+    memcpy(buffer->buffer + pos, str, str_len);
+    
+    // Update counters
+    buffer->length += str_len;
+    buffer->char_count += str_len; // For ASCII, byte count equals character count
+    
+    // Update cursor position if insertion was before cursor
+    if (pos <= buffer->cursor_pos) {
+        buffer->cursor_pos += str_len;
+    }
+    
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}
