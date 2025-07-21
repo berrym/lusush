@@ -505,3 +505,192 @@ int lle_terminal_get_capabilities_string(const lle_terminal_manager_t *tm, char 
     
     return written;
 }
+
+/* ======================= LLE-011: Terminal Output Functions ======================= */
+
+/**
+ * @brief Write data to terminal with proper error handling
+ *
+ * Writes data directly to the terminal's stdout file descriptor with
+ * comprehensive error handling and validation.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param data Data to write
+ * @param length Length of data in bytes
+ * @return true on success, false on failure
+ */
+bool lle_terminal_write(lle_terminal_manager_t *tm, const char *data, size_t length) {
+    if (!tm || !data || length == 0) {
+        return false;
+    }
+    
+    if (!tm->termcap_initialized) {
+        return false;
+    }
+    
+    ssize_t written = write(tm->stdout_fd, data, length);
+    if (written < 0 || (size_t)written != length) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Move cursor to specified position using termcap
+ *
+ * Uses the integrated termcap system to move the cursor to the specified
+ * row and column position with bounds checking.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param row Target row (0-based)
+ * @param col Target column (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_move_cursor(lle_terminal_manager_t *tm, size_t row, size_t col) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid) {
+        if (row >= tm->geometry.height || col >= tm->geometry.width) {
+            return false;
+        }
+    }
+    
+    int result = lle_termcap_move_cursor((int)row, (int)col);
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Clear current line using termcap
+ *
+ * Uses the integrated termcap system to clear the entire current line.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_line(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_clear_line();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Clear from cursor to end of line using termcap
+ *
+ * Uses the integrated termcap system to clear from the cursor position
+ * to the end of the current line.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_to_eol(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_clear_to_eol();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Clear entire screen using termcap
+ *
+ * Uses the integrated termcap system to clear the entire terminal screen
+ * and optionally move cursor to home position.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_screen(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_clear_screen();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Set terminal colors using termcap
+ *
+ * Uses the integrated termcap system to set foreground and background
+ * colors with capability checking.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param fg Foreground color
+ * @param bg Background color
+ * @return true on success, false on failure
+ */
+bool lle_terminal_set_color(lle_terminal_manager_t *tm, lle_termcap_color_t fg, lle_termcap_color_t bg) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Check if terminal supports colors
+    if (!lle_terminal_has_capability(tm, LLE_TERM_CAP_COLORS)) {
+        return false;
+    }
+    
+    int result = lle_termcap_set_color(fg, bg);
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Reset terminal colors to defaults using termcap
+ *
+ * Uses the integrated termcap system to reset terminal colors to
+ * their default values.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_reset_colors(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_reset_colors();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Hide cursor using termcap
+ *
+ * Uses the integrated termcap system to hide the terminal cursor.
+ * Useful during complex display updates to reduce flicker.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_hide_cursor(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_hide_cursor();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Show cursor using termcap
+ *
+ * Uses the integrated termcap system to show the terminal cursor.
+ * Should be called after hide_cursor to restore normal cursor visibility.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_show_cursor(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_show_cursor();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}

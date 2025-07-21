@@ -169,4 +169,73 @@ bool lle_terminal_is_iterm2(const lle_terminal_manager_t *tm);
 // Task LLE-010: Terminal initialization functions (COMPLETED)
 // Task LLE-011: Terminal output functions
 
+/**
+ * @brief Write data to terminal with proper error handling
+ * @param tm Pointer to terminal manager structure
+ * @param data Data to write
+ * @param length Length of data in bytes
+ * @return true on success, false on failure
+ */
+bool lle_terminal_write(lle_terminal_manager_t *tm, const char *data, size_t length);
+
+/**
+ * @brief Move cursor to specified position using termcap
+ * @param tm Pointer to terminal manager structure
+ * @param row Target row (0-based)
+ * @param col Target column (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_move_cursor(lle_terminal_manager_t *tm, size_t row, size_t col);
+
+/**
+ * @brief Clear current line using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_line(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Clear from cursor to end of line using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_to_eol(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Clear entire screen using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_screen(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Set terminal colors using termcap
+ * @param tm Pointer to terminal manager structure
+ * @param fg Foreground color
+ * @param bg Background color
+ * @return true on success, false on failure
+ */
+bool lle_terminal_set_color(lle_terminal_manager_t *tm, lle_termcap_color_t fg, lle_termcap_color_t bg);
+
+/**
+ * @brief Reset terminal colors to defaults using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_reset_colors(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Hide cursor using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_hide_cursor(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Show cursor using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_show_cursor(lle_terminal_manager_t *tm);
+
 #endif // LLE_TERMINAL_MANAGER_H
