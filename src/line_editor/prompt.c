@@ -10,6 +10,7 @@
  */
 
 #include "prompt.h"
+#include "terminal_manager.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -456,4 +457,235 @@ size_t lle_prompt_display_width(const char *text) {
     free(stripped);
     
     return width;
+}
+
+/**
+ * @brief Render prompt to terminal
+ *
+ * Renders the parsed prompt to the terminal, handling multiline prompts
+ * and ANSI escape sequences correctly.
+ *
+ * @param tm Terminal manager for output
+ * @param prompt Parsed prompt to render
+ * @param clear_previous Whether to clear previous prompt first
+ * @return true on success, false on error
+ */
+bool lle_prompt_render(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt,
+    bool clear_previous
+) {
+    if (!tm || !prompt) {
+        return false;
+    }
+    
+    if (!lle_prompt_validate(prompt)) {
+        return false;
+    }
+    
+    // Clear previous prompt if requested
+    if (clear_previous) {
+        // Move cursor to beginning of prompt area
+        for (size_t i = 0; i < prompt->geometry.height; i++) {
+            if (!lle_terminal_move_cursor_up(tm, 1)) {
+                // If we can't move up, we're probably at the top
+                break;
+            }
+        }
+        
+        // Clear all prompt lines
+        for (size_t i = 0; i < prompt->geometry.height; i++) {
+            if (!lle_terminal_clear_line(tm)) {
+                return false;
+            }
+            if (i < prompt->geometry.height - 1) {
+                if (!lle_terminal_move_cursor_down(tm, 1)) {
+                    return false;
+                }
+            }
+        }
+        
+        // Move back to start of prompt area
+        for (size_t i = 0; i < prompt->geometry.height - 1; i++) {
+            if (!lle_terminal_move_cursor_up(tm, 1)) {
+                return false;
+            }
+        }
+        if (!lle_terminal_move_cursor_to_column(tm, 0)) {
+            return false;
+        }
+    }
+    
+    // Render each line of the prompt
+    for (size_t i = 0; i < prompt->line_count; i++) {
+        const char *line = prompt->lines[i];
+        if (!line) {
+            continue;
+        }
+        
+        // Write the line (includes ANSI codes)
+        size_t line_len = strlen(line);
+        if (line_len > 0) {
+            if (!lle_terminal_write(tm, line, line_len)) {
+                return false;
+            }
+        }
+        
+        // Move to next line if not the last line
+        if (i < prompt->line_count - 1) {
+            if (!lle_terminal_write(tm, "\n", 1)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Position cursor after prompt
+ *
+ * Positions the terminal cursor at the correct location after the prompt,
+ * taking into account multiline prompts and cursor position within input text.
+ *
+ * @param tm Terminal manager for cursor operations
+ * @param prompt Rendered prompt structure
+ * @param cursor_pos Desired cursor position in input text
+ * @return true on success, false on error
+ */
+bool lle_prompt_position_cursor(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt,
+    const lle_cursor_position_t *cursor_pos
+) {
+    if (!tm || !prompt || !cursor_pos) {
+        return false;
+    }
+    
+    if (!lle_prompt_validate(prompt)) {
+        return false;
+    }
+    
+    // Calculate the absolute position where cursor should be
+    size_t target_row = cursor_pos->relative_row;
+    size_t target_col = cursor_pos->relative_col;
+    
+    // For prompts, we need to account for the prompt's last line
+    // The cursor position is relative to the input text, not the prompt
+    if (prompt->line_count > 0) {
+        // Add prompt height to the target row
+        target_row += prompt->geometry.height - 1;
+        
+        // If cursor is on the first line of input, add last line width of prompt
+        if (cursor_pos->relative_row == 0) {
+            target_col += prompt->geometry.last_line_width;
+        }
+    }
+    
+    // Move cursor to the calculated position
+    if (!lle_terminal_move_cursor(tm, target_row, target_col)) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Clear prompt from terminal
+ *
+ * Clears the prompt from the terminal by moving to the beginning
+ * of the prompt area and clearing all prompt lines.
+ *
+ * @param tm Terminal manager for operations
+ * @param prompt Prompt structure to clear
+ * @return true on success, false on error
+ */
+bool lle_prompt_clear_from_terminal(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt
+) {
+    if (!tm || !prompt) {
+        return false;
+    }
+    
+    if (!lle_prompt_validate(prompt)) {
+        return false;
+    }
+    
+    // Save current cursor position (approximately)
+    // We'll use this to restore position after clearing
+    
+    // Move to the beginning of the prompt
+    for (size_t i = 0; i < prompt->geometry.height; i++) {
+        if (!lle_terminal_move_cursor_up(tm, 1)) {
+            // If we can't move up, we're at the top
+            break;
+        }
+    }
+    
+    if (!lle_terminal_move_cursor_to_column(tm, 0)) {
+        return false;
+    }
+    
+    // Clear each line of the prompt
+    for (size_t i = 0; i < prompt->geometry.height; i++) {
+        if (!lle_terminal_clear_line(tm)) {
+            return false;
+        }
+        
+        // Move down to next line if not the last
+        if (i < prompt->geometry.height - 1) {
+            if (!lle_terminal_move_cursor_down(tm, 1)) {
+                return false;
+            }
+            if (!lle_terminal_move_cursor_to_column(tm, 0)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Get cursor position after prompt
+ *
+ * Calculates where the cursor should be positioned immediately after
+ * the prompt, which is where input text begins.
+ *
+ * @param prompt Prompt structure
+ * @param cursor_pos Output cursor position structure
+ * @return true on success, false on error
+ */
+bool lle_prompt_get_end_position(
+    const lle_prompt_t *prompt,
+    lle_cursor_position_t *cursor_pos
+) {
+    if (!prompt || !cursor_pos) {
+        return false;
+    }
+    
+    if (!lle_prompt_validate(prompt)) {
+        return false;
+    }
+    
+    // Position is at the end of the last line of the prompt
+    if (prompt->line_count > 0) {
+        cursor_pos->absolute_row = prompt->geometry.height - 1;
+        cursor_pos->absolute_col = prompt->geometry.last_line_width;
+        cursor_pos->relative_row = prompt->geometry.height - 1;
+        cursor_pos->relative_col = prompt->geometry.last_line_width;
+    } else {
+        // Empty prompt
+        cursor_pos->absolute_row = 0;
+        cursor_pos->absolute_col = 0;
+        cursor_pos->relative_row = 0;
+        cursor_pos->relative_col = 0;
+    }
+    
+    cursor_pos->at_boundary = false;
+    
+    cursor_pos->valid = true;
+    
+    return true;
 }

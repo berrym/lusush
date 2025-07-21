@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "cursor_math.h"
+#include "terminal_manager.h"
 
 /**
  * @file prompt.h
@@ -203,5 +204,69 @@ bool lle_prompt_strip_ansi(const char *input, char *output, size_t output_size);
  * @return Display width in characters, 0 if text is NULL
  */
 size_t lle_prompt_display_width(const char *text);
+
+/**
+ * @brief Render prompt to terminal
+ *
+ * Renders the parsed prompt to the terminal, handling multiline prompts
+ * and ANSI escape sequences correctly.
+ *
+ * @param tm Terminal manager for output
+ * @param prompt Parsed prompt to render
+ * @param clear_previous Whether to clear previous prompt first
+ * @return true on success, false on error
+ */
+bool lle_prompt_render(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt,
+    bool clear_previous
+);
+
+/**
+ * @brief Position cursor after prompt
+ *
+ * Positions the terminal cursor at the correct location after the prompt,
+ * taking into account multiline prompts and cursor position within input text.
+ *
+ * @param tm Terminal manager for cursor operations
+ * @param prompt Rendered prompt structure
+ * @param cursor_pos Desired cursor position in input text
+ * @return true on success, false on error
+ */
+bool lle_prompt_position_cursor(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt,
+    const lle_cursor_position_t *cursor_pos
+);
+
+/**
+ * @brief Clear prompt from terminal
+ *
+ * Clears the prompt from the terminal by moving to the beginning
+ * of the prompt area and clearing all prompt lines.
+ *
+ * @param tm Terminal manager for operations
+ * @param prompt Prompt structure to clear
+ * @return true on success, false on error
+ */
+bool lle_prompt_clear_from_terminal(
+    lle_terminal_manager_t *tm,
+    const lle_prompt_t *prompt
+);
+
+/**
+ * @brief Get cursor position after prompt
+ *
+ * Calculates where the cursor should be positioned immediately after
+ * the prompt, which is where input text begins.
+ *
+ * @param prompt Prompt structure
+ * @param cursor_pos Output cursor position structure
+ * @return true on success, false on error
+ */
+bool lle_prompt_get_end_position(
+    const lle_prompt_t *prompt,
+    lle_cursor_position_t *cursor_pos
+);
 
 #endif // LLE_PROMPT_H

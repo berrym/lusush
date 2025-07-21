@@ -238,4 +238,28 @@ bool lle_terminal_hide_cursor(lle_terminal_manager_t *tm);
  */
 bool lle_terminal_show_cursor(lle_terminal_manager_t *tm);
 
+/**
+ * @brief Move cursor up by specified number of lines
+ * @param tm Pointer to terminal manager structure
+ * @param lines Number of lines to move up
+ * @return true on success, false on failure
+ */
+bool lle_terminal_move_cursor_up(lle_terminal_manager_t *tm, size_t lines);
+
+/**
+ * @brief Move cursor down by specified number of lines
+ * @param tm Pointer to terminal manager structure
+ * @param lines Number of lines to move down
+ * @return true on success, false on failure
+ */
+bool lle_terminal_move_cursor_down(lle_terminal_manager_t *tm, size_t lines);
+
+/**
+ * @brief Move cursor to specified column on current line
+ * @param tm Pointer to terminal manager structure
+ * @param col Target column (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_move_cursor_to_column(lle_terminal_manager_t *tm, size_t col);
+
 #endif // LLE_TERMINAL_MANAGER_H

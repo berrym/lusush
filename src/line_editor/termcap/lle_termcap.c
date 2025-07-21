@@ -690,6 +690,15 @@ int lle_termcap_move_cursor_right(int cols) {
     return lle_termcap_write_formatted("\x1b[%dC", cols);
 }
 
+int lle_termcap_cursor_to_column(int col) {
+    if (col < 0) {
+        return LLE_TERMCAP_INVALID_PARAMETER;
+    }
+    
+    // Column positioning uses 1-based indexing in ANSI sequences
+    return lle_termcap_write_formatted("\x1b[%dG", col + 1);
+}
+
 int lle_termcap_cursor_home(void) {
     return lle_termcap_write_sequence(&LLE_ESC_CURSOR_HOME);
 }

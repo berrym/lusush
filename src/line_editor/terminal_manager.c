@@ -694,3 +694,44 @@ bool lle_terminal_show_cursor(lle_terminal_manager_t *tm) {
     int result = lle_termcap_show_cursor();
     return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
 }
+
+/**
+ * @brief Move cursor up by specified number of lines
+ */
+bool lle_terminal_move_cursor_up(lle_terminal_manager_t *tm, size_t lines) {
+    if (!tm || !tm->termcap_initialized || lines == 0) {
+        return false;
+    }
+    
+    int result = lle_termcap_move_cursor_up(lines);
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Move cursor down by specified number of lines
+ */
+bool lle_terminal_move_cursor_down(lle_terminal_manager_t *tm, size_t lines) {
+    if (!tm || !tm->termcap_initialized || lines == 0) {
+        return false;
+    }
+    
+    int result = lle_termcap_move_cursor_down(lines);
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Move cursor to specified column on current line
+ */
+bool lle_terminal_move_cursor_to_column(lle_terminal_manager_t *tm, size_t col) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid && col >= tm->geometry.width) {
+        return false;
+    }
+    
+    int result = lle_termcap_cursor_to_column(col);
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
