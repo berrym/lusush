@@ -2,7 +2,8 @@
 
 lle_sources = [
   'text_buffer.c',
-  'cursor_math.c'
+  'cursor_math.c',
+  'terminal_manager.c'
 ]
 
 lle_headers = [
