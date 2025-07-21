@@ -7,14 +7,16 @@ lle_sources = [
   'text_buffer.c',
   'cursor_math.c',
   'terminal_manager.c',
-  'prompt.c'
+  'prompt.c',
+  'display.c'
 ]
 
 lle_headers = [
   'text_buffer.h',
   'cursor_math.h',
   'terminal_manager.h',
-  'prompt.h'
+  'prompt.h',
+  'display.h'
 ]
 
 # Create line editor static library

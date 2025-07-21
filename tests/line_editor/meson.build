@@ -9,7 +9,8 @@ lle_test_sources = [
   'test_lle_011_terminal_output.c',
   'test_lle_015_prompt_structure.c',
   'test_lle_016_prompt_parsing.c',
-  'test_lle_017_prompt_rendering.c'
+  'test_lle_017_prompt_rendering.c',
+  'test_lle_018_multiline_input_display.c'
 ]
 
 # Individual component tests
