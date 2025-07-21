@@ -6,13 +6,15 @@ subdir('termcap')
 lle_sources = [
   'text_buffer.c',
   'cursor_math.c',
-  'terminal_manager.c'
+  'terminal_manager.c',
+  'prompt.c'
 ]
 
 lle_headers = [
   'text_buffer.h',
   'cursor_math.h',
-  'terminal_manager.h'
+  'terminal_manager.h',
+  'prompt.h'
 ]
 
 # Create line editor static library
