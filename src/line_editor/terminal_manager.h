@@ -1,0 +1,153 @@
+#ifndef LLE_TERMINAL_MANAGER_H
+#define LLE_TERMINAL_MANAGER_H
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "cursor_math.h"
+
+/**
+ * @file terminal_manager.h
+ * @brief Lusush Line Editor - Terminal Manager
+ *
+ * Terminal interface and capability management for the Lusush Line Editor.
+ * Provides terminal state management, raw mode control, and terminal
+ * capability detection for optimal line editing experience.
+ *
+ * @author Lusush Development Team
+ * @version 1.0
+ */
+
+/**
+ * @brief Terminal capability flags for feature detection
+ */
+typedef enum {
+    LLE_TERM_CAP_COLORS = 1 << 0,        /**< Terminal supports colors */
+    LLE_TERM_CAP_CURSOR_MOVEMENT = 1 << 1, /**< Terminal supports cursor movement */
+    LLE_TERM_CAP_CLEAR_SCREEN = 1 << 2,   /**< Terminal supports screen clearing */
+    LLE_TERM_CAP_ALTERNATE_SCREEN = 1 << 3, /**< Terminal supports alternate screen */
+    LLE_TERM_CAP_MOUSE = 1 << 4,          /**< Terminal supports mouse reporting */
+    LLE_TERM_CAP_BRACKETED_PASTE = 1 << 5, /**< Terminal supports bracketed paste */
+    LLE_TERM_CAP_UTF8 = 1 << 6,           /**< Terminal supports UTF-8 encoding */
+    LLE_TERM_CAP_256_COLORS = 1 << 7      /**< Terminal supports 256 colors */
+} lle_terminal_capabilities_t;
+
+/**
+ * @brief Terminal state information for restoration
+ */
+typedef struct {
+    void *original_termios;     /**< Original terminal attributes (platform specific) */
+    bool was_raw_mode;          /**< Whether terminal was in raw mode before */
+    bool needs_restoration;     /**< Whether terminal state needs restoration */
+    uint32_t original_flags;    /**< Original terminal flags */
+} lle_terminal_state_t;
+
+/**
+ * @brief Terminal manager structure for comprehensive terminal control
+ *
+ * This structure manages all aspects of terminal interaction including
+ * geometry, capabilities, state, and file descriptors. It provides the
+ * foundation for sophisticated terminal control and line editing.
+ *
+ * State management:
+ * - Tracks terminal geometry and changes
+ * - Manages raw mode state and restoration
+ * - Caches capability detection results
+ * - Handles file descriptor management
+ */
+typedef struct {
+    lle_terminal_geometry_t geometry;      /**< Current terminal dimensions and prompt info */
+    lle_terminal_state_t saved_state;      /**< Saved state for restoration */
+    uint32_t capabilities;                 /**< Terminal capability flags (lle_terminal_capabilities_t) */
+    bool capabilities_initialized;         /**< Whether capabilities have been detected */
+    bool in_raw_mode;                     /**< Whether terminal is in raw mode */
+    bool geometry_valid;                  /**< Whether geometry information is current */
+    int stdin_fd;                         /**< Standard input file descriptor */
+    int stdout_fd;                        /**< Standard output file descriptor */
+    int stderr_fd;                        /**< Standard error file descriptor */
+} lle_terminal_manager_t;
+
+/**
+ * @brief Terminal initialization result codes
+ */
+typedef enum {
+    LLE_TERM_INIT_SUCCESS = 0,            /**< Terminal initialized successfully */
+    LLE_TERM_INIT_ERROR_INVALID_FD = -1,  /**< Invalid file descriptor */
+    LLE_TERM_INIT_ERROR_NOT_TTY = -2,     /**< File descriptor is not a TTY */
+    LLE_TERM_INIT_ERROR_CAPABILITIES = -3, /**< Failed to detect capabilities */
+    LLE_TERM_INIT_ERROR_RAW_MODE = -4,    /**< Failed to enter raw mode */
+    LLE_TERM_INIT_ERROR_GEOMETRY = -5     /**< Failed to get terminal geometry */
+} lle_terminal_init_result_t;
+
+// Task LLE-009: Terminal manager structure functions
+
+/**
+ * @brief Initialize terminal manager with default settings
+ * @param tm Pointer to terminal manager structure
+ * @return LLE_TERM_INIT_SUCCESS on success, error code on failure
+ */
+lle_terminal_init_result_t lle_terminal_init(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Clean up terminal manager and restore original state
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_cleanup(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Get current terminal size and update geometry
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_get_size(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Detect terminal capabilities and update flags
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_detect_capabilities(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Check if terminal has specific capability
+ * @param tm Pointer to terminal manager structure
+ * @param capability Capability flag to check
+ * @return true if capability is supported, false otherwise
+ */
+bool lle_terminal_has_capability(const lle_terminal_manager_t *tm, lle_terminal_capabilities_t capability);
+
+/**
+ * @brief Enter raw mode for character-by-character input
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_enter_raw_mode(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Exit raw mode and restore normal terminal behavior
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_exit_raw_mode(lle_terminal_manager_t *tm);
+
+/**
+ * @brief Validate terminal manager structure
+ * @param tm Pointer to terminal manager structure
+ * @return true if structure is valid, false otherwise
+ */
+bool lle_terminal_manager_is_valid(const lle_terminal_manager_t *tm);
+
+/**
+ * @brief Get human-readable description of terminal capabilities
+ * @param tm Pointer to terminal manager structure
+ * @param buffer Buffer to store description
+ * @param buffer_size Size of buffer in bytes
+ * @return Number of characters written, or -1 on error
+ */
+int lle_terminal_get_capabilities_string(const lle_terminal_manager_t *tm, char *buffer, size_t buffer_size);
+
+// Task LLE-010: Terminal initialization functions
+// Task LLE-011: Terminal output functions
+
+#endif // LLE_TERMINAL_MANAGER_H

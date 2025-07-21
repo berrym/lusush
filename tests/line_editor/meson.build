@@ -2,7 +2,8 @@
 
 lle_test_sources = [
   'test_text_buffer.c',
-  'test_cursor_math.c'
+  'test_cursor_math.c',
+  'test_terminal_manager.c'
 ]
 
 # Individual component tests
