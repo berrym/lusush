@@ -241,15 +241,219 @@ size_t lle_prompt_copy_plain_text(const lle_prompt_t *prompt, char *output, size
         return 0;
     }
     
-    // For now, just copy the text as-is
-    // TODO: In LLE-016, implement ANSI stripping
-    size_t copy_len = prompt->length;
-    if (copy_len >= output_size) {
-        copy_len = output_size - 1;
+    // Strip ANSI codes and copy to output
+    return lle_prompt_strip_ansi(prompt->text, output, output_size);
+}
+
+/**
+ * @brief Parse and analyze prompt structure
+ *
+ * Parses the given prompt text, splitting it into lines and calculating
+ * display geometry. Handles ANSI escape sequences and multiline prompts.
+ *
+ * @param prompt Prompt structure to populate
+ * @param text Prompt text to parse (may contain ANSI codes and newlines)
+ * @return true on success, false on error
+ */
+bool lle_prompt_parse(lle_prompt_t *prompt, const char *text) {
+    if (!prompt || !text) {
+        return false;
     }
     
-    memcpy(output, prompt->text, copy_len);
-    output[copy_len] = '\0';
+    // Clear existing content
+    if (!lle_prompt_clear(prompt)) {
+        return false;
+    }
     
-    return copy_len;
+    // Store the full text
+    size_t text_len = strlen(text);
+    prompt->text = malloc(text_len + 1);
+    if (!prompt->text) {
+        return false;
+    }
+    strcpy(prompt->text, text);
+    prompt->length = text_len;
+    
+    // Check for ANSI codes
+    prompt->has_ansi_codes = (strstr(text, "\033[") != NULL);
+    
+    // Split into lines
+    if (!lle_prompt_split_lines(prompt)) {
+        return false;
+    }
+    
+    // Calculate geometry
+    prompt->geometry.width = 0;
+    prompt->geometry.height = prompt->line_count;
+    
+    // Find the widest line and last line width
+    for (size_t i = 0; i < prompt->line_count; i++) {
+        size_t line_width = lle_prompt_display_width(prompt->lines[i]);
+        if (line_width > prompt->geometry.width) {
+            prompt->geometry.width = line_width;
+        }
+        if (i == prompt->line_count - 1) {
+            prompt->geometry.last_line_width = line_width;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Split prompt into individual lines
+ *
+ * Splits the prompt text at newline characters and stores each line
+ * separately in the lines array. Handles empty lines correctly.
+ *
+ * @param prompt Prompt structure with text to split
+ * @return true on success, false on error
+ */
+bool lle_prompt_split_lines(lle_prompt_t *prompt) {
+    if (!prompt || !prompt->text) {
+        return false;
+    }
+    
+    // Count newlines to determine number of lines
+    size_t line_count = 1; // At least one line
+    const char *p = prompt->text;
+    while (*p) {
+        if (*p == '\n') {
+            line_count++;
+        }
+        p++;
+    }
+    
+    // Ensure we have enough capacity
+    if (line_count > prompt->capacity) {
+        size_t new_capacity = line_count * 2; // Grow with some headroom
+        char **new_lines = realloc(prompt->lines, new_capacity * sizeof(char *));
+        if (!new_lines) {
+            return false;
+        }
+        prompt->lines = new_lines;
+        
+        // Initialize new pointers to NULL
+        for (size_t i = prompt->capacity; i < new_capacity; i++) {
+            prompt->lines[i] = NULL;
+        }
+        
+        prompt->capacity = new_capacity;
+    }
+    
+    // Split the text into lines
+    const char *line_start = prompt->text;
+    size_t current_line = 0;
+    
+    p = prompt->text;
+    while (*p) {
+        if (*p == '\n') {
+            // Found end of line
+            size_t line_len = p - line_start;
+            prompt->lines[current_line] = malloc(line_len + 1);
+            if (!prompt->lines[current_line]) {
+                return false;
+            }
+            
+            memcpy(prompt->lines[current_line], line_start, line_len);
+            prompt->lines[current_line][line_len] = '\0';
+            
+            current_line++;
+            line_start = p + 1; // Start of next line
+        }
+        p++;
+    }
+    
+    // Handle the last line (no trailing newline)
+    if (line_start <= p) {
+        size_t line_len = p - line_start;
+        prompt->lines[current_line] = malloc(line_len + 1);
+        if (!prompt->lines[current_line]) {
+            return false;
+        }
+        
+        memcpy(prompt->lines[current_line], line_start, line_len);
+        prompt->lines[current_line][line_len] = '\0';
+        current_line++;
+    }
+    
+    prompt->line_count = current_line;
+    return true;
+}
+
+/**
+ * @brief Strip ANSI escape sequences from text
+ *
+ * Copies text to output buffer while removing ANSI escape sequences.
+ * This is used to calculate the actual display width of text.
+ *
+ * @param input Input text (may contain ANSI codes)
+ * @param output Output buffer for stripped text
+ * @param output_size Size of output buffer
+ * @return Number of bytes written to output, 0 on error
+ */
+bool lle_prompt_strip_ansi(const char *input, char *output, size_t output_size) {
+    if (!input || !output || output_size == 0) {
+        return false;
+    }
+    
+    const char *src = input;
+    char *dst = output;
+    size_t remaining = output_size - 1; // Leave space for null terminator
+    
+    while (*src && remaining > 0) {
+        if (*src == '\033' && *(src + 1) == '[') {
+            // Found ANSI escape sequence, skip it
+            src += 2; // Skip ESC[
+            
+            // Skip until we find the terminating character
+            while (*src && !(*src >= 'A' && *src <= 'Z') && 
+                   !(*src >= 'a' && *src <= 'z') && *src != 'm') {
+                src++;
+            }
+            
+            if (*src) {
+                src++; // Skip the terminating character
+            }
+        } else {
+            // Regular character, copy it
+            *dst++ = *src++;
+            remaining--;
+        }
+    }
+    
+    *dst = '\0';
+    return true;
+}
+
+/**
+ * @brief Calculate display width of text (excluding ANSI codes)
+ *
+ * Returns the number of character positions that the text will occupy
+ * on the terminal, excluding ANSI escape sequences.
+ *
+ * @param text Text to measure (may contain ANSI codes)
+ * @return Display width in characters, 0 if text is NULL
+ */
+size_t lle_prompt_display_width(const char *text) {
+    if (!text) {
+        return 0;
+    }
+    
+    // Use a temporary buffer to strip ANSI codes
+    size_t text_len = strlen(text);
+    char *stripped = malloc(text_len + 1);
+    if (!stripped) {
+        return 0;
+    }
+    
+    if (!lle_prompt_strip_ansi(text, stripped, text_len + 1)) {
+        free(stripped);
+        return 0;
+    }
+    
+    size_t width = strlen(stripped);
+    free(stripped);
+    
+    return width;
 }

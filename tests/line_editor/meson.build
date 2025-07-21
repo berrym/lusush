@@ -7,7 +7,8 @@ lle_test_sources = [
   'test_termcap_integration.c',
   'test_lle_010_integration.c',
   'test_lle_011_terminal_output.c',
-  'test_lle_015_prompt_structure.c'
+  'test_lle_015_prompt_structure.c',
+  'test_lle_016_prompt_parsing.c'
 ]
 
 # Individual component tests

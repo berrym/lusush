@@ -157,4 +157,51 @@ const char *lle_prompt_get_line(const lle_prompt_t *prompt, size_t line_index);
  */
 size_t lle_prompt_copy_plain_text(const lle_prompt_t *prompt, char *output, size_t output_size);
 
+/**
+ * @brief Parse and analyze prompt structure
+ *
+ * Parses the given prompt text, splitting it into lines and calculating
+ * display geometry. Handles ANSI escape sequences and multiline prompts.
+ *
+ * @param prompt Prompt structure to populate
+ * @param text Prompt text to parse (may contain ANSI codes and newlines)
+ * @return true on success, false on error
+ */
+bool lle_prompt_parse(lle_prompt_t *prompt, const char *text);
+
+/**
+ * @brief Split prompt into individual lines
+ *
+ * Splits the prompt text at newline characters and stores each line
+ * separately in the lines array. Handles empty lines correctly.
+ *
+ * @param prompt Prompt structure with text to split
+ * @return true on success, false on error
+ */
+bool lle_prompt_split_lines(lle_prompt_t *prompt);
+
+/**
+ * @brief Strip ANSI escape sequences from text
+ *
+ * Copies text to output buffer while removing ANSI escape sequences.
+ * This is used to calculate the actual display width of text.
+ *
+ * @param input Input text (may contain ANSI codes)
+ * @param output Output buffer for stripped text
+ * @param output_size Size of output buffer
+ * @return true on success, false on error
+ */
+bool lle_prompt_strip_ansi(const char *input, char *output, size_t output_size);
+
+/**
+ * @brief Calculate display width of text (excluding ANSI codes)
+ *
+ * Returns the number of character positions that the text will occupy
+ * on the terminal, excluding ANSI escape sequences.
+ *
+ * @param text Text to measure (may contain ANSI codes)
+ * @return Display width in characters, 0 if text is NULL
+ */
+size_t lle_prompt_display_width(const char *text);
+
 #endif // LLE_PROMPT_H
