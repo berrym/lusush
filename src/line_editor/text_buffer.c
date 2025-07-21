@@ -416,3 +416,154 @@ bool lle_text_insert_at(lle_text_buffer_t *buffer, size_t pos, const char *str) 
 
     return true;
 }
+
+/**
+ * @brief Delete character at the cursor position
+ *
+ * Deletes the character at the current cursor position, shifting all
+ * subsequent text to the left. The cursor position remains unchanged.
+ * If the cursor is at the end of the buffer, no deletion occurs.
+ *
+ * @param buffer Pointer to text buffer
+ * @return true on success, false on failure or no operation
+ *
+ * @note Cursor position remains unchanged after deletion
+ * @note No operation if cursor is at end of buffer
+ */
+bool lle_text_delete_char(lle_text_buffer_t *buffer) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate cursor position
+    if (buffer->cursor_pos > buffer->length) {
+        return false;
+    }
+
+    // Nothing to delete if cursor is at end of buffer
+    if (buffer->cursor_pos == buffer->length) {
+        return false;
+    }
+
+    // Shift text to the left
+    memmove(buffer->buffer + buffer->cursor_pos,
+            buffer->buffer + buffer->cursor_pos + 1,
+            buffer->length - buffer->cursor_pos - 1);
+
+    // Update counters
+    buffer->length--;
+    buffer->char_count--; // For ASCII, byte count equals character count
+
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}
+
+/**
+ * @brief Delete character before the cursor position (backspace)
+ *
+ * Deletes the character immediately before the cursor position,
+ * shifting all subsequent text to the left. The cursor moves back
+ * by one position. If the cursor is at the beginning, no deletion occurs.
+ *
+ * @param buffer Pointer to text buffer
+ * @return true on success, false on failure or no operation
+ *
+ * @note Cursor position moves back by one after successful deletion
+ * @note No operation if cursor is at beginning of buffer
+ */
+bool lle_text_backspace(lle_text_buffer_t *buffer) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate cursor position
+    if (buffer->cursor_pos > buffer->length) {
+        return false;
+    }
+
+    // Nothing to delete if cursor is at beginning
+    if (buffer->cursor_pos == 0) {
+        return false;
+    }
+
+    // Move cursor back first
+    buffer->cursor_pos--;
+
+    // Shift text to the left
+    if (buffer->cursor_pos < buffer->length - 1) {
+        memmove(buffer->buffer + buffer->cursor_pos,
+                buffer->buffer + buffer->cursor_pos + 1,
+                buffer->length - buffer->cursor_pos - 1);
+    }
+
+    // Update counters
+    buffer->length--;
+    buffer->char_count--; // For ASCII, byte count equals character count
+
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}
+
+/**
+ * @brief Delete a range of characters
+ *
+ * Deletes characters from start position to end position (exclusive),
+ * shifting all subsequent text to the left. The cursor position is
+ * adjusted if it falls within or after the deleted range.
+ *
+ * @param buffer Pointer to text buffer
+ * @param start Start position (inclusive, 0-based)
+ * @param end End position (exclusive, 0-based)
+ * @return true on success, false on failure
+ *
+ * @note Range is [start, end) - start inclusive, end exclusive
+ * @note Cursor position is adjusted if affected by deletion
+ * @note start must be <= end and both within buffer bounds
+ */
+bool lle_text_delete_range(lle_text_buffer_t *buffer, size_t start, size_t end) {
+    if (!buffer || !buffer->buffer) {
+        return false;
+    }
+
+    // Validate range
+    if (start > end || start > buffer->length || end > buffer->length) {
+        return false;
+    }
+
+    // Nothing to delete if range is empty
+    if (start == end) {
+        return true;
+    }
+
+    size_t delete_length = end - start;
+
+    // Shift text to the left if there's text after the range
+    if (end < buffer->length) {
+        memmove(buffer->buffer + start,
+                buffer->buffer + end,
+                buffer->length - end);
+    }
+
+    // Update counters
+    buffer->length -= delete_length;
+    buffer->char_count -= delete_length; // For ASCII, byte count equals character count
+
+    // Adjust cursor position if needed
+    if (buffer->cursor_pos >= end) {
+        // Cursor was after the deleted range - move it back
+        buffer->cursor_pos -= delete_length;
+    } else if (buffer->cursor_pos > start) {
+        // Cursor was within the deleted range - move to start
+        buffer->cursor_pos = start;
+    }
+    // If cursor was before the range, it remains unchanged
+
+    // Ensure null termination
+    buffer->buffer[buffer->length] = '\0';
+
+    return true;
+}

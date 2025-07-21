@@ -114,6 +114,29 @@ bool lle_text_insert_string(lle_text_buffer_t *buffer, const char *str);
 bool lle_text_insert_at(lle_text_buffer_t *buffer, size_t pos, const char *str);
 
 // Task LLE-004: Text deletion functions
+/**
+ * @brief Delete character at the cursor position
+ * @param buffer Pointer to text buffer
+ * @return true on success, false on failure or no operation
+ */
+bool lle_text_delete_char(lle_text_buffer_t *buffer);
+
+/**
+ * @brief Delete character before the cursor position (backspace)
+ * @param buffer Pointer to text buffer
+ * @return true on success, false on failure or no operation
+ */
+bool lle_text_backspace(lle_text_buffer_t *buffer);
+
+/**
+ * @brief Delete a range of characters
+ * @param buffer Pointer to text buffer
+ * @param start Start position (inclusive, 0-based)
+ * @param end End position (exclusive, 0-based)
+ * @return true on success, false on failure
+ */
+bool lle_text_delete_range(lle_text_buffer_t *buffer, size_t start, size_t end);
+
 // Task LLE-005: Cursor movement functions
 
 #endif // LLE_TEXT_BUFFER_H

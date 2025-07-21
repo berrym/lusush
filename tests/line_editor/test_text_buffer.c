@@ -551,6 +551,300 @@ LLE_TEST(insert_cursor_position_updates) {
     lle_text_buffer_destroy(buffer);
 }
 
+// =====================================
+// LLE-004: Text Deletion Tests
+// =====================================
+
+// Test: Delete character basic functionality
+LLE_TEST(delete_char_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert some text: "hello"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Set cursor to position 1 (between 'h' and 'e')
+    buffer->cursor_pos = 1;
+    
+    // Delete character at cursor ('e')
+    LLE_ASSERT(lle_text_delete_char(buffer));
+    
+    // Verify result: "hllo"
+    LLE_ASSERT_EQ(buffer->length, 4);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1); // Cursor should remain at position 1
+    LLE_ASSERT_EQ(buffer->char_count, 4);
+    LLE_ASSERT(strncmp(buffer->buffer, "hllo", 4) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete character with NULL pointer
+LLE_TEST(delete_char_null_pointer) {
+    LLE_ASSERT(!lle_text_delete_char(NULL));
+}
+
+// Test: Delete character at end of buffer
+LLE_TEST(delete_char_at_end) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Cursor is at end (position 5)
+    LLE_ASSERT_EQ(buffer->cursor_pos, 5);
+    
+    // Try to delete - should fail (nothing to delete)
+    LLE_ASSERT(!lle_text_delete_char(buffer));
+    
+    // Buffer should be unchanged
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete character in empty buffer
+LLE_TEST(delete_char_empty_buffer) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Try to delete from empty buffer
+    LLE_ASSERT(!lle_text_delete_char(buffer));
+    
+    // Buffer should remain empty
+    LLE_ASSERT_EQ(buffer->length, 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Backspace basic functionality
+LLE_TEST(backspace_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert some text: "hello"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Set cursor to position 2 (after 'he')
+    buffer->cursor_pos = 2;
+    
+    // Backspace (delete 'e')
+    LLE_ASSERT(lle_text_backspace(buffer));
+    
+    // Verify result: "hllo" with cursor at position 1
+    LLE_ASSERT_EQ(buffer->length, 4);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 1);
+    LLE_ASSERT_EQ(buffer->char_count, 4);
+    LLE_ASSERT(strncmp(buffer->buffer, "hllo", 4) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Backspace with NULL pointer
+LLE_TEST(backspace_null_pointer) {
+    LLE_ASSERT(!lle_text_backspace(NULL));
+}
+
+// Test: Backspace at beginning of buffer
+LLE_TEST(backspace_at_beginning) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Set cursor to beginning
+    buffer->cursor_pos = 0;
+    
+    // Try to backspace - should fail (nothing before cursor)
+    LLE_ASSERT(!lle_text_backspace(buffer));
+    
+    // Buffer should be unchanged
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Backspace in empty buffer
+LLE_TEST(backspace_empty_buffer) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Try to backspace from empty buffer
+    LLE_ASSERT(!lle_text_backspace(buffer));
+    
+    // Buffer should remain empty
+    LLE_ASSERT_EQ(buffer->length, 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range basic functionality
+LLE_TEST(delete_range_basic) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello world"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Delete range [6, 11) - delete "world"
+    LLE_ASSERT(lle_text_delete_range(buffer, 6, 11));
+    
+    // Verify result: "hello "
+    LLE_ASSERT_EQ(buffer->length, 6);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello ", 6) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range with NULL pointer
+LLE_TEST(delete_range_null_pointer) {
+    LLE_ASSERT(!lle_text_delete_range(NULL, 0, 5));
+}
+
+// Test: Delete range with invalid range
+LLE_TEST(delete_range_invalid_range) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Test start > end
+    LLE_ASSERT(!lle_text_delete_range(buffer, 3, 1));
+    
+    // Test start > length
+    LLE_ASSERT(!lle_text_delete_range(buffer, 10, 15));
+    
+    // Test end > length
+    LLE_ASSERT(!lle_text_delete_range(buffer, 2, 10));
+    
+    // Buffer should be unchanged
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range empty range
+LLE_TEST(delete_range_empty_range) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Delete empty range [2, 2)
+    LLE_ASSERT(lle_text_delete_range(buffer, 2, 2));
+    
+    // Buffer should be unchanged
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range cursor position updates
+LLE_TEST(delete_range_cursor_updates) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello world"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Test cursor before deleted range
+    buffer->cursor_pos = 2;
+    LLE_ASSERT(lle_text_delete_range(buffer, 6, 11)); // Delete "world"
+    LLE_ASSERT_EQ(buffer->cursor_pos, 2); // Should remain unchanged
+    
+    // Reset buffer
+    lle_text_buffer_clear(buffer);
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Test cursor within deleted range
+    buffer->cursor_pos = 8;
+    LLE_ASSERT(lle_text_delete_range(buffer, 6, 11)); // Delete "world"
+    LLE_ASSERT_EQ(buffer->cursor_pos, 6); // Should move to start of range
+    
+    // Reset buffer
+    lle_text_buffer_clear(buffer);
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Test cursor after deleted range
+    buffer->cursor_pos = 11;
+    LLE_ASSERT(lle_text_delete_range(buffer, 3, 6)); // Delete "lo "
+    LLE_ASSERT_EQ(buffer->cursor_pos, 8); // Should move back by deleted length
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range at beginning
+LLE_TEST(delete_range_at_beginning) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello world"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Delete range [0, 6) - delete "hello "
+    LLE_ASSERT(lle_text_delete_range(buffer, 0, 6));
+    
+    // Verify result: "world"
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "world", 5) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete range at end
+LLE_TEST(delete_range_at_end) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text: "hello world"
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello world"));
+    
+    // Delete range [5, 11) - delete " world"
+    LLE_ASSERT(lle_text_delete_range(buffer, 5, 11));
+    
+    // Verify result: "hello"
+    LLE_ASSERT_EQ(buffer->length, 5);
+    LLE_ASSERT(strncmp(buffer->buffer, "hello", 5) == 0);
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
+// Test: Delete entire buffer with range
+LLE_TEST(delete_range_entire_buffer) {
+    lle_text_buffer_t *buffer = lle_text_buffer_create(LLE_DEFAULT_BUFFER_CAPACITY);
+    LLE_ASSERT_NOT_NULL(buffer);
+    
+    // Insert text
+    LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
+    
+    // Delete entire range [0, 5)
+    LLE_ASSERT(lle_text_delete_range(buffer, 0, 5));
+    
+    // Verify result: empty buffer
+    LLE_ASSERT_EQ(buffer->length, 0);
+    LLE_ASSERT_EQ(buffer->cursor_pos, 0);
+    LLE_ASSERT_EQ(buffer->char_count, 0);
+    LLE_ASSERT_EQ(buffer->buffer[0], '\0');
+    LLE_ASSERT(lle_text_buffer_is_valid(buffer));
+    
+    lle_text_buffer_destroy(buffer);
+}
+
 // Main test runner
 int main(void) {
     printf("Running LLE Text Buffer Tests\n");
@@ -584,6 +878,24 @@ int main(void) {
     RUN_TEST(insert_at_end);
     RUN_TEST(insert_at_invalid_position);
     RUN_TEST(insert_cursor_position_updates);
+    
+    // LLE-004: Text deletion tests
+    RUN_TEST(delete_char_basic);
+    RUN_TEST(delete_char_null_pointer);
+    RUN_TEST(delete_char_at_end);
+    RUN_TEST(delete_char_empty_buffer);
+    RUN_TEST(backspace_basic);
+    RUN_TEST(backspace_null_pointer);
+    RUN_TEST(backspace_at_beginning);
+    RUN_TEST(backspace_empty_buffer);
+    RUN_TEST(delete_range_basic);
+    RUN_TEST(delete_range_null_pointer);
+    RUN_TEST(delete_range_invalid_range);
+    RUN_TEST(delete_range_empty_range);
+    RUN_TEST(delete_range_cursor_updates);
+    RUN_TEST(delete_range_at_beginning);
+    RUN_TEST(delete_range_at_end);
+    RUN_TEST(delete_range_entire_buffer);
     
     printf("\n============================\n");
     printf("Tests completed: %d/%d passed\n", tests_passed, tests_run);
