@@ -583,6 +583,219 @@ LLE_TEST(cursor_position_requires_wrap) {
 }
 
 
+// =====================================
+// LLE-008: Prompt Geometry Calculation Tests
+// =====================================
+
+// Test: Simple single-line prompt geometry
+LLE_TEST(prompt_geometry_single_line) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test simple prompt "$ "
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry("$ ", &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 2);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 2);
+    
+    // Test longer single-line prompt
+    geom = lle_calculate_prompt_geometry("user@host:~/path$ ", &terminal);
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 18);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 18);
+}
+
+// Test: Empty prompt geometry
+LLE_TEST(prompt_geometry_empty) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test empty prompt
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry("", &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 0);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 0);
+}
+
+// Test: Multiline prompt geometry
+LLE_TEST(prompt_geometry_multiline) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test multiline prompt
+    const char *multiline_prompt = "Line 1\nLine 2 is longer\nShort";
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(multiline_prompt, &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 16); // "Line 2 is longer" is widest
+    LLE_ASSERT_EQ(geom.height, 3); // Three lines
+    LLE_ASSERT_EQ(geom.last_line_width, 5); // "Short" is 5 chars
+}
+
+// Test: Prompt with line wrapping
+LLE_TEST(prompt_geometry_wrapping) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 20; // Narrow terminal
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test prompt that wraps
+    const char *long_prompt = "This is a very long prompt";
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(long_prompt, &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 26); // Full width before wrapping
+    LLE_ASSERT_EQ(geom.height, 2); // Wraps to 2 lines (26 chars / 20 = 1.3 -> 2)
+    LLE_ASSERT_EQ(geom.last_line_width, 6); // 26 % 20 = 6
+}
+
+// Test: Prompt with ANSI escape sequences
+LLE_TEST(prompt_geometry_ansi) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test prompt with ANSI colors
+    const char *ansi_prompt = "\033[32mgreen\033[0m$ ";
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(ansi_prompt, &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 7); // "green$ " without ANSI codes
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 7);
+}
+
+// Test: ANSI display width calculation
+LLE_TEST(ansi_display_width) {
+    // Test simple text
+    LLE_ASSERT_EQ(lle_calculate_display_width_ansi("hello", 5), 5);
+    
+    // Test text with ANSI color codes
+    const char *ansi_text = "\033[32mgreen\033[0m";
+    LLE_ASSERT_EQ(lle_calculate_display_width_ansi(ansi_text, strlen(ansi_text)), 5);
+    
+    // Test mixed ANSI and text
+    const char *mixed_text = "before\033[31mred\033[0mafter";
+    LLE_ASSERT_EQ(lle_calculate_display_width_ansi(mixed_text, strlen(mixed_text)), 14);
+    
+    // Test empty string
+    LLE_ASSERT_EQ(lle_calculate_display_width_ansi("", 0), 0);
+    
+    // Test NULL pointer
+    LLE_ASSERT_EQ(lle_calculate_display_width_ansi(NULL, 5), 0);
+}
+
+// Test: Prompt geometry validation
+LLE_TEST(prompt_geometry_validation) {
+    lle_prompt_geometry_t geom;
+    
+    // Test valid geometry
+    geom.width = 10;
+    geom.height = 2;
+    geom.last_line_width = 5;
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    
+    // Test NULL pointer
+    LLE_ASSERT(!lle_validate_prompt_geometry(NULL));
+    
+    // Test zero height (invalid)
+    geom.height = 0;
+    LLE_ASSERT(!lle_validate_prompt_geometry(&geom));
+    
+    // Test last_line_width > width (invalid)
+    geom.height = 1;
+    geom.width = 5;
+    geom.last_line_width = 10;
+    LLE_ASSERT(!lle_validate_prompt_geometry(&geom));
+    
+    // Test excessive dimensions
+    geom.width = 20000;
+    geom.height = 1;
+    geom.last_line_width = 5;
+    LLE_ASSERT(!lle_validate_prompt_geometry(&geom));
+}
+
+// Test: Invalid input handling
+LLE_TEST(prompt_geometry_invalid_input) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test NULL prompt
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(NULL, &terminal);
+    LLE_ASSERT_EQ(geom.width, 0);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 0);
+    
+    // Test NULL terminal
+    geom = lle_calculate_prompt_geometry("$ ", NULL);
+    LLE_ASSERT_EQ(geom.width, 0);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 0);
+    
+    // Test invalid terminal geometry
+    terminal.width = 5; // Too small (below LLE_MIN_TERMINAL_WIDTH)
+    geom = lle_calculate_prompt_geometry("$ ", &terminal);
+    LLE_ASSERT_EQ(geom.width, 0);
+    LLE_ASSERT_EQ(geom.height, 1);
+    LLE_ASSERT_EQ(geom.last_line_width, 0);
+}
+
+// Test: Complex multiline prompt with wrapping
+LLE_TEST(prompt_geometry_complex) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 25;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Complex multiline prompt with different line lengths
+    const char *complex_prompt = "Short\nThis is a much longer line that will wrap\nMed\n$";
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(complex_prompt, &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 41); // Second line is longest
+    LLE_ASSERT_EQ(geom.last_line_width, 1); // "$" is last line
+    // Height: 1 (Short) + 2 (wrapped long line) + 1 (Med) + 1 ($) = 5
+    LLE_ASSERT_EQ(geom.height, 5);
+}
+
+// Test: Edge case with newlines
+LLE_TEST(prompt_geometry_newlines) {
+    lle_terminal_geometry_t terminal;
+    terminal.width = 80;
+    terminal.height = 24;
+    terminal.prompt_width = 0;
+    terminal.prompt_height = 1;
+    
+    // Test prompt with empty lines
+    const char *newline_prompt = "Line1\n\nLine3\n";
+    lle_prompt_geometry_t geom = lle_calculate_prompt_geometry(newline_prompt, &terminal);
+    
+    LLE_ASSERT(lle_validate_prompt_geometry(&geom));
+    LLE_ASSERT_EQ(geom.width, 5); // "Line1" and "Line3" are both 5 chars
+    LLE_ASSERT_EQ(geom.height, 4); // Line1, empty line, Line3, empty line after \n
+    LLE_ASSERT_EQ(geom.last_line_width, 0); // Last line is empty
+}
 
 // Test: Calculate offset for position (reverse calculation)
 LLE_TEST(calculate_offset_for_position) {
@@ -649,6 +862,18 @@ int main(void) {
     RUN_TEST(calculate_text_lines);
     RUN_TEST(cursor_position_requires_wrap);
     RUN_TEST(calculate_offset_for_position);
+    
+    // LLE-008: Prompt geometry calculation tests
+    RUN_TEST(prompt_geometry_single_line);
+    RUN_TEST(prompt_geometry_empty);
+    RUN_TEST(prompt_geometry_multiline);
+    RUN_TEST(prompt_geometry_wrapping);
+    RUN_TEST(prompt_geometry_ansi);
+    RUN_TEST(ansi_display_width);
+    RUN_TEST(prompt_geometry_validation);
+    RUN_TEST(prompt_geometry_invalid_input);
+    RUN_TEST(prompt_geometry_complex);
+    RUN_TEST(prompt_geometry_newlines);
     
     printf("\n=============================\n");
     printf("Tests completed: %d/%d passed\n", tests_passed, tests_run);

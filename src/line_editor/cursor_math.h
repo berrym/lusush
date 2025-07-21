@@ -91,6 +91,19 @@ typedef struct {
     size_t prompt_height;   /**< Number of rows occupied by prompt */
 } lle_terminal_geometry_t;
 
+/**
+ * @brief Prompt geometry information for multiline prompt layout
+ *
+ * This structure contains calculated geometry information for prompts,
+ * including multiline prompts and prompts with ANSI escape sequences.
+ * Used to determine proper positioning and layout for display.
+ */
+typedef struct {
+    size_t width;           /**< Display width of prompt (widest line) */
+    size_t height;          /**< Number of lines occupied by prompt */
+    size_t last_line_width; /**< Display width of last prompt line */
+} lle_prompt_geometry_t;
+
 // Function declarations will be added as tasks are implemented
 
 // Task LLE-007: Basic cursor position calculation functions
@@ -169,6 +182,31 @@ size_t lle_calculate_text_lines(
 );
 
 // Task LLE-008: Prompt geometry calculation functions
+/**
+ * @brief Calculate geometry for a prompt string
+ * @param prompt Pointer to null-terminated prompt string
+ * @param terminal Pointer to terminal geometry information
+ * @return Prompt geometry structure with calculated dimensions
+ */
+lle_prompt_geometry_t lle_calculate_prompt_geometry(
+    const char *prompt,
+    const lle_terminal_geometry_t *terminal
+);
+
+/**
+ * @brief Calculate display width of text with ANSI escape sequences
+ * @param text Pointer to text string
+ * @param length Length of text in bytes
+ * @return Display width in characters (excluding ANSI sequences)
+ */
+size_t lle_calculate_display_width_ansi(const char *text, size_t length);
+
+/**
+ * @brief Validate prompt geometry structure
+ * @param geometry Pointer to prompt geometry structure
+ * @return true if geometry is valid, false otherwise
+ */
+bool lle_validate_prompt_geometry(const lle_prompt_geometry_t *geometry);
 
 
 /**

@@ -323,3 +323,179 @@ size_t lle_calculate_text_lines(
     
     return (total_width + geometry->width - 1) / geometry->width;
 }
+
+/**
+ * @brief Calculate display width of text with ANSI escape sequences
+ *
+ * Calculates the actual display width of text that may contain ANSI escape
+ * sequences. ANSI sequences don't contribute to visual width and are filtered out.
+ *
+ * @param text Pointer to text string
+ * @param length Length of text in bytes
+ * @return Display width in characters (excluding ANSI sequences)
+ *
+ * @note Enhanced version of lle_calculate_display_width with ANSI support
+ */
+size_t lle_calculate_display_width_ansi(const char *text, size_t length) {
+    if (!text || length == 0) {
+        return 0;
+    }
+    
+    size_t display_width = 0;
+    size_t i = 0;
+    
+    while (i < length) {
+        // Check for ANSI escape sequence
+        if (text[i] == '\033' && i + 1 < length && text[i + 1] == '[') {
+            // Skip ANSI escape sequence
+            i += 2; // Skip '\033['
+            
+            // Find the end of the sequence (marked by a letter)
+            while (i < length && !((text[i] >= 'A' && text[i] <= 'Z') || 
+                                   (text[i] >= 'a' && text[i] <= 'z'))) {
+                i++;
+            }
+            
+            if (i < length) {
+                i++; // Skip the terminating letter
+            }
+        } else {
+            // Regular character contributes to display width
+            display_width++;
+            i++;
+        }
+    }
+    
+    return display_width;
+}
+
+/**
+ * @brief Calculate geometry for a prompt string
+ *
+ * Calculates the geometry of a prompt string, handling multiline prompts
+ * and ANSI escape sequences. Determines the width, height, and last line
+ * width needed for proper cursor positioning.
+ *
+ * @param prompt Pointer to null-terminated prompt string
+ * @param terminal Pointer to terminal geometry information
+ * @return Prompt geometry structure with calculated dimensions
+ *
+ * Mathematical approach:
+ * 1. Split prompt into lines (by newline characters)
+ * 2. Calculate display width of each line (handling ANSI)
+ * 3. Determine wrapping based on terminal width
+ * 4. Calculate total height including wrapped lines
+ * 5. Return geometry with width (max), height, and last line width
+ */
+lle_prompt_geometry_t lle_calculate_prompt_geometry(
+    const char *prompt,
+    const lle_terminal_geometry_t *terminal
+) {
+    lle_prompt_geometry_t result = {0, 1, 0}; // Default: height 1
+    
+    // Input validation
+    if (!prompt || !terminal || !lle_validate_terminal_geometry(terminal)) {
+        return result;
+    }
+    
+    size_t prompt_len = strlen(prompt);
+    if (prompt_len == 0) {
+        return result; // Empty prompt: width=0, height=1, last_line_width=0
+    }
+    
+    size_t max_width = 0;
+    size_t current_line_start = 0;
+    size_t line_count = 0;
+    size_t last_line_width = 0;
+    
+    // Process prompt character by character
+    for (size_t i = 0; i <= prompt_len; i++) {
+        // End of line or end of string
+        if (i == prompt_len || prompt[i] == '\n') {
+            size_t line_length = i - current_line_start;
+            
+            if (line_length > 0) {
+                // Calculate display width of this line
+                size_t line_display_width = lle_calculate_display_width_ansi(
+                    prompt + current_line_start, line_length);
+                
+                // Handle line wrapping
+                if (terminal->width > 0) {
+                    size_t lines_for_this_text = line_display_width == 0 ? 1 : 
+                        (line_display_width + terminal->width - 1) / terminal->width;
+                    line_count += lines_for_this_text;
+                    
+                    // Track maximum width (before wrapping)
+                    if (line_display_width > max_width) {
+                        max_width = line_display_width;
+                    }
+                    
+                    // Last line width is the remainder after wrapping
+                    last_line_width = line_display_width % terminal->width;
+                    if (last_line_width == 0 && line_display_width > 0) {
+                        last_line_width = terminal->width;
+                    }
+                } else {
+                    // Zero width terminal - shouldn't happen but handle gracefully
+                    line_count++;
+                    if (line_length > max_width) {
+                        max_width = line_length;
+                    }
+                    last_line_width = line_length;
+                }
+            } else {
+                // Empty line
+                line_count++;
+                last_line_width = 0;
+            }
+            
+            current_line_start = i + 1;
+        }
+    }
+    
+    // Ensure at least one line
+    if (line_count == 0) {
+        line_count = 1;
+    }
+    
+    result.width = max_width;
+    result.height = line_count;
+    result.last_line_width = last_line_width;
+    
+    return result;
+}
+
+/**
+ * @brief Validate prompt geometry structure
+ *
+ * Validates that a prompt geometry structure contains reasonable values
+ * and maintains mathematical consistency.
+ *
+ * @param geometry Pointer to prompt geometry structure
+ * @return true if geometry is valid, false otherwise
+ */
+bool lle_validate_prompt_geometry(const lle_prompt_geometry_t *geometry) {
+    if (!geometry) {
+        return false;
+    }
+    
+    // Check for reasonable bounds (prevent overflow/corruption)
+    const size_t MAX_REASONABLE_PROMPT_SIZE = 10000;
+    if (geometry->width >= MAX_REASONABLE_PROMPT_SIZE ||
+        geometry->height >= MAX_REASONABLE_PROMPT_SIZE ||
+        geometry->last_line_width >= MAX_REASONABLE_PROMPT_SIZE) {
+        return false;
+    }
+    
+    // Height must be at least 1
+    if (geometry->height == 0) {
+        return false;
+    }
+    
+    // last_line_width should not exceed total width (unless width is 0)
+    if (geometry->width > 0 && geometry->last_line_width > geometry->width) {
+        return false;
+    }
+    
+    return true;
+}
