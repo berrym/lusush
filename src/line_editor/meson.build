@@ -8,7 +8,8 @@ lle_sources = [
   'cursor_math.c',
   'terminal_manager.c',
   'prompt.c',
-  'display.c'
+  'display.c',
+  'theme_integration.c'
 ]
 
 lle_headers = [
