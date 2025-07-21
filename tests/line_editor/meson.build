@@ -15,7 +15,9 @@ lle_test_sources = [
   'test_lle_020_basic_theme_application.c',
   'test_lle_021_key_input_handling.c',
   'test_lle_022_key_event_processing.c',
-  'test_lle_023_basic_editing_commands.c'
+  'test_lle_023_basic_editing_commands.c',
+  'test_lle_024_history_structure.c',
+  'test_lle_025_history_management.c'
 ]
 
 # Individual component tests
