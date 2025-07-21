@@ -18,7 +18,8 @@ lle_test_sources = [
   'test_lle_023_basic_editing_commands.c',
   'test_lle_024_history_structure.c',
   'test_lle_025_history_management.c',
-  'test_lle_026_history_navigation.c'
+  'test_lle_026_history_navigation.c',
+  'test_lle_027_utf8_text_handling.c'
 ]
 
 # Individual component tests
