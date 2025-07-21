@@ -209,7 +209,7 @@ static theme_definition_t *create_dark_theme(void) {
     // Dark theme templates
     strncpy(theme->templates.primary_template,
             "%{primary}┌─[%{text}%u%{text_dim}@%{text}%h%{primary}]─[%{path_"
-            "normal}%d%{primary}]%{git_branch}%g\n"
+            "normal}%d%{primary}]%{git_branch}%g\n\r"
             "%{primary}└─%{highlight}$ %{text}",
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.secondary_template,

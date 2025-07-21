@@ -1,5 +1,8 @@
 # Lusush Line Editor (LLE) Build Configuration
 
+# Include termcap subdirectory first
+subdir('termcap')
+
 lle_sources = [
   'text_buffer.c',
   'cursor_math.c',
@@ -16,9 +19,10 @@ lle_headers = [
 lle_lib = static_library('lle',
                         lle_sources,
                         include_directories: inc,
-                        dependencies: [],
+                        dependencies: [lle_termcap_dependency],
                         install: false)
 
 # Line editor dependency for main lusush build
 lle_dep = declare_dependency(link_with: lle_lib,
+                            dependencies: [lle_termcap_dependency],
                             include_directories: include_directories('.'))

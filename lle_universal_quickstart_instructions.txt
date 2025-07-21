@@ -1,0 +1,12 @@
+# 1. Get oriented
+./onboard_lle_developer.sh
+
+# 2. Load AI context
+# Copy AI_CONTEXT.md into your AI assistant
+
+# 3. Start development
+scripts/lle_build.sh setup
+scripts/update_progress.sh
+
+# 4. Begin next task
+# AI now has full context to help implement any task

@@ -194,8 +194,13 @@ FILE *lndebug_fp = NULL;
     do {                                                                       \
         if (lndebug_fp == NULL) {                                              \
             lndebug_fp = fopen("/tmp/lndebug.txt", "a");                       \
+            fprintf(                                                           \
+                lndebug_fp,                                                    \
+                "[%d %d %d] p: %d, rows: %d, rpos: %d, max: %d, oldmax: %d\n", \
+                (int)l->len, (int)l->pos, (int)l->oldcolpos, plen, rows, rpos, \
+                (int)l->oldrows, old_rows);                                    \
         }                                                                      \
-        fprintf(lndebug_fp, __VA_ARGS__);                                      \
+        fprintf(lndebug_fp, ", " __VA_ARGS__);                                 \
         fflush(lndebug_fp);                                                    \
     } while (0)
 #else
@@ -1237,14 +1242,6 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 
     abInit(&ab);
 
-    /* Ultra-conservative clearing - only clear current input line */
-    if (flags & (REFRESH_CLEAN | REFRESH_ALL)) {
-        /* Clear only from cursor position to end of current line */
-        /* Never touch previous lines or previous terminal output */
-        snprintf(seq, 64, "\r\x1b[0K");
-        abAppend(&ab, seq, strlen(seq));
-    }
-
     if (promptnewlines) {
         lndebug("go down %d", promptnewlines);
         snprintf(seq, 64, "\x1b[%dB", promptnewlines);
@@ -1355,17 +1352,14 @@ static void refreshMultiLine(struct linenoiseState *l, int flags) {
     abInit(&ab);
 
     if (flags & REFRESH_CLEAN) {
-        /* Ultra-conservative clearing - never touch previous terminal content */
-        /* Only clear current input line to prevent any line consumption */
-        lndebug("ultra-conservative clean - current line only");
+        /* Conservative clearing - only clear current line to prevent line consumption */
         snprintf(seq, 64, "\r\x1b[0K");
         abAppend(&ab, seq, strlen(seq));
     }
 
     if (flags & REFRESH_ALL) {
-        /* Ultra-conservative clearing - never touch previous terminal content */
-        /* Only clear current input line to prevent any line consumption */
-        lndebug("ultra-conservative refresh - current line only");
+        /* Clean the current line only - avoid consuming previous terminal content */
+        lndebug("clear");
         snprintf(seq, 64, "\r\x1b[0K");
         abAppend(&ab, seq, strlen(seq));
     }
@@ -1748,8 +1742,71 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
             l->len = l->pos = strlen(l->buf);
         }
 
-        /* Use standard refresh function for consistent clearing and redrawing */
-        refreshLineWithFlags(l, REFRESH_ALL);
+        /* Enhanced history navigation with proper multiline clearing */
+        if (mlmode) {
+            /* In multiline mode, clear all lines that might contain old content */
+            char seq[64];
+            struct abuf ab;
+            abInit(&ab);
+
+            /* Calculate current multiline dimensions */
+            int old_rows = l->oldrows;
+            if (old_rows <= 0) {
+                /* If oldrows not set, calculate based on current content */
+                size_t prompt_last_line_width = getPromptLastLineWidth(l->prompt, strlen(l->prompt));
+                old_rows = (columnPosForMultiLine(l->buf, l->len, l->len, l->cols, prompt_last_line_width) + l->cols - 1) / l->cols;
+                if (old_rows <= 0) old_rows = 1;
+            }
+
+            /* Move to start of first line and clear all lines WITHOUT adding newlines */
+            if (old_rows > 1) {
+                /* Go to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", old_rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+
+                /* Clear all lines using cursor movement, no newlines */
+                for (int i = 0; i < old_rows; i++) {
+                    snprintf(seq, sizeof(seq), "\x1b[2K");
+                    abAppend(&ab, seq, strlen(seq));
+                    if (i < old_rows - 1) {
+                        /* Move down to next line using cursor movement */
+                        snprintf(seq, sizeof(seq), "\x1b[B");
+                        abAppend(&ab, seq, strlen(seq));
+                    }
+                }
+
+                /* Return to first line */
+                snprintf(seq, sizeof(seq), "\r\x1b[%dA", old_rows - 1);
+                abAppend(&ab, seq, strlen(seq));
+            } else {
+                /* Single line - just clear it */
+                snprintf(seq, sizeof(seq), "\r\x1b[2K");
+                abAppend(&ab, seq, strlen(seq));
+            }
+
+            /* Write the prompt and new content */
+            abAppend(&ab, l->prompt, strlen(l->prompt));
+            abAppend(&ab, l->buf, l->len);
+
+            /* Write everything at once */
+            if (write(l->ofd, ab.b, ab.len) == -1) {
+                /* Can't recover */
+            }
+
+            /* Update state for next navigation */
+            size_t prompt_last_line_width = getPromptLastLineWidth(l->prompt, strlen(l->prompt));
+            l->oldcolpos = columnPosForMultiLine(l->buf, l->len, l->pos, l->cols, prompt_last_line_width);
+            l->oldrows = (columnPosForMultiLine(l->buf, l->len, l->len, l->cols, prompt_last_line_width) + l->cols - 1) / l->cols;
+            if (l->oldrows <= 0) l->oldrows = 1;
+
+            /* Clean up buffer */
+            abFree(&ab);
+        } else {
+            /* In single line mode, use simple line replacement */
+            if (write(l->ofd, "\r\x1b[0K", 4) == -1) return; /* Clear current line */
+            if (write(l->ofd, l->prompt, strlen(l->prompt)) == -1) return; /* Write prompt */
+            if (write(l->ofd, l->buf, l->len) == -1) return; /* Write content */
+        }
     }
 }
 

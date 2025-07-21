@@ -1,0 +1,272 @@
+# Lusush Line Editor (LLE) Development Rules for AI Assistants
+
+## Project Overview
+This repository contains Lusush, a professional shell with an ongoing line editor replacement project. The current task is replacing linenoise with a custom Lusush Line Editor (LLE) that provides superior multiline prompt support, integrated terminal capabilities, and mathematical correctness. LLE is designed as a standalone, reusable library like libhashtable.
+
+## Current Development Context
+- **Active Feature**: Lusush Line Editor (LLE) implementation with integrated termcap
+- **Branch**: `feature/lusush-line-editor` (or task-specific branches)
+- **Build System**: Meson (NOT Make)
+- **Language**: C99 with strict standards
+- **Architecture**: Standalone library with integrated termcap system (no external dependencies)
+
+## File Structure for LLE Development
+```
+lusush/
+├── src/line_editor/          # LLE standalone library implementation
+│   ├── termcap/             # Integrated termcap system (from Lusush)
+│   │   ├── lle_termcap.c/h  # Core termcap (namespaced)
+│   │   ├── lle_termcap_internal.h # Internal structures
+│   │   └── lle_termcap_database.c # Terminal profiles (iTerm2+)
+│   ├── text_buffer.c/h      # Text manipulation
+│   ├── cursor_math.c/h      # Mathematical positioning
+│   ├── terminal_manager.c/h # Terminal interface using termcap
+│   ├── *.c *.h              # Other LLE components
+│   └── meson.build          # Build configuration
+├── tests/line_editor/        # LLE tests
+│   ├── test_*.c             # Unit tests including termcap tests
+│   ├── benchmark.c          # Performance tests
+│   └── meson.build          # Test configuration
+├── docs/line_editor/         # LLE documentation
+├── LLE_DEVELOPMENT_TASKS.md  # 50 atomic tasks breakdown
+├── LLE_DEVELOPMENT_WORKFLOW.md # Development process
+└── LLE_PROGRESS.md          # Current progress tracking
+```
+
+## Task-Based Development System
+The LLE is broken into 50 atomic tasks (LLE-001 through LLE-050) in 4 phases:
+1. **Phase 1**: Foundation (text buffer, cursor math, termcap integration)
+2. **Phase 2**: Core functionality (prompts, themes, basic editing)
+3. **Phase 3**: Advanced features (Unicode, completion, undo/redo)
+4. **Phase 4**: Integration & polish (API, optimization, documentation)
+
+## Termcap Integration Architecture
+LLE includes a complete termcap system transferred from Lusush to ensure standalone operation:
+- **No External Dependencies**: Complete terminal capability system included
+- **iTerm2 Support**: Full macOS and iTerm2 compatibility preserved
+- **Terminal Database**: 50+ terminal profiles including modern terminals
+- **Namespaced API**: All termcap functions prefixed with `lle_` for standalone use
+
+Each task is 2-4 hours of work with clear acceptance criteria and tests.
+
+## Code Standards for LLE
+```c
+// Function naming: lle_component_action
+bool lle_text_insert_char(lle_text_buffer_t *buffer, char c);
+
+// Termcap functions: lle_termcap_action (namespaced from Lusush)
+bool lle_termcap_init(void);
+bool lle_termcap_is_iterm2(void);
+bool lle_termcap_set_color(lle_termcap_color_t fg, lle_termcap_color_t bg);
+
+// Structure naming: lle_component_t
+typedef struct {
+    char *buffer;
+    size_t length;
+    size_t capacity;
+} lle_text_buffer_t;
+
+// Error handling: always return bool for success/failure
+bool lle_function(args) {
+    if (!args) return false;
+    // implementation
+    return true;
+}
+
+// Documentation: comprehensive function docs
+/**
+ * Insert character at cursor position in text buffer.
+ *
+ * @param buffer Text buffer to modify
+ * @param c Character to insert
+ * @return true on success, false on error
+ *
+ * Buffer automatically resizes if needed. Cursor advances by one.
+ * Handles UTF-8 encoding correctly.
+ */
+```
+
+## Build Commands (Meson-based)
+```bash
+# Setup (first time)
+scripts/lle_build.sh setup
+
+# Build LLE
+scripts/lle_build.sh build
+
+# Run tests
+scripts/lle_build.sh test
+
+# Run specific test
+meson test -C builddir test_text_buffer
+
+# Performance benchmarks
+scripts/lle_build.sh benchmark
+
+# Clean rebuild
+scripts/lle_build.sh clean && scripts/lle_build.sh setup
+```
+
+## Key Design Principles
+1. **Mathematical Correctness**: All cursor positioning must be mathematically provable
+2. **Performance**: Sub-millisecond response times required
+3. **Unicode Support**: Proper UTF-8 handling throughout
+4. **Theme Integration**: Deep integration with Lusush theme system
+5. **Modular Architecture**: Each component independently testable
+6. **Memory Safety**: No leaks, proper bounds checking
+7. **Terminal Compatibility**: Works across all terminal types
+
+## Current Task Context
+Check `LLE_PROGRESS.md` for current task. Each task has:
+- **Task ID**: LLE-XXX format
+- **Estimated Time**: Usually 2-4 hours
+- **Files to Modify**: Specific source files
+- **Acceptance Criteria**: Clear success metrics
+- **Tests Required**: Specific test cases
+- **Commit Message**: Pre-planned format
+
+## Testing Requirements
+Every task must include:
+- **Unit Tests**: Test individual functions
+- **Integration Tests**: Test component interactions
+- **Edge Cases**: Boundary conditions and error cases
+- **Performance Tests**: Response time validation
+- **Memory Tests**: Leak detection with Valgrind
+
+### Common Development Patterns
+
+### Text Buffer Operations
+```c
+// Always check buffer validity
+if (!buffer || !buffer->buffer) return false;
+
+// Ensure capacity before operations
+if (buffer->length + new_data_size >= buffer->capacity) {
+    if (!lle_text_buffer_resize(buffer, new_capacity)) return false;
+}
+
+// Update both byte and character counts
+buffer->length += bytes_added;
+buffer->char_count += chars_added;
+```
+
+### Cursor Position Calculations
+```c
+// Use the mathematical framework
+lle_cursor_position_t pos = lle_calculate_cursor_position(
+    buffer, geometry, prompt_width
+);
+
+// Always validate results
+if (!pos.valid) {
+    // Handle error case
+    return false;
+}
+```
+
+### Terminal Operations Using Integrated Termcap
+```c
+// Initialize integrated termcap system
+if (!lle_termcap_init()) return false;
+
+// Use namespaced termcap functions
+lle_termcap_set_color(LLE_TERMCAP_COLOR_GREEN, LLE_TERMCAP_COLOR_BLACK);
+lle_termcap_move_cursor(row, col);
+
+// Check for specific terminal capabilities
+if (lle_termcap_is_iterm2()) {
+    // iTerm2-specific optimizations
+}
+
+// Terminal manager wraps termcap functionality
+if (!lle_terminal_init(tm)) return false;
+lle_terminal_write(tm, data, length);
+```
+
+## Integration Points with Existing Lusush
+- **Theme System**: `src/themes.c` - LLE provides theme support interface
+- **Integrated Termcap**: `src/line_editor/termcap/` - Complete termcap system transferred from Lusush
+- **Configuration**: `src/config.c` - LLE respects user settings via API
+- **Main Shell**: `src/lusush.c` - LLE replaces linenoise calls as standalone library
+
+## Standalone Library Design
+- **Self-Contained**: No external termcap dependencies
+- **Reusable**: Can be used by other projects like libhashtable
+- **Complete**: Includes all necessary terminal capabilities
+- **Compatible**: Maintains all Lusush terminal features including iTerm2
+
+## Performance Requirements
+- Character insertion: < 1ms
+- Cursor movement: < 1ms
+- Display update: < 5ms
+- History search: < 10ms
+- Tab completion: < 50ms
+- Memory usage: < 1MB base, < 50 bytes per character
+
+## Common Gotchas
+1. **UTF-8**: Always distinguish between byte position and character position
+2. **Terminal Width**: Account for ANSI escape sequences in width calculations
+3. **Cursor Math**: Line wrapping must be mathematically exact
+4. **Memory Management**: Every malloc needs corresponding free
+5. **Error Handling**: Never ignore return values, always check for NULL
+6. **Thread Safety**: LLE is single-threaded by design
+7. **Signal Handling**: Graceful cleanup on SIGINT/SIGTERM
+
+## Development Workflow
+1. **Pick Next Task**: Check `LLE_PROGRESS.md` for TODO tasks
+2. **Create Branch**: `git checkout -b task/lle-XXX-description`
+3. **Read Task Spec**: Full requirements in `LLE_DEVELOPMENT_TASKS.md`
+4. **Implement**: Follow code standards and design principles
+5. **Write Tests**: Comprehensive test coverage required
+6. **Run Tests**: `scripts/lle_build.sh test`
+7. **Commit**: Use task-specific commit message format
+8. **Update Progress**: Mark task as DONE in `LLE_PROGRESS.md`
+
+## Debug Information
+```bash
+# Enable debug output
+export LLE_DEBUG=1
+export LLE_DEBUG_CURSOR=1
+export LLE_DEBUG_MEMORY=1
+
+# Run with debugger
+gdb builddir/lusush
+(gdb) set environment LLE_DEBUG=1
+(gdb) run
+
+# Memory leak detection
+valgrind --leak-check=full builddir/lusush
+
+# Performance profiling
+perf record builddir/lusush
+perf report
+```
+
+## Quick Reference: Key Files to Understand
+- `LLE_DEVELOPMENT_TASKS.md` - Complete task breakdown
+- `LLE_DEVELOPMENT_WORKFLOW.md` - Process and quality standards
+- `LINE_EDITOR_STRATEGIC_ANALYSIS.md` - Why we're building LLE
+- `src/line_editor/` - Current LLE implementation
+- `tests/line_editor/` - Test suite
+- `LLE_PROGRESS.md` - Current development status
+
+## AI Assistant Guidelines
+- Always check current task status in `LLE_PROGRESS.md`
+- Reference specific task requirements from `LLE_DEVELOPMENT_TASKS.md`
+- Use Meson build commands, not Make
+- Follow the mathematical correctness principle
+- Include comprehensive tests with every implementation
+- Maintain the modular architecture
+- Consider Unicode implications in all text operations
+- Optimize for performance from the start
+- Document all public APIs thoroughly
+
+## Emergency Contacts
+If critical issues arise:
+- Check git history for recent changes
+- Run full test suite: `scripts/lle_build.sh test`
+- Validate with: `valgrind builddir/lusush`
+- Review task acceptance criteria for current work
+- Consider reverting to last known good state
+
+This file enables any developer with AI assistance to immediately understand the LLE project context, pick up any task, and contribute effectively while maintaining code quality and architectural consistency.
