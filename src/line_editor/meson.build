@@ -1,7 +1,8 @@
 # Lusush Line Editor (LLE) Build Configuration
 
 lle_sources = [
-  'text_buffer.c'
+  'text_buffer.c',
+  'cursor_math.c'
 ]
 
 lle_headers = [

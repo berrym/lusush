@@ -160,7 +160,7 @@ void lle_text_buffer_clear(lle_text_buffer_t *buffer) {
  *
  * @note This function is useful for debugging and assertions
  */
-bool lle_text_buffer_is_valid(lle_text_buffer_t *buffer) {
+bool lle_text_buffer_is_valid(const lle_text_buffer_t *buffer) {
     if (!buffer) {
         return false;
     }

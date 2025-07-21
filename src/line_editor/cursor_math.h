@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include "text_buffer.h"
 
 /**
  * @file cursor_math.h
@@ -91,7 +92,82 @@ typedef struct {
 } lle_terminal_geometry_t;
 
 // Function declarations will be added as tasks are implemented
+
 // Task LLE-007: Basic cursor position calculation functions
+/**
+ * @brief Calculate cursor position within the terminal
+ * @param buffer Pointer to text buffer containing current text and cursor
+ * @param geometry Pointer to terminal geometry information
+ * @param prompt_width Width of the prompt in characters
+ * @return Cursor position structure with calculated coordinates
+ */
+lle_cursor_position_t lle_calculate_cursor_position(
+    const lle_text_buffer_t *buffer,
+    const lle_terminal_geometry_t *geometry,
+    size_t prompt_width
+);
+
+/**
+ * @brief Validate cursor position structure
+ * @param pos Pointer to cursor position structure to validate
+ * @return true if position is valid, false otherwise
+ */
+bool lle_validate_cursor_position(const lle_cursor_position_t *pos);
+
+/**
+ * @brief Calculate cursor position for a specific byte offset
+ * @param buffer Pointer to text buffer
+ * @param geometry Pointer to terminal geometry
+ * @param prompt_width Width of the prompt in characters
+ * @param byte_offset Byte offset within the buffer (0-based)
+ * @return Cursor position structure for the specified offset
+ */
+lle_cursor_position_t lle_calculate_cursor_position_at_offset(
+    const lle_text_buffer_t *buffer,
+    const lle_terminal_geometry_t *geometry,
+    size_t prompt_width,
+    size_t byte_offset
+);
+
+/**
+ * @brief Calculate the byte offset that would place cursor at given position
+ * @param buffer Pointer to text buffer
+ * @param geometry Pointer to terminal geometry
+ * @param prompt_width Width of the prompt in characters
+ * @param target_pos Desired cursor position
+ * @return Byte offset that would result in target position, or SIZE_MAX if impossible
+ */
+size_t lle_calculate_offset_for_position(
+    const lle_text_buffer_t *buffer,
+    const lle_terminal_geometry_t *geometry,
+    size_t prompt_width,
+    const lle_cursor_position_t *target_pos
+);
+
+/**
+ * @brief Check if cursor position requires line wrapping
+ * @param pos Pointer to cursor position structure
+ * @param geometry Pointer to terminal geometry
+ * @return true if position requires wrapping, false otherwise
+ */
+bool lle_cursor_position_requires_wrap(
+    const lle_cursor_position_t *pos,
+    const lle_terminal_geometry_t *geometry
+);
+
+/**
+ * @brief Calculate the number of lines occupied by text
+ * @param buffer Pointer to text buffer
+ * @param geometry Pointer to terminal geometry
+ * @param prompt_width Width of the prompt in characters
+ * @return Number of lines occupied (minimum 1)
+ */
+size_t lle_calculate_text_lines(
+    const lle_text_buffer_t *buffer,
+    const lle_terminal_geometry_t *geometry,
+    size_t prompt_width
+);
+
 // Task LLE-008: Prompt geometry calculation functions
 
 

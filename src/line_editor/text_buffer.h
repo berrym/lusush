@@ -97,7 +97,7 @@ void lle_text_buffer_clear(lle_text_buffer_t *buffer);
  * @param buffer Pointer to text buffer to validate
  * @return true if buffer is valid, false otherwise
  */
-bool lle_text_buffer_is_valid(lle_text_buffer_t *buffer);
+bool lle_text_buffer_is_valid(const lle_text_buffer_t *buffer);
 
 // Task LLE-003: Text insertion functions
 /**
