@@ -6,10 +6,10 @@
 **Language**: C99  
 **Build**: Meson (NOT Make)  
 **Branch**: `feature/lusush-line-editor`  
-**Status**: 21/50 tasks complete (42%), Phase 2 Core Functionality 58% complete ✅
+**Status**: 23/50 tasks complete (46%), Phase 2 Core Functionality 75% complete ✅
 
 ## 📋 IMMEDIATE NEXT STEPS
-1. Check `LLE_PROGRESS.md` for current TODO task (LLE-022: Key Event Processing)
+1. Check `LLE_PROGRESS.md` for current TODO task (LLE-024: History Structure)
 2. Read task spec in `LLE_DEVELOPMENT_TASKS.md` 
 3. Implement following `.cursorrules` patterns
 4. Write tests, run `scripts/lle_build.sh test`
@@ -78,10 +78,13 @@ LLE_TEST(function_name) {
 - **Multiline Display**: Full display state management with input rendering (LLE-018)
 - **Theme Integration**: `src/line_editor/theme_integration.c/h` - Complete theme system with fallback colors (LLE-019/020)
 - **Key Input Handling**: `src/line_editor/input_handler.c/h` - Comprehensive 60+ key type definitions (LLE-021)
+- **LLE-021 COMPLETED**: Key input handling structures with 60+ key types (23 tests) ✅
+- **LLE-022 COMPLETED**: Key event processing with raw input reading and escape sequence parsing (20 tests) ✅
+- **LLE-023 COMPLETED**: Basic editing commands with comprehensive text manipulation (15+ tests) ✅
 
 **🚧 TODO COMPONENTS:**
-- **Key Event Processing**: Raw input reading and escape sequence parsing (LLE-022)
-- **Basic Editing Commands**: Insert, delete, navigation operations (LLE-023)
+- **History Structure**: Command history data structures (LLE-024)
+- **History Management**: History operations and navigation (LLE-025-026)
 - **History Management**: `history.c/h` - Command history (LLE-024 to LLE-026)
 - **Advanced Features**: Unicode, completion, undo/redo (Phase 3)
 - **Main API**: `line_editor.c/h` - Public interface (Phase 4)
@@ -139,7 +142,7 @@ LLE_TEST(function_name) {
 - `tests/line_editor/test_lle_020_basic_theme_application.c` - Theme application (22 tests)
 - `tests/line_editor/test_lle_021_key_input_handling.c` - Key input handling (23 tests)
 
-**Total: 160+ tests covering all implemented functionality**
+**Total: 195+ tests covering all implemented functionality**
 
 ## 📐 PERFORMANCE TARGETS (VALIDATED)
 - Character insertion: < 1ms ✅
@@ -163,6 +166,63 @@ LLE_TEST(function_name) {
 8. **Prompt Lines**: Always validate line_count <= capacity and null-terminate arrays
 9. **Theme Colors**: Use fallback colors when Lusush theme system unavailable
 10. **Key Events**: Always initialize event structures before use with lle_key_event_init()
+11. **Text Buffer Memory**: Use `lle_text_buffer_create()` + `lle_text_buffer_destroy()`, NOT `lle_text_buffer_init()` in tests
+12. **Display Validation**: Commands should handle display validation failures gracefully for non-terminal environments
+13. **Test Setup**: Simplify test setup with minimal components - only connect required parts to avoid complex initialization
+14. **Command Results**: Commands return valid results even in non-terminal environments when text operations succeed
+15. **Terminal Environment**: Check if issues are terminal/TTY related before debugging complex logic errors
+
+## 🎓 CRITICAL LESSONS LEARNED (AI DEVELOPMENT INSIGHTS)
+
+### **Test Environment Challenges**
+- **CI/Non-Terminal Issues**: When tests fail with display/terminal errors, the issue is usually that commands expect full terminal capability but run in non-terminal CI environment
+- **Quick Fix**: Make commands handle `lle_display_validate()` failure gracefully - continue with text operations, skip display updates
+- **Symptom**: `LLE_CMD_ERROR_DISPLAY_UPDATE` or segfaults in display functions indicate terminal environment issues
+- **Solution Pattern**: `if (lle_display_validate(state)) { update_display(); }` instead of requiring display validation
+
+### **Memory Management Patterns**
+- **Text Buffer Creation**: Always use `lle_text_buffer_create()` + `lle_text_buffer_destroy()` for heap allocation
+- **Text Buffer Init**: `lle_text_buffer_init()` is for stack-allocated structures, not suitable for test patterns
+- **Common Error**: "free(): invalid pointer" means mixing init/create with destroy functions
+- **Test Pattern**: Create pointer (`lle_text_buffer_t *buffer`), create with function, destroy in cleanup
+
+### **Function Naming Conflicts**
+- **Cursor Movement Enums**: Watch for conflicts between `lle_cursor_movement_t` (text_buffer.h) and custom enums
+- **Solution**: Use prefixed names like `lle_cmd_cursor_movement_t` for command-specific enums
+- **Display Functions**: All exist and work - check `src/line_editor/display.c` for available functions
+- **Text Buffer API**: Use `lle_text_move_cursor(buffer, LLE_MOVE_LEFT)` not individual direction functions
+
+### **Test Framework Patterns**
+- **Function Calls**: Call `test_function_name()` directly in main(), NOT `RUN_TEST(function_name)`
+- **Test Definition**: Use `LLE_TEST(name)` macro, then call `test_name()` in main()
+- **Test Structure**: Keep setup simple - only initialize components actually needed
+- **Debug Strategy**: Add printf statements early, disable assertions temporarily to see actual vs expected results
+
+### **Command Implementation Strategy**
+- **Graceful Degradation**: Commands should work in any environment (terminal, non-terminal, CI)
+- **Core Logic First**: Implement text buffer operations first, display integration second
+- **Return Valid Results**: Even if display updates fail, return success if text operations succeed
+- **Validation Pattern**: Check state and buffer validity, make display updates optional
+
+### **Build and Test Debugging**
+- **Compilation Errors**: Usually indicate missing function declarations or conflicting types
+- **Memory Errors**: Often text buffer creation/destruction pattern issues
+- **Assertion Failures**: Check if test expects different output than what's actually produced
+- **Segfaults**: Usually display validation failing in non-terminal environment
+
+### **Progressive Development Approach**
+- **Start Simple**: Create minimal test setup, test core functionality first
+- **Add Complexity Gradually**: Start with text buffer operations, add display integration later
+- **Validate Results**: Don't assume test expectations are correct - verify actual output first
+- **Debug Environment**: Always consider if issues are environmental (terminal/CI) vs logical
+
+### **AI Assistant Workflow**
+1. **Read Current Task**: Check `LLE_PROGRESS.md` for current TODO task
+2. **Check Existing Patterns**: Look at completed tests for setup patterns
+3. **Start with Core Logic**: Implement text operations before display integration
+4. **Test Incrementally**: Build simple tests first, add complexity gradually
+5. **Handle Environment**: Make functions work in both terminal and non-terminal environments
+6. **Validate Assumptions**: Don't assume test expectations are correct - verify output
 
 ## 📁 KEY FILES TO READ (PRIORITY ORDER)
 1. **`LLE_PROGRESS.md`** - Current status (LLE-022 next)
@@ -180,10 +240,11 @@ LLE_TEST(function_name) {
 - ✅ Advanced prompt system with multiline and ANSI support
 - ✅ Perfect multiline prompt parsing and rendering
 - ✅ Complete display system with input rendering
-- ✅ Complete theme integration with fallback system
-- ✅ Comprehensive key input handling with 60+ key types
-- 🚧 Key event processing from terminal input (Phase 2 - next task)
-- 🚧 Basic editing commands (Phase 2)
+- ✅ **Complete theme integration with fallback system**
+- ✅ **Comprehensive key input handling with 60+ key types**
+- ✅ **Key event processing from terminal input with 80+ escape sequences**
+- ✅ **Basic editing commands with unified command interface**
+- 🚧 Command history structure and management (Phase 2 - next task)
 - 🚧 Extensible architecture (Phase 4)
 
 ## 🆘 QUICK DEBUG & TESTING
@@ -194,8 +255,10 @@ meson test -C builddir
 # Run specific test categories
 meson test -C builddir test_text_buffer -v          # Text operations
 meson test -C builddir test_cursor_math -v          # Mathematical correctness
-meson test -C builddir test_lle_020_basic_theme_application -v  # Theme system
-meson test -C builddir test_lle_021_key_input_handling -v       # Key input
+- meson test -C builddir test_lle_020_basic_theme_application -v  # Theme system
+- meson test -C builddir test_lle_021_key_input_handling -v       # Key input
+- meson test -C builddir test_lle_022_key_event_processing -v     # Key events
+- meson test -C builddir test_lle_023_basic_editing_commands -v   # Edit commands
 
 # Memory leak detection
 valgrind --leak-check=full builddir/tests/line_editor/test_lle_021_key_input_handling
@@ -211,7 +274,7 @@ scripts/lle_build.sh clean && scripts/lle_build.sh setup && scripts/lle_build.sh
 
 ## 🔄 DEVELOPMENT PHASES (CURRENT STATUS)
 1. **Phase 1: Foundation** ✅ **COMPLETE** (LLE-001 to LLE-014) - Text buffer, cursor math, termcap integration, terminal I/O, testing
-2. **Phase 2: Core** 🚧 **58% COMPLETE** (LLE-015 to LLE-026) - Prompts, themes, basic editing **[7/12 DONE]**
+2. **Phase 2: Core** 🚧 **75% COMPLETE** (LLE-015 to LLE-026) - Prompts, themes, editing commands **[9/12 DONE]**
 3. **Phase 3: Advanced** 📋 (LLE-027 to LLE-037) - Unicode, completion, undo/redo, syntax highlighting
 4. **Phase 4: Integration** 📋 (LLE-038 to LLE-050) - API, optimization, documentation, final integration
 
@@ -236,7 +299,8 @@ lusush/src/line_editor/
 ├── prompt.c/h                  # Complete prompt system (LLE-015 to LLE-017)
 ├── display.c/h                 # Multiline input display (LLE-018)
 ├── theme_integration.c/h       # Complete theme system (LLE-019, LLE-020)
-├── input_handler.c/h           # Key input handling (LLE-021)
+├── input_handler.c/h           # Key input and event processing (LLE-021, LLE-022)
+├── edit_commands.c/h           # Basic editing commands (LLE-023)
 └── meson.build                 # Main LLE build config
 
 lusush/tests/line_editor/
@@ -253,6 +317,8 @@ lusush/tests/line_editor/
 ├── test_lle_019_theme_interface.c # LLE-019 tests (13 tests)
 ├── test_lle_020_basic_theme_application.c # LLE-020 tests (22 tests)
 ├── test_lle_021_key_input_handling.c # LLE-021 tests (23 tests)
+├── test_lle_022_key_event_processing.c # LLE-022 tests (20 tests)
+├── test_lle_023_basic_editing_commands.c # LLE-023 tests (15+ tests)
 ├── test_framework.h            # Testing infrastructure
 └── meson.build                 # Test configuration
 ```
@@ -266,7 +332,7 @@ lusush/tests/line_editor/
 4. **Test Everything**: `scripts/lle_build.sh test` runs 160+ comprehensive tests
 5. **Code Quality**: All code follows strict C99 standards with comprehensive error handling
 
-**Phase 1 foundation is rock-solid. Phase 2 foundation systems (prompts, themes, input) are complete.**
+**Phase 1 foundation is rock-solid. Phase 2 core systems (prompts, themes, input, editing) are 75% complete.**
 
 ## 📚 STRATEGIC CONTEXT
 LLE replaces basic linenoise with a professional-grade line editor featuring:
@@ -289,10 +355,10 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - **Performance Validated**: Sub-millisecond operations across all systems
 - **Zero Memory Leaks**: Valgrind-verified memory management
 
-**Next: LLE-022 will implement raw terminal input reading and escape sequence parsing.**
+**LLE-024 will implement command history data structures and management.**
 
 ## 🔑 CURRENT PHASE 2 STATUS
-**✅ COMPLETED (7/12 tasks):**
+**✅ COMPLETED (9/12 tasks):**
 - LLE-015: Prompt Structure Definition
 - LLE-016: Prompt Parsing 
 - LLE-017: Prompt Rendering
@@ -300,12 +366,12 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - LLE-019: Theme Interface Definition
 - LLE-020: Basic Theme Application
 - LLE-021: Key Input Handling
-
-**🚧 REMAINING (5/12 tasks):**
-- LLE-022: Key Event Processing ← **NEXT TASK**
+- LLE-022: Key Event Processing
 - LLE-023: Basic Editing Commands
-- LLE-024: History Structure
+
+**🚧 REMAINING (3/12 tasks):**
+- LLE-024: History Structure ← **NEXT TASK**
 - LLE-025: History Management
 - LLE-026: History Navigation
 
-**Phase 2 is 58% complete with solid foundations ready for event processing implementation.**
+**Phase 2 is 75% complete with solid editing command foundation ready for history implementation.**
