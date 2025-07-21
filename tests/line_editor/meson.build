@@ -12,7 +12,8 @@ lle_test_sources = [
   'test_lle_017_prompt_rendering.c',
   'test_lle_018_multiline_input_display.c',
   'test_lle_019_theme_interface.c',
-  'test_lle_020_basic_theme_application.c'
+  'test_lle_020_basic_theme_application.c',
+  'test_lle_021_key_input_handling.c'
 ]
 
 # Individual component tests

@@ -9,7 +9,8 @@ lle_sources = [
   'terminal_manager.c',
   'prompt.c',
   'display.c',
-  'theme_integration.c'
+  'theme_integration.c',
+  'input_handler.c'
 ]
 
 lle_headers = [
@@ -18,7 +19,8 @@ lle_headers = [
   'terminal_manager.h',
   'prompt.h',
   'display.h',
-  'theme_integration.h'
+  'theme_integration.h',
+  'input_handler.h'
 ]
 
 # Create line editor static library
