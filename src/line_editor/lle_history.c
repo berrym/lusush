@@ -698,3 +698,102 @@ bool lle_history_load(lle_history_t *history, const char *filename, bool clear_e
     
     return success;
 }
+
+// ============================================================================
+// Navigation Convenience Functions (LLE-026)
+// ============================================================================
+
+/**
+ * @brief Navigate to previous (older) history entry
+ * 
+ * Convenience function that moves to the previous entry in history.
+ * Automatically enters navigation mode if not already active.
+ * 
+ * @param history History structure
+ * @return Command string of previous entry, or NULL if at beginning
+ */
+const char *lle_history_prev(lle_history_t *history) {
+    if (!lle_history_validate(history)) {
+        return NULL;
+    }
+    
+    const lle_history_entry_t *entry = lle_history_navigate(history, LLE_HISTORY_PREV);
+    return entry ? entry->command : NULL;
+}
+
+/**
+ * @brief Navigate to next (newer) history entry
+ * 
+ * Convenience function that moves to the next entry in history.
+ * Returns NULL and exits navigation mode if moving past the newest entry.
+ * 
+ * @param history History structure
+ * @return Command string of next entry, or NULL if at end
+ */
+const char *lle_history_next(lle_history_t *history) {
+    if (!lle_history_validate(history)) {
+        return NULL;
+    }
+    
+    const lle_history_entry_t *entry = lle_history_navigate(history, LLE_HISTORY_NEXT);
+    return entry ? entry->command : NULL;
+}
+
+/**
+ * @brief Get current navigation position
+ * 
+ * Returns the current position in history navigation. Position 0 is the
+ * oldest entry, and count-1 is the newest entry.
+ * 
+ * @param history History structure
+ * @return Current position, or LLE_HISTORY_INVALID_POSITION if not navigating
+ */
+size_t lle_history_get_position(const lle_history_t *history) {
+    if (!lle_history_validate(history) || !history->navigation_mode) {
+        return LLE_HISTORY_INVALID_POSITION;
+    }
+    
+    return history->current;
+}
+
+/**
+ * @brief Set navigation position directly
+ * 
+ * Sets the current navigation position to the specified index.
+ * Automatically enters navigation mode if not already active.
+ * 
+ * @param history History structure
+ * @param position Position to navigate to (0-based index)
+ * @return true on success, false if position is invalid
+ */
+bool lle_history_set_position(lle_history_t *history, size_t position) {
+    if (!lle_history_validate(history) || position >= history->count) {
+        return false;
+    }
+    
+    // Enter navigation mode if not already
+    if (!history->navigation_mode) {
+        history->navigation_mode = true;
+    }
+    
+    history->current = position;
+    return true;
+}
+
+/**
+ * @brief Reset navigation position
+ * 
+ * Convenience function that exits navigation mode and resets position.
+ * Equivalent to lle_history_reset_navigation().
+ * 
+ * @param history History structure
+ * @return true on success, false on failure
+ */
+bool lle_history_reset_position(lle_history_t *history) {
+    if (!lle_history_validate(history)) {
+        return false;
+    }
+    
+    lle_history_reset_navigation(history);
+    return true;
+}

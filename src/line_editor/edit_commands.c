@@ -384,7 +384,7 @@ lle_command_result_t lle_cmd_delete_word(lle_display_state_t *state) {
     }
     
     // Delete range from cursor to end of word
-    if (!lle_text_delete_range(state->buffer, start_pos, end_pos - start_pos)) {
+    if (!lle_text_delete_range(state->buffer, start_pos, end_pos)) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
@@ -414,7 +414,7 @@ lle_command_result_t lle_cmd_backspace_word(lle_display_state_t *state) {
     }
     
     // Delete range from start of word to cursor
-    if (!lle_text_delete_range(state->buffer, start_pos, end_pos - start_pos)) {
+    if (!lle_text_delete_range(state->buffer, start_pos, end_pos)) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
@@ -534,7 +534,7 @@ lle_command_result_t lle_cmd_kill_line(lle_display_state_t *state) {
     }
     
     // Delete from cursor to end of line
-    if (!lle_text_delete_range(state->buffer, cursor_pos, length_to_delete)) {
+    if (!lle_text_delete_range(state->buffer, cursor_pos, cursor_pos + length_to_delete)) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
