@@ -10,7 +10,8 @@ lle_sources = [
   'prompt.c',
   'display.c',
   'theme_integration.c',
-  'input_handler.c'
+  'input_handler.c',
+  'edit_commands.c'
 ]
 
 lle_headers = [
@@ -20,7 +21,8 @@ lle_headers = [
   'prompt.h',
   'display.h',
   'theme_integration.h',
-  'input_handler.h'
+  'input_handler.h',
+  'edit_commands.h'
 ]
 
 # Create line editor static library
