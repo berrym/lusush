@@ -19,7 +19,7 @@
 
 // Helper function to create history with test data
 static lle_history_t *create_test_history(void) {
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     if (!history) return NULL;
     
     // Add test commands
@@ -214,7 +214,7 @@ LLE_TEST(history_mixed_navigation) {
 LLE_TEST(history_navigation_empty) {
     printf("Testing navigation with empty history... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     LLE_ASSERT(lle_history_size(history) == 0);
     
@@ -235,7 +235,7 @@ LLE_TEST(history_navigation_empty) {
 LLE_TEST(history_navigation_single_entry) {
     printf("Testing navigation with single entry... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     LLE_ASSERT(lle_history_add(history, "single command", false));
     LLE_ASSERT(lle_history_size(history) == 1);
@@ -387,7 +387,7 @@ LLE_TEST(history_navigation_state_consistency) {
 LLE_TEST(history_navigation_large) {
     printf("Testing navigation with large history... ");
     
-    lle_history_t *history = lle_history_create(1000);
+    lle_history_t *history = lle_history_create(1000, false);
     LLE_ASSERT(history != NULL);
     
     // Add many entries

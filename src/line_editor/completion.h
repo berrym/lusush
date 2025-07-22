@@ -14,6 +14,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "terminal_manager.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -450,6 +451,233 @@ bool lle_complete_files(
     const char *input,
     size_t cursor_pos,
     lle_completion_list_t *completions
+);
+
+/* ========================================================================
+ * Completion Display Functions (LLE-031)
+ * ======================================================================== */
+
+/**
+ * @brief Completion display configuration and state
+ *
+ * Manages the visual presentation of completion candidates including
+ * scrolling, selection highlighting, and layout configuration. Provides
+ * efficient display updates and navigation for large completion lists.
+ */
+typedef struct {
+    lle_completion_list_t *completions;    // Completion list to display
+    size_t display_start;                  // First visible item index
+    size_t display_count;                  // Number of visible items
+    size_t max_display_items;              // Maximum items to show at once
+    bool show_descriptions;                // Show item descriptions
+    bool show_selection;                   // Show selection indicator
+    
+    // Display formatting
+    size_t max_text_width;                 // Maximum text width for alignment
+    size_t max_desc_width;                 // Maximum description width
+    char selection_indicator[8];           // Selection indicator string
+    char item_separator[8];                // Item separator string
+    
+    // Color configuration
+    bool use_colors;                       // Enable color display
+    const char *selection_color;           // Color for selected item
+    const char *text_color;                // Color for completion text
+    const char *desc_color;                // Color for descriptions
+    const char *reset_color;               // Color reset sequence
+} lle_completion_display_t;
+
+/**
+ * @brief Create completion display structure
+ *
+ * Creates and initializes a completion display structure with default
+ * configuration suitable for most terminal environments. The display
+ * can be configured after creation for specific needs.
+ *
+ * @param completions Completion list to display (must not be NULL)
+ * @param max_items Maximum number of items to show at once (0 for auto)
+ * @return New completion display or NULL on error
+ *
+ * @note Display takes ownership of the completion list reference
+ * @note Use lle_completion_display_destroy() to clean up
+ */
+lle_completion_display_t *lle_completion_display_create(
+    lle_completion_list_t *completions,
+    size_t max_items
+);
+
+/**
+ * @brief Initialize completion display structure
+ *
+ * Initializes an existing completion display structure with the given
+ * completion list and configuration. Provides fine-grained control
+ * over display parameters and memory management.
+ *
+ * @param display Display structure to initialize (must not be NULL)
+ * @param completions Completion list to display (must not be NULL)
+ * @param max_items Maximum number of items to show at once (0 for auto)
+ * @return true on success, false on error
+ *
+ * @note Display does not take ownership of the completion list
+ * @note Use lle_completion_display_clear() to clean up
+ */
+bool lle_completion_display_init(
+    lle_completion_display_t *display,
+    lle_completion_list_t *completions,
+    size_t max_items
+);
+
+/**
+ * @brief Clear completion display and reset state
+ *
+ * Clears the completion display structure and resets all state to
+ * default values. Does not free the structure itself or the
+ * completion list (unless display owns it).
+ *
+ * @param display Display structure to clear (can be NULL)
+ */
+void lle_completion_display_clear(lle_completion_display_t *display);
+
+/**
+ * @brief Destroy completion display and free memory
+ *
+ * Destroys the completion display structure and frees all associated
+ * memory. If the display owns the completion list, it will also be
+ * destroyed.
+ *
+ * @param display Display structure to destroy (can be NULL)
+ */
+void lle_completion_display_destroy(lle_completion_display_t *display);
+
+/**
+ * @brief Display completion candidates to terminal
+ *
+ * Renders the completion candidates to the terminal using the current
+ * display configuration. Handles scrolling, selection highlighting,
+ * and proper formatting for optimal user experience.
+ *
+ * @param tm Terminal manager for output operations (must not be NULL)
+ * @param display Completion display configuration (must not be NULL)
+ * @return true on success, false on error
+ *
+ * @note Uses terminal colors if available and enabled
+ * @note Automatically handles terminal width constraints
+ * @note Preserves cursor position after display
+ */
+bool lle_completion_display_show(
+    lle_terminal_manager_t *tm,
+    lle_completion_display_t *display
+);
+
+/**
+ * @brief Navigate completion display selection
+ *
+ * Moves the selection within the completion display and updates
+ * scrolling as needed. Provides smooth navigation through large
+ * completion lists with automatic viewport adjustment.
+ *
+ * @param display Completion display to navigate (must not be NULL)
+ * @param direction Navigation direction (-1 for up, 1 for down, 0 for no change)
+ * @return true if selection changed, false if at boundary or error
+ *
+ * @note Wraps around at list boundaries for continuous navigation
+ * @note Automatically adjusts display_start for scrolling
+ * @note Updates completion list selection state
+ */
+bool lle_completion_display_navigate(
+    lle_completion_display_t *display,
+    int direction
+);
+
+/**
+ * @brief Update display viewport for current selection
+ *
+ * Adjusts the display viewport (display_start and display_count) to
+ * ensure the currently selected item is visible. Provides smooth
+ * scrolling behavior for navigation through large lists.
+ *
+ * @param display Completion display to update (must not be NULL)
+ * @return true if viewport changed, false if no change needed or error
+ *
+ * @note Called automatically by lle_completion_display_navigate()
+ * @note Can be called manually after direct selection changes
+ */
+bool lle_completion_display_update_viewport(lle_completion_display_t *display);
+
+/**
+ * @brief Configure display colors and formatting
+ *
+ * Sets the color scheme and formatting options for the completion
+ * display. Allows customization of selection highlighting, text
+ * colors, and visual indicators.
+ *
+ * @param display Display to configure (must not be NULL)
+ * @param use_colors Enable color display
+ * @param selection_color ANSI color code for selected item (can be NULL)
+ * @param text_color ANSI color code for completion text (can be NULL)
+ * @param desc_color ANSI color code for descriptions (can be NULL)
+ * @return true on success, false on error
+ *
+ * @note NULL color parameters use default terminal colors
+ * @note Colors are stored as references, not copied
+ * @note Changes take effect on next display update
+ */
+bool lle_completion_display_configure_colors(
+    lle_completion_display_t *display,
+    bool use_colors,
+    const char *selection_color,
+    const char *text_color,
+    const char *desc_color
+);
+
+/**
+ * @brief Configure display layout and indicators
+ *
+ * Sets the visual layout options including selection indicators,
+ * item separators, and display limits. Provides control over
+ * the visual presentation of completion candidates.
+ *
+ * @param display Display to configure (must not be NULL)
+ * @param show_descriptions Show item descriptions
+ * @param show_selection Show selection indicator
+ * @param selection_indicator Custom selection indicator (copied, can be NULL)
+ * @param max_items Maximum items to display (0 for auto)
+ * @return true on success, false on error
+ *
+ * @note Default selection indicator is ">" if not specified
+ * @note max_items of 0 uses terminal height constraints
+ * @note Changes take effect on next display update
+ */
+bool lle_completion_display_configure_layout(
+    lle_completion_display_t *display,
+    bool show_descriptions,
+    bool show_selection,
+    const char *selection_indicator,
+    size_t max_items
+);
+
+/**
+ * @brief Get display statistics and metrics
+ *
+ * Retrieves current display state and metrics for debugging
+ * and optimization purposes. Provides insight into display
+ * performance and configuration.
+ *
+ * @param display Display to query (must not be NULL)
+ * @param total_items Pointer to store total completion count (can be NULL)
+ * @param visible_items Pointer to store visible item count (can be NULL)
+ * @param selected_index Pointer to store selected item index (can be NULL)
+ * @param display_start Pointer to store first visible index (can be NULL)
+ * @return true on success, false on error
+ *
+ * @note All output parameters are optional (can be NULL)
+ * @note Provides real-time display state information
+ */
+bool lle_completion_display_get_stats(
+    const lle_completion_display_t *display,
+    size_t *total_items,
+    size_t *visible_items,
+    size_t *selected_index,
+    size_t *display_start
 );
 
 #ifdef __cplusplus

@@ -77,6 +77,7 @@ typedef struct {
     size_t oldest_index;            /**< Index of oldest entry (circular buffer) */
     bool is_full;                   /**< Whether buffer is at capacity */
     bool navigation_mode;           /**< Whether in navigation mode */
+    bool no_duplicates;             /**< Enable unique-only history (hist_no_dups) */
     char *temp_buffer;              /**< Temporary buffer for current edit */
     size_t temp_length;             /**< Length of temporary buffer */
 } lle_history_t;
@@ -133,24 +134,26 @@ typedef struct {
  * @brief Create a new history structure
  * 
  * Allocates and initializes a new command history with the specified
- * maximum number of entries.
+ * maximum number of entries and duplicate handling behavior.
  * 
  * @param max_entries Maximum number of entries to keep (0 for default)
+ * @param no_duplicates Enable unique-only history (hist_no_dups behavior)
  * @return Pointer to new history structure, or NULL on failure
  */
-lle_history_t *lle_history_create(size_t max_entries);
+lle_history_t *lle_history_create(size_t max_entries, bool no_duplicates);
 
 /**
  * @brief Initialize an existing history structure
  * 
  * Initializes a stack-allocated history structure with the specified
- * maximum number of entries.
+ * maximum number of entries and duplicate handling behavior.
  * 
  * @param history History structure to initialize
  * @param max_entries Maximum number of entries to keep (0 for default)
+ * @param no_duplicates Enable unique-only history (hist_no_dups behavior)
  * @return true on success, false on failure
  */
-bool lle_history_init(lle_history_t *history, size_t max_entries);
+bool lle_history_init(lle_history_t *history, size_t max_entries, bool no_duplicates);
 
 /**
  * @brief Destroy a history structure
@@ -186,12 +189,13 @@ bool lle_history_clear(lle_history_t *history);
 /**
  * @brief Add a command to history
  * 
- * Adds a new command to the history. Duplicate consecutive commands
- * are typically ignored unless force_add is true.
+ * Adds a new command to the history. Behavior depends on no_duplicates setting:
+ * - If no_duplicates is false: only consecutive duplicates are ignored
+ * - If no_duplicates is true: any duplicate moves to end with updated timestamp
  * 
  * @param history History structure
  * @param command Command text to add
- * @param force_add Add even if duplicate of last entry
+ * @param force_add Add even if duplicate (overrides no_duplicates behavior)
  * @return true on success, false on failure
  */
 bool lle_history_add(lle_history_t *history, const char *command, bool force_add);
@@ -421,6 +425,39 @@ size_t lle_history_max_size(const lle_history_t *history);
  * @return true on success, false on failure
  */
 bool lle_history_set_max_size(lle_history_t *history, size_t max_entries);
+
+/**
+ * @brief Set no_duplicates mode (runtime toggle for hist_no_dups)
+ * 
+ * Enables or disables unique-only history behavior. When enabling,
+ * existing history is cleaned to remove duplicates while preserving
+ * chronological order of the latest occurrences.
+ * 
+ * @param history History structure
+ * @param no_duplicates Enable unique-only history
+ * @return true on success, false on failure
+ */
+bool lle_history_set_no_duplicates(lle_history_t *history, bool no_duplicates);
+
+/**
+ * @brief Get current no_duplicates setting
+ * 
+ * @param history History structure
+ * @return true if unique-only history is enabled, false otherwise
+ */
+bool lle_history_get_no_duplicates(const lle_history_t *history);
+
+/**
+ * @brief Remove all duplicate entries from history
+ * 
+ * Scans the entire history and removes duplicate entries, keeping only
+ * the latest occurrence of each command. Preserves chronological order
+ * of remaining entries.
+ * 
+ * @param history History structure
+ * @return Number of entries removed, or SIZE_MAX on error
+ */
+size_t lle_history_remove_duplicates(lle_history_t *history);
 
 #ifdef __cplusplus
 }

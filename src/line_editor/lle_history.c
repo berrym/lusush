@@ -92,11 +92,15 @@ static bool lle_history_validate(const lle_history_t *history) {
     return true;
 }
 
+// Forward declarations for helper functions
+static size_t lle_history_find_command(const lle_history_t *history, const char *command);
+static bool lle_history_remove_at_index(lle_history_t *history, size_t logical_index);
+
 // ============================================================================
 // Public API Implementation
 // ============================================================================
 
-lle_history_t *lle_history_create(size_t max_entries) {
+lle_history_t *lle_history_create(size_t max_entries, bool no_duplicates) {
     // Use default if max_entries is 0
     if (max_entries == 0) {
         max_entries = LLE_HISTORY_DEFAULT_MAX_ENTRIES;
@@ -115,7 +119,7 @@ lle_history_t *lle_history_create(size_t max_entries) {
     }
     
     // Initialize structure
-    if (!lle_history_init(history, max_entries)) {
+    if (!lle_history_init(history, max_entries, no_duplicates)) {
         free(history);
         return NULL;
     }
@@ -123,7 +127,7 @@ lle_history_t *lle_history_create(size_t max_entries) {
     return history;
 }
 
-bool lle_history_init(lle_history_t *history, size_t max_entries) {
+bool lle_history_init(lle_history_t *history, size_t max_entries, bool no_duplicates) {
     if (!history) {
         return false;
     }
@@ -153,6 +157,7 @@ bool lle_history_init(lle_history_t *history, size_t max_entries) {
     history->oldest_index = 0;
     history->is_full = false;
     history->navigation_mode = false;
+    history->no_duplicates = no_duplicates;
     history->temp_buffer = NULL;
     history->temp_length = 0;
     
@@ -190,6 +195,7 @@ void lle_history_destroy(lle_history_t *history) {
     history->oldest_index = 0;
     history->is_full = false;
     history->navigation_mode = false;
+    history->no_duplicates = false;
     history->temp_length = 0;
     
     // Free the structure itself (this function assumes heap allocation)
@@ -278,11 +284,24 @@ bool lle_history_add(lle_history_t *history, const char *command, bool force_add
         return false; // Don't add empty commands
     }
     
-    // Check for duplicate consecutive command (unless forced)
+    // Handle duplicate detection based on mode
     if (!force_add && history->count > 0) {
-        const lle_history_entry_t *last = lle_history_get(history, history->count - 1);
-        if (last && last->command && strcmp(last->command, command) == 0) {
-            return true; // Skip duplicate
+        if (history->no_duplicates) {
+            // Check entire history for duplicates (hist_no_dups behavior)
+            size_t duplicate_index = lle_history_find_command(history, command);
+            if (duplicate_index != LLE_HISTORY_INVALID_POSITION) {
+                // Found duplicate - remove it and add new entry at end
+                if (!lle_history_remove_at_index(history, duplicate_index)) {
+                    return false; // Failed to remove duplicate
+                }
+                // Continue to add the command at the end with updated timestamp
+            }
+        } else {
+            // Only check consecutive duplicates (traditional behavior)
+            const lle_history_entry_t *last = lle_history_get(history, history->count - 1);
+            if (last && last->command && strcmp(last->command, command) == 0) {
+                return true; // Skip consecutive duplicate
+            }
         }
     }
     
@@ -796,4 +815,206 @@ bool lle_history_reset_position(lle_history_t *history) {
     
     lle_history_reset_navigation(history);
     return true;
+}
+
+// ============================================================================
+// Internal Helper Functions for Duplicate Management
+// ============================================================================
+
+/**
+ * @brief Find index of command in history
+ * @param history History structure
+ * @param command Command to search for
+ * @return Index of command, or LLE_HISTORY_INVALID_POSITION if not found
+ */
+static size_t lle_history_find_command(const lle_history_t *history, const char *command) {
+    if (!history || !command) {
+        return LLE_HISTORY_INVALID_POSITION;
+    }
+    
+    for (size_t i = 0; i < history->count; i++) {
+        const lle_history_entry_t *entry = lle_history_get(history, i);
+        if (entry && entry->command && strcmp(entry->command, command) == 0) {
+            return i;
+        }
+    }
+    
+    return LLE_HISTORY_INVALID_POSITION;
+}
+
+/**
+ * @brief Remove entry at logical index and compact array
+ * @param history History structure
+ * @param logical_index Logical index (0 = oldest)
+ * @return true on success, false on failure
+ */
+static bool lle_history_remove_at_index(lle_history_t *history, size_t logical_index) {
+    if (!lle_history_validate(history) || logical_index >= history->count) {
+        return false;
+    }
+    
+    size_t actual_index = lle_history_get_actual_index(history, logical_index);
+    if (actual_index == LLE_HISTORY_INVALID_POSITION) {
+        return false;
+    }
+    
+    // Free the entry being removed
+    lle_history_free_entry(&history->entries[actual_index]);
+    
+    // If this is a circular buffer, we need to handle removal carefully
+    if (history->is_full) {
+        // For full circular buffer, we need to shift elements
+        // This is complex, so for now we'll use a simpler approach:
+        // Convert to linear arrangement, remove, then update
+        
+        // Create temporary array for entries in logical order
+        lle_history_entry_t *temp_entries = malloc(history->count * sizeof(lle_history_entry_t));
+        if (!temp_entries) {
+            return false;
+        }
+        
+        // Copy entries in logical order, skipping the one to remove
+        size_t new_count = 0;
+        for (size_t i = 0; i < history->count; i++) {
+            if (i != logical_index) {
+                size_t src_actual = lle_history_get_actual_index(history, i);
+                if (src_actual != LLE_HISTORY_INVALID_POSITION) {
+                    temp_entries[new_count] = history->entries[src_actual];
+                    new_count++;
+                }
+            }
+        }
+        
+        // Clear original array
+        memset(history->entries, 0, history->capacity * sizeof(lle_history_entry_t));
+        
+        // Copy back in linear order
+        for (size_t i = 0; i < new_count; i++) {
+            history->entries[i] = temp_entries[i];
+        }
+        
+        free(temp_entries);
+        
+        // Update structure state
+        history->count = new_count;
+        history->oldest_index = 0;
+        history->is_full = (new_count == history->capacity);
+        
+    } else {
+        // Linear array case - simple shift
+        for (size_t i = logical_index; i < history->count - 1; i++) {
+            history->entries[i] = history->entries[i + 1];
+        }
+        
+        // Clear the last entry
+        memset(&history->entries[history->count - 1], 0, sizeof(lle_history_entry_t));
+        history->count--;
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// New Public API Functions
+// ============================================================================
+
+bool lle_history_set_no_duplicates(lle_history_t *history, bool no_duplicates) {
+    if (!lle_history_validate(history)) {
+        return false;
+    }
+    
+    bool old_setting = history->no_duplicates;
+    history->no_duplicates = no_duplicates;
+    
+    // If enabling no_duplicates, clean existing history
+    if (no_duplicates && !old_setting) {
+        lle_history_remove_duplicates(history);
+    }
+    
+    return true;
+}
+
+bool lle_history_get_no_duplicates(const lle_history_t *history) {
+    if (!lle_history_validate(history)) {
+        return false;
+    }
+    
+    return history->no_duplicates;
+}
+
+size_t lle_history_remove_duplicates(lle_history_t *history) {
+    if (!history) {
+        return SIZE_MAX; // Error - NULL parameter
+    }
+    
+    if (!lle_history_validate(history) || history->count == 0) {
+        return 0;
+    }
+    
+    size_t removed_count = 0;
+    
+    // Create a temporary array to store unique entries in chronological order
+    lle_history_entry_t *unique_entries = malloc(history->count * sizeof(lle_history_entry_t));
+    if (!unique_entries) {
+        return SIZE_MAX; // Error
+    }
+    
+    size_t unique_count = 0;
+    
+    // Walk through history from oldest to newest
+    for (size_t i = 0; i < history->count; i++) {
+        const lle_history_entry_t *current_entry = lle_history_get(history, i);
+        
+        if (!current_entry || !current_entry->command) {
+            continue;
+        }
+        
+        // Check if this command appears later in history
+        bool found_later = false;
+        for (size_t j = i + 1; j < history->count; j++) {
+            const lle_history_entry_t *later_entry = lle_history_get(history, j);
+            if (later_entry && later_entry->command && 
+                strcmp(later_entry->command, current_entry->command) == 0) {
+                found_later = true;
+                break;
+            }
+        }
+        
+        // If not found later, this is the latest occurrence - keep it
+        if (!found_later) {
+            unique_entries[unique_count] = *current_entry;
+            // Duplicate the command string
+            unique_entries[unique_count].command = malloc(strlen(current_entry->command) + 1);
+            if (unique_entries[unique_count].command) {
+                strcpy(unique_entries[unique_count].command, current_entry->command);
+                unique_count++;
+            }
+        } else {
+            removed_count++;
+        }
+    }
+    
+    // Clear original entries
+    for (size_t i = 0; i < history->count; i++) {
+        size_t actual_index = lle_history_get_actual_index(history, i);
+        if (actual_index != LLE_HISTORY_INVALID_POSITION) {
+            lle_history_free_entry(&history->entries[actual_index]);
+        }
+    }
+    
+    // Clear entire array
+    memset(history->entries, 0, history->capacity * sizeof(lle_history_entry_t));
+    
+    // Copy unique entries back in linear order
+    for (size_t i = 0; i < unique_count; i++) {
+        history->entries[i] = unique_entries[i];
+    }
+    
+    // Update history state
+    history->count = unique_count;
+    history->oldest_index = 0;
+    history->is_full = (unique_count == history->capacity);
+    
+    free(unique_entries);
+    return removed_count;
 }

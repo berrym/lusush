@@ -27,7 +27,7 @@
  * @return Pointer to created history
  */
 static lle_history_t *create_test_history(size_t max_entries, size_t add_entries) {
-    lle_history_t *history = lle_history_create(max_entries);
+    lle_history_t *history = lle_history_create(max_entries, false);
     if (!history) {
         return NULL;
     }
@@ -82,7 +82,7 @@ static bool verify_history_entry(const lle_history_entry_t *entry, const char *e
 LLE_TEST(history_create_default) {
     printf("Testing history creation with default size... ");
     
-    lle_history_t *history = lle_history_create(0);
+    lle_history_t *history = lle_history_create(0, false);
     LLE_ASSERT_NOT_NULL(history);
     
     LLE_ASSERT_EQ(lle_history_size(history), 0);
@@ -97,7 +97,7 @@ LLE_TEST(history_create_default) {
 LLE_TEST(history_create_custom_size) {
     printf("Testing history creation with custom size... ");
     
-    lle_history_t *history = lle_history_create(100);
+    lle_history_t *history = lle_history_create(100, false);
     LLE_ASSERT_NOT_NULL(history);
     
     LLE_ASSERT_EQ(lle_history_size(history), 0);
@@ -113,11 +113,11 @@ LLE_TEST(history_create_invalid_size) {
     printf("Testing history creation with invalid sizes... ");
     
     // Too small
-    lle_history_t *history1 = lle_history_create(2);
+    lle_history_t *history1 = lle_history_create(2, false);
     LLE_ASSERT_NULL(history1);
     
     // Too large
-    lle_history_t *history2 = lle_history_create(100000);
+    lle_history_t *history2 = lle_history_create(100000, false);
     LLE_ASSERT_NULL(history2);
     
     printf("PASSED\n");
@@ -127,7 +127,7 @@ LLE_TEST(history_init_stack) {
     printf("Testing history initialization on stack... ");
     
     lle_history_t history;
-    bool result = lle_history_init(&history, 50);
+    bool result = lle_history_init(&history, 50, false);
     LLE_ASSERT(result);
     
     LLE_ASSERT_EQ(lle_history_size(&history), 0);
@@ -165,7 +165,7 @@ LLE_TEST(history_clear) {
 LLE_TEST(history_add_basic) {
     printf("Testing basic history entry addition... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     bool result = lle_history_add(history, "first command", false);
@@ -184,7 +184,7 @@ LLE_TEST(history_add_basic) {
 LLE_TEST(history_add_multiple) {
     printf("Testing multiple history entry addition... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     const char *commands[] = {"ls", "cd /home", "pwd", "echo hello"};
@@ -210,7 +210,7 @@ LLE_TEST(history_add_multiple) {
 LLE_TEST(history_add_duplicates) {
     printf("Testing duplicate entry handling... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Add first command
@@ -235,7 +235,7 @@ LLE_TEST(history_add_duplicates) {
 LLE_TEST(history_add_empty_command) {
     printf("Testing empty command addition... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Empty string should be rejected
@@ -255,7 +255,7 @@ LLE_TEST(history_add_empty_command) {
 LLE_TEST(history_circular_buffer) {
     printf("Testing circular buffer behavior... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Add entries up to capacity
@@ -375,7 +375,7 @@ LLE_TEST(history_navigation_reset) {
 LLE_TEST(history_temp_buffer) {
     printf("Testing temporary buffer functionality... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     const char *temp_content = "partial command";
@@ -399,7 +399,7 @@ LLE_TEST(history_temp_buffer) {
 LLE_TEST(history_temp_buffer_clear) {
     printf("Testing temporary buffer clearing... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Set temporary buffer
@@ -449,7 +449,7 @@ LLE_TEST(history_max_size_change) {
 LLE_TEST(history_max_size_invalid) {
     printf("Testing invalid maximum size changes... ");
     
-    lle_history_t *history = lle_history_create(100);
+    lle_history_t *history = lle_history_create(100, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Too small
@@ -473,7 +473,7 @@ LLE_TEST(history_max_size_invalid) {
 LLE_TEST(history_statistics) {
     printf("Testing history statistics... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Add some entries with varying lengths
@@ -499,7 +499,7 @@ LLE_TEST(history_statistics) {
 LLE_TEST(history_statistics_empty) {
     printf("Testing statistics on empty history... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     lle_history_stats_t stats;
@@ -546,7 +546,7 @@ LLE_TEST(history_null_parameters) {
 LLE_TEST(history_invalid_operations) {
     printf("Testing invalid operations... ");
     
-    lle_history_t *history = lle_history_create(10);
+    lle_history_t *history = lle_history_create(10, false);
     LLE_ASSERT_NOT_NULL(history);
     
     // Test invalid get index

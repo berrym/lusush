@@ -70,7 +70,7 @@ static void cleanup_test_files(void) {
 LLE_TEST(history_save_basic) {
     printf("Testing basic history save functionality... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Add some test entries
@@ -102,7 +102,7 @@ LLE_TEST(history_save_basic) {
 LLE_TEST(history_save_with_timestamps) {
     printf("Testing history save with timestamp metadata... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Add entries
@@ -131,7 +131,7 @@ LLE_TEST(history_save_with_timestamps) {
 LLE_TEST(history_save_empty) {
     printf("Testing save of empty history... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Save empty history
@@ -151,7 +151,7 @@ LLE_TEST(history_save_empty) {
 LLE_TEST(history_save_error_conditions) {
     printf("Testing history save error conditions... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Test NULL parameters
@@ -173,7 +173,7 @@ LLE_TEST(history_load_basic) {
     const char *test_content = "#1234567890:echo hello\n#1234567891:ls -la\n#1234567892:cd /tmp\n";
     LLE_ASSERT(create_test_file(TEST_HISTORY_FILE, test_content));
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Load from file
@@ -199,7 +199,7 @@ LLE_TEST(history_load_basic) {
 LLE_TEST(history_load_preserve_existing) {
     printf("Testing history load preserving existing entries... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Add existing entries
@@ -235,7 +235,7 @@ LLE_TEST(history_load_preserve_existing) {
 LLE_TEST(history_load_clear_existing) {
     printf("Testing history load with clearing existing entries... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Add existing entries
@@ -271,7 +271,7 @@ LLE_TEST(history_load_empty_file) {
     // Create empty file
     LLE_ASSERT(create_test_file(TEST_EMPTY_FILE, ""));
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Add existing entry
@@ -306,7 +306,7 @@ LLE_TEST(history_load_line_formats) {
     
     LLE_ASSERT(create_test_file(TEST_HISTORY_FILE, test_content));
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Load file
@@ -336,7 +336,7 @@ LLE_TEST(history_load_line_formats) {
 LLE_TEST(history_load_error_conditions) {
     printf("Testing history load error conditions... ");
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Test NULL parameters
@@ -354,7 +354,7 @@ LLE_TEST(history_load_error_conditions) {
 LLE_TEST(history_save_load_roundtrip) {
     printf("Testing save/load round trip... ");
     
-    lle_history_t *history1 = lle_history_create(20);
+    lle_history_t *history1 = lle_history_create(20, false);
     LLE_ASSERT(history1 != NULL);
     
     // Add test data
@@ -374,7 +374,7 @@ LLE_TEST(history_save_load_roundtrip) {
     LLE_ASSERT(lle_history_save(history1, TEST_HISTORY_FILE));
     
     // Create new history and load
-    lle_history_t *history2 = lle_history_create(20);
+    lle_history_t *history2 = lle_history_create(20, false);
     LLE_ASSERT(history2 != NULL);
     LLE_ASSERT(lle_history_load(history2, TEST_HISTORY_FILE, false));
     
@@ -399,7 +399,7 @@ LLE_TEST(history_save_load_roundtrip) {
 LLE_TEST(history_save_load_large) {
     printf("Testing save/load with large history... ");
     
-    lle_history_t *history = lle_history_create(1000);
+    lle_history_t *history = lle_history_create(1000, false);
     LLE_ASSERT(history != NULL);
     
     // Add many entries
@@ -412,7 +412,7 @@ LLE_TEST(history_save_load_large) {
     // Save and reload
     LLE_ASSERT(lle_history_save(history, TEST_HISTORY_FILE));
     
-    lle_history_t *history2 = lle_history_create(1000);
+    lle_history_t *history2 = lle_history_create(1000, false);
     LLE_ASSERT(history2 != NULL);
     LLE_ASSERT(lle_history_load(history2, TEST_HISTORY_FILE, false));
     
@@ -444,7 +444,7 @@ LLE_TEST(history_load_memory_management) {
     
     LLE_ASSERT(create_test_file(TEST_HISTORY_FILE, test_content));
     
-    lle_history_t *history = lle_history_create(20);
+    lle_history_t *history = lle_history_create(20, false);
     LLE_ASSERT(history != NULL);
     
     // Load multiple times to test memory cleanup
