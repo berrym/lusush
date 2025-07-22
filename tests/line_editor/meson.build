@@ -20,7 +20,10 @@ lle_test_sources = [
   'test_lle_025_history_management.c',
   'test_lle_026_history_navigation.c',
   'test_lle_027_utf8_text_handling.c',
-  'test_lle_028_unicode_cursor_movement.c'
+  'test_lle_028_unicode_cursor_movement.c',
+  'test_lle_hist_no_dups.c',
+  'test_lle_029_completion_framework.c',
+  'test_lle_030_basic_file_completion.c'
 ]
 
 # Individual component tests

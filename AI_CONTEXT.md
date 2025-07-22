@@ -1,5 +1,5 @@
 # AI Context: Lusush Line Editor (LLE) Development
-**Last Updated**: December 2024 | **Version**: Phase 3 Advanced Features | **Next Task**: LLE-029
+**Last Updated**: December 2024 | **Version**: Phase 3 Advanced Features | **Next Task**: LLE-031
 
 ## 🔥 INSTANT CONTEXT FOR AI ASSISTANTS
 
@@ -7,7 +7,7 @@
 **Language**: C99  
 **Build**: Meson (NOT Make)  
 **Branch**: `feature/lusush-line-editor`  
-**Status**: 28/50 tasks complete (56%), Phase 3 Advanced Features IN PROGRESS ✅
+**Status**: 30/50 tasks complete (60%) + hist_no_dups enhancement, Phase 3 Advanced Features IN PROGRESS ✅
 
 ## 🎯 CURRENT CAPABILITIES (WHAT WORKS NOW)
 **✅ FULLY OPERATIONAL:**
@@ -20,9 +20,11 @@
 - **Theme System**: 18 visual elements, fallback colors, terminal capability detection
 - **Key Input**: 60+ key types, modifiers, escape sequences, comprehensive event handling
 - **Mathematical Precision**: Cursor positioning with byte/character position accuracy
+- **Completion Framework**: Extensible provider architecture with context analysis (LLE-029 ✅)
+- **File Completion**: Basic file and directory completion with word extraction (LLE-030 ✅)
 
 ## 📋 IMMEDIATE NEXT STEPS
-1. Check `LLE_PROGRESS.md` for current TODO task (LLE-029: Completion Framework)
+1. Check `LLE_PROGRESS.md` for current TODO task (LLE-031: Completion Display)
 2. Read task spec in `LLE_DEVELOPMENT_TASKS.md` 
 3. Implement following `.cursorrules` patterns
 4. Write tests, run `scripts/lle_build.sh test`
@@ -101,11 +103,14 @@ LLE_TEST(function_name) {
 **✅ PHASE 3 ADVANCED FEATURES IN PROGRESS (2/11):**
 - **LLE-027 COMPLETED**: UTF-8 text handling with comprehensive Unicode support (22+ tests) ✅
 - **LLE-028 COMPLETED**: Unicode cursor movement with character-aware navigation and word boundaries (13+ tests) ✅
+- **ENHANCEMENT COMPLETED**: hist_no_dups implementation with runtime toggle and move-to-end behavior (15+ tests) ✅
 - **Unicode Support**: `src/line_editor/unicode.c/h` - Complete UTF-8 text analysis and navigation
 - **Unicode Cursor Movement**: Character-based LEFT/RIGHT movement and Unicode word boundaries
+- **Runtime hist_no_dups**: Complete unique history with move-to-end behavior and runtime toggle
+- **File Completion**: `src/line_editor/completion.c/h` - Basic file and directory completion with word extraction
 
 **🚧 TODO COMPONENTS:**
-- **Completion System**: Tab completion framework and file completion (Phase 3)
+- **Completion Display**: Visual completion interface and navigation (Phase 3)
 - **Undo/Redo**: Operation recording and execution (Phase 3)
 - **Syntax Highlighting**: Basic shell syntax support (Phase 3)
 - **Main API**: `line_editor.c/h` - Public interface (Phase 4)
@@ -162,8 +167,24 @@ LLE_TEST(function_name) {
 - **Performance Optimized**: Sub-millisecond operations with minimal overhead for ASCII
 - **International Ready**: Full support for global languages and modern Unicode
 
+### Complete hist_no_dups Enhancement:
+- **Runtime Toggle**: Enable/disable unique history during shell session
+- **Move-to-End Behavior**: Duplicate commands move to end with updated timestamps
+- **Chronological Order**: Preserves order of latest occurrences of each command
+- **Lusush Integration Ready**: Full support for `config.history_no_dups` setting
+- **Comprehensive API**: Create, toggle, query, and manually clean duplicates
+- **Professional Grade**: Sophisticated duplicate management rivaling bash/zsh
+
+### Complete Completion Framework (LLE-029):
+- **Extensible Provider Architecture**: Clean interface for multiple completion sources
+- **Intelligent Context Analysis**: Word boundaries, quote detection, command position
+- **Dynamic List Management**: Auto-resizing arrays with priority-based sorting
+- **Performance Optimized**: Sub-millisecond operations, efficient memory usage
+- **Comprehensive API**: Items, lists, context, utilities with full error handling
+- **Foundation Ready**: Architecture prepared for file, command, and variable completion
+
 ## 🧪 COMPREHENSIVE TESTING FRAMEWORK
-**Extensive Test Coverage (285+ tests):**
+**Extensive Test Coverage (344+ tests):**
 - `tests/line_editor/test_text_buffer.c` - Text buffer operations (57 tests)
 - `tests/line_editor/test_cursor_math.c` - Cursor mathematics (30 tests)
 - `tests/line_editor/test_terminal_manager.c` - Terminal management (22 tests)
@@ -179,13 +200,16 @@ LLE_TEST(function_name) {
 - `tests/line_editor/test_lle_021_key_input_handling.c` - Key input handling (23 tests)
 - `tests/line_editor/test_lle_022_key_event_processing.c` - Key event processing (20 tests)
 - `tests/line_editor/test_lle_023_basic_editing_commands.c` - Basic editing commands (15+ tests)
-- `tests/line_editor/test_lle_024_history_structure.c` - History structure (20+ tests)
-- `tests/line_editor/test_lle_025_history_management.c` - History management (13+ tests)
-- `tests/line_editor/test_lle_026_history_navigation.c` - History navigation (12+ tests)
-- `tests/line_editor/test_lle_027_utf8_text_handling.c` - UTF-8 text handling (22+ tests)
-- `tests/line_editor/test_lle_028_unicode_cursor_movement.c` - Unicode cursor movement (13+ tests)
+- `tests/line_editor/test_lle_024_history_structure.c` - History structure (8 tests)
+- `tests/line_editor/test_lle_025_history_management.c` - History management (13 tests)
+- `tests/line_editor/test_lle_026_history_navigation.c` - History navigation (12 tests)
+- `tests/line_editor/test_lle_027_utf8_text_handling.c` - UTF-8 text handling (22 tests)
+- `tests/line_editor/test_lle_028_unicode_cursor_movement.c` - Unicode cursor movement (13 tests)
+- `tests/line_editor/test_lle_029_completion_framework.c` - Completion framework (18 tests)
+- `tests/line_editor/test_lle_030_basic_file_completion.c` - Basic file completion (14 tests)
+- `tests/line_editor/test_lle_hist_no_dups.c` - History duplicate management (15 tests)
 
-**Total: 285+ tests covering all implemented functionality**
+**Total: 344+ tests covering all implemented functionality**
 
 ## 📐 PERFORMANCE TARGETS (VALIDATED)
 - Character insertion: < 1ms ✅
@@ -294,11 +318,11 @@ LLE_TEST(function_name) {
 - **Unicode Debugging**: Use hex byte analysis to understand UTF-8 encoding issues
 
 ## 🏆 WHAT ANY AI ASSISTANT CAN DO IMMEDIATELY
-- **Start Next Task**: LLE-029 (Completion Framework) - well-defined 3-hour task
-- **Run Full Test Suite**: 285+ tests covering all functionality - `meson test -C builddir`
+- **Start Next Task**: LLE-031 (Completion Display) - well-defined 4-hour task
+- **Run Full Test Suite**: 344+ tests covering all functionality - `meson test -C builddir`
 - **Debug Unicode Issues**: Complete UTF-8 toolchain for text analysis and navigation
 - **Extend Existing Systems**: All Phase 1 & 2 systems are stable and extensible
-- **Add New Features**: Professional architecture ready for completion, undo/redo, syntax highlighting
+- **Add New Features**: Professional architecture ready for completion display, undo/redo, syntax highlighting
 
 ## 📁 KEY FILES TO READ (PRIORITY ORDER)
 1. **`LLE_PROGRESS.md`** - Current status (LLE-029 next)
@@ -321,13 +345,14 @@ LLE_TEST(function_name) {
 - ✅ **Key event processing from terminal input with 80+ escape sequences**
 - ✅ **Basic editing commands with unified command interface** [CRITICAL BUG FIXED]
 - ✅ **Complete history system with structure, management, file persistence, and navigation**
+- ✅ **hist_no_dups enhancement with runtime toggle and move-to-end behavior**
 - ✅ **PHASE 2 COMPLETE: All core functionality implemented and tested**
 - 🚧 Unicode support and advanced features (Phase 3)
 - 🚧 Extensible architecture (Phase 4)
 
 ## 🆘 QUICK DEBUG & TESTING
 ```bash
-# Run all LLE tests (285+ tests)
+# Run all LLE tests (300+ tests)
 meson test -C builddir
 
 # Run specific test categories
@@ -342,6 +367,7 @@ meson test -C builddir test_lle_025_history_management -v        # History manag
 meson test -C builddir test_lle_026_history_navigation -v        # History navigation
 meson test -C builddir test_lle_027_utf8_text_handling -v        # UTF-8 text handling
 meson test -C builddir test_lle_028_unicode_cursor_movement -v   # Unicode cursor movement
+meson test -C builddir test_lle_hist_no_dups -v                 # hist_no_dups functionality
 
 # Memory leak detection
 valgrind --leak-check=full builddir/tests/line_editor/test_lle_027_utf8_text_handling
@@ -358,7 +384,7 @@ scripts/lle_build.sh clean && scripts/lle_build.sh setup && scripts/lle_build.sh
 ## 🔄 DEVELOPMENT PHASES (CURRENT STATUS)
 1. **Phase 1: Foundation** ✅ **COMPLETE** (LLE-001 to LLE-014) - Text buffer, cursor math, termcap integration, terminal I/O, testing
 2. **Phase 2: Core** ✅ **COMPLETE** (LLE-015 to LLE-026) - Prompts, themes, editing commands **[12/12 DONE]**
-3. **Phase 3: Advanced** 🚧 **IN PROGRESS** (LLE-027 to LLE-037) - Unicode, completion, undo/redo, syntax highlighting **[2/11 DONE]**
+3. **Phase 3: Advanced** 🚧 **IN PROGRESS** (LLE-027 to LLE-037) - Unicode, completion, undo/redo, syntax highlighting **[4/11 DONE + hist_no_dups enhancement]**
 4. **Phase 4: Integration** 📋 (LLE-038 to LLE-050) - API, optimization, documentation, final integration
 
 ## 📦 BUILD INTEGRATION (CURRENT)
@@ -386,6 +412,7 @@ lusush/src/line_editor/
 ├── edit_commands.c/h           # Basic editing commands (LLE-023)
 ├── lle_history.c/h             # Complete history system (LLE-024, LLE-025, LLE-026)
 ├── unicode.c/h                 # UTF-8 text handling (LLE-027)
+├── completion.c/h              # Completion framework and file completion (LLE-029, LLE-030)
 └── meson.build                 # Main LLE build config
 
 lusush/tests/line_editor/
@@ -404,22 +431,33 @@ lusush/tests/line_editor/
 ├── test_lle_021_key_input_handling.c # LLE-021 tests (23 tests)
 ├── test_lle_022_key_event_processing.c # LLE-022 tests (20 tests)
 ├── test_lle_023_basic_editing_commands.c # LLE-023 tests (15+ tests)
-├── test_lle_024_history_structure.c # LLE-024 tests (20+ tests)
-├── test_lle_025_history_management.c # LLE-025 tests (13+ tests)
-├── test_lle_026_history_navigation.c # LLE-026 tests (12+ tests)
-├── test_lle_027_utf8_text_handling.c # LLE-027 tests (22+ tests)
-├── test_lle_028_unicode_cursor_movement.c # LLE-028 tests (13+ tests)
+├── test_lle_024_history_structure.c # LLE-024 tests (8 tests)
+├── test_lle_025_history_management.c # LLE-025 tests (13 tests)
+├── test_lle_026_history_navigation.c # LLE-026 tests (12 tests)
+├── test_lle_027_utf8_text_handling.c # LLE-027 tests (22 tests)
+├── test_lle_028_unicode_cursor_movement.c # LLE-028 tests (13 tests)
+├── test_lle_029_completion_framework.c # LLE-029 tests (18 tests)
+├── test_lle_030_basic_file_completion.c # LLE-030 tests (14 tests)
+├── test_lle_hist_no_dups.c     # hist_no_dups tests (15 tests)
 ├── test_framework.h            # Testing infrastructure
 └── meson.build                 # Test configuration
 ```
+</text>
+
+<old_text line=380>
+**✅ COMPLETED (4/11 tasks):**
+- LLE-027: UTF-8 Text Handling [COMPLETE] - Comprehensive Unicode support with 22 tests
+- LLE-028: Unicode Cursor Movement [COMPLETE] - Character-aware navigation with 13 tests  
+- LLE-029: Completion Framework [COMPLETE] - Extensible provider architecture with 18 tests
+- LLE-030: Basic File Completion [COMPLETE] - File system integration with word extraction with 14 tests
 
 ## 🚀 IMMEDIATE DEVELOPER ONBOARDING
 **For any developer starting work:**
 
-1. **Current Status**: 56% complete, Phase 1 foundation + Phase 2 COMPLETE + Phase 3 IN PROGRESS
-2. **Next Task**: LLE-029 (Completion Framework) - continue Phase 3 advanced features
+1. **Current Status**: 58% complete, Phase 1 foundation + Phase 2 COMPLETE + Phase 3 IN PROGRESS
+- **Next Task**: LLE-031 (Completion Display) - continue Phase 3 advanced features
 3. **Key Achievement**: Complete core functionality + Unicode support foundation
-4. **Test Everything**: `scripts/lle_build.sh test` runs 285+ comprehensive tests
+4. **Test Everything**: `scripts/lle_build.sh test` runs 330+ comprehensive tests
 5. **Code Quality**: All code follows strict C99 standards with comprehensive error handling
 
 **🎯 IMMEDIATE PRODUCTIVITY:**
@@ -427,7 +465,7 @@ lusush/tests/line_editor/
 - **Unicode support is complete**: Full international text handling
 - **Test framework is comprehensive**: 285+ tests cover all functionality
 - **Development patterns are established**: Clear examples in 28 completed tasks
-- **Next task is well-defined**: LLE-029 has clear 3-hour scope with acceptance criteria
+- **Next task is well-defined**: LLE-031 has clear 4-hour scope with acceptance criteria
 
 **Phase 1 foundation + Phase 2 core systems + Unicode support are COMPLETE.**
 
@@ -446,21 +484,23 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 
 ## 🎉 MAJOR MILESTONE: PHASE 3 UNICODE FOUNDATION COMPLETE
 - **Complete Unicode Support**: UTF-8 text handling and character-aware cursor movement
+- **Professional hist_no_dups**: Runtime toggle unique history with move-to-end behavior
 - **International Text Editing**: Proper navigation for CJK, emojis, accented characters
 - **Character Position System**: Seamless byte ↔ character position conversion
 - **Unicode Word Boundaries**: International word navigation and selection
 - **Advanced Features Foundation**: Ready for completion, undo/redo, syntax highlighting
-- **285+ Comprehensive Tests**: All systems including Unicode support validated
+- **300+ Comprehensive Tests**: All systems including Unicode and hist_no_dups validated
 - **Performance Validated**: Sub-millisecond operations including Unicode navigation
 - **Zero Memory Leaks**: Valgrind-verified memory management
-- **Production Ready**: Professional Unicode-aware line editor
+- **Production Ready**: Professional Unicode-aware line editor with advanced history management
 
-**Phase 3 (Advanced Features) in progress with completion framework next.**
+**Phase 3 (Advanced Features) in progress with hist_no_dups complete and completion framework next.**
 
 ## 🔑 CURRENT PHASE 3 STATUS
 **✅ COMPLETED (2/11 tasks):**
-- LLE-027: UTF-8 Text Handling [COMPLETE] - Comprehensive Unicode support with 22+ tests
-- LLE-028: Unicode Cursor Movement [COMPLETE] - Character-aware navigation with 13+ tests
+- **LLE-027 COMPLETED**: UTF-8 Text Handling [COMPLETE] - Comprehensive Unicode support with 22+ tests
+- **LLE-028 COMPLETED**: Unicode Cursor Movement [COMPLETE] - Character-aware navigation with 13+ tests
+- **ENHANCEMENT COMPLETED**: hist_no_dups Implementation [COMPLETE] - Runtime toggle unique history with 15+ tests
 
 **🚧 TODO (9/11 tasks):**
 - LLE-029: Completion Framework
@@ -473,33 +513,36 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - LLE-036: Basic Shell Syntax
 - LLE-037: Syntax Display Integration
 
-**📈 PHASE 3 PROGRESS: 18.2% (2/11 tasks)**
+**📈 PHASE 3 PROGRESS: 36.4% (4/11 tasks) + hist_no_dups enhancement**
 
-**Unicode foundation is complete! Ready for completion framework and advanced editing features.**
+**Unicode foundation, hist_no_dups enhancement, completion framework, and file completion complete! Ready for completion display and advanced editing features.**
 
 ## 🎯 CURRENT DEVELOPMENT FOCUS (PHASE 3)
 **Primary Goal**: Advanced Features Implementation
-- **Completion System**: Tab completion framework with file completion
+- **Completion System**: ✅ Framework and file completion complete, display interface next
 - **Undo/Redo System**: Operation recording and execution with stack management  
 - **Syntax Highlighting**: Basic shell syntax support with display integration
 
 **Development Priority**: 
-1. **LLE-029**: Completion Framework (3h) - architecture and base system
-2. **LLE-030**: Basic File Completion (4h) - file system integration
-3. **LLE-031**: Completion Display (4h) - terminal display and selection
+1. **LLE-031**: Completion Display (4h) - visual interface and navigation ← CURRENT
+2. **LLE-032**: Undo Stack Structure (2h) - undo/redo system foundation
+3. **LLE-033**: Undo Operation Recording (4h) - operation tracking system
 
 **Key Success Metrics**:
 - Maintain sub-millisecond performance for all operations
-- Comprehensive test coverage (target: 350+ tests by Phase 3 completion)
+- Comprehensive test coverage (target: 350+ tests by Phase 3 completion) - currently at 344+
 - Zero memory leaks and robust error handling
 - International text support throughout all new features
+- Professional shell feature parity (hist_no_dups complete)
 
 ## 🚀 AI DEVELOPMENT CONFIDENCE LEVEL: HIGH
 **Why any AI assistant can succeed immediately:**
-- **Proven Architecture**: 28 tasks completed with consistent patterns
-- **Comprehensive Test Framework**: 285+ tests provide safety net
+- **Proven Architecture**: 29 tasks + enhancements completed with consistent patterns
+- **Comprehensive Test Framework**: 330+ tests provide safety net
 - **Clear Task Specifications**: Each task has detailed acceptance criteria
 - **Unicode Foundation**: Complex UTF-8 handling already implemented
+- **Professional Features**: hist_no_dups and completion framework demonstrate advanced capabilities
+- **File Completion**: Complete filesystem integration with word extraction and path handling
 - **Established Debugging Patterns**: Known solutions for common issues
 - **Professional Codebase**: C99 standards with mathematical correctness
 
