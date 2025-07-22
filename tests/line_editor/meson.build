@@ -24,7 +24,8 @@ lle_test_sources = [
   'test_lle_hist_no_dups.c',
   'test_lle_029_completion_framework.c',
   'test_lle_030_basic_file_completion.c',
-  'test_lle_031_completion_display.c'
+  'test_lle_031_completion_display.c',
+  'test_lle_032_undo_stack_structure.c'
 ]
 
 # Individual component tests
