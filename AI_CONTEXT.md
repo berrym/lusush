@@ -1,6 +1,17 @@
 # AI Context: Lusush Line Editor (LLE) Development
 **Last Updated**: December 2024 | **Version**: Phase 3 Advanced Features | **Next Task**: LLE-031
 
+## 🚨 CRITICAL: READ DOCUMENTATION FIRST - NO EXCEPTIONS
+
+⚠️ **STOP! Before any code changes, you MUST read these files in order:**
+
+1. **`.cursorrules`** - LLE coding standards and patterns (REQUIRED)
+2. **`LLE_AI_DEVELOPMENT_GUIDE.md`** - Complete development context (REQUIRED)
+3. **`LLE_PROGRESS.md`** - Current task status (REQUIRED)
+4. **`LLE_DEVELOPMENT_TASKS.md`** - Task specifications (REQUIRED)
+
+**DO NOT proceed without reading these files. Failure to follow established patterns will result in code rejection.**
+
 ## 🔥 INSTANT CONTEXT FOR AI ASSISTANTS
 
 **Project**: Replacing linenoise with custom Lusush Line Editor (LLE)  
@@ -23,12 +34,33 @@
 - **Completion Framework**: Extensible provider architecture with context analysis (LLE-029 ✅)
 - **File Completion**: Basic file and directory completion with word extraction (LLE-030 ✅)
 
-## 📋 IMMEDIATE NEXT STEPS
-1. Check `LLE_PROGRESS.md` for current TODO task (LLE-031: Completion Display)
-2. Read task spec in `LLE_DEVELOPMENT_TASKS.md` 
-3. Implement following `.cursorrules` patterns
-4. Write tests, run `scripts/lle_build.sh test`
-5. Commit with format: `LLE-XXX: Task description`
+## 📋 MANDATORY WORKFLOW - FOLLOW EXACTLY
+
+**STEP 1: READ DOCUMENTATION (REQUIRED)**
+- Read `.cursorrules` - Coding standards, naming conventions, error patterns
+- Read `LLE_AI_DEVELOPMENT_GUIDE.md` - Complete development context
+- Read current task in `LLE_DEVELOPMENT_TASKS.md` - Exact requirements
+
+**STEP 2: UNDERSTAND CONTEXT**
+- Check `LLE_PROGRESS.md` for current TODO task (LLE-031: Completion Display)
+- Review existing code patterns in similar completed tasks
+- Understand dependencies and integration points
+
+**STEP 3: IMPLEMENT WITH STANDARDS**
+- Follow EXACT naming patterns: `lle_component_action()`
+- Use EXACT error handling: `bool` returns, parameter validation
+- Write Doxygen documentation: `@brief`, `@param`, `@return`, `@note`
+- Follow memory patterns: `memcpy()` not `strcpy()`, proper cleanup
+
+**STEP 4: TEST COMPREHENSIVELY**
+- Write tests using `LLE_TEST(name)` macro
+- Call tests as `test_name()` in main()
+- Include edge cases, error conditions, parameter validation
+- Run `scripts/lle_build.sh test`
+
+**STEP 5: COMMIT PROPERLY**
+- Format: `LLE-XXX: Task description with detailed implementation notes`
+- Update progress tracking files
 
 ## 🚀 ESSENTIAL COMMANDS
 ```bash
@@ -42,38 +74,105 @@ git checkout -b task/lle-XXX-desc  # New task branch
 meson test -C builddir test_lle_XXX_integration -v  # Run specific test
 ```
 
-## 💻 CODE STANDARDS (CRITICAL)
+## 💻 CODE STANDARDS (CRITICAL - MUST FOLLOW EXACTLY)
+
+⚠️ **These are NON-NEGOTIABLE. Violations will be rejected.**
+
 ```c
-// Naming: lle_component_action
+// 1. NAMING: lle_component_action (EXACT pattern)
 bool lle_text_insert_char(lle_text_buffer_t *buffer, char c);
-bool lle_theme_get_color(lle_theme_integration_t *ti, lle_theme_element_t element);
-bool lle_key_event_copy(lle_key_event_t *dest, const lle_key_event_t *src);
+bool lle_completion_extract_word(const char *input, size_t cursor_pos, ...);
 
-// Structures: lle_component_t  
-typedef struct {
-    lle_key_type_t type;
-    char character;
-    uint32_t unicode;
-    bool ctrl, alt, shift, super;
-    char raw_sequence[16];
-    uint64_t timestamp;
-} lle_key_event_t;
+// 2. STRUCTURES: lle_component_t (EXACT pattern)
+typedef struct lle_completion_item {
+    char *text;                    // Required fields
+    char *description;             // Optional fields
+    int priority;                  // Sorting/display
+} lle_completion_item_t;
 
-// Error handling: always return bool
+// 3. ERROR HANDLING: Always return bool (MANDATORY)
 bool lle_function(args) {
+    // ALWAYS validate parameters first
     if (!args) return false;
-    // implementation
-    return true;
+    if (invalid_condition) return false;
+    
+    // Implementation
+    return true; // Success
 }
 
-// Tests: LLE_TEST macro with proper framework
-LLE_TEST(function_name) {
-    printf("Testing function behavior... ");
-    // setup, test, assert, cleanup
-    LLE_ASSERT(condition);
+// 4. DOCUMENTATION: Comprehensive Doxygen (REQUIRED)
+/**
+ * @brief Insert character at cursor position in text buffer
+ *
+ * Automatically resizes buffer if needed and advances cursor by one.
+ * Handles UTF-8 encoding correctly and maintains text integrity.
+ *
+ * @param buffer Text buffer to modify (must not be NULL)
+ * @param c Character to insert
+ * @return true on success, false on error or invalid parameters
+ *
+ * @note Buffer capacity will be doubled if insertion would exceed current size
+ * @note Cursor position is automatically advanced past inserted character
+ */
+
+// 5. MEMORY MANAGEMENT: Use memcpy(), not strcpy() (MANDATORY)
+if (len > 0) {
+    memcpy(dest, src, len);
+}
+dest[len] = '\0';
+
+// 6. TESTS: LLE_TEST macro with proper calls (EXACT pattern)
+LLE_TEST(function_basic_behavior) {  // NO test_ prefix in LLE_TEST()
+    printf("Testing function basic behavior... ");
+    
+    // Setup
+    component_t *comp = create_component();
+    LLE_ASSERT_NOT_NULL(comp);
+    
+    // Test
+    LLE_ASSERT(lle_function_call(comp, valid_input));
+    
+    // Verify
+    LLE_ASSERT_EQ(comp->expected_field, expected_value);
+    
+    // Cleanup
+    destroy_component(comp);
     printf("PASSED\n");
 }
+
+// Main function calls: test_function_basic_behavior()  (WITH test_ prefix)
+int main(void) {
+    test_function_basic_behavior();  // LLE_TEST creates test_ prefixed function
+    return 0;
+}
 ```
+
+## 🚨 COMMON MISTAKES TO AVOID (THESE WILL BE REJECTED)
+
+❌ **Naming Violations**
+- Using non-LLE prefixes
+- Inconsistent component naming
+- Missing action verbs in function names
+
+❌ **Documentation Violations**  
+- Missing `@brief`, `@param`, `@return`
+- No behavior descriptions
+- Missing error condition documentation
+
+❌ **Memory Safety Violations**
+- Using `strcpy()` instead of `memcpy()`
+- Missing buffer bounds checking  
+- Incorrect parameter validation order
+
+❌ **Test Framework Violations**
+- Using `test_` prefix in `LLE_TEST()` macro
+- Calling wrong function names in main()
+- Missing comprehensive test coverage
+
+❌ **Build Integration Violations**
+- Missing includes for used functions
+- Compiler warnings not addressed
+- Test files not added to meson.build
 
 ## 🎯 CURRENT ARCHITECTURE (IMPLEMENTED)
 **✅ PHASE 1 FOUNDATION COMPLETE:**
@@ -318,19 +417,39 @@ LLE_TEST(function_name) {
 - **Unicode Debugging**: Use hex byte analysis to understand UTF-8 encoding issues
 
 ## 🏆 WHAT ANY AI ASSISTANT CAN DO IMMEDIATELY
-- **Start Next Task**: LLE-031 (Completion Display) - well-defined 4-hour task
-- **Run Full Test Suite**: 344+ tests covering all functionality - `meson test -C builddir`
-- **Debug Unicode Issues**: Complete UTF-8 toolchain for text analysis and navigation
-- **Extend Existing Systems**: All Phase 1 & 2 systems are stable and extensible
-- **Add New Features**: Professional architecture ready for completion display, undo/redo, syntax highlighting
 
-## 📁 KEY FILES TO READ (PRIORITY ORDER)
-1. **`LLE_PROGRESS.md`** - Current status (LLE-029 next)
-2. **`LLE_DEVELOPMENT_TASKS.md`** - All 50 tasks with specs
-3. **`LLE_TERMCAP_QUICK_REFERENCE.md`** - Termcap integration overview
-4. **`.cursorrules`** - Complete coding standards
-5. **`LLE_AI_DEVELOPMENT_GUIDE.md`** - Detailed development guide
-6. **Recent completion summaries**: `LLE-027_COMPLETION_SUMMARY.md`, `LLE-028_COMPLETION_SUMMARY.md`, `PHASE_2_COMPLETION_MILESTONE.md`
+**ONLY AFTER READING REQUIRED DOCUMENTATION:**
+
+- **Start Next Task**: LLE-031 (Completion Display) - BUT READ TASK SPEC FIRST
+- **Run Full Test Suite**: 344+ tests - `meson test -C builddir` 
+- **Debug Issues**: Use existing patterns from completed tasks
+- **Extend Systems**: Follow established architectural patterns
+- **Add Features**: MUST follow existing code patterns exactly
+
+## ⚠️ BEFORE ANY CODE CHANGES
+
+1. **Read `.cursorrules`** - Know the exact standards
+2. **Read `LLE_AI_DEVELOPMENT_GUIDE.md`** - Understand the context  
+3. **Read current task specification** - Know the requirements
+4. **Study existing code patterns** - See how similar tasks were implemented
+5. **Plan implementation** - Design before coding
+6. **Write tests first** - Test-driven development
+
+## 📁 MANDATORY READING ORDER (READ BEFORE ANY WORK)
+
+**REQUIRED DOCUMENTATION (NO EXCEPTIONS):**
+1. **`.cursorrules`** - LLE coding standards and patterns
+2. **`LLE_AI_DEVELOPMENT_GUIDE.md`** - Complete development context and standards
+3. **`LLE_PROGRESS.md`** - Current task status (LLE-031 next)
+4. **`LLE_DEVELOPMENT_TASKS.md`** - Task LLE-031 specification
+5. **`LLE_TERMCAP_QUICK_REFERENCE.md`** - If working with terminal functions
+
+**REFERENCE FOR PATTERNS:**
+6. **Recent completion summaries**: `LLE-029_COMPLETION_SUMMARY.md`, `LLE-030_COMPLETION_SUMMARY.md`
+7. **Existing code**: Study `src/line_editor/completion.c` for established patterns
+8. **Test patterns**: Study `tests/line_editor/test_lle_030_basic_file_completion.c`
+
+**DO NOT START CODING WITHOUT READING ITEMS 1-4 ABOVE**
 
 ## 🎯 SUCCESS CRITERIA (PROGRESS)
 - ✅ Professional terminal handling across all platforms
@@ -535,15 +654,30 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - International text support throughout all new features
 - Professional shell feature parity (hist_no_dups complete)
 
-## 🚀 AI DEVELOPMENT CONFIDENCE LEVEL: HIGH
-**Why any AI assistant can succeed immediately:**
-- **Proven Architecture**: 29 tasks + enhancements completed with consistent patterns
-- **Comprehensive Test Framework**: 330+ tests provide safety net
-- **Clear Task Specifications**: Each task has detailed acceptance criteria
-- **Unicode Foundation**: Complex UTF-8 handling already implemented
-- **Professional Features**: hist_no_dups and completion framework demonstrate advanced capabilities
-- **File Completion**: Complete filesystem integration with word extraction and path handling
-- **Established Debugging Patterns**: Known solutions for common issues
-- **Professional Codebase**: C99 standards with mathematical correctness
+## 🚀 AI DEVELOPMENT CONFIDENCE LEVEL: HIGH (WITH PROPER PREPARATION)
 
-**Estimated Time to Productivity**: < 30 minutes reading this document
+**Any AI assistant can succeed, BUT ONLY if they:**
+
+✅ **Read Documentation First**: `.cursorrules`, `LLE_AI_DEVELOPMENT_GUIDE.md`, task specs  
+✅ **Follow Exact Patterns**: Proven architecture with 30 tasks completed consistently  
+✅ **Use Test Framework**: 344+ tests provide safety net for validation  
+✅ **Study Existing Code**: Learn from completed implementations  
+✅ **Follow Naming Standards**: Exact `lle_component_action` patterns  
+✅ **Write Proper Documentation**: Comprehensive Doxygen comments required  
+✅ **Test Comprehensively**: Edge cases, error conditions, parameter validation  
+
+**Why Success is Guaranteed (When Standards Are Followed):**
+- **Clear Task Specifications**: Each task has detailed acceptance criteria
+- **Established Patterns**: Consistent code patterns across all components
+- **Professional Features**: Complex systems (Unicode, completion) already working
+- **Comprehensive Testing**: Safety net prevents regressions
+- **Build Integration**: Meson system handles all dependencies
+
+**Estimated Time to Productivity**: 
+- 30 minutes reading documentation (REQUIRED)
+- 2-4 hours per task implementation (following patterns)
+
+## 🚨 SUCCESS REQUIRES DISCIPLINE
+
+**AI assistants who skip documentation or violate standards WILL FAIL**  
+**AI assistants who read documentation and follow patterns WILL SUCCEED**

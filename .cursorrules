@@ -250,6 +250,57 @@ perf report
 - `tests/line_editor/` - Test suite
 - `LLE_PROGRESS.md` - Current development status
 
+## ⚠️ STRICT ENFORCEMENT: AI ASSISTANT REQUIREMENTS
+
+### 🚨 MANDATORY READING (NO EXCEPTIONS)
+AI assistants MUST read these files before any code changes:
+1. **`.cursorrules`** - This file with all coding standards (REQUIRED)
+2. **`LLE_AI_DEVELOPMENT_GUIDE.md`** - Complete development context (REQUIRED)
+3. **`LLE_PROGRESS.md`** - Current task status (REQUIRED)
+4. **`LLE_DEVELOPMENT_TASKS.md`** - Task specifications (REQUIRED)
+
+### 🚨 CODING STANDARDS VIOLATIONS WILL BE REJECTED
+Any code that violates these standards will be rejected:
+
+#### ❌ NAMING VIOLATIONS (AUTOMATIC REJECTION)
+- Functions MUST use `lle_component_action` pattern exactly
+- Structures MUST use `lle_component_t` pattern exactly
+- No generic names, no non-LLE prefixes
+- Examples: `lle_completion_extract_word()`, `lle_completion_item_t`
+
+#### ❌ DOCUMENTATION VIOLATIONS (AUTOMATIC REJECTION)
+- All functions MUST have comprehensive Doxygen documentation
+- MUST include `@brief`, `@param`, `@return` tags
+- MUST include behavior descriptions and error conditions
+- Example pattern in this file (lines 78-88)
+
+#### ❌ MEMORY SAFETY VIOLATIONS (AUTOMATIC REJECTION)
+- MUST use `memcpy()` instead of `strcpy()` or `strncpy()`
+- MUST validate all parameters before use
+- MUST check buffer bounds before operations
+- MUST return `bool` for success/failure
+
+#### ❌ TEST FRAMEWORK VIOLATIONS (AUTOMATIC REJECTION)
+- Use `LLE_TEST(name)` macro WITHOUT `test_` prefix
+- Call functions WITH `test_` prefix in main()
+- Example: `LLE_TEST(basic_functionality)` creates `test_basic_functionality()`
+- MUST include edge cases and parameter validation tests
+
+#### ❌ BUILD INTEGRATION VIOLATIONS (AUTOMATIC REJECTION)
+- MUST include all necessary headers (`stdio.h` for `snprintf`, etc.)
+- MUST add new test files to `tests/line_editor/meson.build`
+- MUST compile without warnings
+- MUST pass all existing tests
+
+### ✅ REQUIRED WORKFLOW
+1. Read documentation files listed above
+2. Understand current task from `LLE_PROGRESS.md`
+3. Study existing patterns in similar completed tasks
+4. Implement following EXACT naming and documentation patterns
+5. Write comprehensive tests using LLE test framework
+6. Build and test: `scripts/lle_build.sh build && scripts/lle_build.sh test`
+7. Commit with proper LLE format: `LLE-XXX: Description`
+
 ## AI Assistant Guidelines
 - Always check current task status in `LLE_PROGRESS.md`
 - Reference specific task requirements from `LLE_DEVELOPMENT_TASKS.md`
@@ -269,4 +320,13 @@ If critical issues arise:
 - Review task acceptance criteria for current work
 - Consider reverting to last known good state
 
+## 🚨 FINAL WARNING TO AI ASSISTANTS
 This file enables any developer with AI assistance to immediately understand the LLE project context, pick up any task, and contribute effectively while maintaining code quality and architectural consistency.
+
+**HOWEVER**: AI assistants who ignore these standards or skip reading the required documentation will produce code that WILL BE REJECTED.
+
+**SUCCESS PATTERN**: Read docs → Understand patterns → Follow standards exactly → Write comprehensive tests → Success guaranteed
+
+**FAILURE PATTERN**: Skip docs → Guess patterns → Violate standards → Code rejected → Wasted time
+
+Choose the success pattern. Read the documentation. Follow the standards. Your implementation will be accepted on the first try.
