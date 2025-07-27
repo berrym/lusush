@@ -6,14 +6,14 @@ This guide provides immediate context for any AI assistant to help with Lusush L
 
 ## 📋 Project Status at a Glance
 
-- **Current Phase**: Advanced Features (Phase 3 of 4) - 90.9% complete
+- **Current Phase**: Integration & Polish (Phase 4 of 4) - Ready to begin
 - **Active Branch**: `feature/lusush-line-editor`
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Test Framework**: Custom LLE test framework
 - **Progress Tracking**: `LLE_PROGRESS.md`
 - **Architecture**: Standalone library with integrated termcap system
-- **Tasks Completed**: 36/50 + 1 Enhancement (74% overall progress)
+- **Tasks Completed**: 37/50 + 1 Enhancement (76% overall progress)
 
 ## 🎯 What is LLE?
 
@@ -24,7 +24,9 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 - **Sub-millisecond response times** for all operations
 - **Complete theme integration** with 18 visual elements and fallback colors
 - **Comprehensive key input handling** with 60+ key types and modifier support
-- **Professional-grade Unicode support**
+- **Professional-grade Unicode support** with international text editing
+- **Complete undo/redo system** with operation recording and execution
+- **Visual syntax highlighting** with real-time display integration
 - **Standalone reusability** like libhashtable for other projects
 
 ## 📁 Critical Files for AI Context
@@ -285,45 +287,47 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 ## 🚀 Getting Started in Any Editor
 
 ### **Current Development Status (LLE-036 Complete)**
-- **Next Task**: LLE-037 (Syntax Display Integration) - 3 hours estimated
-- **Progress**: 36/50 tasks complete (72%), Phase 3: 10/11 tasks (90.9%)
-- **Foundation**: Rock-solid with 430+ tests covering all implemented functionality
+- **Next Task**: LLE-038 (Core Line Editor API) - 3 hours estimated
+- **Progress**: 37/50 tasks complete (74%), Phase 3: 11/11 tasks (100% COMPLETE)
+- **Foundation**: Rock-solid with 443+ tests covering all implemented functionality
 
-### **Immediate Next Task: LLE-037 Syntax Display Integration**
-**File**: `src/line_editor/display.c` (enhance existing)
-**Goal**: Integrate syntax highlighting with display system for visual highlighting
-**Key Integration to Implement**:
+### **Immediate Next Task: LLE-038 Core Line Editor API**
+**File**: `src/line_editor/line_editor.c` (create new)
+**Goal**: Create the main public API interface for the Lusush Line Editor
+**Key API to Implement**:
 ```c
-bool lle_display_apply_syntax_highlighting(lle_display_state_t *display, 
-                                          const lle_syntax_highlighter_t *highlighter);
-bool lle_display_render_with_syntax(lle_display_state_t *display);
-bool lle_display_update_syntax_colors(lle_display_state_t *display);
+typedef struct lle_line_editor lle_line_editor_t;
+
+lle_line_editor_t *lle_create(void);
+void lle_destroy(lle_line_editor_t *editor);
+char *lle_readline(lle_line_editor_t *editor, const char *prompt);
+bool lle_add_history(lle_line_editor_t *editor, const char *line);
 ```
 **Acceptance Criteria**:
-- Display syntax colors correctly
-- Integrate with theme system
-- Maintain display performance
-- Update highlighting on text changes
+- Clean public API design
+- Integrate all LLE components
+- Memory management handled
+- Drop-in replacement for linenoise
 
 ### **For Cursor/VS Code Users**
 1. Open the lusush repository
 2. Read this file (you're doing it!)
-3. Check `LLE_PROGRESS.md` for current task (LLE-035)
-4. Ask AI: "Help me implement LLE-036 Basic Shell Syntax"
+3. Check `LLE_PROGRESS.md` for current task (LLE-038)
+4. Ask AI: "Help me implement LLE-038 Core Line Editor API"
 
 ### **For Other AI-Assisted Editors**
 1. Load the repository context
 2. Reference `.cursorrules` for coding standards
-3. Use `LLE_DEVELOPMENT_TASKS.md` for LLE-037 specifications
+3. Use `LLE_DEVELOPMENT_TASKS.md` for LLE-038 specifications
 4. Follow the build commands in this guide
 
 ### **Context Loading for AI**
 When starting a new session, provide your AI with:
 1. This file (`LLE_AI_DEVELOPMENT_GUIDE.md`)
 2. Current progress (`LLE_PROGRESS.md`)
-3. Task LLE-037 requirements from `LLE_DEVELOPMENT_TASKS.md`
+3. Task LLE-038 requirements from `LLE_DEVELOPMENT_TASKS.md`
 4. Code standards from `.cursorrules`
-5. Recent completion summaries: `LLE-034_COMPLETION_SUMMARY.md`, `LLE-035_COMPLETION_SUMMARY.md`, `LLE-036_COMPLETION_SUMMARY.md`
+5. Recent completion summaries: `LLE-035_COMPLETION_SUMMARY.md`, `LLE-036_COMPLETION_SUMMARY.md`, `LLE-037_COMPLETION_SUMMARY.md`
 
 ## 📊 Performance Requirements
 
@@ -394,7 +398,7 @@ When starting a new session, provide your AI with:
 - ✅ **Complete Completion System**: Extensible framework with file completion and display
 - ✅ **Complete Undo/Redo System**: Full operation recording and execution capabilities
 - ✅ **Complete Enhanced Syntax Highlighting**: Comprehensive shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition
-- ✅ **430+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
+- ✅ **443+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
 
 ## 💡 Pro Tips for AI-Assisted Development
 
