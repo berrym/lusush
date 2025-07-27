@@ -6,14 +6,14 @@ This guide provides immediate context for any AI assistant to help with Lusush L
 
 ## 📋 Project Status at a Glance
 
-- **Current Phase**: Advanced Features (Phase 3 of 4) - 72.7% complete
+- **Current Phase**: Advanced Features (Phase 3 of 4) - 81.8% complete
 - **Active Branch**: `feature/lusush-line-editor`
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Test Framework**: Custom LLE test framework
 - **Progress Tracking**: `LLE_PROGRESS.md`
 - **Architecture**: Standalone library with integrated termcap system
-- **Tasks Completed**: 34/50 + 1 Enhancement (70% overall progress)
+- **Tasks Completed**: 35/50 + 1 Enhancement (72% overall progress)
 
 ## 🎯 What is LLE?
 
@@ -285,31 +285,32 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 ## 🚀 Getting Started in Any Editor
 
 ### **Current Development Status (LLE-034 Complete)**
-- **Next Task**: LLE-035 (Syntax Highlighting Framework) - 3 hours estimated
-- **Progress**: 34/50 tasks complete (68%), Phase 3: 8/11 tasks (72.7%)
-- **Foundation**: Rock-solid with 396+ tests covering all implemented functionality
+- **Next Task**: LLE-036 (Basic Shell Syntax) - 4 hours estimated
+- **Progress**: 35/50 tasks complete (70%), Phase 3: 9/11 tasks (81.8%)
+- **Foundation**: Rock-solid with 413+ tests covering all implemented functionality
 
-### **Immediate Next Task: LLE-035 Syntax Highlighting Framework**
-**File**: `src/line_editor/syntax.c/h` (new files)
-**Goal**: Implement basic syntax highlighting framework for shell commands
-**Key Functions to Implement**:
+### **Immediate Next Task: LLE-036 Basic Shell Syntax**
+**File**: `src/line_editor/syntax.c` (enhance existing)
+**Goal**: Enhance shell syntax detection with additional constructs and built-in commands
+**Key Enhancements to Implement**:
 ```c
-bool lle_syntax_init(lle_syntax_highlighter_t *highlighter);
-bool lle_syntax_highlight_text(lle_syntax_highlighter_t *highlighter, const char *text);
-bool lle_syntax_get_colors(lle_syntax_highlighter_t *highlighter, size_t position);
-void lle_syntax_destroy(lle_syntax_highlighter_t *highlighter);
+bool lle_syntax_add_builtin_commands(lle_syntax_highlighter_t *highlighter);
+bool lle_syntax_detect_command_substitution(const char *text, size_t pos);
+bool lle_syntax_parse_parameter_expansion(const char *text, size_t pos);
+bool lle_syntax_handle_redirection_operators(const char *text, size_t pos);
 ```
 **Acceptance Criteria**:
-- Detects basic shell syntax elements (commands, strings, comments)
-- Provides color information for display integration
-- Handles incremental highlighting for performance
-- Extensible architecture for additional syntax rules
+- Enhanced keyword detection (more shell built-ins)
+- Command substitution recognition ($(...) and `...`)
+- Parameter expansion detection (${var}, ${var:=default})
+- Redirection operator parsing (>, >>, <, <<, |&)
+- Path completion integration with syntax highlighting
 
 ### **For Cursor/VS Code Users**
 1. Open the lusush repository
 2. Read this file (you're doing it!)
 3. Check `LLE_PROGRESS.md` for current task (LLE-035)
-4. Ask AI: "Help me implement LLE-035 Syntax Highlighting Framework"
+4. Ask AI: "Help me implement LLE-036 Basic Shell Syntax"
 
 ### **For Other AI-Assisted Editors**
 1. Load the repository context
@@ -321,9 +322,9 @@ void lle_syntax_destroy(lle_syntax_highlighter_t *highlighter);
 When starting a new session, provide your AI with:
 1. This file (`LLE_AI_DEVELOPMENT_GUIDE.md`)
 2. Current progress (`LLE_PROGRESS.md`)
-3. Task LLE-035 requirements from `LLE_DEVELOPMENT_TASKS.md`
+3. Task LLE-036 requirements from `LLE_DEVELOPMENT_TASKS.md`
 4. Code standards from `.cursorrules`
-5. Recent completion summaries: `LLE-032_COMPLETION_SUMMARY.md`, `LLE-033_COMPLETION_SUMMARY.md`, `LLE-034_COMPLETION_SUMMARY.md`
+5. Recent completion summaries: `LLE-033_COMPLETION_SUMMARY.md`, `LLE-034_COMPLETION_SUMMARY.md`, `LLE-035_COMPLETION_SUMMARY.md`
 
 ## 📊 Performance Requirements
 
@@ -390,10 +391,11 @@ When starting a new session, provide your AI with:
 - ✅ **Integrated Termcap**: Enhanced termcap library with 50+ terminal profiles
 - ✅ **Multiline Prompts**: Full ANSI support with mathematical precision
 - ✅ **Display System**: Complete multiline input display with cursor positioning
-- ✅ **Complete Unicode Support**: UTF-8 text handling and character-aware navigation
+- ✅ **Complete Unicode Support**: UTF-8 text handling and character-aware cursor movement
 - ✅ **Complete Completion System**: Extensible framework with file completion and display
 - ✅ **Complete Undo/Redo System**: Full operation recording and execution capabilities
-- ✅ **396+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
+- ✅ **Complete Syntax Highlighting Framework**: Shell syntax detection with extensible architecture
+- ✅ **413+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
 
 ## 💡 Pro Tips for AI-Assisted Development
 
