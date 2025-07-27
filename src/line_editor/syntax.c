@@ -118,6 +118,36 @@ static bool lle_syntax_is_shell_keyword(const char *word, size_t length) {
 }
 
 /**
+ * @brief Check if string is a shell built-in command
+ */
+static bool lle_syntax_is_shell_builtin(const char *word, size_t length) {
+    if (!word || length == 0) return false;
+    
+    // Common shell built-in commands
+    static const char *builtins[] = {
+        "cd", "pwd", "echo", "printf", "read", "test",
+        "exec", "eval", "source", "alias", "unalias",
+        "history", "fc", "jobs", "bg", "fg", "kill",
+        "wait", "trap", "shift", "set", "unset",
+        "type", "which", "command", "builtin",
+        "enable", "disable", "help", "times",
+        "ulimit", "umask", "getopts", "let",
+        "declare", "typeset", "readonly", "export",
+        "local", "logout", "exit", "return",
+        NULL
+    };
+    
+    for (int i = 0; builtins[i] != NULL; i++) {
+        size_t builtin_len = strlen(builtins[i]);
+        if (builtin_len == length && memcmp(word, builtins[i], length) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
  * @brief Check if character is a shell operator
  */
 static bool lle_syntax_is_operator_char(char c) {
@@ -125,6 +155,48 @@ static bool lle_syntax_is_operator_char(char c) {
            c == ';' || c == '(' || c == ')' || c == '!' ||
            c == '=' || c == '+' || c == '-' || c == '*' ||
            c == '/' || c == '%' || c == '^' || c == '~';
+}
+
+/**
+ * @brief Check if character is a number
+ */
+static bool lle_syntax_is_number_start(char c) {
+    return isdigit(c);
+}
+
+/**
+ * @brief Parse a number and return its end position
+ */
+static size_t lle_syntax_parse_number(const char *text, size_t start, size_t max_length) {
+    if (!text || start >= max_length) return start;
+    
+    size_t pos = start;
+    
+    // Parse digits
+    while (pos < max_length && isdigit(text[pos])) {
+        pos++;
+    }
+    
+    // Handle decimal point
+    if (pos < max_length && text[pos] == '.') {
+        pos++;
+        while (pos < max_length && isdigit(text[pos])) {
+            pos++;
+        }
+    }
+    
+    // Handle scientific notation
+    if (pos < max_length && (text[pos] == 'e' || text[pos] == 'E')) {
+        pos++;
+        if (pos < max_length && (text[pos] == '+' || text[pos] == '-')) {
+            pos++;
+        }
+        while (pos < max_length && isdigit(text[pos])) {
+            pos++;
+        }
+    }
+    
+    return pos;
 }
 
 /**
@@ -151,29 +223,74 @@ static size_t lle_syntax_parse_string(const char *text, size_t start, size_t max
     return pos; // Unterminated string goes to end
 }
 
+
+
 /**
- * @brief Parse a shell variable and return its end position
+ * @brief Parse command substitution and return its end position
  */
-static size_t lle_syntax_parse_variable(const char *text, size_t start, size_t max_length) {
+static size_t lle_syntax_parse_command_substitution(const char *text, size_t start, size_t max_length) {
+    if (!text || start >= max_length) return start;
+    
+    if (text[start] == '$' && start + 1 < max_length && text[start + 1] == '(') {
+        // Handle $(...) syntax
+        size_t pos = start + 2; // Skip $(
+        int paren_count = 1;
+        
+        while (pos < max_length && paren_count > 0) {
+            if (text[pos] == '(') {
+                paren_count++;
+            } else if (text[pos] == ')') {
+                paren_count--;
+            }
+            pos++;
+        }
+        return pos;
+    } else if (text[start] == '`') {
+        // Handle `command` syntax
+        size_t pos = start + 1; // Skip opening backtick
+        while (pos < max_length && text[pos] != '`' && text[pos] != '\0') {
+            if (text[pos] == '\\' && pos + 1 < max_length) {
+                pos += 2; // Skip escaped character
+            } else {
+                pos++;
+            }
+        }
+        if (pos < max_length && text[pos] == '`') {
+            pos++; // Include closing backtick
+        }
+        return pos;
+    }
+    
+    return start;
+}
+
+/**
+ * @brief Parse parameter expansion and return its end position
+ */
+static size_t lle_syntax_parse_parameter_expansion(const char *text, size_t start, size_t max_length) {
     if (!text || start >= max_length || text[start] != '$') return start;
     
     size_t pos = start + 1; // Skip $
     
     if (pos >= max_length) return pos;
     
-    // Handle ${VAR} syntax
+    // Handle ${...} syntax with parameter expansion
     if (text[pos] == '{') {
         pos++; // Skip {
-        while (pos < max_length && text[pos] != '}' && text[pos] != '\0') {
+        int brace_count = 1;
+        
+        while (pos < max_length && brace_count > 0) {
+            if (text[pos] == '{') {
+                brace_count++;
+            } else if (text[pos] == '}') {
+                brace_count--;
+            }
             pos++;
-        }
-        if (pos < max_length && text[pos] == '}') {
-            pos++; // Include closing }
         }
         return pos;
     }
     
-    // Handle $VAR syntax
+    // Regular variable name
     while (pos < max_length && (isalnum(text[pos]) || text[pos] == '_')) {
         pos++;
     }
@@ -185,6 +302,44 @@ static size_t lle_syntax_parse_variable(const char *text, size_t start, size_t m
             special == '*' || special == '@' || special == '#' ||
             isdigit(special)) {
             pos++;
+        }
+    }
+    
+    return pos;
+}
+
+/**
+ * @brief Parse redirection operators and return end position
+ */
+static size_t lle_syntax_parse_redirection(const char *text, size_t start, size_t max_length) {
+    if (!text || start >= max_length) return start;
+    
+    size_t pos = start;
+    char c = text[pos];
+    
+    if (c == '<') {
+        pos++;
+        if (pos < max_length && text[pos] == '<') {
+            pos++; // <<
+            if (pos < max_length && text[pos] == '<') {
+                pos++; // <<<
+            }
+        } else if (pos < max_length && text[pos] == '&') {
+            pos++; // <&
+        }
+    } else if (c == '>') {
+        pos++;
+        if (pos < max_length && text[pos] == '>') {
+            pos++; // >>
+        } else if (pos < max_length && text[pos] == '&') {
+            pos++; // >&
+        } else if (pos < max_length && text[pos] == '|') {
+            pos++; // >|
+        }
+    } else if (c == '|') {
+        pos++;
+        if (pos < max_length && text[pos] == '&') {
+            pos++; // |&
         }
     }
     
@@ -234,10 +389,21 @@ static bool lle_syntax_highlight_shell_syntax(lle_syntax_highlight_t *highlight,
             continue;
         }
         
-        // Handle variables
+        // Handle command substitution
+        if (c == '$' && pos + 1 < length && text[pos + 1] == '(') {
+            size_t cmd_start = pos;
+            pos = lle_syntax_parse_command_substitution(text, pos, length);
+            if (!lle_syntax_add_region(highlight, cmd_start, pos - cmd_start, LLE_SYNTAX_COMMAND)) {
+                return false;
+            }
+            in_command_position = false;
+            continue;
+        }
+        
+        // Handle variables and parameter expansion
         if (c == '$') {
             size_t var_start = pos;
-            pos = lle_syntax_parse_variable(text, pos, length);
+            pos = lle_syntax_parse_parameter_expansion(text, pos, length);
             if (!lle_syntax_add_region(highlight, var_start, pos - var_start, LLE_SYNTAX_VARIABLE)) {
                 return false;
             }
@@ -245,10 +411,33 @@ static bool lle_syntax_highlight_shell_syntax(lle_syntax_highlight_t *highlight,
             continue;
         }
         
-        // Handle operators
+        // Handle numbers
+        if (lle_syntax_is_number_start(c)) {
+            size_t num_start = pos;
+            pos = lle_syntax_parse_number(text, pos, length);
+            if (!lle_syntax_add_region(highlight, num_start, pos - num_start, LLE_SYNTAX_NUMBER)) {
+                return false;
+            }
+            in_command_position = false;
+            continue;
+        }
+        
+        // Handle redirection operators
+        if (c == '<' || c == '>' || (c == '|' && pos + 1 < length && text[pos + 1] == '&')) {
+            size_t op_start = pos;
+            pos = lle_syntax_parse_redirection(text, pos, length);
+            if (!lle_syntax_add_region(highlight, op_start, pos - op_start, LLE_SYNTAX_OPERATOR)) {
+                return false;
+            }
+            in_command_position = false; // After redirection, expect filename/path
+            continue;
+        }
+        
+        // Handle other operators
         if (lle_syntax_is_operator_char(c)) {
             size_t op_start = pos;
-            while (pos < length && lle_syntax_is_operator_char(text[pos])) {
+            while (pos < length && lle_syntax_is_operator_char(text[pos]) && 
+                   text[pos] != '<' && text[pos] != '>') {
                 pos++;
             }
             if (!lle_syntax_add_region(highlight, op_start, pos - op_start, LLE_SYNTAX_OPERATOR)) {
@@ -259,7 +448,7 @@ static bool lle_syntax_highlight_shell_syntax(lle_syntax_highlight_t *highlight,
         }
         
         // Handle words (potential commands, keywords, or arguments)
-        if (isalnum(c) || c == '_' || c == '.' || c == '/' || c == '-') {
+        if (isalnum(c) || c == '_' || c == '.' || c == '/' || c == '-' || c == '~') {
             size_t word_start = pos;
             while (pos < length && !lle_syntax_is_word_separator(text[pos])) {
                 pos++;
@@ -272,18 +461,26 @@ static bool lle_syntax_highlight_shell_syntax(lle_syntax_highlight_t *highlight,
                 word_type = LLE_SYNTAX_KEYWORD;
                 in_command_position = true; // Keywords often start command contexts
             } else if (in_command_position) {
-                word_type = LLE_SYNTAX_COMMAND;
+                // Check if it's a built-in command first
+                if (lle_syntax_is_shell_builtin(text + word_start, word_length)) {
+                    word_type = LLE_SYNTAX_KEYWORD; // Treat builtins as keywords for highlighting
+                } else {
+                    word_type = LLE_SYNTAX_COMMAND;
+                }
                 in_command_position = false;
             } else {
                 // Check if it looks like a path
                 bool has_slash = false;
+                bool starts_with_tilde = (text[word_start] == '~');
+                bool has_dot = false;
                 for (size_t i = word_start; i < pos; i++) {
                     if (text[i] == '/') {
                         has_slash = true;
-                        break;
+                    } else if (text[i] == '.') {
+                        has_dot = true;
                     }
                 }
-                if (has_slash) {
+                if (has_slash || starts_with_tilde || (has_dot && word_length > 2)) {
                     word_type = LLE_SYNTAX_PATH;
                 }
             }

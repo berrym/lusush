@@ -149,11 +149,11 @@ LLE_TEST(basic_text_highlighting) {
     LLE_ASSERT_NOT_NULL(regions);
     LLE_ASSERT(region_count > 0);
     
-    // Should have at least one region (the command "echo")
-    const lle_syntax_region_t *command_region = find_region_of_type(regions, region_count, LLE_SYNTAX_COMMAND);
-    LLE_ASSERT_NOT_NULL(command_region);
-    LLE_ASSERT_EQ(command_region->start, 0);
-    LLE_ASSERT_EQ(command_region->length, 4); // "echo"
+    // Should have at least one region (the keyword "echo")
+    const lle_syntax_region_t *keyword_region = find_region_of_type(regions, region_count, LLE_SYNTAX_KEYWORD);
+    LLE_ASSERT_NOT_NULL(keyword_region);
+    LLE_ASSERT_EQ(keyword_region->start, 0);
+    LLE_ASSERT_EQ(keyword_region->length, 4); // "echo"
     
     lle_syntax_destroy(highlighter);
     printf("PASSED\n");
@@ -191,8 +191,8 @@ LLE_TEST(position_based_type_queries) {
     LLE_ASSERT(lle_syntax_highlight_text(highlighter, text, strlen(text)));
     
     // Test type at different positions
-    LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 0), LLE_SYNTAX_COMMAND); // 'e' in "echo"
-    LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 2), LLE_SYNTAX_COMMAND); // 'h' in "echo"
+    LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 0), LLE_SYNTAX_KEYWORD); // 'e' in "echo"
+    LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 2), LLE_SYNTAX_KEYWORD); // 'h' in "echo"
     LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 4), LLE_SYNTAX_NORMAL);  // space
     LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 5), LLE_SYNTAX_STRING);  // opening quote
     LLE_ASSERT_EQ(lle_syntax_get_type_at_position(highlighter, 10), LLE_SYNTAX_STRING); // 'o' in "hello"
@@ -249,8 +249,10 @@ LLE_TEST(shell_string_highlighting) {
     // Should have string regions
     size_t string_count = count_regions_of_type(regions, region_count, LLE_SYNTAX_STRING);
     size_t command_count = count_regions_of_type(regions, region_count, LLE_SYNTAX_COMMAND);
+    size_t keyword_count = count_regions_of_type(regions, region_count, LLE_SYNTAX_KEYWORD);
     LLE_ASSERT(string_count >= 2); // single and double quotes
-    LLE_ASSERT(command_count >= 2); // "echo" and backtick command
+    LLE_ASSERT(command_count >= 1); // backtick command
+    LLE_ASSERT(keyword_count >= 1); // "echo" is now a keyword
     
     lle_syntax_destroy(highlighter);
     printf("PASSED\n");
