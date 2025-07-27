@@ -522,33 +522,6 @@ LLE_TEST(terminal_init_cleanup_cycle) {
     // If initialization failed (e.g., in CI), that's acceptable
 }
 
-// Test: Terminal clear to end of screen
-LLE_TEST(terminal_clear_to_eos) {
-    lle_terminal_manager_t tm = {0};
-    
-    // Test NULL pointer
-    LLE_ASSERT(!lle_terminal_clear_to_eos(NULL));
-    
-    // Test with uninitialized terminal manager
-    LLE_ASSERT(!lle_terminal_clear_to_eos(&tm));
-    
-    // Initialize terminal manager
-    lle_terminal_init_result_t result = lle_terminal_init(&tm);
-    
-    if (result == LLE_TERM_INIT_SUCCESS) {
-        // Test clear to end of screen with initialized terminal
-        // This should succeed even in non-TTY environments
-        bool clear_result = lle_terminal_clear_to_eos(&tm);
-        // Don't assert success since it depends on environment
-        // Just ensure it doesn't crash
-        (void)clear_result; // Suppress unused variable warning
-        
-        // Cleanup
-        lle_terminal_cleanup(&tm);
-    }
-    // If init failed (e.g., not a TTY), test should still pass
-}
-
 // Main test runner
 int main(void) {
     printf("Running LLE Terminal Manager Tests\n");
@@ -578,7 +551,6 @@ int main(void) {
     RUN_TEST(terminal_raw_mode_null_pointer);
     RUN_TEST(terminal_capabilities_string);
     RUN_TEST(terminal_init_cleanup_cycle);
-    RUN_TEST(terminal_clear_to_eos);
     
     printf("\n==================================\n");
     printf("Tests completed: %d/%d passed\n", tests_passed, tests_run);

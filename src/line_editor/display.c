@@ -487,69 +487,24 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
     size_t terminal_width = state->geometry.width;
     
-    // Handle multiline text by using text-only rendering instead of full render
+    // Check if content would cause line wrapping or contains newlines
     if (text && text_length > 0) {
-        // Check for actual newlines - handle with proper multiline rendering
+        // Check for actual newlines
         if (memchr(text, '\n', text_length)) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiline text detected, handling with text-only rendering\n");
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiline text detected, using full render\n");
             }
-            
-            // Move to start of text area after prompt
-            if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
-                return false;
-            }
-            
-            // Clear from cursor to end of screen to remove old content
-            if (!lle_terminal_clear_to_eos(state->terminal)) {
-                return false;
-            }
-            
-            // Render text with syntax highlighting if enabled
-            if (lle_display_is_syntax_highlighting_enabled(state)) {
-                if (!lle_display_render_with_syntax_highlighting(state, text, text_length, prompt_last_line_width)) {
-                    return false;
-                }
-            } else {
-                if (!lle_display_render_plain_text(state, text, text_length, prompt_last_line_width)) {
-                    return false;
-                }
-            }
-            
-            // Update cursor position
-            return lle_display_update_cursor(state);
+            return lle_display_render(state);
         }
         
-        // Handle line wrapping with proper text-only rendering
+        // Check if text would actually wrap beyond terminal width
+        // Use > instead of >= to allow text that exactly fits
         if ((prompt_last_line_width + text_length) > terminal_width) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Line wrapping detected (prompt=%zu + text=%zu > width=%zu), handling with text-only rendering\n", 
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Line wrapping detected (prompt=%zu + text=%zu > width=%zu), using full render\n", 
                        prompt_last_line_width, text_length, terminal_width);
             }
-            
-            // Move to start of text area after prompt
-            if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
-                return false;
-            }
-            
-            // Clear from cursor to end of screen to handle wrapped content
-            if (!lle_terminal_clear_to_eos(state->terminal)) {
-                return false;
-            }
-            
-            // Render text with syntax highlighting if enabled
-            if (lle_display_is_syntax_highlighting_enabled(state)) {
-                if (!lle_display_render_with_syntax_highlighting(state, text, text_length, prompt_last_line_width)) {
-                    return false;
-                }
-            } else {
-                if (!lle_display_render_plain_text(state, text, text_length, prompt_last_line_width)) {
-                    return false;
-                }
-            }
-            
-            // Update cursor position
-            return lle_display_update_cursor(state);
+            return lle_display_render(state);
         }
     }
 
