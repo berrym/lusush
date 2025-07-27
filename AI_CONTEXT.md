@@ -1,9 +1,9 @@
 # AI Context: Lusush Line Editor (LLE) Development + Enhanced POSIX History
-**Last Updated**: December 2024 | **Version**: Phase 4 Integration & Polish | **CRITICAL BLOCKING ISSUES**: Display System Fundamentally Broken
+**Last Updated**: December 2024 | **Version**: Phase 4 Integration & Polish | **CRITICAL BLOCKING ISSUES**: Line Wrapping Display Issues
 
-## 🚨 CRITICAL BLOCKING ISSUES: DISPLAY SYSTEM ARCHITECTURALLY BROKEN
+## 🚨 CRITICAL BLOCKING ISSUES: LINE WRAPPING DISPLAY PROBLEMS
 
-**SHELL COMPLETELY UNUSABLE**: Comprehensive debugging session (December 2024) revealed fundamental architectural flaws in the display system that make the shell completely unusable in real terminal environments.
+**SHELL PARTIALLY USABLE**: Major progress achieved (December 2024) with short commands working perfectly, but line wrapping scenarios still have display issues requiring human testing and fixes.
 
 ### ✅ Critical Issue #1: Segmentation Fault on Shell Exit → **FIXED**
 - **Root Cause**: Memory corruption in `posix_history_destroy()` trying to free array elements as individual allocations
@@ -30,22 +30,21 @@
 - **Command Execution**: ✅ Full command execution and history
 - **Clean Exit**: ✅ No segmentation faults or crashes
 
-## 🚨 CRITICAL BLOCKING ISSUE: DISPLAY SYSTEM ARCHITECTURALLY BROKEN
-### ✅ Critical Issue #4: Display System Prompt Redraw → **MAJOR PROGRESS ACHIEVED** ✅
+## 🚧 REMAINING CRITICAL ISSUE: LINE WRAPPING DISPLAY PROBLEMS
+### 🚧 Critical Issue #4: Line Wrapping Display → **PARTIALLY RESOLVED** 🚧
 
-**BREAKTHROUGH STATUS (December 2024)**: Fundamental prompt redraw issue successfully diagnosed and largely resolved through architectural redesign.
+**CURRENT STATUS (December 2024)**: Short commands work perfectly with incremental updates, but line wrapping scenarios still cause display problems that require human testing to resolve.
 
-### ✅ **MAJOR SUCCESS: Prompt Redraw Fixed for Short Commands**
+### ✅ **PARTIAL SUCCESS: Short Commands Working, Line Wrapping Still Problematic**
 
-**Real Terminal Testing Evidence (December 2024)**:
+**Human Terminal Testing Results (December 2024)**:
 ```bash
-# BEFORE FIX (Broken):
-[prompt] $ e
-[prompt] $ ec  
-[prompt] $ ech     ← prompt redraws every character
+# SHORT COMMANDS (Working):
+[prompt] $ echo test     ← incremental updates, no prompt redraw ✅
 
-# AFTER FIX (Working):
-[prompt] $ ech     ← incremental updates, no prompt redraw
+# LINE WRAPPING (Still Broken):
+[prompt] $ very long command that exceeds terminal width
+           ← screen clears, redraws at top, display chaos ❌
 ```
 
 **Root Cause Successfully Identified and Fixed**:
@@ -61,15 +60,16 @@
 4. ✅ **Line Wrapping Detection**: Properly triggers at 4+ characters (prompt=77 + text=4 > width=80)
 5. ✅ **Clean Architecture**: No more competing display update calls
 
-**Current Impact Assessment**:
+**Current Impact Assessment (Verified by Human Testing)**:
 - **Short Commands**: ✅ WORKING PERFECTLY - no prompt redraw, clean character input
-- **Line Wrapping**: 🚧 Falls back to full render (which has separate bugs to fix)
-- **Shell Status**: ✅ USABLE for typical commands, issues only with long commands
-- **Development Status**: ✅ MAJOR BREAKTHROUGH - core architecture fixed
+- **Line Wrapping**: ❌ BROKEN - screen clearing, redrawing at top, display chaos
+- **Enter Key**: ❌ PROBLEMATIC - text replacement and prompt redrawing issues  
+- **Shell Status**: 🚧 PARTIALLY USABLE - works for short commands, broken for long ones
+- **Development Status**: 🚧 MAJOR PROGRESS - but critical issues remain for real use
 
-## ✅ MAJOR SOLUTION IMPLEMENTED: DISPLAY ARCHITECTURE SUCCESSFULLY REDESIGNED
+## 🚧 PARTIAL SOLUTION IMPLEMENTED: DISPLAY ARCHITECTURE PARTIALLY WORKING
 
-**BREAKTHROUGH ACHIEVEMENT**: The fundamental display architecture has been successfully redesigned and is now working for typical use cases.
+**PARTIAL ACHIEVEMENT**: The display architecture has been significantly improved for short commands, but line wrapping scenarios still require fixes based on human testing feedback.
 
 **Architectural Changes Successfully Implemented**:
 1. ✅ **Separate Prompt Rendering**: Prompt renders once when line editing starts, incremental updates for text only
@@ -84,7 +84,7 @@
 - ✅ `src/line_editor/edit_commands.c` - Removed duplicate display update calls to prevent double rendering
 - ✅ `src/line_editor/display.h` - Added incremental update function declaration
 
-**Current Status**: ✅ MAJOR BREAKTHROUGH ACHIEVED - Core architecture working, only line wrapping edge case remains
+**Current Status**: 🚧 SIGNIFICANT PROGRESS - Short commands work perfectly, but line wrapping issues confirmed by human testing still need resolution
 
 ## 🔧 CODEBASE STATE (December 2024)
 
@@ -98,64 +98,71 @@
 - **Memory Management**: ✅ No segfaults or memory leaks (Valgrind clean)
 - **Version Control**: ✅ All debugging modifications reverted to clean state
 
-### ❌ What's Broken (CRITICAL)
-- **Interactive Terminal Mode**: ❌ COMPLETELY UNUSABLE (`./builddir/lusush`)
-- **Real-time Character Input**: ❌ Prompt redraws after every keystroke
-- **Line Wrapping**: ❌ Cursor positioning chaos during wrapping
-- **User Experience**: ❌ Visual chaos makes shell impossible to use
+### 🚧 What's Partially Working / Still Broken
+- **Short Commands**: ✅ WORKING PERFECTLY - incremental updates without prompt redraw
+- **Line Wrapping**: ❌ BROKEN - screen clearing and redrawing at top of screen  
+- **Enter Key Behavior**: ❌ PROBLEMATIC - text replacement and prompt redrawing
+- **User Experience**: 🚧 MIXED - usable for short commands, broken for long commands
 
-### Debugging Session Results (CONFIRMED)
-- **✅ DIAGNOSIS CONFIRMED**: When `lle_display_render()` disabled, prompt redrawing stops
+### Human Testing Results (CONFIRMED)
+- **✅ SHORT COMMANDS WORK**: Incremental updates working perfectly for commands under line wrap threshold
 - **✅ INPUT PROCESSING WORKS**: Character reading, command execution, history all functional
-- **❌ DISPLAY ARCHITECTURE FLAWED**: System designed for full redraws, not incremental updates
-- **❌ ALL FIX ATTEMPTS FAILED**: Incremental updates, conditional rendering, cursor positioning
+- **❌ LINE WRAPPING BROKEN**: Falls back to `lle_display_render()` which causes screen clearing and redraw issues
+- **❌ RECENT FIX ATTEMPT FAILED**: `lle_terminal_clear_to_eos()` approach made problems worse, had to be reverted
 
 ## 🎯 NEXT DEVELOPER GUIDANCE
 
-### CRITICAL: Don't Repeat Failed Approaches
-1. **❌ NO incremental update functions** - `lle_display_update_incremental()` approach failed
-2. **❌ NO conditional prompt rendering** - modifying `lle_display_render()` failed
-3. **❌ NO cursor positioning fixes** - display positioning approach failed
-4. **❌ NO syntax highlighting isolation** - disabling highlighting didn't help
+### CRITICAL: Learn from Failed Approaches
+1. **❌ FAILED**: `lle_terminal_clear_to_eos()` approach - caused screen clearing and redrawing at top
+2. **❌ FAILED**: Aggressive screen clearing - disrupted normal terminal display flow
+3. **✅ PARTIAL SUCCESS**: `lle_display_update_incremental()` works perfectly for short commands
+4. **❌ REMAINING ISSUE**: Line wrapping fallback to `lle_display_render()` causes problems
 
-### ✅ Required Approach: Complete Architectural Redesign
-1. **Start from scratch** - don't try to patch existing display system
-2. **Focus on `src/line_editor/display.c`** - core display rendering logic needs complete rewrite
-3. **Separate prompt and text rendering** - prompt renders once, text updates incrementally
-4. **Test continuously in real terminal** - AI environment cannot detect display issues
-5. **Preserve 479+ passing tests** - ensure no regressions in working components
+### 🚨 CRITICAL: Human Testing Required
+1. **AI CANNOT TEST INTERACTIVE BEHAVIOR** - display issues only visible in real terminals
+2. **Human verification essential** - screen clearing, text replacement, prompt redrawing
+3. **Test line wrapping scenarios** - commands that exceed terminal width
+4. **Test Enter key behavior** - ensure proper command execution without display chaos
+5. **Test multiline input** - verify proper handling without screen disruption
 
-### Success Criteria (SPECIFIC)
-- ✅ **Prompt renders once** - never redraws during character input
-- ✅ **Character input immediate** - appears where cursor is located without delay
-- ✅ **Line wrapping functional** - works without cursor positioning chaos
-- ✅ **Performance maintained** - sub-millisecond character response time
-- ✅ **All features preserved** - Unicode, syntax highlighting, history, etc.
+### Required Approach: Careful Line Wrapping Fix
+1. **Focus on line wrapping fallback** - the `lle_display_render()` call in incremental update
+2. **Avoid aggressive screen clearing** - don't use `clear_to_eos()` or similar disruptive operations
+3. **Maintain current working behavior** - short commands work perfectly, don't break them
+4. **Implement proper line wrapping** - handle wrapped text without full prompt redraw
+5. **Human test every change** - AI testing insufficient for display behavior
 
-## 🎯 CURRENT DEVELOPMENT PRIORITIES (CRITICAL PATH)
+### Success Criteria (HUMAN VERIFIED)
+- ✅ **Short commands continue working** - maintain current perfect behavior
+- 🎯 **Line wrapping without screen clearing** - no redrawing at top of screen
+- 🎯 **Enter key works properly** - no text replacement or prompt redrawing issues
+- 🎯 **Performance maintained** - sub-millisecond character response time
+- 🎯 **All features preserved** - Unicode, syntax highlighting, history, etc.
 
-**IMMEDIATE PRIORITY #1: Complete Display Architecture Redesign**
-- **Estimated Time**: 2-3 days focused development
-- **Required Approach**: Start from scratch, don't try to patch existing system
-- **Success Criteria**: Character input without prompt redrawing
-- **Blocking**: Everything else blocked until this is resolved
+## 🎯 CURRENT DEVELOPMENT PRIORITIES (LINE WRAPPING FOCUS)
 
-**IMMEDIATE PRIORITY #2: Revert to Stable State**
-- **Current Branch State**: Display system partially modified, unstable
-- **Required Action**: Revert all display-related changes to last working commit
-- **Purpose**: Establish stable baseline before redesign begins
-- **Files to Revert**: `src/line_editor/display.c`, `src/line_editor/line_editor.c`
+**IMMEDIATE PRIORITY #1: Fix Line Wrapping Display Issues**
+- **Estimated Time**: Focused development with continuous human testing
+- **Required Approach**: Careful enhancement of existing incremental system
+- **Success Criteria**: Line wrapping without screen clearing or prompt redraw
+- **CRITICAL**: Every change MUST be human tested in real terminal
 
-**IMMEDIATE PRIORITY #3: Design New Display Architecture**
-- **Pattern**: Separate prompt rendering from text rendering completely
-- **Text Updates**: Use terminal escape sequences for incremental updates only
-- **Reference**: Study modern terminal editors (vim, emacs) for proper patterns
-- **Testing**: Must test in real terminals, not just CI environments
+**IMMEDIATE PRIORITY #2: Maintain Working Short Command Behavior**
+- **Current Status**: Short commands work perfectly with incremental updates
+- **Required Action**: DO NOT break existing working functionality
+- **Focus**: Only modify line wrapping fallback logic in `lle_display_update_incremental()`
+- **Files to Modify**: `src/line_editor/display.c` (carefully)
 
-**FUTURE TASKS (BLOCKED UNTIL DISPLAY FIXED)**:
-- LLE-042: Theme System Integration (blocked)
-- Line wrapping proper implementation (blocked)  
-- All remaining Phase 4 tasks (blocked)
+**IMMEDIATE PRIORITY #3: Human Testing Protocol**
+- **Test Every Change**: All display modifications MUST be tested by humans
+- **Terminal Testing**: Use actual terminal (not AI environment) for verification
+- **Scenarios to Test**: Short commands, line wrapping, Enter key, multiline input
+- **Regression Testing**: Ensure fixes don't break working functionality
+
+**CURRENT TASKS (READY WHEN DISPLAY FIXED)**:
+- LLE-042: Theme System Integration (ready to proceed once line wrapping resolved)
+- Line wrapping proper implementation (critical blocker)  
+- Remaining Phase 4 tasks (waiting for stable display system)
 
 ## 🚨 CRITICAL: READ DOCUMENTATION FIRST - NO EXCEPTIONS
 
