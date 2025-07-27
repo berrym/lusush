@@ -40,7 +40,7 @@ The main input loop processes over 25 different key types:
 
 **Line Completion:**
 - `Enter/Ctrl+M/Ctrl+J` → Accept line and return result
-- `Ctrl+C` → Cancel line and return NULL
+- `Ctrl+G` → Cancel line and return NULL (standard readline abort)
 - `Ctrl+D` → EOF or delete character
 
 **Navigation:**
@@ -138,6 +138,22 @@ test_line_editor_display_state_management()     // Display integration
 ### 1. Terminal Initialization in Non-TTY Environments
 **Problem**: Terminal initialization failing with `LLE_TERM_INIT_ERROR_NOT_TTY` (-2) in test environments
 **Solution**: Modified initialization to accept both `LLE_TERM_INIT_SUCCESS` and `LLE_TERM_INIT_ERROR_NOT_TTY` as valid states
+
+### 4. Control Character Signal Separation
+**Problem**: Control characters conflicting with Unix signal handling and shell functionality
+**Solution**: Implemented proper separation of concerns for control character handling
+```c
+// Signal characters - let shell handle
+case LLE_KEY_CTRL_C: // SIGINT - ignore, let shell handle
+    needs_display_update = false;
+    break;
+
+// Line editing characters - handle in LLE  
+case LLE_KEY_CHAR:
+    if (event.character == LLE_ASCII_CTRL_G) { // Abort - standard readline
+        line_cancelled = true;
+    }
+```
 ```c
 if (term_result != LLE_TERM_INIT_SUCCESS && term_result != LLE_TERM_INIT_ERROR_NOT_TTY) {
     // Only fail on actual errors, not non-TTY environments
@@ -227,7 +243,8 @@ if (old_prompt) {
 - **Memory ownership**: Clear patterns prevent corruption and leaks
 - **State management**: Proper cleanup on all exit paths critical
 - **Build system**: Include path management important for large projects
-- **Standard keybindings**: Follow readline conventions (Ctrl+Z conflicts with job control)
+- **Standard keybindings**: Follow readline conventions (Ctrl+G for abort, Ctrl+_ for undo)
+- **Signal separation**: Let shell handle signals (Ctrl+C), line editor handle editing (Ctrl+G)
 
 ## 🚀 Current Status
 

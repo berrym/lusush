@@ -33,7 +33,7 @@ When running in non-standard environments, LLE provides fallback behavior while 
 
 | Character | ASCII | Signal | Default Action | LLE Behavior |
 |-----------|-------|--------|----------------|--------------|
-| `Ctrl+C`  | 0x03  | SIGINT | Interrupt process | Cancel line (fallback) |
+| `Ctrl+C`  | 0x03  | SIGINT | Interrupt process | Ignore (let shell handle) |
 | `Ctrl+\`  | 0x1C  | SIGQUIT | Quit with core dump | Ignore (let shell handle) |
 | `Ctrl+Z`  | 0x1A  | SIGTSTP | Suspend process | Ignore (let shell handle) |
 
@@ -116,6 +116,7 @@ Test cases must verify:
 #define LLE_ASCII_CTRL_Q         0x11   // XON
 
 // Line editing characters (handled by LLE)
+#define LLE_ASCII_CTRL_G         0x07   // Abort/cancel line
 #define LLE_ASCII_CTRL_UNDERSCORE 0x1F  // Undo
 // ... others as needed
 ```
@@ -127,6 +128,10 @@ case LLE_KEY_CHAR:
     if (event.character == LLE_ASCII_CTRL_UNDERSCORE) {
         // Handle undo in LLE
         handle_undo();
+    }
+    else if (event.character == LLE_ASCII_CTRL_G) {
+        // Handle abort/cancel line in LLE
+        line_cancelled = true;
     }
     else if (event.character == LLE_ASCII_CTRL_BACKSLASH ||
              event.character == LLE_ASCII_CTRL_S ||
@@ -160,12 +165,18 @@ case LLE_KEY_CTRL_D:
     break;
 ```
 
-### Ctrl+C Handling
+### Ctrl+C vs Ctrl+G Handling
 
-`Ctrl+C` should generate SIGINT, but in raw mode this doesn't happen automatically:
-- **Primary**: Shell signal handler should process SIGINT
-- **Fallback**: LLE cancels current line if signal handling fails
-- **Future**: Integrate with shell signal system for proper behavior
+**Ctrl+C (SIGINT)**:
+- Should generate SIGINT signal for shell handling
+- LLE ignores this key completely in raw mode
+- Proper signal integration is shell's responsibility
+
+**Ctrl+G (Abort)**:
+- Standard readline abort command
+- Cancels current line editing operation
+- Does not generate signals - pure line editor function
+- Provides clean separation from signal handling
 
 ## Testing Requirements
 

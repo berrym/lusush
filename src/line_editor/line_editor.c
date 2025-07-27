@@ -31,6 +31,7 @@
 #define LLE_ASCII_CTRL_BACKSLASH 0x1C   // Ctrl+\ (SIGQUIT)
 #define LLE_ASCII_CTRL_S 0x13           // Ctrl+S (XOFF/stop)
 #define LLE_ASCII_CTRL_Q 0x11           // Ctrl+Q (XON/start)
+#define LLE_ASCII_CTRL_G 0x07           // Ctrl+G (abort/cancel line)
 
 /**
  * @brief Default configuration values
@@ -388,8 +389,8 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 
             case LLE_KEY_CTRL_C:
                 // SIGNAL: Ctrl+C should generate SIGINT - let shell handle it
-                // For now, cancel line as fallback but this should be handled by shell
-                line_cancelled = true;
+                // Do not intercept this - let it pass through for signal handling
+                needs_display_update = false;
                 break;
                 
             case LLE_KEY_CTRL_D:
@@ -505,6 +506,9 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                             lle_undo_execute(editor->undo_stack, editor->buffer);
                         }
                     }
+                }
+                else if (event.character == LLE_ASCII_CTRL_G) { // Ctrl+G (abort) - standard readline cancel
+                    line_cancelled = true;
                 }
                 // Check for signal-generating control characters that should be ignored
                 else if (event.character == LLE_ASCII_CTRL_BACKSLASH) { // Ctrl+\ (SIGQUIT) - let shell handle

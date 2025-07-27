@@ -16,7 +16,7 @@ LLE is designed to be compatible with standard readline keybindings used in bash
 | `Enter` | Accept line | Complete input and return result |
 | `Ctrl+M` | Accept line | Alternative to Enter |
 | `Ctrl+J` | Accept line | Alternative to Enter |
-| `Ctrl+C` | Cancel line | Cancel current input and return NULL |
+| `Ctrl+G` | Cancel line | Cancel current input and return NULL (standard readline abort) |
 | `Ctrl+D` | EOF/Delete | EOF if buffer empty, otherwise delete character |
 
 ### Navigation
@@ -78,11 +78,12 @@ LLE is designed to be compatible with standard readline keybindings used in bash
 
 ### Signal Handling and Shell Integration
 - **LLE respects Unix signal conventions** - signal-generating keys are handled by the shell, not the line editor
-- **`Ctrl+C` (SIGINT)** - Handled by shell for interrupt signal; LLE cancels line as fallback
+- **`Ctrl+C` (SIGINT)** - Handled by shell for interrupt signal; LLE ignores this key
+- **`Ctrl+G` (abort)** - Standard readline abort command; cancels current line in LLE
 - **`Ctrl+\` (SIGQUIT)** - Handled by shell for quit signal; LLE ignores this key
 - **`Ctrl+Z` (SIGTSTP)** - Reserved for Unix job control (suspend); NOT used for undo
 - **`Ctrl+S`/`Ctrl+Q` (XON/XOFF)** - Handled by terminal for flow control; LLE ignores these keys
-- LLE follows standard readline conventions where `Ctrl+_` is the undo keybinding
+- LLE follows standard readline conventions where `Ctrl+_` is the undo keybinding and `Ctrl+G` is abort
 - This ensures LLE doesn't interfere with essential Unix shell and terminal functionality
 
 ### Emacs vs Vi Mode
@@ -167,7 +168,7 @@ LLE features can be enabled/disabled at runtime through the API:
 - **Signal-generating keys** (`Ctrl+C`, `Ctrl+\`) are handled by shell signal system
 - **Flow control keys** (`Ctrl+S`, `Ctrl+Q`) are handled by terminal driver
 - **Job control keys** (`Ctrl+Z`) are handled by shell job control
-- **Line editing keys** (most others) are handled by LLE readline system
+- **Line editing keys** (`Ctrl+G` for abort, `Ctrl+_` for undo, etc.) are handled by LLE readline system
 - This ensures proper Unix behavior and prevents conflicts between subsystems
 
 ## Performance
