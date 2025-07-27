@@ -201,11 +201,27 @@ bool lle_display_render(lle_display_state_t *state) {
             }
         }
         
-        // Calculate rendered lines based on text length and wrapping
+        // Calculate rendered lines based on actual newlines and wrapping
         size_t terminal_width = state->geometry.width;
-        size_t effective_width = terminal_width > prompt_last_line_width ? 
-                                terminal_width - prompt_last_line_width : 1;
-        state->last_rendered_lines = (text_length / effective_width) + 1;
+        
+        // Count actual lines by counting newlines and wrapping
+        size_t line_count = 1; // Start with 1 line
+        size_t current_col = prompt_last_line_width;
+        
+        for (size_t i = 0; i < text_length; i++) {
+            if (text[i] == '\n') {
+                line_count++;
+                current_col = 0;
+            } else {
+                current_col++;
+                if (current_col >= terminal_width) {
+                    line_count++;
+                    current_col = 0;
+                }
+            }
+        }
+        
+        state->last_rendered_lines = line_count;
     } else {
         state->last_rendered_lines = lle_prompt_get_height(state->prompt);
     }
