@@ -15,6 +15,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "text_buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -293,6 +294,153 @@ size_t lle_undo_stack_peak_memory(const lle_undo_stack_t *stack);
  * @note Checks action array consistency, memory ownership, and state variables
  */
 bool lle_undo_stack_validate(const lle_undo_stack_t *stack);
+
+// ============================================================================
+// LLE-033: Undo Operation Recording API
+// ============================================================================
+
+/**
+ * @brief Create a new undo stack with specified capacity
+ * 
+ * Convenience function that creates and initializes an undo stack with
+ * the specified maximum number of actions. Uses default configuration
+ * for merging and cleanup behavior.
+ * 
+ * @param max_actions Maximum number of undo actions to keep (between LLE_MIN_UNDO_ACTIONS and LLE_MAX_UNDO_ACTIONS)
+ * @return Pointer to newly created undo stack, or NULL on error
+ * 
+ * @note This is an alias for lle_undo_stack_create_custom() with default settings
+ * @note The returned stack must be freed with lle_undo_destroy()
+ */
+lle_undo_stack_t *lle_undo_create(size_t max_actions);
+
+/**
+ * @brief Destroy an undo stack created with lle_undo_create()
+ * 
+ * Convenience function that properly cleans up and frees an undo stack.
+ * This is the proper cleanup function for stacks created with lle_undo_create().
+ * 
+ * @param stack Pointer to undo stack to destroy (can be NULL)
+ * 
+ * @note This is an alias for lle_undo_stack_destroy()
+ * @note This function is safe to call with NULL pointer
+ */
+void lle_undo_destroy(lle_undo_stack_t *stack);
+
+/**
+ * @brief Record an editing operation for undo functionality
+ * 
+ * Records a single editing operation in the undo stack, storing all necessary
+ * information to reverse the operation later. The function handles memory
+ * management, stack capacity limits, and optional action merging.
+ * 
+ * When the stack reaches its maximum capacity, the oldest actions are
+ * automatically removed. Recording a new action clears any available
+ * redo operations.
+ * 
+ * @param stack Pointer to undo stack (must not be NULL)
+ * @param type Type of editing operation being recorded
+ * @param position Byte position where the operation occurred
+ * @param text Text content involved in the operation (can be NULL for cursor moves)
+ * @param old_cursor Cursor position before the operation (in bytes)
+ * @return true on successful recording, false on error
+ * 
+ * @note Text content is copied into the stack's own memory
+ * @note Stack capacity is managed automatically
+ * @note Recording an action invalidates any redo operations
+ * @note Character positions are calculated as approximations of byte positions
+ * 
+ * @see lle_undo_action_type_t for supported operation types
+ */
+bool lle_undo_record_action(lle_undo_stack_t *stack,
+                           lle_undo_action_type_t type,
+                           size_t position,
+                           const char *text,
+                           size_t old_cursor);
+
+// ============================================================================
+// LLE-034: Undo/Redo Execution API
+// ============================================================================
+
+/**
+ * @brief Execute an undo operation on the text buffer
+ * 
+ * Reverses the most recent operation by applying the inverse of the recorded
+ * action. Updates the cursor position appropriately and maintains redo capability.
+ * 
+ * The function handles all action types:
+ * - INSERT: Deletes the inserted text
+ * - DELETE: Re-inserts the deleted text
+ * - REPLACE: Restores the original text
+ * - MOVE_CURSOR: Restores the previous cursor position
+ * 
+ * @param stack Pointer to undo stack (must not be NULL)
+ * @param buffer Pointer to text buffer to modify (must not be NULL)
+ * @return true on successful undo, false on error or if no undo available
+ * 
+ * @note Maintains redo capability by preserving action data
+ * @note Updates cursor position to pre-action state
+ * @note Stack state is updated to reflect new undo/redo availability
+ * 
+ * @see lle_undo_can_undo() to check availability before calling
+ * @see lle_redo_execute() for the inverse operation
+ */
+bool lle_undo_execute(lle_undo_stack_t *stack, lle_text_buffer_t *buffer);
+
+/**
+ * @brief Execute a redo operation on the text buffer
+ * 
+ * Re-applies a previously undone operation. Updates the cursor position
+ * appropriately and maintains undo capability.
+ * 
+ * The function handles all action types:
+ * - INSERT: Re-inserts the text
+ * - DELETE: Re-deletes the text
+ * - REPLACE: Re-applies the replacement
+ * - MOVE_CURSOR: Moves to the new cursor position
+ * 
+ * @param stack Pointer to undo stack (must not be NULL)
+ * @param buffer Pointer to text buffer to modify (must not be NULL)
+ * @return true on successful redo, false on error or if no redo available
+ * 
+ * @note Maintains undo capability by preserving action data
+ * @note Updates cursor position to post-action state
+ * @note Stack state is updated to reflect new undo/redo availability
+ * 
+ * @see lle_redo_can_redo() to check availability before calling
+ * @see lle_undo_execute() for the inverse operation
+ */
+bool lle_redo_execute(lle_undo_stack_t *stack, lle_text_buffer_t *buffer);
+
+/**
+ * @brief Check if undo operation is available
+ * 
+ * Convenience function that determines whether there are any actions
+ * available for undo. This is an alias for lle_undo_stack_can_undo()
+ * that follows the LLE-034 naming convention.
+ * 
+ * @param stack Pointer to undo stack to check (must not be NULL)
+ * @return true if undo is available, false otherwise
+ * 
+ * @note Returns false for NULL stack pointer
+ * @note This function has no side effects
+ */
+bool lle_undo_can_undo(lle_undo_stack_t *stack);
+
+/**
+ * @brief Check if redo operation is available
+ * 
+ * Convenience function that determines whether there are any actions
+ * available for redo. This is an alias for lle_undo_stack_can_redo()
+ * that follows the LLE-034 naming convention.
+ * 
+ * @param stack Pointer to undo stack to check (must not be NULL)
+ * @return true if redo is available, false otherwise
+ * 
+ * @note Returns false for NULL stack pointer
+ * @note This function has no side effects
+ */
+bool lle_redo_can_redo(lle_undo_stack_t *stack);
 
 #ifdef __cplusplus
 }
