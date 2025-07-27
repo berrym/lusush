@@ -250,125 +250,43 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
 }
 
 // ============================================================================
-// Core API Functions
+// Input Event Loop Implementation
 // ============================================================================
 
-lle_line_editor_t *lle_create(void) {
-    lle_config_t config;
-    lle_init_default_config(&config);
-    return lle_create_with_config(&config);
-}
-
-lle_line_editor_t *lle_create_with_config(const lle_config_t *config) {
-    // Use default config if none provided
-    lle_config_t default_config;
-    if (!config) {
-        lle_init_default_config(&default_config);
-        config = &default_config;
-    }
-    
-    // Allocate internal structure
-    lle_line_editor_internal_t *internal = malloc(sizeof(lle_line_editor_internal_t));
-    if (!internal) {
+/**
+ * @brief Main input processing loop
+ *
+ * This function implements the core input event loop that reads key events,
+ * processes them, and manages the editing state until a line is complete
+ * or cancelled.
+ *
+ * @param editor Line editor instance (must be initialized)
+ * @return Completed input string on success, NULL on cancellation or error
+ *
+ * @note The returned string must be freed by the caller
+ * @note Sets appropriate error codes via lle_set_last_error()
+ */
+static char *lle_input_loop(lle_line_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        if (editor) lle_set_last_error(editor, LLE_ERROR_NOT_INITIALIZED);
         return NULL;
     }
     
-    // Initialize structure
-    memset(internal, 0, sizeof(lle_line_editor_internal_t));
-    internal->last_error = LLE_SUCCESS;
-    
-    lle_line_editor_t *editor = &internal->public;
-    
-    // Initialize components
-    if (!lle_initialize_components(editor, config)) {
-        // Cleanup on failure
-        lle_cleanup_components(editor);
-        free(internal);
-        return NULL;
-    }
-    
-    internal->cleanup_needed = true;
-    return editor;
-}
-
-void lle_destroy(lle_line_editor_t *editor) {
-    if (!editor) return;
-    
-    lle_line_editor_internal_t *internal = (lle_line_editor_internal_t *)editor;
-    
-    if (internal->cleanup_needed) {
-        lle_cleanup_components(editor);
-        internal->cleanup_needed = false;
-    }
-    
-    free(internal);
-}
-
-char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
-    if (!editor || !prompt) {
-        if (editor) lle_set_last_error(editor, LLE_ERROR_INVALID_PARAMETER);
-        return NULL;
-    }
-    
-    if (!editor->initialized) {
-        lle_set_last_error(editor, LLE_ERROR_NOT_INITIALIZED);
-        return NULL;
-    }
-    
-    // Clear text buffer for new input
-    lle_text_buffer_clear(editor->buffer);
-    
-    // Store current prompt
-    if (editor->current_prompt) {
-        free(editor->current_prompt);
-    }
-    editor->current_prompt = strdup(prompt);
-    if (!editor->current_prompt) {
-        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
-        return NULL;
-    }
-    
-    // Create and parse prompt
-    lle_prompt_t *prompt_obj = lle_prompt_create(strlen(prompt) + 64);
-    if (!prompt_obj) {
-        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
-        return NULL;
-    }
-    
-    if (!lle_prompt_parse(prompt_obj, prompt)) {
-        lle_prompt_destroy(prompt_obj);
-        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
-        return NULL;
-    }
-    
-    // Store old prompt to restore on error
-    lle_prompt_t *old_prompt = editor->display->prompt;
-    editor->display->prompt = prompt_obj;
-    
-    // Initial display render
-    if (!lle_display_render(editor->display)) {
-        // Restore old prompt and clean up new one
-        editor->display->prompt = old_prompt;
-        lle_prompt_destroy(prompt_obj);
-        lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
-        return NULL;
-    }
-    
-    // Main input loop
     lle_key_event_t event;
     bool line_complete = false;
     bool line_cancelled = false;
     char *result = NULL;
     
+    // Main input processing loop
     while (!line_complete && !line_cancelled) {
-        // Read key event
+        // Read key event from terminal
         if (!lle_input_read_key(editor->terminal, &event)) {
-            // Error reading input
+            // Error reading input - could be EOF or terminal error
             lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
             break;
         }
         
-        // Process key event
+        // Process key event and determine response
         lle_command_result_t cmd_result = LLE_CMD_SUCCESS;
         bool needs_display_update = true;
         
@@ -376,14 +294,16 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
             case LLE_KEY_ENTER:
             case LLE_KEY_CTRL_M:
             case LLE_KEY_CTRL_J:
-                // Accept line
+                // Accept current line and complete editing
                 result = malloc(editor->buffer->length + 1);
                 if (result) {
                     memcpy(result, editor->buffer->buffer, editor->buffer->length);
                     result[editor->buffer->length] = '\0';
                     line_complete = true;
+                    lle_set_last_error(editor, LLE_SUCCESS);
                 } else {
                     lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+                    line_cancelled = true;
                 }
                 break;
                 
@@ -397,6 +317,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 // EOF: Standard behavior - EOF if buffer empty, delete char otherwise
                 if (editor->buffer->length == 0) {
                     line_cancelled = true;  // EOF - exit
+                    lle_set_last_error(editor, LLE_ERROR_INTERRUPTED);
                 } else {
                     cmd_result = lle_cmd_delete_char(editor->display);
                 }
@@ -509,6 +430,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 }
                 else if (event.character == LLE_ASCII_CTRL_G) { // Ctrl+G (abort) - standard readline cancel
                     line_cancelled = true;
+                    lle_set_last_error(editor, LLE_ERROR_INTERRUPTED);
                 }
                 // Check for signal-generating control characters that should be ignored
                 else if (event.character == LLE_ASCII_CTRL_BACKSLASH) { // Ctrl+\ (SIGQUIT) - let shell handle
@@ -544,19 +466,131 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 }
                 break;
                 
-
-                
             default:
-                // Unknown or unhandled key
+                // Unknown or unhandled key - ignore
                 needs_display_update = false;
                 break;
         }
         
-        // Update display if needed
+        // Update display if needed and command succeeded
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            lle_display_render(editor->display);
+            if (!lle_display_render(editor->display)) {
+                // Display update failed - not critical, continue editing
+                // This can happen in non-terminal environments
+            }
         }
     }
+    
+    return result;
+}
+
+// ============================================================================
+// Core API Functions
+// ============================================================================
+
+lle_line_editor_t *lle_create(void) {
+    lle_config_t config;
+    lle_init_default_config(&config);
+    return lle_create_with_config(&config);
+}
+
+lle_line_editor_t *lle_create_with_config(const lle_config_t *config) {
+    // Use default config if none provided
+    lle_config_t default_config;
+    if (!config) {
+        lle_init_default_config(&default_config);
+        config = &default_config;
+    }
+    
+    // Allocate internal structure
+    lle_line_editor_internal_t *internal = malloc(sizeof(lle_line_editor_internal_t));
+    if (!internal) {
+        return NULL;
+    }
+    
+    // Initialize structure
+    memset(internal, 0, sizeof(lle_line_editor_internal_t));
+    internal->last_error = LLE_SUCCESS;
+    
+    lle_line_editor_t *editor = &internal->public;
+    
+    // Initialize components
+    if (!lle_initialize_components(editor, config)) {
+        // Cleanup on failure
+        lle_cleanup_components(editor);
+        free(internal);
+        return NULL;
+    }
+    
+    internal->cleanup_needed = true;
+    return editor;
+}
+
+void lle_destroy(lle_line_editor_t *editor) {
+    if (!editor) return;
+    
+    lle_line_editor_internal_t *internal = (lle_line_editor_internal_t *)editor;
+    
+    if (internal->cleanup_needed) {
+        lle_cleanup_components(editor);
+        internal->cleanup_needed = false;
+    }
+    
+    free(internal);
+}
+
+char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
+    if (!editor || !prompt) {
+        if (editor) lle_set_last_error(editor, LLE_ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+    
+    if (!editor->initialized) {
+        lle_set_last_error(editor, LLE_ERROR_NOT_INITIALIZED);
+        return NULL;
+    }
+    
+    // Clear text buffer for new input
+    lle_text_buffer_clear(editor->buffer);
+    
+    // Store current prompt
+    if (editor->current_prompt) {
+        free(editor->current_prompt);
+    }
+    editor->current_prompt = strdup(prompt);
+    if (!editor->current_prompt) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    // Create and parse prompt
+    lle_prompt_t *prompt_obj = lle_prompt_create(strlen(prompt) + 64);
+    if (!prompt_obj) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    if (!lle_prompt_parse(prompt_obj, prompt)) {
+        lle_prompt_destroy(prompt_obj);
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    // Store old prompt to restore on error
+    lle_prompt_t *old_prompt = editor->display->prompt;
+    editor->display->prompt = prompt_obj;
+    
+    // Initial display render
+    if (!lle_display_render(editor->display)) {
+        // Restore old prompt and clean up new one
+        editor->display->prompt = old_prompt;
+        lle_prompt_destroy(prompt_obj);
+        lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
+        return NULL;
+    }
+    
+    // Execute main input processing loop
+    char *result = lle_input_loop(editor);
     
     // Clean up: restore original prompt and destroy the one we created
     if (old_prompt) {
@@ -583,15 +617,10 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
         }
     }
     
-    // Set appropriate error status
-    if (line_cancelled) {
-        lle_set_last_error(editor, LLE_ERROR_INTERRUPTED);
-        if (result) {
-            free(result);
-            result = NULL;
-        }
-    } else if (result) {
-        lle_set_last_error(editor, LLE_SUCCESS);
+    // Handle result and error status (already set by lle_input_loop)
+    if (!result) {
+        // Input was cancelled or error occurred
+        // Error code already set by lle_input_loop
     }
     
     return result;

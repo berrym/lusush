@@ -47,7 +47,7 @@
 ## Phase 4: Integration & Polish (Weeks 7-8)
 - [x] LLE-038: Core Line Editor API (3h) - DONE
 - [x] LLE-039: Line Editor Implementation (4h) - DONE
-- [ ] LLE-040: Input Event Loop (4h) - TODO
+- [x] LLE-040: Input Event Loop (4h) - DONE
 - [ ] LLE-041: Replace Linenoise Integration (4h) - TODO
 - [ ] LLE-042: Theme System Integration (3h) - TODO
 - [ ] LLE-043: Configuration Integration (3h) - TODO
@@ -60,10 +60,10 @@
 - [ ] LLE-050: Final Integration and Testing (4h) - TODO
 
 ## Summary
-- Tasks Completed: 39/50 + 1 Enhancement
-- Hours Completed: 130/160
+- Tasks Completed: 40/50 + 1 Enhancement
+- Hours Completed: 134/160
 - Current Phase: 4/4 (Integration & Polish - IN PROGRESS)
-- Next Task: LLE-040 (Input Event Loop)
+- Next Task: LLE-041 (Replace Linenoise Integration)
 
 ## Recent Enhancements
 - **hist_no_dups Implementation**: Complete runtime-toggleable unique history with move-to-end behavior
@@ -109,9 +109,10 @@ Last updated: $(date)
 - **LLE-037 COMPLETED**: Syntax display integration with visual highlighting, theme integration, performance optimization, and real-time updates (13+ tests) ✅
 - **LLE-038 COMPLETED**: Core Line Editor API with complete public interface, configuration management, and component integration (11+ tests) ✅
 - **LLE-039 COMPLETED**: Line Editor Implementation with main functionality, input loop, and comprehensive component integration (12+ tests) ✅
+- **LLE-040 COMPLETED**: Input Event Loop with refactored architecture, enhanced error handling, and improved code organization (14+ tests) ✅
 - **PHASE 2 COMPLETE**: 12/12 tasks completed (100%) - all core functionality implemented and validated ✅
 - **PHASE 3 COMPLETE**: 11/11 tasks completed + 1 major enhancement - all advanced features implemented and validated ✅
-- **PHASE 4 IN PROGRESS**: 2/13 tasks completed - API and main implementation complete, event loop next ✅
+- **PHASE 4 IN PROGRESS**: 3/13 tasks completed - API, main implementation, and event loop complete ✅
 - **Benefit**: LLE becomes truly standalone library with full iTerm2/macOS support
 - **Compatibility**: Maintains all existing Lusush terminal capabilities
 - **Reusability**: Enables LLE use in other projects like libhashtable
