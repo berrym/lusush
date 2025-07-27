@@ -13,6 +13,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Forward declarations for helper functions
+static bool lle_display_render_plain_text(lle_display_state_t *state,
+                                         const char *text,
+                                         size_t text_length,
+                                         size_t start_col);
+
 /**
  * @brief Initialize display state structure
  */
@@ -48,6 +54,12 @@ bool lle_display_init(lle_display_state_t *state) {
     state->cursor_visible = true;
     state->initialized = true;
     state->display_flags = LLE_DISPLAY_FLAG_NONE;
+    
+    // Initialize syntax highlighting integration
+    state->syntax_highlighter = NULL;
+    state->theme_integration = NULL;
+    state->syntax_highlighting_enabled = false;
+    state->last_applied_color[0] = '\0';
     
     return true;
 }
@@ -98,6 +110,12 @@ bool lle_display_cleanup(lle_display_state_t *state) {
     state->buffer = NULL;
     state->terminal = NULL;
     state->initialized = false;
+    
+    // Clear syntax highlighting references (don't destroy - we don't own them)
+    state->syntax_highlighter = NULL;
+    state->theme_integration = NULL;
+    state->syntax_highlighting_enabled = false;
+    state->last_applied_color[0] = '\0';
     
     return true;
 }
@@ -169,44 +187,25 @@ bool lle_display_render(lle_display_state_t *state) {
     size_t text_length = state->buffer->length;
     
     if (text && text_length > 0) {
-        // Calculate how text should be displayed
         size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
-        size_t terminal_width = state->geometry.width;
         
-        // Write text character by character, handling line wrapping
-        size_t current_col = prompt_last_line_width;
-        size_t current_line = 0;
-        
-        for (size_t i = state->display_start_offset; i < text_length; i++) {
-            char c = text[i];
-            
-            // Handle newlines in input text
-            if (c == '\n') {
-                if (!lle_terminal_write(state->terminal, "\n", 1)) {
-                    return false;
-                }
-                current_col = 0;
-                current_line++;
-                continue;
-            }
-            
-            // Handle line wrapping
-            if (current_col >= terminal_width) {
-                if (!lle_terminal_write(state->terminal, "\n", 1)) {
-                    return false;
-                }
-                current_col = 0;
-                current_line++;
-            }
-            
-            // Write the character
-            if (!lle_terminal_write(state->terminal, &c, 1)) {
+        // Use syntax highlighting if enabled and available
+        if (lle_display_is_syntax_highlighting_enabled(state)) {
+            if (!lle_display_render_with_syntax_highlighting(state, text, text_length, prompt_last_line_width)) {
                 return false;
             }
-            current_col++;
+        } else {
+            // Fallback to plain text rendering
+            if (!lle_display_render_plain_text(state, text, text_length, prompt_last_line_width)) {
+                return false;
+            }
         }
         
-        state->last_rendered_lines = current_line + 1;
+        // Calculate rendered lines based on text length and wrapping
+        size_t terminal_width = state->geometry.width;
+        size_t effective_width = terminal_width > prompt_last_line_width ? 
+                                terminal_width - prompt_last_line_width : 1;
+        state->last_rendered_lines = (text_length / effective_width) + 1;
     } else {
         state->last_rendered_lines = lle_prompt_get_height(state->prompt);
     }
@@ -470,6 +469,299 @@ bool lle_display_get_statistics(
         *cursor_line = 0;
         *cursor_col = 0;
     }
+    
+    return true;
+}
+
+// ============================================================================
+// Internal Helper Functions
+// ============================================================================
+
+/**
+ * @brief Render plain text without syntax highlighting
+ */
+static bool lle_display_render_plain_text(lle_display_state_t *state,
+                                         const char *text,
+                                         size_t text_length,
+                                         size_t start_col) {
+    if (!state || !text) {
+        return false;
+    }
+    
+    size_t terminal_width = state->geometry.width;
+    size_t current_col = start_col;
+    size_t current_line = 0;
+    
+    for (size_t i = state->display_start_offset; i < text_length; i++) {
+        char c = text[i];
+        
+        // Handle newlines in input text
+        if (c == '\n') {
+            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+                return false;
+            }
+            current_col = 0;
+            current_line++;
+            continue;
+        }
+        
+        // Handle line wrapping
+        if (current_col >= terminal_width) {
+            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+                return false;
+            }
+            current_col = 0;
+            current_line++;
+        }
+        
+        // Write the character
+        if (!lle_terminal_write(state->terminal, &c, 1)) {
+            return false;
+        }
+        current_col++;
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// Syntax Highlighting Integration Functions
+// ============================================================================
+
+/**
+ * @brief Set syntax highlighter for display
+ */
+bool lle_display_set_syntax_highlighter(lle_display_state_t *state,
+                                        lle_syntax_highlighter_t *highlighter) {
+    if (!state) {
+        return false;
+    }
+    
+    state->syntax_highlighter = highlighter;
+    
+    // Update syntax highlighting if both highlighter and theme are available
+    if (state->syntax_highlighter && state->theme_integration) {
+        lle_display_update_syntax_highlighting(state);
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Set theme integration for display
+ */
+bool lle_display_set_theme_integration(lle_display_state_t *state,
+                                       lle_theme_integration_t *theme_integration) {
+    if (!state) {
+        return false;
+    }
+    
+    state->theme_integration = theme_integration;
+    return true;
+}
+
+/**
+ * @brief Enable or disable syntax highlighting in display
+ */
+bool lle_display_enable_syntax_highlighting(lle_display_state_t *state, bool enable) {
+    if (!state) {
+        return false;
+    }
+    
+    // Can only enable if both highlighter and theme integration are available
+    if (enable && (!state->syntax_highlighter || !state->theme_integration)) {
+        return false;
+    }
+    
+    state->syntax_highlighting_enabled = enable;
+    return true;
+}
+
+/**
+ * @brief Check if syntax highlighting is enabled
+ */
+bool lle_display_is_syntax_highlighting_enabled(const lle_display_state_t *state) {
+    if (!state) {
+        return false;
+    }
+    
+    return state->syntax_highlighting_enabled && 
+           state->syntax_highlighter && 
+           state->theme_integration;
+}
+
+/**
+ * @brief Update syntax highlighting for current buffer content
+ */
+bool lle_display_update_syntax_highlighting(lle_display_state_t *state) {
+    if (!lle_display_is_syntax_highlighting_enabled(state)) {
+        return false;
+    }
+    
+    const char *text = state->buffer->buffer;
+    size_t text_length = state->buffer->length;
+    
+    if (!text || text_length == 0) {
+        return true; // No text to highlight
+    }
+    
+    return lle_syntax_highlight_text(state->syntax_highlighter, text, text_length);
+}
+
+/**
+ * @brief Map syntax type to theme element
+ */
+static lle_theme_element_t lle_display_syntax_type_to_theme_element(lle_syntax_type_t type) {
+    switch (type) {
+        case LLE_SYNTAX_KEYWORD:
+        case LLE_SYNTAX_COMMAND:
+            return LLE_THEME_SYNTAX_KEYWORD;
+        case LLE_SYNTAX_STRING:
+            return LLE_THEME_SYNTAX_STRING;
+        case LLE_SYNTAX_COMMENT:
+            return LLE_THEME_SYNTAX_COMMENT;
+        case LLE_SYNTAX_OPERATOR:
+            return LLE_THEME_SYNTAX_OPERATOR;
+        case LLE_SYNTAX_VARIABLE:
+            return LLE_THEME_SYNTAX_VARIABLE;
+        case LLE_SYNTAX_ERROR:
+            return LLE_THEME_ERROR_HIGHLIGHT;
+        case LLE_SYNTAX_NUMBER:
+        case LLE_SYNTAX_PATH:
+        case LLE_SYNTAX_NORMAL:
+        default:
+            return LLE_THEME_INPUT_TEXT;
+    }
+}
+
+/**
+ * @brief Apply color for syntax type
+ */
+static bool lle_display_apply_syntax_color(lle_display_state_t *state, lle_syntax_type_t type) {
+    if (!state || !state->theme_integration) {
+        return false;
+    }
+    
+    lle_theme_element_t theme_element = lle_display_syntax_type_to_theme_element(type);
+    const char *color_code = lle_theme_get_color(state->theme_integration, theme_element);
+    
+    if (!color_code || color_code[0] == '\0') {
+        return true; // No color to apply
+    }
+    
+    // Optimization: only apply color if it's different from last applied
+    if (strcmp(state->last_applied_color, color_code) == 0) {
+        return true;
+    }
+    
+    // Apply the color
+    if (!lle_terminal_write(state->terminal, color_code, strlen(color_code))) {
+        return false;
+    }
+    
+    // Cache the applied color
+    strncpy(state->last_applied_color, color_code, sizeof(state->last_applied_color) - 1);
+    state->last_applied_color[sizeof(state->last_applied_color) - 1] = '\0';
+    
+    return true;
+}
+
+/**
+ * @brief Reset terminal colors to default
+ */
+static bool lle_display_reset_colors(lle_display_state_t *state) {
+    if (!state || !state->terminal) {
+        return false;
+    }
+    
+    // ANSI reset sequence
+    const char *reset_code = "\033[0m";
+    if (!lle_terminal_write(state->terminal, reset_code, strlen(reset_code))) {
+        return false;
+    }
+    
+    // Clear cached color
+    state->last_applied_color[0] = '\0';
+    
+    return true;
+}
+
+/**
+ * @brief Render text with syntax highlighting
+ */
+bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
+                                                 const char *text,
+                                                 size_t length,
+                                                 size_t start_col) {
+    if (!lle_display_is_syntax_highlighting_enabled(state) || !text) {
+        return false;
+    }
+    
+    // Get syntax regions
+    size_t region_count = 0;
+    const lle_syntax_region_t *regions = lle_syntax_get_regions(state->syntax_highlighter, &region_count);
+    
+    size_t terminal_width = state->geometry.width;
+    size_t current_col = start_col;
+    size_t current_line = 0;
+    size_t region_index = 0;
+    lle_syntax_type_t current_type = LLE_SYNTAX_NORMAL;
+    
+    // Apply initial color
+    lle_display_apply_syntax_color(state, current_type);
+    
+    for (size_t i = state->display_start_offset; i < length; i++) {
+        // Check if we need to change color based on syntax regions
+        while (region_index < region_count && 
+               regions[region_index].start + regions[region_index].length <= i) {
+            region_index++;
+        }
+        
+        lle_syntax_type_t new_type = LLE_SYNTAX_NORMAL;
+        if (region_index < region_count && 
+            i >= regions[region_index].start && 
+            i < regions[region_index].start + regions[region_index].length) {
+            new_type = regions[region_index].type;
+        }
+        
+        // Apply color change if syntax type changed
+        if (new_type != current_type) {
+            if (!lle_display_apply_syntax_color(state, new_type)) {
+                return false;
+            }
+            current_type = new_type;
+        }
+        
+        char c = text[i];
+        
+        // Handle newlines in input text
+        if (c == '\n') {
+            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+                return false;
+            }
+            current_col = 0;
+            current_line++;
+            continue;
+        }
+        
+        // Handle line wrapping
+        if (current_col >= terminal_width) {
+            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+                return false;
+            }
+            current_col = 0;
+            current_line++;
+        }
+        
+        // Write the character
+        if (!lle_terminal_write(state->terminal, &c, 1)) {
+            return false;
+        }
+        current_col++;
+    }
+    
+    // Reset colors after rendering
+    lle_display_reset_colors(state);
     
     return true;
 }

@@ -29,7 +29,8 @@ lle_test_sources = [
   'test_lle_033_undo_operation_recording.c',
   'test_lle_034_undo_redo_execution.c',
   'test_lle_035_syntax_highlighting_framework.c',
-  'test_lle_036_basic_shell_syntax.c'
+  'test_lle_036_basic_shell_syntax.c',
+  'test_lle_037_syntax_display_integration.c'
 ]
 
 # Individual component tests

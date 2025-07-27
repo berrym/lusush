@@ -7,6 +7,8 @@
 #include "prompt.h"
 #include "terminal_manager.h"
 #include "cursor_math.h"
+#include "syntax.h"
+#include "theme_integration.h"
 
 /**
  * @file display.h
@@ -53,6 +55,12 @@ typedef struct {
     bool cursor_visible;                /**< True if cursor should be visible */
     bool initialized;                   /**< True if display state is initialized */
     uint32_t display_flags;             /**< Display behavior flags */
+    
+    // Syntax highlighting integration
+    lle_syntax_highlighter_t *syntax_highlighter;  /**< Syntax highlighter for coloring */
+    lle_theme_integration_t *theme_integration;    /**< Theme integration for colors */
+    bool syntax_highlighting_enabled;              /**< Enable/disable syntax highlighting */
+    char last_applied_color[32];                   /**< Last applied color code for optimization */
 } lle_display_state_t;
 
 /**
@@ -284,5 +292,85 @@ bool lle_display_get_statistics(
     size_t *cursor_line,
     size_t *cursor_col
 );
+
+// ============================================================================
+// Syntax Highlighting Integration Functions
+// ============================================================================
+
+/**
+ * @brief Set syntax highlighter for display
+ *
+ * Associates a syntax highlighter with the display state for syntax coloring.
+ * The display state does not take ownership of the highlighter.
+ *
+ * @param state Display state to modify
+ * @param highlighter Syntax highlighter to associate (can be NULL to disable)
+ * @return true on success, false if state is NULL
+ */
+bool lle_display_set_syntax_highlighter(lle_display_state_t *state,
+                                        lle_syntax_highlighter_t *highlighter);
+
+/**
+ * @brief Set theme integration for display
+ *
+ * Associates a theme integration system with the display state for color mapping.
+ * The display state does not take ownership of the theme integration.
+ *
+ * @param state Display state to modify
+ * @param theme_integration Theme integration to associate (can be NULL to disable)
+ * @return true on success, false if state is NULL
+ */
+bool lle_display_set_theme_integration(lle_display_state_t *state,
+                                       lle_theme_integration_t *theme_integration);
+
+/**
+ * @brief Enable or disable syntax highlighting in display
+ *
+ * Controls whether syntax highlighting is applied during text rendering.
+ * Requires both syntax highlighter and theme integration to be set.
+ *
+ * @param state Display state to modify
+ * @param enable true to enable syntax highlighting, false to disable
+ * @return true on success, false if state is NULL
+ */
+bool lle_display_enable_syntax_highlighting(lle_display_state_t *state, bool enable);
+
+/**
+ * @brief Check if syntax highlighting is enabled
+ *
+ * Returns whether syntax highlighting is currently enabled and functional.
+ *
+ * @param state Display state to check
+ * @return true if syntax highlighting is enabled and functional, false otherwise
+ */
+bool lle_display_is_syntax_highlighting_enabled(const lle_display_state_t *state);
+
+/**
+ * @brief Update syntax highlighting for current buffer content
+ *
+ * Triggers syntax highlighting update for the current buffer content.
+ * Should be called when buffer content changes.
+ *
+ * @param state Display state with syntax highlighter
+ * @return true on success, false on error
+ */
+bool lle_display_update_syntax_highlighting(lle_display_state_t *state);
+
+/**
+ * @brief Render text with syntax highlighting
+ *
+ * Enhanced text rendering function that applies syntax highlighting colors
+ * based on syntax regions and theme integration.
+ *
+ * @param state Display state with syntax highlighting configured
+ * @param text Text to render
+ * @param length Length of text
+ * @param start_col Starting column position
+ * @return true on success, false on error
+ */
+bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
+                                                 const char *text,
+                                                 size_t length,
+                                                 size_t start_col);
 
 #endif // LLE_DISPLAY_H
