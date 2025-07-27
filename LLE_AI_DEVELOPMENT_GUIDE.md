@@ -13,7 +13,7 @@ This guide provides immediate context for any AI assistant to help with Lusush L
 - **Test Framework**: Custom LLE test framework
 - **Progress Tracking**: `LLE_PROGRESS.md`
 - **Architecture**: Standalone library with integrated termcap system
-- **Tasks Completed**: 39/50 + 1 Enhancement (78% overall progress)
+- **Tasks Completed**: 40/50 + 1 Enhancement (80% overall progress)
 
 ## 🎯 What is LLE?
 
@@ -28,6 +28,7 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 - **Complete undo/redo system** with operation recording and execution
 - **Visual syntax highlighting** with real-time display integration
 - **Complete main line editor functionality** with Unix signal separation
+- **Refactored input event loop** with enhanced error handling and code organization
 - **Standard readline keybindings** with proper control character handling
 - **Standalone reusability** like libhashtable for other projects
 
@@ -317,34 +318,32 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 
 ## 🚀 Getting Started in Any Editor
 
-### **Current Development Status (LLE-038 Complete)**
-- **Next Task**: LLE-039 (Line Editor Implementation) - 4 hours estimated
-- **Progress**: 38/50 tasks complete (76%), Phase 4: 1/13 tasks (8% COMPLETE)
-- **Foundation**: Rock-solid with 454+ tests covering all implemented functionality
+### **Current Development Status (LLE-040 Complete)**
+- **Next Task**: LLE-041 (Replace Linenoise Integration) - 4 hours estimated
+- **Progress**: 40/50 tasks complete (80%), Phase 4: 3/13 tasks (23% COMPLETE)
+- **Foundation**: Rock-solid with 479+ tests covering all implemented functionality
 
-### **Immediate Next Task: LLE-039 Line Editor Implementation**
-**File**: `src/line_editor/line_editor.c` (enhance existing)
-**Goal**: Implement the main line editing functionality and input event loop
+### **Immediate Next Task: LLE-041 Replace Linenoise Integration**
+**File**: Multiple files (replacing linenoise calls)
+**Goal**: Replace linenoise calls with LLE throughout Lusush
 **Key Features to Implement**:
 ```c
-// Main editing loop with real-time input processing
-// Integration with key event handling system
-// Live display updates during editing
-// Signal handling and graceful interrupts
-// Performance optimization for sub-millisecond response
+// Identify all linenoise usage in Lusush
+// Replace with LLE API calls
+// Update build system
+// Ensure compatibility
 ```
 **Acceptance Criteria**:
-- Complete input event loop
-- Real-time keystroke processing
-- Live display updates
-- Signal handling (Ctrl+C, etc.)
-- Performance under 1ms response time
+- All linenoise calls replaced
+- Functionality equivalent or better
+- Build system updated
+- No regression in features
 
 ### **For Cursor/VS Code Users**
 1. Open the lusush repository
 2. Read this file (you're doing it!)
-3. Check `LLE_PROGRESS.md` for current task (LLE-039)
-4. Ask AI: "Help me implement LLE-039 Line Editor Implementation"
+3. Check `LLE_PROGRESS.md` for current task (LLE-041)
+4. Ask AI: "Help me implement LLE-041 Replace Linenoise Integration"
 
 ### **For Other AI-Assisted Editors**
 1. Load the repository context
@@ -429,7 +428,7 @@ When starting a new session, provide your AI with:
 - ✅ **Complete Completion System**: Extensible framework with file completion and display
 - ✅ **Complete Undo/Redo System**: Full operation recording and execution capabilities
 - ✅ **Complete Enhanced Syntax Highlighting**: Comprehensive shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition
-- ✅ **454+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
+- ✅ **479+ Tests**: Comprehensive test coverage with Valgrind-verified memory safety
 
 ## 💡 Pro Tips for AI-Assisted Development
 

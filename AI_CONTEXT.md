@@ -1,5 +1,5 @@
 # AI Context: Lusush Line Editor (LLE) Development
-**Last Updated**: December 2024 | **Version**: Phase 4 Integration & Polish | **Next Task**: LLE-039
+**Last Updated**: December 2024 | **Version**: Phase 4 Integration & Polish | **Next Task**: LLE-041
 
 ## 🚨 CRITICAL: READ DOCUMENTATION FIRST - NO EXCEPTIONS
 
@@ -18,7 +18,7 @@
 **Language**: C99  
 **Build**: Meson (NOT Make)  
 **Branch**: `feature/lusush-line-editor`  
-**Status**: 39/50 tasks complete (78%) + hist_no_dups enhancement, Phase 3 COMPLETE, Phase 4 In Progress ✅
+**Status**: 40/50 tasks complete (80%) + hist_no_dups enhancement, Phase 3 COMPLETE, Phase 4 In Progress ✅
 
 ## 🎯 CURRENT CAPABILITIES (WHAT WORKS NOW)
 **✅ FULLY OPERATIONAL:**
@@ -42,6 +42,7 @@
 - **Syntax Display Integration**: Complete visual syntax highlighting with theme integration, performance optimization, and real-time updates (LLE-037 ✅)
 - **Core Line Editor API**: Complete public API interface with component integration, configuration management, and drop-in linenoise replacement capability (LLE-038 ✅)
 - **Line Editor Implementation**: Complete main line editor functionality with comprehensive input loop, Unix signal separation, and standard readline keybindings (LLE-039 ✅)
+- **Input Event Loop**: Refactored input processing architecture with enhanced error handling, improved code organization, and efficient state management (LLE-040 ✅)
 
 ## 📋 MANDATORY WORKFLOW - FOLLOW EXACTLY
 
@@ -262,7 +263,7 @@ int main(void) {
 - **Syntax Highlighting Framework**: `src/line_editor/syntax.c/h` - Complete framework with shell syntax detection
 
 **🚧 TODO COMPONENTS:**
-- **Input Event Loop**: Advanced event processing and optimization (Phase 4) ← CURRENT
+- **Linenoise Integration**: Replace linenoise calls throughout Lusush (Phase 4) ← CURRENT
 
 ## 🏆 MAJOR ACHIEVEMENTS
 
@@ -341,7 +342,7 @@ int main(void) {
 - **Memory Efficient**: Dynamic allocation with safety limits and bounds checking
 
 ## 🧪 COMPREHENSIVE TESTING FRAMEWORK
-**Extensive Test Coverage (465+ tests):**
+**Extensive Test Coverage (479+ tests):**
 - `tests/line_editor/test_text_buffer.c` - Text buffer operations (57 tests)
 - `tests/line_editor/test_cursor_math.c` - Cursor mathematics (30 tests)
 - `tests/line_editor/test_terminal_manager.c` - Terminal management (22 tests)
@@ -374,8 +375,9 @@ int main(void) {
 - `tests/line_editor/test_lle_037_syntax_display_integration.c` - Syntax display integration (13 tests)
 - `tests/line_editor/test_lle_038_core_line_editor_api.c` - Core Line Editor API (11 tests)
 - `tests/line_editor/test_lle_039_line_editor_implementation.c` - Line Editor Implementation (12 tests)
+- `tests/line_editor/test_lle_040_input_event_loop.c` - Input Event Loop (14 tests)
 
-**Total: 465+ tests covering all implemented functionality**
+**Total: 479+ tests covering all implemented functionality**
 
 ## 📐 PERFORMANCE TARGETS (VALIDATED)
 - Character insertion: < 1ms ✅
@@ -538,7 +540,7 @@ int main(void) {
 
 ## 🆘 QUICK DEBUG & TESTING
 ```bash
-# Run all LLE tests (443+ tests)
+# Run all LLE tests (479+ tests)
 meson test -C builddir
 
 # Run specific test categories
@@ -556,6 +558,7 @@ meson test -C builddir test_lle_028_unicode_cursor_movement -v   # Unicode curso
 meson test -C builddir test_lle_hist_no_dups -v                 # hist_no_dups functionality
 meson test -C builddir test_lle_035_syntax_highlighting_framework -v # Syntax highlighting framework
 meson test -C builddir test_lle_036_basic_shell_syntax -v # Enhanced shell syntax highlighting
+meson test -C builddir test_lle_040_input_event_loop -v # Input Event Loop
 
 # Memory leak detection
 valgrind --leak-check=full builddir/tests/line_editor/test_lle_027_utf8_text_handling
@@ -573,7 +576,7 @@ scripts/lle_build.sh clean && scripts/lle_build.sh setup && scripts/lle_build.sh
 1. **Phase 1: Foundation** ✅ **COMPLETE** (LLE-001 to LLE-014) - Text buffer, cursor math, termcap integration, terminal I/O, testing
 2. **Phase 2: Core** ✅ **COMPLETE** (LLE-015 to LLE-026) - Prompts, themes, editing commands **[12/12 DONE]**
 3. **Phase 3: Advanced** ✅ **COMPLETE** (LLE-027 to LLE-037) - Unicode, completion, undo/redo, syntax highlighting **[11/11 DONE + hist_no_dups enhancement]**
-4. **Phase 4: Integration** 🚧 (LLE-038 to LLE-050) - API, optimization, documentation, final integration **[2/13 DONE]**
+4. **Phase 4: Integration** 🚧 (LLE-038 to LLE-050) - API, optimization, documentation, final integration **[3/13 DONE]**
 
 ## 📦 BUILD INTEGRATION (CURRENT)
 - **LLE builds as static library**: `builddir/src/line_editor/liblle.a`
@@ -604,7 +607,7 @@ lusush/src/line_editor/
 ├── completion_display.c        # Completion display system (LLE-031)
 ├── undo.c/h                    # Complete undo/redo system (LLE-032, LLE-033, LLE-034)
 ├── syntax.c/h                  # Enhanced syntax highlighting framework (LLE-035, LLE-036, LLE-037)
-├── line_editor.c/h             # Core Line Editor API (LLE-038) and Implementation (LLE-039)
+├── line_editor.c/h             # Core Line Editor API (LLE-038), Implementation (LLE-039), and Input Event Loop (LLE-040)
 └── meson.build                 # Main LLE build config
 
 lusush/tests/line_editor/
@@ -639,6 +642,7 @@ lusush/tests/line_editor/
 ├── test_lle_037_syntax_display_integration.c # LLE-037 tests (13 tests)
 ├── test_lle_038_core_line_editor_api.c # LLE-038 tests (11 tests)
 ├── test_lle_039_line_editor_implementation.c # LLE-039 tests (12 tests)
+├── test_lle_040_input_event_loop.c # LLE-040 tests (14 tests)
 ├── test_lle_hist_no_dups.c     # hist_no_dups tests (15 tests)
 ├── test_framework.h            # Testing infrastructure
 └── meson.build                 # Test configuration
@@ -668,18 +672,18 @@ lusush/tests/line_editor/
 ## 🚀 IMMEDIATE DEVELOPER ONBOARDING
 **For any developer starting work:**
 
-1. **Current Status**: 76% complete, Phase 1 foundation + Phase 2 COMPLETE + Phase 3 COMPLETE + Phase 4 Started
-2. **Next Task**: LLE-039 (Line Editor Implementation) - main editing loop and event processing
+1. **Current Status**: 80% complete, Phase 1 foundation + Phase 2 COMPLETE + Phase 3 COMPLETE + Phase 4 In Progress
+2. **Next Task**: LLE-041 (Replace Linenoise Integration) - replace linenoise calls throughout Lusush
 3. **Key Achievement**: Complete core functionality + Unicode support + completion system + undo/redo system + enhanced syntax highlighting + Core API
-4. **Test Everything**: `scripts/lle_build.sh test` runs 454+ comprehensive tests
+4. **Test Everything**: `scripts/lle_build.sh test` runs 479+ comprehensive tests
 5. **Code Quality**: All code follows strict C99 standards with comprehensive error handling
 
 **🎯 IMMEDIATE PRODUCTIVITY:**
 - **Architecture is solid**: Foundation systems are production-ready
 - **Unicode support is complete**: Full international text handling
-- **Test framework is comprehensive**: 454+ tests cover all functionality
-- **Development patterns are established**: Clear examples in 38 completed tasks
-- **Next task is well-defined**: LLE-039 has clear 4-hour scope with acceptance criteria
+- **Test framework is comprehensive**: 479+ tests cover all functionality
+- **Development patterns are established**: Clear examples in 40 completed tasks
+- **Next task is well-defined**: LLE-041 has clear 4-hour scope with acceptance criteria
 
 **Phase 1 foundation + Phase 2 core systems + Phase 3 advanced features (Unicode, completion, undo/redo, syntax highlighting) are COMPLETE.**
 
@@ -696,26 +700,29 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 
 **Read `LINE_EDITOR_STRATEGIC_ANALYSIS.md` for complete strategic context.**
 
-## 🎉 MAJOR MILESTONE: PHASE 3 ADVANCED FEATURES PROGRESSING
+## 🎉 MAJOR MILESTONE: PHASE 4 INTEGRATION & POLISH IN PROGRESS
 - **Complete Unicode Support**: UTF-8 text handling and character-aware cursor movement
 - **Professional hist_no_dups**: Runtime toggle unique history with move-to-end behavior
 - **Complete Completion System**: Extensible framework, file completion, visual interface
 - **Complete Undo/Redo System**: Full operation recording and execution with all action types
 - **Undo/Redo Execution**: Operation reversal, redo capability, cursor position management
 - **Complete Enhanced Syntax Highlighting**: Comprehensive shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition
+- **Core Line Editor API**: Complete public interface with configuration management and component integration
+- **Line Editor Implementation**: Full main line editor functionality with Unix signal separation and standard readline keybindings
+- **Input Event Loop**: Refactored architecture with enhanced error handling and improved code organization
 - **International Text Editing**: Proper navigation for CJK, emojis, accented characters
 - **Character Position System**: Seamless byte ↔ character position conversion
 - **Unicode Word Boundaries**: International word navigation and selection
-- **Advanced Features Foundation**: Complete undo/redo system ready for syntax highlighting
-- **443+ Comprehensive Tests**: All systems including complete undo/redo system and enhanced syntax highlighting validated
-- **Performance Validated**: Sub-millisecond operations including undo/redo execution
+- **479+ Comprehensive Tests**: All systems including complete input event loop validated
+- **Performance Validated**: Sub-millisecond operations including refactored input processing
 - **Zero Memory Leaks**: Valgrind-verified memory management
-- **Production Ready**: Professional Unicode-aware line editor with complete undo/redo system
+- **Production Ready**: Professional Unicode-aware line editor with complete API and implementation
 
-**Phase 3 (Advanced Features) progressing: 10/11 tasks complete + hist_no_dups enhancement.**
+**Phase 3 (Advanced Features) COMPLETE: 11/11 tasks + hist_no_dups enhancement.**
+**Phase 4 (Integration & Polish) IN PROGRESS: 3/13 tasks complete.**
 
-## 🔑 CURRENT PHASE 3 STATUS
-**✅ COMPLETED (9/11 tasks):**
+## 🔑 CURRENT PHASE 4 STATUS
+**✅ PHASE 3 COMPLETE (11/11 tasks + enhancement):**
 - **LLE-027 COMPLETED**: UTF-8 Text Handling [COMPLETE] - Comprehensive Unicode support with 22+ tests
 - **LLE-028 COMPLETED**: Unicode Cursor Movement [COMPLETE] - Character-aware navigation with 13+ tests
 - **LLE-029 COMPLETED**: Completion Framework [COMPLETE] - Extensible provider architecture with 18+ tests
@@ -726,38 +733,54 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - **LLE-034 COMPLETED**: Undo/Redo Execution [COMPLETE] - Operation reversal with all action types supported with 12+ tests
 - **LLE-035 COMPLETED**: Syntax Highlighting Framework [COMPLETE] - Complete framework with shell syntax detection with 17+ tests
 - **LLE-036 COMPLETED**: Basic Shell Syntax [COMPLETE] - Enhanced shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition with 17+ tests
+- **LLE-037 COMPLETED**: Syntax Display Integration [COMPLETE] - Visual syntax highlighting with theme integration with 13+ tests
 - **ENHANCEMENT COMPLETED**: hist_no_dups Implementation [COMPLETE] - Runtime toggle unique history with 15+ tests
 
-**🚧 TODO (1/11 tasks):**
-**📈 PHASE 3 PROGRESS: 100% (11/11 tasks) COMPLETE + hist_no_dups enhancement**
+**✅ PHASE 4 COMPLETED (3/13 tasks):**
+- **LLE-038 COMPLETED**: Core Line Editor API [COMPLETE] - Complete public interface with configuration management with 11+ tests
+- **LLE-039 COMPLETED**: Line Editor Implementation [COMPLETE] - Full main line editor functionality with 12+ tests
+- **LLE-040 COMPLETED**: Input Event Loop [COMPLETE] - Refactored architecture with enhanced error handling with 14+ tests
 
-**🚧 TODO (Phase 4 - Integration & Polish):**
-- LLE-039: Line Editor Implementation
+**🚧 PHASE 4 TODO (10/13 tasks):**
+- LLE-041: Replace Linenoise Integration ← CURRENT
+- LLE-042: Theme System Integration
+- LLE-043: Configuration Integration
+- LLE-044: Display Optimization
+- LLE-045: Memory Optimization
+- LLE-046: Comprehensive Integration Tests
+- LLE-047: Performance Benchmarks
+- LLE-048: API Documentation
+- LLE-049: User Documentation
+- LLE-050: Final Integration and Testing
 
-**Unicode foundation, hist_no_dups enhancement, completion system, complete undo/redo system, complete syntax highlighting with visual display integration, and Core Line Editor API ready! Next: Line Editor Implementation.**
+**📈 PHASE 4 PROGRESS: 3/13 tasks complete (23%)**
 
-## 🎯 CURRENT DEVELOPMENT FOCUS (PHASE 3)
-**Primary Goal**: Advanced Features Implementation - COMPLETE
-- **Completion System**: ✅ Complete (framework, file completion, display interface)
-- **Syntax Highlighting**: ✅ Complete (enhanced shell syntax and visual display integration)
+**Complete foundation ready for Lusush integration! Next: Replace Linenoise Integration.**
+
+## 🎯 CURRENT DEVELOPMENT FOCUS (PHASE 4)
+**Primary Goal**: Integration & Polish - IN PROGRESS
+- **Core Systems**: ✅ Complete (API, implementation, input event loop)
+- **Lusush Integration**: 🚧 Starting (replace linenoise throughout Lusush)
 
 **Development Priority (Phase 4)**: 
-1. **LLE-039**: Line Editor Implementation (4h) - main editing loop and event processing ← CURRENT
+1. **LLE-041**: Replace Linenoise Integration (4h) - replace linenoise calls throughout Lusush ← CURRENT
+2. **LLE-042**: Theme System Integration (3h) - integrate with existing Lusush themes
+3. **LLE-043**: Configuration Integration (3h) - connect with Lusush configuration system
 
 **Key Success Metrics**:
-- Maintain sub-millisecond performance for all operations
-- Comprehensive test coverage (target: 350+ tests by Phase 3 completion) - currently at 454+
-- Zero memory leaks and robust error handling
-- International text support throughout all new features
-- Professional shell feature parity (hist_no_dups + complete undo/redo + enhanced syntax highlighting)
+- Seamless integration with existing Lusush functionality
+- No regression in shell features or performance
+- Complete linenoise replacement with enhanced capabilities
+- Full theme and configuration system integration
+- Comprehensive integration testing and documentation
 
 ## 🚀 AI DEVELOPMENT CONFIDENCE LEVEL: HIGH (WITH PROPER PREPARATION)
 
 **Any AI assistant can succeed, BUT ONLY if they:**
 
 ✅ **Read Documentation First**: `.cursorrules`, `LLE_AI_DEVELOPMENT_GUIDE.md`, task specs  
-✅ **Follow Exact Patterns**: Proven architecture with 30 tasks completed consistently  
-- **Test Framework**: 454+ tests provide safety net for validation
+✅ **Follow Exact Patterns**: Proven architecture with 40 tasks completed consistently  
+- **Test Framework**: 479+ tests provide safety net for validation
 ✅ **Study Existing Code**: Learn from completed implementations  
 ✅ **Follow Naming Standards**: Exact `lle_component_action` patterns  
 ✅ **Write Proper Documentation**: Comprehensive Doxygen comments required  
@@ -766,8 +789,8 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 **Why Success is Guaranteed (When Standards Are Followed):**
 - **Clear Task Specifications**: Each task has detailed acceptance criteria
 - **Established Patterns**: Consistent code patterns across all components
-- **Professional Features**: Complex systems (Unicode, completion, undo operation recording, syntax highlighting) already working
-- **Comprehensive Testing**: 454+ tests provide safety net for validation
+- **Professional Features**: Complex systems (Unicode, completion, undo operation recording, syntax highlighting, input event loop) already working
+- **Comprehensive Testing**: 479+ tests provide safety net for validation
 - **Build Integration**: Meson system handles all dependencies
 
 **Estimated Time to Productivity**: 
@@ -791,4 +814,4 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - All LLE-0XX completion summaries for task-specific patterns
 - Test files for comprehensive examples of each component
 
-**Current Next Task**: LLE-040 (Input Event Loop) - Implement advanced event processing and optimization.
+**Current Next Task**: LLE-041 (Replace Linenoise Integration) - Replace linenoise calls with LLE throughout Lusush.
