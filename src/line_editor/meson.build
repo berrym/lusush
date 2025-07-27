@@ -16,7 +16,8 @@ lle_sources = [
   'unicode.c',
   'completion.c',
   'completion_display.c',
-  'undo.c'
+  'undo.c',
+  'syntax.c'
 ]
 
 lle_headers = [
@@ -31,7 +32,8 @@ lle_headers = [
   'command_history.h',
   'unicode.h',
   'completion.h',
-  'undo.h'
+  'undo.h',
+  'syntax.h'
 ]
 
 # Create line editor static library
