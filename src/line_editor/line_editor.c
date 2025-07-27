@@ -19,7 +19,7 @@
 #include "undo.h"
 #include "input_handler.h"
 #include "edit_commands.h"
-#include "syntax.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -102,7 +102,7 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
     }
     
     lle_terminal_init_result_t term_result = lle_terminal_init(editor->terminal);
-    if (term_result != LLE_TERM_INIT_SUCCESS) {
+    if (term_result != LLE_TERM_INIT_SUCCESS && term_result != LLE_TERM_INIT_ERROR_NOT_TTY) {
         free(editor->terminal);
         editor->terminal = NULL;
         lle_set_last_error(editor, LLE_ERROR_TERMINAL_INIT);
@@ -306,13 +306,266 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
         return NULL;
     }
     
-    // TODO: This is a minimal implementation for LLE-038 (API definition)
-    // Full implementation will be provided in LLE-039 (Line Editor Implementation)
+    // Clear text buffer for new input
+    lle_text_buffer_clear(editor->buffer);
     
-    // For now, return NULL to indicate not yet implemented
-    // This allows the API to compile and link for testing purposes
-    lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
-    return NULL;
+    // Store current prompt
+    if (editor->current_prompt) {
+        free(editor->current_prompt);
+    }
+    editor->current_prompt = strdup(prompt);
+    if (!editor->current_prompt) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    // Create and parse prompt
+    lle_prompt_t *prompt_obj = lle_prompt_create(strlen(prompt) + 64);
+    if (!prompt_obj) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    if (!lle_prompt_parse(prompt_obj, prompt)) {
+        lle_prompt_destroy(prompt_obj);
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return NULL;
+    }
+    
+    // Store old prompt to restore on error
+    lle_prompt_t *old_prompt = editor->display->prompt;
+    editor->display->prompt = prompt_obj;
+    
+    // Initial display render
+    if (!lle_display_render(editor->display)) {
+        // Restore old prompt and clean up new one
+        editor->display->prompt = old_prompt;
+        lle_prompt_destroy(prompt_obj);
+        lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
+        return NULL;
+    }
+    
+    // Main input loop
+    lle_key_event_t event;
+    bool line_complete = false;
+    bool line_cancelled = false;
+    char *result = NULL;
+    
+    while (!line_complete && !line_cancelled) {
+        // Read key event
+        if (!lle_input_read_key(editor->terminal, &event)) {
+            // Error reading input
+            lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
+            break;
+        }
+        
+        // Process key event
+        lle_command_result_t cmd_result = LLE_CMD_SUCCESS;
+        bool needs_display_update = true;
+        
+        switch (event.type) {
+            case LLE_KEY_ENTER:
+            case LLE_KEY_CTRL_M:
+            case LLE_KEY_CTRL_J:
+                // Accept line
+                result = malloc(editor->buffer->length + 1);
+                if (result) {
+                    memcpy(result, editor->buffer->buffer, editor->buffer->length);
+                    result[editor->buffer->length] = '\0';
+                    line_complete = true;
+                } else {
+                    lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+                }
+                break;
+                
+            case LLE_KEY_CTRL_C:
+                // Cancel line
+                line_cancelled = true;
+                break;
+                
+            case LLE_KEY_CTRL_D:
+                // EOF or delete character
+                if (editor->buffer->length == 0) {
+                    line_cancelled = true;
+                } else {
+                    cmd_result = lle_cmd_delete_char(editor->display);
+                }
+                break;
+                
+            case LLE_KEY_BACKSPACE:
+            case LLE_KEY_CTRL_H:
+                cmd_result = lle_cmd_backspace(editor->display);
+                break;
+                
+            case LLE_KEY_DELETE:
+                cmd_result = lle_cmd_delete_char(editor->display);
+                break;
+                
+            case LLE_KEY_ARROW_LEFT:
+            case LLE_KEY_CTRL_B:
+                cmd_result = lle_cmd_move_cursor(editor->display, LLE_CMD_CURSOR_LEFT, 1);
+                break;
+                
+            case LLE_KEY_ARROW_RIGHT:
+            case LLE_KEY_CTRL_F:
+                cmd_result = lle_cmd_move_cursor(editor->display, LLE_CMD_CURSOR_RIGHT, 1);
+                break;
+                
+            case LLE_KEY_HOME:
+            case LLE_KEY_CTRL_A:
+                cmd_result = lle_cmd_move_home(editor->display);
+                break;
+                
+            case LLE_KEY_END:
+            case LLE_KEY_CTRL_E:
+                cmd_result = lle_cmd_move_end(editor->display);
+                break;
+                
+            case LLE_KEY_ARROW_UP:
+            case LLE_KEY_CTRL_P:
+                // History previous
+                if (editor->history_enabled && editor->history) {
+                    const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_PREV);
+                    if (entry && entry->command) {
+                        lle_text_buffer_clear(editor->buffer);
+                        for (size_t i = 0; i < entry->length; i++) {
+                            lle_text_insert_char(editor->buffer, entry->command[i]);
+                        }
+                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                    }
+                }
+                break;
+                
+            case LLE_KEY_ARROW_DOWN:
+            case LLE_KEY_CTRL_N:
+                // History next
+                if (editor->history_enabled && editor->history) {
+                    const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_NEXT);
+                    if (entry && entry->command) {
+                        lle_text_buffer_clear(editor->buffer);
+                        for (size_t i = 0; i < entry->length; i++) {
+                            lle_text_insert_char(editor->buffer, entry->command[i]);
+                        }
+                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                    } else {
+                        // No next line, clear buffer
+                        lle_text_buffer_clear(editor->buffer);
+                    }
+                }
+                break;
+                
+            case LLE_KEY_CTRL_K:
+                cmd_result = lle_cmd_kill_line(editor->display);
+                break;
+                
+            case LLE_KEY_CTRL_U:
+                cmd_result = lle_cmd_kill_beginning(editor->display);
+                break;
+                
+            case LLE_KEY_CTRL_W:
+                cmd_result = lle_cmd_backspace_word(editor->display);
+                break;
+                
+            case LLE_KEY_ALT_D:
+                cmd_result = lle_cmd_delete_word(editor->display);
+                break;
+                
+            case LLE_KEY_ALT_B:
+                cmd_result = lle_cmd_word_left(editor->display);
+                break;
+                
+            case LLE_KEY_ALT_F:
+                cmd_result = lle_cmd_word_right(editor->display);
+                break;
+                
+            case LLE_KEY_CTRL_L:
+                // Clear screen and redraw
+                lle_terminal_clear_screen(editor->terminal);
+                cmd_result = LLE_CMD_SUCCESS;
+                break;
+                
+            case LLE_KEY_CTRL_Z:
+                // Undo (if enabled)
+                if (editor->undo_enabled && editor->undo_stack) {
+                    if (lle_undo_can_undo(editor->undo_stack)) {
+                        lle_undo_execute(editor->undo_stack, editor->buffer);
+                    }
+                }
+                break;
+                
+            case LLE_KEY_CTRL_Y:
+                // Redo (if enabled)
+                if (editor->undo_enabled && editor->undo_stack) {
+                    if (lle_redo_can_redo(editor->undo_stack)) {
+                        lle_redo_execute(editor->undo_stack, editor->buffer);
+                    }
+                }
+                break;
+                
+            case LLE_KEY_TAB:
+                // Tab completion (if enabled)
+                if (editor->auto_completion && editor->completions) {
+                    // TODO: Implement tab completion in future task
+                    needs_display_update = false;
+                }
+                break;
+                
+            case LLE_KEY_CHAR:
+                // Insert regular character
+                if (event.character >= 32 && event.character <= 126) {
+                    cmd_result = lle_cmd_insert_char(editor->display, event.character);
+                }
+                break;
+                
+            default:
+                // Unknown or unhandled key
+                needs_display_update = false;
+                break;
+        }
+        
+        // Update display if needed
+        if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
+            lle_display_render(editor->display);
+        }
+    }
+    
+    // Clean up: restore original prompt and destroy the one we created
+    if (old_prompt) {
+        editor->display->prompt = old_prompt;
+        lle_prompt_destroy(prompt_obj);
+    } else {
+        // If there was no old prompt, clear the display prompt
+        editor->display->prompt = NULL;
+        lle_prompt_destroy(prompt_obj);
+    }
+    
+    // Add to history if we have a result and history is enabled
+    if (result && editor->history_enabled && editor->history) {
+        // Only add non-empty, non-whitespace lines
+        bool add_to_history = false;
+        for (size_t i = 0; result[i]; i++) {
+            if (result[i] != ' ' && result[i] != '\t' && result[i] != '\n' && result[i] != '\r') {
+                add_to_history = true;
+                break;
+            }
+        }
+        if (add_to_history) {
+            lle_history_add(editor->history, result, false);
+        }
+    }
+    
+    // Set appropriate error status
+    if (line_cancelled) {
+        lle_set_last_error(editor, LLE_ERROR_INTERRUPTED);
+        if (result) {
+            free(result);
+            result = NULL;
+        }
+    } else if (result) {
+        lle_set_last_error(editor, LLE_SUCCESS);
+    }
+    
+    return result;
 }
 
 bool lle_add_history(lle_line_editor_t *editor, const char *line) {

@@ -31,7 +31,8 @@ lle_test_sources = [
   'test_lle_035_syntax_highlighting_framework.c',
   'test_lle_036_basic_shell_syntax.c',
   'test_lle_037_syntax_display_integration.c',
-  'test_lle_038_core_line_editor_api.c'
+  'test_lle_038_core_line_editor_api.c',
+  'test_lle_039_line_editor_implementation.c'
 ]
 
 # Individual component tests
