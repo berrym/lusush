@@ -13,7 +13,7 @@ This guide provides immediate context for any AI assistant to help with Lusush L
 - **Test Framework**: Custom LLE test framework
 - **Progress Tracking**: `LLE_PROGRESS.md`
 - **Architecture**: Standalone library with integrated termcap system
-- **Tasks Completed**: 38/50 + 1 Enhancement (76% overall progress)
+- **Tasks Completed**: 39/50 + 1 Enhancement (78% overall progress)
 
 ## 🎯 What is LLE?
 
@@ -27,6 +27,8 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 - **Professional-grade Unicode support** with international text editing
 - **Complete undo/redo system** with operation recording and execution
 - **Visual syntax highlighting** with real-time display integration
+- **Complete main line editor functionality** with Unix signal separation
+- **Standard readline keybindings** with proper control character handling
 - **Standalone reusability** like libhashtable for other projects
 
 ## 📁 Critical Files for AI Context
@@ -45,6 +47,35 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 ### **Reference Documentation**
 - `LLE_DEVELOPMENT_WORKFLOW.md` - Git workflow and quality standards
 - `docs/line_editor/` - API documentation (create as you go)
+
+## 🚨 CRITICAL: Control Character Handling
+
+**MUST UNDERSTAND - Unix Signal Separation:**
+
+LLE implements proper separation of concerns for control characters:
+
+**Signal Characters (Shell Domain - NEVER INTERCEPT):**
+- `Ctrl+C` (SIGINT) - Let shell handle interrupt signal
+- `Ctrl+\` (SIGQUIT) - Let shell handle quit signal  
+- `Ctrl+Z` (SIGTSTP) - Let shell handle job control
+
+**Line Editing Characters (LLE Domain - HANDLE HERE):**
+- `Ctrl+G` (0x07) - Abort/cancel line (standard readline)
+- `Ctrl+_` (0x1F) - Undo (standard readline)
+- `Ctrl+A/E/K/U/W/H/D/L/Y` - Standard editing functions
+
+**Code Pattern:**
+```c
+case LLE_KEY_CHAR:
+    if (event.character == LLE_ASCII_CTRL_G) {
+        line_cancelled = true;  // LLE handles abort
+    }
+    else if (event.character == LLE_ASCII_CTRL_BACKSLASH) {
+        needs_display_update = false;  // Let shell handle SIGQUIT
+    }
+```
+
+**Reference**: `LLE_CONTROL_CHARACTER_DESIGN.md` for complete technical details.
 
 ## 🔧 Essential Commands
 
