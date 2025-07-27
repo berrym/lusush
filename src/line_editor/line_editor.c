@@ -521,9 +521,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
         
         // Update display if needed and command succeeded
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            if (!lle_display_render(editor->display)) {
-                // Display update failed - not critical, continue editing
+            // Use incremental update instead of full render to prevent prompt redrawing
+            if (!lle_display_update_incremental(editor->display)) {
+                // If incremental update fails, fallback to full render
                 // This can happen in non-terminal environments
+                lle_display_render(editor->display);
             }
         }
     }

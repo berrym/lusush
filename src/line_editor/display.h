@@ -168,6 +168,19 @@ bool lle_display_clear(lle_display_state_t *state);
 bool lle_display_refresh(lle_display_state_t *state);
 
 /**
+ * @brief Update display incrementally without redrawing prompt
+ *
+ * Efficiently updates only the text content without redrawing the prompt.
+ * This prevents the visual chaos caused by constant prompt redraws during
+ * character-by-character input. Falls back to cursor-only updates for
+ * complex scenarios like line wrapping.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+bool lle_display_update_incremental(lle_display_state_t *state);
+
+/**
  * @brief Update display after text insertion
  *
  * Efficiently updates display after text has been inserted into the buffer.

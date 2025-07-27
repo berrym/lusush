@@ -165,12 +165,7 @@ lle_command_result_t lle_cmd_insert_char(lle_display_state_t *state, char charac
         return LLE_CMD_ERROR_BUFFER_FULL;
     }
     
-    // Update display - only if we have a valid display environment
-    if (lle_display_validate(state)) {
-        size_t cursor_pos = state->buffer->cursor_pos;
-        update_display_after_modification(state, cursor_pos - 1, 1, true);
-        // Don't return error if display update fails in non-terminal environments
-    }
+    // Display update will be handled by main input loop to prevent double updates
     
     return LLE_CMD_SUCCESS;
 }
@@ -196,11 +191,7 @@ lle_command_result_t lle_cmd_delete_char(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
-    if (lle_display_validate(state)) {
-        update_display_after_modification(state, cursor_pos, 1, false);
-        // Don't return error if display update fails in non-terminal environments
-    }
+    // Display update will be handled by main input loop to prevent double updates
     
     return LLE_CMD_SUCCESS;
 }
@@ -226,11 +217,7 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
-    if (lle_display_validate(state)) {
-        update_display_after_modification(state, cursor_pos - 1, 1, false);
-        // Don't return error if display update fails in non-terminal environments
-    }
+    // Display update will be handled by main input loop to prevent double updates
     
     return LLE_CMD_SUCCESS;
 }
@@ -312,11 +299,7 @@ lle_command_result_t lle_cmd_move_cursor(lle_display_state_t *state,
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display cursor - only if we have a valid display environment
-    if (lle_display_validate(state)) {
-        lle_display_update_cursor(state);
-        // Don't return error if display update fails in non-terminal environments
-    }
+    // Display update will be handled by main input loop to prevent double updates
     
     return LLE_CMD_SUCCESS;
 }
@@ -338,11 +321,7 @@ lle_command_result_t lle_cmd_set_cursor_position(lle_display_state_t *state, siz
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display cursor - only if we have a valid display environment
-    if (lle_display_validate(state)) {
-        lle_display_update_cursor(state);
-        // Don't return error if display update fails in non-terminal environments
-    }
+    // Display update will be handled by main input loop to prevent double updates
     
     return LLE_CMD_SUCCESS;
 }

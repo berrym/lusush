@@ -428,7 +428,10 @@ bool lle_display_clear(lle_display_state_t *state) {
 }
 
 /**
- * @brief Refresh display with current buffer content
+ * @brief Force a full refresh of the display
+ *
+ * @param state Display state to refresh
+ * @return true on success, false on failure
  */
 bool lle_display_refresh(lle_display_state_t *state) {
     if (!lle_display_validate(state)) {
@@ -447,6 +450,103 @@ bool lle_display_refresh(lle_display_state_t *state) {
 }
 
 /**
+ * @brief Update display incrementally without redrawing prompt
+ *
+ * This function updates only the text content and cursor position without
+ * redrawing the entire prompt. This prevents the visual chaos caused by
+ * constant prompt redraws during character-by-character input.
+ *
+ * @param state Display state to update
+ * @return true on success, false on failure
+ */
+bool lle_display_update_incremental(lle_display_state_t *state) {
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Starting incremental display update\n");
+    }
+
+    if (!lle_display_validate(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Display validation failed\n");
+        }
+        return false;
+    }
+
+    // Get text from buffer
+    const char *text = state->buffer->buffer;
+    size_t text_length = state->buffer->length;
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Text buffer: length=%zu\n", text_length);
+    }
+
+    // Get prompt geometry for positioning
+    size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
+    size_t terminal_width = state->geometry.width;
+    
+    // Check if content would cause line wrapping or contains newlines
+    if (text && text_length > 0) {
+        // Check for actual newlines
+        if (memchr(text, '\n', text_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiline text detected, using full render\n");
+            }
+            return lle_display_render(state);
+        }
+        
+        // Check if text would actually wrap beyond terminal width
+        // Use > instead of >= to allow text that exactly fits
+        if ((prompt_last_line_width + text_length) > terminal_width) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Line wrapping detected (prompt=%zu + text=%zu > width=%zu), using full render\n", 
+                       prompt_last_line_width, text_length, terminal_width);
+            }
+            return lle_display_render(state);
+        }
+    }
+
+    // Simple single-line case: move cursor to end of prompt and write text
+    if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor to text start\n");
+        }
+        return false;
+    }
+    
+    // Clear from cursor to end of line to remove old text
+    if (!lle_terminal_clear_to_eol(state->terminal)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
+        }
+        return false;
+    }
+
+    // Write the current text content
+    if (text && text_length > 0) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Writing text: '%.*s'\n", (int)text_length, text);
+        }
+        
+        if (!lle_terminal_write(state->terminal, text, text_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write text\n");
+            }
+            return false;
+        }
+    }
+
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Incremental update completed successfully\n");
+    }
+
+    return true;
+}
+
+
+/**
  * @brief Update display after text insertion
  */
 bool lle_display_update_after_insert(
@@ -458,12 +558,11 @@ bool lle_display_update_after_insert(
         return false;
     }
     
-    // For simplicity, do a full refresh for now
-    // TODO: Optimize for incremental updates in future
+    // Use incremental update instead of full refresh
     (void)insert_offset;   // Suppress unused parameter warning
     (void)insert_length;   // Suppress unused parameter warning
     
-    return lle_display_refresh(state);
+    return lle_display_update_incremental(state);
 }
 
 /**
@@ -478,12 +577,11 @@ bool lle_display_update_after_delete(
         return false;
     }
     
-    // For simplicity, do a full refresh for now
-    // TODO: Optimize for incremental updates in future
+    // Use incremental update instead of full refresh
     (void)delete_offset;   // Suppress unused parameter warning
     (void)delete_length;   // Suppress unused parameter warning
     
-    return lle_display_refresh(state);
+    return lle_display_update_incremental(state);
 }
 
 /**
