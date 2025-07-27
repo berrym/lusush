@@ -105,14 +105,21 @@ static const lle_escape_mapping_t escape_mappings[] = {
 static ssize_t read_with_timeout(int fd, char *buffer, size_t buffer_size, int timeout_ms) {
     fd_set readfds;
     struct timeval timeout;
+    struct timeval *timeout_ptr;
     
     FD_ZERO(&readfds);
     FD_SET(fd, &readfds);
     
-    timeout.tv_sec = timeout_ms / 1000;
-    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    if (timeout_ms == 0) {
+        // No timeout - blocking read for piped input
+        timeout_ptr = NULL;
+    } else {
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_usec = (timeout_ms % 1000) * 1000;
+        timeout_ptr = &timeout;
+    }
     
-    int result = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    int result = select(fd + 1, &readfds, NULL, NULL, timeout_ptr);
     if (result == -1) {
         return -1; // Error
     } else if (result == 0) {
@@ -137,23 +144,49 @@ static uint64_t get_current_time_ms(void) {
 bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
     if (!tm || !event) return false;
     
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
     // Initialize event
     lle_key_event_init(event);
     event->timestamp = get_current_time_ms();
     
-    // Read first character
+    // Check if stdin is a TTY to determine timeout behavior
+    bool is_tty = isatty(tm->stdin_fd);
+    // For interactive TTY: no timeout for first character (wait for user input)
+    // For piped input: no timeout (blocking read)
+    int timeout_ms = 0; // Wait indefinitely for first character
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INPUT_READ_KEY] stdin_fd=%d, is_tty=%s, timeout=%dms (waiting for user input)\n", 
+                tm->stdin_fd, is_tty ? "true" : "false", timeout_ms);
+    }
+    
+    // Read first character - wait indefinitely for user input
     char buffer[16];
-    ssize_t bytes_read = read_with_timeout(tm->stdin_fd, buffer, 1, LLE_DEFAULT_ESCAPE_TIMEOUT_MS);
+    ssize_t bytes_read = read_with_timeout(tm->stdin_fd, buffer, 1, timeout_ms);
     
     if (bytes_read == -1) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Read error: %s\n", strerror(errno));
+        }
         event->type = LLE_KEY_ERROR;
         return false;
     } else if (bytes_read == 0) {
-        event->type = LLE_KEY_TIMEOUT;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] EOF on input\n");
+        }
+        event->type = LLE_KEY_ERROR;
         return false;
     }
     
     unsigned char first_char = (unsigned char)buffer[0];
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INPUT_READ_KEY] Read character: 0x%02x ('%c')\n", 
+                first_char, (first_char >= 32 && first_char <= 126) ? first_char : '?');
+    }
     
     // Handle regular ASCII characters
     if (first_char >= 32 && first_char <= 126) {
@@ -161,11 +194,17 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
         event->character = first_char;
         event->raw_sequence[0] = first_char;
         event->sequence_length = 1;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Generated key type: LLE_KEY_CHAR\n");
+        }
         return true;
     }
     
     // Handle control characters
     if (first_char < 32) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Processing control character: 0x%02x\n", first_char);
+        }
         switch (first_char) {
             case LLE_ASCII_CTRL_A: event->type = LLE_KEY_CTRL_A; break;
             case LLE_ASCII_CTRL_B: event->type = LLE_KEY_CTRL_B; break;
@@ -201,11 +240,16 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
                 event->type = LLE_KEY_UNKNOWN;
                 break;
         }
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Generated key type: %d (control character)\n", event->type);
+        }
+        
         event->character = first_char;
         event->raw_sequence[0] = first_char;
         event->sequence_length = 1;
         
-        // If it's an escape, try to read the sequence
+        // Handle escape sequences specially
         if (first_char == LLE_ASCII_ESC) {
             // Read more characters to build escape sequence
             size_t seq_pos = 1;
@@ -233,6 +277,9 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
             event->sequence_length = 1;
         }
         
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Generated key type: %d (escape sequence)\n", event->type);
+        }
         return true;
     }
     
@@ -242,6 +289,9 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
         event->character = first_char;
         event->raw_sequence[0] = first_char;
         event->sequence_length = 1;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_READ_KEY] Generated key type: LLE_KEY_BACKSPACE (DEL)\n");
+        }
         return true;
     }
     
@@ -251,6 +301,9 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
     event->raw_sequence[0] = first_char;
     event->sequence_length = 1;
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INPUT_READ_KEY] Generated key type: LLE_KEY_UNKNOWN\n");
+    }
     return true;
 }
 

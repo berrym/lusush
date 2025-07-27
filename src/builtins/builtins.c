@@ -7,7 +7,7 @@
 #include "../../include/executor.h"
 #include "../../include/history.h"
 #include "../../include/libhashtable/ht.h"
-#include "../../include/linenoise/linenoise.h"
+#include "../../include/linenoise_replacement.h"
 #include "../../include/lusush.h"
 #include "../../include/network.h"
 #include "../../include/prompt.h"
@@ -55,6 +55,8 @@ builtin builtins[] = {
     {      "cd",                 "change directory",       bin_cd},
     {     "pwd",          "print working directory",      bin_pwd},
     { "history",            "print command history",  bin_history},
+    {      "fc",         "POSIX history edit/list",      bin_fc},
+    {"ehistory",       "enhanced history commands", bin_enhanced_history},
     {   "alias",                     "set an alias",    bin_alias},
     { "unalias",                   "unset an alias",  bin_unalias},
     {   "clear",                 "clear the screen",    bin_clear},

@@ -42,7 +42,7 @@
 #ifndef COMPLETION_H
 #define COMPLETION_H
 
-#include "linenoise/linenoise.h"
+#include "linenoise_replacement.h"
 
 // Completion callback for linenoise
 void lusush_completion_callback(const char *buf, linenoiseCompletions *lc);

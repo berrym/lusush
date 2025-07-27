@@ -7,9 +7,10 @@
 #include "../include/config.h"
 #include "../include/errors.h"
 #include "../include/history.h"
+#include "../include/posix_history.h"
 #include "../include/input.h"
-#include "../include/linenoise/encodings/utf8.h"
-#include "../include/linenoise/linenoise.h"
+
+#include "../include/linenoise_replacement.h"
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/prompt.h"
@@ -28,10 +29,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/sysmacros.h>
 
 extern char **environ;
-
-bool exit_flag = false;
+extern posix_history_manager_t *global_posix_history;
 
 // POSIX-compliant shell type tracking
 static int SHELL_TYPE;
@@ -235,6 +237,38 @@ int init(int argc, char **argv, FILE **in) {
     bool has_script_file = (optind && argv[optind] && *argv[optind]);
     bool forced_interactive = shell_opts.interactive;
     bool stdin_is_terminal = isatty(STDIN_FILENO);
+    
+    // Debug: Show TTY detection details
+    const char *debug_env = getenv("LLE_DEBUG");
+    if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+        fprintf(stderr, "[INIT] TTY Detection: STDIN_FILENO=%d, isatty()=%s\n",
+                STDIN_FILENO, stdin_is_terminal ? "true" : "false");
+        
+        // Show what stdin is connected to
+        struct stat st;
+        if (fstat(STDIN_FILENO, &st) == 0) {
+            if (S_ISREG(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a regular file\n");
+            } else if (S_ISDIR(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a directory\n");
+            } else if (S_ISCHR(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a character device (dev %lu:%lu)\n",
+                        (unsigned long)major(st.st_rdev), (unsigned long)minor(st.st_rdev));
+            } else if (S_ISBLK(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a block device\n");
+            } else if (S_ISFIFO(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a FIFO/pipe\n");
+            } else if (S_ISLNK(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a symbolic link\n");
+            } else if (S_ISSOCK(st.st_mode)) {
+                fprintf(stderr, "[INIT] stdin is a socket\n");
+            } else {
+                fprintf(stderr, "[INIT] stdin is unknown type (mode 0x%x)\n", st.st_mode);
+            }
+        } else {
+            fprintf(stderr, "[INIT] fstat() failed: %s\n", strerror(errno));
+        }
+    }
 
     if (shell_opts.command_mode) {
         // -c command mode: always non-interactive
@@ -269,18 +303,34 @@ int init(int argc, char **argv, FILE **in) {
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
+        
+        // Debug: Show interactive detection
+        const char *debug_env = getenv("LLE_DEBUG");
+        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+            fprintf(stderr, "[INIT] Interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+                    forced_interactive ? "true" : "false",
+                    stdin_is_terminal ? "true" : "false", 
+                    shell_opts.stdin_mode ? "true" : "false");
+        }
     } else {
         // Non-interactive: piped input, -s mode, or stdin not a terminal
         IS_INTERACTIVE_SHELL = false;
         SHELL_TYPE = SHELL_NON_INTERACTIVE;
         *in = stdin;
+        
+        // Debug: Show non-interactive detection
+        const char *debug_env = getenv("LLE_DEBUG");
+        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+            fprintf(stderr, "[INIT] Non-interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+                    forced_interactive ? "true" : "false",
+                    stdin_is_terminal ? "true" : "false",
+                    shell_opts.stdin_mode ? "true" : "false");
+        }
     }
 
     // Set up interactive shell features if needed
     if (IS_INTERACTIVE_SHELL) {
-        linenoiseSetEncodingFunctions(linenoiseUtf8PrevCharLen,
-                                      linenoiseUtf8NextCharLen,
-                                      linenoiseUtf8ReadCode);
+        // UTF-8 encoding is handled automatically by LLE replacement layer
         // Use multiline mode setting from configuration
         linenoiseSetMultiLine(config.multiline_mode);
         build_prompt();
@@ -327,6 +377,24 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize history for interactive shells
     if (IS_INTERACTIVE_SHELL) {
         init_history();
+        
+        // Initialize enhanced POSIX history system
+        if (!global_posix_history) {
+            global_posix_history = posix_history_create(0);
+            if (global_posix_history) {
+                // Set default filename and load existing history
+                char *home = symtable_get_global_default("HOME", "");
+                if (home && *home) {
+                    char histfile[1024];
+                    snprintf(histfile, sizeof(histfile), "%s/.lusush_history", home);
+                    posix_history_set_filename(global_posix_history, histfile);
+                    posix_history_load(global_posix_history, histfile, false);
+                }
+                
+                // Enable duplicate detection by default
+                posix_history_set_no_duplicates(global_posix_history, true);
+            }
+        }
     }
 
     // Initialize aliases
@@ -351,6 +419,11 @@ int init(int argc, char **argv, FILE **in) {
     atexit(autocorrect_cleanup);
     atexit(theme_cleanup);
     atexit(network_cleanup);
+    
+    // Enhanced history cleanup
+    if (global_posix_history) {
+        atexit(enhanced_history_cleanup);
+    }
     // atexit(config_cleanup);  // Temporarily disabled
     if (!IS_INTERACTIVE_SHELL) {
         atexit(free_input_buffers);

@@ -18,6 +18,7 @@
 #include "completion.h"
 #include "undo.h"
 #include "input_handler.h"
+#include <unistd.h>
 #include "edit_commands.h"
 
 #include <stdlib.h>
@@ -267,8 +268,19 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
  * @note Sets appropriate error codes via lle_set_last_error()
  */
 static char *lle_input_loop(lle_line_editor_t *editor) {
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INPUT_LOOP] Starting input loop with editor=%p\n", (void*)editor);
+    }
+    
     if (!editor || !editor->initialized) {
         if (editor) lle_set_last_error(editor, LLE_ERROR_NOT_INITIALIZED);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_LOOP] Editor invalid or not initialized\n");
+        }
         return NULL;
     }
     
@@ -277,13 +289,28 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
     bool line_cancelled = false;
     char *result = NULL;
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INPUT_LOOP] Starting main input processing loop\n");
+    }
+    
     // Main input processing loop
     while (!line_complete && !line_cancelled) {
         // Read key event from terminal
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_LOOP] About to read key event\n");
+        }
+        
         if (!lle_input_read_key(editor->terminal, &event)) {
             // Error reading input - could be EOF or terminal error
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INPUT_LOOP] lle_input_read_key failed - setting IO_ERROR\n");
+            }
             lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
             break;
+        }
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_LOOP] Read key event type: %d\n", event.type);
         }
         
         // Process key event and determine response
@@ -295,15 +322,25 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             case LLE_KEY_CTRL_M:
             case LLE_KEY_CTRL_J:
                 // Accept current line and complete editing
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Enter key pressed - completing line with %zu characters\n", 
+                            editor->buffer->length);
+                }
                 result = malloc(editor->buffer->length + 1);
                 if (result) {
                     memcpy(result, editor->buffer->buffer, editor->buffer->length);
                     result[editor->buffer->length] = '\0';
                     line_complete = true;
                     lle_set_last_error(editor, LLE_SUCCESS);
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Line completed successfully: '%s'\n", result);
+                    }
                 } else {
                     lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
                     line_cancelled = true;
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Memory allocation failed for result\n");
+                    }
                 }
                 break;
                 
@@ -420,6 +457,10 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CHAR:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Character key: 0x%02x ('%c')\n", 
+                            event.character, (event.character >= 32 && event.character <= 126) ? event.character : '?');
+                }
                 // Handle special control characters
                 if (event.character == LLE_ASCII_CTRL_UNDERSCORE) { // Ctrl+_ (undo)
                     if (editor->undo_enabled && editor->undo_stack) {
@@ -444,6 +485,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 }
                 // Insert regular printable characters
                 else if (event.character >= 32 && event.character <= 126) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Inserting printable character: '%c'\n", event.character);
+                    }
                     cmd_result = lle_cmd_insert_char(editor->display, event.character);
                 }
                 else {
@@ -468,6 +512,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 
             default:
                 // Unknown or unhandled key - ignore
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Unknown/unhandled key type: %d\n", event.type);
+                }
                 needs_display_update = false;
                 break;
         }
@@ -540,59 +587,167 @@ void lle_destroy(lle_line_editor_t *editor) {
 }
 
 char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Called with editor=%p, prompt='%s'\n", 
+                (void*)editor, prompt ? prompt : "(null)");
+    }
+    
     if (!editor || !prompt) {
         if (editor) lle_set_last_error(editor, LLE_ERROR_INVALID_PARAMETER);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Invalid parameters: editor=%p, prompt=%p\n", 
+                    (void*)editor, (void*)prompt);
+        }
         return NULL;
     }
     
     if (!editor->initialized) {
         lle_set_last_error(editor, LLE_ERROR_NOT_INITIALIZED);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Editor not initialized\n");
+        }
         return NULL;
     }
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Editor initialized, proceeding with input\n");
+    }
+    
     // Clear text buffer for new input
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Clearing text buffer\n");
+    }
     lle_text_buffer_clear(editor->buffer);
     
     // Store current prompt
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Setting current prompt\n");
+    }
     if (editor->current_prompt) {
         free(editor->current_prompt);
     }
     editor->current_prompt = strdup(prompt);
     if (!editor->current_prompt) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Failed to allocate memory for prompt\n");
+        }
         lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
         return NULL;
     }
     
     // Create and parse prompt
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Creating prompt object\n");
+    }
     lle_prompt_t *prompt_obj = lle_prompt_create(strlen(prompt) + 64);
     if (!prompt_obj) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Failed to create prompt object\n");
+        }
         lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
         return NULL;
     }
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Parsing prompt\n");
+    }
     if (!lle_prompt_parse(prompt_obj, prompt)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Failed to parse prompt\n");
+        }
         lle_prompt_destroy(prompt_obj);
         lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
         return NULL;
     }
     
     // Store old prompt to restore on error
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Setting up display with new prompt\n");
+    }
     lle_prompt_t *old_prompt = editor->display->prompt;
     editor->display->prompt = prompt_obj;
     
     // Initial display render
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Rendering initial display\n");
+    }
     if (!lle_display_render(editor->display)) {
-        // Restore old prompt and clean up new one
-        editor->display->prompt = old_prompt;
-        lle_prompt_destroy(prompt_obj);
-        lle_set_last_error(editor, LLE_ERROR_IO_ERROR);
-        return NULL;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Display render failed - using fallback prompt\n");
+        }
+        // Fallback: just write the prompt directly to terminal without fancy rendering
+        const char *simple_prompt = prompt;
+        if (simple_prompt && editor->terminal) {
+            lle_terminal_write(editor->terminal, simple_prompt, strlen(simple_prompt));
+        }
+        // Continue with input loop despite render failure
     }
     
+    // Enter raw mode for TTY input if needed
+    bool entered_raw_mode = false;
+    if (editor->terminal && isatty(editor->terminal->stdin_fd)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Entering raw mode for TTY input\n");
+        }
+        
+        // Flush output before entering raw mode
+        fflush(stdout);
+        fflush(stderr);
+        
+        if (lle_terminal_enter_raw_mode(editor->terminal)) {
+            entered_raw_mode = true;
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_READLINE] Successfully entered raw mode\n");
+            }
+            
+            // Give terminal time to process mode change
+            usleep(1000); // 1ms delay
+            
+        } else {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_READLINE] Failed to enter raw mode\n");
+            }
+        }
+    }
+
     // Execute main input processing loop
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Starting input loop\n");
+    }
     char *result = lle_input_loop(editor);
+
+    // Exit raw mode if we entered it
+    if (entered_raw_mode && editor->terminal) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Exiting raw mode\n");
+        }
+        if (lle_terminal_exit_raw_mode(editor->terminal)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_READLINE] Successfully exited raw mode\n");
+            }
+        } else {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_READLINE] Failed to exit raw mode\n");
+            }
+        }
+    }
+    
+    if (debug_mode) {
+        if (result) {
+            fprintf(stderr, "[LLE_READLINE] Input loop returned result: '%s'\n", result);
+        } else {
+            fprintf(stderr, "[LLE_READLINE] Input loop returned NULL\n");
+        }
+    }
     
     // Clean up: restore original prompt and destroy the one we created
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Cleaning up prompt objects\n");
+    }
     if (old_prompt) {
         editor->display->prompt = old_prompt;
         lle_prompt_destroy(prompt_obj);
@@ -604,6 +759,9 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
     
     // Add to history if we have a result and history is enabled
     if (result && editor->history_enabled && editor->history) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Adding result to history\n");
+        }
         // Only add non-empty, non-whitespace lines
         bool add_to_history = false;
         for (size_t i = 0; result[i]; i++) {
@@ -618,6 +776,10 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
     }
     
     // Handle result and error status (already set by lle_input_loop)
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_READLINE] Returning result: %p\n", (void*)result);
+    }
+    
     if (!result) {
         // Input was cancelled or error occurred
         // Error code already set by lle_input_loop

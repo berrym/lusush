@@ -10,6 +10,7 @@
  */
 
 #include "display.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -136,26 +137,55 @@ void lle_display_destroy(lle_display_state_t *state) {
  * @brief Validate display state structure
  */
 bool lle_display_validate(const lle_display_state_t *state) {
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY] Validating display state: %p\n", (void*)state);
+    }
+    
     if (!state || !state->initialized) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY] Validation failed: state=%p, initialized=%s\n", 
+                    (void*)state, state ? (state->initialized ? "true" : "false") : "N/A");
+        }
         return false;
     }
     
     // Check that required components are present
     if (!state->prompt || !state->buffer || !state->terminal) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY] Validation failed: prompt=%p, buffer=%p, terminal=%p\n", 
+                    (void*)state->prompt, (void*)state->buffer, (void*)state->terminal);
+        }
         return false;
     }
     
     // Validate individual components
     if (!lle_prompt_validate(state->prompt)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY] Validation failed: prompt validation failed\n");
+        }
         return false;
     }
     
     if (!lle_text_buffer_is_valid(state->buffer)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY] Validation failed: text buffer validation failed\n");
+        }
         return false;
     }
     
     if (!lle_terminal_manager_is_valid(state->terminal)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY] Validation failed: terminal manager validation failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY] Validation successful\n");
     }
     
     return true;
@@ -165,28 +195,62 @@ bool lle_display_validate(const lle_display_state_t *state) {
  * @brief Render complete display (prompt + input text)
  */
 bool lle_display_render(lle_display_state_t *state) {
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Starting display render\n");
+    }
+    
     if (!lle_display_validate(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Display validation failed\n");
+        }
         return false;
     }
     
     // Clear display if flag is set
     if (state->display_flags & LLE_DISPLAY_FLAG_CLEAR_FIRST) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Clearing display first\n");
+        }
         if (!lle_display_clear(state)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_RENDER] Display clear failed\n");
+            }
             return false;
         }
     }
     
     // Render the prompt
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Rendering prompt\n");
+    }
     bool clear_previous = (state->display_flags & LLE_DISPLAY_FLAG_FORCE_REFRESH) != 0;
     if (!lle_prompt_render(state->terminal, state->prompt, clear_previous)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Prompt render failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Prompt render completed, proceeding to text rendering\n");
     }
     
     // Get text from buffer
     const char *text = state->buffer->buffer;
     size_t text_length = state->buffer->length;
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Text buffer: length=%zu, text=%p\n", text_length, (void*)text);
+    }
+    
     if (text && text_length > 0) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Rendering non-empty text\n");
+        }
         size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
         
         // Use syntax highlighting if enabled and available
@@ -222,20 +286,45 @@ bool lle_display_render(lle_display_state_t *state) {
         }
         
         state->last_rendered_lines = line_count;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Text rendering completed, lines=%zu\n", line_count);
+        }
     } else {
         state->last_rendered_lines = lle_prompt_get_height(state->prompt);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] No text to render, using prompt height=%zu\n", state->last_rendered_lines);
+        }
     }
     
     state->last_rendered_length = text_length;
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] About to update cursor position\n");
+    }
+    
     // Update cursor position if not cursor-only mode
     if (!(state->display_flags & LLE_DISPLAY_FLAG_CURSOR_ONLY)) {
         if (!lle_display_update_cursor(state)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor update failed\n");
+            }
             return false;
+        }
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor update completed\n");
+        }
+    } else {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Skipping cursor update (cursor-only mode)\n");
         }
     }
     
     state->needs_refresh = false;
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Display render completed successfully\n");
+    }
+    
     return true;
 }
 
@@ -243,22 +332,63 @@ bool lle_display_render(lle_display_state_t *state) {
  * @brief Update cursor position only
  */
 bool lle_display_update_cursor(lle_display_state_t *state) {
-    if (!lle_display_validate(state)) {
-        return false;
+    // Get debug flag from environment
+    static int debug_mode = -1;
+    if (debug_mode == -1) {
+        debug_mode = getenv("LLE_DEBUG") ? 1 : 0;
     }
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CURSOR_UPDATE] Starting cursor update\n");
+    }
+    
+    if (!lle_display_validate(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CURSOR_UPDATE] Display validation failed\n");
+        }
+        return false;
+    }
+
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CURSOR_UPDATE] Display validated, calculating cursor position\n");
+    }
+
     // Calculate cursor position based on current buffer offset
     if (!lle_display_calculate_cursor_position(state, &state->cursor_pos)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor position calculation failed\n");
+        }
         return false;
     }
-    
+
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor position calculated, checking visibility\n");
+    }
+
     // Position cursor if visible
     if (state->cursor_visible && !(state->display_flags & LLE_DISPLAY_FLAG_NO_CURSOR)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CURSOR_UPDATE] Positioning cursor\n");
+        }
         if (!lle_prompt_position_cursor(state->terminal, state->prompt, &state->cursor_pos)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor positioning failed\n");
+            }
             return false;
         }
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor positioned successfully\n");
+        }
+    } else {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor not visible or cursor disabled\n");
+        }
     }
-    
+
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CURSOR_UPDATE] Cursor update completed successfully\n");
+    }
+
     return true;
 }
 

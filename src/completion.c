@@ -4,7 +4,7 @@
 #include "../include/builtins.h"
 #include "../include/config.h"
 #include "../include/libhashtable/ht.h"
-#include "../include/linenoise/linenoise.h"
+#include "../include/linenoise_replacement.h"
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/symtable.h"

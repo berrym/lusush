@@ -57,7 +57,7 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "linenoise/linenoise.h"
+#include "linenoise_replacement.h"
 
 #include <stdbool.h>
 #include <stddef.h>

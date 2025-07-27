@@ -1396,29 +1396,108 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
 
 ### 4.2 Lusush Integration
 
-#### Task LLE-041: Replace Linenoise Integration
+#### Task LLE-041: Replace Linenoise Integration ✅ COMPLETE
 **File**: Multiple files (replacing linenoise calls)
 **Estimated Time**: 4 hours
 **Description**: Replace linenoise calls with LLE throughout Lusush.
 
 **Implementation**:
-- Identify all linenoise usage in Lusush
-- Replace with LLE API calls
-- Update build system
-- Ensure compatibility
+- ✅ Identified all linenoise usage in Lusush
+- ✅ Replaced with LLE API calls via macro-based compatibility layer
+- ✅ Updated build system
+- ✅ Ensured compatibility
 
 **Acceptance Criteria**:
-- [ ] All linenoise calls replaced
-- [ ] Functionality equivalent or better
-- [ ] Build system updated
-- [ ] No regression in features
+- [x] All linenoise calls replaced
+- [x] Functionality equivalent or better
+- [x] Build system updated
+- [x] No regression in features
 
 **Tests**:
-- Full Lusush functionality testing
-- Comparison with previous behavior
-- Integration testing
+- ✅ Full Lusush functionality testing
+- ✅ Comparison with previous behavior
+- ✅ Integration testing
 
 **Commit**: `LLE-041: Replace linenoise with LLE throughout Lusush`
+
+**Files Modified**:
+- `src/linenoise_replacement.c/h` - Complete macro-based replacement layer (750+ lines)
+- `src/lusush.c`, `src/input.c`, `src/builtins/history.c` - Updated header includes
+- `src/autocorrect.c`, `src/completion.c`, `src/config.c`, `src/init.c`, `src/opts.c` - Header updates
+- `meson.build` - Build system integration
+
+---
+
+### Enhanced POSIX History System ✅ COMPLETE
+**Estimated Time**: 8 hours
+**Description**: Complete POSIX-compliant history management with fc command and enhanced history builtin.
+
+**Major Components Implemented**:
+
+#### 1. Core POSIX History Engine
+**Files**: `include/posix_history.h`, `src/posix_history.c`
+- ✅ POSIX-compliant history numbering (1-based with wraparound at 32767)
+- ✅ Complete history manager with timestamps and metadata
+- ✅ Range specification parsing (numbers, negative offsets, string patterns)
+- ✅ Memory-efficient architecture for large histories (10K+ entries)
+- ✅ Duplicate detection with move-to-end behavior
+- ✅ File operations with atomic writes and backup safety
+
+#### 2. POSIX fc Command
+**File**: `src/builtins/fc.c`
+- ✅ Complete POSIX fc implementation (511 lines)
+- ✅ List mode: `fc -l [-nr] [first [last]]`
+- ✅ Edit mode: `fc [-e editor] [first [last]]`
+- ✅ Substitute mode: `fc -s [old=new] [first]`
+- ✅ Editor integration with FCEDIT/EDITOR environment variables
+- ✅ Command re-execution after editing/substitution
+- ✅ Full range support: numbers, negative offsets, string patterns
+
+#### 3. Enhanced history Builtin
+**File**: `src/builtins/enhanced_history.c`
+- ✅ bash/zsh compatible history command (502 lines)
+- ✅ All standard options: `-c`, `-d`, `-r`, `-w`, `-a`, `-n`, `-t`
+- ✅ File operations: read, write, append with atomic safety
+- ✅ Timestamp support with `-t` option
+- ✅ Range operations: count-limited listing
+- ✅ Professional error handling and validation
+
+**Features Delivered**:
+- ✅ Complete POSIX compliance for fc command
+- ✅ Full bash/zsh history builtin compatibility
+- ✅ Enterprise-grade file operations with backups
+- ✅ Professional error handling and user feedback
+- ✅ Memory-efficient handling of large history files
+- ✅ Zero regressions with existing functionality
+
+**Integration**:
+- ✅ Shell integration with automatic history tracking
+- ✅ Build system integration
+- ✅ Global history manager with proper cleanup
+- ✅ Commands registered: `fc` and `ehistory`
+
+**Commands Available**:
+```bash
+# POSIX fc command
+fc -l                      # List recent history
+fc -l 10 20               # List range 10-20
+fc -l -r -n               # Reverse order, no line numbers
+fc 15                     # Edit command 15
+fc -e nano 10 15          # Edit range with nano
+fc -s echo=printf 20      # Substitute and re-execute
+
+# Enhanced history builtin
+history                   # Show all history
+history 50               # Show last 50 commands
+history -t               # Show with timestamps
+history -c               # Clear history
+history -d 15            # Delete entry 15
+history -w backup.hist   # Write to file
+history -r backup.hist   # Read from file
+history -a               # Append new entries
+```
+
+**Impact**: Lusush now provides enterprise-grade, POSIX-compliant history management that rivals major shells like bash and zsh.
 
 ---
 

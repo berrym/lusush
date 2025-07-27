@@ -48,6 +48,8 @@ int bin_times(int, char **);
 int bin_getopts(int, char **);
 int bin_local(int, char **);
 int bin_hash(int, char **);
+int bin_fc(int, char **);
+int bin_enhanced_history(int, char **);
 int bin_debug(int, char **);
 void init_command_hash(void);
 void free_command_hash(void);

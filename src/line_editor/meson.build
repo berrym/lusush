@@ -18,7 +18,8 @@ lle_sources = [
   'completion_display.c',
   'undo.c',
   'syntax.c',
-  'line_editor.c'
+  'line_editor.c',
+  'lle_integration.c'
 ]
 
 lle_headers = [
@@ -35,7 +36,8 @@ lle_headers = [
   'completion.h',
   'undo.h',
   'syntax.h',
-  'line_editor.h'
+  'line_editor.h',
+  'lle_integration.h'
 ]
 
 # Create line editor static library

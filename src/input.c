@@ -3,7 +3,7 @@
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/init.h"
-#include "../include/linenoise/linenoise.h"
+#include "../include/linenoise_replacement.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"

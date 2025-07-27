@@ -1,7 +1,7 @@
 #include "../../include/history.h"
 
 #include "../../include/errors.h"
-#include "../../include/linenoise/linenoise.h"
+#include "../../include/linenoise_replacement.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"

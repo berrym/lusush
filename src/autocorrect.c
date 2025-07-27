@@ -17,7 +17,7 @@
 #include "../include/config.h"
 #include "../include/executor.h"
 #include "../include/history.h"
-#include "../include/linenoise/linenoise.h"
+#include "../include/linenoise_replacement.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
 

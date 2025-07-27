@@ -13,6 +13,7 @@
 #include "terminal_manager.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 /**
  * @brief Initialize a prompt structure
@@ -475,20 +476,50 @@ bool lle_prompt_render(
     const lle_prompt_t *prompt,
     bool clear_previous
 ) {
+    // Get debug flag from environment
+    static int debug_mode = -1;
+    if (debug_mode == -1) {
+        debug_mode = getenv("LLE_DEBUG") ? 1 : 0;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_RENDER] Starting prompt render, tm=%p, prompt=%p, clear=%d\n", 
+                (void*)tm, (void*)prompt, clear_previous);
+    }
+    
     if (!tm || !prompt) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_RENDER] Invalid parameters: tm=%p, prompt=%p\n", 
+                    (void*)tm, (void*)prompt);
+        }
         return false;
     }
     
     if (!lle_prompt_validate(prompt)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_RENDER] Prompt validation failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_RENDER] Prompt valid, line_count=%zu, clear_previous=%d\n", 
+                prompt->line_count, clear_previous);
     }
     
     // Clear previous prompt if requested
     if (clear_previous) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_RENDER] Clearing previous prompt, height=%zu\n", 
+                    prompt->geometry.height);
+        }
         // Move cursor to beginning of prompt area
         for (size_t i = 0; i < prompt->geometry.height; i++) {
             if (!lle_terminal_move_cursor_up(tm, 1)) {
                 // If we can't move up, we're probably at the top
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_RENDER] Cannot move cursor up at iteration %zu\n", i);
+                }
                 break;
             }
         }
@@ -496,10 +527,16 @@ bool lle_prompt_render(
         // Clear all prompt lines
         for (size_t i = 0; i < prompt->geometry.height; i++) {
             if (!lle_terminal_clear_line(tm)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_RENDER] Clear line failed at iteration %zu\n", i);
+                }
                 return false;
             }
             if (i < prompt->geometry.height - 1) {
                 if (!lle_terminal_move_cursor_down(tm, 1)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_PROMPT_RENDER] Move cursor down failed at iteration %zu\n", i);
+                    }
                     return false;
                 }
             }
@@ -508,35 +545,64 @@ bool lle_prompt_render(
         // Move back to start of prompt area
         for (size_t i = 0; i < prompt->geometry.height - 1; i++) {
             if (!lle_terminal_move_cursor_up(tm, 1)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_RENDER] Move cursor up failed in reset at iteration %zu\n", i);
+                }
                 return false;
             }
         }
         if (!lle_terminal_move_cursor_to_column(tm, 0)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_PROMPT_RENDER] Move cursor to column failed\n");
+            }
             return false;
         }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_RENDER] Rendering %zu prompt lines\n", prompt->line_count);
     }
     
     // Render each line of the prompt
     for (size_t i = 0; i < prompt->line_count; i++) {
         const char *line = prompt->lines[i];
         if (!line) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_PROMPT_RENDER] Skipping NULL line at index %zu\n", i);
+            }
             continue;
         }
         
         // Write the line (includes ANSI codes)
         size_t line_len = strlen(line);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_RENDER] Writing line %zu: length=%zu\n", i, line_len);
+        }
         if (line_len > 0) {
             if (!lle_terminal_write(tm, line, line_len)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_RENDER] Terminal write failed for line %zu\n", i);
+                }
                 return false;
             }
         }
         
         // Move to next line if not the last line
         if (i < prompt->line_count - 1) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_PROMPT_RENDER] Writing newline after line %zu\n", i);
+            }
             if (!lle_terminal_write(tm, "\n", 1)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_RENDER] Newline write failed after line %zu\n", i);
+                }
                 return false;
             }
         }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_RENDER] Prompt render completed successfully\n");
     }
     
     return true;
@@ -558,17 +624,46 @@ bool lle_prompt_position_cursor(
     const lle_prompt_t *prompt,
     const lle_cursor_position_t *cursor_pos
 ) {
+    // Get debug flag from environment
+    static int debug_mode = -1;
+    if (debug_mode == -1) {
+        debug_mode = getenv("LLE_DEBUG") ? 1 : 0;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Starting cursor positioning\n");
+    }
+    
     if (!tm || !prompt || !cursor_pos) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_POSITION] Invalid parameters: tm=%p, prompt=%p, cursor_pos=%p\n", 
+                    (void*)tm, (void*)prompt, (void*)cursor_pos);
+        }
         return false;
     }
     
     if (!lle_prompt_validate(prompt)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_POSITION] Prompt validation failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Parameters validated, cursor at row=%zu, col=%zu\n", 
+                cursor_pos->relative_row, cursor_pos->relative_col);
     }
     
     // Calculate the absolute position where cursor should be
     size_t target_row = cursor_pos->relative_row;
     size_t target_col = cursor_pos->relative_col;
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Initial target: row=%zu, col=%zu\n", 
+                target_row, target_col);
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Prompt info: line_count=%zu, height=%zu, last_line_width=%zu\n", 
+                prompt->line_count, prompt->geometry.height, prompt->geometry.last_line_width);
+    }
     
     // For prompts, we need to account for the prompt's last line
     // The cursor position is relative to the input text, not the prompt
@@ -577,14 +672,47 @@ bool lle_prompt_position_cursor(
         target_row += prompt->geometry.height - 1;
         
         // If cursor is on the first line of input, add last line width of prompt
+        // But check if cursor_pos->relative_col already includes prompt width
         if (cursor_pos->relative_row == 0) {
-            target_col += prompt->geometry.last_line_width;
+            // Check if relative_col already includes prompt width (cursor math inconsistency)
+            if (cursor_pos->relative_col < prompt->geometry.last_line_width) {
+                target_col += prompt->geometry.last_line_width;
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_POSITION] Added prompt width to target column\n");
+                }
+            } else {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_PROMPT_POSITION] Cursor position already includes prompt width\n");
+                }
+            }
+        }
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_POSITION] Adjusted target: row=%zu, col=%zu\n", 
+                    target_row, target_col);
         }
     }
     
+    // Validate target position - for now, just log if excessive
+    if (debug_mode && target_col > 120) {  // Reasonable threshold
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Warning: target column %zu seems excessive\n", target_col);
+    }
+    
     // Move cursor to the calculated position
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Attempting to move cursor to row=%zu, col=%zu\n", 
+                target_row, target_col);
+    }
+    
     if (!lle_terminal_move_cursor(tm, target_row, target_col)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_PROMPT_POSITION] Terminal move cursor failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Cursor positioning completed successfully\n");
     }
     
     return true;

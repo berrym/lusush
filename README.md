@@ -14,9 +14,10 @@ LUSUSH is a feature-rich, production-ready shell designed for developers and sys
 
 ### Core Functionality
 - **100% POSIX Compliance** - Full compatibility with standard shell operations
-- **Advanced Line Editing** - Professional terminal editing with termcap integration
+- **Advanced Line Editing** - Professional terminal editing with LLE (Lusush Line Editor)
+- **Enhanced POSIX History** - Complete fc command and bash/zsh compatible history builtin
 - **Intelligent Tab Completion** - Terminal-aware completion with responsive layouts
-- **Command History** - Persistent history with search and navigation
+- **Professional History Management** - Enterprise-grade history with file operations and timestamps
 - **Variable Management** - Dynamic template variables with real-time terminal state
 
 ### Terminal Intelligence (NEW in v1.0.7)
@@ -28,6 +29,8 @@ LUSUSH is a feature-rich, production-ready shell designed for developers and sys
 
 ### Modern Enhancements
 - **Professional Themes** - 6 enterprise-grade visual themes with terminal awareness
+- **POSIX fc Command** - Complete implementation with edit, list, and substitute modes
+- **Enhanced history Builtin** - Full bash/zsh compatibility with advanced file operations
 - **Network Integration** - SSH host completion and network diagnostics
 - **Git Integration** - Git-aware prompts and branch information
 - **Configuration Management** - INI-style configuration with runtime changes
@@ -65,6 +68,12 @@ sudo ninja -C builddir install
 # Configure features
 config set hints_enabled true
 config set theme_name corporate
+
+# Use enhanced history features
+fc -l                    # List recent history (POSIX)
+history 20              # Show last 20 commands
+history -w backup.hist  # Write history to file
+fc -e vim 15            # Edit command 15 with vim
 
 # Explore built-in help
 help
