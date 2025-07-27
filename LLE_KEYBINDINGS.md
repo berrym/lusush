@@ -76,10 +76,14 @@ LLE is designed to be compatible with standard readline keybindings used in bash
 
 ## Important Notes
 
-### Job Control Compatibility
-- **`Ctrl+Z` is NOT used for undo** - this key is reserved for Unix job control (SIGTSTP)
+### Signal Handling and Shell Integration
+- **LLE respects Unix signal conventions** - signal-generating keys are handled by the shell, not the line editor
+- **`Ctrl+C` (SIGINT)** - Handled by shell for interrupt signal; LLE cancels line as fallback
+- **`Ctrl+\` (SIGQUIT)** - Handled by shell for quit signal; LLE ignores this key
+- **`Ctrl+Z` (SIGTSTP)** - Reserved for Unix job control (suspend); NOT used for undo
+- **`Ctrl+S`/`Ctrl+Q` (XON/XOFF)** - Handled by terminal for flow control; LLE ignores these keys
 - LLE follows standard readline conventions where `Ctrl+_` is the undo keybinding
-- This ensures LLE doesn't interfere with shell job control functionality
+- This ensures LLE doesn't interfere with essential Unix shell and terminal functionality
 
 ### Emacs vs Vi Mode
 - LLE currently implements **Emacs-style keybindings** by default
@@ -133,6 +137,7 @@ LLE features can be enabled/disabled at runtime through the API:
 ### 🚧 In Development
 - Tab completion (framework complete, implementation pending)
 - Kill ring/yank system (`Ctrl+Y`)
+- Proper signal integration with shell (currently using fallback behavior)
 
 ### 📋 Future Enhancements
 - Vi-style keybinding mode
@@ -157,10 +162,13 @@ LLE features can be enabled/disabled at runtime through the API:
 - In non-TTY environments (pipes, redirects), LLE provides graceful degradation
 - Input still processed but display updates may be limited
 
-### Key Conflicts
-- LLE avoids conflicts with standard Unix signals
-- `Ctrl+C` properly cancels without interfering with SIGINT handling
-- `Ctrl+Z` is not bound to avoid job control conflicts
+### Signal and Terminal Integration
+- LLE implements proper separation of concerns for control characters
+- **Signal-generating keys** (`Ctrl+C`, `Ctrl+\`) are handled by shell signal system
+- **Flow control keys** (`Ctrl+S`, `Ctrl+Q`) are handled by terminal driver
+- **Job control keys** (`Ctrl+Z`) are handled by shell job control
+- **Line editing keys** (most others) are handled by LLE readline system
+- This ensures proper Unix behavior and prevents conflicts between subsystems
 
 ## Performance
 

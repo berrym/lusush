@@ -25,9 +25,12 @@
 #include <stdio.h>
 
 /**
- * @brief ASCII code for Ctrl+_ (underscore) - standard undo keybinding
+ * @brief ASCII codes for control characters
  */
-#define LLE_ASCII_CTRL_UNDERSCORE 0x1F
+#define LLE_ASCII_CTRL_UNDERSCORE 0x1F  // Ctrl+_ (undo)
+#define LLE_ASCII_CTRL_BACKSLASH 0x1C   // Ctrl+\ (SIGQUIT)
+#define LLE_ASCII_CTRL_S 0x13           // Ctrl+S (XOFF/stop)
+#define LLE_ASCII_CTRL_Q 0x11           // Ctrl+Q (XON/start)
 
 /**
  * @brief Default configuration values
@@ -384,14 +387,15 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 break;
                 
             case LLE_KEY_CTRL_C:
-                // Cancel line
+                // SIGNAL: Ctrl+C should generate SIGINT - let shell handle it
+                // For now, cancel line as fallback but this should be handled by shell
                 line_cancelled = true;
                 break;
                 
             case LLE_KEY_CTRL_D:
-                // EOF or delete character
+                // EOF: Standard behavior - EOF if buffer empty, delete char otherwise
                 if (editor->buffer->length == 0) {
-                    line_cancelled = true;
+                    line_cancelled = true;  // EOF - exit
                 } else {
                     cmd_result = lle_cmd_delete_char(editor->display);
                 }
@@ -399,6 +403,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 
             case LLE_KEY_BACKSPACE:
             case LLE_KEY_CTRL_H:
+                // Standard: Ctrl+H is backspace in most terminals
                 cmd_result = lle_cmd_backspace(editor->display);
                 break;
                 
@@ -460,14 +465,17 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 break;
                 
             case LLE_KEY_CTRL_K:
+                // Standard readline: kill from cursor to end of line
                 cmd_result = lle_cmd_kill_line(editor->display);
                 break;
                 
             case LLE_KEY_CTRL_U:
+                // Standard readline: kill entire line (different from terminal Ctrl+U)
                 cmd_result = lle_cmd_kill_beginning(editor->display);
                 break;
                 
             case LLE_KEY_CTRL_W:
+                // Standard readline: kill word backward
                 cmd_result = lle_cmd_backspace_word(editor->display);
                 break;
                 
@@ -498,18 +506,29 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                         }
                     }
                 }
+                // Check for signal-generating control characters that should be ignored
+                else if (event.character == LLE_ASCII_CTRL_BACKSLASH) { // Ctrl+\ (SIGQUIT) - let shell handle
+                    needs_display_update = false;
+                }
+                else if (event.character == LLE_ASCII_CTRL_S) { // Ctrl+S (XOFF) - let terminal handle
+                    needs_display_update = false;
+                }
+                else if (event.character == LLE_ASCII_CTRL_Q) { // Ctrl+Q (XON) - let terminal handle
+                    needs_display_update = false;
+                }
                 // Insert regular printable characters
                 else if (event.character >= 32 && event.character <= 126) {
                     cmd_result = lle_cmd_insert_char(editor->display, event.character);
                 }
                 else {
+                    // Other control characters - ignore in line editor
                     needs_display_update = false;
                 }
                 break;
                 
             case LLE_KEY_CTRL_Y:
                 // TODO: Implement yank (paste from kill ring) - standard readline behavior
-                // Currently unimplemented - redo is not standard in readline
+                // This is the correct use of Ctrl+Y (not redo)
                 needs_display_update = false;
                 break;
                 
