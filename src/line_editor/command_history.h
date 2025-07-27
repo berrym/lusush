@@ -1,5 +1,5 @@
 /**
- * @file lle_history.h
+ * @file command_history.h
  * @brief Command history data structures for Lusush Line Editor (LLE)
  * 
  * This module defines the data structures and interfaces for managing command
@@ -11,8 +11,8 @@
  * @date 2024
  */
 
-#ifndef LLE_HISTORY_H
-#define LLE_HISTORY_H
+#ifndef LLE_COMMAND_HISTORY_H
+#define LLE_COMMAND_HISTORY_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -463,4 +463,4 @@ size_t lle_history_remove_duplicates(lle_history_t *history);
 }
 #endif
 
-#endif // LLE_HISTORY_H
+#endif // LLE_COMMAND_HISTORY_H

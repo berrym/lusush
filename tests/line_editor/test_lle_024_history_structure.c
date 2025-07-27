@@ -11,7 +11,7 @@
  */
 
 #include "test_framework.h"
-#include "lle_history.h"
+#include "command_history.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

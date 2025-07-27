@@ -353,7 +353,7 @@ int main(void) {
 13. **Command Results**: Commands return valid results even in non-terminal environments when text operations succeed
 14. **Terminal Environment**: Check if issues are terminal/TTY related before debugging complex logic errors
 15. **Parameter Validation**: Always verify function parameter contracts - mixing (start, length) vs (start, end) causes bugs
-16. **Naming Conflicts**: Use proper LLE prefixes to avoid conflicts with existing project files (e.g., lle_history.h not history.h)
+16. **Naming Conflicts**: Use proper LLE prefixes to avoid conflicts with existing project files (e.g., command_history.h with lle_history_* functions)
 17. **Unicode Character Counting**: Manual character count validation often reveals test expectation errors
 18. **UTF-8 Navigation**: Use lle_utf8_prev_char/next_char for cursor movement, never byte arithmetic
 19. **Empty String Edge Cases**: UTF-8 functions must handle empty strings (return SIZE_MAX for invalid positions)
@@ -542,7 +542,7 @@ lusush/src/line_editor/
 ├── theme_integration.c/h       # Complete theme system (LLE-019, LLE-020)
 ├── input_handler.c/h           # Key input and event processing (LLE-021, LLE-022)
 ├── edit_commands.c/h           # Basic editing commands (LLE-023)
-├── lle_history.c/h             # Complete history system (LLE-024, LLE-025, LLE-026)
+├── command_history.c/h         # Complete history system (LLE-024, LLE-025, LLE-026)
 ├── unicode.c/h                 # UTF-8 text handling (LLE-027)
 ├── completion.c/h              # Completion framework and file completion (LLE-029, LLE-030)
 ├── completion_display.c        # Completion display system (LLE-031)

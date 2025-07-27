@@ -12,7 +12,7 @@ lle_sources = [
   'theme_integration.c',
   'input_handler.c',
   'edit_commands.c',
-  'lle_history.c',
+  'command_history.c',
   'unicode.c',
   'completion.c',
   'completion_display.c',
@@ -28,7 +28,7 @@ lle_headers = [
   'theme_integration.h',
   'input_handler.h',
   'edit_commands.h',
-  'lle_history.h',
+  'command_history.h',
   'unicode.h',
   'completion.h',
   'undo.h'

@@ -1,5 +1,5 @@
 /**
- * @file lle_history.c
+ * @file command_history.c
  * @brief Command history implementation for Lusush Line Editor (LLE)
  * 
  * This module implements command history management for the line editor,
@@ -11,7 +11,7 @@
  * @date 2024
  */
 
-#include "lle_history.h"
+#include "command_history.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

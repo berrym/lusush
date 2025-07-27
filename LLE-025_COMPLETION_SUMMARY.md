@@ -6,8 +6,8 @@
 **Estimated Time**: 4 hours  
 **Actual Time**: ~3 hours  
 **Status**: ✅ COMPLETE  
-**Files Modified**: `src/line_editor/lle_history.h`, `src/line_editor/lle_history.c`  
-**Tests Added**: `tests/line_editor/test_lle_025_history_management.c`  
+**Files Modified**: `src/line_editor/command_history.h`, `src/line_editor/command_history.c`  
+**Tests Added**: `tests/line_editor/test_lle_025_history_management.c`
 
 ## Implementation Summary
 
@@ -188,7 +188,7 @@ Testing memory management during load operations... PASSED
 ### Build Integration
 - **Meson Configuration**: Added to test suite automatically
 - **Static Linking**: Functions included in `liblle.a`
-- **Header Exports**: Public API available through `lle_history.h`
+- **Header Exports**: Public API available through `command_history.h`
 
 ## Next Steps
 
