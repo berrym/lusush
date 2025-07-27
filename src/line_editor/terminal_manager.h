@@ -209,6 +209,13 @@ bool lle_terminal_clear_to_eol(lle_terminal_manager_t *tm);
 bool lle_terminal_clear_screen(lle_terminal_manager_t *tm);
 
 /**
+ * @brief Clear from cursor to end of screen using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_to_eos(lle_terminal_manager_t *tm);
+
+/**
  * @brief Set terminal colors using termcap
  * @param tm Pointer to terminal manager structure
  * @param fg Foreground color
