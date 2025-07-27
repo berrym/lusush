@@ -1,5 +1,5 @@
 # AI Context: Lusush Line Editor (LLE) Development
-**Last Updated**: December 2024 | **Version**: Phase 3 Advanced Features | **Next Task**: LLE-036
+**Last Updated**: December 2024 | **Version**: Phase 3 Advanced Features | **Next Task**: LLE-037
 
 ## 🚨 CRITICAL: READ DOCUMENTATION FIRST - NO EXCEPTIONS
 
@@ -18,7 +18,7 @@
 **Language**: C99  
 **Build**: Meson (NOT Make)  
 **Branch**: `feature/lusush-line-editor`  
-**Status**: 35/50 tasks complete (70%) + hist_no_dups enhancement, Phase 3 Advanced Features IN PROGRESS ✅
+**Status**: 36/50 tasks complete (72%) + hist_no_dups enhancement, Phase 3 Advanced Features IN PROGRESS ✅
 
 ## 🎯 CURRENT CAPABILITIES (WHAT WORKS NOW)
 **✅ FULLY OPERATIONAL:**
@@ -38,6 +38,7 @@
 - **Undo Operation Recording**: Complete operation recording with capacity management (LLE-033 ✅)
 - **Undo/Redo Execution**: Complete operation reversal with all action types supported (LLE-034 ✅)
 - **Syntax Highlighting Framework**: Complete framework with shell syntax detection and extensible architecture (LLE-035 ✅)
+- **Enhanced Shell Syntax**: Comprehensive shell syntax with built-in commands, command substitution, parameter expansion, redirection operators, and number recognition (LLE-036 ✅)
 
 ## 📋 MANDATORY WORKFLOW - FOLLOW EXACTLY
 
@@ -47,7 +48,7 @@
 - Read current task in `LLE_DEVELOPMENT_TASKS.md` - Exact requirements
 
 **STEP 2: UNDERSTAND CONTEXT**
-- Check `LLE_PROGRESS.md` for current TODO task (LLE-036: Basic Shell Syntax)
+- Check `LLE_PROGRESS.md` for current TODO task (LLE-037: Syntax Display Integration)
 - Review existing code patterns in similar completed tasks
 - Understand dependencies and integration points
 
@@ -303,7 +304,7 @@ int main(void) {
 - **Memory Efficient**: Dynamic allocation with safety limits and bounds checking
 
 ## 🧪 COMPREHENSIVE TESTING FRAMEWORK
-**Extensive Test Coverage (413+ tests):**
+**Extensive Test Coverage (430+ tests):**
 - `tests/line_editor/test_text_buffer.c` - Text buffer operations (57 tests)
 - `tests/line_editor/test_cursor_math.c` - Cursor mathematics (30 tests)
 - `tests/line_editor/test_terminal_manager.c` - Terminal management (22 tests)
@@ -332,8 +333,9 @@ int main(void) {
 - `tests/line_editor/test_lle_034_undo_redo_execution.c` - Undo/redo execution (12 tests)
 - `tests/line_editor/test_lle_hist_no_dups.c` - History duplicate management (15 tests)
 - `tests/line_editor/test_lle_035_syntax_highlighting_framework.c` - Syntax highlighting framework (17 tests)
+- `tests/line_editor/test_lle_036_basic_shell_syntax.c` - Enhanced shell syntax highlighting (17 tests)
 
-**Total: 413+ tests covering all implemented functionality**
+**Total: 430+ tests covering all implemented functionality**
 
 ## 📐 PERFORMANCE TARGETS (VALIDATED)
 - Character insertion: < 1ms ✅
@@ -496,7 +498,7 @@ int main(void) {
 
 ## 🆘 QUICK DEBUG & TESTING
 ```bash
-# Run all LLE tests (413+ tests)
+# Run all LLE tests (430+ tests)
 meson test -C builddir
 
 # Run specific test categories
@@ -513,6 +515,7 @@ meson test -C builddir test_lle_027_utf8_text_handling -v        # UTF-8 text ha
 meson test -C builddir test_lle_028_unicode_cursor_movement -v   # Unicode cursor movement
 meson test -C builddir test_lle_hist_no_dups -v                 # hist_no_dups functionality
 meson test -C builddir test_lle_035_syntax_highlighting_framework -v # Syntax highlighting framework
+meson test -C builddir test_lle_036_basic_shell_syntax -v # Enhanced shell syntax highlighting
 
 # Memory leak detection
 valgrind --leak-check=full builddir/tests/line_editor/test_lle_027_utf8_text_handling
@@ -560,7 +563,7 @@ lusush/src/line_editor/
 ├── completion.c/h              # Completion framework and file completion (LLE-029, LLE-030)
 ├── completion_display.c        # Completion display system (LLE-031)
 ├── undo.c/h                    # Complete undo/redo system (LLE-032, LLE-033, LLE-034)
-├── syntax.c/h                  # Syntax highlighting framework (LLE-035)
+├── syntax.c/h                  # Enhanced syntax highlighting framework (LLE-035, LLE-036)
 └── meson.build                 # Main LLE build config
 
 lusush/tests/line_editor/
@@ -598,7 +601,7 @@ lusush/tests/line_editor/
 </text>
 
 <old_text line=380>
-**✅ COMPLETED (9/11 tasks):**
+**✅ COMPLETED (10/11 tasks):**
 - LLE-027: UTF-8 Text Handling [COMPLETE] - Comprehensive Unicode support with 22 tests
 - LLE-028: Unicode Cursor Movement [COMPLETE] - Character-aware navigation with 13 tests  
 - LLE-029: Completion Framework [COMPLETE] - Extensible provider architecture with 18 tests
@@ -608,24 +611,25 @@ lusush/tests/line_editor/
 - LLE-033: Undo Operation Recording [COMPLETE] - Action recording with capacity management with 8 tests
 - LLE-034: Undo/Redo Execution [COMPLETE] - Operation reversal with all action types supported with 12 tests
 - LLE-035: Syntax Highlighting Framework [COMPLETE] - Complete framework with shell syntax detection with 17 tests
+- LLE-036: Basic Shell Syntax [COMPLETE] - Enhanced shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition with 17 tests
 
 ## 🚀 IMMEDIATE DEVELOPER ONBOARDING
 **For any developer starting work:**
 
 1. **Current Status**: 70% complete, Phase 1 foundation + Phase 2 COMPLETE + Phase 3 IN PROGRESS
-- **Next Task**: LLE-036 (Basic Shell Syntax) - continue Phase 3 advanced features
-3. **Key Achievement**: Complete core functionality + Unicode support + completion system + undo/redo system
-4. **Test Everything**: `scripts/lle_build.sh test` runs 413+ comprehensive tests
+- **Next Task**: LLE-037 (Syntax Display Integration) - continue Phase 3 advanced features
+3. **Key Achievement**: Complete core functionality + Unicode support + completion system + undo/redo system + enhanced syntax highlighting
+4. **Test Everything**: `scripts/lle_build.sh test` runs 446+ comprehensive tests
 5. **Code Quality**: All code follows strict C99 standards with comprehensive error handling
 
 **🎯 IMMEDIATE PRODUCTIVITY:**
 - **Architecture is solid**: Foundation systems are production-ready
 - **Unicode support is complete**: Full international text handling
-- **Test framework is comprehensive**: 413+ tests cover all functionality
-- **Development patterns are established**: Clear examples in 35 completed tasks
-- **Next task is well-defined**: LLE-036 has clear 4-hour scope with acceptance criteria
+- **Test framework is comprehensive**: 430+ tests cover all functionality
+- **Development patterns are established**: Clear examples in 36 completed tasks
+- **Next task is well-defined**: LLE-037 has clear 3-hour scope with acceptance criteria
 
-**Phase 1 foundation + Phase 2 core systems + Unicode support + undo/redo system + syntax highlighting framework are COMPLETE.**
+**Phase 1 foundation + Phase 2 core systems + Unicode support + undo/redo system + enhanced syntax highlighting system are COMPLETE.**
 
 ## 📚 STRATEGIC CONTEXT
 LLE replaces basic linenoise with a professional-grade line editor featuring:
@@ -646,17 +650,17 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - **Complete Completion System**: Extensible framework, file completion, visual interface
 - **Complete Undo/Redo System**: Full operation recording and execution with all action types
 - **Undo/Redo Execution**: Operation reversal, redo capability, cursor position management
-- **Complete Syntax Highlighting Framework**: Shell syntax detection with extensible architecture
+- **Complete Enhanced Syntax Highlighting**: Comprehensive shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition
 - **International Text Editing**: Proper navigation for CJK, emojis, accented characters
 - **Character Position System**: Seamless byte ↔ character position conversion
 - **Unicode Word Boundaries**: International word navigation and selection
 - **Advanced Features Foundation**: Complete undo/redo system ready for syntax highlighting
-- **413+ Comprehensive Tests**: All systems including complete undo/redo system and syntax highlighting validated
+- **430+ Comprehensive Tests**: All systems including complete undo/redo system and enhanced syntax highlighting validated
 - **Performance Validated**: Sub-millisecond operations including undo/redo execution
 - **Zero Memory Leaks**: Valgrind-verified memory management
 - **Production Ready**: Professional Unicode-aware line editor with complete undo/redo system
 
-**Phase 3 (Advanced Features) progressing: 9/11 tasks complete + hist_no_dups enhancement.**
+**Phase 3 (Advanced Features) progressing: 10/11 tasks complete + hist_no_dups enhancement.**
 
 ## 🔑 CURRENT PHASE 3 STATUS
 **✅ COMPLETED (9/11 tasks):**
@@ -669,15 +673,15 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - **LLE-033 COMPLETED**: Undo Operation Recording [COMPLETE] - Action recording with capacity management with 8+ tests
 - **LLE-034 COMPLETED**: Undo/Redo Execution [COMPLETE] - Operation reversal with all action types supported with 12+ tests
 - **LLE-035 COMPLETED**: Syntax Highlighting Framework [COMPLETE] - Complete framework with shell syntax detection with 17+ tests
+- **LLE-036 COMPLETED**: Basic Shell Syntax [COMPLETE] - Enhanced shell syntax with built-ins, command substitution, parameter expansion, redirection operators, and number recognition with 17+ tests
 - **ENHANCEMENT COMPLETED**: hist_no_dups Implementation [COMPLETE] - Runtime toggle unique history with 15+ tests
 
-**🚧 TODO (2/11 tasks):**
-- LLE-036: Basic Shell Syntax
+**🚧 TODO (1/11 tasks):**
 - LLE-037: Syntax Display Integration
 
-**📈 PHASE 3 PROGRESS: 81.8% (9/11 tasks) + hist_no_dups enhancement**
+**📈 PHASE 3 PROGRESS: 90.9% (10/11 tasks) + hist_no_dups enhancement**
 
-**Unicode foundation, hist_no_dups enhancement, completion system, complete undo/redo system, and syntax highlighting framework ready! Next: enhanced shell syntax.**
+**Unicode foundation, hist_no_dups enhancement, completion system, complete undo/redo system, and enhanced syntax highlighting system ready! Next: syntax display integration.**
 
 ## 🎯 CURRENT DEVELOPMENT FOCUS (PHASE 3)
 **Primary Goal**: Advanced Features Implementation
@@ -685,15 +689,14 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 - **Syntax Highlighting**: Enhanced shell syntax support and display integration
 
 **Development Priority**: 
-1. **LLE-036**: Basic Shell Syntax (4h) - enhanced shell syntax support ← CURRENT
-3. **LLE-037**: Syntax Display Integration (3h) - syntax highlighting display
+1. **LLE-037**: Syntax Display Integration (3h) - syntax highlighting display ← CURRENT
 
 **Key Success Metrics**:
 - Maintain sub-millisecond performance for all operations
-- Comprehensive test coverage (target: 350+ tests by Phase 3 completion) - currently at 413+
+- Comprehensive test coverage (target: 350+ tests by Phase 3 completion) - currently at 430+
 - Zero memory leaks and robust error handling
 - International text support throughout all new features
-- Professional shell feature parity (hist_no_dups + complete undo/redo + syntax highlighting)
+- Professional shell feature parity (hist_no_dups + complete undo/redo + enhanced syntax highlighting)
 
 ## 🚀 AI DEVELOPMENT CONFIDENCE LEVEL: HIGH (WITH PROPER PREPARATION)
 
@@ -723,4 +726,4 @@ LLE replaces basic linenoise with a professional-grade line editor featuring:
 **AI assistants who skip documentation or violate standards WILL FAIL**  
 **AI assistants who read documentation and follow patterns WILL SUCCEED**
 
-**Current Next Task**: LLE-036 (Basic Shell Syntax) - Enhance shell syntax detection with additional constructs, built-in commands, and advanced parsing capabilities.
+**Current Next Task**: LLE-037 (Syntax Display Integration) - Integrate syntax highlighting with display system for visual highlighting support.
