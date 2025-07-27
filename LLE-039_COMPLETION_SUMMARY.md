@@ -58,9 +58,10 @@ The main input loop processes over 25 different key types:
 - `Regular characters` → Text insertion
 
 **Advanced Features:**
-- `Ctrl+Z/Y` → Undo/redo operations
+- `Ctrl+_` → Undo operations (standard readline binding)
 - `Ctrl+L` → Clear screen and redraw
 - `Tab` → Completion (framework ready)
+- `Ctrl+Y` → Yank (paste from kill ring) - TODO: implement
 
 ### Component Integration
 **Seamless Component Coordination:**
@@ -76,9 +77,8 @@ lle_history_add(editor->history, result, false);
 // Display updates
 lle_display_render(editor->display);
 
-// Undo/redo system
+// Undo system
 lle_undo_execute(editor->undo_stack, editor->buffer);
-lle_redo_execute(editor->undo_stack, editor->buffer);
 ```
 
 ### Prompt Management System
@@ -227,6 +227,7 @@ if (old_prompt) {
 - **Memory ownership**: Clear patterns prevent corruption and leaks
 - **State management**: Proper cleanup on all exit paths critical
 - **Build system**: Include path management important for large projects
+- **Standard keybindings**: Follow readline conventions (Ctrl+Z conflicts with job control)
 
 ## 🚀 Current Status
 

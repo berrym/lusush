@@ -25,6 +25,11 @@
 #include <stdio.h>
 
 /**
+ * @brief ASCII code for Ctrl+_ (underscore) - standard undo keybinding
+ */
+#define LLE_ASCII_CTRL_UNDERSCORE 0x1F
+
+/**
  * @brief Default configuration values
  */
 #define LLE_DEFAULT_MAX_HISTORY 1000
@@ -484,22 +489,28 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 cmd_result = LLE_CMD_SUCCESS;
                 break;
                 
-            case LLE_KEY_CTRL_Z:
-                // Undo (if enabled)
-                if (editor->undo_enabled && editor->undo_stack) {
-                    if (lle_undo_can_undo(editor->undo_stack)) {
-                        lle_undo_execute(editor->undo_stack, editor->buffer);
+            case LLE_KEY_CHAR:
+                // Handle special control characters
+                if (event.character == LLE_ASCII_CTRL_UNDERSCORE) { // Ctrl+_ (undo)
+                    if (editor->undo_enabled && editor->undo_stack) {
+                        if (lle_undo_can_undo(editor->undo_stack)) {
+                            lle_undo_execute(editor->undo_stack, editor->buffer);
+                        }
                     }
+                }
+                // Insert regular printable characters
+                else if (event.character >= 32 && event.character <= 126) {
+                    cmd_result = lle_cmd_insert_char(editor->display, event.character);
+                }
+                else {
+                    needs_display_update = false;
                 }
                 break;
                 
             case LLE_KEY_CTRL_Y:
-                // Redo (if enabled)
-                if (editor->undo_enabled && editor->undo_stack) {
-                    if (lle_redo_can_redo(editor->undo_stack)) {
-                        lle_redo_execute(editor->undo_stack, editor->buffer);
-                    }
-                }
+                // TODO: Implement yank (paste from kill ring) - standard readline behavior
+                // Currently unimplemented - redo is not standard in readline
+                needs_display_update = false;
                 break;
                 
             case LLE_KEY_TAB:
@@ -510,12 +521,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
                 }
                 break;
                 
-            case LLE_KEY_CHAR:
-                // Insert regular character
-                if (event.character >= 32 && event.character <= 126) {
-                    cmd_result = lle_cmd_insert_char(editor->display, event.character);
-                }
-                break;
+
                 
             default:
                 // Unknown or unhandled key
