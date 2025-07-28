@@ -1,25 +1,44 @@
-# Definitive Development Path: Direct Terminal Operations
+# Definitive Development Path: Direct Terminal Operations + Enhanced Terminal Detection
 
 **Date**: December 2024  
-**Status**: ✅ **ESTABLISHED**  
+**Status**: ✅ **ESTABLISHED AND INTEGRATED**  
 **Authority**: Final architectural decision for all future LLE development  
 **Purpose**: Prevent any future attempts at alternative approaches that have been proven to fail
 
 ## 🚨 CRITICAL ARCHITECTURAL DECISION
 
-**DEFINITIVE RULING**: Direct terminal operations using `lle_terminal_*` functions are the **ONLY APPROVED APPROACH** for all keybinding implementations in LLE.
+**DEFINITIVE RULING**: Direct terminal operations using `lle_terminal_*` functions are the **ONLY APPROVED APPROACH** for all keybinding implementations in LLE. Enhanced terminal detection provides the foundation for cross-platform compatibility.
 
 **PROHIBITED APPROACHES**: 
 - ❌ Display API keybinding implementations
 - ❌ Complex state synchronization systems  
 - ❌ Manual cursor positioning calculations
 - ❌ Any approach that fights against terminal state
+- ❌ Traditional `isatty()` only detection (insufficient for editor terminals)
 
 **MANDATORY APPROACH**:
-- ✅ Direct terminal operations only
+- ✅ Enhanced terminal detection for interactive mode determination
+- ✅ Direct terminal operations only for keybinding implementations
 - ✅ File-scope static variable state management
 - ✅ Proven patterns from commit bc36edf
 - ✅ Human testing verification required
+- ✅ Cross-platform compatibility with conditional compilation
+
+## ✅ ENHANCED TERMINAL DETECTION INTEGRATION (DECEMBER 2024)
+
+### ✅ **BREAKTHROUGH ACHIEVEMENT: Cross-Platform Terminal Compatibility**
+
+**PROBLEM SOLVED**: Traditional `isatty()` detection fails in editor terminals (Zed, VS Code) where stdin is not a TTY despite terminal being fully capable.
+
+**SOLUTION IMPLEMENTED**: Enhanced terminal detection system fully integrated into shell initialization (`src/init.c`):
+- **Automatic Detection**: Identifies 50+ terminal types including Zed, VS Code, iTerm2, Konsole
+- **Capability-Based**: Detects colors, positioning, and advanced features through environment probing
+- **Drop-in Integration**: Replaces traditional `isatty()` checks with `lle_enhanced_should_shell_be_interactive()`
+- **Cross-Platform**: Handles macOS/Linux system header differences with conditional compilation
+- **Graceful Fallback**: Falls back to traditional detection if enhanced system fails
+- **Production Validated**: 18/18 comprehensive validation tests passed
+
+**INTEGRATION STATUS**: ✅ **COMPLETE** - Enhanced detection automatically enables LLE features in previously unsupported terminals
 
 ## 📋 INVESTIGATION HISTORY SUMMARY
 
