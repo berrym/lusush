@@ -11,6 +11,7 @@
 #include "../include/input.h"
 
 #include "../include/linenoise_replacement.h"
+#include "line_editor/enhanced_terminal_integration.h"
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/prompt.h"
@@ -30,7 +31,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#ifdef __linux__
 #include <sys/sysmacros.h>
+#else
+// macOS doesn't have sys/sysmacros.h, major/minor are in sys/types.h
+// but we'll avoid using them for portability
+#endif
 
 extern char **environ;
 extern posix_history_manager_t *global_posix_history;
@@ -228,6 +234,16 @@ int init(int argc, char **argv, FILE **in) {
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
 
+    // Initialize enhanced terminal detection system
+    // This must happen after argument parsing but before interactive detection
+    if (!lle_enhanced_integration_init(true)) {
+        // Enhanced detection failed, will fall back to traditional methods
+        const char *debug_env = getenv("LLE_DEBUG");
+        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
+            fprintf(stderr, "[INIT] Enhanced terminal detection initialization failed, using traditional detection\n");
+        }
+    }
+
     // POSIX-compliant shell type determination
 
     // 1. Determine if this is a login shell
@@ -252,8 +268,12 @@ int init(int argc, char **argv, FILE **in) {
             } else if (S_ISDIR(st.st_mode)) {
                 fprintf(stderr, "[INIT] stdin is a directory\n");
             } else if (S_ISCHR(st.st_mode)) {
+#ifdef __linux__
                 fprintf(stderr, "[INIT] stdin is a character device (dev %lu:%lu)\n",
                         (unsigned long)major(st.st_rdev), (unsigned long)minor(st.st_rdev));
+#else
+                fprintf(stderr, "[INIT] stdin is a character device\n");
+#endif
             } else if (S_ISBLK(st.st_mode)) {
                 fprintf(stderr, "[INIT] stdin is a block device\n");
             } else if (S_ISFIFO(st.st_mode)) {
@@ -297,9 +317,8 @@ int init(int argc, char **argv, FILE **in) {
                 process_shebang(*in);
             }
         }
-    } else if (forced_interactive ||
-               (stdin_is_terminal && !shell_opts.stdin_mode)) {
-        // Interactive shell: stdin is terminal OR forced with -i
+    } else if (lle_enhanced_should_shell_be_interactive(forced_interactive, false, shell_opts.stdin_mode)) {
+        // Interactive shell: enhanced detection OR forced with -i
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
@@ -309,8 +328,13 @@ int init(int argc, char **argv, FILE **in) {
         if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
             fprintf(stderr, "[INIT] Interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
-                    stdin_is_terminal ? "true" : "false", 
+                    stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");
+            fprintf(stderr, "[INIT] Enhanced detection: %s\n", 
+                    lle_enhanced_is_interactive_terminal() ? "interactive" : "non-interactive");
+            if (lle_enhanced_is_interactive_terminal() != stdin_is_terminal) {
+                fprintf(stderr, "[INIT] Enhanced detection differs from traditional isatty() - providing enhanced capabilities\n");
+            }
         }
     } else {
         // Non-interactive: piped input, -s mode, or stdin not a terminal
@@ -432,6 +456,11 @@ int init(int argc, char **argv, FILE **in) {
     // Process shebang if the shell is invoked with a script
     if (!IS_INTERACTIVE_SHELL && *in && has_script_file) {
         process_shebang(*in);
+    }
+
+    // Register cleanup for enhanced terminal detection
+    if (IS_INTERACTIVE_SHELL) {
+        atexit(lle_enhanced_integration_cleanup);
     }
 
     return 0;
