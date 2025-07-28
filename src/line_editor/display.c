@@ -203,6 +203,9 @@ bool lle_display_render(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_DISPLAY_RENDER] Starting display render\n");
     }
     
+    // Update geometry from terminal in case of resize
+    lle_display_update_geometry(state);
+    
     if (!lle_display_validate(state)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_DISPLAY_RENDER] Display validation failed\n");
@@ -302,16 +305,65 @@ bool lle_display_render(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_DISPLAY_RENDER] About to update cursor position\n");
     }
     
-    // Update cursor position if not cursor-only mode
+    // Update cursor position using mathematical framework with relative positioning
     if (!(state->display_flags & LLE_DISPLAY_FLAG_CURSOR_ONLY)) {
-        if (!lle_display_update_cursor(state)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor update failed\n");
-            }
-            return false;
-        }
         if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor update completed\n");
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Using mathematical framework for cursor positioning\n");
+        }
+        
+        // Use the same mathematical framework as incremental updates
+        size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
+        lle_terminal_geometry_t geometry = state->geometry;
+        
+        // Create buffer for cursor position calculation
+        lle_text_buffer_t *cursor_buffer = lle_text_buffer_create(state->buffer->length + 1);
+        if (cursor_buffer && state->buffer->length > 0) {
+            memcpy(cursor_buffer->buffer, state->buffer->buffer, state->buffer->length);
+            cursor_buffer->length = state->buffer->length;
+            cursor_buffer->cursor_pos = state->buffer->cursor_pos;
+            cursor_buffer->buffer[state->buffer->length] = '\0';
+            
+            // Calculate cursor position using mathematical framework
+            lle_cursor_position_t cursor_pos = lle_calculate_cursor_position(
+                cursor_buffer, &geometry, prompt_last_line_width);
+            
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_RENDER] Mathematical cursor position: valid=%s, row=%zu, col=%zu\n",
+                       cursor_pos.valid ? "true" : "false", cursor_pos.absolute_row, cursor_pos.absolute_col);
+            }
+            
+            if (cursor_pos.valid) {
+                // Use relative positioning from text start, not absolute terminal positioning
+                if (cursor_pos.absolute_row > 0) {
+                    // Move down from current position (which should be at end of text)
+                    if (!lle_terminal_move_cursor_down(state->terminal, cursor_pos.absolute_row)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor down %zu lines\n", cursor_pos.absolute_row);
+                        }
+                    }
+                }
+                
+                // Position at correct column (this is relative to start of line)
+                if (!lle_terminal_move_cursor_to_column(state->terminal, cursor_pos.absolute_col)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor to column %zu\n", cursor_pos.absolute_col);
+                    }
+                }
+                
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Mathematical cursor positioning completed\n");
+                }
+            } else {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid cursor position, staying at current location\n");
+                }
+            }
+            
+            lle_text_buffer_destroy(cursor_buffer);
+        } else {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_RENDER] No text for cursor positioning\n");
+            }
         }
     } else {
         if (debug_mode) {
@@ -483,31 +535,190 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Text buffer: length=%zu\n", text_length);
     }
 
+    // Update geometry from terminal in case of resize
+    lle_display_update_geometry(state);
+    
     // Get prompt geometry for positioning
     size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
     size_t terminal_width = state->geometry.width;
+    size_t terminal_height = state->geometry.height;
     
-    // Check if content would cause line wrapping or contains newlines
+    // Check if content contains newlines - these require full render
+    if (text && text_length > 0 && memchr(text, '\n', text_length)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiline text detected, using full render\n");
+        }
+        return lle_display_render(state);
+    }
+    
+    // Keep track of the last text length for optimization
+    static size_t last_text_length = 0;
+    
+    // Reset tracking when starting a new command session (detect significant length drop)
+    // This happens when a command is completed and a new one starts
+    if (last_text_length > 5 && text_length <= 2) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] New command detected: resetting last_text_length from %zu to 0\n", last_text_length);
+        }
+        last_text_length = 0;
+    }
+    
+    // Optimization: if text hasn't changed, no need to update
+    if (text_length == last_text_length && text_length > 0) {
+        return true;
+    }
+    
+    // For line wrapping, use true incremental approach - never reposition cursor after initial wrap
     if (text && text_length > 0) {
-        // Check for actual newlines
-        if (memchr(text, '\n', text_length)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiline text detected, using full render\n");
-            }
-            return lle_display_render(state);
+        size_t text_display_width = lle_calculate_display_width_ansi(text, text_length);
+        size_t total_width = prompt_last_line_width + text_display_width;
+        // Check if text is growing (new character) or shrinking (backspace)
+        bool text_is_growing = (text_length > last_text_length);
+        bool text_is_shrinking = (text_length < last_text_length);
+        bool is_first_wrap = (last_text_length == 0);
+        
+        // Check if we're crossing the wrap boundary (unwrapping) - must be outside wrapping check
+        size_t last_total_width = prompt_last_line_width + last_text_length;
+        bool was_wrapped = (last_total_width > terminal_width);
+        bool is_wrapped = (total_width > terminal_width);
+        bool crossing_wrap_boundary = (was_wrapped && !is_wrapped);
+        
+        if (debug_mode && crossing_wrap_boundary) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Wrap boundary crossing detected: was_wrapped=%s, is_wrapped=%s\n",
+                   was_wrapped ? "true" : "false", is_wrapped ? "true" : "false");
         }
         
-        // Check if text would actually wrap beyond terminal width
-        // Use > instead of >= to allow text that exactly fits
-        if ((prompt_last_line_width + text_length) > terminal_width) {
+        // Handle wrap boundary crossing immediately
+        if (crossing_wrap_boundary && text_is_shrinking && !is_first_wrap) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Line wrapping detected (prompt=%zu + text=%zu > width=%zu), using full render\n", 
-                       prompt_last_line_width, text_length, terminal_width);
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Handling wrap boundary crossing during backspace\n");
             }
-            return lle_display_render(state);
+            
+            // Move cursor up one line (back to prompt line) then to correct column
+            if (!lle_terminal_move_cursor_up(state->terminal, 1)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor up for boundary crossing\n");
+                }
+            }
+            
+            // Now move to the correct column position
+            if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move to text start column for boundary crossing\n");
+                }
+            }
+            
+            // Clear the line to remove wrapped content
+            if (!lle_terminal_clear_to_eol(state->terminal)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear line for boundary crossing\n");
+                }
+            }
+            
+            // Write remaining text (now fits on single line)
+            if (text_length > 0) {
+                if (!lle_terminal_write(state->terminal, text, text_length)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write remaining text after boundary crossing\n");
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Successfully handled wrap boundary crossing\n");
+                    }
+                }
+            }
+            
+            last_text_length = text_length;
+            return true;
+        }
+        
+        if (total_width > terminal_width) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Line wrapping detected (prompt=%zu + text_display=%zu = total=%zu > terminal=%zu)\n", 
+                       prompt_last_line_width, text_display_width, total_width, terminal_width);
+            }
+            
+            // Check if we need more lines than available, we need to scroll or use simpler approach
+            size_t lines_needed = (total_width / terminal_width) + 1;
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Lines needed for wrapped text: %zu\n", lines_needed);
+            }
+            
+            // If we need more lines than available, we need to scroll or use simpler approach
+            if (lines_needed > 1) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Multiple lines needed - using terminal natural wrapping\n");
+                }
+            }
+            
+            if ((text_is_growing || text_is_shrinking) && !is_first_wrap) {
+                if (text_is_growing) {
+                    // True incremental approach: only write new characters at cursor position
+                    size_t chars_to_add = text_length - last_text_length;
+                    const char *new_chars = text + last_text_length;
+                    
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] True incremental: adding %zu chars '%.*s' at current cursor\n", 
+                               chars_to_add, (int)chars_to_add, new_chars);
+                    }
+                    
+                    // Simply write the new characters - cursor should already be at correct position
+                    if (!lle_terminal_write(state->terminal, new_chars, chars_to_add)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write new characters\n");
+                        }
+                        return false;
+                    }
+                    
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Successfully added %zu characters incrementally\n", chars_to_add);
+                    }
+                } else {
+                    // For backspace within wrapped text: use simple incremental backspace
+                    size_t chars_removed = last_text_length - text_length;
+                    
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] True incremental backspace within wrapped text: removing %zu chars\n", chars_removed);
+                    }
+                    
+                    // Normal incremental backspace within wrapped text
+                    for (size_t i = 0; i < chars_removed; i++) {
+                        if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to backspace character %zu\n", i);
+                            }
+                            break;
+                        }
+                    }
+                    
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Successfully removed %zu characters with incremental backspace\n", chars_removed);
+                    }
+                }
+                
+                last_text_length = text_length;
+                
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] True incremental %s completed\n", 
+                           text_is_growing ? "append" : "backspace");
+                }
+                
+                return true;
+            } else {
+                // For first wrap, fall back to full render to handle line wrapping properly
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] First wrap detected - falling back to full render\n");
+                }
+                
+                last_text_length = text_length;
+                return lle_display_render(state);
+            }
         }
     }
-
+    
+    // Update length tracking for non-wrapping case too
+    last_text_length = text_length;
+    
     // Simple single-line case: move cursor to end of prompt and write text
     if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
         if (debug_mode) {
@@ -524,12 +735,13 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         return false;
     }
 
-    // Write the current text content
+    // Write the text and let terminal handle natural wrapping
     if (text && text_length > 0) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Writing text: '%.*s'\n", (int)text_length, text);
         }
         
+        // Write all text at once - let terminal handle wrapping naturally
         if (!lle_terminal_write(state->terminal, text, text_length)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write text\n");
