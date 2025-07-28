@@ -1394,21 +1394,19 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
         return false;
     }
     
-    // Only write to terminal if we're in a TTY
+    // Save current display state for restoration
+    state->needs_refresh = true;
+    
+    // Move to new line for search, starting at column 0
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        // Move to new line for search prompt
         if (!lle_terminal_write(state->terminal, "\n", 1)) {
             return false;
         }
-        
-        // Display initial search prompt
-        if (!lle_terminal_write(state->terminal, "(reverse-i-search)`': ", 22)) {
+        // Ensure we start at column 0 for search prompt
+        if (!lle_terminal_move_cursor_to_column(state->terminal, 0)) {
             return false;
         }
     }
-    
-    // Mark display as needing refresh for proper state tracking
-    state->needs_refresh = true;
     
     return true;
 }
@@ -1427,15 +1425,16 @@ bool lle_display_exit_search_mode(lle_display_state_t *state) {
         return false;
     }
     
-    // Only write to terminal if we're in a TTY
+    // Clear current search line and move back to original position
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        // Clear current line and move up to original line
-        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+        // Clear current line
+        if (!lle_terminal_move_cursor_to_column(state->terminal, 0)) {
             return false;
         }
         if (!lle_terminal_clear_to_eol(state->terminal)) {
             return false;
         }
+        // Move cursor up to original prompt line
         if (!lle_terminal_move_cursor_up(state->terminal, 1)) {
             return false;
         }
@@ -1467,9 +1466,9 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         return false;
     }
     
-    // Only write to terminal if we're in a TTY
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        // Clear current search line
+        // Use direct terminal operations for immediate response
+        // Move to beginning of current line and clear it completely
         if (!lle_terminal_write(state->terminal, "\r", 1)) {
             return false;
         }
@@ -1477,7 +1476,7 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
             return false;
         }
         
-        // Write search prompt prefix
+        // Write search prompt components directly for immediate visual feedback
         if (!lle_terminal_write(state->terminal, "(reverse-i-search)`", 19)) {
             return false;
         }
@@ -1494,13 +1493,23 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
             return false;
         }
         
-        // Write matched text if provided
+        // Write matched text if provided (with reasonable length limit)
         if (match_text && match_length > 0) {
-            if (!lle_terminal_write(state->terminal, match_text, match_length)) {
+            size_t max_display = 60; // Conservative limit for terminal width
+            size_t display_length = match_length > max_display ? max_display : match_length;
+            if (!lle_terminal_write(state->terminal, match_text, display_length)) {
                 return false;
+            }
+            if (match_length > max_display) {
+                if (!lle_terminal_write(state->terminal, "...", 3)) {
+                    return false;
+                }
             }
         }
     }
+    
+    // Maintain display state consistency - mark as needing refresh for cleanup
+    state->needs_refresh = true;
     
     return true;
 }
