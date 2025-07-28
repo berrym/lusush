@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // Forward declarations for helper functions
 static bool lle_display_render_plain_text(lle_display_state_t *state,
@@ -1218,6 +1219,202 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
     
     // Reset colors after rendering
     lle_display_reset_colors(state);
+    
+    return true;
+}
+
+// ============================================================================
+// Cursor Movement Convenience APIs for Keybinding Integration
+// ============================================================================
+
+/**
+ * Move cursor to beginning of line with proper display update.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ *
+ * Combines buffer cursor movement with display system cursor positioning
+ * for keybinding implementations. Ensures display state consistency.
+ */
+bool lle_display_move_cursor_home(lle_display_state_t *state) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Move cursor in buffer to beginning
+    if (!lle_text_move_cursor(state->buffer, LLE_MOVE_HOME)) {
+        return false;
+    }
+    
+    // Update cursor display using display system
+    return lle_display_update_cursor(state);
+}
+
+/**
+ * Move cursor to end of line with proper display update.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ *
+ * Combines buffer cursor movement with display system cursor positioning
+ * for keybinding implementations. Ensures display state consistency.
+ */
+bool lle_display_move_cursor_end(lle_display_state_t *state) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Move cursor in buffer to end
+    if (!lle_text_move_cursor(state->buffer, LLE_MOVE_END)) {
+        return false;
+    }
+    
+    // Update cursor display using display system
+    return lle_display_update_cursor(state);
+}
+
+/**
+ * Clear entire line with proper display update.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ *
+ * Clears the text buffer and updates display without breaking state
+ * consistency. Used for Ctrl+U and Ctrl+G keybinding implementations.
+ */
+bool lle_display_clear_line(lle_display_state_t *state) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Clear the text buffer
+    lle_text_buffer_clear(state->buffer);
+    
+    // Use incremental update to clear text area efficiently
+    return lle_display_update_incremental(state);
+}
+
+/**
+ * Enter reverse search mode with proper display management.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ *
+ * Transitions display system into reverse search mode without manual
+ * terminal operations. Manages state consistency throughout search.
+ */
+bool lle_display_enter_search_mode(lle_display_state_t *state) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Only write to terminal if we're in a TTY
+    if (state->terminal && isatty(state->terminal->stdin_fd)) {
+        // Move to new line for search prompt
+        if (!lle_terminal_write(state->terminal, "\n", 1)) {
+            return false;
+        }
+        
+        // Display initial search prompt
+        if (!lle_terminal_write(state->terminal, "(reverse-i-search)`': ", 22)) {
+            return false;
+        }
+    }
+    
+    // Mark display as needing refresh for proper state tracking
+    state->needs_refresh = true;
+    
+    return true;
+}
+
+/**
+ * Exit reverse search mode with proper display restoration.
+ *
+ * @param state Display state to restore
+ * @return true on success, false on error
+ *
+ * Restores normal display mode from reverse search without manual
+ * terminal operations. Ensures proper state cleanup and cursor positioning.
+ */
+bool lle_display_exit_search_mode(lle_display_state_t *state) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Only write to terminal if we're in a TTY
+    if (state->terminal && isatty(state->terminal->stdin_fd)) {
+        // Clear current line and move up to original line
+        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+            return false;
+        }
+        if (!lle_terminal_clear_to_eol(state->terminal)) {
+            return false;
+        }
+        if (!lle_terminal_move_cursor_up(state->terminal, 1)) {
+            return false;
+        }
+    }
+    
+    // Use display system to properly restore prompt and buffer content
+    return lle_display_refresh(state);
+}
+
+/**
+ * Update search prompt and results with proper display management.
+ *
+ * @param state Display state to update
+ * @param search_term Current search term
+ * @param search_length Length of search term
+ * @param match_text Matched history text (can be NULL)
+ * @param match_length Length of matched text
+ * @return true on success, false on error
+ *
+ * Updates the search prompt and matched text without manual terminal
+ * operations. Maintains display state consistency during search operations.
+ */
+bool lle_display_update_search_prompt(lle_display_state_t *state,
+                                      const char *search_term,
+                                      size_t search_length,
+                                      const char *match_text,
+                                      size_t match_length) {
+    if (!lle_display_validate(state)) {
+        return false;
+    }
+    
+    // Only write to terminal if we're in a TTY
+    if (state->terminal && isatty(state->terminal->stdin_fd)) {
+        // Clear current search line
+        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+            return false;
+        }
+        if (!lle_terminal_clear_to_eol(state->terminal)) {
+            return false;
+        }
+        
+        // Write search prompt prefix
+        if (!lle_terminal_write(state->terminal, "(reverse-i-search)`", 19)) {
+            return false;
+        }
+        
+        // Write search term if provided
+        if (search_term && search_length > 0) {
+            if (!lle_terminal_write(state->terminal, search_term, search_length)) {
+                return false;
+            }
+        }
+        
+        // Write search prompt suffix
+        if (!lle_terminal_write(state->terminal, "': ", 3)) {
+            return false;
+        }
+        
+        // Write matched text if provided
+        if (match_text && match_length > 0) {
+            if (!lle_terminal_write(state->terminal, match_text, match_length)) {
+                return false;
+            }
+        }
+    }
     
     return true;
 }

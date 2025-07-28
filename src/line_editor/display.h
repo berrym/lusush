@@ -386,4 +386,82 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
                                                  size_t length,
                                                  size_t start_col);
 
+// ============================================================================
+// Cursor Movement Convenience APIs for Keybinding Integration
+// ============================================================================
+
+/**
+ * @brief Move cursor to beginning of line with proper display update
+ *
+ * Combines buffer cursor movement with display system cursor positioning
+ * for keybinding implementations. Ensures display state consistency.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+bool lle_display_move_cursor_home(lle_display_state_t *state);
+
+/**
+ * @brief Move cursor to end of line with proper display update
+ *
+ * Combines buffer cursor movement with display system cursor positioning
+ * for keybinding implementations. Ensures display state consistency.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+bool lle_display_move_cursor_end(lle_display_state_t *state);
+
+/**
+ * @brief Clear entire line with proper display update
+ *
+ * Clears the text buffer and updates display without breaking state
+ * consistency. Used for Ctrl+U and Ctrl+G keybinding implementations.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+bool lle_display_clear_line(lle_display_state_t *state);
+
+/**
+ * @brief Enter reverse search mode with proper display management
+ *
+ * Transitions display system into reverse search mode without manual
+ * terminal operations. Manages state consistency throughout search.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+bool lle_display_enter_search_mode(lle_display_state_t *state);
+
+/**
+ * @brief Exit reverse search mode with proper display restoration
+ *
+ * Restores normal display mode from reverse search without manual
+ * terminal operations. Ensures proper state cleanup and cursor positioning.
+ *
+ * @param state Display state to restore
+ * @return true on success, false on error
+ */
+bool lle_display_exit_search_mode(lle_display_state_t *state);
+
+/**
+ * @brief Update search prompt and results with proper display management
+ *
+ * Updates the search prompt and matched text without manual terminal
+ * operations. Maintains display state consistency during search operations.
+ *
+ * @param state Display state to update
+ * @param search_term Current search term
+ * @param search_length Length of search term
+ * @param match_text Matched history text (can be NULL)
+ * @param match_length Length of matched text
+ * @return true on success, false on error
+ */
+bool lle_display_update_search_prompt(lle_display_state_t *state,
+                                      const char *search_term,
+                                      size_t search_length,
+                                      const char *match_text,
+                                      size_t match_length);
+
 #endif // LLE_DISPLAY_H
