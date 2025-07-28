@@ -415,7 +415,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to home position\n");
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             case LLE_KEY_END:
@@ -432,7 +432,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to end position\n");
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             case LLE_KEY_ARROW_UP:
@@ -480,7 +480,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to clear line\n");
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             case LLE_KEY_CTRL_W:
@@ -743,7 +743,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to clear line for cancel operation\n");
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             default:
