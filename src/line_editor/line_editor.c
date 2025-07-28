@@ -18,12 +18,14 @@
 #include "completion.h"
 #include "undo.h"
 #include "input_handler.h"
+#include "syntax.h"
 #include <unistd.h>
 #include "edit_commands.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <dirent.h>
 
 /**
  * @brief ASCII codes for control characters
@@ -191,6 +193,30 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
         }
     }
     
+    // Initialize syntax highlighter if syntax highlighting is enabled
+    lle_syntax_highlighter_t *syntax_highlighter = NULL;
+    if (config->enable_syntax_highlighting) {
+        syntax_highlighter = lle_syntax_create();
+        if (syntax_highlighter) {
+            lle_syntax_init(syntax_highlighter, true, 10000); // Enable shell syntax, max 10k chars
+            lle_syntax_configure_shell(syntax_highlighter, true);
+            lle_syntax_configure_strings(syntax_highlighter, true);
+            lle_syntax_configure_variables(syntax_highlighter, true);
+            lle_syntax_configure_comments(syntax_highlighter, true);
+        }
+    }
+    
+    // Connect syntax highlighter and theme to display system
+    if (editor->display) {
+        if (syntax_highlighter) {
+            lle_display_set_syntax_highlighter(editor->display, syntax_highlighter);
+        }
+        if (editor->theme) {
+            lle_display_set_theme_integration(editor->display, editor->theme);
+        }
+        lle_display_enable_syntax_highlighting(editor->display, config->enable_syntax_highlighting);
+    }
+    
     // Set configuration flags
     editor->multiline_mode = config->enable_multiline;
     editor->syntax_highlighting = config->enable_syntax_highlighting;
@@ -214,6 +240,16 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
     if (!editor) return;
     
     // Clean up in reverse order of initialization
+    
+    // Clean up syntax highlighter if attached to display
+    if (editor->display) {
+        lle_syntax_highlighter_t *syntax_highlighter = editor->display->syntax_highlighter;
+        if (syntax_highlighter) {
+            lle_syntax_destroy(syntax_highlighter);
+            lle_display_set_syntax_highlighter(editor->display, NULL);
+        }
+    }
+    
     if (editor->undo_stack) {
         lle_undo_stack_destroy(editor->undo_stack);
         editor->undo_stack = NULL;
@@ -959,7 +995,62 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             case LLE_KEY_TAB:
                 // Tab completion (if enabled)
                 if (editor->auto_completion && editor->completions) {
-                    // TODO: Implement tab completion in future task
+                    // Extract word at cursor for completion
+                    char word[256];
+                    size_t word_start;
+                    if (lle_completion_extract_word(editor->buffer->buffer, editor->buffer->cursor_pos,
+                                                   word, sizeof(word), &word_start)) {
+                        
+                        // Clear existing completions
+                        lle_completion_list_clear(editor->completions);
+                        
+                        // Simple file completion - add matching files in current directory
+                        DIR *dir = opendir(".");
+                        if (dir) {
+                            struct dirent *entry;
+                            while ((entry = readdir(dir)) != NULL) {
+                                // Skip hidden files unless word starts with '.'
+                                if (entry->d_name[0] == '.' && word[0] != '.') {
+                                    continue;
+                                }
+                                
+                                // Check if filename matches prefix
+                                if (lle_completion_text_matches(entry->d_name, word, false)) {
+                                    lle_completion_list_add(editor->completions, entry->d_name, 
+                                                          "file", LLE_COMPLETION_PRIORITY_NORMAL);
+                                }
+                            }
+                            closedir(dir);
+                        }
+                        
+                        // If we have completions, apply the first one
+                        if (editor->completions->count > 0) {
+                            const lle_completion_item_t *item = lle_completion_list_get_selected(editor->completions);
+                            if (item) {
+                                // Replace the partial word with completion
+                                size_t word_end = word_start + strlen(word);
+                                
+                                // Delete the partial word
+                                if (word_end > word_start) {
+                                    lle_text_delete_range(editor->buffer, word_start, word_end);
+                                }
+                                
+                                // Insert completion
+                                lle_text_insert_at(editor->buffer, word_start, item->text);
+                                
+                                // Move cursor to end of completion
+                                editor->buffer->cursor_pos = word_start + item->text_len;
+                                
+                                needs_display_update = true;
+                            }
+                        } else {
+                            // No completions - just beep or do nothing
+                            needs_display_update = false;
+                        }
+                    } else {
+                        needs_display_update = false;
+                    }
+                } else {
                     needs_display_update = false;
                 }
                 break;
