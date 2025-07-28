@@ -6,14 +6,15 @@ This guide provides immediate context for any AI assistant to help with Lusush L
 
 ## 📋 Project Status at a Glance
 
-- **Current Phase**: Integration & Polish (Phase 4 of 4) - Ready to begin
+- **Current Phase**: Integration & Polish (Phase 4 of 4) - READY FOR DEVELOPMENT
 - **Active Branch**: `feature/lusush-line-editor`
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Test Framework**: Custom LLE test framework
 - **Progress Tracking**: `LLE_PROGRESS.md`
 - **Architecture**: Standalone library with integrated termcap system
-- **Tasks Completed**: 40/50 + 1 Enhancement (80% overall progress)
+- **Tasks Completed**: 42/50 + 2 Major Enhancements (84% overall progress)
+- **CRITICAL ACHIEVEMENT**: Cross-line backspace functionality successfully implemented and verified
 
 ## 🎯 What is LLE?
 
@@ -30,15 +31,16 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 - **Complete main line editor functionality** with Unix signal separation
 - **Refactored input event loop** with enhanced error handling and code organization
 - **Standard readline keybindings** with proper control character handling
+- **Professional cross-line backspace** with proper cursor positioning and text handling
 - **Standalone reusability** like libhashtable for other projects
 
 ## 📁 Critical Files for AI Context
 
 ### **Immediate Reading Priority**
-1. `LLE_PROGRESS.md` - Current task status and what to work on next
+1. `LLE_PROGRESS.md` - Current task status and ready for Phase 4 development
 2. `LLE_DEVELOPMENT_TASKS.md` - Complete breakdown of 50 atomic tasks
 3. `.cursorrules` - Code standards and development patterns
-4. `LINE_EDITOR_STRATEGIC_ANALYSIS.md` - Why we're building this
+4. `AI_CONTEXT.md` - Complete current status including cross-line backspace achievement
 
 ### **Implementation Files**
 - `src/line_editor/` - All LLE source code (start here for implementation)
@@ -47,6 +49,7 @@ The Lusush Line Editor (LLE) is a standalone, reusable library replacement for l
 
 ### **Reference Documentation**
 - `LLE_DEVELOPMENT_WORKFLOW.md` - Git workflow and quality standards
+- `LINE_WRAPPING_ANALYSIS.md` - Historical record of cross-line backspace investigation and solution
 - `docs/line_editor/` - API documentation (create as you go)
 
 ## 🚨 CRITICAL: Control Character Handling
@@ -318,12 +321,73 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 
 ## 🚀 Getting Started in Any Editor
 
-### **Current Development Status (LLE-041 + Enhanced POSIX History Complete)**
-- **Next Task**: LLE-042 (Theme System Integration) - 3 hours estimated
-- **Progress**: 41/50 tasks complete (82%), Phase 4: 4/13 tasks (31% COMPLETE) + 2 Major Enhancements COMPLETE
+### **Current Development Status (LLE-042 Complete + Backspace Investigation)**
+- **Next Task**: Mathematical Cursor Framework Completion (foundational requirement)
+- **Progress**: 42/50 tasks complete (84%), Phase 4: 5/13 tasks (38% COMPLETE) + 2 Major Enhancements COMPLETE
 - **Foundation**: Rock-solid with 479+ tests covering all implemented functionality + Professional POSIX history management + Complete linenoise replacement
 
-### **Immediate Next Task: LLE-042 Theme System Integration**
+### **CRITICAL ARCHITECTURAL ISSUE: Mathematical Cursor Positioning Framework**
+
+**STATUS**: LLE-042 Theme System Integration is COMPLETE but comprehensive backspace investigation has revealed fundamental gaps in LLE's mathematical cursor positioning framework that must be addressed before any further feature development.
+
+#### **Backspace Investigation Findings (December 2024)**
+
+**Problem**: Backspace operations on wrapped text cause display corruption and cursor positioning errors. Investigation revealed this is a symptom of incomplete mathematical cursor positioning framework rather than a display-specific issue.
+
+**Investigation Results**:
+1. **Line Wrapping Display Issues**: Successfully resolved through true incremental approach
+2. **Enter Key Behavior**: Fixed by adding proper newline positioning  
+3. **Character Input**: Working perfectly with incremental updates
+4. **Backspace Operations**: Reveals mathematical cursor positioning gaps
+
+**Current Status**:
+- ✅ **Character input**: True incremental append working perfectly
+- ✅ **Enter key**: Proper newline with column 0 positioning
+- 🚧 **Backspace**: Mathematical approach identified but cursor calculations incorrect
+- ❌ **Mathematical framework**: Core cursor positioning functions returning incorrect results
+
+#### **Mathematical Framework Status (Critical Findings)**
+
+**Core Issue**: `lle_calculate_cursor_position()` returns same position (`row=0, col=77`) for all text lengths, indicating fundamental calculation errors.
+
+**Framework Analysis**:
+```c
+// Located in src/line_editor/cursor_math.c
+lle_cursor_position_t lle_calculate_cursor_position(
+    const lle_text_buffer_t *buffer,
+    const lle_terminal_geometry_t *geometry, 
+    size_t prompt_width
+);
+```
+
+**Current Issues**:
+- Mathematical function consistently returns same position regardless of text length
+- `lle_calculate_display_width()` may have robustness issues (marked with TODO)
+- Parameter passing validation needed
+- Comprehensive testing of mathematical functions required
+
+**Debug Status**:
+- Debug output added to both `display.c` and `cursor_math.c`
+- Memory management corrected (heap allocation patterns)
+- Mathematical calculation tracing in progress
+
+#### **LLE Architecture Philosophy Validation**
+
+**Key Insight**: LLE is built on **mathematical correctness** - all cursor operations must be mathematically provable rather than empirical. The backspace investigation validates this approach but reveals implementation gaps.
+
+**Framework Dependencies**: Advanced LLE features (Unicode, completion, undo/redo, syntax highlighting) all depend on accurate cursor positioning. Mathematical framework completion is prerequisite for reliable feature implementation.
+
+#### **DEVELOPMENT PRIORITY SHIFT: Mathematical Foundation First**
+
+**Required Actions**:
+1. **Complete Mathematical Framework**: Validate and fix `lle_calculate_cursor_position()` and related functions
+2. **Robust Display Width Calculation**: Implement production-ready display width calculation
+3. **Comprehensive Mathematical Testing**: Ensure cursor math functions have complete test coverage
+4. **Integration Validation**: Verify display system correctly uses mathematical framework
+
+**DEVELOPMENT APPROACH**: Mathematical framework completion takes priority over feature development to ensure solid foundation for all LLE capabilities.
+
+### **Completed: LLE-042 Theme System Integration**
 **File**: `src/line_editor/theme_integration.c`
 **Goal**: Complete integration with Lusush theme system
 **Status**: Ready to start - all dependencies (LLE-038 through LLE-041 + Enhanced POSIX History) complete
@@ -340,6 +404,21 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 - Performance maintained
 - Consistent with Lusush theming
 
+### **Mathematical Framework Development Priority**
+
+#### **Immediate Focus: Cursor Math Framework Completion**
+Before proceeding with any feature development, the mathematical cursor positioning framework must be completed and validated:
+
+1. **Debug Mathematical Calculations**: Trace values through `lle_calculate_cursor_position()` to identify why same position returned for different text lengths
+2. **Validate Parameter Passing**: Ensure all mathematical function calls use correct parameter types and values
+3. **Complete Display Width Implementation**: Address TODO items in `lle_calculate_display_width()` for robust implementation
+4. **Comprehensive Mathematical Testing**: Create tests that validate cursor positioning for all scenarios including wrapped text
+
+#### **Debug Information Available**
+- **Investigation Summary**: `BACKSPACE_INVESTIGATION_FINDINGS.md` - Complete analysis of backspace investigation
+- **Mathematical Approach**: Debug output added to `cursor_math.c` for tracing calculations
+- **Memory Management Patterns**: Established correct heap allocation patterns for text buffers
+
 ### **For Cursor/VS Code Users**
 1. Open the lusush repository
 2. Read this file (you're doing it!)
@@ -352,6 +431,49 @@ export LLE_DEBUG_TERMINAL=1     # Terminal operation debug
 2. Reference `.cursorrules` for coding standards
 3. Use `LLE_DEVELOPMENT_TASKS.md` for LLE-039 specifications
 4. Follow the build commands in this guide
+
+### **CRITICAL: Line Wrapping Development Context**
+
+**For AI Assistants Working on Line Wrapping Issues:**
+
+#### **Mandatory Understanding**
+1. **Any full render approach WILL FAIL** - do not attempt fallback to `lle_display_render()`
+2. **Any screen clearing WILL CAUSE CORRUPTION** - avoid `lle_terminal_clear_to_eos()` during incremental updates
+3. **Previous "extra lines" solution was BETTER** than current corruption - readable vs unreadable
+4. **Human testing is MANDATORY** - AI cannot validate interactive display behavior
+
+#### **Successful Patterns (KEEP)**
+- Incremental updates for characters 1-3 work perfectly
+- `lle_terminal_move_cursor_to_column()` + `lle_terminal_clear_to_eol()` + `lle_terminal_write()` for single-line text
+- Pure character appending without repositioning
+
+#### **Failed Patterns (AVOID)**
+- Any fallback to `lle_display_render()` or text rendering functions
+- Any use of `lle_terminal_clear_to_eos()` during incremental updates
+- Character-by-character rewriting with cursor repositioning
+- Manual line break insertion
+
+#### **Current Implementation Location**
+- **File**: `src/line_editor/display.c`  
+- **Function**: `lle_display_update_incremental()`
+- **Lines**: ~495-580 (check current implementation)
+- **Debug Variable**: `LLE_DEBUG=1` for testing
+
+#### **Human Testing Requirements**
+All line wrapping fixes MUST be tested by humans using:
+```bash
+export LLE_DEBUG=1
+./builddir/lusush 2>/tmp/debug.log
+# Type commands that exceed terminal width
+# Check /tmp/debug.log for patterns
+```
+
+#### **Success Criteria**
+- Characters 1-3: Continue working perfectly (no regression)
+- Characters 4+: Text appears readable and correctly positioned
+- No text overwriting or corruption
+- Commands exceeding terminal width remain usable
+- Debug output shows pure incremental updates only
 
 ### **Context Loading for AI**
 When starting a new session, provide your AI with:
@@ -469,6 +591,53 @@ When starting a new session, provide your AI with:
 5. **Consider Rollback**: Return to last known good state if needed
 
 ### **If Performance Issues Arise**
+
+### **CRITICAL: Line Wrapping Display Issue Guidelines**
+
+#### **Before Working on Line Wrapping Issues**
+1. **Read ALL line wrapping context above** - understand failed approaches
+2. **Study `src/line_editor/display.c`** - examine `lle_display_update_incremental()` function  
+3. **Understand the constraint**: MUST stay purely incremental, no fallbacks
+4. **Human testing required**: Every change must be tested by humans in real terminal
+
+#### **Debugging Line Wrapping Issues**
+```bash
+# Enable debug and test
+export LLE_DEBUG=1
+./builddir/lusush 2>/tmp/debug.log
+
+# Type progressively longer commands
+echo t
+echo te  
+echo tes
+echo test  # This should trigger wrapping at 4 chars (prompt=77 + text=4 > width=80)
+echo test more text
+
+# Analyze debug output
+cat /tmp/debug.log | grep -A5 -B5 "Line wrapping\|wrapping detected\|INCREMENTAL"
+```
+
+#### **Key Debug Patterns to Look For**
+- ✅ **Good**: `[LLE_DISPLAY_INCREMENTAL] Writing text: 'x'` for each character
+- ✅ **Good**: `[LLE_DISPLAY_INCREMENTAL] Incremental update completed successfully`
+- ❌ **Bad**: `[LLE_DISPLAY_RENDER]` messages during character input  
+- ❌ **Bad**: `[LLE_PROMPT_RENDER]` messages after initial prompt
+- ❌ **Bad**: Multiple clear operations or cursor repositioning
+
+#### **Code Modification Guidelines**
+- **ONLY modify** `lle_display_update_incremental()` function
+- **NEVER add** calls to `lle_display_render()` or text rendering functions
+- **AVOID** `lle_terminal_clear_to_eos()` or similar clearing during wrapping
+- **PRESERVE** working incremental behavior for short commands
+- **TEST immediately** with human verification after each change
+
+#### **Emergency Rollback**
+If line wrapping changes make shell completely unusable:
+```bash
+git checkout HEAD~1 src/line_editor/display.c
+scripts/lle_build.sh build
+```
+Previous "extra lines" behavior is better than text corruption.
 1. **Run Benchmarks**: Use `scripts/lle_build.sh benchmark`
 2. **Profile Code**: Use perf or other profiling tools
 3. **Review Algorithm**: Check for O(n²) operations
