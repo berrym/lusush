@@ -65,6 +65,15 @@ typedef struct {
  * Maintains the current theme state, cached colors, and integration
  * status with the main Lusush theme system.
  */
+/**
+ * @brief Cursor style options for theme-specific configuration
+ */
+typedef enum {
+    LLE_CURSOR_STYLE_BLOCK = 0,
+    LLE_CURSOR_STYLE_BAR,
+    LLE_CURSOR_STYLE_UNDERLINE
+} lle_cursor_style_t;
+
 typedef struct {
     // Theme identification
     char theme_name[64];                    // Active theme name
@@ -77,12 +86,19 @@ typedef struct {
     // Integration with Lusush theme system
     theme_definition_t *lusush_theme; // Pointer to active Lusush theme
     color_scheme_t *color_scheme;     // Pointer to color scheme
+    bool lusush_connected;                  // Connected to Lusush theme events
     
     // Terminal capabilities
     int color_support;                      // Terminal color support level
     bool supports_true_color;              // 24-bit color support
     bool supports_256_color;               // 256 color support
     bool supports_basic_color;             // 8/16 color support
+    
+    // Theme-specific editor settings
+    bool syntax_highlighting_enabled;       // Syntax highlighting enabled
+    bool show_line_numbers;                 // Show line numbers
+    lle_cursor_style_t cursor_style;        // Cursor style preference
+    bool editor_settings_applied;           // Editor settings have been applied
     
     // Performance optimization
     bool dirty;                             // Colors need refresh
@@ -378,6 +394,82 @@ const char *lle_theme_map_to_lusush_color(lle_theme_element_t element);
  * @return Array of theme mappings, NULL on error
  */
 const lle_theme_mapping_t *lle_theme_get_default_mappings(size_t *count);
+
+// ============================================================================
+// LLE-042: Advanced Theme System Integration
+// ============================================================================
+
+/**
+ * @brief Theme change callback function type
+ */
+typedef void (*lle_theme_change_callback_t)(const char *theme_name, void *user_data);
+
+/**
+ * Register callback for theme change events
+ * 
+ * Allows components to be notified when themes change, enabling
+ * real-time theme updates throughout the line editor system.
+ * 
+ * @param callback Function to call on theme changes
+ * @param user_data User data to pass to callback
+ * @return true on success, false if callback registry is full
+ */
+bool lle_theme_register_callback(lle_theme_change_callback_t callback, void *user_data);
+
+/**
+ * Unregister theme change callback
+ * 
+ * @param callback Function to remove from callback registry
+ * @return true on success, false if callback not found
+ */
+bool lle_theme_unregister_callback(lle_theme_change_callback_t callback);
+
+/**
+ * Apply theme changes immediately with real-time updates
+ * 
+ * This function implements real-time theme switching that immediately
+ * updates all themed elements without requiring restart or refresh.
+ * 
+ * @param ti Theme integration context
+ * @param theme_name Name of theme to apply
+ * @return true on success, false on failure
+ */
+bool lle_theme_apply_realtime(lle_theme_integration_t *ti, const char *theme_name);
+
+/**
+ * Connect to Lusush theme system for change notifications
+ * 
+ * Establishes connection with the main Lusush theme system to receive
+ * automatic notifications when themes are changed via shell commands
+ * or configuration updates.
+ * 
+ * @param ti Theme integration context
+ * @return true on success, false on failure
+ */
+bool lle_theme_connect_lusush_events(lle_theme_integration_t *ti);
+
+/**
+ * Configure theme-specific line editor settings
+ * 
+ * Applies theme-specific configuration that affects line editor behavior,
+ * such as syntax highlighting preferences, cursor styles, and display options.
+ * 
+ * @param ti Theme integration context
+ * @param theme_name Theme name to configure for
+ * @return true on success, false on failure
+ */
+bool lle_theme_configure_editor_settings(lle_theme_integration_t *ti, const char *theme_name);
+
+/**
+ * Validate that all theme elements are properly configured
+ * 
+ * Ensures that all required theme elements have valid colors and that
+ * the theme integration is functioning correctly.
+ * 
+ * @param ti Theme integration context
+ * @return true if all elements are properly themed, false otherwise
+ */
+bool lle_theme_validate_all_elements(lle_theme_integration_t *ti);
 
 #ifdef __cplusplus
 }
