@@ -19,7 +19,8 @@ lle_sources = [
   'undo.c',
   'syntax.c',
   'line_editor.c',
-  'lle_integration.c'
+  'lle_integration.c',
+  'config.c'
 ]
 
 lle_headers = [
@@ -37,7 +38,8 @@ lle_headers = [
   'undo.h',
   'syntax.h',
   'line_editor.h',
-  'lle_integration.h'
+  'lle_integration.h',
+  'config.h'
 ]
 
 # Create line editor static library

@@ -34,7 +34,8 @@ lle_test_sources = [
   'test_lle_038_core_line_editor_api.c',
   'test_lle_039_line_editor_implementation.c',
   'test_lle_040_input_event_loop.c',
-  'test_lle_042_theme_system_integration.c'
+  'test_lle_042_theme_system_integration.c',
+  'test_lle_043_configuration_integration.c'
 ]
 
 # Individual component tests
