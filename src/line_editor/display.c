@@ -751,6 +751,29 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
     }
 
+    // Flush output to ensure text is written before cursor positioning
+    fflush(stdout);
+    fflush(stderr);
+
+    // CRITICAL FIX: Position cursor correctly after writing text
+    // The cursor needs to be positioned based on the actual buffer cursor position
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Positioning cursor after text update\n");
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Buffer cursor at: %zu, buffer length: %zu\n", 
+                state->buffer->cursor_pos, state->buffer->length);
+    }
+    
+    if (!lle_display_update_cursor(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to update cursor position\n");
+        }
+        return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Cursor positioning completed\n");
+    }
+
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Incremental update completed successfully\n");
     }
@@ -1237,17 +1260,45 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
  * for keybinding implementations. Ensures display state consistency.
  */
 bool lle_display_move_cursor_home(lle_display_state_t *state) {
+    // Get debug flag from environment
+    static int debug_mode = -1;
+    if (debug_mode == -1) {
+        debug_mode = getenv("LLE_DEBUG") ? 1 : 0;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_HOME] Starting move cursor to home\n");
+    }
+    
     if (!lle_display_validate(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_MOVE_HOME] Display validation failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_HOME] Before move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
     // Move cursor in buffer to beginning
     if (!lle_text_move_cursor(state->buffer, LLE_MOVE_HOME)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_MOVE_HOME] Failed to move cursor in buffer\n");
+        }
         return false;
     }
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_HOME] After move: cursor at %zu\n", state->buffer->cursor_pos);
+    }
+    
     // Update cursor display using display system
-    return lle_display_update_cursor(state);
+    bool result = lle_display_update_cursor(state);
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_HOME] Display update cursor result: %s\n", result ? "SUCCESS" : "FAILED");
+    }
+    return result;
 }
 
 /**
@@ -1260,17 +1311,45 @@ bool lle_display_move_cursor_home(lle_display_state_t *state) {
  * for keybinding implementations. Ensures display state consistency.
  */
 bool lle_display_move_cursor_end(lle_display_state_t *state) {
+    // Get debug flag from environment
+    static int debug_mode = -1;
+    if (debug_mode == -1) {
+        debug_mode = getenv("LLE_DEBUG") ? 1 : 0;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_END] Starting move cursor to end\n");
+    }
+    
     if (!lle_display_validate(state)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_MOVE_END] Display validation failed\n");
+        }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_END] Before move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
     // Move cursor in buffer to end
     if (!lle_text_move_cursor(state->buffer, LLE_MOVE_END)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_MOVE_END] Failed to move cursor in buffer\n");
+        }
         return false;
     }
     
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_END] After move: cursor at %zu\n", state->buffer->cursor_pos);
+    }
+    
     // Update cursor display using display system
-    return lle_display_update_cursor(state);
+    bool result = lle_display_update_cursor(state);
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_MOVE_END] Display update cursor result: %s\n", result ? "SUCCESS" : "FAILED");
+    }
+    return result;
 }
 
 /**

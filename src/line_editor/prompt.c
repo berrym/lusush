@@ -711,8 +711,12 @@ bool lle_prompt_position_cursor(
         return false;
     }
     
+    // Flush output to ensure cursor positioning is processed immediately
+    fflush(stdout);
+    fflush(stderr);
+    
     if (debug_mode) {
-        fprintf(stderr, "[LLE_PROMPT_POSITION] Cursor positioning completed successfully\n");
+        fprintf(stderr, "[LLE_PROMPT_POSITION] Cursor positioning completed successfully with flush\n");
     }
     
     return true;
