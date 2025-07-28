@@ -11,11 +11,17 @@ Two major interactive features have been implemented:
 
 Both features are enabled by default and should work immediately in interactive shell sessions.
 
+**RECENT FIXES APPLIED:**
+- Tab completion now cycles through multiple matches with repeated Tab presses
+- Syntax highlighting now works in incremental display updates
+- Both features have been debugged and improved for better user experience
+
 ## Prerequisites
 
 - Build the latest version: `scripts/lle_build.sh build`
 - Ensure you're in a directory with some files for testing tab completion
 - Use a terminal that supports ANSI colors for syntax highlighting
+- For debugging, use: `LLE_DEBUG=1 ./builddir/lusush`
 
 ## Testing Tab Completion
 
@@ -32,6 +38,8 @@ Both features are enabled by default and should work immediately in interactive 
    echo t<TAB>
    ```
    **Expected:** Should complete to one of the files starting with 't' in current directory
+   
+   **NEW:** Press Tab again to cycle through other matches!
 
 3. **Test prefix matching:**
    ```bash
@@ -39,12 +47,16 @@ Both features are enabled by default and should work immediately in interactive 
    ls test_<TAB>
    ```
    **Expected:** Should complete to the first matching file
+   
+   **NEW:** Press Tab multiple times to cycle through all matches (test_file.txt, test_completion.sh, etc.)
 
 4. **Test with longer prefixes:**
    ```bash
    cat test_file<TAB>
    ```
    **Expected:** Should complete to `test_file.txt` if it exists
+   
+   **NEW:** If multiple files match (like test_file.txt and test_file.c), Tab cycles through them
 
 ### Advanced Tab Completion Tests
 
@@ -69,7 +81,9 @@ Both features are enabled by default and should work immediately in interactive 
 
 ## Testing Syntax Highlighting
 
-Syntax highlighting applies colors in real-time as you type. Test these scenarios:
+Syntax highlighting applies colors in real-time as you type. **FIXED:** Now works correctly with incremental display updates.
+
+Test these scenarios:
 
 ### Basic Command Highlighting
 
@@ -138,8 +152,10 @@ Syntax highlighting applies colors in real-time as you type. Test these scenario
 
 **Common Issues:**
 - Terminal doesn't support ANSI colors
-- Color scheme conflicts with syntax highlighting colors
+- Color scheme conflicts with syntax highlighting colors  
 - SSH sessions may disable colors by default
+
+**RECENT FIX:** Syntax highlighting now properly integrates with incremental display updates and should show colors immediately as you type.
 
 ## Debug Mode
 
@@ -180,6 +196,7 @@ This will show detailed information about:
 | Feature | Input | Expected Result |
 |---------|--------|----------------|
 | Tab Completion | `echo t<TAB>` | Completes to matching filename |
+| Tab Completion | `echo t<TAB><TAB>` | Cycles through multiple matches |
 | Tab Completion | `ls nonexist<TAB>` | No action (no matches) |
 | Syntax Highlighting | `echo "hello"` | `echo` and quoted string highlighted |
 | Syntax Highlighting | `ls | grep test` | Command, pipe operator highlighted |
@@ -187,9 +204,10 @@ This will show detailed information about:
 
 ## Success Criteria
 
-✅ **Tab Completion Working:** Pressing Tab completes filenames when matches exist
-✅ **Syntax Highlighting Working:** Commands show colors in real-time as you type
-✅ **No Regressions:** Basic shell functionality still works normally
+✅ **Tab Completion Working:** Pressing Tab completes filenames when matches exist  
+✅ **Tab Completion Cycling:** Multiple Tab presses cycle through all matches  
+✅ **Syntax Highlighting Working:** Commands show colors in real-time as you type  
+✅ **No Regressions:** Basic shell functionality still works normally  
 ✅ **Performance:** No noticeable lag when typing or completing
 
 ## Next Steps

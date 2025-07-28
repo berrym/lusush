@@ -1001,50 +1001,100 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     if (lle_completion_extract_word(editor->buffer->buffer, editor->buffer->cursor_pos,
                                                    word, sizeof(word), &word_start)) {
                         
-                        // Clear existing completions
-                        lle_completion_list_clear(editor->completions);
+                        // Static variables to track completion state across tab presses
+                        static char last_completion_word[256] = {0};
+                        static size_t last_completion_start = SIZE_MAX;
+                        static bool completion_active = false;
                         
-                        // Simple file completion - add matching files in current directory
-                        DIR *dir = opendir(".");
-                        if (dir) {
-                            struct dirent *entry;
-                            while ((entry = readdir(dir)) != NULL) {
-                                // Skip hidden files unless word starts with '.'
-                                if (entry->d_name[0] == '.' && word[0] != '.') {
-                                    continue;
+                        // Check if this is a continuation of the same completion session
+                        bool same_completion = completion_active && 
+                                             (strcmp(word, last_completion_word) == 0) &&
+                                             (word_start == last_completion_start) &&
+                                             (editor->completions->count > 1);
+                        
+                        if (!same_completion) {
+                            // New completion session - rebuild completion list
+                            lle_completion_list_clear(editor->completions);
+                            
+                            // Simple file completion - add matching files in current directory
+                            DIR *dir = opendir(".");
+                            if (dir) {
+                                struct dirent *entry;
+                                while ((entry = readdir(dir)) != NULL) {
+                                    // Skip hidden files unless word starts with '.'
+                                    if (entry->d_name[0] == '.' && word[0] != '.') {
+                                        continue;
+                                    }
+                                    
+                                    // Check if filename matches prefix
+                                    if (lle_completion_text_matches(entry->d_name, word, false)) {
+                                        lle_completion_list_add(editor->completions, entry->d_name, 
+                                                              "file", LLE_COMPLETION_PRIORITY_NORMAL);
+                                    }
                                 }
-                                
-                                // Check if filename matches prefix
-                                if (lle_completion_text_matches(entry->d_name, word, false)) {
-                                    lle_completion_list_add(editor->completions, entry->d_name, 
-                                                          "file", LLE_COMPLETION_PRIORITY_NORMAL);
-                                }
+                                closedir(dir);
                             }
-                            closedir(dir);
+                            
+                            // Reset to first completion
+                            lle_completion_list_set_selected(editor->completions, 0);
+                            completion_active = true;
+                            strcpy(last_completion_word, word);
+                            last_completion_start = word_start;
+                        } else {
+                            // Cycle to next completion
+                            if (!lle_completion_list_select_next(editor->completions)) {
+                                // Wrapped around, go back to first
+                                lle_completion_list_set_selected(editor->completions, 0);
+                            }
                         }
                         
-                        // If we have completions, apply the first one
+                        // Apply the selected completion
                         if (editor->completions->count > 0) {
                             const lle_completion_item_t *item = lle_completion_list_get_selected(editor->completions);
                             if (item) {
-                                // Replace the partial word with completion
-                                size_t word_end = word_start + strlen(word);
+                                // Calculate what to replace
+                                size_t current_end = editor->buffer->cursor_pos;
                                 
-                                // Delete the partial word
-                                if (word_end > word_start) {
-                                    lle_text_delete_range(editor->buffer, word_start, word_end);
+                                // If we're cycling, we need to replace the entire current word/completion
+                                if (same_completion) {
+                                    // Find the end of the current word at cursor
+                                    while (current_end < editor->buffer->length && 
+                                           editor->buffer->buffer[current_end] != ' ' &&
+                                           editor->buffer->buffer[current_end] != '\t' &&
+                                           editor->buffer->buffer[current_end] != '\n') {
+                                        current_end++;
+                                    }
+                                } else {
+                                    // First completion, just replace the prefix
+                                    current_end = word_start + strlen(word);
                                 }
                                 
-                                // Insert completion
+                                // Delete the current word/completion
+                                if (current_end > word_start) {
+                                    lle_text_delete_range(editor->buffer, word_start, current_end);
+                                }
+                                
+                                // Insert new completion
                                 lle_text_insert_at(editor->buffer, word_start, item->text);
                                 
                                 // Move cursor to end of completion
                                 editor->buffer->cursor_pos = word_start + item->text_len;
                                 
                                 needs_display_update = true;
+                                
+                                // Show completion info if multiple matches
+                                if (editor->completions->count > 1 && debug_mode) {
+                                    fprintf(stderr, "[TAB_COMPLETION] %zu/%zu: %s\n", 
+                                           editor->completions->selected + 1, 
+                                           editor->completions->count, 
+                                           item->text);
+                                }
                             }
                         } else {
-                            // No completions - just beep or do nothing
+                            // No completions - reset state
+                            completion_active = false;
+                            last_completion_word[0] = '\0';
+                            last_completion_start = SIZE_MAX;
                             needs_display_update = false;
                         }
                     } else {

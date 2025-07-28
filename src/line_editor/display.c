@@ -736,18 +736,46 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         return false;
     }
 
-    // Write the text and let terminal handle natural wrapping
+    // Write the text with syntax highlighting if enabled
     if (text && text_length > 0) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Writing text: '%.*s'\n", (int)text_length, text);
         }
         
-        // Write all text at once - let terminal handle wrapping naturally
-        if (!lle_terminal_write(state->terminal, text, text_length)) {
+        // Use syntax highlighting if enabled and available
+        if (lle_display_is_syntax_highlighting_enabled(state)) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write text\n");
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Applying syntax highlighting\n");
             }
-            return false;
+            
+            // Update syntax highlighting for current text
+            if (!lle_display_update_syntax_highlighting(state)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to update syntax highlighting\n");
+                }
+            }
+            
+            // Render with syntax highlighting
+            if (!lle_display_render_with_syntax_highlighting(state, text, text_length, prompt_last_line_width)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Syntax highlighting failed, falling back to plain text\n");
+                }
+                // Fallback to plain text
+                if (!lle_terminal_write(state->terminal, text, text_length)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write plain text fallback\n");
+                    }
+                    return false;
+                }
+            }
+        } else {
+            // Write plain text without syntax highlighting
+            if (!lle_terminal_write(state->terminal, text, text_length)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write text\n");
+                }
+                return false;
+            }
         }
     }
 
