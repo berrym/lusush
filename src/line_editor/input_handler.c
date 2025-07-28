@@ -206,11 +206,17 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
             fprintf(stderr, "[LLE_INPUT_READ_KEY] Processing control character: 0x%02x\n", first_char);
         }
         switch (first_char) {
-            case LLE_ASCII_CTRL_A: event->type = LLE_KEY_CTRL_A; break;
+            case LLE_ASCII_CTRL_A: 
+                event->type = LLE_KEY_CTRL_A; 
+                if (debug_mode) fprintf(stderr, "[LLE_INPUT_READ_KEY] Detected Ctrl+A (0x01)\n");
+                break;
             case LLE_ASCII_CTRL_B: event->type = LLE_KEY_CTRL_B; break;
             case LLE_ASCII_CTRL_C: event->type = LLE_KEY_CTRL_C; break;
             case LLE_ASCII_CTRL_D: event->type = LLE_KEY_CTRL_D; break;
-            case LLE_ASCII_CTRL_E: event->type = LLE_KEY_CTRL_E; break;
+            case LLE_ASCII_CTRL_E: 
+                event->type = LLE_KEY_CTRL_E; 
+                if (debug_mode) fprintf(stderr, "[LLE_INPUT_READ_KEY] Detected Ctrl+E (0x05)\n");
+                break;
             case LLE_ASCII_CTRL_F: event->type = LLE_KEY_CTRL_F; break;
             case LLE_ASCII_CTRL_G: event->type = LLE_KEY_CTRL_G; break;
             case LLE_ASCII_CTRL_H: event->type = LLE_KEY_BACKSPACE; break; // Ctrl+H = Backspace

@@ -317,6 +317,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
         lle_command_result_t cmd_result = LLE_CMD_SUCCESS;
         bool needs_display_update = true;
         
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_LOOP] Processing key event type: %d, character: 0x%02x\n", 
+                    event.type, event.character);
+            fprintf(stderr, "[LLE_INPUT_LOOP] About to enter switch statement with type %d\n", event.type);
+        }
+        
         switch (event.type) {
             case LLE_KEY_ENTER:
             case LLE_KEY_CTRL_M:
@@ -396,13 +402,36 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_HOME:
-            case LLE_KEY_CTRL_A:
                 cmd_result = lle_cmd_move_home(editor->display);
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Home key pressed\n");
+                }
+                break;
+                
+            case LLE_KEY_CTRL_A:
+                // Move to beginning of line
+                lle_text_move_cursor(editor->buffer, LLE_MOVE_HOME);
+                // Position cursor visually without redrawing prompt
+                size_t ctrl_a_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_a_prompt_width);
+                needs_display_update = false;
                 break;
                 
             case LLE_KEY_END:
-            case LLE_KEY_CTRL_E:
                 cmd_result = lle_cmd_move_end(editor->display);
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] End key pressed\n");
+                }
+                break;
+                
+            case LLE_KEY_CTRL_E:
+                // Move to end of line
+                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                // Position cursor visually at end of text without redrawing prompt
+                size_t ctrl_e_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                size_t text_width = lle_calculate_display_width_ansi(editor->buffer->buffer, editor->buffer->length);
+                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_e_prompt_width + text_width);
+                needs_display_update = false;
                 break;
                 
             case LLE_KEY_ARROW_UP:
@@ -444,8 +473,13 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_U:
-                // Standard readline: kill entire line (different from terminal Ctrl+U)
-                cmd_result = lle_cmd_kill_beginning(editor->display);
+                // Clear entire line
+                lle_text_buffer_clear(editor->buffer);
+                // Clear text area without redrawing prompt
+                size_t ctrl_u_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_u_prompt_width);
+                lle_terminal_clear_to_eol(editor->terminal);
+                needs_display_update = false;
                 break;
                 
             case LLE_KEY_CTRL_W:
@@ -471,13 +505,189 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 cmd_result = LLE_CMD_SUCCESS;
                 break;
                 
+            case LLE_KEY_CTRL_R:
+                // Reverse incremental search
+                if (editor->history_enabled && editor->history) {
+                    char search_term[256] = {0};
+                    size_t search_len = 0;
+                    const lle_history_entry_t *current_match = NULL;
+                    size_t search_start_index = 0;
+                    
+                    // Save current buffer content
+                    char *saved_buffer = malloc(editor->buffer->length + 1);
+                    if (saved_buffer) {
+                        memcpy(saved_buffer, editor->buffer->buffer, editor->buffer->length);
+                        saved_buffer[editor->buffer->length] = '\0';
+                        size_t saved_cursor = editor->buffer->cursor_pos;
+                        
+                        // Display initial search prompt on next line starting at column 0
+                        size_t ctrl_r_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                        lle_terminal_write(editor->terminal, "\n", 1);
+                        lle_terminal_move_cursor_to_column(editor->terminal, 0);
+                        lle_terminal_write(editor->terminal, "(reverse-i-search)`': ", 22);
+                        
+                        bool search_active = true;
+                        lle_key_event_t search_event;
+                        
+                        while (search_active) {
+                            if (lle_input_read_key(editor->terminal, &search_event)) {
+                                if (search_event.type == LLE_KEY_CTRL_R) {
+                                    // Find next match
+                                    if (search_len > 0) {
+                                        search_start_index++;
+                                        current_match = NULL;
+                                        for (size_t i = search_start_index; i < editor->history->count; i++) {
+                                            const lle_history_entry_t *entry = lle_history_get(editor->history, i);
+                                            if (entry && entry->command && strstr(entry->command, search_term)) {
+                                                current_match = entry;
+                                                search_start_index = i;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                } else if (search_event.type == LLE_KEY_ENTER || 
+                                          search_event.type == LLE_KEY_CTRL_M || 
+                                          search_event.type == LLE_KEY_CTRL_J) {
+                                    // Accept current match - load into buffer but don't execute
+                                    if (current_match && current_match->command) {
+                                        lle_text_buffer_clear(editor->buffer);
+                                        for (size_t i = 0; i < current_match->length; i++) {
+                                            lle_text_insert_char(editor->buffer, current_match->command[i]);
+                                        }
+                                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                                    }
+                                    search_active = false;
+                                } else if (search_event.type == LLE_KEY_CTRL_G || 
+                                          search_event.type == LLE_KEY_ESCAPE) {
+                                    // Cancel search - restore original buffer
+                                    lle_text_buffer_clear(editor->buffer);
+                                    for (size_t i = 0; i < strlen(saved_buffer); i++) {
+                                        lle_text_insert_char(editor->buffer, saved_buffer[i]);
+                                    }
+                                    lle_text_set_cursor(editor->buffer, saved_cursor);
+                                    search_active = false;
+                                } else if (search_event.type == LLE_KEY_BACKSPACE || 
+                                          search_event.type == LLE_KEY_CTRL_H) {
+                                    // Remove character from search term
+                                    if (search_len > 0) {
+                                        search_len--;
+                                        search_term[search_len] = '\0';
+                                        search_start_index = 0;
+                                        current_match = NULL;
+                                        // Re-search with shortened term
+                                        if (search_len > 0) {
+                                            for (size_t i = 0; i < editor->history->count; i++) {
+                                                const lle_history_entry_t *entry = lle_history_get(editor->history, i);
+                                                if (entry && entry->command && strstr(entry->command, search_term)) {
+                                                    current_match = entry;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else if (search_event.type == LLE_KEY_CHAR && 
+                                          search_event.character >= 32 && 
+                                          search_event.character <= 126 && 
+                                          search_len < sizeof(search_term) - 1) {
+                                    // Add character to search term
+                                    search_term[search_len] = search_event.character;
+                                    search_len++;
+                                    search_term[search_len] = '\0';
+                                    search_start_index = 0;
+                                    
+                                    // Search history for matching command
+                                    current_match = NULL;
+                                    for (size_t i = 0; i < editor->history->count; i++) {
+                                        const lle_history_entry_t *entry = lle_history_get(editor->history, i);
+                                        if (entry && entry->command && strstr(entry->command, search_term)) {
+                                            current_match = entry;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Update buffer with match if found
+                                    if (current_match && current_match->command) {
+                                        lle_text_buffer_clear(editor->buffer);
+                                        for (size_t i = 0; i < current_match->length; i++) {
+                                            lle_text_insert_char(editor->buffer, current_match->command[i]);
+                                        }
+                                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                                    }
+                                }
+                                
+                                // Update search prompt in place on current line starting at column 0
+                                lle_terminal_write(editor->terminal, "\r", 1);
+                                lle_terminal_move_cursor_to_column(editor->terminal, 0);
+                                lle_terminal_clear_to_eol(editor->terminal);
+                                lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                                if (search_len > 0) {
+                                    lle_terminal_write(editor->terminal, search_term, search_len);
+                                }
+                                lle_terminal_write(editor->terminal, "': ", 3);
+                                
+                                if (current_match && current_match->command) {
+                                    lle_terminal_write(editor->terminal, current_match->command, current_match->length);
+                                }
+                            } else {
+                                // Error reading input - exit search
+                                search_active = false;
+                            }
+                        }
+                        
+                        free(saved_buffer);
+                        
+                        // Clear search line and force full display refresh without extra newlines
+                        lle_terminal_write(editor->terminal, "\r", 1);
+                        lle_terminal_clear_to_eol(editor->terminal);
+                        lle_terminal_move_cursor_up(editor->terminal, 1);
+                        lle_terminal_move_cursor_to_column(editor->terminal, ctrl_r_prompt_width);
+                        lle_terminal_clear_to_eol(editor->terminal);
+                        
+                        // Redraw buffer content without full render to avoid extra newlines
+                        if (editor->buffer->length > 0) {
+                            lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
+                        }
+                    }
+                }
+                needs_display_update = false;
+                break;
+                
             case LLE_KEY_CHAR:
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] Character key: 0x%02x ('%c')\n", 
                             event.character, (event.character >= 32 && event.character <= 126) ? event.character : '?');
                 }
-                // Handle special control characters
-                if (event.character == LLE_ASCII_CTRL_UNDERSCORE) { // Ctrl+_ (undo)
+                // Handle control characters that may be detected as CHAR instead of specific key types
+                if (event.character == 0x01) { // Ctrl+A - move to beginning
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+A as CHAR - moving to beginning of line\n");
+                    }
+                    cmd_result = lle_cmd_move_home(editor->display);
+                }
+                else if (event.character == 0x05) { // Ctrl+E - move to end
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+E as CHAR - moving to end of line\n");
+                    }
+                    cmd_result = lle_cmd_move_end(editor->display);
+                }
+                else if (event.character == 0x12) { // Ctrl+R - reverse search
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+R as CHAR - history reverse search\n");
+                    }
+                    // Simple reverse search implementation
+                    if (editor->history_enabled && editor->history && editor->history->count > 0) {
+                        // Get the most recent matching entry for now
+                        const lle_history_entry_t *entry = lle_history_get(editor->history, 0);
+                        if (entry && entry->command) {
+                            lle_text_buffer_clear(editor->buffer);
+                            for (size_t i = 0; i < entry->length; i++) {
+                                lle_text_insert_char(editor->buffer, entry->command[i]);
+                            }
+                            lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                        }
+                    }
+                }
+                else if (event.character == LLE_ASCII_CTRL_UNDERSCORE) { // Ctrl+_ (undo)
                     if (editor->undo_enabled && editor->undo_stack) {
                         if (lle_undo_can_undo(editor->undo_stack)) {
                             lle_undo_execute(editor->undo_stack, editor->buffer);
@@ -525,10 +735,20 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 }
                 break;
                 
+            case LLE_KEY_CTRL_G:
+                // Cancel current line (clear buffer but stay in editor)
+                lle_text_buffer_clear(editor->buffer);
+                // Clear text area without redrawing prompt
+                size_t ctrl_g_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_g_prompt_width);
+                lle_terminal_clear_to_eol(editor->terminal);
+                needs_display_update = false;
+                break;
+                
             default:
                 // Unknown or unhandled key - ignore
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_INPUT_LOOP] Unknown/unhandled key type: %d\n", event.type);
+                    fprintf(stderr, "[LLE_INPUT_LOOP] DEFAULT case reached with key type: %d\n", event.type);
                 }
                 needs_display_update = false;
                 break;
@@ -536,26 +756,14 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
         
         // Update display if needed and command succeeded
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            // Check for debug mode to force full render approach
-            const char *force_full_render = getenv("LLE_FORCE_FULL_RENDER");
-            bool use_full_render = force_full_render && (strcmp(force_full_render, "1") == 0 || strcmp(force_full_render, "true") == 0);
-            
-            if (use_full_render) {
-                // Use original full render approach with mathematical framework
+            // Use incremental update instead of full render to prevent prompt redrawing
+            if (!lle_display_update_incremental(editor->display)) {
+                // If incremental update fails, fallback to full render
+                // This can happen in non-terminal environments
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_INPUT_LOOP] Using FULL RENDER approach (LLE_FORCE_FULL_RENDER=1)\n");
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Incremental update failed, falling back to full render\n");
                 }
                 lle_display_render(editor->display);
-            } else {
-                // Use incremental update instead of full render to prevent prompt redrawing
-                if (!lle_display_update_incremental(editor->display)) {
-                    // If incremental update fails, fallback to full render
-                    // This can happen in non-terminal environments
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Incremental update failed, falling back to full render\n");
-                    }
-                    lle_display_render(editor->display);
-                }
             }
         }
     }
