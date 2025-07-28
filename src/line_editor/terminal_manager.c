@@ -617,6 +617,20 @@ bool lle_terminal_clear_screen(lle_terminal_manager_t *tm) {
 }
 
 /**
+ * @brief Clear from cursor to end of screen using termcap
+ * @param tm Pointer to terminal manager structure
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_to_eos(lle_terminal_manager_t *tm) {
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    int result = lle_termcap_clear_to_eos();
+    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
  * @brief Set terminal colors using termcap
  *
  * Uses the integrated termcap system to set foreground and background

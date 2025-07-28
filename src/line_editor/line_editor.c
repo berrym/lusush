@@ -326,6 +326,21 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] Enter key pressed - completing line with %zu characters\n", 
                             editor->buffer->length);
                 }
+                
+                // Write newline and move cursor to beginning of line for command output
+                if (!lle_terminal_write(editor->terminal, "\n", 1)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to write newline after Enter\n");
+                    }
+                }
+                
+                // Move cursor to column 0 to ensure command output starts at beginning of line
+                if (!lle_terminal_move_cursor_to_column(editor->terminal, 0)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to column 0 after Enter\n");
+                    }
+                }
+                
                 result = malloc(editor->buffer->length + 1);
                 if (result) {
                     memcpy(result, editor->buffer->buffer, editor->buffer->length);
@@ -521,11 +536,26 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
         
         // Update display if needed and command succeeded
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            // Use incremental update instead of full render to prevent prompt redrawing
-            if (!lle_display_update_incremental(editor->display)) {
-                // If incremental update fails, fallback to full render
-                // This can happen in non-terminal environments
+            // Check for debug mode to force full render approach
+            const char *force_full_render = getenv("LLE_FORCE_FULL_RENDER");
+            bool use_full_render = force_full_render && (strcmp(force_full_render, "1") == 0 || strcmp(force_full_render, "true") == 0);
+            
+            if (use_full_render) {
+                // Use original full render approach with mathematical framework
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Using FULL RENDER approach (LLE_FORCE_FULL_RENDER=1)\n");
+                }
                 lle_display_render(editor->display);
+            } else {
+                // Use incremental update instead of full render to prevent prompt redrawing
+                if (!lle_display_update_incremental(editor->display)) {
+                    // If incremental update fails, fallback to full render
+                    // This can happen in non-terminal environments
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Incremental update failed, falling back to full render\n");
+                    }
+                    lle_display_render(editor->display);
+                }
             }
         }
     }
