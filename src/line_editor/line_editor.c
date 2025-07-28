@@ -507,148 +507,10 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_R:
-                // Reverse incremental search
-                if (editor->history_enabled && editor->history) {
-                    char search_term[256] = {0};
-                    size_t search_len = 0;
-                    const lle_history_entry_t *current_match = NULL;
-                    size_t search_start_index = 0;
-                    
-                    // Save current buffer content
-                    char *saved_buffer = malloc(editor->buffer->length + 1);
-                    if (saved_buffer) {
-                        memcpy(saved_buffer, editor->buffer->buffer, editor->buffer->length);
-                        saved_buffer[editor->buffer->length] = '\0';
-                        size_t saved_cursor = editor->buffer->cursor_pos;
-                        
-                        // Display initial search prompt on next line starting at column 0
-                        size_t ctrl_r_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                        lle_terminal_write(editor->terminal, "\n", 1);
-                        lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                        lle_terminal_write(editor->terminal, "(reverse-i-search)`': ", 22);
-                        
-                        bool search_active = true;
-                        lle_key_event_t search_event;
-                        
-                        while (search_active) {
-                            if (lle_input_read_key(editor->terminal, &search_event)) {
-                                if (search_event.type == LLE_KEY_CTRL_R) {
-                                    // Find next match
-                                    if (search_len > 0) {
-                                        search_start_index++;
-                                        current_match = NULL;
-                                        for (size_t i = search_start_index; i < editor->history->count; i++) {
-                                            const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                                            if (entry && entry->command && strstr(entry->command, search_term)) {
-                                                current_match = entry;
-                                                search_start_index = i;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                } else if (search_event.type == LLE_KEY_ENTER || 
-                                          search_event.type == LLE_KEY_CTRL_M || 
-                                          search_event.type == LLE_KEY_CTRL_J) {
-                                    // Accept current match - load into buffer but don't execute
-                                    if (current_match && current_match->command) {
-                                        lle_text_buffer_clear(editor->buffer);
-                                        for (size_t i = 0; i < current_match->length; i++) {
-                                            lle_text_insert_char(editor->buffer, current_match->command[i]);
-                                        }
-                                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                    }
-                                    search_active = false;
-                                } else if (search_event.type == LLE_KEY_CTRL_G || 
-                                          search_event.type == LLE_KEY_ESCAPE) {
-                                    // Cancel search - restore original buffer
-                                    lle_text_buffer_clear(editor->buffer);
-                                    for (size_t i = 0; i < strlen(saved_buffer); i++) {
-                                        lle_text_insert_char(editor->buffer, saved_buffer[i]);
-                                    }
-                                    lle_text_set_cursor(editor->buffer, saved_cursor);
-                                    search_active = false;
-                                } else if (search_event.type == LLE_KEY_BACKSPACE || 
-                                          search_event.type == LLE_KEY_CTRL_H) {
-                                    // Remove character from search term
-                                    if (search_len > 0) {
-                                        search_len--;
-                                        search_term[search_len] = '\0';
-                                        search_start_index = 0;
-                                        current_match = NULL;
-                                        // Re-search with shortened term
-                                        if (search_len > 0) {
-                                            for (size_t i = 0; i < editor->history->count; i++) {
-                                                const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                                                if (entry && entry->command && strstr(entry->command, search_term)) {
-                                                    current_match = entry;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else if (search_event.type == LLE_KEY_CHAR && 
-                                          search_event.character >= 32 && 
-                                          search_event.character <= 126 && 
-                                          search_len < sizeof(search_term) - 1) {
-                                    // Add character to search term
-                                    search_term[search_len] = search_event.character;
-                                    search_len++;
-                                    search_term[search_len] = '\0';
-                                    search_start_index = 0;
-                                    
-                                    // Search history for matching command
-                                    current_match = NULL;
-                                    for (size_t i = 0; i < editor->history->count; i++) {
-                                        const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                                        if (entry && entry->command && strstr(entry->command, search_term)) {
-                                            current_match = entry;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    // Update buffer with match if found
-                                    if (current_match && current_match->command) {
-                                        lle_text_buffer_clear(editor->buffer);
-                                        for (size_t i = 0; i < current_match->length; i++) {
-                                            lle_text_insert_char(editor->buffer, current_match->command[i]);
-                                        }
-                                        lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                    }
-                                }
-                                
-                                // Update search prompt in place on current line starting at column 0
-                                lle_terminal_write(editor->terminal, "\r", 1);
-                                lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                                lle_terminal_clear_to_eol(editor->terminal);
-                                lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
-                                if (search_len > 0) {
-                                    lle_terminal_write(editor->terminal, search_term, search_len);
-                                }
-                                lle_terminal_write(editor->terminal, "': ", 3);
-                                
-                                if (current_match && current_match->command) {
-                                    lle_terminal_write(editor->terminal, current_match->command, current_match->length);
-                                }
-                            } else {
-                                // Error reading input - exit search
-                                search_active = false;
-                            }
-                        }
-                        
-                        free(saved_buffer);
-                        
-                        // Clear search line and force full display refresh without extra newlines
-                        lle_terminal_write(editor->terminal, "\r", 1);
-                        lle_terminal_clear_to_eol(editor->terminal);
-                        lle_terminal_move_cursor_up(editor->terminal, 1);
-                        lle_terminal_move_cursor_to_column(editor->terminal, ctrl_r_prompt_width);
-                        lle_terminal_clear_to_eol(editor->terminal);
-                        
-                        // Redraw buffer content without full render to avoid extra newlines
-                        if (editor->buffer->length > 0) {
-                            lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
-                        }
-                    }
+                // Temporarily disabled - Ctrl+R search implementation causes display corruption
+                // TODO: Reimplement Ctrl+R search using display system APIs in Phase 3
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+R temporarily disabled to prevent display corruption\n");
                 }
                 needs_display_update = false;
                 break;
@@ -671,22 +533,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     }
                     cmd_result = lle_cmd_move_end(editor->display);
                 }
-                else if (event.character == 0x12) { // Ctrl+R - reverse search
+                else if (event.character == 0x12) { // Ctrl+R - reverse search (disabled)
                     if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+R as CHAR - history reverse search\n");
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+R as CHAR - temporarily disabled\n");
                     }
-                    // Simple reverse search implementation
-                    if (editor->history_enabled && editor->history && editor->history->count > 0) {
-                        // Get the most recent matching entry for now
-                        const lle_history_entry_t *entry = lle_history_get(editor->history, 0);
-                        if (entry && entry->command) {
-                            lle_text_buffer_clear(editor->buffer);
-                            for (size_t i = 0; i < entry->length; i++) {
-                                lle_text_insert_char(editor->buffer, entry->command[i]);
-                            }
-                            lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                        }
-                    }
+                    // Temporarily disabled - causes display corruption
+                    needs_display_update = false;
                 }
                 else if (event.character == LLE_ASCII_CTRL_UNDERSCORE) { // Ctrl+_ (undo)
                     if (editor->undo_enabled && editor->undo_stack) {

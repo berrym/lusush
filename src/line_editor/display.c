@@ -1281,7 +1281,7 @@ bool lle_display_move_cursor_home(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_MOVE_HOME] Before move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
-    // Move cursor in buffer to beginning
+    // Move cursor in buffer to beginning (same as original)
     if (!lle_text_move_cursor(state->buffer, LLE_MOVE_HOME)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_MOVE_HOME] Failed to move cursor in buffer\n");
@@ -1293,11 +1293,14 @@ bool lle_display_move_cursor_home(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_MOVE_HOME] After move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
-    // Update cursor display using display system
-    bool result = lle_display_update_cursor(state);
+    // Position cursor visually without redrawing prompt (original working approach)
+    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+    bool result = lle_terminal_move_cursor_to_column(state->terminal, prompt_width);
+    
     if (debug_mode) {
-        fprintf(stderr, "[LLE_MOVE_HOME] Display update cursor result: %s\n", result ? "SUCCESS" : "FAILED");
+        fprintf(stderr, "[LLE_MOVE_HOME] Terminal cursor positioning result: %s\n", result ? "SUCCESS" : "FAILED");
     }
+    
     return result;
 }
 
@@ -1332,7 +1335,7 @@ bool lle_display_move_cursor_end(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_MOVE_END] Before move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
-    // Move cursor in buffer to end
+    // Move cursor in buffer to end (same as original)
     if (!lle_text_move_cursor(state->buffer, LLE_MOVE_END)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_MOVE_END] Failed to move cursor in buffer\n");
@@ -1344,11 +1347,15 @@ bool lle_display_move_cursor_end(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_MOVE_END] After move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
-    // Update cursor display using display system
-    bool result = lle_display_update_cursor(state);
+    // Position cursor visually at end of text without redrawing prompt (original working approach)
+    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+    size_t text_width = lle_calculate_display_width_ansi(state->buffer->buffer, state->buffer->length);
+    bool result = lle_terminal_move_cursor_to_column(state->terminal, prompt_width + text_width);
+    
     if (debug_mode) {
-        fprintf(stderr, "[LLE_MOVE_END] Display update cursor result: %s\n", result ? "SUCCESS" : "FAILED");
+        fprintf(stderr, "[LLE_MOVE_END] Terminal cursor positioning result: %s\n", result ? "SUCCESS" : "FAILED");
     }
+    
     return result;
 }
 
