@@ -36,9 +36,154 @@ static size_t lle_calculate_display_width(const char *text, size_t length) {
         return 0;
     }
     
-    // For ASCII text, byte length equals character length
-    // TODO: Enhanced implementation for UTF-8 and ANSI escape sequences
-    return length;
+    size_t display_width = 0;
+    size_t i = 0;
+    
+    while (i < length) {
+        // Handle ANSI escape sequences (zero display width)
+        if (text[i] == '\033' && i + 1 < length && text[i + 1] == '[') {
+            // Skip ANSI escape sequence
+            i += 2; // Skip '\033['
+            
+            // Find the end of the sequence (marked by a letter)
+            while (i < length && !((text[i] >= 'A' && text[i] <= 'Z') || 
+                                   (text[i] >= 'a' && text[i] <= 'z'))) {
+                i++;
+            }
+            
+            if (i < length) {
+                i++; // Skip the terminating letter
+            }
+            continue; // ANSI sequences have zero display width
+        }
+        
+        // Handle UTF-8 multi-byte characters
+        unsigned char byte = (unsigned char)text[i];
+        size_t char_bytes = 1;
+        uint32_t codepoint = 0;
+        
+        // Determine UTF-8 character byte length and decode codepoint
+        if (byte < 0x80) {
+            // ASCII (0xxxxxxx)
+            codepoint = byte;
+            char_bytes = 1;
+        } else if ((byte & 0xE0) == 0xC0) {
+            // 2-byte UTF-8 (110xxxxx 10xxxxxx)
+            if (i + 1 < length && (text[i + 1] & 0xC0) == 0x80) {
+                codepoint = ((byte & 0x1F) << 6) | (text[i + 1] & 0x3F);
+                char_bytes = 2;
+            } else {
+                // Invalid UTF-8, treat as single byte
+                char_bytes = 1;
+                codepoint = byte;
+            }
+        } else if ((byte & 0xF0) == 0xE0) {
+            // 3-byte UTF-8 (1110xxxx 10xxxxxx 10xxxxxx)
+            if (i + 2 < length && 
+                (text[i + 1] & 0xC0) == 0x80 && 
+                (text[i + 2] & 0xC0) == 0x80) {
+                codepoint = ((byte & 0x0F) << 12) | 
+                           ((text[i + 1] & 0x3F) << 6) | 
+                           (text[i + 2] & 0x3F);
+                char_bytes = 3;
+            } else {
+                // Invalid UTF-8, treat as single byte
+                char_bytes = 1;
+                codepoint = byte;
+            }
+        } else if ((byte & 0xF8) == 0xF0) {
+            // 4-byte UTF-8 (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+            if (i + 3 < length && 
+                (text[i + 1] & 0xC0) == 0x80 && 
+                (text[i + 2] & 0xC0) == 0x80 && 
+                (text[i + 3] & 0xC0) == 0x80) {
+                codepoint = ((byte & 0x07) << 18) | 
+                           ((text[i + 1] & 0x3F) << 12) | 
+                           ((text[i + 2] & 0x3F) << 6) | 
+                           (text[i + 3] & 0x3F);
+                char_bytes = 4;
+            } else {
+                // Invalid UTF-8, treat as single byte
+                char_bytes = 1;
+                codepoint = byte;
+            }
+        } else {
+            // Invalid UTF-8 start byte, treat as single byte
+            char_bytes = 1;
+            codepoint = byte;
+        }
+        
+        // Determine display width based on Unicode codepoint
+        size_t char_display_width = 1; // Default for most characters
+        
+        if (codepoint < 0x20) {
+            // Control characters (0x00-0x1F) - zero width except tab
+            if (codepoint == '\t') {
+                char_display_width = 8; // Tab width (could be configurable)
+            } else {
+                char_display_width = 0; // Other control characters are zero-width
+            }
+        } else if (codepoint == 0x7F) {
+            // DEL character - zero width
+            char_display_width = 0;
+        } else if (codepoint >= 0x80 && codepoint <= 0x9F) {
+            // C1 control characters - zero width
+            char_display_width = 0;
+        } else if ((codepoint >= 0x0300 && codepoint <= 0x036F) ||  // Combining Diacritical Marks
+                   (codepoint >= 0x1AB0 && codepoint <= 0x1AFF) ||  // Combining Diacritical Marks Extended
+                   (codepoint >= 0x1DC0 && codepoint <= 0x1DFF) ||  // Combining Diacritical Marks Supplement
+                   (codepoint >= 0x20D0 && codepoint <= 0x20FF) ||  // Combining Diacritical Marks for Symbols
+                   (codepoint >= 0xFE20 && codepoint <= 0xFE2F)) {  // Combining Half Marks
+            // Combining characters - zero width
+            char_display_width = 0;
+        } else if ((codepoint >= 0x1100 && codepoint <= 0x115F) ||  // Hangul Jamo
+                   (codepoint >= 0x2E80 && codepoint <= 0x2EFF) ||  // CJK Radicals Supplement
+                   (codepoint >= 0x2F00 && codepoint <= 0x2FDF) ||  // Kangxi Radicals
+                   (codepoint >= 0x3000 && codepoint <= 0x303F) ||  // CJK Symbols and Punctuation
+                   (codepoint >= 0x3040 && codepoint <= 0x309F) ||  // Hiragana
+                   (codepoint >= 0x30A0 && codepoint <= 0x30FF) ||  // Katakana
+                   (codepoint >= 0x3100 && codepoint <= 0x312F) ||  // Bopomofo
+                   (codepoint >= 0x3130 && codepoint <= 0x318F) ||  // Hangul Compatibility Jamo
+                   (codepoint >= 0x3190 && codepoint <= 0x319F) ||  // Kanbun
+                   (codepoint >= 0x31A0 && codepoint <= 0x31BF) ||  // Bopomofo Extended
+                   (codepoint >= 0x31C0 && codepoint <= 0x31EF) ||  // CJK Strokes
+                   (codepoint >= 0x31F0 && codepoint <= 0x31FF) ||  // Katakana Phonetic Extensions
+                   (codepoint >= 0x3200 && codepoint <= 0x32FF) ||  // Enclosed CJK Letters and Months
+                   (codepoint >= 0x3300 && codepoint <= 0x33FF) ||  // CJK Compatibility
+                   (codepoint >= 0x3400 && codepoint <= 0x4DBF) ||  // CJK Unified Ideographs Extension A
+                   (codepoint >= 0x4E00 && codepoint <= 0x9FFF) ||  // CJK Unified Ideographs
+                   (codepoint >= 0xA000 && codepoint <= 0xA48F) ||  // Yi Syllables
+                   (codepoint >= 0xA490 && codepoint <= 0xA4CF) ||  // Yi Radicals
+                   (codepoint >= 0xAC00 && codepoint <= 0xD7AF) ||  // Hangul Syllables
+                   (codepoint >= 0xF900 && codepoint <= 0xFAFF) ||  // CJK Compatibility Ideographs
+                   (codepoint >= 0xFE10 && codepoint <= 0xFE19) ||  // Vertical Forms
+                   (codepoint >= 0xFE30 && codepoint <= 0xFE4F) ||  // CJK Compatibility Forms
+                   (codepoint >= 0xFE50 && codepoint <= 0xFE6F) ||  // Small Form Variants
+                   (codepoint >= 0xFF00 && codepoint <= 0xFF60) ||  // Fullwidth Forms
+                   (codepoint >= 0xFFE0 && codepoint <= 0xFFE6) ||  // Fullwidth Forms
+                   (codepoint >= 0x20000 && codepoint <= 0x2FFFD) || // CJK Unified Ideographs Extension B-E
+                   (codepoint >= 0x30000 && codepoint <= 0x3FFFD)) { // CJK Unified Ideographs Extension F
+            // Double-width characters (CJK, fullwidth)
+            char_display_width = 2;
+        } else if (codepoint >= 0x1F600 && codepoint <= 0x1F64F) {
+            // Emoticons - typically double-width in terminals
+            char_display_width = 2;
+        } else if (codepoint >= 0x1F300 && codepoint <= 0x1F5FF) {
+            // Miscellaneous Symbols and Pictographs - typically double-width
+            char_display_width = 2;
+        } else if (codepoint >= 0x1F680 && codepoint <= 0x1F6FF) {
+            // Transport and Map Symbols - typically double-width
+            char_display_width = 2;
+        } else {
+            // Regular single-width character
+            char_display_width = 1;
+        }
+        
+        display_width += char_display_width;
+        i += char_bytes;
+    }
+    
+    return display_width;
 }
 
 /**
@@ -88,8 +233,17 @@ lle_cursor_position_t lle_calculate_cursor_position(
     // Calculate display width of text up to cursor position
     size_t text_width = lle_calculate_display_width(buffer->buffer, buffer->cursor_pos);
     
+    // Comprehensive debug output for cursor math calculation
+    fprintf(stderr, "[CURSOR_MATH] INPUTS: buffer->length=%zu, buffer->cursor_pos=%zu, prompt_width=%zu, terminal_width=%zu\n",
+           buffer->length, buffer->cursor_pos, prompt_width, geometry->width);
+    fprintf(stderr, "[CURSOR_MATH] TEXT_ANALYSIS: bytes_to_cursor=%zu, display_width=%zu\n",
+           buffer->cursor_pos, text_width);
+    
     // Total display width including prompt
     size_t total_width = prompt_width + text_width;
+    
+    fprintf(stderr, "[CURSOR_MATH] CALCULATION: prompt_width=%zu + text_width=%zu = total_width=%zu\n", 
+           prompt_width, text_width, total_width);
     
     // Calculate relative position (within the prompt/input area)
     if (geometry->width == 0) {
@@ -97,25 +251,51 @@ lle_cursor_position_t lle_calculate_cursor_position(
         return result;
     }
     
-    result.relative_row = total_width / geometry->width;
-    result.relative_col = total_width % geometry->width;
+    // Handle special case where total_width is exactly at terminal width boundary
+    if (total_width > 0 && total_width % geometry->width == 0) {
+        // Cursor wraps to start of next line
+        result.relative_row = total_width / geometry->width;
+        result.relative_col = 0;
+        result.at_boundary = true;
+    } else {
+        // Normal case: calculate position within line
+        result.relative_row = total_width / geometry->width;
+        result.relative_col = total_width % geometry->width;
+        result.at_boundary = false;
+    }
     
-    // Calculate absolute position (from terminal origin)
-    // Assume prompt starts at top of terminal for now
-    // TODO: Enhanced implementation will consider prompt_height offset
+    fprintf(stderr, "[CURSOR_MATH] POSITION_CALC: relative_row=%zu, relative_col=%zu, at_boundary=%s\n",
+           result.relative_row, result.relative_col, result.at_boundary ? "true" : "false");
+    
+    // For line editor, absolute position is same as relative position
+    // The display system handles positioning relative to prompt location
     result.absolute_row = result.relative_row;
     result.absolute_col = result.relative_col;
     
-    // Detect boundary conditions - at boundary when we're at column 0 due to wrapping
-    result.at_boundary = (result.relative_col == 0 && result.relative_row > 0);
+    fprintf(stderr, "[CURSOR_MATH] RELATIVE_MODE: absolute_row=%zu, absolute_col=%zu (relative to prompt, not terminal origin)\n",
+           result.absolute_row, result.absolute_col);
     
-    // Validate calculated position is within terminal bounds
-    if (result.absolute_row >= geometry->height || 
-        result.absolute_col >= geometry->width) {
+    // Additional boundary condition validation
+    if (result.at_boundary && result.relative_col != 0) {
+        fprintf(stderr, "[CURSOR_MATH] BOUNDARY_ERROR: at_boundary=true but col=%zu != 0 (should be at start of next line)\n",
+               result.relative_col);
         result.valid = false;
         return result;
     }
     
+    // Validate calculated position is reasonable for text input area
+    // Allow reasonable number of wrapped lines for text input
+    size_t max_text_lines = geometry->height - 2; // Leave space for prompt and status
+    if (result.absolute_row >= max_text_lines || 
+        result.absolute_col >= geometry->width) {
+        fprintf(stderr, "[CURSOR_MATH] VALIDATION_FAILED: position out of bounds (row=%zu >= max_lines=%zu OR col=%zu >= width=%zu)\n",
+               result.absolute_row, max_text_lines, result.absolute_col, geometry->width);
+        result.valid = false;
+        return result;
+    }
+    
+    fprintf(stderr, "[CURSOR_MATH] Position calculated successfully: row=%zu, col=%zu\n", 
+           result.absolute_row, result.absolute_col);
     result.valid = true;
     return result;
 }
@@ -208,14 +388,24 @@ lle_cursor_position_t lle_calculate_cursor_position_at_offset(
         return result;
     }
     
-    result.relative_row = total_width / geometry->width;
-    result.relative_col = total_width % geometry->width;
+    // Use same robust boundary detection as main function
+    if (total_width > 0 && total_width % geometry->width == 0) {
+        result.relative_row = total_width / geometry->width;
+        result.relative_col = 0;
+        result.at_boundary = true;
+    } else {
+        result.relative_row = total_width / geometry->width;
+        result.relative_col = total_width % geometry->width;
+        result.at_boundary = false;
+    }
+    
+    // Use relative positioning - absolute same as relative for line editor
     result.absolute_row = result.relative_row;
     result.absolute_col = result.relative_col;
-    result.at_boundary = (result.relative_col == 0 && total_width > 0);
     
-    // Validate calculated position
-    if (result.absolute_row >= geometry->height || 
+    // Validate calculated position for text input area
+    size_t max_text_lines = geometry->height - 2;
+    if (result.absolute_row >= max_text_lines || 
         result.absolute_col >= geometry->width) {
         result.valid = false;
         return result;
@@ -251,8 +441,16 @@ size_t lle_calculate_offset_for_position(
         return SIZE_MAX;
     }
     
+    // Handle boundary positions correctly - boundary positions represent end of line
+    
     // Calculate total character position from row/column
-    size_t total_char_pos = target_pos->relative_row * geometry->width + target_pos->relative_col;
+    size_t total_char_pos;
+    if (target_pos->at_boundary && target_pos->relative_col == 0) {
+        // Special case: boundary position at start of line represents end of previous line
+        total_char_pos = target_pos->relative_row * geometry->width;
+    } else {
+        total_char_pos = target_pos->relative_row * geometry->width + target_pos->relative_col;
+    }
     
     // Subtract prompt width to get text position
     if (total_char_pos < prompt_width) {
@@ -261,13 +459,47 @@ size_t lle_calculate_offset_for_position(
     
     size_t text_pos = total_char_pos - prompt_width;
     
-    // For ASCII text, character position equals byte position
-    // TODO: Enhanced for UTF-8 where this conversion is more complex
-    if (text_pos > buffer->length) {
-        return buffer->length; // Clamp to end of buffer
+    // Convert character position to byte position for UTF-8 text
+    if (text_pos == 0) {
+        return 0;
     }
     
-    return text_pos;
+    // For UTF-8 text, we need to iterate through characters to find byte position
+    size_t char_count = 0;
+    size_t byte_pos = 0;
+    
+    while (byte_pos < buffer->length && char_count < text_pos) {
+        unsigned char byte = (unsigned char)buffer->buffer[byte_pos];
+        size_t char_bytes = 1;
+        
+        // Determine UTF-8 character byte length
+        if (byte < 0x80) {
+            // ASCII (0xxxxxxx)
+            char_bytes = 1;
+        } else if ((byte & 0xE0) == 0xC0) {
+            // 2-byte UTF-8 (110xxxxx 10xxxxxx)
+            char_bytes = 2;
+        } else if ((byte & 0xF0) == 0xE0) {
+            // 3-byte UTF-8 (1110xxxx 10xxxxxx 10xxxxxx)
+            char_bytes = 3;
+        } else if ((byte & 0xF8) == 0xF0) {
+            // 4-byte UTF-8 (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+            char_bytes = 4;
+        } else {
+            // Invalid UTF-8 start byte, treat as single byte
+            char_bytes = 1;
+        }
+        
+        // Ensure we don't go beyond buffer bounds
+        if (byte_pos + char_bytes > buffer->length) {
+            break;
+        }
+        
+        byte_pos += char_bytes;
+        char_count++;
+    }
+    
+    return byte_pos;
 }
 
 /**
@@ -288,8 +520,10 @@ bool lle_cursor_position_requires_wrap(
         return false;
     }
     
-    // Wrapping occurs when cursor is at the rightmost column
-    return (pos->relative_col == geometry->width - 1);
+    // Position requires wrap if:
+    // 1. It's at the rightmost column (would wrap on next character), OR
+    // 2. It's already at a boundary (wrapped position)
+    return (pos->relative_col >= geometry->width - 1) || pos->at_boundary;
 }
 
 /**
@@ -337,36 +571,9 @@ size_t lle_calculate_text_lines(
  * @note Enhanced version of lle_calculate_display_width with ANSI support
  */
 size_t lle_calculate_display_width_ansi(const char *text, size_t length) {
-    if (!text || length == 0) {
-        return 0;
-    }
-    
-    size_t display_width = 0;
-    size_t i = 0;
-    
-    while (i < length) {
-        // Check for ANSI escape sequence
-        if (text[i] == '\033' && i + 1 < length && text[i + 1] == '[') {
-            // Skip ANSI escape sequence
-            i += 2; // Skip '\033['
-            
-            // Find the end of the sequence (marked by a letter)
-            while (i < length && !((text[i] >= 'A' && text[i] <= 'Z') || 
-                                   (text[i] >= 'a' && text[i] <= 'z'))) {
-                i++;
-            }
-            
-            if (i < length) {
-                i++; // Skip the terminating letter
-            }
-        } else {
-            // Regular character contributes to display width
-            display_width++;
-            i++;
-        }
-    }
-    
-    return display_width;
+    // Delegate to the main robust implementation
+    // This function is kept for API compatibility
+    return lle_calculate_display_width(text, length);
 }
 
 /**
