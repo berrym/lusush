@@ -409,11 +409,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_A:
-                // Move to beginning of line
-                lle_text_move_cursor(editor->buffer, LLE_MOVE_HOME);
-                // Position cursor visually without redrawing prompt
-                size_t ctrl_a_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_a_prompt_width);
+                // Move to beginning of line using display system API
+                if (!lle_display_move_cursor_home(editor->display)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to home position\n");
+                    }
+                }
                 needs_display_update = false;
                 break;
                 
@@ -425,12 +426,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_E:
-                // Move to end of line
-                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                // Position cursor visually at end of text without redrawing prompt
-                size_t ctrl_e_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                size_t text_width = lle_calculate_display_width_ansi(editor->buffer->buffer, editor->buffer->length);
-                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_e_prompt_width + text_width);
+                // Move to end of line using display system API
+                if (!lle_display_move_cursor_end(editor->display)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to end position\n");
+                    }
+                }
                 needs_display_update = false;
                 break;
                 
@@ -473,12 +474,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_U:
-                // Clear entire line
-                lle_text_buffer_clear(editor->buffer);
-                // Clear text area without redrawing prompt
-                size_t ctrl_u_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_u_prompt_width);
-                lle_terminal_clear_to_eol(editor->terminal);
+                // Clear entire line using display system API
+                if (!lle_display_clear_line(editor->display)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to clear line\n");
+                    }
+                }
                 needs_display_update = false;
                 break;
                 
@@ -736,12 +737,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_G:
-                // Cancel current line (clear buffer but stay in editor)
-                lle_text_buffer_clear(editor->buffer);
-                // Clear text area without redrawing prompt
-                size_t ctrl_g_prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                lle_terminal_move_cursor_to_column(editor->terminal, ctrl_g_prompt_width);
-                lle_terminal_clear_to_eol(editor->terminal);
+                // Cancel current line (clear buffer but stay in editor) using display system API
+                if (!lle_display_clear_line(editor->display)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to clear line for cancel operation\n");
+                    }
+                }
                 needs_display_update = false;
                 break;
                 
