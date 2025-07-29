@@ -890,8 +890,8 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 }
             }
             
-            // Clear the line to remove wrapped content
-            if (!lle_terminal_clear_to_eol(state->terminal)) {
+            // Clear the line to remove wrapped content (Linux-safe)
+            if (!lle_display_clear_to_eol_linux_safe(state)) {
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear line for boundary crossing\n");
                 }
@@ -1243,20 +1243,12 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
     }
     
-    // Clear to end of line based on platform and complexity
-    if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
-        // Use standard clearing for non-Linux or complex cases
-        if (!lle_terminal_clear_to_eol(state->terminal)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
-            }
-            return false;
-        }
-    } else {
-        // Simple Linux case: clearing already handled by prompt rewrite
+    // Clear to end of line using Linux-safe method (automatically handles platform detection)
+    if (!lle_display_clear_to_eol_linux_safe(state)) {
         if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux: Simple case, clearing via overwrite\n");
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
         }
+        return false;
     }
 
     // Write the text with syntax highlighting if enabled
@@ -2204,7 +2196,7 @@ bool lle_display_exit_search_mode(lle_display_state_t *state) {
                 return false;
             }
         }
-        if (!lle_terminal_clear_to_eol(state->terminal)) {
+        if (!lle_display_clear_to_eol_linux_safe(state)) {
             return false;
         }
         // Move cursor up to original prompt line
@@ -2245,7 +2237,7 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         if (!lle_terminal_write(state->terminal, "\r", 1)) {
             return false;
         }
-        if (!lle_terminal_clear_to_eol(state->terminal)) {
+        if (!lle_display_clear_to_eol_linux_safe(state)) {
             return false;
         }
         

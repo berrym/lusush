@@ -984,7 +984,15 @@ bool lle_terminal_query_cursor_position(lle_terminal_manager_t *tm,
         return false;
     }
     
-    // Query current position from terminal
+    // Disable cursor queries on Linux to prevent escape sequence artifacts
+    // Linux terminals often have timing issues with cursor position queries
+    // that cause ^[[row;colR sequences to appear in the output
+#ifdef __linux__
+    // Always return false on Linux to use fallback positioning
+    return false;
+#endif
+    
+    // Query current position from terminal (non-Linux platforms)
     int row, col;
     int result = lle_termcap_get_cursor_pos(&row, &col);
     

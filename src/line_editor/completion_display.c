@@ -327,8 +327,32 @@ bool lle_completion_display_show(
         return false; // Invalid coordinate conversion
     }
     
-    // Move to menu start position (one line down)
-    menu_start_pos.terminal_row += 1;
+    // Check if menu would exceed terminal height and position accordingly
+    size_t menu_height = completion_display->display_count;
+    size_t terminal_height = display_state->geometry.height;
+    
+    // Position menu below cursor if there's room, otherwise above
+    bool position_below = true;
+    if (menu_start_pos.terminal_row + 1 + menu_height >= terminal_height) {
+        // Not enough room below - position above cursor instead
+        if (current_cursor.absolute_row >= menu_height) {
+            position_below = false;
+            menu_start_pos.terminal_row = (current_cursor.absolute_row >= menu_height) ? 
+                current_cursor.absolute_row - menu_height : 0;
+        } else {
+            // Not enough room above either - position below and let it scroll
+            menu_start_pos.terminal_row += 1;
+        }
+    } else {
+        // Room below - position one line down as normal
+        menu_start_pos.terminal_row += 1;
+    }
+    
+    // Ensure we don't go beyond terminal bounds
+    if (menu_start_pos.terminal_row >= terminal_height) {
+        menu_start_pos.terminal_row = terminal_height - 1;
+    }
+    
     if (!lle_terminal_move_cursor(display_state->terminal, 
                                  menu_start_pos.terminal_row, 1)) {
         return false;

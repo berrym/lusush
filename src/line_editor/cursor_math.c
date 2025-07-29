@@ -233,17 +233,24 @@ lle_cursor_position_t lle_calculate_cursor_position(
     // Calculate display width of text up to cursor position
     size_t text_width = lle_calculate_display_width(buffer->buffer, buffer->cursor_pos);
     
-    // Comprehensive debug output for cursor math calculation
-    fprintf(stderr, "[CURSOR_MATH] INPUTS: buffer->length=%zu, buffer->cursor_pos=%zu, prompt_width=%zu, terminal_width=%zu\n",
-           buffer->length, buffer->cursor_pos, prompt_width, geometry->width);
-    fprintf(stderr, "[CURSOR_MATH] TEXT_ANALYSIS: bytes_to_cursor=%zu, display_width=%zu\n",
-           buffer->cursor_pos, text_width);
+    // Debug output for cursor math calculation (only when LLE_DEBUG is enabled)
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[CURSOR_MATH] INPUTS: buffer->length=%zu, buffer->cursor_pos=%zu, prompt_width=%zu, terminal_width=%zu\n",
+               buffer->length, buffer->cursor_pos, prompt_width, geometry->width);
+        fprintf(stderr, "[CURSOR_MATH] TEXT_ANALYSIS: bytes_to_cursor=%zu, display_width=%zu\n",
+               buffer->cursor_pos, text_width);
+    }
     
     // Total display width including prompt
     size_t total_width = prompt_width + text_width;
     
-    fprintf(stderr, "[CURSOR_MATH] CALCULATION: prompt_width=%zu + text_width=%zu = total_width=%zu\n", 
-           prompt_width, text_width, total_width);
+    if (debug_mode) {
+        fprintf(stderr, "[CURSOR_MATH] CALCULATION: prompt_width=%zu + text_width=%zu = total_width=%zu\n", 
+               prompt_width, text_width, total_width);
+    }
     
     // Calculate relative position (within the prompt/input area)
     if (geometry->width == 0) {
@@ -264,21 +271,27 @@ lle_cursor_position_t lle_calculate_cursor_position(
         result.at_boundary = false;
     }
     
-    fprintf(stderr, "[CURSOR_MATH] POSITION_CALC: relative_row=%zu, relative_col=%zu, at_boundary=%s\n",
-           result.relative_row, result.relative_col, result.at_boundary ? "true" : "false");
+    if (debug_mode) {
+        fprintf(stderr, "[CURSOR_MATH] POSITION_CALC: relative_row=%zu, relative_col=%zu, at_boundary=%s\n",
+               result.relative_row, result.relative_col, result.at_boundary ? "true" : "false");
+    }
     
     // For line editor, absolute position is same as relative position
     // The display system handles positioning relative to prompt location
     result.absolute_row = result.relative_row;
     result.absolute_col = result.relative_col;
     
-    fprintf(stderr, "[CURSOR_MATH] RELATIVE_MODE: absolute_row=%zu, absolute_col=%zu (relative to prompt, not terminal origin)\n",
-           result.absolute_row, result.absolute_col);
+    if (debug_mode) {
+        fprintf(stderr, "[CURSOR_MATH] RELATIVE_MODE: absolute_row=%zu, absolute_col=%zu (relative to prompt, not terminal origin)\n",
+               result.absolute_row, result.absolute_col);
+    }
     
     // Additional boundary condition validation
     if (result.at_boundary && result.relative_col != 0) {
-        fprintf(stderr, "[CURSOR_MATH] BOUNDARY_ERROR: at_boundary=true but col=%zu != 0 (should be at start of next line)\n",
-               result.relative_col);
+        if (debug_mode) {
+            fprintf(stderr, "[CURSOR_MATH] BOUNDARY_ERROR: at_boundary=true but col=%zu != 0 (should be at start of next line)\n",
+                   result.relative_col);
+        }
         result.valid = false;
         return result;
     }
@@ -286,16 +299,20 @@ lle_cursor_position_t lle_calculate_cursor_position(
     // Validate calculated position is reasonable for text input area
     // Allow reasonable number of wrapped lines for text input
     size_t max_text_lines = geometry->height - 2; // Leave space for prompt and status
-    if (result.absolute_row >= max_text_lines || 
+    if (result.absolute_row >= max_text_lines ||
         result.absolute_col >= geometry->width) {
-        fprintf(stderr, "[CURSOR_MATH] VALIDATION_FAILED: position out of bounds (row=%zu >= max_lines=%zu OR col=%zu >= width=%zu)\n",
-               result.absolute_row, max_text_lines, result.absolute_col, geometry->width);
+        if (debug_mode) {
+            fprintf(stderr, "[CURSOR_MATH] POSITION_ERROR: Calculated position (%zu,%zu) exceeds limits (max_lines=%zu, width=%zu)\n",
+                   result.absolute_row, result.absolute_col, max_text_lines, geometry->width);
+        }
         result.valid = false;
         return result;
     }
     
-    fprintf(stderr, "[CURSOR_MATH] Position calculated successfully: row=%zu, col=%zu\n", 
-           result.absolute_row, result.absolute_col);
+    if (debug_mode) {
+        fprintf(stderr, "[CURSOR_MATH] Position calculated successfully: row=%zu, col=%zu\n", 
+               result.absolute_row, result.absolute_col);
+    }
     result.valid = true;
     return result;
 }

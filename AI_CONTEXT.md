@@ -1,5 +1,5 @@
-# AI Context: Lusush Line Editor (LLE) Development + Enhanced POSIX History + MULTILINE ARCHITECTURE REWRITE COMPLETE
-**Last Updated**: December 2024 | **Version**: PHASE 2D FINAL INTEGRATION COMPLETE | **STATUS**: DISPLAY ARCHITECTURE REWRITE COMPLETE | **CURRENT**: All phases complete - production ready for Lusush shell integration
+# AI Context: Lusush Line Editor (LLE) Development + Enhanced POSIX History + LINUX COMPATIBILITY INVESTIGATION
+**Last Updated**: December 2024 | **Version**: PHASE 2D FINAL INTEGRATION COMPLETE + LINUX COMPATIBILITY FIXES | **STATUS**: DISPLAY ARCHITECTURE REWRITE COMPLETE + LINUX ISSUES IDENTIFIED | **CURRENT**: Linux compatibility work in progress - major fixes implemented, additional issues identified
 
 ## 🎯 CURRENT STATUS SUMMARY (December 2024)
 
@@ -290,10 +290,10 @@ Any operation   # Display system corruption, prompts at wrong positions ❌
 
 **Current State**: ✅ **PRODUCTION-READY WITH LINUX COMPATIBILITY FIXES** - All line wrapping issues resolved including syntax highlighting and tab completion, enhanced terminal detection fully integrated, critical keybindings restored to working state, Linux/Konsole compatibility issues analyzed and fixed
 
-### ✅ What's Working (PRODUCTION-READY FOUNDATION + LINUX COMPATIBILITY)
+### ✅ What's Working (PRODUCTION-READY FOUNDATION + PARTIAL LINUX COMPATIBILITY)
 - **Line Wrapping System**: ✅ **COMPLETELY FIXED** - Dynamic terminal width detection replaces hardcoded 80-character limit across all components
-- **Syntax Highlighting on Wrapped Lines**: ✅ **FIXED** - Segment-based rendering maintains color state across line boundaries
-- **Tab Completion on Wrapped Lines**: ✅ **FIXED** - Terminal width aware completion display with proper positioning
+- **Syntax Highlighting on Wrapped Lines**: ✅ **FIXED ON MACOS** - Segment-based rendering maintains color state across line boundaries
+- **Tab Completion on Wrapped Lines**: ✅ **FIXED ON MACOS** - Terminal width aware completion display with proper positioning
 - **Terminal Size Detection**: ✅ **WORKING** - Prioritized accurate detection hierarchy throughout system
 - **Enhanced Terminal Detection**: ✅ **INTEGRATED** - Automatic detection of Zed, VS Code, editor terminals in `src/init.c`
 - **Cross-Platform Compatibility**: ✅ **VERIFIED** - Builds and runs on macOS/Linux with conditional headers
@@ -305,9 +305,10 @@ Any operation   # Display system corruption, prompts at wrong positions ❌
 - **Memory Management**: ✅ No segfaults or memory leaks (Valgrind clean)
 - **Unicode Support**: ✅ Full UTF-8, CJK, emoji support working
 - **History System**: ✅ Enhanced POSIX history with persistence
-- **Enhanced Tab Completion**: ✅ **FULLY INTEGRATED** - Cycling functionality restored on iTerm2, cross-platform fixes active, wrapping-aware rendering
-- **Syntax Highlighting**: ✅ **FULLY FUNCTIONAL** - Real-time highlighting works correctly across wrapped lines
-- **Linux Compatibility Fixes**: ✅ **IMPLEMENTED** - Platform detection with conservative display strategy for Linux/Konsole character duplication prevention
+- **Enhanced Tab Completion**: ✅ **FULLY INTEGRATED ON MACOS** - Cycling functionality restored on iTerm2, wrapping-aware rendering
+- **Syntax Highlighting**: ✅ **FULLY FUNCTIONAL ON MACOS** - Real-time highlighting works correctly across wrapped lines
+- **Linux Escape Sequence Fixes**: ✅ **IMPLEMENTED** - Cursor query artifacts eliminated, debug output controlled
+- **Linux Character Input**: ✅ **WORKING** - Basic text input functioning without duplication
 - **Cross-Platform Display Strategy**: ✅ **COMPLETE** - Automatic platform detection with optimized strategies for macOS vs Linux terminals
 - **Display Test Suite**: ✅ **FIXED** - All display tests now pass including `test_lle_018_multiline_input_display`
 
@@ -326,22 +327,24 @@ Any operation   # Display system corruption, prompts at wrong positions ❌
 - **Enhanced Tab Completion**: ✅ **PRODUCTION-READY** - Full cycling functionality restored, integrated into build system, wrapping-aware display
 - **Syntax Highlighting**: ✅ **PRODUCTION-READY** - Commands and syntax elements highlighted correctly across wrapped lines
 
-### 🔧 What's Under Development (REFINEMENT AND VALIDATION)
+### 🔧 What's Under Development (LINUX COMPATIBILITY WORK)
+- **Linux Backspace Functionality**: 🔧 **BROKEN** - Backspace operations not working correctly on Linux terminals
+- **Linux Syntax Highlighting**: 🔧 **NOT TRIGGERING** - Real-time syntax highlighting not activating properly on Linux
+- **Cross-Platform Tab Completion**: 🔧 **NEEDS INVESTIGATION** - Menu positioning fixed, but behavior may have universal issues
 - **Ctrl+R Search**: 🔧 **PARTIALLY WORKING** - Original implementation restored, may have display issues but functional
-- **Linux/Konsole Validation**: 🔧 **READY FOR TESTING** - Conservative display strategy implemented, awaiting real Linux environment testing
-- **Extended Syntax Highlighting**: 🔧 **READY** - Core framework working on wrapped lines, ready for additional language constructs
+- **Extended Syntax Highlighting**: 🔧 **READY ON MACOS** - Core framework working on wrapped lines, Linux triggering needs investigation
 
-### 📋 Current Status (COMPREHENSIVE WRAPPING FIXES + ENHANCED TERMINAL DETECTION COMPLETE)
-- **✅ ALL LINE WRAPPING ISSUES FIXED**: Terminal width hardcoding resolved across syntax highlighting, tab completion, and display systems
-- **✅ SYNTAX HIGHLIGHTING ON WRAPPED LINES**: Segment-based rendering maintains color state correctly
-- **✅ TAB COMPLETION ON WRAPPED LINES**: Terminal width aware display with proper positioning and formatting
-- **✅ ACCURATE DETECTION PRIORITY**: Prioritized terminal size detection hierarchy implemented throughout
-- **✅ INTEGRATION COMPLETE**: Enhanced terminal detection fully integrated into shell initialization
-- **✅ VALIDATION PASSED**: 18/18 comprehensive tests confirm production readiness
-- **✅ CROSS-PLATFORM READY**: macOS/Linux compatibility with conditional compilation
-- **✅ ZERO REGRESSIONS**: All existing functionality maintained with graceful fallback
-- **🔧 NEXT PHASE**: Real Linux/Konsole environment testing to validate implemented compatibility fixes
-- **✅ PRODUCTION-READY**: Complete line editing system with accurate wrapping across all components and Linux compatibility fixes ready for deployment
+### 📋 Current Status (LINUX COMPATIBILITY INVESTIGATION COMPLETE - ADDITIONAL WORK NEEDED)
+- **✅ MAJOR LINUX ISSUES RESOLVED**: Escape sequence artifacts, debug output, character duplication prevention, menu positioning
+- **✅ PLATFORM DETECTION WORKING**: Automatic detection and appropriate strategies for macOS vs Linux
+- **✅ BASIC CHARACTER INPUT**: Text entry working cleanly on Linux without duplication
+- **✅ CROSS-PLATFORM BUILD**: Compiles and runs successfully on both macOS and Linux
+- **❌ LINUX BACKSPACE BROKEN**: Backspace functionality not working correctly on Linux terminals
+- **❌ LINUX SYNTAX HIGHLIGHTING**: Real-time highlighting not triggering properly on Linux
+- **⚠️ TAB COMPLETION ISSUES**: Menu positioning fixed, but behavior may need further investigation
+- **✅ MACOS FUNCTIONALITY**: All features working perfectly on macOS/iTerm2 with zero regressions
+- **🔧 NEXT PHASE**: Investigate and fix remaining Linux-specific feature issues (backspace, syntax highlighting)
+- **⚠️ PARTIAL LINUX COMPATIBILITY**: Core functionality working, but key features need additional fixes
 
 ## 🎯 DEFINITIVE DEVELOPMENT GUIDANCE - DIRECT TERMINAL OPERATIONS PATH
 
@@ -728,32 +731,34 @@ if (platform == LLE_PLATFORM_LINUX &&
 
 ## 📋 CURRENT SESSION SUMMARY FOR FUTURE AI ASSISTANTS
 
-### 🎯 **Session Status: Phase 2D Final Integration Testing Complete**
+### 🎯 **Session Status: Linux Compatibility Investigation Complete - Additional Issues Identified**
 **Date**: December 2024  
-**Environment**: Cross-platform development with comprehensive integration testing following established patterns  
-**Status**: ✅ Phase 2D final integration testing successfully completed with production readiness validation
+**Environment**: Cross-platform development with focus on Linux/Konsole compatibility investigation  
+**Status**: ✅ Major Linux compatibility issues resolved, additional feature-specific issues identified for future work
 
-### ✅ **What's Working Now (Phase 2D Complete)**
-- **Final Integration Testing**: ✅ COMPLETE - Comprehensive component integration validated following established LLE patterns
-- **Component Integration**: ✅ COMPLETE - Text buffer, terminal manager, and display components working together correctly
-- **Memory Management**: ✅ COMPLETE - Resource cleanup and lifecycle management validated through systematic testing
-- **Error Handling**: ✅ COMPLETE - Robust NULL parameter handling and graceful failure modes confirmed
-- **Cross-Platform Validation**: ✅ COMPLETE - Consistent behavior on TTY and non-TTY environments verified
-- **Performance Optimization System**: ✅ COMPLETE - Comprehensive caching, batching, and metrics tracking
-- **Production Readiness**: ✅ COMPLETE - All core functionality validated for Lusush shell integration
+### ✅ **What's Working Now (Linux Compatibility Progress)**
+- **Linux Escape Sequence Artifacts**: ✅ RESOLVED - `^[[25;1R` sequences eliminated by disabling cursor queries on Linux
+- **Linux Debug Output Control**: ✅ RESOLVED - Cursor math debug output now respects `LLE_DEBUG` environment variable
+- **Linux Character Input**: ✅ WORKING - Basic text entry functioning cleanly without duplication
+- **Linux Tab Completion Menu Positioning**: ✅ FIXED - Menu no longer appears at top of screen due to bounds checking
+- **Cross-Platform Build**: ✅ WORKING - Compiles and runs successfully on both macOS and Linux
+- **Platform Detection**: ✅ WORKING - Automatic detection and appropriate strategies for different platforms
+- **macOS Functionality**: ✅ COMPLETE - All features working perfectly with zero regressions
 
-### 🔧 **What's Production-Ready** 
-- **Complete Display Architecture**: ✅ PRODUCTION-READY - Full integration testing with comprehensive component validation
-- **Component Integration**: ✅ PRODUCTION-READY - All display components create, initialize, and function correctly together
+### 🔧 **What's Production-Ready**
+- **macOS Complete Functionality**: ✅ PRODUCTION-READY - All features working perfectly including multi-line editing, tab completion, syntax highlighting
+- **Linux Basic Functionality**: ✅ WORKING - Character input, escape sequence handling, basic display operations
+- **Cross-Platform Build System**: ✅ PRODUCTION-READY - Compiles and runs on both platforms with proper platform detection
+- **Display Architecture**: ✅ PRODUCTION-READY - Core display system working across platforms with platform-specific optimizations
 - **Memory Safety**: ✅ PRODUCTION-READY - Resource management validated through multiple creation/destruction cycles
-- **Error Resilience**: ✅ PRODUCTION-READY - Robust handling of invalid parameters and edge cases confirmed
-- **Cross-Platform Compatibility**: ✅ PRODUCTION-READY - Consistent behavior across terminal environments validated
-- **Integration Validation**: ✅ VALIDATED - 8/8 Phase 2D tests passing, 41/44 overall tests passing, following established LLE patterns
+- **Integration Validation**: ✅ VALIDATED - Test suite passing, established LLE patterns maintained
 
 ### 🚀 **Next Development Priority**
-- **Production Integration**: LLE display architecture ready for full Lusush shell integration
-- **Phase 3**: Advanced features (search, completion menu, etc.) - can begin development
-- **Production Release**: Complete LLE system ready for deployment in Lusush shell
+- **Linux Backspace Investigation**: Debug and fix backspace functionality on Linux terminals
+- **Linux Syntax Highlighting**: Investigate why real-time syntax highlighting doesn't trigger on Linux
+- **Linux Tab Completion Validation**: Comprehensive testing of tab completion behavior beyond positioning
+- **Cross-Platform Feature Parity**: Ensure all features work consistently across macOS and Linux
+- **Production Linux Support**: Complete Linux compatibility for full deployment
 
 ### 🏗️ **Technical Architecture Implemented**
 ```c
@@ -834,27 +839,30 @@ LLE_TEST(display_creation) {
 **Final Integration Testing Complete**: Successfully implemented comprehensive integration testing following established LLE patterns in ~4 hours with zero regressions. Component integration, memory management, error handling, and cross-platform validation provide production-ready display architecture.
 
 ### 🎉 **Overall Major Achievement**
-Successfully completed the display architecture rewrite with comprehensive integration testing that validates production readiness: component integration working correctly, memory management verified, error handling robust, and cross-platform compatibility confirmed. The LLE now provides a solid foundation for Lusush shell integration with systematic validation following established patterns.
+Successfully resolved major Linux compatibility issues while maintaining full macOS functionality: escape sequence artifacts eliminated, debug output controlled, character input working, and tab completion menu positioning fixed. However, additional Linux-specific feature issues identified (backspace, syntax highlighting) that require further investigation. The LLE now provides excellent macOS support and basic Linux compatibility with clear path for complete cross-platform parity.
 
-**CURRENT PHASE: CRITICAL LINUX COMPATIBILITY FIXES** 🚨
+**CURRENT PHASE: LINUX COMPATIBILITY INVESTIGATION COMPLETE - ADDITIONAL ISSUES IDENTIFIED** 🔍
 
-**URGENT ISSUE DISCOVERED**: LLE works perfectly on macOS/iTerm2 but has fundamental display system failures on Linux/Konsole that make the shell completely unusable.
+**MAJOR PROGRESS**: Significant Linux compatibility issues have been resolved, but additional problems discovered during testing.
 
-**CRITICAL VALIDATION RESULTS**:
-1. **LINUX TESTING**: ❌ FAILED - Major character duplication issues discovered
-2. **TAB COMPLETION**: ❌ DISPLAY BROKEN - Logic works but display corruption prevents use
-3. **SYNTAX HIGHLIGHTING**: ❌ PARTIAL FAILURE - Only command colors work
-4. **PERFORMANCE**: ✅ WORKING - Enhanced detection performance acceptable
+**✅ RESOLVED LINUX ISSUES**:
+1. **ESCAPE SEQUENCE ARTIFACTS**: ✅ FIXED - `^[[25;1R` sequences eliminated by disabling cursor queries on Linux
+2. **HARDCODED DEBUG OUTPUT**: ✅ FIXED - Cursor math debug now respects `LLE_DEBUG` environment variable
+3. **CHARACTER DUPLICATION PREVENTION**: ✅ IMPLEMENTED - Linux-safe clearing across all display functions
+4. **TAB COMPLETION MENU POSITIONING**: ✅ FIXED - Bounds checking prevents menu appearing at top of screen
 
-**IMMEDIATE ACTIONS REQUIRED**:
-1. **🚨 CRITICAL**: Debug and fix incremental display update system for Linux terminals
-2. **🚨 CRITICAL**: Investigate terminal escape sequence compatibility differences  
-3. **HIGH**: Implement terminal-specific display strategies if needed
-4. **HIGH**: Fix tab completion word boundary and replacement logic
+**❌ NEWLY IDENTIFIED LINUX ISSUES**:
+1. **BACKSPACE FUNCTIONALITY**: ❌ BROKEN - Backspace operations not working correctly on Linux
+2. **SYNTAX HIGHLIGHTING**: ❌ NOT TRIGGERING - Real-time syntax highlighting not activating properly on Linux
+3. **TAB COMPLETION BEHAVIOR**: ⚠️ NEEDS TESTING - May have universal issues beyond positioning
 
-**PHASE 3: CTRL+R SEARCH REDESIGN** (BLOCKED until Linux compatibility fixed)
-- Cannot proceed with new features while basic functionality is broken on Linux
-- Must resolve display system issues before adding more complex features
+**🔧 IMMEDIATE NEXT PRIORITIES**:
+1. **HIGH**: Investigate and fix backspace functionality on Linux terminals
+2. **HIGH**: Debug syntax highlighting trigger conditions for Linux
+3. **MEDIUM**: Comprehensive tab completion behavior validation
+4. **MEDIUM**: Cross-platform testing of all interactive features
+
+**DEVELOPMENT STATUS**: ✅ **MAJOR PROGRESS** - Core display issues resolved, specific feature issues identified
 
 ## 🎯 VERIFIED CAPABILITIES (PLATFORM-SPECIFIC STATUS)
 
@@ -894,17 +902,17 @@ Successfully completed the display architecture rewrite with comprehensive integ
 - **History Management**: Enhanced POSIX history with no crashes (✅ VERIFIED)
 - **Clean Exit**: Proper shell termination without segfaults (✅ VERIFIED)
 
-## 🔄 DEVELOPMENT STATUS SUMMARY - PHASE 2B.4 COMPLETE
+## 🔄 DEVELOPMENT STATUS SUMMARY - PHASE 2D COMPLETE + LINUX COMPATIBILITY WORK
 
 **CORE SYSTEMS STATUS**:
-- ✅ **LLE Foundation**: Text buffer, cursor math, terminal integration - WORKING
-- ✅ **Input Processing**: Character reading, key events, editing commands - WORKING  
+- ✅ **LLE Foundation**: Text buffer, cursor math, terminal integration - WORKING (macOS + basic Linux)
+- ✅ **Input Processing**: Character reading, key events, editing commands - WORKING (macOS), PARTIAL (Linux)
 - ✅ **History System**: POSIX compliance, enhanced features - WORKING
-- ✅ **Advanced Features**: Unicode, completion, undo/redo, syntax highlighting - WORKING
-- ✅ **Display System**: Absolute positioning architecture - **WORKING PERFECTLY**
-- ✅ **Shell Usability**: Multi-line terminal experience - **PROFESSIONAL QUALITY**
-- ✅ **Core Keybindings**: Phase 2A absolute positioning integration - **PRODUCTION READY**
-- ✅ **Tab Completion**: Path parsing and directory resolution - **PRODUCTION READY**
+- ✅ **Advanced Features**: Unicode, completion, undo/redo, syntax highlighting - WORKING (macOS), PARTIAL (Linux)
+- ✅ **Display System**: Absolute positioning architecture - **WORKING PERFECTLY** (macOS), MOSTLY WORKING (Linux)
+- ✅ **Shell Usability**: Multi-line terminal experience - **PROFESSIONAL QUALITY** (macOS), NEEDS WORK (Linux)
+- ✅ **Core Keybindings**: Phase 2A absolute positioning integration - **PRODUCTION READY** (macOS), PARTIAL (Linux)
+- ✅ **Tab Completion**: Path parsing and directory resolution - **PRODUCTION READY** (macOS), NEEDS INVESTIGATION (Linux)
 
 **PHASE 2B.4 ACHIEVEMENT**: History navigation successfully integrated with Phase 2A absolute positioning system. History navigation now uses `lle_display_update_incremental()` instead of direct terminal operations, enabling proper multi-line support with graceful fallbacks. All 37/41 functional tests passing with zero regressions. Development completed in ~2 hours using established Phase 2A patterns.
 
@@ -1986,9 +1994,10 @@ Before starting LLE-044 development, AI assistants MUST:
 - ✅ **Test Infrastructure**: 497+ tests providing comprehensive coverage
 - ✅ **Development Tools**: Build system, testing framework, documentation patterns
 
-**DEVELOPMENT STATUS**: ✅ **READY FOR PHASE 2A** - Multi-line architecture rewrite infrastructure complete, core display system rewrite next priority
+**DEVELOPMENT STATUS**: ✅ **PHASE 2D COMPLETE + LINUX COMPATIBILITY WORK IN PROGRESS** - Core display architecture complete, Linux-specific issues being addressed
 
-**CODEBASE STATUS**: ✅ **CORE FUNCTIONALITY READY** - Stable foundation with comprehensive testing, keybinding refinements in progress
+**DEPLOYMENT STATUS**: ✅ **PRODUCTION READY ON MACOS** - Complete functionality working perfectly on macOS
+**LINUX STATUS**: ⚠️ **PARTIAL COMPATIBILITY** - Major issues resolved (escape sequences, debug output, character input), additional features need work (backspace, syntax highlighting)
 
 ## 🎉 **COMPREHENSIVE LINE WRAPPING SOLUTION + ENHANCED TAB COMPLETION BREAKTHROUGH (DECEMBER 2024) - FULLY INTEGRATED AND PRODUCTION-READY**
 
@@ -2249,12 +2258,14 @@ lle_terminal_write(terminal, match_text, match_len);      // Matched command
 - **✅ Architecture improved** - Clean APIs with proper abstraction
 - **✅ Ready for Phase 3** - Foundation solid for Ctrl+R implementation
 
-#### **Key Files for Current Direct Terminal Operations Implementation**
-- `src/line_editor/line_editor.c` - Main keybinding implementation using direct terminal operations
-- `src/line_editor/display.c` - Display system (used for normal rendering, NOT keybindings)
-- `tests/line_editor/test_lle_phase3_search.c` - Search functionality tests
+### 💡 **Key Files for Current Linux Compatibility Work**
+- `src/line_editor/terminal_manager.c` - Linux cursor query disabling
+- `src/line_editor/cursor_math.c` - Debug output control fixes
+- `src/line_editor/display.c` - Linux-safe clearing implementation across all functions
+- `src/line_editor/completion_display.c` - Tab completion menu positioning fixes
+- `LINUX_COMPATIBILITY_FIXES_COMPLETE.md` - Complete implementation documentation
+- `src/line_editor/line_editor.c` - Main keybinding implementation (may need Linux fixes)
 - `DEFINITIVE_DEVELOPMENT_PATH.md` - Architectural rules and principles
-- `WORKING_CTRL_R_IMPLEMENTATION.md` - Technical implementation details
 
 ### 🎯 **SUCCESS CRITERIA FOR PHASE 3**
 - **Ctrl+R search works without display corruption**
@@ -2336,12 +2347,14 @@ lle_terminal_write(terminal, match_text, match_len);      // Matched command
 - **Debug Visibility**: Clear logging shows Linux surgical strategy activation
 - **Performance**: Minimal impact with all advanced features preserved
 
-**📁 FILES MODIFIED FOR IMPROVED LINUX COMPATIBILITY:**
-- `src/line_editor/display.c` - Platform detection, surgical clear operation replacement, automatic selection
-- `tests/line_editor/test_lle_018_multiline_input_display.c` - Fixed struct initialization
-- `LINUX_COMPATIBILITY_ANALYSIS.md` - Comprehensive technical analysis (UPDATED)
-- `INVESTIGATION_RESULTS.md` - Improved surgical solution summary and deployment guide (UPDATED)
-- `LINUX_COMPATIBILITY_SOLUTION.md` - Detailed surgical fix documentation (NEW)
+**📁 FILES MODIFIED FOR LINUX COMPATIBILITY (LATEST WORK):**
+- `src/line_editor/terminal_manager.c` - Disabled cursor queries on Linux to eliminate escape sequence artifacts
+- `src/line_editor/cursor_math.c` - Added proper debug environment checks to prevent hardcoded output
+- `src/line_editor/display.c` - Implemented Linux-safe clearing across all display functions (4 locations)
+- `src/line_editor/completion_display.c` - Fixed tab completion menu positioning with bounds checking
+- `LINUX_COMPATIBILITY_FIXES_COMPLETE.md` - Complete implementation documentation (NEW)
+- `test_platform_detection_fix.sh` - Validation test for platform-specific fixes (NEW)
+- `test_linux_escape_fix.sh` - Specific test for escape sequence artifact resolution (NEW)
 
 **🎯 DEPLOYMENT READINESS:**
 - ✅ **Code Ready**: All surgical fixes implemented and tested on macOS
