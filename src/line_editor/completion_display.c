@@ -12,6 +12,7 @@
 #include "completion.h"
 #include "terminal_manager.h"
 #include "theme_integration.h"
+#include "cursor_math.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -301,6 +302,22 @@ bool lle_completion_display_show(
         return false;
     }
     
+    // Get terminal width for formatting constraints - prioritize accurate detection
+    size_t terminal_width = 0;
+    
+    // First priority: Use terminal manager's detected geometry
+    if (tm->geometry_valid && tm->geometry.width > 0) {
+        terminal_width = tm->geometry.width;
+    }
+    // Second priority: Try to get fresh terminal size
+    else if (lle_terminal_get_size(tm) && tm->geometry.width > 0) {
+        terminal_width = tm->geometry.width;
+    }
+    // Last resort: Hardcoded fallback only if detection completely fails
+    else {
+        terminal_width = 80;
+    }
+    
     // Update display count for current viewport
     display->display_count = lle_completion_display_calculate_visible_count(display);
     
@@ -323,11 +340,25 @@ bool lle_completion_display_show(
         const lle_completion_item_t *item = &display->completions->items[item_index];
         bool is_selected = (item_index == display->completions->selected);
         
-        // Format the completion item
+        // Format the completion item with terminal width constraints
         char line_buffer[LLE_COMPLETION_DISPLAY_MAX_LINE_LENGTH];
         if (!lle_completion_display_format_item(display, item, is_selected, 
                                                line_buffer, sizeof(line_buffer))) {
             return false;
+        }
+        
+        // Truncate line if it exceeds terminal width
+        size_t line_length = strlen(line_buffer);
+        if (line_length >= terminal_width) {
+            // Truncate with ellipsis if needed
+            if (terminal_width > 3) {
+                line_buffer[terminal_width - 4] = '.';
+                line_buffer[terminal_width - 3] = '.';
+                line_buffer[terminal_width - 2] = '.';
+                line_buffer[terminal_width - 1] = '\0';
+            } else {
+                line_buffer[terminal_width - 1] = '\0';
+            }
         }
         
         // Write the formatted line

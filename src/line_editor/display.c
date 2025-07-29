@@ -40,12 +40,26 @@ bool lle_display_init(lle_display_state_t *state) {
     state->cursor_pos.at_boundary = false;
     state->cursor_pos.valid = false;
     
-    // Initialize geometry with actual terminal size
-    if (state->terminal && lle_terminal_get_size(state->terminal)) {
-        // Use actual terminal dimensions
-        state->geometry = state->terminal->geometry;
-    } else {
-        // Fallback to defaults if terminal size detection fails
+    // Initialize geometry with actual terminal size - prioritize accurate detection
+    bool geometry_acquired = false;
+    
+    if (state->terminal) {
+        // First priority: Use existing valid geometry if available
+        if (state->terminal->geometry_valid && 
+            state->terminal->geometry.width > 0 && 
+            state->terminal->geometry.height > 0) {
+            state->geometry = state->terminal->geometry;
+            geometry_acquired = true;
+        }
+        // Second priority: Try to detect fresh terminal size
+        else if (lle_terminal_get_size(state->terminal)) {
+            state->geometry = state->terminal->geometry;
+            geometry_acquired = true;
+        }
+    }
+    
+    // Last resort: Hardcoded fallback only if all detection fails
+    if (!geometry_acquired) {
         state->geometry.width = 80;
         state->geometry.height = 24;
     }
@@ -1214,27 +1228,41 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
     size_t region_count = 0;
     const lle_syntax_region_t *regions = lle_syntax_get_regions(state->syntax_highlighter, &region_count);
     
-    size_t terminal_width = state->geometry.width;
-    size_t current_col = start_col;
-    size_t current_line = 0;
+    // Instead of doing character-by-character rendering with manual wrapping,
+    // we'll render segments with appropriate colors and let the terminal handle wrapping
     size_t region_index = 0;
+    size_t text_pos = state->display_start_offset;
     lle_syntax_type_t current_type = LLE_SYNTAX_NORMAL;
     
     // Apply initial color
     lle_display_apply_syntax_color(state, current_type);
     
-    for (size_t i = state->display_start_offset; i < length; i++) {
-        // Check if we need to change color based on syntax regions
-        while (region_index < region_count && 
-               regions[region_index].start + regions[region_index].length <= i) {
-            region_index++;
+    while (text_pos < length) {
+        // Find the next syntax region boundary or end of text
+        size_t segment_end = length;
+        
+        // Check if we're in a syntax region
+        lle_syntax_type_t new_type = LLE_SYNTAX_NORMAL;
+        if (region_index < region_count) {
+            const lle_syntax_region_t *region = &regions[region_index];
+            
+            if (text_pos >= region->start && text_pos < region->start + region->length) {
+                // We're inside this region
+                new_type = region->type;
+                segment_end = region->start + region->length;
+            } else if (text_pos < region->start) {
+                // We're before this region
+                segment_end = region->start;
+            } else {
+                // We're past this region, move to next
+                region_index++;
+                continue;
+            }
         }
         
-        lle_syntax_type_t new_type = LLE_SYNTAX_NORMAL;
-        if (region_index < region_count && 
-            i >= regions[region_index].start && 
-            i < regions[region_index].start + regions[region_index].length) {
-            new_type = regions[region_index].type;
+        // Ensure we don't go past the text length
+        if (segment_end > length) {
+            segment_end = length;
         }
         
         // Apply color change if syntax type changed
@@ -1245,32 +1273,19 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
             current_type = new_type;
         }
         
-        char c = text[i];
-        
-        // Handle newlines in input text
-        if (c == '\n') {
-            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+        // Write the segment (let terminal handle wrapping naturally)
+        size_t segment_length = segment_end - text_pos;
+        if (segment_length > 0) {
+            if (!lle_terminal_write(state->terminal, text + text_pos, segment_length)) {
                 return false;
             }
-            current_col = 0;
-            current_line++;
-            continue;
+            text_pos = segment_end;
         }
         
-        // Handle line wrapping
-        if (current_col >= terminal_width) {
-            if (!lle_terminal_write(state->terminal, "\n", 1)) {
-                return false;
-            }
-            current_col = 0;
-            current_line++;
+        // Move to next region if we completed this one
+        if (region_index < region_count && text_pos >= regions[region_index].start + regions[region_index].length) {
+            region_index++;
         }
-        
-        // Write the character
-        if (!lle_terminal_write(state->terminal, &c, 1)) {
-            return false;
-        }
-        current_col++;
     }
     
     // Reset colors after rendering
