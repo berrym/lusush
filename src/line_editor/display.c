@@ -376,25 +376,26 @@ bool lle_display_render(lle_display_state_t *state) {
             }
             
             if (cursor_pos.valid) {
-                // Use relative positioning from text start, not absolute terminal positioning
-                if (cursor_pos.absolute_row > 0) {
-                    // Move down from current position (which should be at end of text)
-                    if (!lle_terminal_move_cursor_down(state->terminal, cursor_pos.absolute_row)) {
-                        if (debug_mode) {
-                            fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor down %zu lines\n", cursor_pos.absolute_row);
-                        }
-                    }
-                }
-                
-                // Position at correct column (this is relative to start of line)
-                if (!lle_terminal_move_cursor_to_column(state->terminal, cursor_pos.absolute_col)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor to column %zu\n", cursor_pos.absolute_col);
-                    }
-                }
+                // ARCHITECTURAL FIX: Use absolute terminal positioning for multi-line content
+                // Calculate absolute terminal position based on prompt position and cursor math
+                size_t terminal_row = lle_prompt_get_height(state->prompt) + cursor_pos.relative_row;
+                size_t terminal_col = cursor_pos.absolute_col;
                 
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Mathematical cursor positioning completed\n");
+                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Using absolute positioning: terminal_row=%zu, terminal_col=%zu\n", 
+                           terminal_row, terminal_col);
+                }
+                
+                // Use absolute positioning instead of relative movements
+                if (!lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor to absolute position (%zu,%zu)\n", 
+                               terminal_row, terminal_col);
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Successfully positioned cursor at absolute coordinates\n");
+                    }
                 }
             } else {
                 if (debug_mode) {
@@ -655,10 +656,18 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 }
             }
             
-            // Now move to the correct column position
-            if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
+            // ARCHITECTURAL FIX: Use absolute positioning for boundary crossing
+            size_t terminal_row = lle_prompt_get_height(state->prompt) - 1; // Last line of prompt
+            size_t terminal_col = prompt_last_line_width;
+            
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Boundary crossing: absolute position row=%zu, col=%zu\n", 
+                       terminal_row, terminal_col);
+            }
+            
+            if (!lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col)) {
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move to text start column for boundary crossing\n");
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move to absolute position for boundary crossing\n");
                 }
             }
             
@@ -904,10 +913,19 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     }
     
     if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
-        // Use standard cursor positioning for non-Linux or complex cases
-        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
+        // ARCHITECTURAL FIX: Use absolute positioning for all platforms
+        // Calculate absolute terminal position for text start
+        size_t terminal_row = lle_prompt_get_height(state->prompt) - 1; // Last line of prompt
+        size_t terminal_col = prompt_last_line_width;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Using absolute positioning for text start: row=%zu, col=%zu\n", 
+                   terminal_row, terminal_col);
+        }
+        
+        if (!lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col)) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor to text start\n");
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor to absolute text start position\n");
             }
             return false;
         }
@@ -1609,9 +1627,16 @@ bool lle_display_move_cursor_home(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_MOVE_HOME] After move: cursor at %zu\n", state->buffer->cursor_pos);
     }
     
-    // Position cursor visually without redrawing prompt (original working approach)
-    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
-    bool result = lle_terminal_move_cursor_to_column(state->terminal, prompt_width);
+    // ARCHITECTURAL FIX: Use absolute positioning for cursor home
+    size_t terminal_row = lle_prompt_get_height(state->prompt) - 1; // Last line of prompt
+    size_t terminal_col = lle_prompt_get_last_line_width(state->prompt);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_HOME] Moving cursor to absolute home position: row=%zu, col=%zu\n", 
+               terminal_row, terminal_col);
+    }
+    
+    bool result = lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col);
     
     if (debug_mode) {
         fprintf(stderr, "[LLE_MOVE_HOME] Terminal cursor positioning result: %s\n", result ? "SUCCESS" : "FAILED");
@@ -1664,9 +1689,32 @@ bool lle_display_move_cursor_end(lle_display_state_t *state) {
     }
     
     // Position cursor visually at end of text without redrawing prompt (original working approach)
-    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
-    size_t text_width = lle_calculate_display_width_ansi(state->buffer->buffer, state->buffer->length);
-    bool result = lle_terminal_move_cursor_to_column(state->terminal, prompt_width + text_width);
+    // ARCHITECTURAL FIX: Calculate cursor end position using cursor math
+    lle_cursor_position_t end_pos = lle_calculate_cursor_position_at_offset(
+        state->buffer, &state->geometry, 
+        lle_prompt_get_last_line_width(state->prompt),
+        state->buffer->length);
+    
+    bool result;
+    if (end_pos.valid) {
+        size_t terminal_row = lle_prompt_get_height(state->prompt) + end_pos.relative_row;
+        size_t terminal_col = end_pos.absolute_col;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_END] Moving cursor to absolute end position: row=%zu, col=%zu\n", 
+                   terminal_row, terminal_col);
+        }
+        
+        result = lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col);
+    } else {
+        // Fallback to simple calculation if cursor math fails
+        size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+        size_t text_width = lle_calculate_display_width_ansi(state->buffer->buffer, state->buffer->length);
+        size_t terminal_row = lle_prompt_get_height(state->prompt) - 1;
+        size_t terminal_col = prompt_width + text_width;
+        
+        result = lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col);
+    }
     
     if (debug_mode) {
         fprintf(stderr, "[LLE_MOVE_END] Terminal cursor positioning result: %s\n", result ? "SUCCESS" : "FAILED");
@@ -1718,8 +1766,9 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
         if (!lle_terminal_write(state->terminal, "\n", 1)) {
             return false;
         }
-        // Ensure we start at column 0 for search prompt
-        if (!lle_terminal_move_cursor_to_column(state->terminal, 0)) {
+        // ARCHITECTURAL FIX: Use absolute positioning for search prompt
+        size_t search_row = lle_prompt_get_height(state->prompt); // Next line after prompt
+        if (!lle_terminal_move_cursor(state->terminal, search_row, 0)) {
             return false;
         }
     }
@@ -1745,8 +1794,9 @@ bool lle_display_exit_search_mode(lle_display_state_t *state) {
     
     // Clear current search line and move back to original position
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        // Clear current line
-        if (!lle_terminal_move_cursor_to_column(state->terminal, 0)) {
+        // ARCHITECTURAL FIX: Clear search line using absolute positioning
+        size_t search_row = lle_prompt_get_height(state->prompt); // Search line
+        if (!lle_terminal_move_cursor(state->terminal, search_row, 0)) {
             return false;
         }
         if (!lle_terminal_clear_to_eol(state->terminal)) {
