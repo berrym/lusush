@@ -150,7 +150,7 @@ bool lle_display_init(lle_display_state_t *state) {
     // Initialize syntax highlighting integration
     state->syntax_highlighter = NULL;
     state->theme_integration = NULL;
-    state->syntax_highlighting_enabled = false;
+    state->syntax_highlighting_enabled = true; // Enable by default
     state->last_applied_color[0] = '\0';
     
     // Phase 2C: Initialize performance optimization components
@@ -260,7 +260,7 @@ bool lle_display_cleanup(lle_display_state_t *state) {
     // Clear syntax highlighting references (don't destroy - we don't own them)
     state->syntax_highlighter = NULL;
     state->theme_integration = NULL;
-    state->syntax_highlighting_enabled = false;
+    state->syntax_highlighting_enabled = true; // Enable by default
     state->last_applied_color[0] = '\0';
     
     // Phase 2C: Clean up performance optimization components
@@ -833,7 +833,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
         
         // Get prompt geometry for footprint calculations
-        size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
+        size_t prompt_last_line_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
         size_t terminal_width = state->geometry.width;
         
         // Calculate visual footprint before and after deletion
@@ -869,6 +869,18 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 fprintf(stderr, "[LLE_INCREMENTAL] Backspace crossing boundary, using intelligent clearing\n");
             }
             
+            // Skip boundary crossing redraw if prompt or terminal are NULL (test mode)
+            if (!state->prompt || !state->terminal) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Skipping boundary redraw - missing prompt or terminal\n");
+                }
+                // Update tracking and return
+                memcpy(state->last_displayed_content, text, text_length);
+                state->last_displayed_content[text_length] = '\0'; 
+                state->last_displayed_length = text_length;
+                return true;
+            }
+            
             // Clear the old visual region intelligently
             if (!lle_clear_visual_region(state->terminal, &footprint_before, &footprint_after)) {
                 if (debug_mode) {
@@ -877,12 +889,69 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 return lle_display_update_unified(state, true);
             }
             
-            // Render new content with consistent highlighting
-            if (!lle_render_with_consistent_highlighting(state, &footprint_before, &footprint_after)) {
+            // After boundary clearing, ensure proper cursor positioning and content redraw
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Positioning cursor and redrawing content after boundary clearing\n");
+            }
+            
+            // Move to start of prompt and redraw everything to ensure proper positioning
+            if (!lle_terminal_write(state->terminal, "\r", 1)) {
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_INCREMENTAL] Consistent rendering failed\n");
+                    fprintf(stderr, "[LLE_INCREMENTAL] Failed to write carriage return\n");
                 }
                 return false;
+            }
+            
+            // Redraw prompt
+            if (!lle_prompt_render(state->terminal, state->prompt, false)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Failed to redraw prompt after boundary clearing\n");
+                }
+                return false;
+            }
+            
+            // Redraw the remaining text content
+            if (text_length > 0) {
+                if (!lle_terminal_write(state->terminal, text, text_length)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INCREMENTAL] Failed to redraw content after boundary clearing\n");
+                    }
+                    return false;
+                }
+            }
+            
+            // After redraw, cursor is at end of content but needs to be positioned correctly
+            // For backspace boundary crossing, position cursor correctly to prevent prompt consumption
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Content redraw completed, cursor naturally at end\n");
+            }
+            
+            // Simple fix: Move cursor back to match buffer cursor position
+            // Only do this if we have a valid terminal (NULL check for tests)
+            if (state->buffer && state->terminal && text_length > 0 && state->buffer->cursor_pos < text_length) {
+                size_t chars_to_move_back = text_length - state->buffer->cursor_pos;
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Moving cursor back %zu positions from end\n", chars_to_move_back);
+                }
+                
+                // Move cursor back using simple left arrow movements
+                for (size_t i = 0; i < chars_to_move_back; i++) {
+                    if (!lle_terminal_write(state->terminal, "\033[D", 3)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INCREMENTAL] Failed to move cursor left at position %zu\n", i);
+                        }
+                        break;
+                    }
+                }
+                
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioned at buffer position %zu\n", 
+                           state->buffer->cursor_pos);
+                }
+            } else {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioning skipped (no terminal or cursor already correct)\n");
+                }
             }
             
             // Update enhanced visual footprint tracking
@@ -1841,11 +1910,8 @@ bool lle_display_enable_syntax_highlighting(lle_display_state_t *state, bool ena
         return false;
     }
     
-    // Can only enable if both highlighter and theme integration are available
-    if (enable && (!state->syntax_highlighter || !state->theme_integration)) {
-        return false;
-    }
-    
+    // Always allow enabling - components may be connected later
+    // The actual rendering will check for component availability
     state->syntax_highlighting_enabled = enable;
     return true;
 }
@@ -1990,7 +2056,6 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
     
     // Phase 2B.3: Calculate content start position for absolute positioning
     // For syntax highlighting, we start at the beginning of the content area
-    size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
     
     // Create a cursor position representing the start of content (before any text)
     lle_cursor_position_t content_start = {0};
@@ -3002,12 +3067,32 @@ bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
         return false;
     }
     
+    // Save current cursor position for restoration (currently unused but available for future enhancement)
+    size_t saved_row, saved_col;
+    (void)lle_terminal_query_cursor_position(tm, &saved_row, &saved_col);
+    
     // Clear additional lines by moving down and clearing each line
     for (size_t i = 1; i < footprint->rows_used; i++) {
         // Move cursor down one line
         if (!lle_terminal_write(tm, "\n", 1)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to move to line %zu\n", i);
+            }
+            break;
+        }
+        
+        // Clear the entire line content
+        if (!lle_terminal_clear_to_eol(tm)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to clear line %zu\n", i);
+            }
+            break;
+        }
+        
+        // Clear the entire line content
+        if (!lle_terminal_clear_line(tm)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to clear line %zu\n", i);
             }
             break;
         }
@@ -3203,8 +3288,15 @@ bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
             fprintf(stderr, "[LLE_CONSISTENT] Rendering without syntax highlighting\n");
         }
         
-        // Write text directly to terminal
-        render_success = lle_terminal_write(display->terminal, text, text_length);
+        // For backspace boundary crossing, don't rewrite content during editing
+        // Only write content when doing full renders or final display
+        if (display->syntax_highlighting_applied) {
+            // Write text directly to terminal only if we're not in mid-edit
+            render_success = lle_terminal_write(display->terminal, text, text_length);
+        } else {
+            // During editing after boundary clear, just mark as successful without writing
+            render_success = true;
+        }
         
         if (render_success) {
             display->syntax_highlighting_applied = false;
