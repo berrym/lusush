@@ -182,11 +182,15 @@ LLE_TEST(edge_cases) {
     // Test with zero terminal width
     TEST_ASSERT(!lle_calculate_visual_footprint("test", 4, 10, 0, &footprint));
     
-    // Test with very large prompt width - focus on total width calculation
+    // Test with very large prompt width (100 chars, terminal 80)
+    // Prompt: 100 chars = 2 rows (80 + 20), text: 4 chars fits on row 2
+    // Row 1: 80 chars prompt, Row 2: 20 chars prompt + 4 chars text = 24 end column
     TEST_ASSERT(lle_calculate_visual_footprint("test", 4, 100, 80, &footprint));
     TEST_ASSERT(footprint.wraps_lines);
     TEST_ASSERT_EQ(104, footprint.total_visual_width);
-    // Note: prompt wrapping logic is complex, skip row count validation for now
+
+    TEST_ASSERT_EQ(2, footprint.rows_used);
+    TEST_ASSERT_EQ(24, footprint.end_column);
     
     // Test with terminal width of 1
     TEST_ASSERT(lle_calculate_visual_footprint("a", 1, 0, 1, &footprint));
@@ -233,6 +237,7 @@ LLE_TEST(mathematical_accuracy) {
                 TEST_ASSERT_EQ(1, footprint.rows_used);
                 TEST_ASSERT_EQ(expected_total_width, footprint.end_column);
             } else {
+
                 TEST_ASSERT(footprint.rows_used > 1);
                 // Complex wrapping math verification would go here
             }

@@ -2836,25 +2836,51 @@ bool lle_calculate_visual_footprint(const char *text, size_t length,
     if (total_width > terminal_width) {
         footprint->wraps_lines = true;
         
-        // Calculate number of rows used
-        // First line: (terminal_width - prompt_width) characters available
+        // Calculate prompt rows and position where text starts
+        size_t prompt_rows = 0;
+        size_t prompt_end_col = 0;
+        
+        if (prompt_width > 0) {
+            prompt_rows = (prompt_width + terminal_width - 1) / terminal_width;
+            prompt_end_col = prompt_width % terminal_width;
+            if (prompt_end_col == 0) {
+                prompt_end_col = terminal_width;
+            }
+        }
+        
+        // Calculate available space on the last prompt row
         size_t first_line_capacity;
-        if (prompt_width >= terminal_width) {
-            // Prompt wraps to multiple lines, text starts on a fresh line
+        if (prompt_end_col == terminal_width) {
+            // Prompt exactly fills last row, text starts on new line
             first_line_capacity = terminal_width;
         } else {
-            first_line_capacity = terminal_width - prompt_width;
+            // Text continues on same row as prompt end
+            first_line_capacity = terminal_width - prompt_end_col;
         }
         
         if (text_display_width <= first_line_capacity) {
-            // All text fits on first line
-            footprint->rows_used = 1;
-            footprint->end_column = prompt_width + text_display_width;
+            // All text fits on the same row as prompt end
+            if (prompt_width == 0 || prompt_end_col == terminal_width) {
+                // Text starts on new line (either no prompt or prompt fills row)
+                footprint->rows_used = prompt_rows + 1;
+                footprint->end_column = text_display_width;
+            } else {
+                // Text continues on prompt's last row
+                footprint->rows_used = prompt_rows;
+                footprint->end_column = prompt_end_col + text_display_width;
+            }
         } else {
-            // Text spans multiple lines
+            // Text spans multiple lines beyond prompt
             size_t remaining_chars = text_display_width - first_line_capacity;
             size_t additional_rows = (remaining_chars + terminal_width - 1) / terminal_width;
-            footprint->rows_used = 1 + additional_rows;
+            
+            if (prompt_width == 0 || prompt_end_col == terminal_width) {
+                // Text starts on new line after prompt
+                footprint->rows_used = prompt_rows + 1 + additional_rows;
+            } else {
+                // Text continues on prompt's last row then spans additional rows
+                footprint->rows_used = prompt_rows + additional_rows;
+            }
             
             // Calculate final column position
             size_t chars_on_last_row = remaining_chars % terminal_width;
