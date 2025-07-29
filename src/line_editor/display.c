@@ -926,31 +926,46 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 fprintf(stderr, "[LLE_INCREMENTAL] Content redraw completed, cursor naturally at end\n");
             }
             
-            // Simple fix: Move cursor back to match buffer cursor position
+            // Fix cursor positioning for all cases including cursor_pos=0
             // Only do this if we have a valid terminal (NULL check for tests)
-            if (state->buffer && state->terminal && text_length > 0 && state->buffer->cursor_pos < text_length) {
-                size_t chars_to_move_back = text_length - state->buffer->cursor_pos;
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_INCREMENTAL] Moving cursor back %zu positions from end\n", chars_to_move_back);
-                }
-                
-                // Move cursor back using simple left arrow movements
-                for (size_t i = 0; i < chars_to_move_back; i++) {
-                    if (!lle_terminal_write(state->terminal, "\033[D", 3)) {
-                        if (debug_mode) {
-                            fprintf(stderr, "[LLE_INCREMENTAL] Failed to move cursor left at position %zu\n", i);
+            if (state->buffer && state->terminal) {
+                if (text_length > 0) {
+                    // Case 1: There is text content, position cursor within it
+                    size_t chars_to_move_back = text_length - state->buffer->cursor_pos;
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INCREMENTAL] Moving cursor back %zu positions from end (text_len=%zu, cursor_pos=%zu)\n", 
+                               chars_to_move_back, text_length, state->buffer->cursor_pos);
+                    }
+                    
+                    // Move cursor back using simple left arrow movements
+                    for (size_t i = 0; i < chars_to_move_back; i++) {
+                        if (!lle_terminal_write(state->terminal, "\033[D", 3)) {
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INCREMENTAL] Failed to move cursor left at position %zu\n", i);
+                            }
+                            break;
                         }
-                        break;
+                    }
+                } else if (state->buffer->cursor_pos == 0) {
+                    // Case 2: No text content and cursor_pos=0, cursor should be right after prompt
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INCREMENTAL] No text content, cursor_pos=0, cursor already at correct position after prompt\n");
+                    }
+                    // Cursor is already positioned correctly after the prompt redraw
+                } else {
+                    // Case 3: Edge case - no text but cursor_pos > 0 (shouldn't happen, but handle gracefully)
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INCREMENTAL] Warning: no text content but cursor_pos=%zu > 0\n", state->buffer->cursor_pos);
                     }
                 }
                 
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioned at buffer position %zu\n", 
-                           state->buffer->cursor_pos);
+                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioned at buffer position %zu (text_length=%zu)\n", 
+                           state->buffer->cursor_pos, text_length);
                 }
             } else {
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioning skipped (no terminal or cursor already correct)\n");
+                    fprintf(stderr, "[LLE_INCREMENTAL] Cursor positioning skipped (no terminal or buffer)\n");
                 }
             }
             

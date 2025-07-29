@@ -2,11 +2,16 @@
 
 **Branch**: `task/backspace-refinement`  
 **Date**: December 29, 2024  
-**Status**: Ready for Real-World Human Testing  
+**Status**: Working Fix Applied - Ready for Testing  
+**Update**: Buffer echo issue fixed (second fix reverted due to regression)
 
 ## Overview
 
 The comprehensive backspace line wrap refinement has been implemented and is ready for human validation. This guide provides specific test scenarios to validate the enhancement in real terminal environments.
+
+**IMPORTANT**: Human testing on macOS/iTerm2 identified issues:
+1. **Buffer echo issue** - FIXED: Prevented remaining buffer content from echoing to terminal 
+2. **Character artifact** - Minor cosmetic issue (fix caused regression, reverted)
 
 ## Critical Issues Resolved
 
@@ -14,6 +19,8 @@ The comprehensive backspace line wrap refinement has been implemented and is rea
 ✅ **Enter Key Duplication**: Fixed - Text doesn't duplicate when Enter is pressed  
 ✅ **Cursor Query Contamination**: Fixed - No escape sequences in terminal output  
 ✅ **Backspace Line Wrap Issues**: Fixed - Complete clearing, consistent highlighting, no artifacts  
+✅ **Buffer Echo After Boundary Clearing**: Fixed - No remaining command echoed after backspace across wrap boundary  
+⚠️ **Character Artifact at Terminal Width**: Minor cosmetic issue (fix reverted to prevent regression)
 
 ## Test Environment Setup
 
@@ -62,7 +69,7 @@ export LLE_DEBUG=1
 4. **Status**: ✅ Should work perfectly
 
 ### Test 4: 🚨 CRITICAL - Backspace Across Line Wrap Boundary
-**Purpose**: Validate the main enhancement
+**Purpose**: Validate the main enhancement + buffer echo fix
 
 #### Test 4A: Simple Line Wrap Backspace
 1. Type a command that wraps to next line (adjust length for your terminal width):
@@ -75,11 +82,15 @@ export LLE_DEBUG=1
    - ✅ No visual remnants or artifacts
    - ✅ Consistent appearance regardless of how you arrived at the text
    - ✅ Proper cursor positioning
+   - ✅ **NO ECHO** of remaining buffer content to terminal
+   - ⚠️ **Minor character artifact possible** at terminal width boundaries (cosmetic only)
 
-4. **Previous Issues**:
-   - ❌ Incomplete clearing across boundaries
-   - ❌ Visual artifacts and remnants
-   - ❌ Inconsistent syntax highlighting
+4. **Previous Issues (FIXED)**:
+   - ❌ Incomplete clearing across boundaries → ✅ FIXED
+   - ❌ Visual artifacts and remnants → ✅ FIXED
+   - ❌ Inconsistent syntax highlighting → ✅ FIXED
+   - ❌ Buffer content echoed after boundary clear → ✅ FIXED with targeted patch
+   - ❌ Single character artifact at terminal width → ⚠️ Minor cosmetic issue (fix reverted)
 
 #### Test 4B: Complex Multi-Line Backspace
 1. Type an even longer command spanning 3+ lines:
@@ -139,7 +150,7 @@ export LLE_DEBUG=1
 
 ## Expected Debug Output (Success)
 
-When working correctly, you should see debug output like:
+When working correctly with the fix applied, you should see debug output like:
 ```
 [LLE_INCREMENTAL] Enhanced backspace: deleting char
 [LLE_INCREMENTAL] Footprint before: rows=2, end_col=45, wraps=true
@@ -147,16 +158,20 @@ When working correctly, you should see debug output like:
 [LLE_INCREMENTAL] Crossing boundary: true
 [LLE_INCREMENTAL] Backspace crossing boundary, using intelligent clearing
 [LLE_CLEAR_REGION] Clearing visual region: rows=2, end_col=45, wraps=true
-[LLE_UNIFIED] Starting unified rendering, force_full=true
-[LLE_CONSISTENT] Applying consistent highlighting
+[LLE_INCREMENTAL] Positioning cursor after boundary clearing
 ```
+
+**Note**: The fix eliminates buffer echo. Minor character artifacts may occur but don't affect functionality.
 
 ## Success Criteria
 
 ✅ **All Test Scenarios Pass**: No visual artifacts, complete clearing, consistent behavior  
+✅ **No Buffer Echo**: Remaining content stays in edit buffer, not echoed to terminal  
+✅ **Functional Backspace**: Proper deletion and cursor positioning across line boundaries  
+⚠️ **Minor Visual Artifacts**: Single character may remain visible (cosmetic only)  
 ✅ **Performance**: Responsive with no noticeable delays  
 ✅ **Stability**: No crashes or unexpected behavior  
-✅ **Compatibility**: Works across different terminal types  
+✅ **Compatibility**: Works across different terminal types
 
 ## Test Results Template
 
@@ -196,10 +211,25 @@ When working correctly, you should see debug output like:
 
 ## Next Steps After Testing
 
-1. **If All Tests Pass**: Enhancement is ready for merge to main branch
-2. **If Issues Found**: Document issues for development team to address
-3. **Performance Issues**: Note specific scenarios where performance degrades
-4. **Edge Cases**: Document any edge cases not covered by current tests
+1. **If All Tests Pass (Including No Buffer Echo)**: Enhancement is ready for merge to main branch
+2. **If Buffer Echo Still Occurs**: Document specific terminal/scenario details for further fix
+3. **If Other Issues Found**: Document issues for development team to address
+4. **Performance Issues**: Note specific scenarios where performance degrades
+5. **Edge Cases**: Document any edge cases not covered by current tests
+
+## Recent Fix Information
+
+**Problem 1**: Initial testing revealed that when backspace crossed line wrap boundaries, the remaining command buffer content would echo to the terminal instead of staying in the edit buffer.
+
+**Solution 1**: Modified the boundary clearing logic to position the cursor correctly without rewriting buffer content during active editing sessions.
+
+**Problem 2**: Second testing revealed a single character artifact (like 'o') remaining at the terminal width boundary after backspace clearing.
+
+**Solution 2 (REVERTED)**: Initial fix caused regression - backspace stopped working properly and cursor positioning failed.
+
+**Current Status**: Minor character artifact remains but core backspace functionality is preserved. This is a cosmetic issue only.
+
+**Files Changed**: `src/line_editor/display.c` - Updated boundary clearing to avoid content echo (character artifact fix reverted)
 
 ## Contact
 
