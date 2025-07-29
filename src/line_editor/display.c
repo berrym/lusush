@@ -773,20 +773,179 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     // Update length tracking for non-wrapping case too
     last_text_length = text_length;
     
-    // Simple single-line case: move cursor to end of prompt and write text
-    if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor to text start\n");
+    // Linux optimization: For simple character appends, just write the new character
+    static size_t last_displayed_length = 0;
+    
+    if (platform == LLE_PLATFORM_LINUX && 
+        ((text_length > last_displayed_length && text_length == last_displayed_length + 1) ||
+         (text_length < last_displayed_length && text_length == last_displayed_length - 1))) {
+        
+        // Handle character addition or backspace
+        bool is_backspace = (text_length < last_displayed_length);
+        bool syntax_sensitive = false;
+        
+        if (!is_backspace) {
+            // Check if this character might trigger syntax highlighting changes
+            const char *new_char = text + last_displayed_length;
+            syntax_sensitive = (*new_char == '\'' || *new_char == '"' || 
+                               *new_char == '|' || *new_char == '&' || 
+                               *new_char == '>' || *new_char == '<' || 
+                               *new_char == ';' || *new_char == '`' ||
+                               *new_char == ' ');
         }
-        return false;
+        
+        // For Linux, be more conservative about syntax highlighting full rewrites
+        // Only do full rewrite for characters that actually change syntax coloring
+        bool needs_full_rewrite = false;
+        if (!is_backspace && lle_display_is_syntax_highlighting_enabled(state) && syntax_sensitive) {
+            const char *new_char = text + last_displayed_length;
+            // Only trigger full rewrite for structural syntax changes, not just any space
+            if (*new_char == '\'' || *new_char == '"' || *new_char == '`' ||
+                *new_char == '|' || *new_char == '&' || *new_char == '>' || *new_char == '<' || *new_char == ';') {
+                needs_full_rewrite = true;
+            }
+            // For spaces, only rewrite if it's likely to change command vs argument coloring
+            else if (*new_char == ' ' && text_length > 1) {
+                // Check if this space might separate a command from arguments
+                // Find last space before current position (C99-compatible)
+                const char *prev_space = NULL;
+                for (size_t i = text_length - 1; i > 0; i--) {
+                    if (text[i - 1] == ' ') {
+                        prev_space = &text[i - 1];
+                        break;
+                    }
+                }
+                if (!prev_space) {
+                    // First space after command - might need recoloring
+                    needs_full_rewrite = true;
+                }
+            }
+        }
+        // For backspace, check if we're removing a syntax-sensitive character
+        else if (is_backspace && lle_display_is_syntax_highlighting_enabled(state) && last_displayed_length > 0) {
+            char removed_char = text[last_displayed_length - 1]; // Character that was removed
+            if (removed_char == '\'' || removed_char == '"' || removed_char == '`' ||
+                removed_char == '|' || removed_char == '&' || removed_char == '>' || 
+                removed_char == '<' || removed_char == ';' || removed_char == ' ') {
+                needs_full_rewrite = true;
+            }
+        }
+        
+        if (needs_full_rewrite) {
+            if (debug_mode) {
+                const char display_char = is_backspace ? '?' : *(text + last_displayed_length);
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux syntax-sensitive operation '%c', using full rewrite\n", display_char);
+            }
+            last_displayed_length = text_length;
+            // Fall through to full rewrite logic
+        } else if (is_backspace) {
+            // True incremental backspace: use backspace sequence
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux true incremental: backspace\n");
+            }
+            
+            if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to backspace\n");
+                }
+                return false;
+            }
+        } else {
+            // True incremental update: just append the new character
+            const char *new_char = text + last_displayed_length;
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux true incremental: appending '%c'\n", *new_char);
+            }
+            
+            if (!lle_terminal_write(state->terminal, new_char, 1)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to append character\n");
+                }
+                return false;
+            }
+            
+            last_displayed_length = text_length;
+            
+            // Update cursor position
+            if (!lle_display_update_cursor(state)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to update cursor\n");
+                }
+                return false;
+            }
+            
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] True incremental update completed\n");
+            }
+            
+            return true;
+        }
     }
     
-    // Clear from cursor to end of line using Linux-safe method
-    if (!lle_display_clear_to_eol_linux_safe(state)) {
+    // For non-append cases or non-Linux, use full rewrite
+    last_displayed_length = text_length;
+    
+    // Detect if we need complex Linux handling
+    bool is_complex_operation = false;
+    if (platform == LLE_PLATFORM_LINUX) {
+        // Check for complex cases that need special handling
+        size_t terminal_width = state->geometry.width;
+        size_t total_display_width = prompt_last_line_width + text_length;
+        bool has_newlines = text && memchr(text, '\n', text_length);
+        bool wraps_lines = total_display_width >= terminal_width;
+        
+        is_complex_operation = has_newlines || wraps_lines || text_length > 50;
+        
         if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux complex check: newlines=%s, wraps=%s, long=%s\n",
+                   has_newlines ? "yes" : "no", wraps_lines ? "yes" : "no", 
+                   text_length > 50 ? "yes" : "no");
         }
-        return false;
+    }
+    
+    if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
+        // Use standard cursor positioning for non-Linux or complex cases
+        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_last_line_width)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to move cursor to text start\n");
+            }
+            return false;
+        }
+    } else {
+        // Simple Linux case: use carriage return method
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux: Using carriage return for simple case\n");
+        }
+        
+        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to write carriage return\n");
+            }
+            return false;
+        }
+        
+        if (!lle_prompt_render(state->terminal, state->prompt, false)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to rewrite prompt\n");
+            }
+            return false;
+        }
+    }
+    
+    // Clear to end of line based on platform and complexity
+    if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
+        // Use standard clearing for non-Linux or complex cases
+        if (!lle_terminal_clear_to_eol(state->terminal)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
+            }
+            return false;
+        }
+    } else {
+        // Simple Linux case: clearing already handled by prompt rewrite
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux: Simple case, clearing via overwrite\n");
+        }
     }
 
     // Write the text with syntax highlighting if enabled
@@ -888,31 +1047,39 @@ static bool lle_display_clear_to_eol_linux_safe(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_CLEAR_EOL] Using Linux-safe character clearing\n");
     }
     
-    // Get current cursor position and terminal width
-    // Terminal width available if needed: state->geometry.width
+    // For Linux, implement smart clearing based on terminal width and cursor position
+    size_t terminal_width = state->geometry.width;
+    size_t prompt_width = 0;
+    if (state->prompt) {
+        prompt_width = lle_prompt_get_last_line_width(state->prompt);
+    }
     
-    // Get current cursor column - we'll clear from here to end of line
-    // For safety, assume we might need to clear up to 80 characters max
-    // This is conservative but avoids terminal width detection issues
-    size_t max_clear_chars = 80;
+    // Calculate maximum safe clearing distance to avoid wrapping
+    size_t cursor_to_edge = terminal_width > prompt_width ? terminal_width - prompt_width : 0;
+    size_t max_safe_clear = cursor_to_edge > 10 ? cursor_to_edge - 10 : 5; // Leave safety margin
     
-    // Write spaces to overwrite any existing text, then return cursor
-    for (size_t i = 0; i < max_clear_chars; i++) {
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CLEAR_EOL] Linux: Safe clearing distance: %zu (terminal=%zu, prompt=%zu)\n", 
+               max_safe_clear, terminal_width, prompt_width);
+    }
+    
+    // Write spaces to clear content, respecting terminal boundaries
+    for (size_t i = 0; i < max_safe_clear; i++) {
         if (!lle_terminal_write(state->terminal, " ", 1)) {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_CLEAR_EOL] Failed to write clear space %zu\n", i);
+                fprintf(stderr, "[LLE_CLEAR_EOL] Failed to write clearing space %zu\n", i);
             }
-            break; // Continue with what we accomplished
+            break;
         }
     }
     
-    // Move cursor back to original position by sending backspaces
-    for (size_t i = 0; i < max_clear_chars; i++) {
+    // Return cursor to starting position
+    for (size_t i = 0; i < max_safe_clear; i++) {
         if (!lle_terminal_write(state->terminal, "\b", 1)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_EOL] Failed to backspace %zu\n", i);
             }
-            break; // Continue with what we accomplished
+            break;
         }
     }
     
@@ -1121,14 +1288,12 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
                                          const char *text,
                                          size_t text_length,
                                          size_t start_col) {
+    (void)start_col; // Terminal handles positioning naturally
     if (!state || !text) {
         return false;
     }
     
-    size_t terminal_width = state->geometry.width;
-    size_t current_col = start_col;
-    size_t current_line = 0;
-    (void)current_line; // Used in complex line calculations
+    // Process each character, letting terminal handle wrapping
     
     for (size_t i = state->display_start_offset; i < text_length; i++) {
         char c = text[i];
@@ -1138,25 +1303,16 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
             if (!lle_terminal_write(state->terminal, "\n", 1)) {
                 return false;
             }
-            current_col = 0;
-            current_line++;
             continue;
         }
         
-        // Handle line wrapping
-        if (current_col >= terminal_width) {
-            if (!lle_terminal_write(state->terminal, "\n", 1)) {
-                return false;
-            }
-            current_col = 0;
-            current_line++;
-        }
+        // Let terminal handle wrapping naturally - no manual newlines needed
+        // Terminal will automatically wrap when it reaches the right edge
         
-        // Write the character
+        // Write the character - terminal handles positioning and wrapping
         if (!lle_terminal_write(state->terminal, &c, 1)) {
             return false;
         }
-        current_col++;
     }
     
     return true;
