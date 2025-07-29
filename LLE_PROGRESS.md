@@ -1,7 +1,8 @@
 # LLE Development Progress
 
 **DEVELOPMENT PATH**: Direct Terminal Operations (Established December 2024)  
-**STATUS**: Foundational approach confirmed, keybinding implementation under refinement  
+**STATUS**: CRITICAL LINUX COMPATIBILITY ISSUES DISCOVERED - Display system broken on Linux/Konsole  
+**URGENT**: Must fix character duplication and display corruption before continuing development
 **CRITICAL**: All future development must follow direct terminal operations approach
 
 ## Phase 1: Foundation (Weeks 1-2) - COMPLETE
@@ -147,6 +148,52 @@
 - ✅ **Build Success**: Compiles cleanly with all wrapping fixes integrated
 - ✅ **Terminal Detection**: Proper width detection (verified: actual terminal size vs. fallback 80x24)
 - ✅ **Syntax Highlighting**: Colors continue correctly across wrapped lines without interruption
+
+## 🚨 CRITICAL LINUX COMPATIBILITY ISSUES DISCOVERED (DECEMBER 2024)
+
+**URGENT BLOCKER**: Cross-platform testing revealed fundamental display system failures on Linux/Konsole
+
+### ❌ **CRITICAL ISSUE #1: Character Duplication on Linux/Konsole**
+**Problem**: Basic character input completely broken - typing produces character duplication
+**Example**: Typing "hello" produces "hhehelhellhello" 
+**Root Cause**: `lle_display_update_incremental()` behaves differently on Linux vs macOS terminals
+**Impact**: Shell completely unusable for basic text input on Linux systems
+**Status**: 🚨 CRITICAL BLOCKER - Requires immediate fix
+
+### ❌ **CRITICAL ISSUE #2: Tab Completion Display Corruption**
+**Problem**: Tab completion logic works but display is corrupted due to character duplication
+**Evidence**: Debug shows "Generated 8 completions", "Applied completion: 'test_file1.txt'" but display is garbled
+**Root Cause**: Same incremental display issue affects completion text rendering
+**Impact**: Tab completion unusable despite working backend logic
+**Status**: 🚨 BLOCKED by Issue #1
+
+### ❌ **CRITICAL ISSUE #3: Syntax Highlighting Incomplete**
+**Problem**: Only command highlighting (blue) works, strings remain blue instead of green
+**Root Cause**: Incremental parsing sees partial text ("echo 'par") instead of complete ("echo 'partial string'")
+**Platform**: Works on macOS/iTerm2, broken on Linux/Konsole
+**Impact**: Reduced functionality and visual feedback
+**Status**: ⚠️ HIGH PRIORITY after display fixes
+
+### 🔍 **INVESTIGATION FINDINGS**
+**Terminal Behavior Differences**:
+- **macOS/iTerm2**: ✅ All LLE features work correctly
+- **Linux/Konsole**: ❌ Fundamental display system failures
+
+**Attempted Fixes That Failed**:
+1. ❌ Full-line redraw: Caused double prompts and worse corruption
+2. ❌ Manual space clearing: Character duplication persisted
+3. ❌ Enhanced terminal escape sequences: No improvement
+4. ❌ Differential text writing: Logic correct but underlying issue remained
+
+**Technical Debt**: Display system optimized for macOS behavior without cross-platform validation
+
+### 🛠️ **IMMEDIATE ACTION REQUIRED**
+**PRIORITY 1**: Fix `lle_display_update_incremental()` for Linux terminal compatibility
+**PRIORITY 2**: Investigate terminal escape sequence differences between platforms  
+**PRIORITY 3**: Implement platform-specific display strategies if needed
+**PRIORITY 4**: Complete syntax highlighting context for incremental updates
+
+**DEVELOPMENT BLOCKER**: Cannot proceed with new features while basic functionality is broken on Linux
 - ✅ **Tab Completion**: Lists appear at correct positions with proper terminal width formatting
 - ✅ **Cursor Calculations**: Mathematical framework uses correct terminal geometry throughout
 - ✅ **Line Wrapping**: All components wrap at actual terminal boundaries instead of hardcoded limits

@@ -416,68 +416,115 @@ Status: 🎉 ALL TESTS PASSED! Enhanced terminal detection integration working c
 
 **Conclusion**: Phase 2 Complete - Core functionality providing production-ready editing experience.
 
-## 🎯 CURRENT INTERACTIVE FEATURES STATUS (DECEMBER 2024)
+## 🎯 CURRENT INTERACTIVE FEATURES STATUS (DECEMBER 2024) - LINUX/KONSOLE CRITICAL ISSUES IDENTIFIED
 
-### ✅ **Tab Completion Implementation Status**
-- **Basic File Completion**: ✅ WORKING - Completes filenames in current directory
-- **Prefix Matching**: ✅ WORKING - Case-insensitive matching with partial words
-- **Hidden File Handling**: ✅ WORKING - Skips hidden files unless prefix starts with '.'
-- **Single Completion**: ✅ WORKING - First Tab press applies first match
-- **Multiple Match Cycling**: ❌ NEEDS WORK - Subsequent Tab presses don't cycle through matches
-- **Word Boundary Detection**: ✅ WORKING - Correctly extracts word at cursor position
-- **Text Buffer Integration**: ✅ WORKING - Proper deletion and insertion of completions
+### 🚨 **CRITICAL CROSS-PLATFORM COMPATIBILITY ISSUES DISCOVERED**
 
-**Current Limitation**: Tab completion finds multiple matches but only applies the first one. The cycling logic through multiple matches needs debugging.
+**ENVIRONMENT TESTED**: Linux/Konsole on Fedora with xterm-256color
+**STATUS**: Major display and interaction issues identified that require fundamental fixes
 
-### ✅ **Syntax Highlighting Implementation Status**
-- **Command Highlighting**: ✅ WORKING - First word (commands) highlighted in blue
-- **Framework Integration**: ✅ WORKING - Syntax highlighter properly connected to display
-- **Real-time Updates**: ✅ WORKING - Colors appear as you type during incremental updates
-- **Theme Integration**: ✅ WORKING - Connected to LLE theme system
-- **Shell Syntax Detection**: ✅ WORKING - Basic command recognition functional
-- **String Highlighting**: 🔧 PARTIAL - Framework ready, needs verification
-- **Variable Highlighting**: 🔧 PARTIAL - Framework ready, needs verification  
-- **Operator Highlighting**: 🔧 PARTIAL - Framework ready, needs verification
-- **Complex Syntax**: 🔧 PARTIAL - Pipes, redirects, etc. need testing
+### ❌ **Character Input Display - BROKEN ON LINUX/KONSOLE**
+- **Issue**: Character duplication during typing (`hello` → `hhehelhellhello`)
+- **Root Cause**: Incremental display update system (`lle_display_update_incremental()`) has terminal-specific behavior differences
+- **macOS/iTerm2**: ✅ WORKS - Characters display correctly
+- **Linux/Konsole**: ❌ BROKEN - Each character gets duplicated/repeated during incremental updates
+- **Impact**: Shell completely unusable for basic text input on Linux systems
 
-**Current Status**: Basic command highlighting is working and visible. Full syntax highlighting framework is implemented but needs verification for strings, variables, and operators.
+**Technical Analysis**: The incremental display system writes entire text buffer on each character but cursor positioning and terminal clearing behave differently on Linux vs macOS.
 
-### 🔧 **Next Development Priorities**
-1. **Cross-Platform Validation**: Test enhanced terminal detection on Linux/Konsole environment
-2. **Tab Completion Cycling Verification**: Validate that enhanced tab completion fixes work on Linux
-3. **Extend Syntax Highlighting**: Verify and test full syntax highlighting for all shell constructs
-4. **Performance Testing**: Ensure enhanced detection maintains sub-millisecond response times
+### ❌ **Tab Completion Display - BROKEN ON LINUX/KONSOLE**
+- **Logic Status**: ✅ WORKING - Tab completion finds files and cycles correctly (verified via debug output)
+- **Display Status**: ❌ BROKEN - Completions cause display corruption due to underlying character duplication issue
+- **Cycling**: ❌ BROKEN - When cycling works, it doesn't properly reset to original prefix
+- **Word Replacement**: ❌ BROKEN - Only replaces longer completions, not shorter ones
 
-## 🎯 CURRENT DEVELOPMENT PRIORITY - CROSS-PLATFORM VALIDATION
+**Debug Evidence**: Tab completion logic generates completions correctly (`Generated 8 completions`, `Applied completion: 'test_file1.txt'`) but display corruption prevents visible functionality.
+
+### ❌ **Syntax Highlighting - BROKEN ON LINUX/KONSOLE**  
+- **Framework**: ✅ WORKING - Syntax regions generated correctly
+- **Command Highlighting**: ⚠️ PARTIAL - Only command colors (blue) work
+- **String Highlighting**: ❌ BROKEN - Strings remain blue instead of green
+- **macOS/iTerm2**: ✅ REPORTED WORKING - Full syntax highlighting functional
+- **Linux/Konsole**: ❌ BROKEN - Only command syntax type applied
+
+**Root Cause**: Incremental parsing during typing means syntax highlighter only sees partial text (`echo 'par`) instead of complete commands (`echo 'partial string'`) needed for string detection.
+
+### 🔍 **INVESTIGATION FINDINGS**
+
+**Primary Issue**: Incremental display update system causes character duplication on Linux/Konsole
+**Secondary Issues**: All other problems (tab completion artifacts, syntax highlighting) stem from the primary display issue
+
+**Terminal Behavior Differences**:
+- **macOS/iTerm2**: Incremental updates work correctly, may use different code paths or terminal behavior
+- **Linux/Konsole**: Incremental updates cause duplication, cursor positioning and clearing don't work as expected
+
+**Attempted Fixes That Failed**:
+1. ❌ Full-line redraw approach: Caused double prompts and worse corruption
+2. ❌ Manual space clearing: Still had character duplication
+3. ❌ Enhanced cursor positioning: Did not resolve fundamental issue
+4. ❌ Differential text writing: Logic correct but underlying issue persisted
+
+### 🛠️ **CRITICAL NEXT DEVELOPMENT PRIORITIES**
+1. **🚨 URGENT**: Fix character duplication in incremental display system for Linux terminals
+2. **🚨 URGENT**: Investigate terminal escape sequence differences between macOS and Linux
+3. **HIGH**: Implement Linux-specific display update strategy if needed
+4. **MEDIUM**: Fix tab completion word replacement range calculation
+5. **MEDIUM**: Implement complete syntax highlighting context for incremental updates
+
+**RECOMMENDED APPROACH**: Focus on fixing the root character duplication issue first, as all other problems cascade from this fundamental display system failure on Linux.
+
+## 🚨 CURRENT DEVELOPMENT PRIORITY - LINUX/KONSOLE COMPATIBILITY CRISIS
 
 **ENHANCED TERMINAL DETECTION INTEGRATION: COMPLETE** ✅ - Shell integration working with 18/18 tests passed
 
-**CURRENT PHASE: CROSS-PLATFORM VALIDATION** 🧪
+**CURRENT PHASE: CRITICAL LINUX COMPATIBILITY FIXES** 🚨
 
-**PHASE 3: CTRL+R SEARCH REDESIGN** (Planned)
+**URGENT ISSUE DISCOVERED**: LLE works perfectly on macOS/iTerm2 but has fundamental display system failures on Linux/Konsole that make the shell completely unusable.
 
-**Validation Goals**:
-1. **LINUX TESTING**: Verify enhanced detection works correctly on Linux/Konsole
-2. **TAB COMPLETION**: Confirm that cycling fixes resolve Linux-specific issues
-3. **SYNTAX HIGHLIGHTING**: Validate cross-platform syntax highlighting behavior
-4. **PERFORMANCE**: Ensure enhanced detection doesn't impact shell startup time
+**CRITICAL VALIDATION RESULTS**:
+1. **LINUX TESTING**: ❌ FAILED - Major character duplication issues discovered
+2. **TAB COMPLETION**: ❌ DISPLAY BROKEN - Logic works but display corruption prevents use
+3. **SYNTAX HIGHLIGHTING**: ❌ PARTIAL FAILURE - Only command colors work
+4. **PERFORMANCE**: ✅ WORKING - Enhanced detection performance acceptable
 
-**PHASE 3: CTRL+R SEARCH REDESIGN** (Future Planning)
-1. **REDESIGN**: Clean Ctrl+R implementation using display system APIs
-2. **FIX**: Newline issues and search state management
-3. **INTEGRATE**: Search mode cleanly with display system
-4. **MAINTAIN**: All existing working keybindings (Ctrl+A/E/U/G)
+**IMMEDIATE ACTIONS REQUIRED**:
+1. **🚨 CRITICAL**: Debug and fix incremental display update system for Linux terminals
+2. **🚨 CRITICAL**: Investigate terminal escape sequence compatibility differences  
+3. **HIGH**: Implement terminal-specific display strategies if needed
+4. **HIGH**: Fix tab completion word boundary and replacement logic
 
-## 🎯 VERIFIED CAPABILITIES (WHAT WORKS NOW)
-**✅ LLE INTEGRATION FULLY FUNCTIONAL:**
-- **Enhanced Interactive Detection**: ✅ INTEGRATED - Automatic detection of Zed, VS Code, editor terminals
-- **Cross-Platform Compatibility**: ✅ VERIFIED - Builds and runs on macOS with conditional headers
-- **Traditional Fallback**: ✅ VERIFIED - Graceful fallback to `isatty()` if enhanced detection fails
-- **Raw Mode Management**: Proper entry/exit for character-by-character input (✅ VERIFIED)
-- **Input Processing**: Real-time character reading without timeouts (✅ VERIFIED)
-- **Terminal Manager**: Complete TTY/non-TTY handling (✅ VERIFIED)
-- **Display Rendering**: Full rendering without fallback mode (✅ VERIFIED)
-- **Cursor Positioning**: Complete cursor positioning working correctly (✅ VERIFIED)
+**PHASE 3: CTRL+R SEARCH REDESIGN** (BLOCKED until Linux compatibility fixed)
+- Cannot proceed with new features while basic functionality is broken on Linux
+- Must resolve display system issues before adding more complex features
+
+## 🎯 VERIFIED CAPABILITIES (PLATFORM-SPECIFIC STATUS)
+
+### ✅ **macOS/iTerm2 - FULLY FUNCTIONAL**
+- **Enhanced Interactive Detection**: ✅ VERIFIED - Automatic detection works
+- **Character Input**: ✅ VERIFIED - Clean character display without duplication
+- **Tab Completion**: ✅ VERIFIED - Cycling and display work correctly  
+- **Syntax Highlighting**: ✅ VERIFIED - Full syntax highlighting functional
+- **Raw Mode Management**: ✅ VERIFIED - Proper entry/exit for character input
+- **Terminal Manager**: ✅ VERIFIED - Complete TTY/non-TTY handling
+- **Display Rendering**: ✅ VERIFIED - Full rendering works correctly
+- **Cursor Positioning**: ✅ VERIFIED - Accurate cursor positioning
+
+### ❌ **Linux/Konsole - CRITICAL ISSUES**
+- **Enhanced Interactive Detection**: ✅ VERIFIED - Detection works correctly
+- **Character Input**: ❌ BROKEN - Severe character duplication (`hello` → `hhehelhellhello`)
+- **Tab Completion**: ❌ BROKEN - Logic works but display corruption prevents use
+- **Syntax Highlighting**: ❌ PARTIAL - Only command highlighting, no strings/variables
+- **Raw Mode Management**: ✅ VERIFIED - Mode switching works
+- **Terminal Manager**: ✅ VERIFIED - TTY detection and setup work
+- **Display Rendering**: ❌ BROKEN - Incremental updates cause duplication
+- **Cursor Positioning**: ❌ BROKEN - Positioning errors cause text corruption
+
+### 🔍 **ROOT CAUSE ANALYSIS**
+**Primary Issue**: `lle_display_update_incremental()` function behaves differently on Linux vs macOS terminals
+**Impact**: Makes shell completely unusable on Linux systems
+**Urgency**: Critical blocker for Linux deployment
+
+**TECHNICAL DEBT**: Display system was optimized for macOS behavior without proper cross-platform testing
 
 **✅ ENHANCED TERMINAL DETECTION VERIFIED:**
 - **Zed Terminal**: ✅ WORKING - Enhanced detection overrides traditional non-interactive detection
