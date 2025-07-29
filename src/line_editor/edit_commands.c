@@ -121,31 +121,7 @@ static size_t find_word_boundary(const lle_text_buffer_t *buffer, size_t start_p
     }
 }
 
-/**
- * @brief Update display after text modification
- * @param state Display state
- * @param offset Offset where modification occurred
- * @param length Length of modification
- * @param is_insertion true for insertion, false for deletion
- * @return true on success, false on error
- */
-static bool update_display_after_modification(lle_display_state_t *state, 
-                                               size_t offset, size_t length, 
-                                               bool is_insertion) {
-    if (!state) return false;
-    
-    bool result;
-    if (is_insertion) {
-        result = lle_display_update_after_insert(state, offset, length);
-    } else {
-        result = lle_display_update_after_delete(state, offset, length);
-    }
-    
-    if (!result) return false;
-    
-    // Update cursor position in display
-    return lle_display_update_cursor(state);
-}
+
 
 // ============================================================================
 // Character Operation Functions
@@ -165,7 +141,14 @@ lle_command_result_t lle_cmd_insert_char(lle_display_state_t *state, char charac
         return LLE_CMD_ERROR_BUFFER_FULL;
     }
     
-    // Display update will be handled by main input loop to prevent double updates
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
+    if (lle_display_validate(state)) {
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
+    }
     
     return LLE_CMD_SUCCESS;
 }
@@ -191,7 +174,14 @@ lle_command_result_t lle_cmd_delete_char(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Display update will be handled by main input loop to prevent double updates
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
+    if (lle_display_validate(state)) {
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
+    }
     
     return LLE_CMD_SUCCESS;
 }
@@ -217,7 +207,14 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Display update will be handled by main input loop to prevent double updates
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
+    if (lle_display_validate(state)) {
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
+    }
     
     return LLE_CMD_SUCCESS;
 }
@@ -299,7 +296,14 @@ lle_command_result_t lle_cmd_move_cursor(lle_display_state_t *state,
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Display update will be handled by main input loop to prevent double updates
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
+    if (lle_display_validate(state)) {
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
+    }
     
     return LLE_CMD_SUCCESS;
 }
@@ -321,7 +325,14 @@ lle_command_result_t lle_cmd_set_cursor_position(lle_display_state_t *state, siz
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Display update will be handled by main input loop to prevent double updates
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
+    if (lle_display_validate(state)) {
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
+    }
     
     return LLE_CMD_SUCCESS;
 }
@@ -367,10 +378,13 @@ lle_command_result_t lle_cmd_delete_word(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        update_display_after_modification(state, start_pos, end_pos - start_pos, false);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -402,10 +416,13 @@ lle_command_result_t lle_cmd_backspace_word(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        update_display_after_modification(state, start_pos, end_pos - start_pos, false);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -439,10 +456,13 @@ lle_command_result_t lle_cmd_accept_line(lle_display_state_t *state,
         result_buffer[copy_length] = '\0';
     }
     
-    // Clear the display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        lle_display_clear(state);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // For line cancellation, clear display if update fails
+            lle_display_clear(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -463,10 +483,13 @@ lle_command_result_t lle_cmd_cancel_line(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_STATE;
     }
     
-    // Clear the display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        lle_display_clear(state);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // For line acceptance, clear display if update fails
+            lle_display_clear(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -487,10 +510,13 @@ lle_command_result_t lle_cmd_clear_line(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_STATE;
     }
     
-    // Update display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        lle_display_refresh(state);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -517,10 +543,13 @@ lle_command_result_t lle_cmd_kill_line(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        update_display_after_modification(state, cursor_pos, length_to_delete, false);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;
@@ -551,10 +580,13 @@ lle_command_result_t lle_cmd_kill_beginning(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Update display - only if we have a valid display environment
+    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
+    // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        update_display_after_modification(state, 0, cursor_pos, false);
-        // Don't return error if display update fails in non-terminal environments
+        if (!lle_display_update_incremental(state)) {
+            // Graceful fallback: if absolute positioning fails, use full render
+            lle_display_render(state);
+        }
     }
     
     return LLE_CMD_SUCCESS;

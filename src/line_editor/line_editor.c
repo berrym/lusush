@@ -508,70 +508,57 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 } else {
                     // Standard: Ctrl+H is backspace in most terminals
                     cmd_result = lle_cmd_backspace(editor->display);
+                    needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
                 break;
                 
             case LLE_KEY_DELETE:
                 cmd_result = lle_cmd_delete_char(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_ARROW_LEFT:
             case LLE_KEY_CTRL_B:
                 cmd_result = lle_cmd_move_cursor(editor->display, LLE_CMD_CURSOR_LEFT, 1);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_ARROW_RIGHT:
             case LLE_KEY_CTRL_F:
                 cmd_result = lle_cmd_move_cursor(editor->display, LLE_CMD_CURSOR_RIGHT, 1);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_HOME:
                 cmd_result = lle_cmd_move_home(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] Home key pressed\n");
                 }
                 break;
                 
             case LLE_KEY_CTRL_A:
-                // EMERGENCY FIX: Direct terminal cursor movement for immediate functionality
-                if (!lle_text_move_cursor(editor->buffer, LLE_MOVE_HOME)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to home in buffer\n");
-                    }
+                cmd_result = lle_cmd_move_home(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+A (Home) pressed\n");
                 }
-                // Direct terminal positioning for immediate visual feedback
-                prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                if (!lle_terminal_move_cursor_to_column(editor->terminal, prompt_width)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to position cursor visually\n");
-                    }
-                }
-                needs_display_update = false;
                 break;
                 
             case LLE_KEY_END:
                 cmd_result = lle_cmd_move_end(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] End key pressed\n");
                 }
                 break;
                 
             case LLE_KEY_CTRL_E:
-                // EMERGENCY FIX: Direct terminal cursor movement for immediate functionality
-                if (!lle_text_move_cursor(editor->buffer, LLE_MOVE_END)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to end in buffer\n");
-                    }
+                cmd_result = lle_cmd_move_end(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+E (End) pressed\n");
                 }
-                // Direct terminal positioning for immediate visual feedback
-                prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                size_t text_width = lle_calculate_display_width_ansi(editor->buffer->buffer, editor->buffer->length);
-                if (!lle_terminal_move_cursor_to_column(editor->terminal, prompt_width + text_width)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to position cursor at end visually\n");
-                    }
-                }
-                needs_display_update = false;
                 break;
                 
             case LLE_KEY_ARROW_UP:
@@ -610,20 +597,19 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     if (editor->history_enabled && editor->history) {
                         const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_PREV);
                         if (entry && entry->command) {
-                            // Clear current line visually
-                            prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                            lle_terminal_move_cursor_to_column(editor->terminal, prompt_width);
-                            lle_terminal_clear_to_eol(editor->terminal);
-                            
-                            // Update buffer
+                            // Phase 2B.4: Update buffer with history entry
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                             
-                            // Write new command directly to terminal
-                            lle_terminal_write(editor->terminal, entry->command, entry->length);
+                            // Phase 2B.4: Use Phase 2A absolute positioning system instead of direct terminal operations
+                            // This integrates history navigation with the coordinate conversion and position tracking
+                            if (!lle_display_update_incremental(editor->display)) {
+                                // Graceful fallback: if absolute positioning fails, clear and render normally
+                                lle_display_render(editor->display);
+                            }
                         }
                     }
                 }
@@ -666,24 +652,23 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     if (editor->history_enabled && editor->history) {
                         const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_NEXT);
                         
-                        // Clear current line visually
-                        prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                        lle_terminal_move_cursor_to_column(editor->terminal, prompt_width);
-                        lle_terminal_clear_to_eol(editor->terminal);
-                        
                         if (entry && entry->command) {
-                            // Update buffer with next history entry
+                            // Phase 2B.4: Update buffer with next history entry
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                            
-                            // Write new command directly to terminal
-                            lle_terminal_write(editor->terminal, entry->command, entry->length);
                         } else {
                             // No next line, clear buffer
                             lle_text_buffer_clear(editor->buffer);
+                        }
+                        
+                        // Phase 2B.4: Use Phase 2A absolute positioning system instead of direct terminal operations
+                        // This integrates history navigation with the coordinate conversion and position tracking
+                        if (!lle_display_update_incremental(editor->display)) {
+                            // Graceful fallback: if absolute positioning fails, clear and render normally
+                            lle_display_render(editor->display);
                         }
                     }
                 }
@@ -693,36 +678,36 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             case LLE_KEY_CTRL_K:
                 // Standard readline: kill from cursor to end of line
                 cmd_result = lle_cmd_kill_line(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_CTRL_U:
-                // EMERGENCY FIX: Direct terminal line clearing for immediate functionality
-                // Clear buffer
-                lle_text_buffer_clear(editor->buffer);
-                
-                // Clear line visually
-                prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                lle_terminal_move_cursor_to_column(editor->terminal, prompt_width);
-                lle_terminal_clear_to_eol(editor->terminal);
-                
-                needs_display_update = false;
+                cmd_result = lle_cmd_clear_line(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+U (Clear line) pressed\n");
+                }
                 break;
                 
             case LLE_KEY_CTRL_W:
                 // Standard readline: kill word backward
                 cmd_result = lle_cmd_backspace_word(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_ALT_D:
                 cmd_result = lle_cmd_delete_word(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_ALT_B:
                 cmd_result = lle_cmd_word_left(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_ALT_F:
                 cmd_result = lle_cmd_word_right(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 break;
                 
             case LLE_KEY_CTRL_L:
@@ -904,12 +889,14 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+A as CHAR - moving to beginning of line\n");
                     }
                     cmd_result = lle_cmd_move_home(editor->display);
+                    needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
                 else if (event.character == 0x05) { // Ctrl+E - move to end
                     if (debug_mode) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+E as CHAR - moving to end of line\n");
                     }
                     cmd_result = lle_cmd_move_end(editor->display);
+                    needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
                 else if (event.character == 0x12) { // Ctrl+R - reverse search
                     if (debug_mode) {
@@ -989,6 +976,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Inserting printable character: '%c'\n", event.character);
                     }
                     cmd_result = lle_cmd_insert_char(editor->display, event.character);
+                    needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
                 else {
                     // Other control characters - ignore in line editor
@@ -1008,10 +996,29 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions)) {
                         needs_display_update = true;
                         
-                        // Optional: Show completion info for debugging
+                        // Phase 2B.2: Show completion menu for multiple options
+                        const lle_enhanced_completion_info_t *info = 
+                            lle_enhanced_tab_completion_get_info();
+                        
+                        if (info && info->total_count > 1) {
+                            // Create completion display for menu
+                            lle_completion_display_t *completion_display = 
+                                lle_completion_display_create(editor->completions, 
+                                                            info->total_count > 10 ? 10 : info->total_count);
+                            
+                            if (completion_display) {
+                                // Show completion menu using Phase 2A absolute positioning
+                                if (!lle_completion_display_show(editor->display, completion_display)) {
+                                    if (debug_mode) {
+                                        fprintf(stderr, "[PHASE_2B_TAB_COMPLETION] Failed to show completion menu\n");
+                                    }
+                                }
+                                lle_completion_display_destroy(completion_display);
+                            }
+                        }
+                        
+                        // Debug info for completion state
                         if (debug_mode) {
-                            const lle_enhanced_completion_info_t *info = 
-                                lle_enhanced_tab_completion_get_info();
                             fprintf(stderr, "[ENHANCED_TAB_COMPLETION] %d/%d: %s\n",
                                    info->current_index + 1, info->total_count,
                                    info->current_completion);
@@ -1053,16 +1060,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_G:
-                // EMERGENCY FIX: Direct terminal line cancellation
-                // Clear buffer
-                lle_text_buffer_clear(editor->buffer);
-                
-                // Clear line visually
-                prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                lle_terminal_move_cursor_to_column(editor->terminal, prompt_width);
-                lle_terminal_clear_to_eol(editor->terminal);
-                
-                needs_display_update = false;
+                cmd_result = lle_cmd_cancel_line(editor->display);
+                needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+G (Cancel line) pressed\n");
+                }
                 break;
                 
             default:

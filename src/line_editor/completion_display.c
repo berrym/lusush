@@ -10,6 +10,7 @@
  */
 
 #include "completion.h"
+#include "display.h"
 #include "terminal_manager.h"
 #include "theme_integration.h"
 #include "cursor_math.h"
@@ -280,98 +281,113 @@ static bool lle_completion_display_format_item(
 }
 
 /**
- * @brief Display completion candidates to terminal
+ * @brief Display completion list using absolute positioning system
  *
- * Renders the completion candidates to the terminal using the current
- * display configuration. Handles scrolling, selection highlighting,
- * and proper formatting for optimal user experience.
+ * Renders the completion list to the terminal with proper formatting,
+ * selection highlighting, and scrolling support. Integrates with the
+ * Phase 2A absolute positioning system for multi-line compatibility.
  *
- * @param tm Terminal manager for output operations (must not be NULL)
- * @param display Completion display configuration (must not be NULL)
+ * @param display_state Display state with absolute positioning support
+ * @param completion_display Completion display configuration (must not be NULL)
  * @return true on success, false on error
  *
- * @note Uses terminal colors if available and enabled
+ * @note Uses Phase 2A absolute positioning for multi-line scenarios
  * @note Automatically handles terminal width constraints
- * @note Preserves cursor position after display
+ * @note Maintains cursor position tracking in display state
  */
 bool lle_completion_display_show(
-    lle_terminal_manager_t *tm,
-    lle_completion_display_t *display
+    lle_display_state_t *display_state,
+    lle_completion_display_t *completion_display
 ) {
-    if (!tm || !display || !display->completions) {
+    if (!display_state || !completion_display || !completion_display->completions) {
         return false;
     }
     
-    // Get terminal width for formatting constraints - prioritize accurate detection
-    size_t terminal_width = 0;
-    
-    // First priority: Use terminal manager's detected geometry
-    if (tm->geometry_valid && tm->geometry.width > 0) {
-        terminal_width = tm->geometry.width;
-    }
-    // Second priority: Try to get fresh terminal size
-    else if (lle_terminal_get_size(tm) && tm->geometry.width > 0) {
-        terminal_width = tm->geometry.width;
-    }
-    // Last resort: Hardcoded fallback only if detection completely fails
-    else {
-        terminal_width = 80;
+    if (!display_state->position_tracking_valid) {
+        return false; // Need valid position tracking for absolute positioning
     }
     
     // Update display count for current viewport
-    display->display_count = lle_completion_display_calculate_visible_count(display);
+    completion_display->display_count = lle_completion_display_calculate_visible_count(completion_display);
     
-    if (display->display_count == 0) {
+    if (completion_display->display_count == 0) {
         return true; // Nothing to display, but not an error
     }
     
-    // Move cursor down one line to start completion display
-    if (!lle_terminal_write(tm, "\n", 1)) {
+    // Calculate starting position for completion menu using Phase 2A coordinate system
+    lle_cursor_position_t current_cursor = lle_calculate_cursor_position(
+        display_state->buffer, &display_state->geometry, 
+        lle_prompt_get_last_line_width(display_state->prompt));
+    
+    // Position completion menu one line below current cursor
+    lle_terminal_coordinates_t menu_start_pos = lle_convert_to_terminal_coordinates(
+        &current_cursor, display_state->content_start_row, display_state->content_start_col);
+    
+    if (!menu_start_pos.valid) {
+        return false; // Invalid coordinate conversion
+    }
+    
+    // Move to menu start position (one line down)
+    menu_start_pos.terminal_row += 1;
+    if (!lle_terminal_move_cursor(display_state->terminal, 
+                                 menu_start_pos.terminal_row, 1)) {
         return false;
     }
     
-    // Display each visible item
-    for (size_t i = 0; i < display->display_count; i++) {
-        size_t item_index = display->display_start + i;
-        if (item_index >= display->completions->count) {
+    // Display each visible item using absolute positioning
+    for (size_t i = 0; i < completion_display->display_count; i++) {
+        size_t item_index = completion_display->display_start + i;
+        if (item_index >= completion_display->completions->count) {
             break;
         }
         
-        const lle_completion_item_t *item = &display->completions->items[item_index];
-        bool is_selected = (item_index == display->completions->selected);
+        const lle_completion_item_t *item = &completion_display->completions->items[item_index];
+        bool is_selected = (item_index == completion_display->completions->selected);
         
         // Format the completion item with terminal width constraints
         char line_buffer[LLE_COMPLETION_DISPLAY_MAX_LINE_LENGTH];
-        if (!lle_completion_display_format_item(display, item, is_selected, 
+        if (!lle_completion_display_format_item(completion_display, item, is_selected, 
                                                line_buffer, sizeof(line_buffer))) {
             return false;
         }
         
         // Truncate line if it exceeds terminal width
         size_t line_length = strlen(line_buffer);
-        if (line_length >= terminal_width) {
+        if (line_length >= display_state->geometry.width) {
             // Truncate with ellipsis if needed
-            if (terminal_width > 3) {
-                line_buffer[terminal_width - 4] = '.';
-                line_buffer[terminal_width - 3] = '.';
-                line_buffer[terminal_width - 2] = '.';
-                line_buffer[terminal_width - 1] = '\0';
+            if (display_state->geometry.width > 3) {
+                line_buffer[display_state->geometry.width - 4] = '.';
+                line_buffer[display_state->geometry.width - 3] = '.';
+                line_buffer[display_state->geometry.width - 2] = '.';
+                line_buffer[display_state->geometry.width - 1] = '\0';
             } else {
-                line_buffer[terminal_width - 1] = '\0';
+                line_buffer[display_state->geometry.width - 1] = '\0';
             }
         }
         
-        // Write the formatted line
-        if (!lle_terminal_write(tm, line_buffer, strlen(line_buffer))) {
+        // Position cursor at start of line using absolute positioning
+        if (!lle_terminal_move_cursor(display_state->terminal, 
+                                     menu_start_pos.terminal_row + i, 1)) {
             return false;
         }
         
-        // Add newline except for last item
-        if (i < display->display_count - 1) {
-            if (!lle_terminal_write(tm, "\n", 1)) {
-                return false;
-            }
+        // Clear line and write formatted completion item
+        if (!lle_terminal_clear_to_eol(display_state->terminal)) {
+            return false;
         }
+        
+        if (!lle_terminal_write(display_state->terminal, line_buffer, strlen(line_buffer))) {
+            return false;
+        }
+    }
+    
+    // Restore cursor to original position using absolute positioning
+    lle_terminal_coordinates_t restore_pos = lle_convert_to_terminal_coordinates(
+        &current_cursor, display_state->content_start_row, display_state->content_start_col);
+    
+    if (restore_pos.valid) {
+        lle_terminal_move_cursor(display_state->terminal, 
+                                restore_pos.terminal_row, restore_pos.terminal_col);
     }
     
     return true;

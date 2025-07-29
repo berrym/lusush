@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
 
 // Platform detection types for display strategy selection
 typedef enum {
@@ -22,18 +24,54 @@ typedef enum {
     LLE_PLATFORM_UNKNOWN
 } lle_platform_type_t;
 
+// Cached platform detection for Phase 2C performance optimization
+static lle_platform_type_t cached_platform = LLE_PLATFORM_UNKNOWN;
+static bool platform_detected = false;
+
 /**
- * Detect the current platform for display strategy selection.
+ * @brief Detect the current platform for display strategy selection (Phase 2C optimized)
  * @return Platform type
  */
 static lle_platform_type_t lle_detect_platform(void) {
+    if (platform_detected) {
+        return cached_platform;
+    }
+    
 #ifdef __APPLE__
-    return LLE_PLATFORM_MACOS;
+    cached_platform = LLE_PLATFORM_MACOS;
 #elif defined(__linux__)
-    return LLE_PLATFORM_LINUX;
+    cached_platform = LLE_PLATFORM_LINUX;
 #else
-    return LLE_PLATFORM_UNKNOWN;
+    cached_platform = LLE_PLATFORM_UNKNOWN;
 #endif
+    
+    platform_detected = true;
+    return cached_platform;
+}
+
+// ============================================================================
+// Phase 2C: Performance Optimization Utilities
+// ============================================================================
+
+/**
+ * @brief Get current time in microseconds for performance measurement
+ * @return Current time in microseconds, 0 on error
+ */
+static uint64_t lle_get_time_microseconds(void) {
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        return 0;
+    }
+    return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
+}
+
+/**
+ * @brief Fast validation for performance-critical paths (Phase 2C)
+ * @param state Display state to validate
+ * @return true if state is valid for fast operations
+ */
+static bool lle_display_fast_validate(const lle_display_state_t *state) {
+    return (state && state->initialized && state->prompt && state->buffer && state->terminal);
 }
 
 // Forward declarations for helper functions
@@ -115,6 +153,37 @@ bool lle_display_init(lle_display_state_t *state) {
     state->syntax_highlighting_enabled = false;
     state->last_applied_color[0] = '\0';
     
+    // Phase 2C: Initialize performance optimization components
+    memset(&state->display_cache, 0, sizeof(lle_display_cache_t));
+    memset(&state->terminal_batch, 0, sizeof(lle_terminal_batch_t));
+    memset(&state->performance_metrics, 0, sizeof(lle_display_performance_t));
+    state->performance_optimization_enabled = true;
+    
+    // Initialize performance optimization components
+    if (!lle_display_cache_init(&state->display_cache, 4096)) {
+        // Cache initialization failed - continue without caching
+        state->performance_optimization_enabled = false;
+    }
+    
+    if (!lle_terminal_batch_init(&state->terminal_batch, 2048)) {
+        // Batch initialization failed - continue without batching
+        if (state->display_cache.cached_content) {
+            lle_display_cache_cleanup(&state->display_cache);
+        }
+        state->performance_optimization_enabled = false;
+    }
+    
+    if (!lle_display_performance_init(&state->performance_metrics)) {
+        // Performance metrics initialization failed - continue without metrics
+        if (state->display_cache.cached_content) {
+            lle_display_cache_cleanup(&state->display_cache);
+        }
+        if (state->terminal_batch.batch_buffer) {
+            lle_terminal_batch_cleanup(&state->terminal_batch);
+        }
+        state->performance_optimization_enabled = false;
+    }
+    
     return true;
 }
 
@@ -172,6 +241,13 @@ bool lle_display_cleanup(lle_display_state_t *state) {
     state->syntax_highlighting_enabled = false;
     state->last_applied_color[0] = '\0';
     
+    // Phase 2C: Clean up performance optimization components
+    if (state->performance_optimization_enabled) {
+        lle_display_cache_cleanup(&state->display_cache);
+        lle_terminal_batch_cleanup(&state->terminal_batch);
+    }
+    state->performance_optimization_enabled = false;
+    
     return true;
 }
 
@@ -181,6 +257,12 @@ bool lle_display_cleanup(lle_display_state_t *state) {
 void lle_display_destroy(lle_display_state_t *state) {
     if (!state) {
         return;
+    }
+    
+    // Phase 2C: Ensure performance optimization components are cleaned up
+    if (state->performance_optimization_enabled) {
+        lle_display_cache_cleanup(&state->display_cache);
+        lle_terminal_batch_cleanup(&state->terminal_batch);
     }
     
     lle_display_cleanup(state);
@@ -619,6 +701,12 @@ bool lle_display_refresh(lle_display_state_t *state) {
  * @return true on success, false on failure
  */
 bool lle_display_update_incremental(lle_display_state_t *state) {
+    // Phase 2C: Start performance timing
+    uint64_t start_time = 0;
+    if (state && state->performance_optimization_enabled) {
+        start_time = lle_display_performance_start_timing();
+    }
+    
     // Check for debug mode
     const char *debug_env = getenv("LLE_DEBUG");
     bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
@@ -627,19 +715,48 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Starting incremental display update\n");
     }
 
-    if (!lle_display_validate(state)) {
+    // Phase 2C: Use fast validation for performance-critical path
+    bool validation_result = state && state->performance_optimization_enabled ? 
+                            lle_display_fast_validate(state) : lle_display_validate(state);
+    
+    if (!validation_result) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Display validation failed\n");
         }
         return false;
     }
 
-    // Platform detection for display strategy
+    // Phase 2C: Check cache validity for performance optimization
+    if (state->performance_optimization_enabled && lle_display_cache_is_valid(state)) {
+        state->display_cache.cache_hits++;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Cache hit - using cached content\n");
+        }
+        
+        // End timing and record cache hit
+        if (start_time > 0) {
+            lle_display_performance_end_timing(&state->performance_metrics, start_time, "incremental");
+        }
+        return true;
+    } else if (state->performance_optimization_enabled) {
+        state->display_cache.cache_misses++;
+    }
+
+    // Phase 2C: Use cached platform detection for performance
     lle_platform_type_t platform = lle_detect_platform();
     if (debug_mode) {
         const char *platform_name = (platform == LLE_PLATFORM_MACOS) ? "macOS" : 
                                    (platform == LLE_PLATFORM_LINUX) ? "Linux" : "Unknown";
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Platform detected: %s\n", platform_name);
+    }
+
+    // Phase 2C: Start terminal batching if enabled
+    bool batching_started = false;
+    if (state->performance_optimization_enabled) {
+        batching_started = lle_terminal_batch_start(&state->terminal_batch);
+        if (debug_mode && batching_started) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Terminal batching started\n");
+        }
     }
 
     // Continue with normal incremental update for all platforms
@@ -955,11 +1072,16 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux true incremental: backspace\n");
             }
             
-            if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to backspace\n");
+            // Phase 2C: Use batched writes for performance
+            if (state->performance_optimization_enabled && batching_started) {
+                lle_terminal_batch_add(&state->terminal_batch, "\b \b", 3);
+            } else {
+                if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to backspace\n");
+                    }
+                    return false;
                 }
-                return false;
             }
         } else {
             // True incremental update: just append the new character
@@ -968,7 +1090,15 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux true incremental: appending '%c'\n", *new_char);
             }
             
-            if (!lle_terminal_write(state->terminal, new_char, 1)) {
+            // Phase 2C: Use batched writes for performance
+            bool write_success = true;
+            if (state->performance_optimization_enabled && batching_started) {
+                write_success = lle_terminal_batch_add(&state->terminal_batch, new_char, 1);
+            } else {
+                write_success = lle_terminal_write(state->terminal, new_char, 1);
+            }
+            
+            if (!write_success) {
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to append character\n");
                 }
@@ -976,6 +1106,16 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
             }
             
             last_displayed_length = text_length;
+            
+            // Phase 2C: Flush batched operations before cursor update
+            if (state->performance_optimization_enabled && batching_started) {
+                if (!lle_terminal_batch_flush(state)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to flush batch operations\n");
+                    }
+                    return false;
+                }
+            }
             
             // Update cursor position
             if (!lle_display_update_cursor(state)) {
@@ -989,7 +1129,21 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] True incremental update completed\n");
             }
             
+            // Phase 2C: End timing and record successful incremental update
+            if (start_time > 0) {
+                lle_display_performance_end_timing(&state->performance_metrics, start_time, "incremental");
+            }
+            
             return true;
+        }
+    }
+    
+    // Phase 2C: Flush any pending batch operations before complex handling
+    if (state->performance_optimization_enabled && batching_started) {
+        if (!lle_terminal_batch_flush(state)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to flush batch before complex operation\n");
+            }
         }
     }
     
@@ -1174,7 +1328,12 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Incremental update completed successfully\n");
     }
-
+    
+    // Phase 2C: End timing and record performance metrics
+    if (start_time > 0) {
+        lle_display_performance_end_timing(&state->performance_metrics, start_time, "incremental");
+    }
+    
     return true;
 }
 
@@ -1644,17 +1803,53 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
                                                  const char *text,
                                                  size_t length,
                                                  size_t start_col) {
-    (void)start_col; // Parameter reserved for future positioning logic
     if (!lle_display_is_syntax_highlighting_enabled(state) || !text) {
         return false;
+    }
+
+    // Phase 2B.3: Validate position tracking is available for absolute positioning
+    // For incremental updates, position tracking may not be set yet, so initialize if needed
+    if (!state->position_tracking_valid) {
+        // Try to initialize position tracking for syntax highlighting
+        state->content_start_row = 0;
+        state->content_start_col = lle_prompt_get_last_line_width(state->prompt);
+        state->position_tracking_valid = true;
+        
+        // If we still can't get valid positioning, fallback to plain text
+        if (state->content_start_col == 0 && !state->prompt) {
+            return lle_display_render_plain_text(state, text, length, start_col);
+        }
     }
     
     // Get syntax regions
     size_t region_count = 0;
     const lle_syntax_region_t *regions = lle_syntax_get_regions(state->syntax_highlighter, &region_count);
     
-    // Instead of doing character-by-character rendering with manual wrapping,
-    // we'll render segments with appropriate colors and let the terminal handle wrapping
+    // Phase 2B.3: Calculate content start position for absolute positioning
+    // For syntax highlighting, we start at the beginning of the content area
+    size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
+    
+    // Create a cursor position representing the start of content (before any text)
+    lle_cursor_position_t content_start = {0};
+    content_start.absolute_row = 0;
+    content_start.absolute_col = 0; // Start of content, not including prompt
+    content_start.valid = true;
+    
+    // Phase 2B.3: Convert to absolute terminal coordinates using Phase 2A system
+    lle_terminal_coordinates_t render_pos = lle_convert_to_terminal_coordinates(
+        &content_start, state->content_start_row, state->content_start_col);
+    
+    if (!render_pos.valid) {
+        // If coordinate conversion fails, just proceed with sequential rendering
+        // The terminal write will handle positioning naturally
+    } else {
+        // Position cursor at content start using absolute positioning
+        if (!lle_terminal_move_cursor(state->terminal, render_pos.terminal_row, render_pos.terminal_col)) {
+            // If positioning fails, continue with sequential rendering
+        }
+    }
+    
+    // Render segments with appropriate colors using absolute positioning integration
     size_t region_index = 0;
     size_t text_pos = state->display_start_offset;
     lle_syntax_type_t current_type = LLE_SYNTAX_NORMAL;
@@ -1698,7 +1893,9 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
             current_type = new_type;
         }
         
-        // Write the segment (let terminal handle wrapping naturally)
+        // Phase 2B.3: Write the segment with absolute positioning awareness
+        // The terminal write will naturally wrap, and the absolute positioning
+        // foundation ensures proper multi-line coordinate handling
         size_t segment_length = segment_end - text_pos;
         if (segment_length > 0) {
             if (!lle_terminal_write(state->terminal, text + text_pos, segment_length)) {
@@ -2086,6 +2283,350 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
     
     // Maintain display state consistency - mark as needing refresh for cleanup
     state->needs_refresh = true;
+    
+    return true;
+}
+
+// ============================================================================
+// Phase 2C: Performance Optimization Function Implementations
+// ============================================================================
+
+/**
+ * @brief Initialize display cache for performance optimization
+ */
+bool lle_display_cache_init(lle_display_cache_t *cache, size_t buffer_size) {
+    if (!cache || buffer_size == 0) {
+        return false;
+    }
+    
+    cache->cached_content = malloc(buffer_size);
+    if (!cache->cached_content) {
+        return false;
+    }
+    
+    cache->cache_size = buffer_size;
+    cache->cached_length = 0;
+    cache->cache_valid = false;
+    cache->cached_text_length = 0;
+    cache->cached_cursor_position = 0;
+    cache->cached_display_flags = 0;
+    cache->cache_hits = 0;
+    cache->cache_misses = 0;
+    cache->cache_updates = 0;
+    
+    return true;
+}
+
+/**
+ * @brief Clean up display cache resources
+ */
+bool lle_display_cache_cleanup(lle_display_cache_t *cache) {
+    if (!cache) {
+        return false;
+    }
+    
+    if (cache->cached_content) {
+        free(cache->cached_content);
+        cache->cached_content = NULL;
+    }
+    
+    cache->cache_size = 0;
+    cache->cached_length = 0;
+    cache->cache_valid = false;
+    cache->cached_text_length = 0;
+    cache->cached_cursor_position = 0;
+    cache->cached_display_flags = 0;
+    
+    return true;
+}
+
+/**
+ * @brief Check if cached content is valid for current state
+ */
+bool lle_display_cache_is_valid(const lle_display_state_t *state) {
+    if (!state || !state->performance_optimization_enabled) {
+        return false;
+    }
+    
+    const lle_display_cache_t *cache = &state->display_cache;
+    
+    if (!cache->cache_valid || !cache->cached_content) {
+        return false;
+    }
+    
+    // Check if current state matches cached state
+    size_t current_text_length = state->buffer ? state->buffer->length : 0;
+    size_t current_cursor_position = state->buffer ? state->buffer->cursor_pos : 0;
+    
+    if (current_text_length != cache->cached_text_length ||
+        current_cursor_position != cache->cached_cursor_position ||
+        state->display_flags != cache->cached_display_flags) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Update display cache with current rendered content
+ */
+bool lle_display_cache_update(lle_display_state_t *state, const char *content, size_t length) {
+    if (!state || !state->performance_optimization_enabled || !content) {
+        return false;
+    }
+    
+    lle_display_cache_t *cache = &state->display_cache;
+    
+    if (!cache->cached_content || length > cache->cache_size) {
+        return false;
+    }
+    
+    // Update cache content
+    memcpy(cache->cached_content, content, length);
+    cache->cached_length = length;
+    cache->cache_valid = true;
+    
+    // Update cache metadata
+    cache->cached_text_length = state->buffer ? state->buffer->length : 0;
+    cache->cached_cursor_position = state->buffer ? state->buffer->cursor_pos : 0;
+    cache->cached_display_flags = state->display_flags;
+    cache->cache_updates++;
+    
+    return true;
+}
+
+/**
+ * @brief Initialize terminal batching system
+ */
+bool lle_terminal_batch_init(lle_terminal_batch_t *batch, size_t buffer_size) {
+    if (!batch || buffer_size == 0) {
+        return false;
+    }
+    
+    batch->batch_buffer = malloc(buffer_size);
+    if (!batch->batch_buffer) {
+        return false;
+    }
+    
+    batch->buffer_size = buffer_size;
+    batch->buffer_used = 0;
+    batch->batch_active = false;
+    batch->operations_batched = 0;
+    batch->total_writes = 0;
+    batch->bytes_written = 0;
+    
+    return true;
+}
+
+/**
+ * @brief Clean up terminal batching resources
+ */
+bool lle_terminal_batch_cleanup(lle_terminal_batch_t *batch) {
+    if (!batch) {
+        return false;
+    }
+    
+    if (batch->batch_buffer) {
+        free(batch->batch_buffer);
+        batch->batch_buffer = NULL;
+    }
+    
+    batch->buffer_size = 0;
+    batch->buffer_used = 0;
+    batch->batch_active = false;
+    batch->operations_batched = 0;
+    
+    return true;
+}
+
+/**
+ * @brief Start terminal operation batching
+ */
+bool lle_terminal_batch_start(lle_terminal_batch_t *batch) {
+    if (!batch || !batch->batch_buffer) {
+        return false;
+    }
+    
+    batch->buffer_used = 0;
+    batch->batch_active = true;
+    batch->operations_batched = 0;
+    
+    return true;
+}
+
+/**
+ * @brief Add operation to terminal batch
+ */
+bool lle_terminal_batch_add(lle_terminal_batch_t *batch, const char *data, size_t length) {
+    if (!batch || !batch->batch_active || !data || length == 0) {
+        return false;
+    }
+    
+    if (batch->buffer_used + length > batch->buffer_size) {
+        return false; // Buffer full
+    }
+    
+    memcpy(batch->batch_buffer + batch->buffer_used, data, length);
+    batch->buffer_used += length;
+    batch->operations_batched++;
+    
+    return true;
+}
+
+/**
+ * @brief Flush all batched terminal operations
+ */
+bool lle_terminal_batch_flush(lle_display_state_t *state) {
+    if (!state || !state->performance_optimization_enabled) {
+        return false;
+    }
+    
+    lle_terminal_batch_t *batch = &state->terminal_batch;
+    
+    if (!batch->batch_active || batch->buffer_used == 0) {
+        return true; // Nothing to flush
+    }
+    
+    // Write all batched operations in single call
+    bool result = lle_terminal_write(state->terminal, batch->batch_buffer, batch->buffer_used);
+    
+    // Update statistics
+    batch->total_writes++;
+    batch->bytes_written += batch->buffer_used;
+    
+    // Reset batch for next operations
+    batch->buffer_used = 0;
+    batch->batch_active = false;
+    
+    return result;
+}
+
+/**
+ * @brief Initialize performance metrics tracking
+ */
+bool lle_display_performance_init(lle_display_performance_t *metrics) {
+    if (!metrics) {
+        return false;
+    }
+    
+    // Initialize timing metrics
+    metrics->total_render_time = 0;
+    metrics->total_incremental_time = 0;
+    metrics->total_cache_time = 0;
+    
+    // Initialize operation counters
+    metrics->render_calls = 0;
+    metrics->incremental_calls = 0;
+    metrics->cache_operations = 0;
+    
+    // Set performance targets (in microseconds)
+    metrics->target_char_insert_time = 1000;    // 1ms
+    metrics->target_cursor_move_time = 1000;    // 1ms
+    metrics->target_display_update_time = 5000; // 5ms
+    
+    // Initialize efficiency metrics
+    metrics->cache_hit_rate = 0.0;
+    metrics->batch_efficiency = 0.0;
+    
+    return true;
+}
+
+/**
+ * @brief Start timing a display operation
+ */
+uint64_t lle_display_performance_start_timing(void) {
+    uint64_t time = lle_get_time_microseconds();
+    return time > 0 ? time : 1; // Return 1 if time is 0 to indicate valid timing
+}
+
+/**
+ * @brief End timing and record performance metric
+ */
+uint64_t lle_display_performance_end_timing(lle_display_performance_t *metrics, 
+                                           uint64_t start_time, 
+                                           const char *operation_type) {
+    if (!metrics || start_time == 0) {
+        return 0;
+    }
+    
+    uint64_t end_time = lle_get_time_microseconds();
+    uint64_t elapsed = (end_time > start_time) ? (end_time - start_time) : 0;
+    
+    // Update appropriate timing metrics based on operation type
+    if (operation_type) {
+        if (strcmp(operation_type, "render") == 0) {
+            metrics->total_render_time += elapsed;
+            metrics->render_calls++;
+        } else if (strcmp(operation_type, "incremental") == 0) {
+            metrics->total_incremental_time += elapsed;
+            metrics->incremental_calls++;
+        } else if (strcmp(operation_type, "cache") == 0) {
+            metrics->total_cache_time += elapsed;
+            metrics->cache_operations++;
+        }
+    }
+    
+    return elapsed;
+}
+
+/**
+ * @brief Get current performance statistics
+ */
+bool lle_display_get_performance_stats(const lle_display_state_t *state,
+                                      uint64_t *avg_render_time,
+                                      uint64_t *avg_incremental_time,
+                                      double *cache_hit_rate,
+                                      double *batch_efficiency) {
+    if (!state || !avg_render_time || !avg_incremental_time || !cache_hit_rate || !batch_efficiency) {
+        return false;
+    }
+    
+    const lle_display_performance_t *metrics = &state->performance_metrics;
+    const lle_display_cache_t *cache = &state->display_cache;
+    const lle_terminal_batch_t *batch = &state->terminal_batch;
+    
+    // Calculate average timing
+    *avg_render_time = metrics->render_calls > 0 ? 
+                       metrics->total_render_time / metrics->render_calls : 0;
+    *avg_incremental_time = metrics->incremental_calls > 0 ? 
+                           metrics->total_incremental_time / metrics->incremental_calls : 0;
+    
+    // Calculate cache hit rate
+    size_t total_cache_requests = cache->cache_hits + cache->cache_misses;
+    *cache_hit_rate = total_cache_requests > 0 ? 
+                      (double)cache->cache_hits / total_cache_requests * 100.0 : 0.0;
+    
+    // Calculate batch efficiency
+    *batch_efficiency = batch->total_writes > 0 ? 
+                       (double)batch->operations_batched / batch->total_writes * 100.0 : 0.0;
+    
+    return true;
+}
+
+/**
+ * @brief Enable or disable performance optimizations
+ */
+bool lle_display_set_performance_optimization(lle_display_state_t *state, bool enabled) {
+    if (!state || !state->initialized) {
+        return false;
+    }
+    
+    state->performance_optimization_enabled = enabled;
+    
+    // If disabling, clean up resources
+    if (!enabled) {
+        lle_display_cache_cleanup(&state->display_cache);
+        lle_terminal_batch_cleanup(&state->terminal_batch);
+    }
+    // If enabling, reinitialize resources
+    else if (!state->display_cache.cached_content || !state->terminal_batch.batch_buffer) {
+        if (!lle_display_cache_init(&state->display_cache, 4096) ||
+            !lle_terminal_batch_init(&state->terminal_batch, 2048) ||
+            !lle_display_performance_init(&state->performance_metrics)) {
+            state->performance_optimization_enabled = false;
+            return false;
+        }
+    }
     
     return true;
 }

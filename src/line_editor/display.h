@@ -35,6 +35,74 @@ typedef enum {
 } lle_display_flags_t;
 
 /**
+ * @brief Display cache for performance optimization (Phase 2C)
+ *
+ * Caches rendered content to avoid redundant calculations and terminal writes.
+ * Tracks cache validity and provides hit/miss statistics for performance monitoring.
+ */
+typedef struct {
+    char *cached_content;               /**< Cached rendered text content */
+    size_t cache_size;                  /**< Size of cached content buffer */
+    size_t cached_length;               /**< Length of valid cached content */
+    bool cache_valid;                   /**< Whether cache is valid for current state */
+    
+    // Cache metadata for optimization
+    size_t cached_text_length;         /**< Length of text when cache was created */
+    size_t cached_cursor_position;     /**< Cursor position when cache was created */
+    uint32_t cached_display_flags;     /**< Display flags when cache was created */
+    
+    // Performance metrics
+    size_t cache_hits;                  /**< Number of successful cache hits */
+    size_t cache_misses;                /**< Number of cache misses */
+    size_t cache_updates;               /**< Number of cache updates */
+} lle_display_cache_t;
+
+/**
+ * @brief Batched terminal operations for performance optimization (Phase 2C)
+ *
+ * Batches multiple terminal operations into single writes to reduce system call overhead.
+ * Provides significant performance improvement for complex display updates.
+ */
+typedef struct {
+    char *batch_buffer;                 /**< Buffer for batched operations */
+    size_t buffer_size;                 /**< Size of batch buffer */
+    size_t buffer_used;                 /**< Bytes used in batch buffer */ 
+    bool batch_active;                  /**< Whether batching is currently active */
+    
+    // Performance tracking
+    size_t operations_batched;          /**< Number of operations batched */
+    size_t total_writes;                /**< Total number of write operations */
+    size_t bytes_written;               /**< Total bytes written */
+} lle_terminal_batch_t;
+
+/**
+ * @brief Performance metrics for display operations (Phase 2C)
+ *
+ * Tracks timing and efficiency metrics for display operations to validate
+ * performance improvements and identify bottlenecks.
+ */
+typedef struct {
+    // Timing metrics (in microseconds)
+    uint64_t total_render_time;         /**< Total time spent in display renders */
+    uint64_t total_incremental_time;    /**< Total time spent in incremental updates */
+    uint64_t total_cache_time;          /**< Total time spent in cache operations */
+    
+    // Operation counters
+    size_t render_calls;                /**< Number of full render calls */
+    size_t incremental_calls;           /**< Number of incremental update calls */
+    size_t cache_operations;            /**< Number of cache operations */
+    
+    // Performance targets (in microseconds)
+    uint64_t target_char_insert_time;   /**< Target time for character insertion (1000µs) */
+    uint64_t target_cursor_move_time;   /**< Target time for cursor movement (1000µs) */
+    uint64_t target_display_update_time; /**< Target time for display update (5000µs) */
+    
+    // Efficiency metrics
+    double cache_hit_rate;              /**< Cache hit rate percentage */
+    double batch_efficiency;            /**< Batching efficiency percentage */
+} lle_display_performance_t;
+
+/**
  * @brief Display state for managing complete line editor display
  *
  * This structure maintains all state needed for displaying the complete
@@ -72,6 +140,12 @@ typedef struct {
     lle_theme_integration_t *theme_integration;    /**< Theme integration for colors */
     bool syntax_highlighting_enabled;              /**< Enable/disable syntax highlighting */
     char last_applied_color[32];                   /**< Last applied color code for optimization */
+    
+    // Phase 2C: Performance optimization components
+    lle_display_cache_t display_cache;             /**< Display cache for performance optimization */
+    lle_terminal_batch_t terminal_batch;           /**< Batched terminal operations */
+    lle_display_performance_t performance_metrics; /**< Performance metrics and timing */
+    bool performance_optimization_enabled;         /**< Enable/disable performance optimizations */
 } lle_display_state_t;
 
 /**
@@ -316,6 +390,182 @@ bool lle_display_get_statistics(
     size_t *cursor_line,
     size_t *cursor_col
 );
+
+// ============================================================================
+// Phase 2C: Performance Optimization Functions
+// ============================================================================
+
+/**
+ * @brief Initialize display cache for performance optimization
+ *
+ * Initializes the display cache system with the specified buffer size.
+ * Must be called before using any cache-related functions.
+ *
+ * @param cache Display cache structure to initialize
+ * @param buffer_size Size of cache buffer to allocate
+ * @return true on success, false on error
+ */
+bool lle_display_cache_init(lle_display_cache_t *cache, size_t buffer_size);
+
+/**
+ * @brief Clean up display cache resources
+ *
+ * Frees all resources associated with the display cache.
+ * Cache becomes invalid after this call.
+ *
+ * @param cache Display cache to clean up
+ * @return true on success, false if cache is NULL
+ */
+bool lle_display_cache_cleanup(lle_display_cache_t *cache);
+
+/**
+ * @brief Check if cached content is valid for current state
+ *
+ * Validates that cached content matches current display state.
+ * Returns true if cache can be used, false if update is needed.
+ *
+ * @param state Display state to check against cache
+ * @return true if cache is valid, false if cache miss
+ */
+bool lle_display_cache_is_valid(const lle_display_state_t *state);
+
+/**
+ * @brief Update display cache with current rendered content
+ *
+ * Stores the current rendered content in the cache for future use.
+ * Invalidates old cache and updates metadata.
+ *
+ * @param state Display state with current content
+ * @param content Rendered content to cache
+ * @param length Length of content to cache
+ * @return true on success, false on error
+ */
+bool lle_display_cache_update(lle_display_state_t *state, const char *content, size_t length);
+
+/**
+ * @brief Initialize terminal batching system
+ *
+ * Initializes the terminal batch system for combining multiple
+ * terminal operations into single writes.
+ *
+ * @param batch Terminal batch structure to initialize
+ * @param buffer_size Size of batch buffer to allocate
+ * @return true on success, false on error
+ */
+bool lle_terminal_batch_init(lle_terminal_batch_t *batch, size_t buffer_size);
+
+/**
+ * @brief Clean up terminal batching resources
+ *
+ * Flushes any pending operations and frees batch resources.
+ * Batch becomes invalid after this call.
+ *
+ * @param batch Terminal batch to clean up
+ * @return true on success, false if batch is NULL
+ */
+bool lle_terminal_batch_cleanup(lle_terminal_batch_t *batch);
+
+/**
+ * @brief Start terminal operation batching
+ *
+ * Begins batching terminal operations for later execution.
+ * All subsequent terminal writes will be batched until flush.
+ *
+ * @param batch Terminal batch to start
+ * @return true on success, false on error
+ */
+bool lle_terminal_batch_start(lle_terminal_batch_t *batch);
+
+/**
+ * @brief Add operation to terminal batch
+ *
+ * Adds a terminal operation to the current batch.
+ * Operation will be executed when batch is flushed.
+ *
+ * @param batch Terminal batch to add to
+ * @param data Data to add to batch
+ * @param length Length of data to add
+ * @return true on success, false if batch is full
+ */
+bool lle_terminal_batch_add(lle_terminal_batch_t *batch, const char *data, size_t length);
+
+/**
+ * @brief Flush all batched terminal operations
+ *
+ * Executes all batched terminal operations in a single write.
+ * Clears the batch for new operations after execution.
+ *
+ * @param state Display state with terminal for output
+ * @return true on success, false on error
+ */
+bool lle_terminal_batch_flush(lle_display_state_t *state);
+
+/**
+ * @brief Initialize performance metrics tracking
+ *
+ * Initializes performance metrics with target values.
+ * Must be called before performance monitoring begins.
+ *
+ * @param metrics Performance metrics structure to initialize
+ * @return true on success, false if metrics is NULL
+ */
+bool lle_display_performance_init(lle_display_performance_t *metrics);
+
+/**
+ * @brief Start timing a display operation
+ *
+ * Begins timing measurement for a display operation.
+ * Returns timestamp for use with lle_display_performance_end_timing.
+ *
+ * @return Timestamp in microseconds, 0 on error
+ */
+uint64_t lle_display_performance_start_timing(void);
+
+/**
+ * @brief End timing and record performance metric
+ *
+ * Ends timing measurement and records the elapsed time.
+ * Updates appropriate performance counters and averages.
+ *
+ * @param metrics Performance metrics to update
+ * @param start_time Start timestamp from lle_display_performance_start_timing
+ * @param operation_type Type of operation being timed
+ * @return Elapsed time in microseconds
+ */
+uint64_t lle_display_performance_end_timing(lle_display_performance_t *metrics, 
+                                           uint64_t start_time, 
+                                           const char *operation_type);
+
+/**
+ * @brief Get current performance statistics
+ *
+ * Returns current performance metrics including timing averages,
+ * cache hit rates, and efficiency measurements.
+ *
+ * @param state Display state with performance metrics
+ * @param avg_render_time Output for average render time (microseconds)
+ * @param avg_incremental_time Output for average incremental time (microseconds)
+ * @param cache_hit_rate Output for cache hit rate percentage
+ * @param batch_efficiency Output for batch efficiency percentage
+ * @return true on success, false if any parameter is NULL
+ */
+bool lle_display_get_performance_stats(const lle_display_state_t *state,
+                                      uint64_t *avg_render_time,
+                                      uint64_t *avg_incremental_time,
+                                      double *cache_hit_rate,
+                                      double *batch_efficiency);
+
+/**
+ * @brief Enable or disable performance optimizations
+ *
+ * Controls whether performance optimizations (caching, batching) are active.
+ * Can be used to disable optimizations for debugging or compatibility.
+ *
+ * @param state Display state to configure
+ * @param enabled true to enable optimizations, false to disable
+ * @return true on success, false if state is NULL
+ */
+bool lle_display_set_performance_optimization(lle_display_state_t *state, bool enabled);
 
 // ============================================================================
 // Syntax Highlighting Integration Functions

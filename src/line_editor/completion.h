@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "terminal_manager.h"
+#include "display.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -564,8 +565,8 @@ void lle_completion_display_destroy(lle_completion_display_t *display);
  * @note Preserves cursor position after display
  */
 bool lle_completion_display_show(
-    lle_terminal_manager_t *tm,
-    lle_completion_display_t *display
+    lle_display_state_t *display_state,
+    lle_completion_display_t *completion_display
 );
 
 /**

@@ -31,6 +31,11 @@ lle_test_sources = [
   'test_lle_035_syntax_highlighting_framework.c',
   'test_lle_036_basic_shell_syntax.c',
   'test_lle_037_syntax_display_integration.c',
+  'test_phase_2b3_syntax_integration.c',
+  'test_phase_2b4_history_integration.c',
+  'test_phase_2b5_keybinding_integration.c',
+  'test_phase_2c_performance_optimization.c',
+  'test_phase_2d_final_integration.c',
   'test_lle_038_core_line_editor_api.c',
   'test_lle_039_line_editor_implementation.c',
   'test_lle_040_input_event_loop.c',
@@ -53,10 +58,18 @@ foreach test_src : lle_test_sources
   test(test_name, test_exe)
 endforeach
 
-# Performance benchmark (disabled until benchmark.c is implemented)
-# benchmark_exe = executable('lle_benchmark',
-#                           'benchmark.c',
-#                           dependencies: [lle_dep],
-#                           include_directories: inc,
-#                           c_args: ['-O2'],
-#                           install: false)
+# Phase 2C Performance benchmark
+benchmark_phase_2c_exe = executable('benchmark_phase_2c',
+                                   'benchmark_phase_2c.c',
+                                   dependencies: [lle_dep],
+                                   include_directories: inc,
+                                   c_args: ['-O2'],
+                                   install: false)
+
+# Phase 2D Final Integration benchmark
+benchmark_phase_2d_exe = executable('benchmark_phase_2d',
+                                   'benchmark_phase_2d.c',
+                                   dependencies: [lle_dep],
+                                   include_directories: inc,
+                                   c_args: ['-O2'],
+                                   install: false)

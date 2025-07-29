@@ -199,6 +199,49 @@ static lle_enhanced_completion_type_t detect_completion_type(const char *buffer,
 // ============================================================================
 
 /**
+ * @brief Parse a path into directory and filename components
+ *
+ * @param path Full path to parse
+ * @param directory_out Buffer to store directory part (must be at least 1024 bytes)
+ * @param filename_out Buffer to store filename part (must be at least 512 bytes)
+ * @return true on success, false on error
+ */
+static bool parse_path_components(const char *path, char *directory_out, char *filename_out) {
+    if (!path || !directory_out || !filename_out) {
+        return false;
+    }
+    
+    // Find the last slash to separate directory and filename
+    const char *last_slash = strrchr(path, '/');
+    
+    if (!last_slash) {
+        // No slash - it's just a filename in current directory
+        strcpy(directory_out, ".");
+        strncpy(filename_out, path, 511);
+        filename_out[511] = '\0';
+    } else if (last_slash == path) {
+        // Path starts with slash - root directory
+        strcpy(directory_out, "/");
+        strncpy(filename_out, path + 1, 511);
+        filename_out[511] = '\0';
+    } else {
+        // Copy directory part (everything before last slash)
+        size_t dir_len = last_slash - path;
+        if (dir_len >= 1023) dir_len = 1022;
+        strncpy(directory_out, path, dir_len);
+        directory_out[dir_len] = '\0';
+        
+        // Copy filename part (everything after last slash)
+        strncpy(filename_out, last_slash + 1, 511);
+        filename_out[511] = '\0';
+    }
+    
+    COMPLETION_DEBUG("Parsed path '%s' -> directory='%s', filename='%s'", 
+                    path, directory_out, filename_out);
+    return true;
+}
+
+/**
  * @brief Add file completions to the completion list
  */
 static bool add_file_completions(lle_completion_list_t *completions, 
@@ -393,8 +436,18 @@ static bool start_completion_session(const char *buffer, size_t cursor_pos,
             success = add_variable_completions(completions, word);
             break;
         case LLE_ENHANCED_COMPLETION_PATH:
-            // TODO: Implement path-specific completion with directory parsing
-            success = add_file_completions(completions, word, NULL);
+            {
+                // Parse path into directory and filename components
+                char directory[1024];
+                char filename[512];
+                
+                if (parse_path_components(word, directory, filename)) {
+                    success = add_file_completions(completions, filename, directory);
+                } else {
+                    // Fallback to current directory if parsing fails
+                    success = add_file_completions(completions, word, NULL);
+                }
+            }
             break;
     }
     
