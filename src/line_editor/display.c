@@ -360,11 +360,18 @@ bool lle_display_render(lle_display_state_t *state) {
         
         // Create buffer for cursor position calculation
         lle_text_buffer_t *cursor_buffer = lle_text_buffer_create(state->buffer->length + 1);
-        if (cursor_buffer && state->buffer->length > 0) {
-            memcpy(cursor_buffer->buffer, state->buffer->buffer, state->buffer->length);
-            cursor_buffer->length = state->buffer->length;
-            cursor_buffer->cursor_pos = state->buffer->cursor_pos;
-            cursor_buffer->buffer[state->buffer->length] = '\0';
+        if (cursor_buffer) {
+            if (state->buffer->length > 0) {
+                memcpy(cursor_buffer->buffer, state->buffer->buffer, state->buffer->length);
+                cursor_buffer->length = state->buffer->length;
+                cursor_buffer->cursor_pos = state->buffer->cursor_pos;
+                cursor_buffer->buffer[state->buffer->length] = '\0';
+            } else {
+                // Empty buffer case - position cursor at end of prompt
+                cursor_buffer->length = 0;
+                cursor_buffer->cursor_pos = 0;
+                cursor_buffer->buffer[0] = '\0';
+            }
             
             // Calculate cursor position using mathematical framework
             lle_cursor_position_t cursor_pos = lle_calculate_cursor_position(
@@ -399,15 +406,23 @@ bool lle_display_render(lle_display_state_t *state) {
                 }
             } else {
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid cursor position, staying at current location\n");
+                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid cursor position, falling back to prompt end\n");
                 }
+                // Fallback: position cursor at end of prompt using simple calculation
+                size_t terminal_row = lle_prompt_get_height(state->prompt) - 1;
+                size_t terminal_col = prompt_last_line_width;
+                lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col);
             }
             
             lle_text_buffer_destroy(cursor_buffer);
         } else {
             if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_RENDER] No text for cursor positioning\n");
+                fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to create cursor buffer, fallback positioning\n");
             }
+            // Fallback: position cursor at end of prompt
+            size_t terminal_row = lle_prompt_get_height(state->prompt) - 1;
+            size_t terminal_col = prompt_last_line_width;
+            lle_terminal_move_cursor(state->terminal, terminal_row, terminal_col);
         }
     } else {
         if (debug_mode) {
@@ -913,8 +928,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     }
     
     if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
-        // ARCHITECTURAL FIX: Use absolute positioning for all platforms
-        // Calculate absolute terminal position for text start
+        // ARCHITECTURAL FIX: Use absolute positioning for text start
         size_t terminal_row = lle_prompt_get_height(state->prompt) - 1; // Last line of prompt
         size_t terminal_col = prompt_last_line_width;
         
@@ -950,20 +964,12 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
     }
     
-    // Clear to end of line based on platform and complexity
-    if (platform != LLE_PLATFORM_LINUX || is_complex_operation) {
-        // Use standard clearing for non-Linux or complex cases
-        if (!lle_terminal_clear_to_eol(state->terminal)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
-            }
-            return false;
-        }
-    } else {
-        // Simple Linux case: clearing already handled by prompt rewrite
+    // Clear to end of line using Linux-safe method
+    if (!lle_display_clear_to_eol_linux_safe(state)) {
         if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Linux: Simple case, clearing via overwrite\n");
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
         }
+        return false;
     }
 
     // Write the text with syntax highlighting if enabled
