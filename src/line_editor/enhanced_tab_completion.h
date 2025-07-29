@@ -16,14 +16,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+
+// Required includes for proper type definitions
+#include "text_buffer.h" 
+#include "completion.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// Forward declarations
-typedef struct lle_text_buffer lle_text_buffer_t;
-typedef struct lle_completion_list lle_completion_list_t;
 
 // ============================================================================
 // Enhanced Completion Type Enumerations

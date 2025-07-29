@@ -21,6 +21,7 @@
 #include "syntax.h"
 #include <unistd.h>
 #include "edit_commands.h"
+#include "enhanced_tab_completion.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -182,6 +183,12 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
             lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
             return false;
         }
+        
+        // Initialize enhanced tab completion system
+        if (!lle_enhanced_tab_completion_init()) {
+            lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+            return false;
+        }
     }
     
     // Initialize undo system if enabled
@@ -256,6 +263,9 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
     }
     
     if (editor->completions) {
+        // Cleanup enhanced tab completion system
+        lle_enhanced_tab_completion_cleanup();
+        
         lle_completion_list_destroy(editor->completions);
         editor->completions = NULL;
     }
@@ -993,109 +1003,18 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_TAB:
-                // Tab completion (if enabled)
+                // Enhanced tab completion (if enabled)
                 if (editor->auto_completion && editor->completions) {
-                    // Extract word at cursor for completion
-                    char word[256];
-                    size_t word_start;
-                    if (lle_completion_extract_word(editor->buffer->buffer, editor->buffer->cursor_pos,
-                                                   word, sizeof(word), &word_start)) {
+                    if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions)) {
+                        needs_display_update = true;
                         
-                        // Static variables to track completion state across tab presses
-                        static char last_completion_word[256] = {0};
-                        static size_t last_completion_start = SIZE_MAX;
-                        static bool completion_active = false;
-                        
-                        // Check if this is a continuation of the same completion session
-                        bool same_completion = completion_active && 
-                                             (strcmp(word, last_completion_word) == 0) &&
-                                             (word_start == last_completion_start) &&
-                                             (editor->completions->count > 1);
-                        
-                        if (!same_completion) {
-                            // New completion session - rebuild completion list
-                            lle_completion_list_clear(editor->completions);
-                            
-                            // Simple file completion - add matching files in current directory
-                            DIR *dir = opendir(".");
-                            if (dir) {
-                                struct dirent *entry;
-                                while ((entry = readdir(dir)) != NULL) {
-                                    // Skip hidden files unless word starts with '.'
-                                    if (entry->d_name[0] == '.' && word[0] != '.') {
-                                        continue;
-                                    }
-                                    
-                                    // Check if filename matches prefix
-                                    if (lle_completion_text_matches(entry->d_name, word, false)) {
-                                        lle_completion_list_add(editor->completions, entry->d_name, 
-                                                              "file", LLE_COMPLETION_PRIORITY_NORMAL);
-                                    }
-                                }
-                                closedir(dir);
-                            }
-                            
-                            // Reset to first completion
-                            lle_completion_list_set_selected(editor->completions, 0);
-                            completion_active = true;
-                            strcpy(last_completion_word, word);
-                            last_completion_start = word_start;
-                        } else {
-                            // Cycle to next completion
-                            if (!lle_completion_list_select_next(editor->completions)) {
-                                // Wrapped around, go back to first
-                                lle_completion_list_set_selected(editor->completions, 0);
-                            }
-                        }
-                        
-                        // Apply the selected completion
-                        if (editor->completions->count > 0) {
-                            const lle_completion_item_t *item = lle_completion_list_get_selected(editor->completions);
-                            if (item) {
-                                // Calculate what to replace
-                                size_t current_end = editor->buffer->cursor_pos;
-                                
-                                // If we're cycling, we need to replace the entire current word/completion
-                                if (same_completion) {
-                                    // Find the end of the current word at cursor
-                                    while (current_end < editor->buffer->length && 
-                                           editor->buffer->buffer[current_end] != ' ' &&
-                                           editor->buffer->buffer[current_end] != '\t' &&
-                                           editor->buffer->buffer[current_end] != '\n') {
-                                        current_end++;
-                                    }
-                                } else {
-                                    // First completion, just replace the prefix
-                                    current_end = word_start + strlen(word);
-                                }
-                                
-                                // Delete the current word/completion
-                                if (current_end > word_start) {
-                                    lle_text_delete_range(editor->buffer, word_start, current_end);
-                                }
-                                
-                                // Insert new completion
-                                lle_text_insert_at(editor->buffer, word_start, item->text);
-                                
-                                // Move cursor to end of completion
-                                editor->buffer->cursor_pos = word_start + item->text_len;
-                                
-                                needs_display_update = true;
-                                
-                                // Show completion info if multiple matches
-                                if (editor->completions->count > 1 && debug_mode) {
-                                    fprintf(stderr, "[TAB_COMPLETION] %zu/%zu: %s\n", 
-                                           editor->completions->selected + 1, 
-                                           editor->completions->count, 
-                                           item->text);
-                                }
-                            }
-                        } else {
-                            // No completions - reset state
-                            completion_active = false;
-                            last_completion_word[0] = '\0';
-                            last_completion_start = SIZE_MAX;
-                            needs_display_update = false;
+                        // Optional: Show completion info for debugging
+                        if (debug_mode) {
+                            const lle_enhanced_completion_info_t *info = 
+                                lle_enhanced_tab_completion_get_info();
+                            fprintf(stderr, "[ENHANCED_TAB_COMPLETION] %d/%d: %s\n",
+                                   info->current_index + 1, info->total_count,
+                                   info->current_completion);
                         }
                     } else {
                         needs_display_update = false;

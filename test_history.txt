@@ -1,0 +1,3 @@
+echo test command
+ls -la
+ps aux

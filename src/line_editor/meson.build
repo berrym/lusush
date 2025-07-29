@@ -22,7 +22,8 @@ lle_sources = [
   'lle_integration.c',
   'config.c',
   'enhanced_terminal_detection.c',
-  'enhanced_terminal_integration.c'
+  'enhanced_terminal_integration.c',
+  'enhanced_tab_completion.c'
 ]
 
 lle_headers = [
@@ -43,7 +44,8 @@ lle_headers = [
   'lle_integration.h',
   'config.h',
   'enhanced_terminal_detection.h',
-  'enhanced_terminal_integration.h'
+  'enhanced_terminal_integration.h',
+  'enhanced_tab_completion.h'
 ]
 
 # Create line editor static library

@@ -16,17 +16,24 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define _GNU_SOURCE
+#define _DEFAULT_SOURCE
+
 #include "enhanced_tab_completion.h"
 #include "completion.h"
 #include "text_buffer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+
+// Forward declaration for strncasecmp
+int strncasecmp(const char *s1, const char *s2, size_t n);
 
 // ============================================================================
 // Enhanced Completion State Management
