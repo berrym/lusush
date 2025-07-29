@@ -29,10 +29,8 @@ bool lle_display_init(lle_display_state_t *state) {
         return false;
     }
     
-    // Initialize all fields to safe defaults
-    state->prompt = NULL;
-    state->buffer = NULL;
-    state->terminal = NULL;
+    // Note: prompt, buffer, and terminal are set by caller
+    // Don't overwrite them with NULL here
     
     // Initialize cursor position
     state->cursor_pos.absolute_row = 0;
@@ -42,9 +40,15 @@ bool lle_display_init(lle_display_state_t *state) {
     state->cursor_pos.at_boundary = false;
     state->cursor_pos.valid = false;
     
-    // Initialize geometry
-    state->geometry.width = 80;
-    state->geometry.height = 24;
+    // Initialize geometry with actual terminal size
+    if (state->terminal && lle_terminal_get_size(state->terminal)) {
+        // Use actual terminal dimensions
+        state->geometry = state->terminal->geometry;
+    } else {
+        // Fallback to defaults if terminal size detection fails
+        state->geometry.width = 80;
+        state->geometry.height = 24;
+    }
     state->geometry.prompt_width = 0;
     
     // Initialize display state
@@ -83,17 +87,18 @@ lle_display_state_t *lle_display_create(
         return NULL;
     }
     
+    // Associate components BEFORE calling lle_display_init
+    // so terminal size detection works during initialization
+    state->prompt = prompt;
+    state->buffer = buffer;
+    state->terminal = terminal;
+    
     if (!lle_display_init(state)) {
         free(state);
         return NULL;
     }
     
-    // Associate components
-    state->prompt = prompt;
-    state->buffer = buffer;
-    state->terminal = terminal;
-    
-    // Update geometry from terminal
+    // Update geometry from terminal (redundant now but kept for safety)
     lle_display_update_geometry(state);
     
     return state;
