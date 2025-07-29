@@ -15,11 +15,33 @@
 #include <string.h>
 #include <unistd.h>
 
+// Platform detection types for display strategy selection
+typedef enum {
+    LLE_PLATFORM_MACOS,
+    LLE_PLATFORM_LINUX,
+    LLE_PLATFORM_UNKNOWN
+} lle_platform_type_t;
+
+/**
+ * Detect the current platform for display strategy selection.
+ * @return Platform type
+ */
+static lle_platform_type_t lle_detect_platform(void) {
+#ifdef __APPLE__
+    return LLE_PLATFORM_MACOS;
+#elif defined(__linux__)
+    return LLE_PLATFORM_LINUX;
+#else
+    return LLE_PLATFORM_UNKNOWN;
+#endif
+}
+
 // Forward declarations for helper functions
 static bool lle_display_render_plain_text(lle_display_state_t *state,
                                          const char *text,
                                          size_t text_length,
                                          size_t start_col);
+static bool lle_display_update_conservative(lle_display_state_t *state);
 
 /**
  * @brief Initialize display state structure
@@ -547,6 +569,22 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         return false;
     }
 
+    // Platform detection for display strategy
+    lle_platform_type_t platform = lle_detect_platform();
+    if (debug_mode) {
+        const char *platform_name = (platform == LLE_PLATFORM_MACOS) ? "macOS" : 
+                                   (platform == LLE_PLATFORM_LINUX) ? "Linux" : "Unknown";
+        fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Platform detected: %s\n", platform_name);
+    }
+
+    // Use conservative strategy for Linux to avoid character duplication
+    if (platform == LLE_PLATFORM_LINUX) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Using Linux conservative strategy\n");
+        }
+        return lle_display_update_conservative(state);
+    }
+
     // Get text from buffer
     const char *text = state->buffer->buffer;
     size_t text_length = state->buffer->length;
@@ -823,6 +861,107 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
 
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Incremental update completed successfully\n");
+    }
+
+    return true;
+}
+
+/**
+ * Conservative display update strategy for Linux terminals.
+ * Avoids character duplication by using targeted character operations
+ * instead of clear-and-rewrite sequences that may not work reliably.
+ *
+ * @param state Display state to update
+ * @return true on success, false on error
+ */
+static bool lle_display_update_conservative(lle_display_state_t *state) {
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Starting conservative display update\n");
+    }
+
+    const char *text = state->buffer->buffer;
+    size_t text_length = state->buffer->length;
+    
+    // Track confirmed text length to avoid duplication
+    static size_t last_confirmed_length = 0;
+    
+    // Reset tracking for new command sessions
+    if (last_confirmed_length > 5 && text_length <= 2) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] New command session detected\n");
+        }
+        last_confirmed_length = 0;
+    }
+
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Current: %zu, Last: %zu\n", 
+                text_length, last_confirmed_length);
+    }
+
+    // Handle text changes incrementally
+    if (text_length > last_confirmed_length) {
+        // Adding characters: append only new ones
+        size_t new_chars = text_length - last_confirmed_length;
+        const char *new_text = text + last_confirmed_length;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Appending %zu chars: '%.*s'\n", 
+                    new_chars, (int)new_chars, new_text);
+        }
+        
+        if (!lle_terminal_write(state->terminal, new_text, new_chars)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Failed to append new characters\n");
+            }
+            return false;
+        }
+        
+        last_confirmed_length = text_length;
+        
+    } else if (text_length < last_confirmed_length) {
+        // Removing characters: use backspace sequence
+        size_t removed_chars = last_confirmed_length - text_length;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Removing %zu chars with backspace\n", 
+                    removed_chars);
+        }
+        
+        for (size_t i = 0; i < removed_chars; i++) {
+            // Use backspace-space-backspace to clear character
+            if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Failed to backspace character %zu\n", i);
+                }
+                return false;
+            }
+        }
+        
+        last_confirmed_length = text_length;
+        
+    } else {
+        // No change in text length - handle cursor positioning only
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] No text change, updating cursor only\n");
+        }
+        
+        if (!lle_display_update_cursor(state)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Failed to update cursor\n");
+            }
+            return false;
+        }
+    }
+
+    // Force terminal synchronization on Linux
+    fflush(stdout);
+    fflush(stderr);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_CONSERVATIVE] Conservative update completed successfully\n");
     }
 
     return true;
@@ -1458,6 +1597,8 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
     
     return true;
 }
+
+
 
 /**
  * Exit reverse search mode with proper display restoration.

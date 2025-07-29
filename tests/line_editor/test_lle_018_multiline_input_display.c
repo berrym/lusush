@@ -111,6 +111,7 @@ static void cleanup_test_components(void) {
 // Test display state initialization
 LLE_TEST(display_init_basic) {
     lle_display_state_t state;
+    memset(&state, 0, sizeof(state));  // Initialize to zero to avoid garbage values
     
     bool result = lle_display_init(&state);
     LLE_ASSERT(result == true);
