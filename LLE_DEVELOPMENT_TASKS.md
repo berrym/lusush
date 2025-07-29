@@ -1,5 +1,17 @@
 # Lusush Line Editor (LLE) Development Task Breakdown
 
+## 🚨 CRITICAL PRIORITY: BACKSPACE LINE WRAP REFINEMENT (DECEMBER 29, 2024)
+
+**IMMEDIATE ATTENTION REQUIRED**: Real-world testing has identified critical issues with backspace functionality across line wrap boundaries. These issues MUST be resolved before any other development work.
+
+### Critical Issues Discovered:
+1. **Incomplete Clearing**: Backspace across wrapped lines doesn't clear all original content
+2. **Inconsistent Syntax Highlighting**: Highlighting appears during fallback but not normal typing
+3. **Visual Artifacts**: Echoed syntax-highlighted content appearing unexpectedly
+
+### Implementation Priority:
+The comprehensive backspace line wrap refinement tasks (LLE-051 through LLE-055) listed below take absolute priority over all other development work.
+
 ## Overview
 
 This document breaks down the development of the Lusush Line Editor (LLE) into the smallest possible concrete development tasks. Each task is designed to be:
@@ -92,6 +104,234 @@ void lle_text_buffer_clear(lle_text_buffer_t *buffer);
 - Run with `meson test -C builddir test_text_buffer`
 
 **Commit**: `LLE-002: Implement text buffer initialization and cleanup`
+
+---
+
+## 🚨 CRITICAL PRIORITY: Backspace Line Wrap Refinement (December 29, 2024)
+
+### Task LLE-051: Enhanced Display State Tracking
+**Files**: `src/line_editor/display.h`, `src/line_editor/display.c`
+**Estimated Time**: 2-3 hours
+**Priority**: CRITICAL - Must be completed first
+**Description**: Expand display state structure to track visual footprint and rendering consistency.
+
+**Implementation**:
+```c
+// Add to lle_display_state_t in display.h
+typedef struct {
+    // Existing fields...
+    
+    // NEW: Visual footprint tracking
+    size_t last_visual_rows;           // Number of terminal rows used
+    size_t last_visual_end_col;        // Column position on last row
+    size_t last_total_chars;           // Total characters rendered
+    bool last_had_wrapping;            // Whether content wrapped lines
+    
+    // NEW: Consistency tracking  
+    uint32_t last_content_hash;        // Hash of last rendered content
+    bool syntax_highlighting_applied;   // Track highlighting state
+    
+    // NEW: Clearing state
+    lle_terminal_coordinates_t clear_start;  // Where clearing should begin
+    lle_terminal_coordinates_t clear_end;    // Where clearing should end
+} lle_display_state_t;
+
+// Visual footprint calculation structure
+typedef struct {
+    size_t rows_used;
+    size_t end_column;
+    bool wraps_lines;
+    size_t total_visual_width;
+} lle_visual_footprint_t;
+
+// Core calculation function
+bool lle_calculate_visual_footprint(const char *text, size_t length, 
+                                   size_t prompt_width, size_t terminal_width,
+                                   lle_visual_footprint_t *footprint);
+```
+
+**Acceptance Criteria**:
+- [ ] Enhanced display state structure implemented
+- [ ] Visual footprint calculation function implemented
+- [ ] Proper UTF-8 character width handling
+- [ ] Integration with existing display state management
+- [ ] All fields properly initialized and maintained
+
+**Tests**:
+- Visual footprint calculation for various text lengths
+- Multi-line content footprint accuracy
+- UTF-8 character handling in footprint calculation
+- Integration test with existing display functions
+
+**Commit**: `LLE-051: Implement enhanced display state tracking for backspace refinement`
+
+---
+
+### Task LLE-052: Intelligent Clearing Strategy
+**Files**: `src/line_editor/terminal_manager.h`, `src/line_editor/terminal_manager.c`
+**Estimated Time**: 3-4 hours
+**Priority**: CRITICAL - Depends on LLE-051
+**Description**: Implement region-based clearing that properly handles wrapped content.
+
+**Implementation**:
+```c
+// Region-based clearing function
+bool lle_clear_visual_region(lle_terminal_manager_t *tm, 
+                           const lle_visual_footprint_t *old_footprint,
+                           const lle_visual_footprint_t *new_footprint);
+
+// Fallback clearing for edge cases
+bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
+                                  const lle_visual_footprint_t *footprint);
+
+// Enhanced clearing coordination
+bool lle_clear_content_region(lle_terminal_manager_t *tm,
+                             size_t start_row, size_t start_col,
+                             size_t end_row, size_t end_col);
+```
+
+**Acceptance Criteria**:
+- [ ] Accurate clearing of wrapped content regions
+- [ ] Fallback strategy for cursor position query failures
+- [ ] Proper handling of single-line vs multi-line content
+- [ ] Integration with existing terminal manager functions
+- [ ] Safety margins for edge cases
+
+**Tests**:
+- Single line clearing accuracy
+- Multi-line wrapped content clearing
+- Fallback clearing strategy validation
+- Edge case handling (very long lines, terminal edges)
+- Integration with display update cycle
+
+**Commit**: `LLE-052: Implement intelligent clearing strategy for wrapped content`
+
+---
+
+### Task LLE-053: Consistent Rendering Behavior
+**Files**: `src/line_editor/display.c`
+**Estimated Time**: 2-3 hours
+**Priority**: CRITICAL - Depends on LLE-051, LLE-052
+**Description**: Ensure consistent rendering behavior between incremental and fallback paths.
+
+**Implementation**:
+```c
+// Unified rendering path
+bool lle_display_update_unified(lle_display_state_t *display, 
+                               bool force_full_render);
+
+// Consistent highlighting policy
+bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
+                                           const lle_visual_footprint_t *old_footprint,
+                                           const lle_visual_footprint_t *new_footprint);
+
+// Rendering path selection logic
+bool lle_should_use_full_render(const lle_visual_footprint_t *old_footprint,
+                               const lle_visual_footprint_t *new_footprint);
+```
+
+**Acceptance Criteria**:
+- [ ] Consistent visual appearance regardless of rendering path
+- [ ] Unified syntax highlighting policy (apply consistently or not at all)
+- [ ] Proper fallback detection and handling
+- [ ] Integration with existing incremental update logic
+- [ ] Performance optimization for common cases
+
+**Tests**:
+- Incremental vs full render visual consistency
+- Syntax highlighting behavior consistency
+- Rendering path selection accuracy
+- Performance impact measurement
+- Edge case fallback behavior
+
+**Commit**: `LLE-053: Implement consistent rendering behavior across all update paths`
+
+---
+
+### Task LLE-054: Enhanced Backspace Logic
+**Files**: `src/line_editor/line_editor.c`, `src/line_editor/display.c`
+**Estimated Time**: 2-3 hours
+**Priority**: CRITICAL - Depends on LLE-051, LLE-052, LLE-053
+**Description**: Implement smart backspace handling with proper boundary detection.
+
+**Implementation**:
+```c
+// Enhanced backspace function
+bool lle_handle_backspace_enhanced(lle_line_editor_t *editor);
+
+// Boundary detection logic
+bool lle_backspace_crosses_boundary(const lle_text_buffer_t *buffer,
+                                   size_t prompt_width, size_t terminal_width);
+
+// Backspace strategy selection
+typedef enum {
+    LLE_BACKSPACE_SIMPLE,      // Single character, same line
+    LLE_BACKSPACE_BOUNDARY,    // Crosses line wrap boundary
+    LLE_BACKSPACE_COMPLEX      // Multiple line changes
+} lle_backspace_strategy_t;
+
+lle_backspace_strategy_t lle_determine_backspace_strategy(
+    const lle_visual_footprint_t *current,
+    const lle_visual_footprint_t *after_backspace);
+```
+
+**Acceptance Criteria**:
+- [ ] Accurate boundary crossing detection
+- [ ] Proper strategy selection for different scenarios
+- [ ] Integration with enhanced display and clearing systems
+- [ ] Correct cursor positioning after backspace operations
+- [ ] No visual artifacts or incomplete clearing
+
+**Tests**:
+- Single character backspace (no boundary crossing)
+- Backspace across line wrap boundaries
+- Multiple character backspace operations
+- Edge cases at terminal width boundaries
+- Integration with full text editing workflow
+
+**Commit**: `LLE-054: Implement enhanced backspace logic with smart boundary detection`
+
+---
+
+### Task LLE-055: Integration and Comprehensive Testing
+**Files**: `tests/line_editor/test_backspace_boundaries.c`, integration tests
+**Estimated Time**: 2-3 hours
+**Priority**: CRITICAL - Final integration task
+**Description**: Comprehensive testing and integration of all backspace refinement components.
+
+**Implementation**:
+```c
+// Comprehensive test suite for backspace refinement
+LLE_TEST(backspace_single_line);
+LLE_TEST(backspace_line_wrap_boundary);
+LLE_TEST(backspace_multi_line_content);
+LLE_TEST(backspace_visual_consistency);
+LLE_TEST(backspace_clearing_accuracy);
+LLE_TEST(backspace_syntax_highlighting_consistency);
+LLE_TEST(backspace_edge_cases);
+LLE_TEST(backspace_performance_impact);
+
+// Integration test scenarios
+LLE_TEST(full_editing_workflow_with_backspace);
+LLE_TEST(real_world_command_editing_scenarios);
+```
+
+**Acceptance Criteria**:
+- [ ] All individual components tested thoroughly
+- [ ] Integration testing with existing LLE systems
+- [ ] Performance impact within acceptable limits
+- [ ] No regressions in existing functionality
+- [ ] Real-world usage scenarios validated
+
+**Tests**:
+- Unit tests for all new functions
+- Integration tests with existing display system
+- Performance benchmarks
+- Memory leak detection
+- Real-world command editing scenarios
+- Stress testing with very long lines
+
+**Commit**: `LLE-055: Complete backspace line wrap refinement with comprehensive testing`
 
 ---
 

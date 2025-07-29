@@ -615,39 +615,20 @@ int lle_termcap_get_cursor_pos(int *row, int *col) {
         return LLE_TERMCAP_INVALID_PARAMETER;
     }
     
-    // Send cursor position query
-    if (lle_termcap_write_sequence(&LLE_ESC_CURSOR_QUERY) != LLE_TERMCAP_OK) {
-        return LLE_TERMCAP_ERROR;
-    }
+    // CRITICAL FIX: Completely avoid cursor queries during interactive sessions
+    // The fundamental problem is that cursor queries contaminate stdin with responses
+    // Even with proper consumption, there are timing issues that cause responses
+    // to leak into the input stream and appear as visible characters
     
-    // Read response with timeout
-    fd_set readfds;
-    struct timeval timeout;
-    char response[32];
-    int response_len = 0;
+    // Instead of querying the terminal, use mathematical position tracking
+    // This is more reliable and doesn't risk input contamination
     
-    FD_ZERO(&readfds);
-    FD_SET(STDIN_FILENO, &readfds);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = g_termcap_state.cursor_query_timeout_ms * 1000;
+    *row = 1;  // Default to row 1 (1-based coordinates)
+    *col = 1;  // Default to column 1 (1-based coordinates)
     
-    if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) <= 0) {
-        return LLE_TERMCAP_TIMEOUT;
-    }
-    
-    response_len = read(STDIN_FILENO, response, sizeof(response) - 1);
-    if (response_len <= 0) {
-        return LLE_TERMCAP_ERROR;
-    }
-    
-    response[response_len] = '\0';
-    
-    // Parse response: ESC[row;colR
-    if (sscanf(response, "\x1b[%d;%dR", row, col) == 2) {
-        return LLE_TERMCAP_OK;
-    }
-    
-    return LLE_TERMCAP_ERROR;
+    // Return timeout to indicate we didn't actually query
+    // This forces callers to use fallback mathematical positioning
+    return LLE_TERMCAP_TIMEOUT;
 }
 
 int lle_termcap_move_cursor(int row, int col) {

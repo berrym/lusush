@@ -537,6 +537,57 @@ bool lle_terminal_write(lle_terminal_manager_t *tm, const char *data, size_t len
 }
 
 /**
+ * @brief Clear exactly the specified number of characters
+ *
+ * Clears the exact number of characters from the current cursor position
+ * using a reliable space+backspace method.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param length_to_clear Exact number of characters to clear
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_exactly(lle_terminal_manager_t *tm, size_t length_to_clear) {
+    if (!tm || !tm->termcap_initialized || length_to_clear == 0) {
+        return true; // Nothing to clear
+    }
+    
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Clearing exactly %zu characters\n", length_to_clear);
+    }
+    
+    // Method: Write spaces to overwrite content, then backspace to original position
+    
+    // Step 1: Write spaces to overwrite the content
+    for (size_t i = 0; i < length_to_clear; i++) {
+        if (!lle_terminal_write(tm, " ", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_TERMINAL] Failed to write space at position %zu\n", i);
+            }
+            return false;
+        }
+    }
+    
+    // Step 2: Backspace to return to original position
+    for (size_t i = 0; i < length_to_clear; i++) {
+        if (!lle_terminal_write(tm, "\b", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_TERMINAL] Failed to backspace at position %zu\n", i);
+            }
+            return false;
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Successfully cleared %zu characters\n", length_to_clear);
+    }
+    
+    return true;
+}
+
+/**
  * @brief Move cursor to specified position using termcap
  *
  * Uses the integrated termcap system to move the cursor to the specified
@@ -581,10 +632,7 @@ bool lle_terminal_clear_line(lle_terminal_manager_t *tm) {
 }
 
 /**
- * @brief Clear from cursor to end of line using termcap
- *
- * Uses the integrated termcap system to clear from the cursor position
- * to the end of the current line.
+ * @brief Clear from cursor to end of line using robust method
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
@@ -594,8 +642,48 @@ bool lle_terminal_clear_to_eol(lle_terminal_manager_t *tm) {
         return false;
     }
     
-    int result = lle_termcap_clear_to_eol();
-    return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    // CRITICAL FIX: Use robust clearing method instead of just \x1b[K
+    // The escape sequence method is unreliable across terminals
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Using robust character-based clearing method\n");
+    }
+    
+    // Use character-based clearing for reliability
+    // Write spaces and backspace to ensure content is actually cleared
+    char clear_buffer[256];
+    memset(clear_buffer, ' ', sizeof(clear_buffer) - 1);
+    clear_buffer[sizeof(clear_buffer) - 1] = '\0';
+    
+    // Clear a reasonable amount of space (80 chars should handle most cases)
+    size_t clear_width = 80;
+    if (!lle_terminal_write(tm, clear_buffer, clear_width)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_TERMINAL] Failed to write clearing spaces\n");
+        }
+        return false;
+    }
+    
+    // Backspace to return to original position
+    char backspace_buffer[256];
+    memset(backspace_buffer, '\b', sizeof(backspace_buffer) - 1);
+    backspace_buffer[sizeof(backspace_buffer) - 1] = '\0';
+    
+    if (!lle_terminal_write(tm, backspace_buffer, clear_width)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_TERMINAL] Failed to backspace to original position\n");
+        }
+        return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Robust clearing completed successfully\n");
+    }
+    
+    return true;
 }
 
 /**
@@ -949,21 +1037,20 @@ bool lle_terminal_save_cursor_position(lle_terminal_manager_t *tm,
         return false;
     }
     
-    // Query current position from terminal
-    int row, col;
-    int result = lle_termcap_get_cursor_pos(&row, &col);
+    // CRITICAL FIX: Don't use cursor queries during interactive sessions
+    // They contaminate stdin with escape sequence responses
     
-    if (result == LLE_TERMCAP_OK) {
-        // Convert from 1-based to 0-based coordinates
-        *saved_row = (row > 0) ? (size_t)(row - 1) : 0;
-        *saved_col = (col > 0) ? (size_t)(col - 1) : 0;
-        return true;
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Cursor save disabled to prevent input contamination\n");
     }
     
-    // If cursor query fails, return default position
+    // Use mathematical position tracking instead
     *saved_row = 0;
     *saved_col = 0;
-    return false;
+    return false; // Force mathematical positioning
 }
 
 /**
@@ -984,24 +1071,21 @@ bool lle_terminal_query_cursor_position(lle_terminal_manager_t *tm,
         return false;
     }
     
-    // Disable cursor queries on Linux to prevent escape sequence artifacts
-    // Linux terminals often have timing issues with cursor position queries
-    // that cause ^[[row;colR sequences to appear in the output
-#ifdef __linux__
-    // Always return false on Linux to use fallback positioning
-    return false;
-#endif
+    // CRITICAL FIX: Disable cursor queries universally during interactive sessions
+    // Cursor position queries send ^[[6n and expect ^[[row;colR responses
+    // These responses contaminate stdin and appear as visible characters
+    // This affects ALL platforms, not just Linux
     
-    // Query current position from terminal (non-Linux platforms)
-    int row, col;
-    int result = lle_termcap_get_cursor_pos(&row, &col);
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
     
-    if (result == LLE_TERMCAP_OK) {
-        // Convert from 1-based to 0-based coordinates
-        *current_row = (row > 0) ? (size_t)(row - 1) : 0;
-        *current_col = (col > 0) ? (size_t)(col - 1) : 0;
-        return true;
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Cursor queries disabled universally - preventing input contamination\n");
     }
     
-    return false;
+    // Force mathematical positioning instead of terminal queries
+    // This prevents the ^[[37;1R contamination that was appearing before prompts
+    *current_row = 0;
+    *current_col = 0;
+    return false; // Always use fallback mathematical positioning
 }

@@ -179,6 +179,18 @@ bool lle_terminal_is_iterm2(const lle_terminal_manager_t *tm);
 bool lle_terminal_write(lle_terminal_manager_t *tm, const char *data, size_t length);
 
 /**
+ * @brief Clear exactly the specified number of characters
+ *
+ * Clears the exact number of characters from the current cursor position
+ * using a reliable space+backspace method.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param length_to_clear Exact number of characters to clear
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_exactly(lle_terminal_manager_t *tm, size_t length_to_clear);
+
+/**
  * @brief Move cursor to specified position using termcap
  * @param tm Pointer to terminal manager structure
  * @param row Target row (0-based)

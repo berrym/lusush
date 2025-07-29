@@ -10,6 +10,9 @@
 #include "syntax.h"
 #include "theme_integration.h"
 
+// Forward declaration to avoid circular dependency
+struct lle_line_editor;
+
 /**
  * @file display.h
  * @brief Lusush Line Editor - Display Management
@@ -103,6 +106,19 @@ typedef struct {
 } lle_display_performance_t;
 
 /**
+ * @brief Visual footprint calculation for text content
+ *
+ * Represents the exact visual space occupied by text content on the terminal,
+ * including line wrapping behavior and total display dimensions.
+ */
+typedef struct {
+    size_t rows_used;                   /**< Number of terminal rows occupied by content */
+    size_t end_column;                  /**< Column position on the last row */
+    bool wraps_lines;                   /**< Whether content wraps across multiple lines */
+    size_t total_visual_width;          /**< Total visual width including wrapping */
+} lle_visual_footprint_t;
+
+/**
  * @brief Display state for managing complete line editor display
  *
  * This structure maintains all state needed for displaying the complete
@@ -146,6 +162,28 @@ typedef struct {
     lle_terminal_batch_t terminal_batch;           /**< Batched terminal operations */
     lle_display_performance_t performance_metrics; /**< Performance metrics and timing */
     bool performance_optimization_enabled;         /**< Enable/disable performance optimizations */
+    
+    // Display state tracking for true incremental updates (Character Duplication Fix)
+    char last_displayed_content[512];              /**< What was actually written to screen */
+    size_t last_displayed_length;                  /**< Length of what was displayed */
+    bool display_state_valid;                      /**< Whether tracking is valid */
+    
+    // Enhanced visual footprint tracking for backspace refinement
+    size_t last_visual_rows;                       /**< Number of terminal rows used in last render */
+    size_t last_visual_end_col;                    /**< Column position on last row after render */
+    size_t last_total_chars;                       /**< Total characters rendered in last update */
+    bool last_had_wrapping;                        /**< Whether content wrapped lines in last render */
+    
+    // Consistency tracking for unified rendering behavior
+    uint32_t last_content_hash;                    /**< Hash of last rendered content for change detection */
+    bool syntax_highlighting_applied;              /**< Track whether syntax highlighting was applied */
+    
+    // Clearing state for intelligent region clearing
+    size_t clear_start_row;                        /**< Row where clearing should begin */
+    size_t clear_start_col;                        /**< Column where clearing should begin */
+    size_t clear_end_row;                          /**< Row where clearing should end */
+    size_t clear_end_col;                          /**< Column where clearing should end */
+    bool clear_region_valid;                       /**< Whether clearing region coordinates are valid */
 } lle_display_state_t;
 
 /**
@@ -724,5 +762,80 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
                                       size_t search_length,
                                       const char *match_text,
                                       size_t match_length);
+
+/**
+ * @brief Calculate the exact visual footprint of text content
+ *
+ * Calculates how much visual space text content will occupy on the terminal,
+ * including line wrapping behavior and total display dimensions.
+ *
+ * @param text Text content to analyze
+ * @param length Length of text content
+ * @param prompt_width Width of prompt on first line
+ * @param terminal_width Width of terminal for wrapping calculations
+ * @param footprint Output structure for calculated footprint
+ * @return true on success, false on error
+ */
+bool lle_calculate_visual_footprint(const char *text, size_t length,
+                                   size_t prompt_width, size_t terminal_width,
+                                   lle_visual_footprint_t *footprint);
+
+/**
+ * @brief Clear exact visual region used by previous content
+ *
+ * Intelligently clears the visual region occupied by previous content,
+ * handling line wrapping and multi-line scenarios correctly.
+ *
+ * @param tm Terminal manager for clearing operations
+ * @param old_footprint Visual footprint of content to clear
+ * @param new_footprint Visual footprint of new content (for optimization)
+ * @return true on success, false on error
+ */
+bool lle_clear_visual_region(lle_terminal_manager_t *tm,
+                            const lle_visual_footprint_t *old_footprint,
+                            const lle_visual_footprint_t *new_footprint);
+
+/**
+ * @brief Robust fallback clearing when cursor position queries fail
+ *
+ * Provides a robust fallback clearing mechanism for situations where
+ * cursor position tracking is unavailable or unreliable.
+ *
+ * @param tm Terminal manager for clearing operations
+ * @param footprint Visual footprint of content to clear
+ * @return true on success, false on error
+ */
+bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
+                                   const lle_visual_footprint_t *footprint);
+
+/**
+ * @brief Ensure consistent rendering regardless of path taken
+ *
+ * Provides unified rendering behavior to prevent inconsistencies between
+ * incremental updates and fallback rewrites.
+ *
+ * @param display Display state for rendering
+ * @param force_full_render Whether to force complete rerender
+ * @return true on success, false on error
+ */
+bool lle_display_update_unified(lle_display_state_t *display,
+                               bool force_full_render);
+
+/**
+ * @brief Apply consistent highlighting policy
+ *
+ * Ensures syntax highlighting is applied consistently regardless of
+ * whether content arrived via incremental updates or fallback rewrites.
+ *
+ * @param display Display state for highlighting
+ * @param old_footprint Previous content footprint
+ * @param new_footprint New content footprint
+ * @return true on success, false on error
+ */
+bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
+                                            const lle_visual_footprint_t *old_footprint,
+                                            const lle_visual_footprint_t *new_footprint);
+
+
 
 #endif // LLE_DISPLAY_H

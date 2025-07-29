@@ -159,6 +159,28 @@ bool lle_display_init(lle_display_state_t *state) {
     memset(&state->performance_metrics, 0, sizeof(lle_display_performance_t));
     state->performance_optimization_enabled = true;
     
+    // Initialize display state tracking for true incremental updates (Character Duplication Fix)
+    state->last_displayed_content[0] = '\0';
+    state->last_displayed_length = 0;
+    state->display_state_valid = false;  // Will be set on first use
+    
+    // Initialize enhanced visual footprint tracking for backspace refinement
+    state->last_visual_rows = 1;
+    state->last_visual_end_col = 0;
+    state->last_total_chars = 0;
+    state->last_had_wrapping = false;
+    
+    // Initialize consistency tracking
+    state->last_content_hash = 0;
+    state->syntax_highlighting_applied = false;
+    
+    // Initialize clearing region tracking
+    state->clear_start_row = 0;
+    state->clear_start_col = 0;
+    state->clear_end_row = 0;
+    state->clear_end_col = 0;
+    state->clear_region_valid = false;
+    
     // Initialize performance optimization components
     if (!lle_display_cache_init(&state->display_cache, 4096)) {
         // Cache initialization failed - continue without caching
@@ -362,22 +384,13 @@ bool lle_display_render(lle_display_state_t *state) {
         }
     }
     
-    // Query current cursor position before rendering prompt (Phase 2A: Position Tracking)
-    size_t current_row, current_col;
-    if (lle_terminal_query_cursor_position(state->terminal, &current_row, &current_col)) {
-        state->prompt_start_row = current_row;
-        state->prompt_start_col = current_col;
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_RENDER] Prompt start position tracked: row=%zu, col=%zu\n", 
-                   current_row, current_col);
-        }
-    } else {
-        // Fallback to safe defaults if cursor query fails
-        state->prompt_start_row = 0;
-        state->prompt_start_col = 0;
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor query failed, using default position\n");
-        }
+    // CRITICAL FIX: Disable cursor queries during interactive mode to prevent input contamination
+    // Cursor queries send ^[[6n and responses like ^[[37;1R contaminate stdin
+    // Use mathematical positioning instead
+    state->prompt_start_row = 0;
+    state->prompt_start_col = 0;
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor queries disabled - using mathematical positioning\n");
     }
 
     // Render the prompt
@@ -768,6 +781,153 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Text buffer: length=%zu\n", text_length);
+    }
+
+    // CRITICAL FIX: True incremental character updates
+    
+    // Initialize display state tracking if needed
+    if (!state->display_state_valid) {
+        memset(state->last_displayed_content, 0, sizeof(state->last_displayed_content));
+        state->last_displayed_length = 0;
+        state->display_state_valid = true;
+    }
+    
+    // Reset tracking when starting new command session
+    if (state->last_displayed_length > 5 && text_length <= 2) {
+        state->last_displayed_length = 0;
+        state->display_state_valid = true;
+    }
+    
+    // CASE 1: Single character addition (MOST COMMON)
+    if (text && text_length == state->last_displayed_length + 1 && 
+        text_length > 0 &&
+        memcmp(text, state->last_displayed_content, state->last_displayed_length) == 0) {
+        
+        // Just write the new character - NO CLEARING NEEDED
+        char new_char = text[text_length - 1];
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] True incremental: adding char '%c'\n", new_char);
+        }
+        
+        if (!lle_terminal_write(state->terminal, &new_char, 1)) {
+            return false;
+        }
+        
+        // Update tracking
+        memcpy(state->last_displayed_content, text, text_length);
+        state->last_displayed_content[text_length] = '\0';
+        state->last_displayed_length = text_length;
+        
+        return true;
+    }
+    
+    // CASE 2: Single character deletion (BACKSPACE) - Enhanced with visual footprint calculation
+    if (text && text_length == state->last_displayed_length - 1 && 
+        state->last_displayed_length > 0 &&
+        memcmp(text, state->last_displayed_content, text_length) == 0) {
+        
+        // Smart backspace - handle line wrap boundaries using visual footprint calculation
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Enhanced backspace: deleting char\n");
+        }
+        
+        // Get prompt geometry for footprint calculations
+        size_t prompt_last_line_width = lle_prompt_get_last_line_width(state->prompt);
+        size_t terminal_width = state->geometry.width;
+        
+        // Calculate visual footprint before and after deletion
+        lle_visual_footprint_t footprint_before, footprint_after;
+        if (!lle_calculate_visual_footprint(state->last_displayed_content, state->last_displayed_length,
+                                           prompt_last_line_width, terminal_width, &footprint_before) ||
+            !lle_calculate_visual_footprint(text, text_length,
+                                           prompt_last_line_width, terminal_width, &footprint_after)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Failed to calculate visual footprint, falling back to unified rendering\n");
+            }
+            return lle_display_update_unified(state, true);
+        }
+        
+        // Check if we're crossing a line wrap boundary using enhanced detection
+        bool crossing_wrap_boundary = (footprint_before.rows_used != footprint_after.rows_used) ||
+                                     (footprint_before.wraps_lines && !footprint_after.wraps_lines);
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Footprint before: rows=%zu, end_col=%zu, wraps=%s\n",
+                   footprint_before.rows_used, footprint_before.end_column,
+                   footprint_before.wraps_lines ? "true" : "false");
+            fprintf(stderr, "[LLE_INCREMENTAL] Footprint after: rows=%zu, end_col=%zu, wraps=%s\n",
+                   footprint_after.rows_used, footprint_after.end_column,
+                   footprint_after.wraps_lines ? "true" : "false");
+            fprintf(stderr, "[LLE_INCREMENTAL] Crossing boundary: %s\n",
+                   crossing_wrap_boundary ? "true" : "false");
+        }
+        
+        if (crossing_wrap_boundary) {
+            // Crossing line wrap boundary - use intelligent clearing
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Backspace crossing boundary, using intelligent clearing\n");
+            }
+            
+            // Clear the old visual region intelligently
+            if (!lle_clear_visual_region(state->terminal, &footprint_before, &footprint_after)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Intelligent clearing failed, falling back to unified rendering\n");
+                }
+                return lle_display_update_unified(state, true);
+            }
+            
+            // Render new content with consistent highlighting
+            if (!lle_render_with_consistent_highlighting(state, &footprint_before, &footprint_after)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Consistent rendering failed\n");
+                }
+                return false;
+            }
+            
+            // Update enhanced visual footprint tracking
+            state->last_visual_rows = footprint_after.rows_used;
+            state->last_visual_end_col = footprint_after.end_column;
+            state->last_total_chars = footprint_after.total_visual_width;
+            state->last_had_wrapping = footprint_after.wraps_lines;
+        } else {
+            // Normal case - simple backspace sequence
+            if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace failed\n");
+                }
+                return false;
+            }
+        }
+        
+        // Update tracking
+        memcpy(state->last_displayed_content, text, text_length);
+        state->last_displayed_content[text_length] = '\0'; 
+        state->last_displayed_length = text_length;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Backspace completed, new length: %zu\n", text_length);
+        }
+        
+        return true;
+    }
+    
+    // CASE 3: No change detection (same content, same length)
+    if (text_length == state->last_displayed_length && 
+        text_length > 0 &&
+        memcmp(text, state->last_displayed_content, text_length) == 0) {
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] No change detected - content identical\n");
+        }
+        
+        return true; // No update needed
+    }
+    
+    // CASE 4: Complex changes - continue with controlled rewrite
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INCREMENTAL] Complex change: was %zu chars, now %zu chars\n", 
+               state->last_displayed_length, text_length);
     }
 
     // Update geometry from terminal in case of resize
@@ -1243,12 +1403,14 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
     }
     
-    // Clear to end of line using Linux-safe method (automatically handles platform detection)
-    if (!lle_display_clear_to_eol_linux_safe(state)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_INCREMENTAL] Failed to clear to end of line\n");
+    // Clear exactly what was displayed previously
+    if (state->last_displayed_length > 0) {
+        if (!lle_terminal_clear_exactly(state->terminal, state->last_displayed_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Precise clearing failed\n");
+            }
+            return false;
         }
-        return false;
     }
 
     // Write the text with syntax highlighting if enabled
@@ -1293,6 +1455,15 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
             }
         }
     }
+
+    // Update tracking after writing text
+    if (text && text_length > 0) {
+        memcpy(state->last_displayed_content, text, text_length);
+        state->last_displayed_content[text_length] = '\0';
+    } else {
+        state->last_displayed_content[0] = '\0';
+    }
+    state->last_displayed_length = text_length;
 
     // Flush output to ensure text is written before cursor positioning
     fflush(stdout);
@@ -2622,3 +2793,403 @@ bool lle_display_set_performance_optimization(lle_display_state_t *state, bool e
     
     return true;
 }
+
+/**
+ * @brief Calculate the exact visual footprint of text content
+ *
+ * Calculates how much visual space text content will occupy on the terminal,
+ * including line wrapping behavior and total display dimensions.
+ *
+ * @param text Text content to analyze
+ * @param length Length of text content
+ * @param prompt_width Width of prompt on first line
+ * @param terminal_width Width of terminal for wrapping calculations
+ * @param footprint Output structure for calculated footprint
+ * @return true on success, false on error
+ */
+bool lle_calculate_visual_footprint(const char *text, size_t length,
+                                   size_t prompt_width, size_t terminal_width,
+                                   lle_visual_footprint_t *footprint) {
+    if (!text || !footprint || terminal_width == 0) {
+        return false;
+    }
+    
+    // Initialize footprint structure
+    memset(footprint, 0, sizeof(lle_visual_footprint_t));
+    
+    if (length == 0) {
+        footprint->rows_used = 1;
+        footprint->end_column = prompt_width;
+        footprint->wraps_lines = false;
+        footprint->total_visual_width = prompt_width;
+        return true;
+    }
+    
+    // Calculate display width of text (handling ANSI escape sequences)
+    size_t text_display_width = lle_calculate_display_width_ansi(text, length);
+    
+    // Total width includes prompt on first line
+    size_t total_width = prompt_width + text_display_width;
+    footprint->total_visual_width = total_width;
+    
+    // Check if content wraps lines
+    if (total_width > terminal_width) {
+        footprint->wraps_lines = true;
+        
+        // Calculate number of rows used
+        // First line: (terminal_width - prompt_width) characters available
+        size_t first_line_capacity;
+        if (prompt_width >= terminal_width) {
+            // Prompt wraps to multiple lines, text starts on a fresh line
+            first_line_capacity = terminal_width;
+        } else {
+            first_line_capacity = terminal_width - prompt_width;
+        }
+        
+        if (text_display_width <= first_line_capacity) {
+            // All text fits on first line
+            footprint->rows_used = 1;
+            footprint->end_column = prompt_width + text_display_width;
+        } else {
+            // Text spans multiple lines
+            size_t remaining_chars = text_display_width - first_line_capacity;
+            size_t additional_rows = (remaining_chars + terminal_width - 1) / terminal_width;
+            footprint->rows_used = 1 + additional_rows;
+            
+            // Calculate final column position
+            size_t chars_on_last_row = remaining_chars % terminal_width;
+            if (chars_on_last_row == 0 && remaining_chars > 0) {
+                chars_on_last_row = terminal_width;
+            }
+            footprint->end_column = chars_on_last_row;
+        }
+    } else {
+        // Content fits on single line
+        footprint->wraps_lines = false;
+        footprint->rows_used = 1;
+        footprint->end_column = total_width;
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Clear exact visual region used by previous content
+ *
+ * Intelligently clears the visual region occupied by previous content,
+ * handling line wrapping and multi-line scenarios correctly.
+ *
+ * @param tm Terminal manager for clearing operations
+ * @param old_footprint Visual footprint of content to clear
+ * @param new_footprint Visual footprint of new content (for optimization)
+ * @return true on success, false on error
+ */
+bool lle_clear_visual_region(lle_terminal_manager_t *tm,
+                            const lle_visual_footprint_t *old_footprint,
+                            const lle_visual_footprint_t *new_footprint) {
+    if (!tm || !old_footprint) {
+        return false;
+    }
+    
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CLEAR_REGION] Clearing visual region: rows=%zu, end_col=%zu, wraps=%s\n",
+               old_footprint->rows_used, old_footprint->end_column,
+               old_footprint->wraps_lines ? "true" : "false");
+    }
+    
+    // Optimization: if new content covers same or larger area, no clearing needed
+    if (new_footprint && 
+        new_footprint->rows_used >= old_footprint->rows_used &&
+        new_footprint->end_column >= old_footprint->end_column) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CLEAR_REGION] New content covers old region, no clearing needed\n");
+        }
+        return true;
+    }
+    
+    // Handle single-line content
+    if (!old_footprint->wraps_lines) {
+        // Simple case: clear to end of line
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CLEAR_REGION] Single line clearing\n");
+        }
+        return lle_terminal_clear_to_eol(tm);
+    }
+    
+    // Handle multi-line content
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CLEAR_REGION] Multi-line clearing for %zu rows\n", old_footprint->rows_used);
+    }
+    
+    // For multi-line content, use region clearing if available
+    if (tm->geometry_valid && old_footprint->rows_used > 1) {
+        // Get current cursor position to calculate clearing region
+        size_t current_row = 0, current_col = 0;
+        if (lle_terminal_query_cursor_position(tm, &current_row, &current_col)) {
+            // Clear from current position to end of old content
+            size_t end_row = current_row + old_footprint->rows_used - 1;
+            size_t end_col = old_footprint->end_column;
+            
+            return lle_terminal_clear_region(tm, current_row, current_col, end_row, end_col);
+        }
+    }
+    
+    // Fallback to multi-line clearing
+    return lle_clear_multi_line_fallback(tm, old_footprint);
+}
+
+/**
+ * @brief Robust fallback clearing when cursor position queries fail
+ *
+ * Provides a robust fallback clearing mechanism for situations where
+ * cursor position tracking is unavailable or unreliable.
+ *
+ * @param tm Terminal manager for clearing operations
+ * @param footprint Visual footprint of content to clear
+ * @return true on success, false on error
+ */
+bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
+                                   const lle_visual_footprint_t *footprint) {
+    if (!tm || !footprint) {
+        return false;
+    }
+    
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CLEAR_FALLBACK] Using fallback clearing for %zu rows\n", footprint->rows_used);
+    }
+    
+    // For single-line content, use simple clearing
+    if (!footprint->wraps_lines || footprint->rows_used == 1) {
+        return lle_terminal_clear_to_eol(tm);
+    }
+    
+    // For multi-line content, clear current line and estimated additional lines
+    if (!lle_terminal_clear_to_eol(tm)) {
+        return false;
+    }
+    
+    // Clear additional lines by moving down and clearing each line
+    for (size_t i = 1; i < footprint->rows_used; i++) {
+        // Move cursor down one line
+        if (!lle_terminal_write(tm, "\n", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to move to line %zu\n", i);
+            }
+            break;
+        }
+        
+        // Clear the entire line
+        if (!lle_terminal_clear_line(tm)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to clear line %zu\n", i);
+            }
+            // Continue trying to clear remaining lines
+        }
+    }
+    
+    // Move cursor back to original position (approximate)
+    for (size_t i = 1; i < footprint->rows_used; i++) {
+        if (!lle_terminal_write(tm, "\033[A", 3)) { // Move up one line
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to move cursor back up\n");
+            }
+            break;
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CLEAR_FALLBACK] Fallback clearing completed\n");
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Ensure consistent rendering regardless of path taken
+ *
+ * Provides unified rendering behavior to prevent inconsistencies between
+ * incremental updates and fallback rewrites.
+ *
+ * @param display Display state for rendering
+ * @param force_full_render Whether to force complete rerender
+ * @return true on success, false on error
+ */
+bool lle_display_update_unified(lle_display_state_t *display,
+                               bool force_full_render) {
+    if (!lle_display_validate(display)) {
+        return false;
+    }
+    
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_UNIFIED] Starting unified rendering, force_full=%s\n",
+               force_full_render ? "true" : "false");
+    }
+    
+    // Get current text content
+    const char *text = display->buffer->buffer;
+    size_t text_length = display->buffer->length;
+    
+    // Calculate current visual footprint
+    lle_visual_footprint_t current_footprint;
+    size_t prompt_width = lle_prompt_get_last_line_width(display->prompt);
+    if (!lle_calculate_visual_footprint(text, text_length, prompt_width, 
+                                       display->geometry.width, &current_footprint)) {
+        return false;
+    }
+    
+    // Calculate hash of current content for consistency tracking
+    uint32_t content_hash = 0;
+    for (size_t i = 0; i < text_length; i++) {
+        content_hash = content_hash * 31 + (uint32_t)text[i];
+    }
+    
+    // Check if content has actually changed
+    bool content_changed = (content_hash != display->last_content_hash);
+    bool needs_full_render = force_full_render || content_changed || !display->display_state_valid;
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_UNIFIED] Content changed: %s, needs_full_render: %s\n",
+               content_changed ? "true" : "false", needs_full_render ? "true" : "false");
+    }
+    
+    // Store previous footprint for clearing
+    lle_visual_footprint_t old_footprint = {
+        .rows_used = display->last_visual_rows,
+        .end_column = display->last_visual_end_col,
+        .wraps_lines = display->last_had_wrapping,
+        .total_visual_width = display->last_total_chars
+    };
+    
+    // Clear old content if necessary
+    if (needs_full_render && display->display_state_valid) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_UNIFIED] Clearing old content\n");
+        }
+        lle_clear_visual_region(display->terminal, &old_footprint, &current_footprint);
+    }
+    
+    // Render content with consistent highlighting policy
+    bool render_success;
+    if (needs_full_render) {
+        render_success = lle_render_with_consistent_highlighting(display, &old_footprint, &current_footprint);
+    } else {
+        // No change needed
+        render_success = true;
+    }
+    
+    // Update display state tracking
+    if (render_success) {
+        display->last_visual_rows = current_footprint.rows_used;
+        display->last_visual_end_col = current_footprint.end_column;
+        display->last_total_chars = current_footprint.total_visual_width;
+        display->last_had_wrapping = current_footprint.wraps_lines;
+        display->last_content_hash = content_hash;
+        display->syntax_highlighting_applied = display->syntax_highlighting_enabled;
+        display->display_state_valid = true;
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_UNIFIED] Display state updated: rows=%zu, end_col=%zu, wraps=%s\n",
+                   current_footprint.rows_used, current_footprint.end_column,
+                   current_footprint.wraps_lines ? "true" : "false");
+        }
+    }
+    
+    return render_success;
+}
+
+/**
+ * @brief Apply consistent highlighting policy
+ *
+ * Ensures syntax highlighting is applied consistently regardless of
+ * whether content arrived via incremental updates or fallback rewrites.
+ *
+ * @param display Display state for highlighting
+ * @param old_footprint Previous content footprint
+ * @param new_footprint New content footprint
+ * @return true on success, false on error
+ */
+bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
+                                            const lle_visual_footprint_t *old_footprint,
+                                            const lle_visual_footprint_t *new_footprint) {
+    if (!lle_display_validate(display)) {
+        return false;
+    }
+    
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CONSISTENT] Applying consistent highlighting\n");
+    }
+    
+    // Get current text content
+    const char *text = display->buffer->buffer;
+    size_t text_length = display->buffer->length;
+    
+    if (!text || text_length == 0) {
+        // No content to render
+        return true;
+    }
+    
+    // Determine whether to apply syntax highlighting
+    // Apply highlighting consistently: if enabled and not already applied, or if force refresh
+    bool should_apply_highlighting = display->syntax_highlighting_enabled && 
+                                   display->syntax_highlighter &&
+                                   (!display->syntax_highlighting_applied || 
+                                    old_footprint->rows_used != new_footprint->rows_used);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CONSISTENT] Should apply highlighting: %s (enabled=%s, highlighter=%p, applied=%s)\n",
+               should_apply_highlighting ? "true" : "false",
+               display->syntax_highlighting_enabled ? "true" : "false",
+               (void*)display->syntax_highlighter,
+               display->syntax_highlighting_applied ? "true" : "false");
+    }
+    
+    // Render content with or without highlighting
+    bool render_success;
+    if (should_apply_highlighting) {
+        // Use syntax highlighting render path
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CONSISTENT] Rendering with syntax highlighting\n");
+        }
+        render_success = lle_display_render_with_syntax_highlighting(display, text, text_length, 0);
+        
+        if (render_success) {
+            display->syntax_highlighting_applied = true;
+        }
+    } else {
+        // Use plain text render path
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_CONSISTENT] Rendering without syntax highlighting\n");
+        }
+        
+        // Write text directly to terminal
+        render_success = lle_terminal_write(display->terminal, text, text_length);
+        
+        if (render_success) {
+            display->syntax_highlighting_applied = false;
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_CONSISTENT] Consistent rendering completed: %s\n",
+               render_success ? "success" : "failed");
+    }
+    
+    return render_success;
+}
+

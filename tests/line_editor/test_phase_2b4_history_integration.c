@@ -19,7 +19,7 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 // LLE Headers
 #include "../../src/line_editor/display.h"

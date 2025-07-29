@@ -19,30 +19,7 @@
 #include <string.h>
 #include <assert.h>
 
-// Test framework macros
-#define LLE_TEST(name) \
-    static void test_##name(void); \
-    static void test_##name(void)
-
-#define LLE_ASSERT(condition) \
-    do { \
-        if (!(condition)) { \
-            fprintf(stderr, "ASSERTION FAILED: %s at %s:%d\n", \
-                    #condition, __FILE__, __LINE__); \
-            exit(1); \
-        } \
-    } while(0)
-
-#define LLE_ASSERT_EQ(actual, expected) \
-    do { \
-        if ((actual) != (expected)) { \
-            fprintf(stderr, "ASSERTION FAILED: %s (%zu) != %s (%zu) at %s:%d\n", \
-                    #actual, (size_t)(actual), #expected, (size_t)(expected), \
-                    __FILE__, __LINE__); \
-            exit(1); \
-        } \
-    } while(0)
-
+// Use standard test framework macros (defined in test_framework.h)
 #define LLE_ASSERT_TRUE(condition) LLE_ASSERT(condition)
 #define LLE_ASSERT_FALSE(condition) LLE_ASSERT(!(condition))
 

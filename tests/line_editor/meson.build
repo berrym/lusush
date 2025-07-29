@@ -44,7 +44,9 @@ lle_test_sources = [
   'test_lle_046_comprehensive_integration.c',
   'test_display_cursor_apis.c',
   'test_lle_phase3_search.c',
-  'test_multiline_architecture_rewrite.c'
+  'test_multiline_architecture_rewrite.c',
+  'test_backspace_enhancement.c',
+  'test_backspace_logic.c'
 ]
 
 # Individual component tests
