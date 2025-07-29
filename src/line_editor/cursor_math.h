@@ -71,6 +71,25 @@ typedef struct {
 } lle_cursor_position_t;
 
 /**
+ * @brief Absolute terminal coordinates for multi-line positioning
+ *
+ * This structure represents absolute coordinates within the terminal screen,
+ * used for converting between relative cursor positions and actual terminal
+ * positioning commands. Critical for the architectural rewrite to support
+ * proper multi-line cursor positioning.
+ *
+ * Coordinate system:
+ * - terminal_row: 0-based absolute row from top of terminal screen
+ * - terminal_col: 0-based absolute column from left edge of terminal
+ * - Both coordinates are ready for use with lle_terminal_move_cursor()
+ */
+typedef struct {
+    size_t terminal_row;          /**< Absolute terminal row (0-based) */
+    size_t terminal_col;          /**< Absolute terminal column (0-based) */
+    bool valid;                   /**< True if coordinates are valid */
+} lle_terminal_coordinates_t;
+
+/**
  * @brief Terminal geometry and prompt layout information
  *
  * This structure contains all geometric information needed for cursor
@@ -258,5 +277,75 @@ static inline void lle_init_terminal_geometry(lle_terminal_geometry_t *geometry)
     geometry->prompt_width = 0;
     geometry->prompt_height = 1;
 }
+
+// Phase 1A: Coordinate Conversion Functions (Architecture Rewrite)
+
+/**
+ * @brief Convert relative cursor position to absolute terminal coordinates
+ *
+ * Converts a cursor position relative to the prompt/input area into absolute
+ * terminal coordinates that can be used with lle_terminal_move_cursor().
+ * This is the core function for the architectural rewrite to support proper
+ * multi-line cursor positioning.
+ *
+ * @param relative_pos Relative cursor position from cursor math calculations
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @return Absolute terminal coordinates ready for terminal positioning
+ */
+lle_terminal_coordinates_t lle_convert_to_terminal_coordinates(
+    const lle_cursor_position_t *relative_pos,
+    size_t prompt_start_row,
+    size_t prompt_start_col);
+
+/**
+ * @brief Convert absolute terminal coordinates to relative cursor position
+ *
+ * Converts absolute terminal coordinates back to relative cursor position
+ * within the prompt/input area. Used for converting terminal cursor queries
+ * back to internal cursor representation.
+ *
+ * @param terminal_coords Absolute terminal coordinates
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @param geometry Terminal geometry for boundary checking
+ * @return Relative cursor position within prompt/input area
+ */
+lle_cursor_position_t lle_convert_from_terminal_coordinates(
+    const lle_terminal_coordinates_t *terminal_coords,
+    size_t prompt_start_row,
+    size_t prompt_start_col,
+    const lle_terminal_geometry_t *geometry);
+
+/**
+ * @brief Calculate absolute terminal coordinates for text content start
+ *
+ * Calculates where text content begins in absolute terminal coordinates,
+ * accounting for prompt positioning and multi-line prompts. This is used
+ * to establish the reference point for all text positioning operations.
+ *
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @param prompt_geometry Prompt geometry information
+ * @return Absolute coordinates where text content should start
+ */
+lle_terminal_coordinates_t lle_calculate_content_start_coordinates(
+    size_t prompt_start_row,
+    size_t prompt_start_col,
+    const lle_prompt_geometry_t *prompt_geometry);
+
+/**
+ * @brief Validate terminal coordinates structure
+ *
+ * Validates that terminal coordinates are within reasonable bounds
+ * and ready for use with terminal positioning functions.
+ *
+ * @param coords Terminal coordinates to validate
+ * @param geometry Terminal geometry for boundary checking
+ * @return true if coordinates are valid, false otherwise
+ */
+bool lle_validate_terminal_coordinates(
+    const lle_terminal_coordinates_t *coords,
+    const lle_terminal_geometry_t *geometry);
 
 #endif // LLE_CURSOR_MATH_H

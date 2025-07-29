@@ -300,6 +300,168 @@ lle_cursor_position_t lle_calculate_cursor_position(
     return result;
 }
 
+// Phase 1A: Coordinate Conversion Functions (Architecture Rewrite)
+
+/**
+ * @brief Convert relative cursor position to absolute terminal coordinates
+ *
+ * Converts a cursor position relative to the prompt/input area into absolute
+ * terminal coordinates that can be used with lle_terminal_move_cursor().
+ * This is the core function for the architectural rewrite to support proper
+ * multi-line cursor positioning.
+ *
+ * @param relative_pos Relative cursor position from cursor math calculations
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @return Absolute terminal coordinates ready for terminal positioning
+ */
+lle_terminal_coordinates_t lle_convert_to_terminal_coordinates(
+    const lle_cursor_position_t *relative_pos,
+    size_t prompt_start_row,
+    size_t prompt_start_col)
+{
+    lle_terminal_coordinates_t result = {0};
+    
+    // Input validation
+    if (!relative_pos || !relative_pos->valid) {
+        result.valid = false;
+        return result;
+    }
+    
+    // Convert relative coordinates to absolute terminal coordinates
+    result.terminal_row = prompt_start_row + relative_pos->absolute_row;
+    result.terminal_col = prompt_start_col + relative_pos->absolute_col;
+    result.valid = true;
+    
+    return result;
+}
+
+/**
+ * @brief Convert absolute terminal coordinates to relative cursor position
+ *
+ * Converts absolute terminal coordinates back to relative cursor position
+ * within the prompt/input area. Used for converting terminal cursor queries
+ * back to internal cursor representation.
+ *
+ * @param terminal_coords Absolute terminal coordinates
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @param geometry Terminal geometry for boundary checking
+ * @return Relative cursor position within prompt/input area
+ */
+lle_cursor_position_t lle_convert_from_terminal_coordinates(
+    const lle_terminal_coordinates_t *terminal_coords,
+    size_t prompt_start_row,
+    size_t prompt_start_col,
+    const lle_terminal_geometry_t *geometry)
+{
+    lle_cursor_position_t result = {0};
+    
+    // Input validation
+    if (!terminal_coords || !terminal_coords->valid || !geometry) {
+        result.valid = false;
+        return result;
+    }
+    
+    // Validate terminal coordinates are within bounds
+    if (terminal_coords->terminal_row >= geometry->height ||
+        terminal_coords->terminal_col >= geometry->width) {
+        result.valid = false;
+        return result;
+    }
+    
+    // Convert absolute coordinates back to relative coordinates
+    if (terminal_coords->terminal_row >= prompt_start_row &&
+        terminal_coords->terminal_col >= prompt_start_col) {
+        
+        result.absolute_row = terminal_coords->terminal_row - prompt_start_row;
+        result.absolute_col = terminal_coords->terminal_col - prompt_start_col;
+        result.relative_row = result.absolute_row;
+        result.relative_col = result.absolute_col;
+        result.at_boundary = false; // Would need more context to determine this
+        result.valid = true;
+    } else {
+        // Coordinates are before prompt start - invalid
+        result.valid = false;
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Calculate absolute terminal coordinates for text content start
+ *
+ * Calculates where text content begins in absolute terminal coordinates,
+ * accounting for prompt positioning and multi-line prompts. This is used
+ * to establish the reference point for all text positioning operations.
+ *
+ * @param prompt_start_row Absolute row where prompt starts (0-based)
+ * @param prompt_start_col Absolute column where prompt starts (0-based)
+ * @param prompt_geometry Prompt geometry information
+ * @return Absolute coordinates where text content should start
+ */
+lle_terminal_coordinates_t lle_calculate_content_start_coordinates(
+    size_t prompt_start_row,
+    size_t prompt_start_col,
+    const lle_prompt_geometry_t *prompt_geometry)
+{
+    lle_terminal_coordinates_t result = {0};
+    
+    // Input validation
+    if (!prompt_geometry || !lle_validate_prompt_geometry(prompt_geometry)) {
+        result.valid = false;
+        return result;
+    }
+    
+    // For single-line prompts, content starts immediately after prompt
+    if (prompt_geometry->height == 1) {
+        result.terminal_row = prompt_start_row;
+        result.terminal_col = prompt_start_col + prompt_geometry->last_line_width;
+        result.valid = true;
+    }
+    // For multi-line prompts, content starts after the last line of prompt
+    else {
+        result.terminal_row = prompt_start_row + prompt_geometry->height - 1;
+        result.terminal_col = prompt_start_col + prompt_geometry->last_line_width;
+        result.valid = true;
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Validate terminal coordinates structure
+ *
+ * Validates that terminal coordinates are within reasonable bounds
+ * and ready for use with terminal positioning functions.
+ *
+ * @param coords Terminal coordinates to validate
+ * @param geometry Terminal geometry for boundary checking
+ * @return true if coordinates are valid, false otherwise
+ */
+bool lle_validate_terminal_coordinates(
+    const lle_terminal_coordinates_t *coords,
+    const lle_terminal_geometry_t *geometry)
+{
+    // Input validation
+    if (!coords || !geometry) {
+        return false;
+    }
+    
+    // Check if coordinates are marked as valid
+    if (!coords->valid) {
+        return false;
+    }
+    
+    // Check bounds against terminal geometry
+    if (coords->terminal_row >= geometry->height ||
+        coords->terminal_col >= geometry->width) {
+        return false;
+    }
+    
+    return true;
+}
+
 /**
  * @brief Validate cursor position structure
  *

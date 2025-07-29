@@ -98,6 +98,17 @@ bool lle_display_init(lle_display_state_t *state) {
     state->initialized = true;
     state->display_flags = LLE_DISPLAY_FLAG_NONE;
     
+    // Initialize multi-line absolute position tracking (Phase 1A: Architecture Rewrite)
+    state->prompt_start_row = 0;
+    state->prompt_start_col = 0;
+    state->prompt_end_row = 0;
+    state->prompt_end_col = 0;
+    state->content_start_row = 0;
+    state->content_start_col = 0;
+    state->content_end_row = 0;
+    state->content_end_col = 0;
+    state->position_tracking_valid = false;
+    
     // Initialize syntax highlighting integration
     state->syntax_highlighter = NULL;
     state->theme_integration = NULL;
@@ -269,6 +280,24 @@ bool lle_display_render(lle_display_state_t *state) {
         }
     }
     
+    // Query current cursor position before rendering prompt (Phase 2A: Position Tracking)
+    size_t current_row, current_col;
+    if (lle_terminal_query_cursor_position(state->terminal, &current_row, &current_col)) {
+        state->prompt_start_row = current_row;
+        state->prompt_start_col = current_col;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Prompt start position tracked: row=%zu, col=%zu\n", 
+                   current_row, current_col);
+        }
+    } else {
+        // Fallback to safe defaults if cursor query fails
+        state->prompt_start_row = 0;
+        state->prompt_start_col = 0;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Cursor query failed, using default position\n");
+        }
+    }
+
     // Render the prompt
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_RENDER] Rendering prompt\n");
@@ -279,6 +308,30 @@ bool lle_display_render(lle_display_state_t *state) {
             fprintf(stderr, "[LLE_DISPLAY_RENDER] Prompt render failed\n");
         }
         return false;
+    }
+
+    // Calculate prompt end position for content positioning (Phase 2A: Position Tracking)
+    lle_prompt_geometry_t prompt_geom;
+    prompt_geom.width = lle_prompt_get_width(state->prompt);
+    prompt_geom.height = lle_prompt_get_height(state->prompt);
+    prompt_geom.last_line_width = lle_prompt_get_last_line_width(state->prompt);
+    
+    lle_terminal_coordinates_t content_start = lle_calculate_content_start_coordinates(
+        state->prompt_start_row, state->prompt_start_col, &prompt_geom);
+    
+    if (content_start.valid) {
+        state->content_start_row = content_start.terminal_row;
+        state->content_start_col = content_start.terminal_col;
+        state->position_tracking_valid = true;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Content start position: row=%zu, col=%zu\n", 
+                   content_start.terminal_row, content_start.terminal_col);
+        }
+    } else {
+        state->position_tracking_valid = false;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to calculate content start position\n");
+        }
     }
     
     if (debug_mode) {
@@ -375,30 +428,41 @@ bool lle_display_render(lle_display_state_t *state) {
                        cursor_pos.valid ? "true" : "false", cursor_pos.absolute_row, cursor_pos.absolute_col);
             }
             
-            if (cursor_pos.valid) {
-                // Use relative positioning from text start, not absolute terminal positioning
-                if (cursor_pos.absolute_row > 0) {
-                    // Move down from current position (which should be at end of text)
-                    if (!lle_terminal_move_cursor_down(state->terminal, cursor_pos.absolute_row)) {
-                        if (debug_mode) {
-                            fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor down %zu lines\n", cursor_pos.absolute_row);
-                        }
-                    }
-                }
-                
-                // Position at correct column (this is relative to start of line)
-                if (!lle_terminal_move_cursor_to_column(state->terminal, cursor_pos.absolute_col)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor to column %zu\n", cursor_pos.absolute_col);
-                    }
-                }
+            if (cursor_pos.valid && state->position_tracking_valid) {
+                // Phase 2A: Convert relative cursor position to absolute terminal coordinates
+                lle_terminal_coordinates_t terminal_pos = lle_convert_to_terminal_coordinates(
+                    &cursor_pos, state->content_start_row, state->content_start_col);
                 
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Mathematical cursor positioning completed\n");
+                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Converted cursor position: terminal_row=%zu, terminal_col=%zu, valid=%s\n",
+                           terminal_pos.terminal_row, terminal_pos.terminal_col, terminal_pos.valid ? "true" : "false");
+                }
+                
+                // Validate coordinates before using
+                if (terminal_pos.valid && lle_validate_terminal_coordinates(&terminal_pos, &state->geometry)) {
+                    // Use absolute positioning instead of relative positioning
+                    if (!lle_terminal_move_cursor(state->terminal, terminal_pos.terminal_row, terminal_pos.terminal_col)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_DISPLAY_RENDER] Failed to move cursor to absolute position (%zu, %zu)\n", 
+                                   terminal_pos.terminal_row, terminal_pos.terminal_col);
+                        }
+                    } else {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_DISPLAY_RENDER] Absolute cursor positioning completed successfully\n");
+                        }
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid terminal coordinates, cursor positioning skipped\n");
+                    }
                 }
             } else {
                 if (debug_mode) {
-                    fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid cursor position, staying at current location\n");
+                    if (!cursor_pos.valid) {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Invalid cursor position, staying at current location\n");
+                    } else {
+                        fprintf(stderr, "[LLE_DISPLAY_RENDER] Position tracking invalid, skipping cursor positioning\n");
+                    }
                 }
             }
             

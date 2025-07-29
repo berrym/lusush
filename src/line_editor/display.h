@@ -56,6 +56,17 @@ typedef struct {
     bool initialized;                   /**< True if display state is initialized */
     uint32_t display_flags;             /**< Display behavior flags */
     
+    // Multi-line absolute position tracking (Phase 1A: Architecture Rewrite)
+    size_t prompt_start_row;            /**< Absolute terminal row where prompt starts (0-based) */
+    size_t prompt_start_col;            /**< Absolute terminal column where prompt starts (0-based) */
+    size_t prompt_end_row;              /**< Absolute terminal row where prompt ends (0-based) */
+    size_t prompt_end_col;              /**< Absolute terminal column where prompt ends (0-based) */
+    size_t content_start_row;           /**< Absolute terminal row where text content starts (0-based) */
+    size_t content_start_col;           /**< Absolute terminal column where text content starts (0-based) */
+    size_t content_end_row;             /**< Absolute terminal row where text content ends (0-based) */
+    size_t content_end_col;             /**< Absolute terminal column where text content ends (0-based) */
+    bool position_tracking_valid;       /**< True if position tracking data is current */
+    
     // Syntax highlighting integration
     lle_syntax_highlighter_t *syntax_highlighter;  /**< Syntax highlighter for coloring */
     lle_theme_integration_t *theme_integration;    /**< Theme integration for colors */

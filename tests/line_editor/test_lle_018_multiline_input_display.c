@@ -456,6 +456,7 @@ LLE_TEST(display_set_cursor_offset) {
 // Test display flags
 LLE_TEST(display_flags) {
     lle_display_state_t state;
+    memset(&state, 0, sizeof(state));  // Initialize to zero to avoid garbage values
     lle_display_init(&state);
     
     // Test setting and getting flags

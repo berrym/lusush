@@ -444,7 +444,7 @@ Status: 🎉 ALL TESTS PASSED! Enhanced terminal detection integration working c
 **Branch**: `feature/lusush-line-editor`  
 **Status**: 43/50 tasks complete (86%) + 2 Major Enhancements COMPLETE, Phase 4 IN PROGRESS - **✅ CONFIGURATION INTEGRATION COMPLETE**
 
-**🎯 CURRENT PRIORITY**: LLE-044 Display Optimization - ready for immediate development with stable foundation
+**🎯 CURRENT PRIORITY**: Multi-Line Architecture Rewrite Phase 2A - Core Display System Rewrite ready for immediate development
 
 ## 🔥 BREAKTHROUGH FINDINGS (December 2024)
 
@@ -1667,7 +1667,7 @@ typedef struct {
 ✅ **Read Current Status**: This AI_CONTEXT.md and LLE_PROGRESS.md showing completion
 ✅ **Follow LLE Standards**: `.cursorrules`, `LLE_AI_DEVELOPMENT_GUIDE.md` patterns  
 ✅ **Understand Achievement**: Cross-line backspace fix complete and verified working
-✅ **Review Next Task**: LLE-044 (Display Optimization) ready for development
+✅ **Review Next Task**: Multi-Line Architecture Rewrite Phase 2A ready for development
 ✅ **Build on Success**: Stable, verified foundation ready for feature development
 ✅ **READY FOR PHASE 4**: All blockers resolved - development fully unblocked
 
@@ -1678,43 +1678,56 @@ typedef struct {
 - **Comprehensive Testing**: 497+ tests provide safety net for validation
 - **Build Integration**: Meson system handles all dependencies
 
-**Estimated Time to LLE-044 Display Optimization**:
-- 1 hour reading task specification (REQUIRED)
-- 2-3 hours implementing incremental display updates
-- 1-2 hours optimizing terminal output operations  
-- 1 hour comprehensive testing and benchmarks
+**Estimated Time to Phase 2A Core Display Rewrite**:
+- 1 hour reading architectural plan (REQUIRED - MULTILINE_ARCHITECTURE_REWRITE_PLAN.md)
+- 4-6 weeks implementing absolute positioning system
+- Week 1-2: lle_display_render() function rewrite
+- Week 3-4: lle_display_update_incremental() multi-line awareness
+- Week 5-6: All cursor movement functions updated
 
-### **LLE-044 DISPLAY OPTIMIZATION FOCUS**
+### **PHASE 2A MULTI-LINE ARCHITECTURE REWRITE FOCUS**
 
-#### **Primary Enhancement Target: `lle_display_update_incremental()`**
+#### **Primary Rewrite Target: `lle_display_render()`**
 ```c
-// Location: src/line_editor/display.c
-// Current: Basic incremental updates working
-// Goal: Performance optimization with caching and minimal terminal writes
-bool lle_display_update_incremental(lle_display_state_t *state);
+// Location: src/line_editor/display.c (Lines 388-392)
+// Current: Single-line positioning (BROKEN for multi-line)
+if (!lle_terminal_move_cursor_to_column(state->terminal, cursor_pos.absolute_col)) {
+    // Error handling
+}
+
+// Target: Absolute positioning (CORRECT for multi-line)
+lle_terminal_coordinates_t terminal_pos = lle_convert_to_terminal_coordinates(
+    &cursor_pos, state->prompt_start_row, state->prompt_start_col);
+if (!lle_terminal_move_cursor(state->terminal, terminal_pos.terminal_row, terminal_pos.terminal_col)) {
+    // Error handling
+}
 ```
-**Enhancement Areas**: Implement display caching, minimize terminal writes, optimize cursor positioning
 
-#### **Performance Optimization Targets**
-- **Sub-millisecond Response**: Achieve < 1ms for character insertion/deletion
-- **Minimal Terminal Output**: Reduce unnecessary cursor movements and screen writes
-- **Display Caching**: Cache rendered content to avoid redundant operations
-- **Smart Updates**: Only update changed portions of display
+#### **Architectural Rewrite Targets**
+- **Absolute Positioning**: Replace ALL single-line positioning with absolute coordinates
+- **Position Tracking**: Maintain absolute positions of prompt and content on screen
+- **Multi-Line Clearing**: Use region-based clearing instead of single-line operations
+- **Coordinate Conversion**: Convert all relative cursor positions to absolute terminal coordinates
 
-#### **Key Optimization Areas**
+#### **Key Infrastructure Available (Phase 1A Complete)**
 ```c
-// 1. Display caching system
+// 1. Coordinate conversion system
+lle_terminal_coordinates_t lle_convert_to_terminal_coordinates(
+    const lle_cursor_position_t *relative_pos,
+    size_t prompt_start_row, size_t prompt_start_col);
+
+// 2. Multi-line terminal operations  
+bool lle_terminal_clear_region(lle_terminal_manager_t *tm,
+                              size_t start_row, size_t start_col,
+                              size_t end_row, size_t end_col);
+
+// 3. Position tracking in display state
 typedef struct {
-    char *cached_display;
-    size_t cache_size;
-    bool cache_valid;
-} lle_display_cache_t;
-
-// 2. Incremental update optimization
-bool lle_display_update_range(lle_display_state_t *state, size_t start, size_t end);
-
-// 3. Terminal output batching
-bool lle_terminal_batch_operations(lle_terminal_manager_t *terminal);
+    size_t prompt_start_row, prompt_start_col;
+    size_t content_start_row, content_start_col;
+    bool position_tracking_valid;
+    // ... existing fields ...
+} lle_display_state_t;
 ```
 
 ## 🚨 SUCCESS REQUIRES DISCIPLINE
@@ -1753,11 +1766,12 @@ Before starting LLE-044 development, AI assistants MUST:
 
 ## 📚 ESSENTIAL DOCUMENTATION REFERENCES
 
-**For LLE-044 Display Optimization Development:**
-- `LLE_DEVELOPMENT_TASKS.md` - Complete LLE-044 task specification and requirements
-- `LLE-043_COMPLETION_SUMMARY.md` - Latest task completion example and patterns
-- `src/line_editor/display.c` - Current display implementation to optimize
-- `src/line_editor/display.h` - Display system API reference
+**For Phase 2A Multi-Line Architecture Rewrite Development:**
+- `MULTILINE_ARCHITECTURE_REWRITE_PLAN.md` - Complete 16-page architectural rewrite plan and requirements
+- `MULTILINE_REWRITE_QUICK_REFERENCE.md` - 2-page quick reference for developers
+- `PHASE_1A_COMPLETION_STATUS.md` - Phase 1A infrastructure completion status and handoff
+- `tests/line_editor/test_multiline_architecture_rewrite.c` - Working examples of all infrastructure functions
+- `src/line_editor/display.c` - Target file for Phase 2A rewrite (lines 388-392 primary target)
 
 **For Development Patterns:**
 - `LLE-043_COMPLETION_SUMMARY.md` - Most recent task completion example
@@ -1786,9 +1800,9 @@ Before starting LLE-044 development, AI assistants MUST:
 6. ✅ **COMPLETE**: Phase 4 development infrastructure ready
 
 **CURRENT DEVELOPMENT STATUS**:
-1. ✅ **READY FOR LLE-044**: Display Optimization task ready for immediate development
-2. ✅ **STABLE FOUNDATION**: All core systems working and tested
-3. ✅ **CLEAR PATTERNS**: Established development and testing patterns
+1. ✅ **READY FOR PHASE 2A**: Multi-Line Architecture Rewrite infrastructure complete, core display rewrite ready for development
+2. ✅ **PHASE 1A INFRASTRUCTURE**: Position tracking, coordinate conversion, multi-line operations implemented and tested (15 tests, 497+ existing tests still pass)
+3. ✅ **CLEAR PATTERNS**: Established architectural patterns for absolute positioning and multi-line operations
 
 **VERIFIED WORKING (December 2024)**:
 - ✅ **All Shell Operations**: Complete shell functionality including complex commands
@@ -1797,7 +1811,7 @@ Before starting LLE-044 development, AI assistants MUST:
 - ✅ **Test Infrastructure**: 497+ tests providing comprehensive coverage
 - ✅ **Development Tools**: Build system, testing framework, documentation patterns
 
-**DEVELOPMENT STATUS**: ✅ **READY FOR LLE-044** - Display optimization next priority
+**DEVELOPMENT STATUS**: ✅ **READY FOR PHASE 2A** - Multi-line architecture rewrite infrastructure complete, core display system rewrite next priority
 
 **CODEBASE STATUS**: ✅ **CORE FUNCTIONALITY READY** - Stable foundation with comprehensive testing, keybinding refinements in progress
 

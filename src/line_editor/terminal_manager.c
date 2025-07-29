@@ -749,3 +749,251 @@ bool lle_terminal_move_cursor_to_column(lle_terminal_manager_t *tm, size_t col) 
     int result = lle_termcap_cursor_to_column(col);
     return result == LLE_TERMCAP_OK || result == LLE_TERMCAP_NOT_TERMINAL || result == LLE_TERMCAP_INVALID_PARAMETER;
 }
+
+// Phase 1A: Multi-Line Operations (Architecture Rewrite)
+
+/**
+ * @brief Clear a rectangular region of the terminal
+ *
+ * Clears all content within the specified rectangular region using absolute
+ * terminal coordinates. This is a fundamental operation for the architectural
+ * rewrite to support proper multi-line content management.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param start_row Starting row of region to clear (0-based)
+ * @param start_col Starting column of region to clear (0-based)
+ * @param end_row Ending row of region to clear (0-based, inclusive)
+ * @param end_col Ending column of region to clear (0-based, inclusive)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_region(lle_terminal_manager_t *tm,
+                              size_t start_row, size_t start_col,
+                              size_t end_row, size_t end_col)
+{
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid) {
+        if (start_row >= tm->geometry.height || end_row >= tm->geometry.height ||
+            start_col >= tm->geometry.width || end_col >= tm->geometry.width) {
+            return false;
+        }
+    }
+    
+    // Validate parameters
+    if (start_row > end_row || (start_row == end_row && start_col > end_col)) {
+        return false;
+    }
+    
+    // Clear region row by row
+    for (size_t row = start_row; row <= end_row; row++) {
+        // Move to start of region on this row
+        if (!lle_terminal_move_cursor(tm, row, start_col)) {
+            return false;
+        }
+        
+        // Determine how much to clear on this row
+        size_t clear_start = start_col;
+        size_t clear_end = (row == end_row) ? end_col : tm->geometry.width - 1;
+        
+        // Clear by writing spaces
+        for (size_t col = clear_start; col <= clear_end; col++) {
+            if (!lle_terminal_write(tm, " ", 1)) {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Clear multiple consecutive lines
+ *
+ * Clears the specified number of complete lines starting from the given row.
+ * More efficient than clearing individual regions when clearing complete lines.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param start_row Starting row to clear (0-based)
+ * @param num_lines Number of lines to clear
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_lines(lle_terminal_manager_t *tm,
+                             size_t start_row, size_t num_lines)
+{
+    if (!tm || !tm->termcap_initialized || num_lines == 0) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid) {
+        if (start_row >= tm->geometry.height || 
+            start_row + num_lines > tm->geometry.height) {
+            return false;
+        }
+    }
+    
+    // Clear each line completely
+    for (size_t i = 0; i < num_lines; i++) {
+        size_t row = start_row + i;
+        
+        // Move to start of line
+        if (!lle_terminal_move_cursor(tm, row, 0)) {
+            return false;
+        }
+        
+        // Clear entire line using termcap
+        int result = lle_termcap_clear_line();
+        if (result != LLE_TERMCAP_OK && 
+            result != LLE_TERMCAP_NOT_TERMINAL && 
+            result != LLE_TERMCAP_INVALID_PARAMETER) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Clear from specified position to end of line
+ *
+ * Clears content from the specified absolute position to the end of that line.
+ * Similar to lle_terminal_clear_to_eol() but works with absolute coordinates.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param row Row to clear from (0-based)
+ * @param col Column to start clearing from (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_from_position_to_eol(lle_terminal_manager_t *tm,
+                                            size_t row, size_t col)
+{
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid) {
+        if (row >= tm->geometry.height || col >= tm->geometry.width) {
+            return false;
+        }
+    }
+    
+    // Move to specified position
+    if (!lle_terminal_move_cursor(tm, row, col)) {
+        return false;
+    }
+    
+    // Clear to end of line using termcap
+    int result = lle_termcap_clear_to_eol();
+    return result == LLE_TERMCAP_OK || 
+           result == LLE_TERMCAP_NOT_TERMINAL || 
+           result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Clear from specified position to end of screen
+ *
+ * Clears all content from the specified absolute position to the end of the
+ * terminal screen. Useful for clearing multi-line content efficiently.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param row Row to start clearing from (0-based)
+ * @param col Column to start clearing from (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_from_position_to_eos(lle_terminal_manager_t *tm,
+                                            size_t row, size_t col)
+{
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    // Bounds checking against terminal geometry
+    if (tm->geometry_valid) {
+        if (row >= tm->geometry.height || col >= tm->geometry.width) {
+            return false;
+        }
+    }
+    
+    // Move to specified position
+    if (!lle_terminal_move_cursor(tm, row, col)) {
+        return false;
+    }
+    
+    // Clear to end of screen using termcap
+    int result = lle_termcap_clear_to_eos();
+    return result == LLE_TERMCAP_OK || 
+           result == LLE_TERMCAP_NOT_TERMINAL || 
+           result == LLE_TERMCAP_INVALID_PARAMETER;
+}
+
+/**
+ * @brief Save current cursor position for later restoration
+ *
+ * Saves the current cursor position so it can be restored later with
+ * lle_terminal_restore_cursor_position(). More reliable than termcap
+ * save/restore for multi-line operations.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param saved_row Pointer to store current row (0-based)
+ * @param saved_col Pointer to store current column (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_save_cursor_position(lle_terminal_manager_t *tm,
+                                      size_t *saved_row, size_t *saved_col)
+{
+    if (!tm || !tm->termcap_initialized || !saved_row || !saved_col) {
+        return false;
+    }
+    
+    // Query current position from terminal
+    int row, col;
+    int result = lle_termcap_get_cursor_pos(&row, &col);
+    
+    if (result == LLE_TERMCAP_OK) {
+        // Convert from 1-based to 0-based coordinates
+        *saved_row = (row > 0) ? (size_t)(row - 1) : 0;
+        *saved_col = (col > 0) ? (size_t)(col - 1) : 0;
+        return true;
+    }
+    
+    // If cursor query fails, return default position
+    *saved_row = 0;
+    *saved_col = 0;
+    return false;
+}
+
+/**
+ * @brief Query current cursor position from terminal
+ *
+ * Queries the terminal for the current cursor position using escape sequences.
+ * May have timeout issues on some terminals - use with caution.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param current_row Pointer to store current row (0-based)
+ * @param current_col Pointer to store current column (0-based)
+ * @return true on success, false on failure or timeout
+ */
+bool lle_terminal_query_cursor_position(lle_terminal_manager_t *tm,
+                                       size_t *current_row, size_t *current_col)
+{
+    if (!tm || !tm->termcap_initialized || !current_row || !current_col) {
+        return false;
+    }
+    
+    // Query current position from terminal
+    int row, col;
+    int result = lle_termcap_get_cursor_pos(&row, &col);
+    
+    if (result == LLE_TERMCAP_OK) {
+        // Convert from 1-based to 0-based coordinates
+        *current_row = (row > 0) ? (size_t)(row - 1) : 0;
+        *current_col = (col > 0) ? (size_t)(col - 1) : 0;
+        return true;
+    }
+    
+    return false;
+}

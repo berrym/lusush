@@ -269,4 +269,95 @@ bool lle_terminal_move_cursor_down(lle_terminal_manager_t *tm, size_t lines);
  */
 bool lle_terminal_move_cursor_to_column(lle_terminal_manager_t *tm, size_t col);
 
+// Phase 1A: Multi-Line Operations (Architecture Rewrite)
+
+/**
+ * @brief Clear a rectangular region of the terminal
+ *
+ * Clears all content within the specified rectangular region using absolute
+ * terminal coordinates. This is a fundamental operation for the architectural
+ * rewrite to support proper multi-line content management.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param start_row Starting row of region to clear (0-based)
+ * @param start_col Starting column of region to clear (0-based)
+ * @param end_row Ending row of region to clear (0-based, inclusive)
+ * @param end_col Ending column of region to clear (0-based, inclusive)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_region(lle_terminal_manager_t *tm,
+                              size_t start_row, size_t start_col,
+                              size_t end_row, size_t end_col);
+
+/**
+ * @brief Clear multiple consecutive lines
+ *
+ * Clears the specified number of complete lines starting from the given row.
+ * More efficient than clearing individual regions when clearing complete lines.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param start_row Starting row to clear (0-based)
+ * @param num_lines Number of lines to clear
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_lines(lle_terminal_manager_t *tm,
+                             size_t start_row, size_t num_lines);
+
+/**
+ * @brief Clear from specified position to end of line
+ *
+ * Clears content from the specified absolute position to the end of that line.
+ * Similar to lle_terminal_clear_to_eol() but works with absolute coordinates.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param row Row to clear from (0-based)
+ * @param col Column to start clearing from (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_from_position_to_eol(lle_terminal_manager_t *tm,
+                                            size_t row, size_t col);
+
+/**
+ * @brief Clear from specified position to end of screen
+ *
+ * Clears all content from the specified absolute position to the end of the
+ * terminal screen. Useful for clearing multi-line content efficiently.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param row Row to start clearing from (0-based)
+ * @param col Column to start clearing from (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_from_position_to_eos(lle_terminal_manager_t *tm,
+                                            size_t row, size_t col);
+
+/**
+ * @brief Save current cursor position for later restoration
+ *
+ * Saves the current cursor position so it can be restored later with
+ * lle_terminal_restore_cursor_position(). More reliable than termcap
+ * save/restore for multi-line operations.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param saved_row Pointer to store current row (0-based)
+ * @param saved_col Pointer to store current column (0-based)
+ * @return true on success, false on failure
+ */
+bool lle_terminal_save_cursor_position(lle_terminal_manager_t *tm,
+                                      size_t *saved_row, size_t *saved_col);
+
+/**
+ * @brief Query current cursor position from terminal
+ *
+ * Queries the terminal for the current cursor position using escape sequences.
+ * May have timeout issues on some terminals - use with caution.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param current_row Pointer to store current row (0-based)
+ * @param current_col Pointer to store current column (0-based)
+ * @return true on success, false on failure or timeout
+ */
+bool lle_terminal_query_cursor_position(lle_terminal_manager_t *tm,
+                                       size_t *current_row, size_t *current_col);
+
 #endif // LLE_TERMINAL_MANAGER_H
