@@ -47,7 +47,8 @@ lle_test_sources = [
   'test_multiline_architecture_rewrite.c',
   'test_backspace_enhancement.c',
   'test_backspace_logic.c',
-  'test_boundary_crossing_fix.c'
+  'test_boundary_crossing_fix.c',
+  'test_display_stabilization.c'
 ]
 
 # Individual component tests

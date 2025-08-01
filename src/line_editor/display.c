@@ -240,6 +240,7 @@ lle_display_state_t *lle_display_create(
         free(state);
         return NULL;
     }
+    state->initialized = true;
     
     // Update geometry from terminal (redundant now but kept for safety)
     lle_display_update_geometry(state);
