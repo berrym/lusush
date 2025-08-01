@@ -1257,13 +1257,82 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 }
             }
             
-            // FIX #1: Clear potential character artifacts at boundary position
-            // The terminal may leave artifacts at the wrap boundary position
+            // Calculate positioning variables for all fixes
             size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
             size_t terminal_width = state->geometry.width;
-            
-            // Calculate the exact boundary position where artifacts may remain
             size_t total_content_width = prompt_width + text_length;
+            size_t expected_cursor_column = prompt_width + text_length;
+            
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Moving cursor to exact position %zu (prompt=%zu + text=%zu)\n", 
+                       expected_cursor_column, prompt_width, text_length);
+            }
+            
+            // LINUX-SPECIFIC: Move up first, then clear artifacts on correct line
+            #ifdef __linux__
+            // Detect if we just crossed from wrapped to unwrapped
+            size_t previous_content_width = prompt_width + text_length + 1; // +1 for deleted char
+            if (previous_content_width >= terminal_width && total_content_width < terminal_width) {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_LINUX_SAFE] Cross-line boundary detected - moving up first\n");
+                }
+                
+                // STEP 1: Move up to previous line first
+                if (lle_terminal_move_cursor_up(state->terminal, 1)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] Successfully moved cursor up to previous line\n");
+                    }
+                } else {
+                    // Fallback: direct escape sequence
+                    lle_terminal_write(state->terminal, "\x1b[A", 3);
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] Used fallback escape sequence for up movement\n");
+                    }
+                }
+                
+                // STEP 2: Now clear artifact at end of THIS line (the previous line)
+                // Fix: Use terminal_width - 1 since valid columns are 0 to (width-1)
+                size_t boundary_position = terminal_width - 1;
+                if (lle_terminal_move_cursor_to_column(state->terminal, boundary_position)) {
+                    lle_terminal_write(state->terminal, " ", 1);  // Clear artifact on correct line
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] Cleared artifact at position %zu on previous line\n", boundary_position);
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] Artifact clearing failed - trying direct approach\n");
+                    }
+                    // Ultra-safe fallback: Go to end of line and clear
+                    lle_terminal_write(state->terminal, "\x1b[79C", 5);  // Move to column 79
+                    lle_terminal_write(state->terminal, " ", 1);         // Clear artifact
+                }
+                
+                // STEP 3: Position cursor to correct final location
+                if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] Final cursor positioned correctly at column %zu\n", expected_cursor_column);
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_LINUX_SAFE] WARNING - final cursor positioning failed\n");
+                    }
+                }
+            } else {
+                // No cross-line movement needed - use standard positioning
+                if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Cursor positioned correctly at column %zu\n", expected_cursor_column);
+                    }
+                } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: WARNING - cursor positioning failed\n");
+                    }
+                }
+            }
+            #else
+            // MACOS: Original artifact clearing + positioning (preserve exact behavior)
+            
+            // FIX #1: Clear potential character artifacts at boundary position
             if (total_content_width < terminal_width) {
                 // We're now on single line - ensure boundary position is cleared
                 size_t boundary_position = terminal_width;
@@ -1281,16 +1350,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                 }
             }
             
-            // FIX #2 & #3: Precise cursor positioning to correct "one too many" and wrong deletion
-            // Calculate exact expected cursor position after boundary crossing
-            size_t expected_cursor_column = prompt_width + text_length;
-            
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Moving cursor to exact position %zu (prompt=%zu + text=%zu)\n", 
-                       expected_cursor_column, prompt_width, text_length);
-            }
-            
-            // Move cursor to mathematically correct position
+            // FIX #2: Standard cursor positioning for macOS
             if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Cursor positioned correctly at column %zu\n", expected_cursor_column);
@@ -1300,6 +1360,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
                     fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: WARNING - cursor positioning failed\n");
                 }
             }
+            #endif
             
             // FIX #3: Synchronize text buffer cursor to prevent wrong character deletion
             if (state->buffer) {

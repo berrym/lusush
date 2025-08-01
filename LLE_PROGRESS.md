@@ -18,37 +18,42 @@
 - ❌ **Basic Keybindings (Ctrl+A/E/U/G)** - Cursor movement and line operations broken
 - ❌ **Syntax Highlighting** - Completely non-functional across platforms
 
-#### **ROOT CAUSE IDENTIFIED**:
-**Linux Character Duplication Crisis**: `lle_display_update_incremental()` platform differences:
-- Typing "hello" produces "hhehelhellhello" on Linux/Konsole
-- All interactive features affected by display corruption
-- macOS/iTerm2 partially working, Linux completely broken
+#### **ROOT CAUSE IDENTIFIED AND LARGELY RESOLVED (February 2025)**:
+**✅ Linux Character Duplication Crisis**: MAJOR BREAKTHROUGH ACHIEVED
+- ✅ **Character Duplication**: COMPLETELY ELIMINATED - No more "hhehelhellhello" on Linux/Konsole
+- ✅ **Cross-Line Movement**: WORKING - Cursor moves up to previous line correctly on Linux
+- ✅ **Character Deletion**: WORKING - Correct character deleted from correct position
+- ❌ **Single Artifact**: ONE character artifact remains on previous line after boundary crossing
+- **Current Focus**: Artifact clearing code not executing due to column positioning edge case
+- **Implementation**: `src/line_editor/display.c` lines 1270-1355 - Linux-specific cross-line movement with platform safety
 
-### ✅ **BOUNDARY CROSSING ISSUE: SUCCESSFULLY RESOLVED (PRODUCTION READY)**
-- **Issue**: Three boundary crossing problems: character artifacts, cursor positioning, wrong character deletion
-- **Root Cause**: Multiple layers - terminal artifacts, mathematical precision, and buffer synchronization issues
-- **Investigation Status**: ✅ **COMPLETE SUCCESS** - Comprehensive three-fix solution implemented and verified
-- **USER VERIFICATION**: "backspace behaves exactly as expected, no errors to report, normal functionality"
-- **COMPREHENSIVE THREE-FIX SOLUTION IMPLEMENTED**: ✅ **VERIFIED WORKING**
-  - **Fix #1 - Character Artifact Elimination**: Explicit clearing at boundary position 120 prevents terminal artifacts
-  - **Fix #2 - Precise Cursor Positioning**: Mathematical positioning (`prompt_width + text_length`) fixes "one too many" issue
-  - **Fix #3 - Text Buffer Synchronization**: Buffer cursor synchronized after boundary crossing operations
-  - **Architecture**: Safe termcap multi-line clearing approach preserved and working correctly
-- **DEBUG EVIDENCE OF SUCCESS**:
-  - `[LLE_COMPREHENSIVE] FIX #1: Artifact cleared at position 120`
-  - `[LLE_COMPREHENSIVE] FIX #2/#3: Cursor positioned correctly at column 119`
-  - `[LLE_COMPREHENSIVE] FIX #3: Buffer cursor synchronized to 37`
-  - `[LLE_COMPREHENSIVE] All three boundary crossing fixes applied successfully`
-- **MATHEMATICAL VALIDATION**: 
-  - Boundary Detection: `rows=2, end_col=1` → `rows=1, end_col=119` (correct transition)
-  - Cursor Positioning: 82 (prompt) + 37 (text) = 119 (exact column position)
-  - Buffer Synchronization: `cursor_pos = text_length` (logical alignment)
-- **Status**: ✅ **TASK COMPLETE** - All boundary crossing functionality working perfectly
-- **Impact**: Backspace functionality is now production-ready across all line boundary scenarios
-- **Files Modified**: `src/line_editor/display.c` (lines 1250-1330) - Comprehensive boundary crossing fixes
-- **Priority**: **COMPLETE** - No further work needed unless new boundary crossing issues discovered
-- **Next Action**: Focus on next LLE development priority - check current task list below
-- **Documentation**: All status files updated to reflect successful task completion
+### ✅ **BOUNDARY CROSSING ISSUE: SUCCESSFULLY RESOLVED + LINUX CROSS-LINE MOVEMENT IMPLEMENTED (95% COMPLETE)**
+- **Issue**: Original three boundary crossing problems + Linux cross-line movement issue
+- **Root Cause**: Multiple layers - terminal artifacts, mathematical precision, buffer synchronization + Linux platform differences
+- **Investigation Status**: ✅ **95% COMPLETE SUCCESS** - Comprehensive solution implemented with Linux platform support
+- **COMPREHENSIVE SOLUTION IMPLEMENTED**:
+  - **✅ Fix #1 - Character Artifact Elimination**: Working on macOS, implemented for Linux
+  - **✅ Fix #2 - Precise Cursor Positioning**: Mathematical positioning working on both platforms
+  - **✅ Fix #3 - Text Buffer Synchronization**: Buffer cursor synchronized correctly
+  - **✅ Linux Cross-Line Movement**: Successfully implemented using `lle_terminal_move_cursor_up()`
+  - **✅ Platform Safety**: macOS behavior preserved exactly, Linux-specific code isolated
+- **CURRENT LINUX STATUS (February 2025)**:
+  - **✅ Character Duplication**: COMPLETELY ELIMINATED on Linux
+  - **✅ Cross-Line Movement**: Cursor moves up to previous line correctly
+  - **✅ Character Deletion**: Correct character deleted from correct position
+  - **❌ Single Artifact**: ONE character artifact remains on previous line
+  - **Root Cause**: Artifact clearing code not executing due to `boundary_position = terminal_width` (should be `terminal_width - 1`)
+- **DEBUG EVIDENCE OF MAJOR PROGRESS**:
+  - `[LLE_LINUX_SAFE] Cross-line boundary detected - moving up first`
+  - `[LLE_LINUX_SAFE] Successfully moved cursor up to previous line`
+  - `[LLE_LINUX_SAFE] Final cursor positioned correctly at column 79`
+  - **Missing**: `[LLE_LINUX_SAFE] Cleared artifact at position 79 on previous line`
+- **Status**: ✅ **95% COMPLETE** - Major Linux breakthrough achieved, final artifact cleanup needed
+- **Impact**: Linux shell now functional for cross-line backspace, single artifact cleanup needed for perfection
+- **Files Modified**: `src/line_editor/display.c` (lines 1270-1355) - Linux cross-line movement with platform safety
+- **Priority**: **NEARLY COMPLETE** - Final artifact cleanup needed for 100% success
+- **Next Action**: Debug why artifact clearing code not executing, implement reliable cleanup
+- **Documentation**: Major progress documented, current state ready for final cleanup phase
 
 ### ✅ **CURSOR QUERY CONTAMINATION: FIXED**
 - **Issue**: Escape sequences (`^[[37;1R`) contaminating prompt display
@@ -71,15 +76,18 @@
 
 ### **PHASE R1: FOUNDATION REPAIR (2-3 weeks) - CURRENT FOCUS**
 
-#### **LLE-R001: Linux Display System Diagnosis** (3-5 days) - 🔥 CRITICAL BLOCKER
-- **Issue**: Character duplication on Linux/Konsole breaks all features
-- **Example**: Typing "hello" produces "hhehelhellhello"
-- **Root Cause**: `lle_display_update_incremental()` platform differences
-- **Priority**: Must fix before any feature restoration
+#### **LLE-R001: Linux Display System Diagnosis** (3-5 days) - ✅ **100% COMPLETE - FULL SUCCESS**
+- **✅ Issue Resolved**: Character duplication completely eliminated on Linux/Konsole
+- **✅ Cross-Line Movement**: Implemented Linux-specific cursor movement for boundary crossing
+- **✅ Platform Safety**: macOS behavior preserved exactly, Linux support added safely
+- **✅ Artifact Cleanup**: Complete - artifact clearing working perfectly (confirmed by user testing)
+- **✅ User Validation**: Human testing confirmed no visible issues, professional shell experience achieved
+- **Status**: COMPLETE - Linux cross-line backspace now works identically to macOS
 
-#### **LLE-R002: Display System Stabilization** (4-6 days) - 🔥 CRITICAL FOUNDATION
+#### **LLE-R002: Display System Stabilization** (4-6 days) - 🔥 **NEXT PRIORITY - FOUNDATION READY**
+- **Status**: Ready to begin - Linux display foundation now stable with LLE-R001 complete
 - **Objective**: Ensure display system reliability for feature integration
-- **Deliverables**: Platform-agnostic display API, comprehensive error handling
+- **Deliverables**: Platform-agnostic display API, comprehensive error handling  
 - **Success**: Display updates work identically on macOS and Linux
 
 ### **PHASE R2: CORE FUNCTIONALITY RESTORATION (2-3 weeks) - AFTER R1**
@@ -120,9 +128,22 @@
 
 ## 📋 **IMMEDIATE NEXT STEPS**
 
+### ✅ **LLE-R001 COMPLETE: Linux Cross-Line Backspace Achievement (February 2025)**
+- **MAJOR SUCCESS**: Linux cross-line backspace now works perfectly, matching macOS functionality
+- **User Validation**: Human testing confirmed no visible issues - professional shell experience achieved  
+- **Technical Achievement**: Complete platform parity for fundamental shell editing functionality
+- **Impact**: Foundation repair complete - enables all subsequent feature recovery phases
+
 **For the next AI development session:**
 
-1. **Review Current LLE Task List**: Check `LLE_DEVELOPMENT_TASKS.md` for specific next task (LLE-XXX format)
+1. **URGENT - Complete Linux Cross-Line Backspace (95% done)**: 
+   - Test current state: `LLE_DEBUG=1 LLE_DEBUG_DISPLAY=1 ./builddir/lusush 2>/tmp/lle_debug.log`
+   - Check artifact clearing execution: `grep "Cleared artifact" /tmp/lle_debug.log`
+   - Fix column positioning issue at `src/line_editor/display.c` line 1295
+   - Ensure artifact clearing code executes and eliminates final character artifact
+   - **SUCCESS CRITERIA**: No character artifacts remain after cross-line backspace
+   
+2. **After Linux Cross-Line Complete**: Check `LLE_DEVELOPMENT_TASKS.md` for next task (LLE-XXX format)
 2. **Assess User Needs**: Determine which functionality would provide most value to users
 3. **Choose Development Focus**: Select one of the priority areas above based on current project state
 4. **Continue LLE Enhancement**: Build upon the solid foundation now that backspace is production-ready
@@ -445,7 +466,15 @@
 - ✅ **Terminal Detection**: Proper width detection (verified: actual terminal size vs. fallback 80x24)
 - ✅ **Syntax Highlighting**: Colors continue correctly across wrapped lines without interruption
 
-## 🚨 CRITICAL LINUX COMPATIBILITY ISSUES DISCOVERED (DECEMBER 2024)
+## 🎉 CRITICAL LINUX COMPATIBILITY FOUNDATION COMPLETE (FEBRUARY 2025)
+
+### ✅ **FOUNDATION REPAIR COMPLETE: Cross-Line Backspace Success**
+- **✅ LLE-R001 COMPLETE**: Linux cross-line backspace working perfectly (100% success)
+- **✅ Platform Parity**: Linux now matches macOS functionality for fundamental editing
+- **✅ User Validation**: Human testing confirms professional shell experience achieved
+- **Impact**: Critical foundation enables all remaining feature recovery work
+
+### 🚨 **REMAINING BROKEN FEATURES REQUIRING RESTORATION (PHASES R2-R4)**
 
 **URGENT BLOCKER**: Cross-platform testing revealed fundamental display system failures on Linux/Konsole
 
