@@ -15,6 +15,7 @@
 #include "text_buffer.h"
 #include "display.h"
 #include "cursor_math.h"
+#include "buffer_trace.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -195,26 +196,61 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_STATE;
     }
     
+    // CRITICAL TRACE: Start backspace operation
+    int trace_session = lle_trace_backspace_start(state->buffer, state);
+    LLE_TRACE_CRITICAL("CMD_BACKSPACE_ENTRY", state->buffer);
+    
     size_t cursor_pos = state->buffer->cursor_pos;
     
     // Can't backspace at beginning of buffer
     if (cursor_pos == 0) {
+        LLE_TRACE_BUFFER("CMD_BACKSPACE_NO_OP", state->buffer);
+        lle_trace_backspace_end(trace_session, state->buffer, state, true);
         return LLE_CMD_SUCCESS; // Not an error, just nothing to delete
     }
     
+    // CRITICAL TRACE: Before buffer modification
+    LLE_TRACE_CRITICAL("BEFORE_TEXT_BACKSPACE", state->buffer);
+    lle_trace_buffer_function("lle_text_backspace", state->buffer, true);
+    
     // Delete character before cursor position
     if (!lle_text_backspace(state->buffer)) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_FAILED", state->buffer);
+        lle_trace_buffer_function("lle_text_backspace", state->buffer, false);
+        lle_trace_backspace_end(trace_session, state->buffer, state, false);
         return LLE_CMD_ERROR_INVALID_POSITION;
+    }
+    
+    // CRITICAL TRACE: After buffer modification  
+    lle_trace_buffer_function("lle_text_backspace", state->buffer, false);
+    LLE_TRACE_CRITICAL("AFTER_TEXT_BACKSPACE", state->buffer);
+    
+    // Validate buffer consistency
+    if (!lle_trace_validate_buffer_consistency(state->buffer)) {
+        LLE_TRACE_CRITICAL("BUFFER_CONSISTENCY_ERROR", state->buffer);
     }
     
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
+        LLE_TRACE_BUFFER("BEFORE_DISPLAY_UPDATE", state->buffer);
+        
         if (!lle_display_update_incremental(state)) {
             // Graceful fallback: if absolute positioning fails, use full render
+            LLE_TRACE_FALLBACK("INCREMENTAL_UPDATE_FAILED", state->buffer);
+            lle_trace_display_update("FALLBACK_RENDER", state->buffer, false, true);
             lle_display_render(state);
+            LLE_TRACE_FALLBACK("AFTER_FALLBACK_RENDER", state->buffer);
+        } else {
+            LLE_TRACE_BUFFER("INCREMENTAL_UPDATE_SUCCESS", state->buffer);
         }
+        
+        LLE_TRACE_BUFFER("AFTER_DISPLAY_UPDATE", state->buffer);
     }
+    
+    // CRITICAL TRACE: End backspace operation
+    LLE_TRACE_CRITICAL("CMD_BACKSPACE_EXIT", state->buffer);
+    lle_trace_backspace_end(trace_session, state->buffer, state, true);
     
     return LLE_CMD_SUCCESS;
 }

@@ -1,0 +1,1 @@
+Test the double deletion bug by typing a long command that wraps around the terminal width, then use backspace to delete characters across the line wrap boundary. Watch for double character deletion behavior.

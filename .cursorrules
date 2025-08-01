@@ -3,9 +3,11 @@
 ## Project Overview
 This repository contains Lusush, a professional shell with an ongoing line editor replacement project. The current task is replacing linenoise with a custom Lusush Line Editor (LLE) that provides superior multiline prompt support, integrated terminal capabilities, and mathematical correctness. LLE is designed as a standalone, reusable library like libhashtable.
 
-## Current Development Context
-- **Active Feature**: Lusush Line Editor (LLE) implementation with integrated termcap
-- **Branch**: `feature/lusush-line-editor` (or task-specific branches)
+## Current Development Context - BACKSPACE BOUNDARY CROSSING TASK
+- **Active Feature**: BACKSPACE boundary crossing mathematical precision fixes
+- **Status**: SAFE TERMCAP MULTI-LINE CLEARING BREAKTHROUGH ACHIEVED
+- **Current Task**: TWO surgical mathematical fixes needed for character erasure and cursor positioning
+- **Branch**: `task/backspace-refinement`
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Architecture**: Standalone library with integrated termcap system (no external dependencies)
@@ -250,14 +252,24 @@ perf report
 - `tests/line_editor/` - Test suite
 - `LLE_PROGRESS.md` - Current development status
 
-## ⚠️ STRICT ENFORCEMENT: AI ASSISTANT REQUIREMENTS
+## 🚨 IMMEDIATE THREE-FIX TESTING PRIORITY - START HERE
+
+### 🚨 IMMEDIATE ACTION FOR NEXT AI ASSISTANT
+**YOUR FIRST ACTION**: Request user's latest terminal output and debug logs showing behavior with all three mathematical precision fixes applied.
+
+**CONTEXT**: Major breakthrough achieved - duplicate prompt issue completely eliminated with safe termcap multi-line clearing. Three mathematical precision fixes have been applied and are ready for testing validation.
+
+### 🎯 THREE MATHEMATICAL FIXES APPLIED - VALIDATION NEEDED
+1. **✅ Character Erasure**: Clearing width adjusted from `terminal_width - 1` to `terminal_width` (119→120 chars)
+2. **✅ Cursor Positioning**: Boundary case math corrected + condition changed to `<= terminal_width`
+3. **✅ Prompt Position**: Enhanced debugging for cursor movement sequence analysis
 
 ### 🚨 MANDATORY READING (NO EXCEPTIONS)
-AI assistants MUST read these files before any code changes:
-1. **`.cursorrules`** - This file with all coding standards (REQUIRED)
-2. **`LLE_AI_DEVELOPMENT_GUIDE.md`** - Complete development context (REQUIRED)
-3. **`LLE_PROGRESS.md`** - Current task status (REQUIRED)
-4. **`LLE_DEVELOPMENT_TASKS.md`** - Task specifications (REQUIRED)
+AI assistants MUST read these files before any analysis:
+1. **`IMMEDIATE_AI_HANDOFF.md`** - Immediate testing instructions and validation checklist (REQUIRED)
+2. **`BACKSPACE_CURRENT_STATUS.md`** - Three-fix implementation status (REQUIRED)
+3. **`AI_CONTEXT.md`** - Complete breakthrough analysis with three-fix details (REQUIRED)
+4. **`LLE_PROGRESS.md`** - Current task status (REQUIRED)
 
 ### 🚨 CODING STANDARDS VIOLATIONS WILL BE REJECTED
 Any code that violates these standards will be rejected:
@@ -325,8 +337,18 @@ This file enables any developer with AI assistance to immediately understand the
 
 **HOWEVER**: AI assistants who ignore these standards or skip reading the required documentation will produce code that WILL BE REJECTED.
 
-**SUCCESS PATTERN**: Read docs → Understand patterns → Follow standards exactly → Write comprehensive tests → Success guaranteed
+## 🎯 BACKSPACE TASK SUCCESS PATTERN
 
-**FAILURE PATTERN**: Skip docs → Guess patterns → Violate standards → Code rejected → Wasted time
+**IMMEDIATE SUCCESS PATTERN FOR BACKSPACE FIXES**:
+1. **Request user data** → Get latest terminal output and debug logs
+2. **Analyze current implementation** → Review clearing width and cursor positioning code
+3. **Apply surgical mathematical fixes** → Adjust clearing width +1 and cursor positioning accuracy
+4. **Test thoroughly** → Verify both character artifact and "one too many" issues resolved
+5. **Preserve safe termcap architecture** → Maintain multi-line clearing breakthrough
 
-Choose the success pattern. Read the documentation. Follow the standards. Your implementation will be accepted on the first try.
+**BACKSPACE TASK FAILURE PATTERN**:
+Skip user data → Guess at fixes → Break working architecture → Reintroduce duplicate prompt → Wasted effort
+
+**CRITICAL**: The duplicate prompt issue is SOLVED. Do not break the safe termcap multi-line clearing architecture. Only apply surgical mathematical precision fixes to the two remaining issues.
+
+**Choose the success pattern. Request user data first. Validate the three applied mathematical precision fixes. Your analysis will confirm whether the fixes resolve all issues or identify any remaining precision adjustments needed.**

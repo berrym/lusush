@@ -567,14 +567,19 @@ LLE_TEST(cursor_position_requires_wrap) {
     geometry.width = 20;
     geometry.height = 24;
     
+    // Initialize pos structure completely
+    memset(&pos, 0, sizeof(pos));
+    
     // Position at rightmost column - should require wrap
     pos.relative_row = 0;
     pos.relative_col = 19; // width - 1
     pos.valid = true;
+    pos.at_boundary = false;
     LLE_ASSERT(lle_cursor_position_requires_wrap(&pos, &geometry));
     
     // Position not at rightmost column - should not require wrap
     pos.relative_col = 5;
+    pos.at_boundary = false; // Explicitly reset boundary flag
     LLE_ASSERT(!lle_cursor_position_requires_wrap(&pos, &geometry));
     
     // Invalid position - should not require wrap

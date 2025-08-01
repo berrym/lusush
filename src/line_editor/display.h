@@ -184,6 +184,9 @@ typedef struct {
     size_t clear_end_row;                          /**< Row where clearing should end */
     size_t clear_end_col;                          /**< Column where clearing should end */
     bool clear_region_valid;                       /**< Whether clearing region coordinates are valid */
+    
+    // Boundary crossing tracking to prevent double processing
+    bool boundary_crossing_handled;                /**< Whether boundary crossing has been handled this update */
 } lle_display_state_t;
 
 /**

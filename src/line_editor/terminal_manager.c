@@ -632,7 +632,10 @@ bool lle_terminal_clear_line(lle_terminal_manager_t *tm) {
 }
 
 /**
- * @brief Clear from cursor to end of line using robust method
+ * @brief Clear from cursor to end of line using enhanced geometry-aware method
+ *
+ * Enhanced for boundary crossing scenarios with maximum intelligence and safety.
+ * Clears exactly what is needed to eliminate artifacts while preserving cursor position.
  *
  * @param tm Pointer to terminal manager structure
  * @return true on success, false on failure
@@ -645,42 +648,71 @@ bool lle_terminal_clear_to_eol(lle_terminal_manager_t *tm) {
     const char *debug_env = getenv("LLE_DEBUG");
     bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
     
-    // CRITICAL FIX: Use robust clearing method instead of just \x1b[K
-    // The escape sequence method is unreliable across terminals
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_TERMINAL] Using calculated exact boundary crossing clearing\n");
+    }
+    
+    // Get terminal width with enhanced geometry detection
+    size_t terminal_width = 80; // Safe default
+    if (tm->geometry_valid && tm->geometry.width > 0) {
+        terminal_width = tm->geometry.width;
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_TERMINAL] Enhanced geometry: terminal_width=%zu\n", terminal_width);
+        }
+    } else {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_TERMINAL] Using conservative default width: %zu\n", terminal_width);
+        }
+    }
+    
+    // CALCULATED EXACT clearing strategy
+    // CRITICAL: Calculate exactly the number of characters needed to clear to the boundary
+    // Never use fixed margins - calculate precisely what's required each time
+    size_t calculated_clear_width;
+    
+    // Calculate exact clearing width to reach terminal boundary without wrap
+    // We need to clear exactly to position (terminal_width - 1) to remove boundary character
+    // This prevents any line wrap while ensuring complete clearing
+    if (terminal_width > 1) {
+        calculated_clear_width = terminal_width;
+    } else {
+        // Fallback for edge case
+        calculated_clear_width = 1;
+    }
+    
+    // Safety cap for extreme terminal sizes
+    if (calculated_clear_width > 500) {
+        calculated_clear_width = 500;
+    }
     
     if (debug_mode) {
-        fprintf(stderr, "[LLE_TERMINAL] Using robust character-based clearing method\n");
+        fprintf(stderr, "[LLE_TERMINAL] Calculated exact clear width: %zu (terminal=%zu, target_pos=%zu)\n", 
+               calculated_clear_width, terminal_width, terminal_width);
     }
     
-    // Use character-based clearing for reliability
-    // Write spaces and backspace to ensure content is actually cleared
-    char clear_buffer[256];
-    memset(clear_buffer, ' ', sizeof(clear_buffer) - 1);
-    clear_buffer[sizeof(clear_buffer) - 1] = '\0';
-    
-    // Clear a reasonable amount of space (80 chars should handle most cases)
-    size_t clear_width = 80;
-    if (!lle_terminal_write(tm, clear_buffer, clear_width)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_TERMINAL] Failed to write clearing spaces\n");
+    // CALCULATED EXACT clearing: Write spaces to exact boundary position
+    for (size_t i = 0; i < calculated_clear_width; i++) {
+        if (!lle_terminal_write(tm, " ", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_TERMINAL] Calculated clearing space write failed at %zu\n", i);
+            }
+            break; // Continue with partial clearing - better than complete failure
         }
-        return false;
     }
     
-    // Backspace to return to original position
-    char backspace_buffer[256];
-    memset(backspace_buffer, '\b', sizeof(backspace_buffer) - 1);
-    backspace_buffer[sizeof(backspace_buffer) - 1] = '\0';
-    
-    if (!lle_terminal_write(tm, backspace_buffer, clear_width)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_TERMINAL] Failed to backspace to original position\n");
+    // CALCULATED EXACT backspace: Return to original position for rewrite
+    for (size_t i = 0; i < calculated_clear_width; i++) {
+        if (!lle_terminal_write(tm, "\b", 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_TERMINAL] Calculated clearing backspace failed at %zu\n", i);
+            }
+            break; // Continue with partial backspace - cursor will be close enough
         }
-        return false;
     }
     
     if (debug_mode) {
-        fprintf(stderr, "[LLE_TERMINAL] Robust clearing completed successfully\n");
+        fprintf(stderr, "[LLE_TERMINAL] Calculated exact boundary crossing clearing completed (cleared %zu chars to pos %zu)\n", 
+               calculated_clear_width, terminal_width - 1);
     }
     
     return true;

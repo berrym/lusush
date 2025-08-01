@@ -12,9 +12,12 @@
 
 #include "text_buffer.h"
 #include "unicode.h"
+#include "buffer_trace.h"
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdint.h>
 
 /**
  * @brief Create a new text buffer with specified initial capacity
@@ -475,37 +478,81 @@ bool lle_text_delete_char(lle_text_buffer_t *buffer) {
  * @note No operation if cursor is at beginning of buffer
  */
 bool lle_text_backspace(lle_text_buffer_t *buffer) {
+    // CRITICAL TRACE: Entry to text backspace function
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_ENTRY", buffer);
+    
     if (!buffer || !buffer->buffer) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_NULL_BUFFER", buffer);
         return false;
     }
 
     // Validate cursor position
     if (buffer->cursor_pos > buffer->length) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_INVALID_CURSOR", buffer);
         return false;
     }
 
     // Nothing to delete if cursor is at beginning
     if (buffer->cursor_pos == 0) {
+        LLE_TRACE_BUFFER("TEXT_BACKSPACE_AT_BEGINNING", buffer);
         return false;
     }
 
+    // CRITICAL TRACE: Before any modifications
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_BEFORE_MODIFY", buffer);
+    
+    // Store original values for verification
+    size_t original_length = buffer->length;
+    size_t original_cursor = buffer->cursor_pos;
+    size_t original_char_count = buffer->char_count;
+    
     // Move cursor back first
     buffer->cursor_pos--;
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_CURSOR_MOVED", buffer);
 
     // Shift text to the left
     if (buffer->cursor_pos < buffer->length - 1) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_BEFORE_MEMMOVE", buffer);
         memmove(buffer->buffer + buffer->cursor_pos,
                 buffer->buffer + buffer->cursor_pos + 1,
                 buffer->length - buffer->cursor_pos - 1);
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_AFTER_MEMMOVE", buffer);
     }
 
     // Update counters
     buffer->length--;
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_LENGTH_DECREMENTED", buffer);
+    
     buffer->char_count--; // For ASCII, byte count equals character count
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_CHAR_COUNT_DECREMENTED", buffer);
 
     // Ensure null termination
     buffer->buffer[buffer->length] = '\0';
-
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_NULL_TERMINATED", buffer);
+    
+    // CRITICAL TRACE: Verify changes are as expected
+    size_t expected_length = original_length - 1;
+    size_t expected_cursor = original_cursor - 1;
+    size_t expected_char_count = original_char_count - 1;
+    
+    if (buffer->length != expected_length) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_LENGTH_MISMATCH", buffer);
+        lle_trace_write_immediate("LENGTH_ERROR", buffer, true);
+    }
+    
+    if (buffer->cursor_pos != expected_cursor) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_CURSOR_MISMATCH", buffer);
+        lle_trace_write_immediate("CURSOR_ERROR", buffer, true);
+    }
+    
+    if (buffer->char_count != expected_char_count) {
+        LLE_TRACE_CRITICAL("TEXT_BACKSPACE_CHAR_COUNT_MISMATCH", buffer);
+        lle_trace_write_immediate("CHAR_COUNT_ERROR", buffer, true);
+    }
+    
+    // CRITICAL TRACE: Exit from text backspace function
+    LLE_TRACE_CRITICAL("TEXT_BACKSPACE_EXIT_SUCCESS", buffer);
+    
     return true;
 }
 

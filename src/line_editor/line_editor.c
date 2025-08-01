@@ -19,6 +19,7 @@
 #include "undo.h"
 #include "input_handler.h"
 #include "syntax.h"
+#include "buffer_trace.h"
 #include <unistd.h>
 #include "edit_commands.h"
 #include "enhanced_tab_completion.h"
@@ -108,6 +109,12 @@ static void lle_init_default_config(lle_config_t *config) {
  */
 static bool lle_initialize_components(lle_line_editor_t *editor, const lle_config_t *config) {
     if (!editor || !config) return false;
+    
+    // Initialize buffer tracing system for debugging
+    if (!lle_trace_init()) {
+        // Continue even if tracing fails - it's optional
+        // Tracing is controlled by LLE_TRACE_ENABLED environment variable
+    }
     
     // Initialize text buffer
     editor->buffer = lle_text_buffer_create(256);
@@ -261,6 +268,9 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
         lle_undo_stack_destroy(editor->undo_stack);
         editor->undo_stack = NULL;
     }
+    
+    // Shutdown tracing system
+    lle_trace_shutdown();
     
     if (editor->completions) {
         // Cleanup enhanced tab completion system
@@ -507,7 +517,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     needs_display_update = false;
                 } else {
                     // Standard: Ctrl+H is backspace in most terminals
+                    LLE_TRACE_CRITICAL("INPUT_LOOP_BACKSPACE_START", editor->buffer);
                     cmd_result = lle_cmd_backspace(editor->display);
+                    LLE_TRACE_CRITICAL("INPUT_LOOP_BACKSPACE_END", editor->buffer);
                     needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
                 break;
