@@ -3,11 +3,11 @@
 ## Project Overview
 This repository contains Lusush, a professional shell with an ongoing line editor replacement project. The current task is replacing linenoise with a custom Lusush Line Editor (LLE) that provides superior multiline prompt support, integrated terminal capabilities, and mathematical correctness. LLE is designed as a standalone, reusable library like libhashtable.
 
-## Current Development Context - FEATURE RECOVERY PLAN
-- **Active Plan**: `LLE_FEATURE_RECOVERY_PLAN.md` - Systematic restoration of broken shell features
-- **Current Phase**: R1 - Foundation Repair (Linux display system diagnosis)
-- **Critical Issue**: Linux character duplication crisis blocking all interactive features
-- **Current Task**: LLE-R001 - Fix `lle_display_update_incremental()` platform differences
+## 🚨 CRITICAL: CURRENT DEVELOPMENT CONTEXT - MULTILINE HISTORY CLEARING CRISIS
+- **MANDATORY READING**: `LLE_INTERACTIVE_REALITY.md` - What actually works vs documentation claims
+- **SINGLE FOCUS**: Multiline history navigation clearing (BROKEN)
+- **HUMAN VERIFIED STATUS**: Single-line works perfectly, multiline completely broken
+- **NO OTHER WORK**: Until multiline clearing verified working by human testing
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Architecture**: Standalone library with integrated termcap system (no external dependencies)
@@ -35,24 +35,25 @@ lusush/
 └── LLE_PROGRESS.md          # Current progress tracking
 ```
 
-## Recovery-Based Development System
-LLE development now follows systematic feature recovery plan (LLE-R001 through LLE-R008) in 4 phases:
-1. **Phase R1**: Foundation Repair (Linux display system diagnosis and stabilization)
-2. **Phase R2**: Core Functionality Restoration (history, tab completion, basic keybindings)
-3. **Phase R3**: Power User Features (Ctrl+R search, line operations)
-4. **Phase R4**: Visual Enhancements (syntax highlighting restoration)
+## 🚨 INTERACTIVE REALITY-BASED DEVELOPMENT (MANDATORY)
+AI assistants MUST follow actual interactive behavior, not documentation claims:
 
-## CRITICAL FEATURE STATUS REALITY
-**BROKEN DESPITE "COMPLETE" DOCUMENTATION**:
-- ❌ History Navigation (Up/Down arrows) - Essential shell functionality completely broken
-- ❌ Tab Completion - Backend works, display corruption prevents usage
-- ❌ Ctrl+R Reverse Search - Implementation exists but integration broken
-- ❌ Basic Keybindings (Ctrl+A/E/U/G) - No visual feedback, broken
-- ❌ Syntax Highlighting - Completely non-functional across platforms
+### ✅ **VERIFIED WORKING (Human Tested)**
+- **Single-line history navigation** - Works perfectly
+- **Backspace boundary crossing** - 100% complete, all platforms
+- **Character input and basic editing** - Works reliably
+- **Space-and-backspace clearing** - Works for single-line content
 
-**ROOT CAUSE**: Linux character duplication crisis - typing "hello" produces "hhehelhellhello" on Linux/Konsole
+### ❌ **VERIFIED BROKEN (Human Tested)**
+- **Multiline history clearing** - CRITICAL: Content doesn't clear, draws at wrong location
+- **Display system for content replacement** - Causes prompt redrawing cascades
+- **ANSI escape sequences** - Unreliable, claim success but don't actually clear
 
-**ACTUALLY WORKING**: ✅ Backspace boundary crossing (production ready, user verified)
+### 🚨 **DEVELOPMENT PRIORITY (ONLY FOCUS)**
+**SINGLE OBJECTIVE**: Fix multiline history content clearing
+- Success criteria: Human test user verification ONLY
+- Visual terminal behavior is the only measure of success
+- NO other features until this is verified working
 
 ## Termcap Integration Architecture
 LLE includes a complete termcap system transferred from Lusush to ensure standalone operation:
@@ -325,29 +326,68 @@ Any code that violates these standards will be rejected:
 6. Build and test: `scripts/lle_build.sh build && scripts/lle_build.sh test`
 7. Commit with proper LLE format: `LLE-XXX: Description`
 
-## AI Assistant Guidelines
-- Always check current task status in `LLE_PROGRESS.md`
-- Reference specific task requirements from `LLE_DEVELOPMENT_TASKS.md`
+## 🚨 AI Assistant Guidelines - INTERACTIVE REALITY FIRST
+
+### **MANDATORY FIRST ACTIONS**
+1. **Read `LLE_INTERACTIVE_REALITY.md`** - Understand what actually works vs claims
+2. **Focus exclusively on multiline history clearing** - NO other work
+3. **Request human testing verification** for every change attempt
+4. **Use only proven patterns** - space-and-backspace works for single-line
+
+### **DEVELOPMENT CONSTRAINTS**
+- Visual terminal behavior is the only measure of success
+- Mathematical correctness means nothing if visual result is wrong
+- Debug logs show calculations but not visual reality
+- Human testing is mandatory - no exceptions
+
+### **TECHNICAL REQUIREMENTS**
 - Use Meson build commands, not Make
-- Follow the mathematical correctness principle
-- Include comprehensive tests with every implementation
-- Maintain the modular architecture
-- Consider Unicode implications in all text operations
-- Optimize for performance from the start
-- Document all public APIs thoroughly
+- Follow space-and-backspace clearing pattern (proven working)
+- Avoid display system rendering (causes prompt cascading)
+- Avoid ANSI escape sequences (unreliable)
+- Maintain exact character counting (works correctly)
 
-## Emergency Contacts
-If critical issues arise:
-- Check git history for recent changes
-- Run full test suite: `scripts/lle_build.sh test`
-- Validate with: `valgrind builddir/lusush`
-- Review task acceptance criteria for current work
-- Consider reverting to last known good state
+## 🚨 Emergency Protocols - Multiline Clearing Focus
 
-## 🚨 FINAL WARNING TO AI ASSISTANTS
-This file enables any developer with AI assistance to immediately understand the LLE project context, pick up any task, and contribute effectively while maintaining code quality and architectural consistency.
+### **If Multiline Clearing Attempts Fail**
+1. **Stop immediately** - no further attempts without human guidance
+2. **Request debug logs** from human testing: `LLE_DEBUG=1 ./builddir/lusush 2>/tmp/debug.log`
+3. **Analyze visual behavior** - not just mathematical calculations
+4. **Revert to working state** if breaking single-line functionality
+5. **Document findings** in interactive reality terms
 
-**HOWEVER**: AI assistants who ignore these standards or skip reading the required documentation will produce code that WILL BE REJECTED.
+### **Build and Test Commands**
+- Build: `scripts/lle_build.sh build`
+- Test interactively: `LLE_DEBUG=1 ./builddir/lusush`
+- Debug logs: `LLE_DEBUG=1 LLE_CURSOR_DEBUG=1 ./builddir/lusush 2>/tmp/debug.log`
+- Human testing verification required for every change
+
+## 🚨 FINAL WARNING TO AI ASSISTANTS - INTERACTIVE REALITY COMPLIANCE
+
+### **MANDATORY REQUIREMENTS**
+Any AI assistant working on LLE MUST:
+1. **Read and follow `LLE_INTERACTIVE_REALITY.md`** - No exceptions
+2. **Focus exclusively on multiline history clearing** - NO other features
+3. **Request human testing verification** for every change
+4. **Use only proven working patterns** - space-and-backspace for single-line
+5. **Acknowledge visual terminal behavior as only success measure**
+
+### **AUTOMATIC REJECTION CRITERIA**
+Code will be REJECTED if:
+- Works on features other than multiline clearing
+- Uses `lle_display_render()` for content replacement
+- Uses ANSI escape sequences for clearing
+- Relies on mathematical calculations without visual verification
+- Skips human testing verification
+- Ignores interactive reality constraints
+
+### **SUCCESS PATTERN**
+The only acceptable approach:
+1. Understand current multiline clearing failure mode
+2. Extend proven single-line clearing pattern to multiline
+3. Test with human verification at each step
+4. Focus on visual terminal behavior, not debug logs
+5. NO other work until human verifies multiline clearing perfection
 
 ## 🎯 BACKSPACE TASK SUCCESS PATTERN
 

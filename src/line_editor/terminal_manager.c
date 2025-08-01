@@ -1121,3 +1121,244 @@ bool lle_terminal_query_cursor_position(lle_terminal_manager_t *tm,
     *current_col = 0;
     return false; // Always use fallback mathematical positioning
 }
+
+/**
+ * @brief Calculate exact number of lines needed for content
+ * 
+ * Uses geometry-aware calculation to determine exact visual footprint
+ * for precise clearing operations.
+ *
+ * @param content Content to analyze
+ * @param content_length Length of content in bytes
+ * @param terminal_width Terminal width in characters
+ * @param prompt_width Prompt width in characters
+ * @return Number of lines required
+ */
+size_t lle_terminal_calculate_content_lines(const char *content,
+                                           size_t content_length,
+                                           size_t terminal_width,
+                                           size_t prompt_width)
+{
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (!content || content_length == 0 || terminal_width <= prompt_width) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_LINE_CALC] Empty content or invalid width: content=%p, len=%zu, term_w=%zu, prompt_w=%zu -> 1 line\n",
+                    (void*)content, content_length, terminal_width, prompt_width);
+        }
+        return 1;
+    }
+    
+    size_t available_width = terminal_width - prompt_width;
+    if (available_width == 0) {
+        return 1;
+    }
+    
+    // Count printable characters only for line calculation
+    size_t printable_chars = 0;
+    for (size_t i = 0; i < content_length; i++) {
+        unsigned char c = (unsigned char)content[i];
+        if ((c >= 32 && c <= 126) || c == '\n' || c == '\t') {
+            printable_chars++;
+        }
+    }
+    
+    size_t lines = (printable_chars + available_width - 1) / available_width;
+    if (lines == 0) lines = 1;
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_LINE_CALC] Content analysis: len=%zu, printable=%zu, available_w=%zu -> %zu lines\n",
+                content_length, printable_chars, available_width, lines);
+    }
+    
+    return lines;
+}
+
+/**
+ * @brief Filter control characters from content for safe display
+ *
+ * @param input Input content
+ * @param input_length Length of input
+ * @param output Output buffer
+ * @param output_capacity Size of output buffer
+ * @return Number of characters written to output
+ */
+size_t lle_terminal_filter_control_chars(const char *input,
+                                        size_t input_length,
+                                        char *output,
+                                        size_t output_capacity)
+{
+    if (!input || !output || output_capacity == 0) {
+        return 0;
+    }
+    
+    size_t output_pos = 0;
+    
+    for (size_t i = 0; i < input_length && output_pos < output_capacity - 1; i++) {
+        unsigned char c = (unsigned char)input[i];
+        
+        // Allow only safe printable characters and newlines
+        if ((c >= 32 && c <= 126) || c == '\n' || c == '\t') {
+            output[output_pos++] = c;
+        }
+        // Skip all control characters including DEL (127) and backspace (177)
+    }
+    
+    output[output_pos] = '\0';
+    return output_pos;
+}
+
+/**
+ * @brief Clear exactly the specified number of characters using space-and-backspace
+ *
+ * Uses the proven safe pattern from backspace boundary crossing.
+ * Clears exactly the specified amount - no more, no less.
+ *
+ * @param tm Terminal manager
+ * @param chars_to_clear Exact number of characters to clear
+ * @return true on success, false on failure
+ */
+bool lle_terminal_clear_exact_chars(lle_terminal_manager_t *tm, size_t chars_to_clear)
+{
+    if (!tm || !tm->termcap_initialized || chars_to_clear == 0) {
+        return true; // Nothing to clear
+    }
+    
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_EXACT_CLEAR] Clearing exactly %zu characters using space-and-backspace\n", chars_to_clear);
+    }
+    
+    // Step 1: Write spaces to overwrite content
+    for (size_t i = 0; i < chars_to_clear; i++) {
+        if (!lle_terminal_write(tm, " ", 1)) {
+            return false;
+        }
+    }
+    
+    // Step 2: Backspace to return to original position
+    for (size_t i = 0; i < chars_to_clear; i++) {
+        if (!lle_terminal_write(tm, "\b", 1)) {
+            return false;
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_EXACT_CLEAR] Successfully cleared exactly %zu characters\n", chars_to_clear);
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Safe content replacement without affecting prompt
+ *
+ * Replaces content in the content area without redrawing prompt.
+ * Uses exact clearing principles from backspace boundary crossing.
+ *
+ * @param tm Terminal manager
+ * @param prompt_width Width of prompt in characters
+ * @param old_content_length Length of content to replace
+ * @param new_content New content to write
+ * @param new_content_length Length of new content
+ * @param terminal_width Terminal width for calculations
+ * @return true on success, false on failure
+ */
+bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
+                                     size_t prompt_width,
+                                     size_t old_content_length,
+                                     const char *new_content,
+                                     size_t new_content_length,
+                                     size_t terminal_width)
+{
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_SAFE_REPLACE] Replacing content: old_len=%zu, new_len=%zu, prompt_w=%zu, term_w=%zu\n",
+                old_content_length, new_content_length, prompt_width, terminal_width);
+    }
+    
+    // Step 1: Move to content start position
+    if (!lle_terminal_write(tm, "\r", 1)) {
+        return false;
+    }
+    if (!lle_terminal_move_cursor_to_column(tm, prompt_width)) {
+        return false;
+    }
+    
+    // Step 2: Calculate exact clearing needed
+    size_t old_lines = lle_terminal_calculate_content_lines("", old_content_length, terminal_width, prompt_width);
+    size_t available_width = terminal_width - prompt_width;
+    
+    if (old_lines > 1) {
+        // Multi-line clearing using exact calculations
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line clearing: %zu lines, available_width=%zu\n", old_lines, available_width);
+        }
+        
+        // Clear first line completely
+        lle_terminal_clear_exact_chars(tm, available_width);
+        
+        // Move to subsequent lines and clear them
+        for (size_t line = 1; line < old_lines; line++) {
+            // Move down to next line
+            lle_terminal_write(tm, "\n", 1);
+            lle_terminal_write(tm, "\r", 1);
+            lle_terminal_move_cursor_to_column(tm, prompt_width);
+            
+            if (line == old_lines - 1) {
+                // Last line: clear only the characters that were actually there
+                size_t remaining_chars = old_content_length - (available_width * (old_lines - 1));
+                if (remaining_chars > 0) {
+                    lle_terminal_clear_exact_chars(tm, remaining_chars);
+                }
+            } else {
+                // Full line: clear entire available width
+                lle_terminal_clear_exact_chars(tm, available_width);
+            }
+        }
+        
+        // Return to start position (first line, prompt column)
+        for (size_t i = 1; i < old_lines; i++) {
+            lle_terminal_move_cursor_up(tm, 1);
+        }
+        lle_terminal_write(tm, "\r", 1);
+        lle_terminal_move_cursor_to_column(tm, prompt_width);
+    } else {
+        // Single line: clear exact number of characters
+        lle_terminal_clear_exact_chars(tm, old_content_length);
+    }
+    
+    // Step 3: Write new content (filtered)
+    if (new_content && new_content_length > 0) {
+        char filtered_content[new_content_length + 1];
+        size_t filtered_length = lle_terminal_filter_control_chars(
+            new_content, new_content_length, filtered_content, sizeof(filtered_content)
+        );
+        
+        if (filtered_length > 0) {
+            if (!lle_terminal_write(tm, filtered_content, filtered_length)) {
+                return false;
+            }
+        }
+        
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Wrote filtered content: %zu chars (was %zu)\n",
+                    filtered_length, new_content_length);
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_SAFE_REPLACE] Content replacement completed successfully\n");
+    }
+    
+    return true;
+}

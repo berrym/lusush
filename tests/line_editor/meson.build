@@ -48,7 +48,8 @@ lle_test_sources = [
   'test_backspace_enhancement.c',
   'test_backspace_logic.c',
   'test_boundary_crossing_fix.c',
-  'test_display_stabilization.c'
+  'test_display_stabilization.c',
+  'test_history_navigation_fix.c'
 ]
 
 # Individual component tests

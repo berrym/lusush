@@ -343,6 +343,87 @@ bool lle_terminal_clear_from_position_to_eol(lle_terminal_manager_t *tm,
 bool lle_terminal_clear_from_position_to_eos(lle_terminal_manager_t *tm,
                                             size_t row, size_t col);
 
+// Safe Content Replacement Functions (Based on Proven Patterns)
+
+/**
+ * @brief Safely replace content area without affecting prompt
+ *
+ * This function uses proven safe terminal operations to replace content
+ * in the terminal without causing display corruption. It handles both
+ * single-line and multiline content correctly.
+ *
+ * @param tm Pointer to terminal manager structure
+ * @param prompt_width Width of the prompt (content starts after this)
+ * @param old_content_length Length of existing content to clear
+ * @param new_content New content to display (can be NULL for clearing only)
+ * @param new_content_length Length of new content
+ * @param max_lines Maximum lines the content might span
+ * @return true on success, false on failure
+ */
+bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
+                                     size_t prompt_width,
+                                     size_t old_content_length,
+                                     const char *new_content,
+                                     size_t new_content_length,
+                                     size_t max_lines);
+
+/**
+ * @brief Filter control characters from text for safe display
+ *
+ * Removes potentially harmful control characters from text content
+ * before displaying it. Based on proven safe character filtering.
+ *
+ * @param input Input text that may contain control characters
+ * @param input_length Length of input text
+ * @param output Buffer to store filtered text
+ * @param output_capacity Maximum capacity of output buffer
+ * @return Length of filtered text, 0 on error
+ */
+size_t lle_terminal_filter_control_chars(const char *input,
+                                        size_t input_length,
+                                        char *output,
+                                        size_t output_capacity);
+
+/**
+ * @brief Calculate lines needed for content with given width
+ *
+ * Calculates how many terminal lines the given content will occupy
+ * when displayed with the specified terminal width.
+ *
+ * @param content Content to measure
+ * @param content_length Length of content
+ * @param terminal_width Width of terminal
+ * @param prompt_width Width occupied by prompt
+ * @return Number of lines needed
+ */
+size_t lle_terminal_calculate_content_lines(const char *content,
+                                           size_t content_length,
+                                           size_t terminal_width,
+                                           size_t prompt_width);
+
+/**
+ * @brief Filter control characters from content for safe display
+ */
+size_t lle_terminal_filter_control_chars(const char *input,
+                                        size_t input_length,
+                                        char *output,
+                                        size_t output_capacity);
+
+/**
+ * @brief Clear exactly the specified number of characters using space-and-backspace
+ */
+bool lle_terminal_clear_exact_chars(lle_terminal_manager_t *tm, size_t chars_to_clear);
+
+/**
+ * @brief Safe content replacement without affecting prompt
+ */
+bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
+                                     size_t prompt_width,
+                                     size_t old_content_length,
+                                     const char *new_content,
+                                     size_t new_content_length,
+                                     size_t terminal_width);
+
 /**
  * @brief Save current cursor position for later restoration
  *

@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include "edit_commands.h"
 #include "enhanced_tab_completion.h"
+#include "display_stabilization.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -389,6 +390,10 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             fprintf(stderr, "[LLE_INPUT_LOOP] About to enter switch statement with type %d\n", event.type);
         }
         
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INPUT_LOOP] ENTERING SWITCH STATEMENT with event.type=%d\n", event.type);
+        }
+        
         switch (event.type) {
             case LLE_KEY_ENTER:
             case LLE_KEY_CTRL_M:
@@ -458,12 +463,18 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_C:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] CTRL+C case executed\n");
+                }
                 // SIGNAL: Ctrl+C should generate SIGINT - let shell handle it
                 // Do not intercept this - let it pass through for signal handling
                 needs_display_update = false;
                 break;
                 
             case LLE_KEY_CTRL_D:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] CTRL+D case executed\n");
+                }
                 // EOF: Standard behavior - EOF if buffer empty, delete char otherwise
                 if (editor->buffer->length == 0) {
                     line_cancelled = true;  // EOF - exit
@@ -575,6 +586,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 
             case LLE_KEY_ARROW_UP:
             case LLE_KEY_CTRL_P:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Arrow UP pressed - entering history navigation\n");
+                }
                 if (reverse_search_mode) {
                     // In search mode: navigate to previous match in history (older)
                     if (strlen(reverse_search_query) > 0 && editor->history_enabled && editor->history) {
@@ -606,22 +620,77 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     }
                 } else {
                     // Normal history navigation
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Normal history navigation UP - history_enabled=%s, history=%p\n", 
+                                editor->history_enabled ? "true" : "false", (void*)editor->history);
+                    }
                     if (editor->history_enabled && editor->history) {
                         const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_PREV);
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_history_navigate returned entry=%p\n", (void*)entry);
+                        }
                         if (entry && entry->command) {
-                            // Phase 2B.4: Update buffer with history entry
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP: replacing content with command: %.20s...\n", entry->command);
+                            }
+                            
+                            // Get current content length for exact clearing
+                            size_t old_content_length = editor->buffer->length;
+                            
+                            // Update buffer with new content
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                             
-                            // Phase 2B.4: Use Phase 2A absolute positioning system instead of direct terminal operations
-                            // This integrates history navigation with the coordinate conversion and position tracking
-                            if (!lle_display_update_incremental(editor->display)) {
-                                // Graceful fallback: if absolute positioning fails, clear and render normally
-                                lle_display_render(editor->display);
+                            // Use safe content replacement without prompt redraw
+                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
+                            
+                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
+                                                                old_content_length, entry->command, entry->length, terminal_width)) {
+                                cmd_result = LLE_CMD_SUCCESS;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP completed successfully\n");
+                                }
+                            } else {
+                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP failed\n");
+                                }
                             }
+                        } else {
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
+                            }
+                            
+                            // Get current content length for exact clearing
+                            size_t old_content_length = editor->buffer->length;
+                            
+                            // Clear buffer
+                            lle_text_buffer_clear(editor->buffer);
+                            
+                            // Use safe content replacement to clear (empty content)
+                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
+                            
+                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
+                                                                old_content_length, "", 0, terminal_width)) {
+                                cmd_result = LLE_CMD_SUCCESS;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP content clear completed\n");
+                                }
+                            } else {
+                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP content clear failed\n");
+                                }
+                            }
+                        }
+                    } else {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] History not enabled or not available\n");
                         }
                     }
                 }
@@ -630,6 +699,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 
             case LLE_KEY_ARROW_DOWN:
             case LLE_KEY_CTRL_N:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Arrow DOWN pressed - entering history navigation\n");
+                }
                 if (reverse_search_mode) {
                     // In search mode: navigate to next match in history (newer)
                     if (strlen(reverse_search_query) > 0 && editor->history_enabled && editor->history && 
@@ -661,26 +733,78 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     }
                 } else {
                     // Normal history navigation
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Normal history navigation DOWN - history_enabled=%s, history=%p\n", 
+                                editor->history_enabled ? "true" : "false", (void*)editor->history);
+                    }
                     if (editor->history_enabled && editor->history) {
                         const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_NEXT);
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_history_navigate returned entry=%p\n", (void*)entry);
+                        }
                         
                         if (entry && entry->command) {
-                            // Phase 2B.4: Update buffer with next history entry
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN: replacing content with command: %.20s...\n", entry->command);
+                            }
+                            
+                            // Get current content length for exact clearing
+                            size_t old_content_length = editor->buffer->length;
+                            
+                            // Update buffer with new content
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                            
+                            // Use safe content replacement without prompt redraw
+                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
+                            
+                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
+                                                                old_content_length, entry->command, entry->length, terminal_width)) {
+                                cmd_result = LLE_CMD_SUCCESS;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN completed successfully\n");
+                                }
+                            } else {
+                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN failed\n");
+                                }
+                            }
                         } else {
-                            // No next line, clear buffer
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
+                            }
+                            
+                            // Get current content length for exact clearing
+                            size_t old_content_length = editor->buffer->length;
+                            
+                            // Clear buffer
                             lle_text_buffer_clear(editor->buffer);
+                            
+                            // Use safe content replacement to clear (empty content)
+                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
+                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
+                            
+                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
+                                                                old_content_length, "", 0, terminal_width)) {
+                                cmd_result = LLE_CMD_SUCCESS;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN content clear completed\n");
+                                }
+                            } else {
+                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN content clear failed\n");
+                                }
+                            }
                         }
-                        
-                        // Phase 2B.4: Use Phase 2A absolute positioning system instead of direct terminal operations
-                        // This integrates history navigation with the coordinate conversion and position tracking
-                        if (!lle_display_update_incremental(editor->display)) {
-                            // Graceful fallback: if absolute positioning fails, clear and render normally
-                            lle_display_render(editor->display);
+                    } else {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] History not enabled or not available\n");
                         }
                     }
                 }
@@ -1078,8 +1202,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] Ctrl+G (Cancel line) pressed\n");
                 }
                 break;
-                
+            
             default:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] DEFAULT case executed for event.type=%d\n", event.type);
+                }
                 // Unknown or unhandled key - ignore
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] DEFAULT case reached with key type: %d\n", event.type);
@@ -1090,14 +1217,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
         
         // Update display if needed and command succeeded
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            // Use incremental update instead of full render to prevent prompt redrawing
+            // LLE-R003: Use stabilized display update with error recovery
             if (!lle_display_update_incremental(editor->display)) {
-                // If incremental update fails, fallback to full render
-                // This can happen in non-terminal environments
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_INPUT_LOOP] Incremental update failed, falling back to full render\n");
+                // Apply stabilization error recovery for reliable display updates
+                if (!lle_display_error_recovery((struct lle_display_state *)editor->display, -1)) {
+                    // Final fallback: clear and render if recovery fails
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Display error recovery failed, falling back to full render\n");
+                    }
+                    lle_display_render(editor->display);
                 }
-                lle_display_render(editor->display);
             }
         }
     }

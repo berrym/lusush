@@ -558,6 +558,80 @@ lle_command_result_t lle_cmd_clear_line(lle_display_state_t *state) {
     return LLE_CMD_SUCCESS;
 }
 
+lle_command_result_t lle_cmd_replace_line(lle_display_state_t *state, const char *text, size_t length) {
+    if (!state) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!state->buffer) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!text && length > 0) {
+        return LLE_CMD_ERROR_INVALID_PARAM;
+    }
+    
+    // Clear the buffer first
+    lle_text_buffer_clear(state->buffer);
+    if (!lle_text_buffer_is_valid(state->buffer)) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    // Insert the new text if provided
+    if (text && length > 0) {
+        for (size_t i = 0; i < length; i++) {
+            if (!lle_text_insert_char(state->buffer, text[i])) {
+                return LLE_CMD_ERROR_BUFFER_FULL;
+            }
+        }
+        
+        // Move cursor to end
+        lle_text_move_cursor(state->buffer, LLE_MOVE_END);
+    }
+    
+    // For history navigation, use proper clearing before rendering new content
+    if (lle_display_validate(state)) {
+        // Step 1: Move to start of text area (after prompt)
+        size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
+        
+        // Step 2: Clear all previous content using safe termcap functions
+        // Move to beginning of current line
+        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+            return LLE_CMD_ERROR_DISPLAY_UPDATE;
+        }
+        
+        // Move to after prompt using safe cursor positioning
+        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_width)) {
+            return LLE_CMD_ERROR_DISPLAY_UPDATE;
+        }
+        
+        // Clear from current position to end of screen using safe termcap
+        if (!lle_terminal_clear_to_eos(state->terminal)) {
+            return LLE_CMD_ERROR_DISPLAY_UPDATE;
+        }
+        
+        // Step 3: Write new content if any
+        if (text && length > 0) {
+            if (!lle_terminal_write(state->terminal, text, length)) {
+                return LLE_CMD_ERROR_DISPLAY_UPDATE;
+            }
+        }
+        
+        // Step 4: Update tracking for future operations
+        if (text && length > 0) {
+            memcpy(state->last_displayed_content, text, length);
+            state->last_displayed_content[length] = '\0';
+            state->last_displayed_length = length;
+        } else {
+            state->last_displayed_content[0] = '\0';
+            state->last_displayed_length = 0;
+        }
+        state->display_state_valid = true;
+    }
+    
+    return LLE_CMD_SUCCESS;
+}
+
 lle_command_result_t lle_cmd_kill_line(lle_display_state_t *state) {
     if (!state) {
         return LLE_CMD_ERROR_INVALID_STATE;

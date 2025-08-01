@@ -298,6 +298,15 @@ lle_command_result_t lle_cmd_kill_line(lle_display_state_t *state);
  */
 lle_command_result_t lle_cmd_kill_beginning(lle_display_state_t *state);
 
+/**
+ * @brief Replace entire line content with new text
+ * @param state Display state to operate on
+ * @param text New text content to set
+ * @param length Length of new text
+ * @return Command execution result code
+ */
+lle_command_result_t lle_cmd_replace_line(lle_display_state_t *state, const char *text, size_t length);
+
 // ============================================================================
 // Key-to-Command Mapping Functions
 // ============================================================================
