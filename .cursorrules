@@ -3,11 +3,11 @@
 ## Project Overview
 This repository contains Lusush, a professional shell with an ongoing line editor replacement project. The current task is replacing linenoise with a custom Lusush Line Editor (LLE) that provides superior multiline prompt support, integrated terminal capabilities, and mathematical correctness. LLE is designed as a standalone, reusable library like libhashtable.
 
-## Current Development Context - BACKSPACE BOUNDARY CROSSING TASK
-- **Active Feature**: BACKSPACE boundary crossing mathematical precision fixes
-- **Status**: SAFE TERMCAP MULTI-LINE CLEARING BREAKTHROUGH ACHIEVED
-- **Current Task**: TWO surgical mathematical fixes needed for character erasure and cursor positioning
-- **Branch**: `task/backspace-refinement`
+## Current Development Context - FEATURE RECOVERY PLAN
+- **Active Plan**: `LLE_FEATURE_RECOVERY_PLAN.md` - Systematic restoration of broken shell features
+- **Current Phase**: R1 - Foundation Repair (Linux display system diagnosis)
+- **Critical Issue**: Linux character duplication crisis blocking all interactive features
+- **Current Task**: LLE-R001 - Fix `lle_display_update_incremental()` platform differences
 - **Build System**: Meson (NOT Make)
 - **Language**: C99 with strict standards
 - **Architecture**: Standalone library with integrated termcap system (no external dependencies)
@@ -35,12 +35,24 @@ lusush/
 └── LLE_PROGRESS.md          # Current progress tracking
 ```
 
-## Task-Based Development System
-The LLE is broken into 50 atomic tasks (LLE-001 through LLE-050) in 4 phases:
-1. **Phase 1**: Foundation (text buffer, cursor math, termcap integration)
-2. **Phase 2**: Core functionality (prompts, themes, basic editing)
-3. **Phase 3**: Advanced features (Unicode, completion, undo/redo)
-4. **Phase 4**: Integration & polish (API, optimization, documentation)
+## Recovery-Based Development System
+LLE development now follows systematic feature recovery plan (LLE-R001 through LLE-R008) in 4 phases:
+1. **Phase R1**: Foundation Repair (Linux display system diagnosis and stabilization)
+2. **Phase R2**: Core Functionality Restoration (history, tab completion, basic keybindings)
+3. **Phase R3**: Power User Features (Ctrl+R search, line operations)
+4. **Phase R4**: Visual Enhancements (syntax highlighting restoration)
+
+## CRITICAL FEATURE STATUS REALITY
+**BROKEN DESPITE "COMPLETE" DOCUMENTATION**:
+- ❌ History Navigation (Up/Down arrows) - Essential shell functionality completely broken
+- ❌ Tab Completion - Backend works, display corruption prevents usage
+- ❌ Ctrl+R Reverse Search - Implementation exists but integration broken
+- ❌ Basic Keybindings (Ctrl+A/E/U/G) - No visual feedback, broken
+- ❌ Syntax Highlighting - Completely non-functional across platforms
+
+**ROOT CAUSE**: Linux character duplication crisis - typing "hello" produces "hhehelhellhello" on Linux/Konsole
+
+**ACTUALLY WORKING**: ✅ Backspace boundary crossing (production ready, user verified)
 
 ## Termcap Integration Architecture
 LLE includes a complete termcap system transferred from Lusush to ensure standalone operation:

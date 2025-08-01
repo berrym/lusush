@@ -7,7 +7,24 @@
 
 ## 🎉 COMPLETED ISSUES (January 31, 2025) - BACKSPACE TASK COMPLETE
 
-### ✅ **BOUNDARY CROSSING ISSUE: SUCCESSFULLY RESOLVED WITH COMPREHENSIVE SOLUTION**
+### ❌ **CORE SHELL FEATURES: BROKEN DESPITE IMPLEMENTATION EXISTENCE**
+
+**CRITICAL FINDING**: Features documented as "COMPLETE" are actually non-functional in shell integration:
+
+#### **BROKEN FEATURES REQUIRING IMMEDIATE RESTORATION**:
+- ❌ **History Navigation (Up/Down Arrows)** - Essential shell functionality completely broken
+- ❌ **Tab Completion** - Basic completion non-functional, display corruption on Linux  
+- ❌ **Ctrl+R Reverse Search** - Complete implementation exists but integration broken
+- ❌ **Basic Keybindings (Ctrl+A/E/U/G)** - Cursor movement and line operations broken
+- ❌ **Syntax Highlighting** - Completely non-functional across platforms
+
+#### **ROOT CAUSE IDENTIFIED**:
+**Linux Character Duplication Crisis**: `lle_display_update_incremental()` platform differences:
+- Typing "hello" produces "hhehelhellhello" on Linux/Konsole
+- All interactive features affected by display corruption
+- macOS/iTerm2 partially working, Linux completely broken
+
+### ✅ **BOUNDARY CROSSING ISSUE: SUCCESSFULLY RESOLVED (PRODUCTION READY)**
 - **Issue**: Three boundary crossing problems: character artifacts, cursor positioning, wrong character deletion
 - **Root Cause**: Multiple layers - terminal artifacts, mathematical precision, and buffer synchronization issues
 - **Investigation Status**: ✅ **COMPLETE SUCCESS** - Comprehensive three-fix solution implemented and verified
@@ -46,33 +63,60 @@
 - **Implementation**: Added display state tracking and true incremental character updates
 - **Validation**: Logic tests pass - single character additions/deletions use incremental path
 
-## 🚀 **NEXT DEVELOPMENT PRIORITIES (January 31, 2025)**
+## 🚀 **CURRENT DEVELOPMENT PRIORITIES - FEATURE RECOVERY PLAN**
 
-**With backspace boundary crossing complete, focus should shift to the next LLE enhancement. Priority areas for continued development:**
+**NEW STRATEGY**: Systematic restoration of broken shell features using phased recovery approach.
 
-### **HIGH PRIORITY - Core Editor Functionality**
-1. **Multi-line Text Editing**: Enhanced support for multi-line content editing and navigation
-2. **Advanced Cursor Movement**: Word-by-word navigation, line beginning/end, document navigation
-3. **Selection and Copy/Paste**: Text selection, clipboard integration, block operations
-4. **Undo/Redo System**: Comprehensive undo/redo with operation stacking
+**ACTIVE PLAN**: `LLE_FEATURE_RECOVERY_PLAN.md` - Must be followed strictly
 
-### **MEDIUM PRIORITY - User Experience Enhancements**
-1. **Enhanced Keybindings**: Additional Emacs/Vi-style keybindings beyond basic navigation
-2. **Search and Replace**: In-line search functionality with replace capabilities  
-3. **Performance Optimization**: Display performance enhancements for large text inputs
-4. **Terminal Compatibility**: Extended support for additional terminal types and edge cases
+### **PHASE R1: FOUNDATION REPAIR (2-3 weeks) - CURRENT FOCUS**
 
-### **LOWER PRIORITY - Advanced Features**
-1. **Syntax Highlighting Enhancements**: Extended language support, performance optimization
-2. **Tab Completion Improvements**: Enhanced completion algorithms, context-aware suggestions
-3. **Configuration System**: Extended user customization options
-4. **Integration Features**: Enhanced shell integration, plugin system foundation
+#### **LLE-R001: Linux Display System Diagnosis** (3-5 days) - 🔥 CRITICAL BLOCKER
+- **Issue**: Character duplication on Linux/Konsole breaks all features
+- **Example**: Typing "hello" produces "hhehelhellhello"
+- **Root Cause**: `lle_display_update_incremental()` platform differences
+- **Priority**: Must fix before any feature restoration
 
-### **TECHNICAL DEBT AND MAINTENANCE**
-1. **Code Documentation**: Enhanced inline documentation and API documentation
-2. **Test Coverage**: Expanded automated testing for edge cases and regression prevention
-3. **Memory Optimization**: Performance profiling and memory usage optimization
-4. **Error Handling**: Enhanced error recovery and user feedback systems
+#### **LLE-R002: Display System Stabilization** (4-6 days) - 🔥 CRITICAL FOUNDATION
+- **Objective**: Ensure display system reliability for feature integration
+- **Deliverables**: Platform-agnostic display API, comprehensive error handling
+- **Success**: Display updates work identically on macOS and Linux
+
+### **PHASE R2: CORE FUNCTIONALITY RESTORATION (2-3 weeks) - AFTER R1**
+
+#### **LLE-R003: History Navigation Recovery** (3-4 days) - 🔥 CRITICAL USER FEATURE
+- **Status**: Implementation exists but integration broken
+- **Objective**: Restore Up/Down arrow history navigation
+- **Success**: History browsing works without display corruption
+
+#### **LLE-R004: Tab Completion Recovery** (4-5 days) - 🔥 CRITICAL USER FEATURE  
+- **Status**: Backend logic works, display corruption prevents usage
+- **Objective**: Restore tab completion functionality
+- **Success**: Tab completion works without character duplication
+
+#### **LLE-R005: Basic Cursor Movement Recovery** (2-3 days) - 🟡 HIGH USER FEATURE
+- **Status**: Implementation exists but visual feedback broken
+- **Objective**: Restore Ctrl+A (beginning) and Ctrl+E (end) cursor movement
+- **Success**: Visual cursor movement feedback works correctly
+
+### **PHASE R3: POWER USER FEATURES (2-3 weeks) - AFTER R2**
+
+#### **LLE-R006: Ctrl+R Reverse Search Recovery** (5-7 days) - 🟡 HIGH POWER USER
+- **Status**: Complete implementation exists but integration broken
+- **Objective**: Restore reverse incremental search functionality
+- **Success**: Ctrl+R search works with proper interface display
+
+#### **LLE-R007: Line Operations Recovery** (2-3 days) - 🟡 HIGH USER FEATURE
+- **Status**: Basic functionality exists but display integration broken
+- **Objective**: Restore Ctrl+U (clear line) and Ctrl+G (cancel) operations
+- **Success**: Line operations work with proper visual feedback
+
+### **PHASE R4: VISUAL ENHANCEMENTS (1-2 weeks) - AFTER R3**
+
+#### **LLE-R008: Syntax Highlighting Recovery** (4-6 days) - 🟢 MEDIUM ENHANCEMENT
+- **Status**: Partial functionality - commands highlighted, strings not
+- **Objective**: Restore complete syntax highlighting functionality
+- **Success**: All syntax elements properly colored across platforms
 
 ## 📋 **IMMEDIATE NEXT STEPS**
 
