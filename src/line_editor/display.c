@@ -1418,109 +1418,55 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
            state->last_displayed_length, text_length);
     }
 
-// STRATEGY 3: For complex changes, use visual footprint clearing for multi-line content
-// This handles history navigation artifacts properly by clearing wrapped content
+// SIMPLE CLEARING STRATEGY: Use proven space-and-backspace pattern
+// This approach works reliably without complex visual footprint calculations
 if (debug_mode) {
-    fprintf(stderr, "[LLE_INCREMENTAL] Using visual footprint clearing for complex changes\n");
+    fprintf(stderr, "[LLE_INCREMENTAL] Using simple rewrite strategy for complex changes\n");
 }
 
-// Calculate visual footprint of previous content to clear properly
+// Get prompt width for positioning
+size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
+
+// Position cursor to start of content area (after prompt)
+if (!lle_terminal_write(state->terminal, "\r", 1)) {
+    return false;
+}
+char move_right[32];
+snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
+lle_terminal_write(state->terminal, move_right, strlen(move_right));
+
+// Clear old content using space-and-backspace pattern (proven working)
 if (state->last_displayed_length > 0) {
-    size_t prompt_last_line_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-    size_t terminal_width = state->geometry.width;
-    
-    lle_visual_footprint_t old_footprint, new_footprint;
-    bool old_calc = lle_calculate_visual_footprint(state->last_displayed_content, state->last_displayed_length,
-                                                  prompt_last_line_width, terminal_width, &old_footprint);
-    bool new_calc = lle_calculate_visual_footprint(text, text_length,
-                                                  prompt_last_line_width, terminal_width, &new_footprint);
-    
-    if (old_calc && new_calc) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Using visual region clearing: old_rows=%zu, new_rows=%zu\n",
-                   old_footprint.rows_used, new_footprint.rows_used);
-        }
-        
-        // Store current cursor position before clearing
-        size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-        
-        // Use robust visual region clearing without repositioning prompt
-        if (!lle_clear_visual_region(state->terminal, &old_footprint, &new_footprint)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_INCREMENTAL] Visual region clearing failed, using fallback\n");
-            }
-        }
-        
-        // Position cursor after prompt for writing new text (no prompt re-render)
-        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_width)) {
-            // Fallback: move to start and skip prompt width
-            if (!lle_terminal_write(state->terminal, "\r", 1)) {
-                return false;
-            }
-            // Skip prompt characters without re-rendering
-            char move_right[32];
-            snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-            lle_terminal_write(state->terminal, move_right, strlen(move_right));
-        }
-    } else {
-        // Fallback to simple clearing for single-line content
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Using simple clearing fallback\n");
-        }
-        
-        // Store prompt width for positioning
-        size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-        
-        // Position to start of text area (after prompt)
-        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_width)) {
-            // Fallback: carriage return and move right
-            if (!lle_terminal_write(state->terminal, "\r", 1)) {
-                return false;
-            }
-            char move_right[32];
-            snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-            lle_terminal_write(state->terminal, move_right, strlen(move_right));
-        }
-        
-        // Clear previous content with spaces
-        for (size_t i = 0; i < state->last_displayed_length; i++) {
-            if (!lle_terminal_write(state->terminal, " ", 1)) {
-                break;
-            }
-        }
-        
-        // Move cursor back to text start position
-        if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_width)) {
-            // Fallback: carriage return and move right
-            if (!lle_terminal_write(state->terminal, "\r", 1)) {
-                return false;
-            }
-            char move_right[32];
-            snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-            lle_terminal_write(state->terminal, move_right, strlen(move_right));
+    // First, overwrite old content with spaces
+    for (size_t i = 0; i < state->last_displayed_length; i++) {
+        if (!lle_terminal_write(state->terminal, " ", 1)) {
+            break;
         }
     }
-} else {
-    // No previous content, just position after prompt
-    size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-    if (!lle_terminal_move_cursor_to_column(state->terminal, prompt_width)) {
-        // Fallback: carriage return and move right
-        if (!lle_terminal_write(state->terminal, "\r", 1)) {
-            return false;
+    
+    // Then backspace to start position
+    for (size_t i = 0; i < state->last_displayed_length; i++) {
+        if (!lle_terminal_write(state->terminal, "\b", 1)) {
+            break;
         }
-        char move_right[32];
-        snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-        lle_terminal_write(state->terminal, move_right, strlen(move_right));
     }
 }
     
-// Write new text
+// Write new text content
 if (text && text_length > 0) {
     if (!lle_terminal_write(state->terminal, text, text_length)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new text\n");
         }
         return false;
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INCREMENTAL] Simple rewrite completed\n");
+    }
+} else {
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INCREMENTAL] No new text to write\n");
     }
 }
     
