@@ -1454,6 +1454,16 @@ if (state->prompt) {
     }
 }
 
+// Ensure cursor is positioned exactly at prompt end before writing content
+if (!lle_terminal_write(state->terminal, "\r", 1)) {
+    return false;
+}
+char move_right[32];
+snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
+if (!lle_terminal_write(state->terminal, move_right, strlen(move_right))) {
+    return false;
+}
+
 // Write new content
 if (text && text_length > 0) {
     if (!lle_terminal_write(state->terminal, text, text_length)) {
