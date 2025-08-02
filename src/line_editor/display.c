@@ -1418,29 +1418,76 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
            state->last_displayed_length, text_length);
     }
 
-// Use proven exact backspace clearing from terminal_manager
+// Use full redraw approach for multiline content with prompt redraw
 if (debug_mode) {
-    fprintf(stderr, "[LLE_INCREMENTAL] Using proven exact backspace clearing\n");
+    fprintf(stderr, "[LLE_INCREMENTAL] Using full redraw approach with prompt redraw\n");
 }
 
 // Get prompt width for positioning
 size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
 
-// Use proven safe content replacement function
-if (!lle_terminal_safe_replace_content(state->terminal,
-                                     prompt_width,
-                                     state->last_displayed_length,
-                                     text,
-                                     text_length,
-                                     state->geometry.width)) {
+// Calculate if we have multiline content
+size_t terminal_width = state->geometry.width;
+size_t available_first_line = terminal_width - prompt_width;
+bool is_multiline = state->last_displayed_length > available_first_line;
+
+if (is_multiline) {
+    // For multiline: use full redraw approach that redraws original prompt line
     if (debug_mode) {
-        fprintf(stderr, "[LLE_INCREMENTAL] Safe content replacement failed\n");
+        fprintf(stderr, "[LLE_INCREMENTAL] Multiline content detected, using full redraw\n");
     }
-    return false;
+    
+    // Clear multiline content completely
+    if (!lle_terminal_clear_multiline_content(state->terminal,
+                                            state->last_displayed_length,
+                                            prompt_width,
+                                            terminal_width)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Multiline clearing failed\n");
+        }
+        return false;
+    }
+    
+    // Redraw prompt line completely
+    if (state->prompt) {
+        if (!lle_prompt_render(state->terminal, state->prompt, false)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Prompt redraw failed\n");
+            }
+            return false;
+        }
+    }
+    
+    // Write new content
+    if (text && text_length > 0) {
+        if (!lle_terminal_write(state->terminal, text, text_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new multiline content\n");
+            }
+            return false;
+        }
+    }
+} else {
+    // For single line: use proven exact backspace clearing
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INCREMENTAL] Single line content, using exact backspace\n");
+    }
+    
+    if (!lle_terminal_safe_replace_content(state->terminal,
+                                         prompt_width,
+                                         state->last_displayed_length,
+                                         text,
+                                         text_length,
+                                         terminal_width)) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Single line replacement failed\n");
+        }
+        return false;
+    }
 }
 
 if (debug_mode) {
-    fprintf(stderr, "[LLE_INCREMENTAL] Proven backspace clearing completed\n");
+    fprintf(stderr, "[LLE_INCREMENTAL] Full redraw approach completed\n");
 }
     
 // Update tracking
