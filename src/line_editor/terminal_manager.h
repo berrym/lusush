@@ -415,6 +415,14 @@ size_t lle_terminal_filter_control_chars(const char *input,
 bool lle_terminal_clear_exact_chars(lle_terminal_manager_t *tm, size_t chars_to_clear);
 
 /**
+ * @brief Clear multiline content using per-line clearing approach
+ */
+bool lle_terminal_clear_multiline_content(lle_terminal_manager_t *tm,
+                                        size_t content_length,
+                                        size_t prompt_width,
+                                        size_t terminal_width);
+
+/**
  * @brief Safe content replacement without affecting prompt
  */
 bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,

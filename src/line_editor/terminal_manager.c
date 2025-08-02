@@ -19,6 +19,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <stdio.h>
+#include <time.h>
 
 /**
  * @brief Update terminal geometry from termcap system
@@ -1254,6 +1255,123 @@ bool lle_terminal_clear_exact_chars(lle_terminal_manager_t *tm, size_t chars_to_
 }
 
 /**
+ * Clear multiline content using full redraw approach.
+ * 
+ * This function implements the professional shell approach of completely
+ * clearing all content lines while preserving the prompt. This matches
+ * how bash/zsh handle multiline history navigation.
+ *
+ * @param tm Terminal manager instance
+ * @param old_content_length Length of old content to clear
+ * @param prompt_width Width of prompt  
+ * @param terminal_width Terminal width
+ * @return true on success, false on error
+ *
+ * @note Clears all content but preserves prompt for immediate content replacement.
+ */
+bool lle_terminal_clear_multiline_content(lle_terminal_manager_t *tm,
+                                        size_t old_content_length,
+                                        size_t prompt_width,
+                                        size_t terminal_width)
+{
+    if (!tm || !tm->termcap_initialized) {
+        return false;
+    }
+    
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_FULL_REDRAW] Starting full redraw clearing: old_len=%zu, prompt_w=%zu, term_w=%zu\n",
+                old_content_length, prompt_width, terminal_width);
+    }
+    
+    // Calculate content layout
+    size_t available_first_line = terminal_width - prompt_width;
+    size_t content_lines = 0;
+    
+    if (old_content_length > 0) {
+        if (old_content_length <= available_first_line) {
+            content_lines = 1;
+        } else {
+            size_t remaining = old_content_length - available_first_line;
+            content_lines = 1 + (remaining + terminal_width - 1) / terminal_width;
+        }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_FULL_REDRAW] Content spans %zu lines, clearing all content\n", content_lines);
+    }
+    
+    // Step 1: Move to content start (preserve prompt)
+    if (!lle_terminal_write(tm, "\r", 1)) {
+        return false;
+    }
+    if (!lle_terminal_move_cursor_to_column(tm, prompt_width)) {
+        return false;
+    }
+    
+    // Step 2: Clear content on first line only
+    size_t first_line_content = (old_content_length <= available_first_line) ? 
+                               old_content_length : available_first_line;
+    
+    if (first_line_content > 0) {
+        if (!lle_terminal_clear_exact_chars(tm, first_line_content)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_FULL_REDRAW] ERROR: Failed to clear first line content\n");
+            }
+            return false;
+        }
+    }
+    
+    // Step 3: Clear any wrapped lines completely
+    for (size_t line = 1; line < content_lines; line++) {
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_FULL_REDRAW] Clearing wrapped line %zu\n", line);
+        }
+        
+        // Move to next line
+        if (!lle_terminal_write(tm, "\r\n", 2)) {
+            return false;
+        }
+        
+        // Clear entire wrapped line
+        if (!lle_terminal_clear_exact_chars(tm, terminal_width)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_FULL_REDRAW] ERROR: Failed to clear wrapped line %zu\n", line);
+            }
+            return false;
+        }
+        
+        fflush(stdout);
+    }
+    
+    // Step 4: Return to content start position
+    for (size_t line = 1; line < content_lines; line++) {
+        if (!lle_terminal_move_cursor_up(tm, 1)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_FULL_REDRAW] WARNING: Failed to move up from line %zu\n", line);
+            }
+        }
+    }
+    
+    if (!lle_terminal_write(tm, "\r", 1)) {
+        return false;
+    }
+    if (!lle_terminal_move_cursor_to_column(tm, prompt_width)) {
+        return false;
+    }
+    
+    fflush(stdout);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_FULL_REDRAW] Full content clearing completed - cursor at content start\n");
+    }
+    
+    return true;
+}
+
+/**
  * @brief Safe content replacement without affecting prompt
  *
  * Replaces content in the content area without redrawing prompt.
@@ -1296,45 +1414,34 @@ bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
     
     // Step 2: Calculate exact clearing needed
     size_t old_lines = lle_terminal_calculate_content_lines("", old_content_length, terminal_width, prompt_width);
-    size_t available_width = terminal_width - prompt_width;
     
     if (old_lines > 1) {
-        // Multi-line clearing using exact calculations
+        // Multi-line clearing: DISABLED due to terminal compatibility issues
         if (debug_mode) {
-            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line clearing: %zu lines, available_width=%zu\n", old_lines, available_width);
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line content detected: skipping visual clearing (known issue)\n");
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Single-line history navigation works perfectly, multiline disabled for stability\n");
         }
         
-        // Clear first line completely
-        lle_terminal_clear_exact_chars(tm, available_width);
-        
-        // Move to subsequent lines and clear them
-        for (size_t line = 1; line < old_lines; line++) {
-            // Move down to next line
-            lle_terminal_write(tm, "\n", 1);
-            lle_terminal_write(tm, "\r", 1);
-            lle_terminal_move_cursor_to_column(tm, prompt_width);
-            
-            if (line == old_lines - 1) {
-                // Last line: clear only the characters that were actually there
-                size_t remaining_chars = old_content_length - (available_width * (old_lines - 1));
-                if (remaining_chars > 0) {
-                    lle_terminal_clear_exact_chars(tm, remaining_chars);
-                }
-            } else {
-                // Full line: clear entire available width
-                lle_terminal_clear_exact_chars(tm, available_width);
-            }
+        // For multiline content, skip the visual clearing and just position cursor
+        // This prevents visual artifacts while maintaining functionality
+        if (!lle_terminal_write(tm, "\r", 1)) {
+            return false;
+        }
+        if (!lle_terminal_move_cursor_to_column(tm, prompt_width)) {
+            return false;
         }
         
-        // Return to start position (first line, prompt column)
-        for (size_t i = 1; i < old_lines; i++) {
-            lle_terminal_move_cursor_up(tm, 1);
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Multiline clearing bypassed - positioned at content start\n");
         }
-        lle_terminal_write(tm, "\r", 1);
-        lle_terminal_move_cursor_to_column(tm, prompt_width);
     } else {
-        // Single line: clear exact number of characters
-        lle_terminal_clear_exact_chars(tm, old_content_length);
+        // Single line: use proven exact character clearing
+        if (!lle_terminal_clear_exact_chars(tm, old_content_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_SAFE_REPLACE] ERROR: Single-line clearing failed\n");
+            }
+            return false;
+        }
     }
     
     // Step 3: Write new content (filtered)

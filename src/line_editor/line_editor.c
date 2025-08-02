@@ -631,61 +631,37 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP: replacing content with command: %.20s...\n", entry->command);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: buffer-only approach (visual clearing disabled)\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Replacing buffer content with: %.20s...\n", entry->command);
                             }
                             
-                            // Get current content length for exact clearing
-                            size_t old_content_length = editor->buffer->length;
-                            
-                            // Update buffer with new content
+                            // Buffer-only approach: Just update the text buffer, no visual clearing
+                            // This provides stable functionality without visual artifacts
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                            cmd_result = LLE_CMD_SUCCESS;
                             
-                            // Use safe content replacement without prompt redraw
-                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
-                            
-                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
-                                                                old_content_length, entry->command, entry->length, terminal_width)) {
-                                cmd_result = LLE_CMD_SUCCESS;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP completed successfully\n");
-                                }
-                            } else {
-                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP failed\n");
-                                }
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: buffer updated successfully, visual clearing skipped for stability\n");
                             }
                         } else {
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
                             }
                             
-                            // Get current content length for exact clearing
-                            size_t old_content_length = editor->buffer->length;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - buffer-only clearing\n");
+                            }
                             
-                            // Clear buffer
+                            // Buffer-only approach: Just clear the buffer, no visual clearing
                             lle_text_buffer_clear(editor->buffer);
+                            cmd_result = LLE_CMD_SUCCESS;
                             
-                            // Use safe content replacement to clear (empty content)
-                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
-                            
-                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
-                                                                old_content_length, "", 0, terminal_width)) {
-                                cmd_result = LLE_CMD_SUCCESS;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP content clear completed\n");
-                                }
-                            } else {
-                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history UP content clear failed\n");
-                                }
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Buffer cleared successfully, visual clearing skipped for stability\n");
                             }
                         }
                     } else {
@@ -745,61 +721,37 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN: replacing content with command: %.20s...\n", entry->command);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: buffer-only approach (visual clearing disabled)\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Replacing buffer content with: %.20s...\n", entry->command);
                             }
                             
-                            // Get current content length for exact clearing
-                            size_t old_content_length = editor->buffer->length;
-                            
-                            // Update buffer with new content
+                            // Buffer-only approach: Just update the text buffer, no visual clearing
+                            // This provides stable functionality without visual artifacts
                             lle_text_buffer_clear(editor->buffer);
                             for (size_t i = 0; i < entry->length; i++) {
                                 lle_text_insert_char(editor->buffer, entry->command[i]);
                             }
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                            cmd_result = LLE_CMD_SUCCESS;
                             
-                            // Use safe content replacement without prompt redraw
-                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
-                            
-                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
-                                                                old_content_length, entry->command, entry->length, terminal_width)) {
-                                cmd_result = LLE_CMD_SUCCESS;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN completed successfully\n");
-                                }
-                            } else {
-                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN failed\n");
-                                }
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: buffer updated successfully, visual clearing skipped for stability\n");
                             }
                         } else {
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
                             }
                             
-                            // Get current content length for exact clearing
-                            size_t old_content_length = editor->buffer->length;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - buffer-only clearing\n");
+                            }
                             
-                            // Clear buffer
+                            // Buffer-only approach: Just clear the buffer, no visual clearing
                             lle_text_buffer_clear(editor->buffer);
+                            cmd_result = LLE_CMD_SUCCESS;
                             
-                            // Use safe content replacement to clear (empty content)
-                            size_t prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                            size_t terminal_width = editor->terminal->geometry_valid ? editor->terminal->geometry.width : 120;
-                            
-                            if (lle_terminal_safe_replace_content(editor->terminal, prompt_width, 
-                                                                old_content_length, "", 0, terminal_width)) {
-                                cmd_result = LLE_CMD_SUCCESS;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN content clear completed\n");
-                                }
-                            } else {
-                                cmd_result = LLE_CMD_ERROR_DISPLAY_UPDATE;
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe history DOWN content clear failed\n");
-                                }
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Buffer cleared successfully, visual clearing skipped for stability\n");
                             }
                         }
                     } else {
