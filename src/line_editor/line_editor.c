@@ -670,7 +670,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             case LLE_KEY_ARROW_DOWN:
@@ -760,7 +760,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                     }
                 }
-                needs_display_update = false;
+                needs_display_update = true;
                 break;
                 
             case LLE_KEY_CTRL_K:
