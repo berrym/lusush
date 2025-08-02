@@ -1426,61 +1426,39 @@ if (debug_mode) {
 // Get prompt width for positioning
 size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
 
-// Calculate if we have multiline content
+// Force all history navigation to use full redraw with prompt redraw for consistency
 size_t terminal_width = state->geometry.width;
-size_t available_first_line = terminal_width - prompt_width;
-bool is_multiline = state->last_displayed_length > available_first_line;
 
-if (is_multiline) {
-    // For multiline: use full redraw approach that redraws original prompt line
+if (debug_mode) {
+    fprintf(stderr, "[LLE_INCREMENTAL] Using full redraw with prompt redraw for all history navigation\n");
+}
+
+// Clear all content completely using multiline approach
+if (!lle_terminal_clear_multiline_content(state->terminal,
+                                        state->last_displayed_length,
+                                        prompt_width,
+                                        terminal_width)) {
     if (debug_mode) {
-        fprintf(stderr, "[LLE_INCREMENTAL] Multiline content detected, using full redraw\n");
+        fprintf(stderr, "[LLE_INCREMENTAL] Content clearing failed\n");
     }
-    
-    // Clear multiline content completely
-    if (!lle_terminal_clear_multiline_content(state->terminal,
-                                            state->last_displayed_length,
-                                            prompt_width,
-                                            terminal_width)) {
+    return false;
+}
+
+// Always redraw prompt line completely for consistency
+if (state->prompt) {
+    if (!lle_prompt_render(state->terminal, state->prompt, false)) {
         if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Multiline clearing failed\n");
+            fprintf(stderr, "[LLE_INCREMENTAL] Prompt redraw failed\n");
         }
         return false;
     }
-    
-    // Redraw prompt line completely
-    if (state->prompt) {
-        if (!lle_prompt_render(state->terminal, state->prompt, false)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_INCREMENTAL] Prompt redraw failed\n");
-            }
-            return false;
-        }
-    }
-    
-    // Write new content
-    if (text && text_length > 0) {
-        if (!lle_terminal_write(state->terminal, text, text_length)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new multiline content\n");
-            }
-            return false;
-        }
-    }
-} else {
-    // For single line: use proven exact backspace clearing
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_INCREMENTAL] Single line content, using exact backspace\n");
-    }
-    
-    if (!lle_terminal_safe_replace_content(state->terminal,
-                                         prompt_width,
-                                         state->last_displayed_length,
-                                         text,
-                                         text_length,
-                                         terminal_width)) {
+}
+
+// Write new content
+if (text && text_length > 0) {
+    if (!lle_terminal_write(state->terminal, text, text_length)) {
         if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Single line replacement failed\n");
+            fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new content\n");
         }
         return false;
     }
