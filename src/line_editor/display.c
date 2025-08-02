@@ -1418,56 +1418,29 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
            state->last_displayed_length, text_length);
     }
 
-// SIMPLE CLEARING STRATEGY: Use proven space-and-backspace pattern
-// This approach works reliably without complex visual footprint calculations
+// Use proven exact backspace clearing from terminal_manager
 if (debug_mode) {
-    fprintf(stderr, "[LLE_INCREMENTAL] Using simple rewrite strategy for complex changes\n");
+    fprintf(stderr, "[LLE_INCREMENTAL] Using proven exact backspace clearing\n");
 }
 
 // Get prompt width for positioning
 size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
 
-// Position cursor to start of content area (after prompt)
-if (!lle_terminal_write(state->terminal, "\r", 1)) {
+// Use proven safe content replacement function
+if (!lle_terminal_safe_replace_content(state->terminal,
+                                     prompt_width,
+                                     state->last_displayed_length,
+                                     text,
+                                     text_length,
+                                     state->geometry.width)) {
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_INCREMENTAL] Safe content replacement failed\n");
+    }
     return false;
 }
-char move_right[32];
-snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-lle_terminal_write(state->terminal, move_right, strlen(move_right));
 
-// Clear old content using space-and-backspace pattern (proven working)
-if (state->last_displayed_length > 0) {
-    // First, overwrite old content with spaces
-    for (size_t i = 0; i < state->last_displayed_length; i++) {
-        if (!lle_terminal_write(state->terminal, " ", 1)) {
-            break;
-        }
-    }
-    
-    // Then backspace to start position
-    for (size_t i = 0; i < state->last_displayed_length; i++) {
-        if (!lle_terminal_write(state->terminal, "\b", 1)) {
-            break;
-        }
-    }
-}
-    
-// Write new text content
-if (text && text_length > 0) {
-    if (!lle_terminal_write(state->terminal, text, text_length)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new text\n");
-        }
-        return false;
-    }
-    
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_INCREMENTAL] Simple rewrite completed\n");
-    }
-} else {
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_INCREMENTAL] No new text to write\n");
-    }
+if (debug_mode) {
+    fprintf(stderr, "[LLE_INCREMENTAL] Proven backspace clearing completed\n");
 }
     
 // Update tracking
