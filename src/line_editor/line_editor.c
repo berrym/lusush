@@ -631,21 +631,44 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: buffer-only approach (visual clearing disabled)\n");
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Replacing buffer content with: %.20s...\n", entry->command);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: 100%% exact backspace replication approach\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
+                                        editor->buffer->length, entry->command);
                             }
                             
-                            // Buffer-only approach: Just update the text buffer, no visual clearing
-                            // This provides stable functionality without visual artifacts
-                            lle_text_buffer_clear(editor->buffer);
-                            for (size_t i = 0; i < entry->length; i++) {
-                                lle_text_insert_char(editor->buffer, entry->command[i]);
+                            // 100% EXACT BACKSPACE REPLICATION: Use simple terminal writes to bypass boundary crossing
+                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
+                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
+                            
+                            // Phase 1: Clear existing content using simple backspace writes to bypass complex display logic
+                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                            size_t text_length = editor->buffer->length;
+                            
+                            // Use backspace count minus 1 to avoid going too far back
+                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
+                                       prompt_width, text_length, backspace_count);
                             }
-                            lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                            // Use simple terminal writes for exact backspace replication
+                            for (size_t i = 0; i < backspace_count; i++) {
+                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                            }
+                            // Clear any remaining artifacts at end of line
+                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            // Update buffer state to match cleared content
+                            editor->buffer->length = 0;
+                            editor->buffer->cursor_pos = 0;
+                            
+                            // Phase 2: Insert new content using exact same character input as user typing
+                            for (size_t i = 0; i < entry->length; i++) {
+                                lle_cmd_insert_char(editor->display, entry->command[i]);  // Exact same function as regular character input
+                            }
+                            
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: buffer updated successfully, visual clearing skipped for stability\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: exact backspace replication complete\n");
                             }
                         } else {
                             if (debug_mode) {
@@ -653,15 +676,36 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             }
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - buffer-only clearing\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - exact backspace clearing\n");
                             }
                             
-                            // Buffer-only approach: Just clear the buffer, no visual clearing
-                            lle_text_buffer_clear(editor->buffer);
+                            // 100% EXACT BACKSPACE REPLICATION: Clear using simple terminal writes
+                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
+                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
+                            
+                            // Use simple terminal writes for exact backspace replication
+                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                            size_t text_length = editor->buffer->length;
+                            
+                            // Use backspace count minus 1 to avoid going too far back
+                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
+                                       prompt_width, text_length, backspace_count);
+                            }
+                            // Use simple terminal writes for exact backspace replication
+                            for (size_t i = 0; i < backspace_count; i++) {
+                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                            }
+                            // Clear any remaining artifacts at end of line
+                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            // Update buffer state to match cleared content
+                            editor->buffer->length = 0;
+                            editor->buffer->cursor_pos = 0;
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Buffer cleared successfully, visual clearing skipped for stability\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Exact backspace clearing complete\n");
                             }
                         }
                     } else {
@@ -670,7 +714,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                     }
                 }
-                needs_display_update = true;
+                needs_display_update = false; // Commands handle their own display updates (same as other key inputs)
                 break;
                 
             case LLE_KEY_ARROW_DOWN:
@@ -721,21 +765,44 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: buffer-only approach (visual clearing disabled)\n");
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Replacing buffer content with: %.20s...\n", entry->command);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: 100%% exact backspace replication approach\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
+                                        editor->buffer->length, entry->command);
                             }
                             
-                            // Buffer-only approach: Just update the text buffer, no visual clearing
-                            // This provides stable functionality without visual artifacts
-                            lle_text_buffer_clear(editor->buffer);
-                            for (size_t i = 0; i < entry->length; i++) {
-                                lle_text_insert_char(editor->buffer, entry->command[i]);
+                            // 100% EXACT BACKSPACE REPLICATION: Use simple terminal writes to bypass boundary crossing
+                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
+                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
+                            
+                            // Phase 1: Clear existing content using simple backspace writes to bypass complex display logic
+                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                            size_t text_length = editor->buffer->length;
+                            
+                            // Use backspace count minus 1 to avoid going too far back
+                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
+                                       prompt_width, text_length, backspace_count);
                             }
-                            lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
+                            // Use simple terminal writes for exact backspace replication
+                            for (size_t i = 0; i < backspace_count; i++) {
+                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                            }
+                            // Clear any remaining artifacts at end of line
+                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            // Update buffer state to match cleared content
+                            editor->buffer->length = 0;
+                            editor->buffer->cursor_pos = 0;
+                            
+                            // Phase 2: Insert new content using exact same character input as user typing
+                            for (size_t i = 0; i < entry->length; i++) {
+                                lle_cmd_insert_char(editor->display, entry->command[i]);  // Exact same function as regular character input
+                            }
+                            
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: buffer updated successfully, visual clearing skipped for stability\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: exact backspace replication complete\n");
                             }
                         } else {
                             if (debug_mode) {
@@ -743,15 +810,36 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             }
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - buffer-only clearing\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - exact backspace clearing\n");
                             }
                             
-                            // Buffer-only approach: Just clear the buffer, no visual clearing
-                            lle_text_buffer_clear(editor->buffer);
+                            // 100% EXACT BACKSPACE REPLICATION: Clear using simple terminal writes
+                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
+                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
+                            
+                            // Use simple terminal writes for exact backspace replication
+                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                            size_t text_length = editor->buffer->length;
+                            
+                            // Use backspace count minus 1 to avoid going too far back
+                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
+                                       prompt_width, text_length, backspace_count);
+                            }
+                            // Use simple terminal writes for exact backspace replication
+                            for (size_t i = 0; i < backspace_count; i++) {
+                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                            }
+                            // Clear any remaining artifacts at end of line
+                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            // Update buffer state to match cleared content
+                            editor->buffer->length = 0;
+                            editor->buffer->cursor_pos = 0;
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Buffer cleared successfully, visual clearing skipped for stability\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Exact backspace clearing complete\n");
                             }
                         }
                     } else {
@@ -760,7 +848,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                     }
                 }
-                needs_display_update = true;
+                needs_display_update = false; // Commands handle their own display updates (same as other key inputs)
                 break;
                 
             case LLE_KEY_CTRL_K:
