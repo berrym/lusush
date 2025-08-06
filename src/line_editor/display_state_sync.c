@@ -396,10 +396,16 @@ bool lle_state_sync_validate(lle_state_sync_context_t *sync_ctx) {
     }
     
     // Validate cursor position consistency
+    LLE_SYNC_DEBUG("Checking cursor positions: display=(%zu,%zu), terminal=(%zu,%zu)",
+                   sync_ctx->display->cursor_pos.absolute_row,
+                   sync_ctx->display->cursor_pos.absolute_col,
+                   sync_ctx->terminal_state->cursor_row,
+                   sync_ctx->terminal_state->cursor_col);
+    
     if (sync_ctx->display->cursor_pos.absolute_row != sync_ctx->terminal_state->cursor_row ||
         sync_ctx->display->cursor_pos.absolute_col != sync_ctx->terminal_state->cursor_col) {
         cursor_valid = false;
-        LLE_SYNC_DEBUG("Cursor mismatch: display=(%zu,%zu), terminal=(%zu,%zu)",
+        LLE_SYNC_DEBUG("Cursor mismatch detected: display=(%zu,%zu), terminal=(%zu,%zu)",
                        sync_ctx->display->cursor_pos.absolute_row,
                        sync_ctx->display->cursor_pos.absolute_col,
                        sync_ctx->terminal_state->cursor_row,
@@ -472,58 +478,39 @@ bool lle_terminal_state_update_write(lle_state_sync_context_t *sync_ctx,
     
     lle_sync_terminal_state_t *state = sync_ctx->terminal_state;
     
-    // Update cursor position
+    // Store content in terminal state and use provided cursor position
+    size_t start_row = state->cursor_row;
+    size_t start_col = state->cursor_col;
+    
+    // Process written data character by character for content tracking
+    for (size_t i = 0; i < length; i++) {
+        char c = data[i];
+        
+        if (c >= 32 && c <= 126) {
+            // Printable character - store in terminal state
+            size_t char_row = start_row;
+            size_t char_col = start_col + i;
+            
+            // Handle line wrapping
+            while (char_col >= state->width && char_row < state->height - 1) {
+                char_row++;
+                char_col -= state->width;
+            }
+            
+            if (char_row < state->height && char_col < state->width) {
+                lle_terminal_state_set_cell(state, char_row, char_col, c, true);
+            }
+        }
+    }
+    
+    // Use provided ending cursor position directly
     if (cursor_row < state->height && cursor_col < state->width) {
         state->cursor_row = cursor_row;
         state->cursor_col = cursor_col;
     }
     
-    // Process written data character by character
-    size_t current_row = state->cursor_row;
-    size_t current_col = state->cursor_col;
-    
-    for (size_t i = 0; i < length; i++) {
-        char c = data[i];
-        
-        if (c == '\n') {
-            // Newline - move to next row
-            current_row++;
-            current_col = 0;
-        } else if (c == '\r') {
-            // Carriage return - move to beginning of line
-            current_col = 0;
-        } else if (c == '\b') {
-            // Backspace - move back one column
-            if (current_col > 0) {
-                current_col--;
-                lle_terminal_state_set_cell(state, current_row, current_col, ' ', false);
-            }
-        } else if (c >= 32 && c <= 126) {
-            // Printable character
-            if (current_row < state->height && current_col < state->width) {
-                lle_terminal_state_set_cell(state, current_row, current_col, c, true);
-                current_col++;
-            }
-        }
-        
-        // Handle line wrapping
-        if (current_col >= state->width) {
-            current_row++;
-            current_col = 0;
-        }
-        
-        // Bounds checking
-        if (current_row >= state->height) {
-            break;
-        }
-    }
-    
-    // Update final cursor position
-    state->cursor_row = current_row;
-    state->cursor_col = current_col;
-    
     LLE_SYNC_DEBUG("Terminal write: %zu chars, cursor now at (%zu,%zu)", 
-                   length, current_row, current_col);
+                   length, cursor_row, cursor_col);
     
     return true;
 }

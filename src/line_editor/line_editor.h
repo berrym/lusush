@@ -28,6 +28,7 @@
 #include "theme_integration.h"
 #include "completion.h"
 #include "undo.h"
+#include "display_state_integration.h"
 
 /**
  * @brief Main line editor structure
@@ -54,6 +55,7 @@ typedef struct {
     lle_theme_integration_t *theme;     /**< Theme integration interface */
     lle_completion_list_t *completions; /**< Completion system */
     lle_undo_stack_t *undo_stack;       /**< Undo/redo operation stack */
+    lle_display_integration_t *state_integration; /**< Unified display state synchronization */
     
     /* Configuration flags */
     bool multiline_mode;                /**< Enable multiline editing */

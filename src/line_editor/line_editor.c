@@ -25,6 +25,8 @@
 #include "enhanced_tab_completion.h"
 #include "display_stabilization.h"
 #include "platform_detection.h"
+#include "display_state_sync.h"
+#include "display_state_integration.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -162,6 +164,18 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
         return false;
     }
     
+    // Initialize unified display state synchronization integration
+    editor->state_integration = lle_display_integration_init(editor->display, editor->terminal);
+    if (!editor->state_integration) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return false;
+    }
+    
+    // Enable debug mode for state synchronization if debugging is enabled
+    if (getenv("LLE_SYNC_DEBUG") || getenv("LLE_DEBUG")) {
+        lle_display_integration_set_debug_mode(editor->state_integration, true);
+    }
+    
     // Initialize history if enabled
     if (config->enable_history) {
         editor->history = lle_history_create(config->max_history_size, false);
@@ -293,6 +307,11 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
         editor->history = NULL;
     }
     
+    if (editor->state_integration) {
+        lle_display_integration_cleanup(editor->state_integration);
+        editor->state_integration = NULL;
+    }
+
     if (editor->display) {
         lle_display_destroy(editor->display);
         editor->display = NULL;
@@ -410,16 +429,21 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     reverse_search_index = -1;
                     
                     // Clear search line and restore prompt
-                    lle_terminal_write(editor->terminal, "\r", 1);
-                    lle_terminal_clear_to_eol(editor->terminal);
-                    lle_terminal_move_cursor_up(editor->terminal, 1);
+                    lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                    lle_display_integration_clear_to_eol(editor->state_integration);
+                    lle_display_integration_move_cursor_up(editor->state_integration, 1);
                     
                     // Redraw the accepted command
                     prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                    lle_terminal_move_cursor_to_column(editor->terminal, prompt_width);
-                    lle_terminal_clear_to_eol(editor->terminal);
+                    lle_display_integration_move_cursor(editor->state_integration, 0, prompt_width);
+                    lle_display_integration_clear_to_eol(editor->state_integration);
                     if (editor->buffer->length > 0) {
-                        lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
+                        lle_display_integration_terminal_write(editor->state_integration, editor->buffer->buffer, editor->buffer->length);
+                    }
+                    
+                    // Validate state consistency after complex operations
+                    if (!lle_display_integration_validate_state(editor->state_integration)) {
+                        lle_display_integration_force_sync(editor->state_integration);
                     }
                     needs_display_update = false;
                     break;
@@ -432,14 +456,14 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 }
                 
                 // Write newline and move cursor to beginning of line for command output
-                if (!lle_terminal_write(editor->terminal, "\n", 1)) {
+                if (!lle_display_integration_terminal_write(editor->state_integration, "\n", 1)) {
                     if (debug_mode) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to write newline after Enter\n");
                     }
                 }
                 
                 // Move cursor to column 0 to ensure command output starts at beginning of line
-                if (!lle_terminal_move_cursor_to_column(editor->terminal, 0)) {
+                if (!lle_display_integration_move_cursor(editor->state_integration, 0, 0)) {
                     if (debug_mode) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to column 0 after Enter\n");
                     }
@@ -461,6 +485,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Memory allocation failed for result\n");
                     }
                 }
+                needs_display_update = false; // CRITICAL: Prevent display corruption after ENTER
                 break;
                 
             case LLE_KEY_CTRL_C:
@@ -514,17 +539,20 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                         
                         // Update search prompt
-                        lle_terminal_write(editor->terminal, "\r", 1);
-                        lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                        lle_terminal_clear_to_eol(editor->terminal);
-                        lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                        lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                        lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                        lle_display_integration_clear_to_eol(editor->state_integration);
+                        lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
                         if (strlen(reverse_search_query) > 0) {
-                            lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
+                            lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
                         }
-                        lle_terminal_write(editor->terminal, "': ", 3);
+                        lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
                         if (editor->buffer->length > 0) {
-                            lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
+                            lle_display_integration_terminal_write(editor->state_integration, editor->buffer->buffer, editor->buffer->length);
                         }
+                        
+                        // Validate state after complex reverse search operations
+                        lle_display_integration_validate_state(editor->state_integration);
                     }
                     needs_display_update = false;
                 } else {
@@ -608,13 +636,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 // Update search prompt
-                                lle_terminal_write(editor->terminal, "\r", 1);
-                                lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                                lle_terminal_clear_to_eol(editor->terminal);
-                                lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
-                                lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                                lle_terminal_write(editor->terminal, "': ", 3);
-                                lle_terminal_write(editor->terminal, entry->command, entry->length);
+                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                                lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
+                                lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
+                                lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                                lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                                
+                                // Validate state after complex reverse search operations
+                                lle_display_integration_validate_state(editor->state_integration);
                                 break;
                             }
                         }
@@ -637,118 +668,43 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Simple cursor positioning approach
-                            // Initialize platform detection for optimal sequences
-                            if (!lle_platform_init()) {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Platform detection failed, using fallback\n");
-                                }
-                            }
+                            // UNIFIED SAFE REPLACE: Use safe replace content function for all platforms
+                            const char *old_content = editor->buffer->buffer;
+                            size_t old_length = editor->buffer->length;
+                            const char *prompt_text = (editor->display && editor->display->prompt && editor->display->prompt->text) 
+                                                     ? editor->display->prompt->text : NULL;
+                            size_t prompt_width = prompt_text ? strlen(prompt_text) : 0;
                             
                             if (debug_mode) {
-                                const char *platform_desc = "Unknown";
-                                if (lle_platform_is_macos()) platform_desc = "macOS";
-                                else if (lle_platform_is_linux()) platform_desc = "Linux";
-                                
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, clearing current line for history navigation\n", platform_desc);
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content length: %zu\n", 
-                                       editor->buffer->length, entry->length);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Using safe replace content: old_len=%zu, new_len=%zu, prompt_w=%zu\n",
+                                        old_length, entry->length, prompt_width);
                             }
                             
-                            // LINUX FIX: Proper multi-line aware clearing for Linux terminals
-                            if (lle_platform_is_linux()) {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Using multi-line aware history navigation\n");
-                                }
-                                
-                                // Step 1: Calculate current content dimensions
-                                size_t current_length = editor->buffer->length;
-                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                                size_t terminal_width = editor->display->geometry.width;
-                                
-                                // Step 2: Calculate how many lines current content occupies
-                                size_t total_chars = prompt_width + current_length;
-                                size_t lines_used = (total_chars / terminal_width) + 1;
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Current content uses %zu lines (prompt=%zu, content=%zu, total=%zu, width=%zu)\n", 
-                                           lines_used, prompt_width, current_length, total_chars, terminal_width);
-                                }
-                                
-                                // Step 3: Move to beginning of current line and clear all used lines
-                                lle_terminal_write(editor->display->terminal, "\r", 1);  // Move to start of current line
-                                
-                                // Clear current line and any additional lines used by wrapped content
-                                for (size_t i = 0; i < lines_used; i++) {
-                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
-                                    if (i < lines_used - 1) {
-                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
-                                    }
-                                }
-                                
-                                // Step 4: Move back to start position
-                                if (lines_used > 1) {
-                                    char move_up[16];
-                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
-                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
-                                }
-                                
-                                // Step 5: Rewrite prompt
-                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
-                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
-                                }
-                                
-                                // Step 6: Write new history content
-                                lle_terminal_write(editor->display->terminal, entry->command, entry->length);
-                                
-                                // Step 7: Update buffer state to match terminal
+                            if (lle_display_integration_replace_content(editor->state_integration, 
+                                                                       old_content, old_length, 
+                                                                       entry->command, entry->length)) {
+                                // Update buffer state
                                 lle_text_buffer_clear(editor->buffer);
-                                for (size_t i = 0; i < entry->length; i++) {
-                                    lle_text_insert_char(editor->buffer, entry->command[i]);
+                                memcpy(editor->buffer->buffer, entry->command, entry->length);
+                                editor->buffer->length = entry->length;
+                                editor->buffer->cursor_pos = entry->length;
+                                editor->buffer->buffer[entry->length] = '\0';
+                                
+                                // Validate state consistency after content replacement
+                                if (!lle_display_integration_validate_state(editor->state_integration)) {
+                                    lle_display_integration_force_sync(editor->state_integration);
                                 }
-                                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line history navigation complete\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] State-synchronized content replacement successful\n");
                                 }
-                                
-                                cmd_result = LLE_CMD_SUCCESS;
-                                needs_display_update = false;  // Skip display system updates
                             } else {
-                                // macOS: Use proven working approach
-                                lle_cmd_move_end(editor->display);
-                                
-                                size_t text_length = editor->buffer->length;
-                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                                
-                                const char *backspace_seq = lle_platform_get_backspace_sequence();
-                                size_t backspace_seq_len = lle_platform_get_backspace_length();
-                                
-                                for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
-                                }
-                                
-                                lle_terminal_clear_to_eol(editor->display->terminal);
-                                
-                                // Update buffer state to match cleared content
-                                editor->buffer->length = 0;
-                                editor->buffer->cursor_pos = 0;
-                                
-                                // Phase 3: Insert new content character by character (macOS only)
-                                for (size_t i = 0; i < entry->length; i++) {
-                                    lle_cmd_insert_char(editor->display, entry->command[i]);
-                                }
-                                
-                                cmd_result = LLE_CMD_SUCCESS;
-                                
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven exact backspace approach\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] ERROR: Safe content replacement failed\n");
                                 }
                             }
                             
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: exact backspace replication complete\n");
-                            }
+                            cmd_result = LLE_CMD_SUCCESS;
                         } else {
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
@@ -759,71 +715,33 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             }
                             
                             // LINUX FIX: Multi-line aware clearing when no history entry
-                            if (lle_platform_is_linux()) {
+                            // UNIFIED SAFE REPLACE: Use safe replace content function for all platforms
+                            const char *old_content = editor->buffer->buffer;
+                            size_t old_length = editor->buffer->length;
+                            const char *prompt_text = (editor->display && editor->display->prompt && editor->display->prompt->text) 
+                                                     ? editor->display->prompt->text : NULL;
+                            size_t prompt_width = prompt_text ? strlen(prompt_text) : 0;
+                            
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry - clearing content: old_len=%zu, prompt_w=%zu\n",
+                                        old_length, prompt_width);
+                            }
+                            
+                            // Clear content without replacement (NULL new content)
+                            if (lle_display_integration_replace_content(editor->state_integration, 
+                                                                       old_content, old_length, 
+                                                                       NULL, 0)) {
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line clearing for no history entry\n");
-                                }
-                                
-                                // Calculate current content dimensions
-                                size_t current_length = editor->buffer->length;
-                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                                size_t terminal_width = editor->display->geometry.width;
-                                
-                                // Calculate how many lines current content occupies
-                                size_t total_chars = prompt_width + current_length;
-                                size_t lines_used = (total_chars / terminal_width) + 1;
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Clearing %zu lines (prompt=%zu, content=%zu, total=%zu)\n", 
-                                           lines_used, prompt_width, current_length, total_chars);
-                                }
-                                
-                                // Move to beginning of current line and clear all used lines
-                                lle_terminal_write(editor->display->terminal, "\r", 1);
-                                
-                                // Clear current line and any additional lines used by wrapped content
-                                for (size_t i = 0; i < lines_used; i++) {
-                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
-                                    if (i < lines_used - 1) {
-                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
-                                    }
-                                }
-                                
-                                // Move back to start position and rewrite prompt
-                                if (lines_used > 1) {
-                                    char move_up[16];
-                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
-                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
-                                }
-                                
-                                // Rewrite prompt
-                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
-                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
-                                }
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line clearing complete\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe content clearing successful\n");
                                 }
                             } else {
-                                // macOS: Use proven working approach
-                                lle_cmd_move_end(editor->display);
-                                
-                                size_t text_length = editor->buffer->length;
-                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                                
-                                for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_terminal_write(editor->display->terminal, "\b \b", 3);
-                                }
-                                lle_terminal_clear_to_eol(editor->display->terminal);
-                                
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven backspace clearing\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] ERROR: Safe content clearing failed\n");
                                 }
                             }
                             
                             // Update buffer state to match cleared content
-                            editor->buffer->length = 0;
-                            editor->buffer->cursor_pos = 0;
+                            lle_text_buffer_clear(editor->buffer);
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
@@ -862,13 +780,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 // Update search prompt
-                                lle_terminal_write(editor->terminal, "\r", 1);
-                                lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                                lle_terminal_clear_to_eol(editor->terminal);
-                                lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
-                                lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                                lle_terminal_write(editor->terminal, "': ", 3);
-                                lle_terminal_write(editor->terminal, entry->command, entry->length);
+                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                                lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
+                                lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
+                                lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                                lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                                
+                                // Validate state after complex reverse search operations
+                                lle_display_integration_validate_state(editor->state_integration);
                                 break;
                             }
                         }
@@ -931,30 +852,33 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 }
                                 
                                 // Step 3: Move to beginning of current line and clear all used lines
-                                lle_terminal_write(editor->display->terminal, "\r", 1);  // Move to start of current line
+                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);  // Move to start of current line
                                 
                                 // Clear current line and any additional lines used by wrapped content
                                 for (size_t i = 0; i < lines_used; i++) {
-                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
+                                    lle_display_integration_clear_to_eol(editor->state_integration);  // Clear to end of line
                                     if (i < lines_used - 1) {
-                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
+                                        lle_display_integration_move_cursor_down(editor->state_integration, 1);  // Move down one line
                                     }
                                 }
                                 
-                                // Step 4: Move back to start position
+                                // Step 4: Move cursor back to original line
                                 if (lines_used > 1) {
-                                    char move_up[16];
-                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
-                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
+                                    lle_display_integration_move_cursor_up(editor->state_integration, lines_used - 1);
                                 }
                                 
-                                // Step 5: Rewrite prompt
+                                // Step 5: Redraw prompt
                                 if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
-                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
+                                    lle_display_integration_terminal_write(editor->state_integration, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
                                 }
                                 
                                 // Step 6: Write new history content
-                                lle_terminal_write(editor->display->terminal, entry->command, entry->length);
+                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                                
+                                // Validate state consistency after complex multiline operations
+                                if (!lle_display_integration_validate_state(editor->state_integration)) {
+                                    lle_display_integration_force_sync(editor->state_integration);
+                                }
                                 
                                 // Step 7: Update buffer state to match terminal
                                 lle_text_buffer_clear(editor->buffer);
@@ -980,10 +904,10 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 size_t backspace_seq_len = lle_platform_get_backspace_length();
                                 
                                 for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
+                                    lle_display_integration_terminal_write(editor->state_integration, backspace_seq, backspace_seq_len);
                                 }
                                 
-                                lle_terminal_clear_to_eol(editor->display->terminal);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
                                 
                                 // Update buffer state to match cleared content
                                 editor->buffer->length = 0;
@@ -1018,13 +942,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 // Move cursor to beginning of input area and clear
                                 size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
                                 
-                                lle_terminal_write(editor->display->terminal, "\r", 1);
+                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
                                 if (prompt_width > 0) {
-                                    char move_cmd[32];
-                                    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%zuC", prompt_width);
-                                    lle_terminal_write(editor->display->terminal, move_cmd, strlen(move_cmd));
+                                    lle_display_integration_move_cursor(editor->state_integration, 0, prompt_width);
                                 }
-                                lle_terminal_write(editor->display->terminal, "\x1b[K", 3);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
                                 
                                 if (debug_mode) {
                                     fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Cleared line, cursor positioned after prompt\n");
@@ -1037,9 +959,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
                                 
                                 for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                                    lle_display_integration_terminal_write(editor->state_integration, "\b \b", 3);
                                 }
-                                lle_terminal_clear_to_eol(editor->display->terminal);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
+                                
+                                // Validate state after exact backspace sequence
+                                lle_display_integration_validate_state(editor->state_integration);
                                 
                                 if (debug_mode) {
                                     fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven backspace clearing\n");
@@ -1102,20 +1027,24 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             case LLE_KEY_CTRL_L:
                 if (reverse_search_mode) {
                     // Clear screen and redraw search interface
-                    lle_terminal_clear_screen(editor->terminal);
+                    lle_display_integration_terminal_write(editor->state_integration, "\x1b[2J\x1b[H", 7);  // Clear screen and move to home
                     
                     // Redraw search prompt
-                    lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                    lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
                     if (strlen(reverse_search_query) > 0) {
-                        lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
+                        lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
                     }
-                    lle_terminal_write(editor->terminal, "': ", 3);
+                    lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
                     if (editor->buffer->length > 0) {
-                        lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
+                        lle_display_integration_terminal_write(editor->state_integration, editor->buffer->buffer, editor->buffer->length);
                     }
+                    
+                    // Reset state tracking after screen clear
+                    lle_display_integration_reset_tracking(editor->state_integration);
                 } else {
-                    // Clear screen and redraw
-                    lle_terminal_clear_screen(editor->terminal);
+                    // Clear screen and redraw with state synchronization
+                    lle_display_integration_terminal_write(editor->state_integration, "\x1b[2J\x1b[H", 7);  // Clear screen and move to home
+                    lle_display_integration_reset_tracking(editor->state_integration);  // Reset state tracking after screen clear
                     cmd_result = LLE_CMD_SUCCESS;
                 }
                 needs_display_update = false;
@@ -1141,13 +1070,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                             
                             // Update search prompt (show forward search)
-                            lle_terminal_write(editor->terminal, "\r", 1);
-                            lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                            lle_terminal_clear_to_eol(editor->terminal);
-                            lle_terminal_write(editor->terminal, "(i-search)`", 11);
-                            lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                            lle_terminal_write(editor->terminal, "': ", 3);
-                            lle_terminal_write(editor->terminal, entry->command, entry->length);
+                            lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                            lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                            lle_display_integration_clear_to_eol(editor->state_integration);
+                            lle_display_integration_terminal_write(editor->state_integration, "(i-search)`", 11);
+                            lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                            lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                            lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                            
+                            // Validate state after forward search operations
+                            lle_display_integration_validate_state(editor->state_integration);
                             break;
                         }
                     }
@@ -1178,9 +1110,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     lle_text_buffer_clear(editor->buffer);
                     
                     // Move to next line and show initial search prompt
-                    lle_terminal_write(editor->terminal, "\n", 1);
-                    lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                    lle_terminal_write(editor->terminal, "(reverse-i-search)`': ", 22);
+                    lle_display_integration_terminal_write(editor->state_integration, "\n", 1);
+                    lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                    lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`': ", 22);
                 } else {
                     // Already in reverse search - find next match (search backwards)
                     if (strlen(reverse_search_query) > 0 && editor->history_enabled && editor->history) {
@@ -1201,25 +1133,28 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 // Update search prompt
-                                lle_terminal_write(editor->terminal, "\r", 1);
-                                lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                                lle_terminal_clear_to_eol(editor->terminal);
-                                lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
-                                lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                                lle_terminal_write(editor->terminal, "': ", 3);
-                                lle_terminal_write(editor->terminal, entry->command, entry->length);
+                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                                lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                                lle_display_integration_clear_to_eol(editor->state_integration);
+                                lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
+                                lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                                lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                                
+                                // Validate state after search prompt update
+                                lle_display_integration_validate_state(editor->state_integration);
                                 break;
                             }
                         }
                         
                         if (!found) {
                             // No more matches - beep or show "failing" indicator
-                            lle_terminal_write(editor->terminal, "\r", 1);
-                            lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                            lle_terminal_clear_to_eol(editor->terminal);
-                            lle_terminal_write(editor->terminal, "(failed reverse-i-search)`", 26);
-                            lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                            lle_terminal_write(editor->terminal, "': ", 3);
+                            lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                            lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                            lle_display_integration_clear_to_eol(editor->state_integration);
+                            lle_display_integration_terminal_write(editor->state_integration, "(failed reverse-i-search)`", 26);
+                            lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                            lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
                         }
                     }
                 }
@@ -1254,13 +1189,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                     reverse_search_index = i;
                                     
                                     // Update search prompt
-                                    lle_terminal_write(editor->terminal, "\r", 1);
-                                    lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                                    lle_terminal_clear_to_eol(editor->terminal);
-                                    lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
-                                    lle_terminal_write(editor->terminal, reverse_search_query, strlen(reverse_search_query));
-                                    lle_terminal_write(editor->terminal, "': ", 3);
-                                    lle_terminal_write(editor->terminal, entry->command, entry->length);
+                                    lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                                    lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                                    lle_display_integration_clear_to_eol(editor->state_integration);
+                                    lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
+                                    lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
+                                    lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                                    lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
+                                    
+                                    // Validate state after search prompt update
+                                    lle_display_integration_validate_state(editor->state_integration);
                                     
                                     needs_display_update = false;
                                     break;
@@ -1308,9 +1246,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                         
                         lle_text_buffer_clear(editor->buffer);
-                        lle_terminal_write(editor->terminal, "\n", 1);
-                        lle_terminal_move_cursor_to_column(editor->terminal, 0);
-                        lle_terminal_write(editor->terminal, "(reverse-i-search)`': ", 22);
+                        lle_display_integration_terminal_write(editor->state_integration, "\n", 1);
+                        lle_display_integration_move_cursor(editor->state_integration, 0, 0);
+                        lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`': ", 22);
                     }
                     needs_display_update = false;
                 }
@@ -1340,9 +1278,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         reverse_search_start_index = -1;
                         
                         // Clear search line and restore prompt
-                        lle_terminal_write(editor->terminal, "\r", 1);
-                        lle_terminal_clear_to_eol(editor->terminal);
-                        lle_terminal_move_cursor_up(editor->terminal, 1);
+                        lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                        lle_display_integration_clear_to_eol(editor->state_integration);
+                        lle_display_integration_move_cursor_up(editor->state_integration, 1);
+                        
+                        // Validate state after search line clearing
+                        lle_display_integration_validate_state(editor->state_integration);
                         needs_display_update = true;
                     } else {
                         line_cancelled = true;
@@ -1375,8 +1316,8 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             editor->buffer->cursor_pos = editor->buffer->length;
                             editor->buffer->buffer[editor->buffer->length] = '\0';
                             
-                            // Direct terminal write (no display system)
-                            lle_terminal_write(editor->display->terminal, &event.character, 1);
+                            // Direct terminal write with state synchronization
+                            lle_display_integration_terminal_write(editor->state_integration, &event.character, 1);
                             
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Direct character insertion\n");
@@ -1461,9 +1402,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     reverse_search_start_index = -1;
                     
                     // Clear search line and restore prompt
-                    lle_terminal_write(editor->terminal, "\r", 1);
-                    lle_terminal_clear_to_eol(editor->terminal);
-                    lle_terminal_move_cursor_up(editor->terminal, 1);
+                    lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
+                    lle_display_integration_clear_to_eol(editor->state_integration);
+                    lle_display_integration_move_cursor_up(editor->state_integration, 1);
+                    
+                    // Validate state after search cleanup
+                    lle_display_integration_validate_state(editor->state_integration);
                     needs_display_update = true;
                 } else {
                     // Normal escape key behavior
@@ -1634,7 +1578,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
     if (debug_mode) {
         fprintf(stderr, "[LLE_READLINE] Parsing prompt\n");
     }
-    if (!lle_prompt_parse(prompt_obj, prompt)) {
+    if (!lle_prompt_parse_with_terminal_width(prompt_obj, prompt, editor->display->geometry.width)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_READLINE] Failed to parse prompt\n");
         }
@@ -1650,6 +1594,8 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
     lle_prompt_t *old_prompt = editor->display->prompt;
     editor->display->prompt = prompt_obj;
     
+
+    
     // Initial display render
     if (debug_mode) {
         fprintf(stderr, "[LLE_READLINE] Rendering initial display\n");
@@ -1661,7 +1607,7 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
         // Fallback: just write the prompt directly to terminal without fancy rendering
         const char *simple_prompt = prompt;
         if (simple_prompt && editor->terminal) {
-            lle_terminal_write(editor->terminal, simple_prompt, strlen(simple_prompt));
+            lle_display_integration_terminal_write(editor->state_integration, simple_prompt, strlen(simple_prompt));
         }
         // Continue with input loop despite render failure
     }

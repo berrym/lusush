@@ -616,7 +616,11 @@ bool lle_display_integration_force_sync(lle_display_integration_t *integration) 
  * @brief Validate current display state consistency
  */
 bool lle_display_integration_validate_state(lle_display_integration_t *integration) {
-    if (!integration || !integration->validation_enabled) {
+    if (!integration) {
+        return false;  // NULL integration is invalid
+    }
+    
+    if (!integration->validation_enabled) {
         return true;
     }
     
