@@ -655,34 +655,65 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                        editor->buffer->length, entry->length);
                             }
                             
-                            // LINUX FIX: Complete fallback mode - no display system interaction
+                            // LINUX FIX: Proper multi-line aware clearing for Linux terminals
                             if (lle_platform_is_linux()) {
-                                // Phase 1: Simple terminal positioning and clearing
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Using multi-line aware history navigation\n");
+                                }
+                                
+                                // Step 1: Calculate current content dimensions
+                                size_t current_length = editor->buffer->length;
                                 size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                size_t terminal_width = editor->display->geometry.width;
                                 
-                                // Clear current line completely and reposition
-                                lle_terminal_write(editor->display->terminal, "\r\x1b[K", 4);  // Return to start, clear line
+                                // Step 2: Calculate how many lines current content occupies
+                                size_t total_chars = prompt_width + current_length;
+                                size_t lines_used = (total_chars / terminal_width) + 1;
                                 
-                                // Rewrite prompt (simple text output)
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Current content uses %zu lines (prompt=%zu, content=%zu, total=%zu, width=%zu)\n", 
+                                           lines_used, prompt_width, current_length, total_chars, terminal_width);
+                                }
+                                
+                                // Step 3: Move to beginning of current line and clear all used lines
+                                lle_terminal_write(editor->display->terminal, "\r", 1);  // Move to start of current line
+                                
+                                // Clear current line and any additional lines used by wrapped content
+                                for (size_t i = 0; i < lines_used; i++) {
+                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
+                                    if (i < lines_used - 1) {
+                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
+                                    }
+                                }
+                                
+                                // Step 4: Move back to start position
+                                if (lines_used > 1) {
+                                    char move_up[16];
+                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
+                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
+                                }
+                                
+                                // Step 5: Rewrite prompt
                                 if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
                                     lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
                                 }
                                 
-                                // Write new history content directly
+                                // Step 6: Write new history content
                                 lle_terminal_write(editor->display->terminal, entry->command, entry->length);
                                 
-                                // Update buffer to match (no display system calls)
-                                memset(editor->buffer->buffer, 0, editor->buffer->capacity);
-                                memcpy(editor->buffer->buffer, entry->command, entry->length);
-                                editor->buffer->length = entry->length;
-                                editor->buffer->cursor_pos = entry->length;
+                                // Step 7: Update buffer state to match terminal
+                                lle_text_buffer_clear(editor->buffer);
+                                for (size_t i = 0; i < entry->length; i++) {
+                                    lle_text_insert_char(editor->buffer, entry->command[i]);
+                                }
+                                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Complete fallback mode - terminal only\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line history navigation complete\n");
                                 }
                                 
                                 cmd_result = LLE_CMD_SUCCESS;
-                                needs_display_update = false;  // CRITICAL: Block all display updates
+                                needs_display_update = false;  // Skip display system updates
                             } else {
                                 // macOS: Use proven working approach
                                 lle_cmd_move_end(editor->display);
@@ -727,21 +758,51 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - clearing current line\n");
                             }
                             
-                            // LINUX FIX: Simple cursor positioning for clearing when no history entry
+                            // LINUX FIX: Multi-line aware clearing when no history entry
                             if (lle_platform_is_linux()) {
-                                // Move cursor to beginning of input area and clear
-                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                                
-                                lle_terminal_write(editor->display->terminal, "\r", 1);
-                                if (prompt_width > 0) {
-                                    char move_cmd[32];
-                                    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%zuC", prompt_width);
-                                    lle_terminal_write(editor->display->terminal, move_cmd, strlen(move_cmd));
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line clearing for no history entry\n");
                                 }
-                                lle_terminal_write(editor->display->terminal, "\x1b[K", 3);
+                                
+                                // Calculate current content dimensions
+                                size_t current_length = editor->buffer->length;
+                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                size_t terminal_width = editor->display->geometry.width;
+                                
+                                // Calculate how many lines current content occupies
+                                size_t total_chars = prompt_width + current_length;
+                                size_t lines_used = (total_chars / terminal_width) + 1;
                                 
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Cleared line, cursor positioned after prompt\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Clearing %zu lines (prompt=%zu, content=%zu, total=%zu)\n", 
+                                           lines_used, prompt_width, current_length, total_chars);
+                                }
+                                
+                                // Move to beginning of current line and clear all used lines
+                                lle_terminal_write(editor->display->terminal, "\r", 1);
+                                
+                                // Clear current line and any additional lines used by wrapped content
+                                for (size_t i = 0; i < lines_used; i++) {
+                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
+                                    if (i < lines_used - 1) {
+                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
+                                    }
+                                }
+                                
+                                // Move back to start position and rewrite prompt
+                                if (lines_used > 1) {
+                                    char move_up[16];
+                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
+                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
+                                }
+                                
+                                // Rewrite prompt
+                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
+                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
+                                }
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line clearing complete\n");
                                 }
                             } else {
                                 // macOS: Use proven working approach
@@ -831,11 +892,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Simple cursor positioning approach
+                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Multi-line aware approach
                             // Initialize platform detection for optimal sequences
                             if (!lle_platform_init()) {
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Platform detection failed, using fallback\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Warning: Platform detection failed\n");
                                 }
                             }
                             
@@ -849,34 +910,65 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                        editor->buffer->length, entry->length);
                             }
                             
-                            // LINUX FIX: Complete fallback mode - no display system interaction
+                            // LINUX FIX: Proper multi-line aware clearing for Linux terminals
                             if (lle_platform_is_linux()) {
-                                // Phase 1: Simple terminal positioning and clearing
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Using multi-line aware history navigation\n");
+                                }
+                                
+                                // Step 1: Calculate current content dimensions
+                                size_t current_length = editor->buffer->length;
                                 size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                size_t terminal_width = editor->display->geometry.width;
                                 
-                                // Clear current line completely and reposition
-                                lle_terminal_write(editor->display->terminal, "\r\x1b[K", 4);  // Return to start, clear line
+                                // Step 2: Calculate how many lines current content occupies
+                                size_t total_chars = prompt_width + current_length;
+                                size_t lines_used = (total_chars / terminal_width) + 1;
                                 
-                                // Rewrite prompt (simple text output)
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Current content uses %zu lines (prompt=%zu, content=%zu, total=%zu, width=%zu)\n", 
+                                           lines_used, prompt_width, current_length, total_chars, terminal_width);
+                                }
+                                
+                                // Step 3: Move to beginning of current line and clear all used lines
+                                lle_terminal_write(editor->display->terminal, "\r", 1);  // Move to start of current line
+                                
+                                // Clear current line and any additional lines used by wrapped content
+                                for (size_t i = 0; i < lines_used; i++) {
+                                    lle_terminal_write(editor->display->terminal, "\x1b[K", 3);  // Clear to end of line
+                                    if (i < lines_used - 1) {
+                                        lle_terminal_write(editor->display->terminal, "\x1b[B", 3);  // Move down one line
+                                    }
+                                }
+                                
+                                // Step 4: Move back to start position
+                                if (lines_used > 1) {
+                                    char move_up[16];
+                                    snprintf(move_up, sizeof(move_up), "\x1b[%zuA", lines_used - 1);
+                                    lle_terminal_write(editor->display->terminal, move_up, strlen(move_up));
+                                }
+                                
+                                // Step 5: Rewrite prompt
                                 if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
                                     lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
                                 }
                                 
-                                // Write new history content directly
+                                // Step 6: Write new history content
                                 lle_terminal_write(editor->display->terminal, entry->command, entry->length);
                                 
-                                // Update buffer to match (no display system calls)
-                                memset(editor->buffer->buffer, 0, editor->buffer->capacity);
-                                memcpy(editor->buffer->buffer, entry->command, entry->length);
-                                editor->buffer->length = entry->length;
-                                editor->buffer->cursor_pos = entry->length;
+                                // Step 7: Update buffer state to match terminal
+                                lle_text_buffer_clear(editor->buffer);
+                                for (size_t i = 0; i < entry->length; i++) {
+                                    lle_text_insert_char(editor->buffer, entry->command[i]);
+                                }
+                                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
                                 
                                 if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Complete fallback mode - terminal only\n");
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line history navigation complete\n");
                                 }
                                 
                                 cmd_result = LLE_CMD_SUCCESS;
-                                needs_display_update = false;  // CRITICAL: Block all display updates
+                                needs_display_update = false;  // Skip display system updates
                             } else {
                                 // macOS: Use proven working approach
                                 lle_cmd_move_end(editor->display);

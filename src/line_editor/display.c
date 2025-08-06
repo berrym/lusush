@@ -10,6 +10,8 @@
  */
 
 #include "display.h"
+#include "display_state_sync.h"
+#include "display_state_integration.h"
 #include "buffer_trace.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -210,6 +212,10 @@ bool lle_display_init(lle_display_state_t *state) {
         state->performance_optimization_enabled = false;
     }
     
+    // Initialize unified display state synchronization integration
+    // TEMPORARILY DISABLED - Integration causing display corruption
+    state->state_integration = NULL;
+    
     return true;
 }
 
@@ -256,6 +262,10 @@ bool lle_display_cleanup(lle_display_state_t *state) {
         return false;
     }
     
+    // Clean up unified display state synchronization integration
+    // TEMPORARILY DISABLED - Integration causing display corruption
+    state->state_integration = NULL;
+    
     // Reset fields but don't free associated structures
     state->prompt = NULL;
     state->buffer = NULL;
@@ -285,6 +295,10 @@ void lle_display_destroy(lle_display_state_t *state) {
     if (!state) {
         return;
     }
+    
+    // Clean up unified display state synchronization integration
+    // TEMPORARILY DISABLED - Integration causing display corruption
+    state->state_integration = NULL;
     
     // Phase 2C: Ensure performance optimization components are cleaned up
     if (state->performance_optimization_enabled) {
@@ -579,6 +593,9 @@ bool lle_display_render(lle_display_state_t *state) {
     }
     
     state->needs_refresh = false;
+    
+    // Validate display state consistency after complex operations
+    // TEMPORARILY DISABLED - Integration causing display corruption
     
     if (debug_mode) {
         fprintf(stderr, "[LLE_DISPLAY_RENDER] Display render completed successfully\n");
@@ -1502,6 +1519,9 @@ if (!lle_display_update_cursor(state)) {
 if (debug_mode) {
     fprintf(stderr, "[LLE_INCREMENTAL] Simple strategy completed with cursor positioning\n");
 }
+
+// Validate display state consistency after incremental update
+// TEMPORARILY DISABLED - Integration causing display corruption
     
 return true;
 }
@@ -1783,6 +1803,7 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
     for (size_t i = state->display_start_offset; i < text_length; i++) {
         char c = text[i];
         
+        // Handle newlines in input text
         // Handle newlines in input text
         if (c == '\n') {
             if (!lle_terminal_write(state->terminal, "\n", 1)) {

@@ -10,6 +10,9 @@
 #include "syntax.h"
 #include "theme_integration.h"
 
+// Forward declarations to avoid circular dependencies
+struct lle_display_integration;
+
 // Forward declaration to avoid circular dependency
 struct lle_line_editor;
 
@@ -187,6 +190,9 @@ typedef struct {
     
     // Boundary crossing tracking to prevent double processing
     bool boundary_crossing_handled;                /**< Whether boundary crossing has been handled this update */
+    
+    // Unified display state synchronization integration
+    struct lle_display_integration *state_integration;  /**< State synchronization integration context */
 } lle_display_state_t;
 
 /**
