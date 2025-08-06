@@ -57,8 +57,8 @@ static lle_display_state_t *create_test_display(void) {
     if (!display) return NULL;
     
     // Initialize basic display state
-    display->geometry.cols = 80;
-    display->geometry.rows = 24;
+    display->geometry.width = 80;
+    display->geometry.height = 24;
     display->cursor_pos.absolute_row = 0;
     display->cursor_pos.absolute_col = 0;
     display->initialized = true;
@@ -461,7 +461,7 @@ LLE_TEST(state_divergence_recovery) {
     display->cursor_pos.absolute_col = 0;
     
     // Mark as having content mismatch
-    lle_display_sync_update_expected(sync_ctx->display_sync, "expected", 8, 8, 1);
+    lle_display_sync_update_expected(sync_ctx, "expected", 8, 8, 1);
     sync_ctx->display_sync->content_validated = false;
     sync_ctx->display_sync->cursor_validated = false;
     

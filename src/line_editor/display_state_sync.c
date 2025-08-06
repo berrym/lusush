@@ -58,8 +58,8 @@ static uint32_t lle_calculate_checksum(const char *data, size_t length) {
 /**
  * @brief Initialize terminal state tracking
  */
-static lle_terminal_state_t *lle_terminal_state_create(size_t width, size_t height) {
-    lle_terminal_state_t *state = calloc(1, sizeof(lle_terminal_state_t));
+static lle_sync_terminal_state_t *lle_terminal_state_create(size_t width, size_t height) {
+    lle_sync_terminal_state_t *state = calloc(1, sizeof(lle_sync_terminal_state_t));
     if (!state) {
         return NULL;
     }
@@ -106,7 +106,7 @@ static lle_terminal_state_t *lle_terminal_state_create(size_t width, size_t heig
 /**
  * @brief Cleanup terminal state tracking
  */
-static void lle_terminal_state_destroy(lle_terminal_state_t *state) {
+static void lle_terminal_state_destroy(lle_sync_terminal_state_t *state) {
     if (!state) {
         return;
     }
@@ -125,7 +125,7 @@ static void lle_terminal_state_destroy(lle_terminal_state_t *state) {
 /**
  * @brief Update terminal cell content
  */
-static bool lle_terminal_state_set_cell(lle_terminal_state_t *state,
+static bool lle_terminal_state_set_cell(lle_sync_terminal_state_t *state,
                                         size_t row, size_t col,
                                         char character, bool has_content) {
     if (!state || row >= state->height || col >= state->width) {
@@ -166,7 +166,7 @@ static bool lle_terminal_state_set_cell(lle_terminal_state_t *state,
 /**
  * @brief Clear terminal line range
  */
-static bool lle_terminal_state_clear_line_range(lle_terminal_state_t *state,
+static bool lle_terminal_state_clear_line_range(lle_sync_terminal_state_t *state,
                                                size_t row, size_t start_col, size_t end_col) {
     if (!state || row >= state->height) {
         return false;
@@ -254,9 +254,9 @@ lle_state_sync_context_t *lle_state_sync_init(lle_terminal_manager_t *terminal,
     
     // Get terminal geometry
     size_t width = 80, height = 24;  // Default values
-    if (display->geometry.cols > 0 && display->geometry.rows > 0) {
-        width = display->geometry.cols;
-        height = display->geometry.rows;
+    if (display->geometry.width > 0 && display->geometry.height > 0) {
+        width = display->geometry.width;
+        height = display->geometry.height;
     }
     
     // Initialize terminal state tracking
@@ -387,11 +387,11 @@ bool lle_state_sync_validate(lle_state_sync_context_t *sync_ctx) {
     bool geometry_valid = true;
     
     // Validate terminal geometry matches display expectations
-    if (sync_ctx->display->geometry.cols != sync_ctx->terminal_state->width ||
-        sync_ctx->display->geometry.rows != sync_ctx->terminal_state->height) {
+    if (sync_ctx->display->geometry.width != sync_ctx->terminal_state->width ||
+        sync_ctx->display->geometry.height != sync_ctx->terminal_state->height) {
         geometry_valid = false;
         LLE_SYNC_DEBUG("Geometry mismatch: display=%zux%zu, terminal=%zux%zu",
-                       sync_ctx->display->geometry.cols, sync_ctx->display->geometry.rows,
+                       sync_ctx->display->geometry.width, sync_ctx->display->geometry.height,
                        sync_ctx->terminal_state->width, sync_ctx->terminal_state->height);
     }
     
@@ -470,7 +470,7 @@ bool lle_terminal_state_update_write(lle_state_sync_context_t *sync_ctx,
         return false;
     }
     
-    lle_terminal_state_t *state = sync_ctx->terminal_state;
+    lle_sync_terminal_state_t *state = sync_ctx->terminal_state;
     
     // Update cursor position
     if (cursor_row < state->height && cursor_col < state->width) {
@@ -541,7 +541,7 @@ bool lle_terminal_state_update_clear(lle_state_sync_context_t *sync_ctx,
         return false;
     }
     
-    lle_terminal_state_t *state = sync_ctx->terminal_state;
+    lle_sync_terminal_state_t *state = sync_ctx->terminal_state;
     
     LLE_SYNC_DEBUG("Terminal clear: type=%s, region=(%zu,%zu)-(%zu,%zu)", 
                    clear_type, start_row, start_col, end_row, end_col);
@@ -583,7 +583,7 @@ bool lle_terminal_state_update_cursor(lle_state_sync_context_t *sync_ctx,
         return false;
     }
     
-    lle_terminal_state_t *state = sync_ctx->terminal_state;
+    lle_sync_terminal_state_t *state = sync_ctx->terminal_state;
     
     if (new_row < state->height && new_col < state->width) {
         // Clear cursor from old position
@@ -969,7 +969,7 @@ void lle_state_sync_debug_dump_terminal(lle_state_sync_context_t *sync_ctx,
     }
         
     FILE *out = output_file ? output_file : stderr;
-    lle_terminal_state_t *state = sync_ctx->terminal_state;
+    lle_sync_terminal_state_t *state = sync_ctx->terminal_state;
         
     fprintf(out, "\n=== TERMINAL STATE DUMP ===\n");
     fprintf(out, "Dimensions: %zux%zu\n", state->width, state->height);
@@ -1076,8 +1076,8 @@ size_t lle_state_sync_debug_compare_states(lle_state_sync_context_t *sync_ctx,
     }
         
     // Compare dimensions
-    size_t display_width = sync_ctx->display->geometry.cols;
-    size_t display_height = sync_ctx->display->geometry.rows;
+    size_t display_width = sync_ctx->display->geometry.width;
+    size_t display_height = sync_ctx->display->geometry.height;
     size_t terminal_width = sync_ctx->terminal_state->width;
     size_t terminal_height = sync_ctx->terminal_state->height;
         

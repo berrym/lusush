@@ -19,6 +19,7 @@
 #include "terminal_manager.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // ============================================================================
 // Integration Context

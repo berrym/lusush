@@ -17,12 +17,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include "terminal_manager.h"
 #include "display.h"
 
-// Forward declarations
-typedef struct lle_display_state lle_display_state_t;
-typedef struct lle_terminal_manager lle_terminal_manager_t;
+// Forward declarations - avoid conflicts with existing types
 
 // ============================================================================
 // Terminal State Tracking
@@ -78,7 +77,7 @@ typedef struct {
     size_t dirty_end_row;          /**< End of dirty region */
     size_t dirty_start_col;        /**< Start column of dirty region */
     size_t dirty_end_col;          /**< End column of dirty region */
-} lle_terminal_state_t;
+} lle_sync_terminal_state_t;
 
 // ============================================================================
 // Display State Synchronization
@@ -114,7 +113,7 @@ typedef struct {
  * @brief Unified state synchronization context
  */
 typedef struct {
-    lle_terminal_state_t *terminal_state;    /**< Terminal state tracking */
+    lle_sync_terminal_state_t *terminal_state;    /**< Terminal state tracking */
     lle_display_sync_state_t *display_sync;  /**< Display sync state */
     lle_terminal_manager_t *terminal;        /**< Terminal manager reference */
     lle_display_state_t *display;           /**< Display state reference */

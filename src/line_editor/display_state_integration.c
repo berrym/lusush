@@ -261,7 +261,7 @@ bool lle_display_integration_clear_to_eol(lle_display_integration_t *integration
     // Get current cursor position
     size_t cursor_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
     size_t cursor_col = integration->display ? integration->display->cursor_pos.absolute_col : 0;
-    size_t terminal_width = integration->display ? integration->display->geometry.cols : 80;
+    size_t terminal_width = integration->display ? integration->display->geometry.width : 80;
     
     // Perform clear operation using state tracking
     bool success = lle_terminal_state_update_clear(integration->sync_ctx, "eol",
@@ -271,8 +271,7 @@ bool lle_display_integration_clear_to_eol(lle_display_integration_t *integration
     if (success) {
         // Send actual ANSI clear sequence
         const char *clear_sequence = "\x1b[K";
-        ssize_t written = write(integration->terminal->stdout_fd, clear_sequence, 3);
-        success = (written == 3);
+        success = lle_state_sync_terminal_write(integration->sync_ctx, clear_sequence, 3);
         
         if (success) {
             lle_integration_update_display_state(integration, "clear_to_eol");
@@ -296,7 +295,7 @@ bool lle_display_integration_clear_line(lle_display_integration_t *integration,
         return false;
     }
     
-    size_t terminal_width = integration->display ? integration->display->geometry.cols : 80;
+    size_t terminal_width = integration->display ? integration->display->geometry.width : 80;
     
     // Update state tracking
     bool success = lle_terminal_state_update_clear(integration->sync_ctx, "line",
@@ -306,8 +305,7 @@ bool lle_display_integration_clear_line(lle_display_integration_t *integration,
     if (success) {
         // Send ANSI clear line sequence
         const char *clear_sequence = "\x1b[2K";
-        ssize_t written = write(integration->terminal->stdout_fd, clear_sequence, 4);
-        success = (written == 4);
+        success = lle_state_sync_terminal_write(integration->sync_ctx, clear_sequence, 4);
         
         if (success) {
             lle_integration_update_display_state(integration, "clear_line");
@@ -341,8 +339,7 @@ bool lle_display_integration_move_cursor(lle_display_integration_t *integration,
         int len = snprintf(cursor_sequence, sizeof(cursor_sequence), "\x1b[%zu;%zuH", row + 1, col + 1);
         
         if (len > 0 && len < (int)sizeof(cursor_sequence)) {
-            ssize_t written = write(integration->terminal->stdout_fd, cursor_sequence, len);
-            success = (written == len);
+            success = lle_state_sync_terminal_write(integration->sync_ctx, cursor_sequence, len);
             
             if (success) {
                 // Update display state cursor position
@@ -394,7 +391,7 @@ bool lle_display_integration_move_cursor_down(lle_display_integration_t *integra
     
     size_t current_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
     size_t current_col = integration->display ? integration->display->cursor_pos.absolute_col : 0;
-    size_t terminal_height = integration->display ? integration->display->geometry.rows : 24;
+    size_t terminal_height = integration->display ? integration->display->geometry.height : 24;
     
     if (current_row + rows < terminal_height) {
         return lle_display_integration_move_cursor(integration, current_row + rows, current_col);
@@ -425,7 +422,7 @@ bool lle_display_integration_move_cursor_end(lle_display_integration_t *integrat
     
     size_t current_row = integration->display->cursor_pos.absolute_row;
     size_t content_length = integration->display->buffer->length;
-    size_t terminal_width = integration->display->geometry.cols;
+    size_t terminal_width = integration->display->geometry.width;
     
     // Calculate end position based on content length and terminal width
     size_t end_col = content_length % terminal_width;
