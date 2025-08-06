@@ -261,20 +261,57 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
             size_t seq_pos = 1;
             buffer[0] = first_char;
             
+            // Use longer timeout for escape sequences and better logic
             while (seq_pos < sizeof(buffer) - 1) {
-                bytes_read = read_with_timeout(tm->stdin_fd, &buffer[seq_pos], 1, 50); // Short timeout for sequence
+                bytes_read = read_with_timeout(tm->stdin_fd, &buffer[seq_pos], 1, 200); // Longer timeout
                 if (bytes_read <= 0) break;
                 
                 seq_pos++;
+                buffer[seq_pos] = '\0';
+                
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_READ_KEY] Building escape sequence: '%s' (length=%zu)\n", buffer + 1, seq_pos - 1);
+                }
                 
                 // Check if we have a complete sequence
-                buffer[seq_pos] = '\0';
                 if (lle_input_parse_escape_sequence(buffer + 1, event)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_READ_KEY] Successfully parsed escape sequence: type=%d\n", event->type);
+                    }
                     // Copy raw sequence
                     memcpy(event->raw_sequence, buffer, seq_pos);
                     event->sequence_length = seq_pos;
                     return true;
                 }
+                
+                // For common sequences, check early termination
+                if (seq_pos >= 3) {
+                    // Most escape sequences are complete by 3 chars (ESC + [ + letter)
+                    char *seq_part = buffer + 1;
+                    if (seq_part[0] == '[' && ((seq_part[1] >= 'A' && seq_part[1] <= 'D') || 
+                                             (seq_part[1] >= 'H' && seq_part[1] <= 'H') ||
+                                             (seq_part[1] >= 'F' && seq_part[1] <= 'F'))) {
+                        // This looks like a complete arrow/home/end key
+                        break;
+                    }
+                }
+            }
+            
+            // Final attempt to parse whatever we collected
+            if (seq_pos > 1) {
+                buffer[seq_pos] = '\0';
+                if (lle_input_parse_escape_sequence(buffer + 1, event)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_READ_KEY] Final parse successful: type=%d\n", event->type);
+                    }
+                    memcpy(event->raw_sequence, buffer, seq_pos);
+                    event->sequence_length = seq_pos;
+                    return true;
+                }
+            }
+            
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_INPUT_READ_KEY] Failed to parse escape sequence, treating as ESC\n");
             }
             
             // If we couldn't parse as escape sequence, treat as plain ESC
@@ -316,15 +353,30 @@ bool lle_input_read_key(lle_terminal_manager_t *tm, lle_key_event_t *event) {
 bool lle_input_parse_escape_sequence(const char *seq, lle_key_event_t *event) {
     if (!seq || !event) return false;
     
+    // Check for debug mode
+    const char *debug_env = getenv("LLE_DEBUG");
+    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_ESCAPE_PARSE] Parsing sequence: '%s' (length=%zu)\n", seq, strlen(seq));
+    }
+    
     // Check against our mapping table
     for (const lle_escape_mapping_t *mapping = escape_mappings; mapping->sequence; mapping++) {
         if (strcmp(seq, mapping->sequence) == 0) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_ESCAPE_PARSE] Found match: '%s' -> type=%d\n", mapping->sequence, mapping->key_type);
+            }
             event->type = mapping->key_type;
             event->ctrl = mapping->ctrl;
             event->alt = mapping->alt;
             event->shift = mapping->shift;
             return true;
         }
+    }
+    
+    if (debug_mode) {
+        fprintf(stderr, "[LLE_ESCAPE_PARSE] No match found for sequence: '%s'\n", seq);
     }
     
     // Handle Alt+key sequences that start without '[' 

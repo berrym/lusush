@@ -171,6 +171,20 @@ size_t lle_prompt_copy_plain_text(const lle_prompt_t *prompt, char *output, size
 bool lle_prompt_parse(lle_prompt_t *prompt, const char *text);
 
 /**
+ * @brief Parse and analyze prompt structure with terminal width awareness
+ *
+ * Parses the given prompt text, splitting it into lines and calculating
+ * display geometry. Handles ANSI escape sequences, multiline prompts, and
+ * automatic line wrapping when prompt exceeds terminal width.
+ *
+ * @param prompt Prompt structure to populate
+ * @param text Prompt text to parse (may contain ANSI codes and newlines)
+ * @param terminal_width Terminal width for wrapping calculation
+ * @return true on success, false on error
+ */
+bool lle_prompt_parse_with_terminal_width(lle_prompt_t *prompt, const char *text, size_t terminal_width);
+
+/**
  * @brief Split prompt into individual lines
  *
  * Splits the prompt text at newline characters and stores each line

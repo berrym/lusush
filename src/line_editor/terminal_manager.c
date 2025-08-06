@@ -1416,14 +1416,12 @@ bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
     size_t old_lines = lle_terminal_calculate_content_lines("", old_content_length, terminal_width, prompt_width);
     
     if (old_lines > 1) {
-        // Multi-line clearing: DISABLED due to terminal compatibility issues
+        // Multi-line clearing: ENABLED - Use proven multiline approach
         if (debug_mode) {
-            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line content detected: skipping visual clearing (known issue)\n");
-            fprintf(stderr, "[LLE_SAFE_REPLACE] Single-line history navigation works perfectly, multiline disabled for stability\n");
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line content detected: %zu lines, using enhanced clearing\n", old_lines);
         }
         
-        // For multiline content, skip the visual clearing and just position cursor
-        // This prevents visual artifacts while maintaining functionality
+        // Step 1: Move to end of content to start clearing backwards
         if (!lle_terminal_write(tm, "\r", 1)) {
             return false;
         }
@@ -1431,8 +1429,17 @@ bool lle_terminal_safe_replace_content(lle_terminal_manager_t *tm,
             return false;
         }
         
+        // Step 2: Clear using exact character count method (proven working for single-line)
+        // This extends the working single-line approach to multiline content
+        if (!lle_terminal_clear_exact_chars(tm, old_content_length)) {
+            if (debug_mode) {
+                fprintf(stderr, "[LLE_SAFE_REPLACE] ERROR: Multi-line exact character clearing failed\n");
+            }
+            return false;
+        }
+        
         if (debug_mode) {
-            fprintf(stderr, "[LLE_SAFE_REPLACE] Multiline clearing bypassed - positioned at content start\n");
+            fprintf(stderr, "[LLE_SAFE_REPLACE] Multi-line exact character clearing completed\n");
         }
     } else {
         // Single line: use proven exact character clearing

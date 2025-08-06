@@ -303,6 +303,58 @@ bool lle_prompt_parse(lle_prompt_t *prompt, const char *text) {
 }
 
 /**
+ * @brief Parse and analyze prompt structure with terminal width awareness
+ *
+ * Parses the given prompt text, splitting it into lines and calculating
+ * display geometry. Handles ANSI escape sequences, multiline prompts, and
+ * automatic line wrapping when prompt exceeds terminal width.
+ *
+ * @param prompt Prompt structure to populate
+ * @param text Prompt text to parse (may contain ANSI codes and newlines)
+ * @param terminal_width Terminal width for wrapping calculation
+ * @return true on success, false on error
+ */
+bool lle_prompt_parse_with_terminal_width(lle_prompt_t *prompt, const char *text, size_t terminal_width) {
+    if (!prompt || !text || terminal_width == 0) {
+        return false;
+    }
+    
+    // First parse normally
+    if (!lle_prompt_parse(prompt, text)) {
+        return false;
+    }
+    
+    // Check if any line exceeds terminal width and needs wrapping adjustment
+    bool needs_wrapping_adjustment = false;
+    for (size_t i = 0; i < prompt->line_count; i++) {
+        size_t line_width = lle_prompt_display_width(prompt->lines[i]);
+        if (line_width > terminal_width) {
+            needs_wrapping_adjustment = true;
+            break;
+        }
+    }
+    
+    // If wrapping adjustment needed, recalculate geometry
+    if (needs_wrapping_adjustment) {
+        prompt->geometry.height = 0;
+        for (size_t i = 0; i < prompt->line_count; i++) {
+            size_t line_width = lle_prompt_display_width(prompt->lines[i]);
+            size_t lines_for_this_prompt_line = (line_width + terminal_width - 1) / terminal_width;
+            if (lines_for_this_prompt_line == 0) lines_for_this_prompt_line = 1;
+            prompt->geometry.height += lines_for_this_prompt_line;
+            
+            // For last line, calculate the actual column position after wrapping
+            if (i == prompt->line_count - 1) {
+                size_t remainder = line_width % terminal_width;
+                prompt->geometry.last_line_width = remainder ? remainder : terminal_width;
+            }
+        }
+    }
+    
+    return true;
+}
+
+/**
  * @brief Split prompt into individual lines
  *
  * Splits the prompt text at newline characters and stores each line
