@@ -24,6 +24,7 @@
 #include "edit_commands.h"
 #include "enhanced_tab_completion.h"
 #include "display_stabilization.h"
+#include "platform_detection.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -631,31 +632,61 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         }
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: 100%% exact backspace replication approach\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: Platform-aware exact backspace replication\n");
                                 fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 100% EXACT BACKSPACE REPLICATION: Use simple terminal writes to bypass boundary crossing
+                            // 🎯 PLATFORM-AWARE EXACT BACKSPACE REPLICATION: Perfect macOS + Linux support
+                            // Initialize platform detection for optimal sequences
+                            if (!lle_platform_init()) {
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Platform detection failed, using fallback\n");
+                                }
+                            }
+                            
                             // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
                             lle_cmd_move_end(editor->display);  // Move to end before backspacing
                             
-                            // Phase 1: Clear existing content using simple backspace writes to bypass complex display logic
+                            // Phase 1: Clear existing content using platform-optimized backspace sequences
                             size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
                             size_t text_length = editor->buffer->length;
                             
-                            // Use backspace count minus 1 to avoid going too far back
+                            // Use proven formula: text_length - 1 for exact positioning (perfect on macOS)
                             size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            
+                            // Get platform-optimized backspace sequence
+                            const char *backspace_seq = lle_platform_get_backspace_sequence();
+                            size_t backspace_seq_len = lle_platform_get_backspace_length();
+                            
                             if (debug_mode) {
+                                const char *platform_desc = "Unknown";
+                                if (lle_platform_is_macos()) platform_desc = "macOS";
+                                else if (lle_platform_is_linux()) platform_desc = "Linux";
+                                
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, backspace sequence: [%s], length: %zu\n", 
+                                       platform_desc, backspace_seq, backspace_seq_len);
                                 fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
                                        prompt_width, text_length, backspace_count);
                             }
-                            // Use simple terminal writes for exact backspace replication
+                            
+                            // Platform-aware exact backspace replication
                             for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                                lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
                             }
-                            // Clear any remaining artifacts at end of line
-                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            
+                            // Platform-aware artifact clearing
+                            if (lle_platform_has_reliable_clear_eol()) {
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                            } else {
+                                // Linux fallback: Additional space clearing for stubborn artifacts
+                                if (lle_platform_is_linux()) {
+                                    lle_terminal_write(editor->display->terminal, " ", 1);
+                                    lle_terminal_write(editor->display->terminal, "\b", 1);
+                                }
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                            }
+                            
                             // Update buffer state to match cleared content
                             editor->buffer->length = 0;
                             editor->buffer->cursor_pos = 0;
@@ -770,26 +801,55 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 100% EXACT BACKSPACE REPLICATION: Use simple terminal writes to bypass boundary crossing
+                            // 🎯 PLATFORM-AWARE EXACT BACKSPACE REPLICATION: Perfect macOS + Linux support
+                            // Initialize platform detection for optimal sequences
+                            if (!lle_platform_init()) {
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Platform detection failed, using fallback\n");
+                                }
+                            }
+                            
                             // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
                             lle_cmd_move_end(editor->display);  // Move to end before backspacing
                             
-                            // Phase 1: Clear existing content using simple backspace writes to bypass complex display logic
+                            // Phase 1: Clear existing content using platform-optimized backspace sequences
                             size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
                             size_t text_length = editor->buffer->length;
                             
-                            // Use backspace count minus 1 to avoid going too far back
+                            // Use proven formula: text_length - 1 for exact positioning (perfect on macOS)
                             size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                            
+                            // Get platform-optimized backspace sequence
+                            const char *backspace_seq = lle_platform_get_backspace_sequence();
+                            size_t backspace_seq_len = lle_platform_get_backspace_length();
+                            
                             if (debug_mode) {
+                                const char *platform_desc = "Unknown";
+                                if (lle_platform_is_macos()) platform_desc = "macOS";
+                                else if (lle_platform_is_linux()) platform_desc = "Linux";
+                                
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, backspace sequence: [%s], length: %zu\n", 
+                                       platform_desc, backspace_seq, backspace_seq_len);
                                 fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
                                        prompt_width, text_length, backspace_count);
                             }
-                            // Use simple terminal writes for exact backspace replication
+                            
+                            // Platform-aware exact backspace replication
                             for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                                lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
                             }
-                            // Clear any remaining artifacts at end of line
-                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            
+                            // Platform-aware artifact clearing
+                            if (lle_platform_has_reliable_clear_eol()) {
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                            } else {
+                                // Linux fallback: Additional space clearing for stubborn artifacts
+                                if (lle_platform_is_linux()) {
+                                    lle_terminal_write(editor->display->terminal, " ", 1);
+                                    lle_terminal_write(editor->display->terminal, "\b", 1);
+                                }
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                            }
                             // Update buffer state to match cleared content
                             editor->buffer->length = 0;
                             editor->buffer->cursor_pos = 0;

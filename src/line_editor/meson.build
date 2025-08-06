@@ -26,7 +26,8 @@ lle_sources = [
   'enhanced_terminal_detection.c',
   'enhanced_terminal_integration.c',
   'enhanced_tab_completion.c',
-  'buffer_trace.c'
+  'buffer_trace.c',
+  'platform_detection.c'
 ]
 
 lle_headers = [
@@ -51,7 +52,8 @@ lle_headers = [
   'enhanced_terminal_detection.h',
   'enhanced_terminal_integration.h',
   'enhanced_tab_completion.h',
-  'buffer_trace.h'
+  'buffer_trace.h',
+  'platform_detection.h'
 ]
 
 # Create line editor static library
@@ -65,3 +67,9 @@ lle_lib = static_library('lle',
 lle_dep = declare_dependency(link_with: lle_lib,
                             dependencies: [lle_termcap_dependency],
                             include_directories: include_directories('.'))
+
+# Linux platform verification utility
+linux_platform_check = executable('linux_platform_check',
+                                  'linux_platform_check.c',
+                                  dependencies: [lle_dep],
+                                  install: false)
