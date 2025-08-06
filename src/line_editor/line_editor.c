@@ -637,7 +637,7 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 🎯 PLATFORM-AWARE EXACT BACKSPACE REPLICATION: Perfect macOS + Linux support
+                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Simple cursor positioning approach
                             // Initialize platform detection for optimal sequences
                             if (!lle_platform_init()) {
                                 if (debug_mode) {
@@ -645,58 +645,75 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 }
                             }
                             
-                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
-                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
-                            
-                            // Phase 1: Clear existing content using platform-optimized backspace sequences
-                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                            size_t text_length = editor->buffer->length;
-                            
-                            // Use proven formula: text_length - 1 for exact positioning (perfect on macOS)
-                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                            
-                            // Get platform-optimized backspace sequence
-                            const char *backspace_seq = lle_platform_get_backspace_sequence();
-                            size_t backspace_seq_len = lle_platform_get_backspace_length();
-                            
                             if (debug_mode) {
                                 const char *platform_desc = "Unknown";
                                 if (lle_platform_is_macos()) platform_desc = "macOS";
                                 else if (lle_platform_is_linux()) platform_desc = "Linux";
                                 
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, backspace sequence: [%s], length: %zu\n", 
-                                       platform_desc, backspace_seq, backspace_seq_len);
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
-                                       prompt_width, text_length, backspace_count);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, clearing current line for history navigation\n", platform_desc);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content length: %zu\n", 
+                                       editor->buffer->length, entry->length);
                             }
                             
-                            // Platform-aware exact backspace replication
-                            for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
-                            }
-                            
-                            // Platform-aware artifact clearing
-                            if (lle_platform_has_reliable_clear_eol()) {
-                                lle_terminal_clear_to_eol(editor->display->terminal);
-                            } else {
-                                // Linux fallback: Additional space clearing for stubborn artifacts
-                                if (lle_platform_is_linux()) {
-                                    lle_terminal_write(editor->display->terminal, " ", 1);
-                                    lle_terminal_write(editor->display->terminal, "\b", 1);
+                            // LINUX FIX: Complete fallback mode - no display system interaction
+                            if (lle_platform_is_linux()) {
+                                // Phase 1: Simple terminal positioning and clearing
+                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                
+                                // Clear current line completely and reposition
+                                lle_terminal_write(editor->display->terminal, "\r\x1b[K", 4);  // Return to start, clear line
+                                
+                                // Rewrite prompt (simple text output)
+                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
+                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
                                 }
+                                
+                                // Write new history content directly
+                                lle_terminal_write(editor->display->terminal, entry->command, entry->length);
+                                
+                                // Update buffer to match (no display system calls)
+                                memset(editor->buffer->buffer, 0, editor->buffer->capacity);
+                                memcpy(editor->buffer->buffer, entry->command, entry->length);
+                                editor->buffer->length = entry->length;
+                                editor->buffer->cursor_pos = entry->length;
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Complete fallback mode - terminal only\n");
+                                }
+                                
+                                cmd_result = LLE_CMD_SUCCESS;
+                                needs_display_update = false;  // CRITICAL: Block all display updates
+                            } else {
+                                // macOS: Use proven working approach
+                                lle_cmd_move_end(editor->display);
+                                
+                                size_t text_length = editor->buffer->length;
+                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                                
+                                const char *backspace_seq = lle_platform_get_backspace_sequence();
+                                size_t backspace_seq_len = lle_platform_get_backspace_length();
+                                
+                                for (size_t i = 0; i < backspace_count; i++) {
+                                    lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
+                                }
+                                
                                 lle_terminal_clear_to_eol(editor->display->terminal);
+                                
+                                // Update buffer state to match cleared content
+                                editor->buffer->length = 0;
+                                editor->buffer->cursor_pos = 0;
+                                
+                                // Phase 3: Insert new content character by character (macOS only)
+                                for (size_t i = 0; i < entry->length; i++) {
+                                    lle_cmd_insert_char(editor->display, entry->command[i]);
+                                }
+                                
+                                cmd_result = LLE_CMD_SUCCESS;
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven exact backspace approach\n");
+                                }
                             }
-                            
-                            // Update buffer state to match cleared content
-                            editor->buffer->length = 0;
-                            editor->buffer->cursor_pos = 0;
-                            
-                            // Phase 2: Insert new content using exact same character input as user typing
-                            for (size_t i = 0; i < entry->length; i++) {
-                                lle_cmd_insert_char(editor->display, entry->command[i]);  // Exact same function as regular character input
-                            }
-                            
-                            cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] History UP: exact backspace replication complete\n");
@@ -707,36 +724,49 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             }
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - exact backspace clearing\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - clearing current line\n");
                             }
                             
-                            // 100% EXACT BACKSPACE REPLICATION: Clear using simple terminal writes
-                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
-                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
-                            
-                            // Use simple terminal writes for exact backspace replication
-                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                            size_t text_length = editor->buffer->length;
-                            
-                            // Use backspace count minus 1 to avoid going too far back
-                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
-                                       prompt_width, text_length, backspace_count);
+                            // LINUX FIX: Simple cursor positioning for clearing when no history entry
+                            if (lle_platform_is_linux()) {
+                                // Move cursor to beginning of input area and clear
+                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                
+                                lle_terminal_write(editor->display->terminal, "\r", 1);
+                                if (prompt_width > 0) {
+                                    char move_cmd[32];
+                                    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%zuC", prompt_width);
+                                    lle_terminal_write(editor->display->terminal, move_cmd, strlen(move_cmd));
+                                }
+                                lle_terminal_write(editor->display->terminal, "\x1b[K", 3);
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Cleared line, cursor positioned after prompt\n");
+                                }
+                            } else {
+                                // macOS: Use proven working approach
+                                lle_cmd_move_end(editor->display);
+                                
+                                size_t text_length = editor->buffer->length;
+                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                                
+                                for (size_t i = 0; i < backspace_count; i++) {
+                                    lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                                }
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven backspace clearing\n");
+                                }
                             }
-                            // Use simple terminal writes for exact backspace replication
-                            for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
-                            }
-                            // Clear any remaining artifacts at end of line
-                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            
                             // Update buffer state to match cleared content
                             editor->buffer->length = 0;
                             editor->buffer->cursor_pos = 0;
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Exact backspace clearing complete\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Line clearing complete\n");
                             }
                         }
                     } else {
@@ -796,12 +826,12 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         
                         if (entry && entry->command) {
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: 100%% exact backspace replication approach\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: Linux-fixed history navigation\n");
                                 fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
                                         editor->buffer->length, entry->command);
                             }
                             
-                            // 🎯 PLATFORM-AWARE EXACT BACKSPACE REPLICATION: Perfect macOS + Linux support
+                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Simple cursor positioning approach
                             // Initialize platform detection for optimal sequences
                             if (!lle_platform_init()) {
                                 if (debug_mode) {
@@ -809,57 +839,75 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 }
                             }
                             
-                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
-                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
-                            
-                            // Phase 1: Clear existing content using platform-optimized backspace sequences
-                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                            size_t text_length = editor->buffer->length;
-                            
-                            // Use proven formula: text_length - 1 for exact positioning (perfect on macOS)
-                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                            
-                            // Get platform-optimized backspace sequence
-                            const char *backspace_seq = lle_platform_get_backspace_sequence();
-                            size_t backspace_seq_len = lle_platform_get_backspace_length();
-                            
                             if (debug_mode) {
                                 const char *platform_desc = "Unknown";
                                 if (lle_platform_is_macos()) platform_desc = "macOS";
                                 else if (lle_platform_is_linux()) platform_desc = "Linux";
                                 
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, backspace sequence: [%s], length: %zu\n", 
-                                       platform_desc, backspace_seq, backspace_seq_len);
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
-                                       prompt_width, text_length, backspace_count);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, clearing current line for history navigation\n", platform_desc);
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content length: %zu\n", 
+                                       editor->buffer->length, entry->length);
                             }
                             
-                            // Platform-aware exact backspace replication
-                            for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
-                            }
-                            
-                            // Platform-aware artifact clearing
-                            if (lle_platform_has_reliable_clear_eol()) {
-                                lle_terminal_clear_to_eol(editor->display->terminal);
-                            } else {
-                                // Linux fallback: Additional space clearing for stubborn artifacts
-                                if (lle_platform_is_linux()) {
-                                    lle_terminal_write(editor->display->terminal, " ", 1);
-                                    lle_terminal_write(editor->display->terminal, "\b", 1);
+                            // LINUX FIX: Complete fallback mode - no display system interaction
+                            if (lle_platform_is_linux()) {
+                                // Phase 1: Simple terminal positioning and clearing
+                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                
+                                // Clear current line completely and reposition
+                                lle_terminal_write(editor->display->terminal, "\r\x1b[K", 4);  // Return to start, clear line
+                                
+                                // Rewrite prompt (simple text output)
+                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
+                                    lle_terminal_write(editor->display->terminal, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
                                 }
+                                
+                                // Write new history content directly
+                                lle_terminal_write(editor->display->terminal, entry->command, entry->length);
+                                
+                                // Update buffer to match (no display system calls)
+                                memset(editor->buffer->buffer, 0, editor->buffer->capacity);
+                                memcpy(editor->buffer->buffer, entry->command, entry->length);
+                                editor->buffer->length = entry->length;
+                                editor->buffer->cursor_pos = entry->length;
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Complete fallback mode - terminal only\n");
+                                }
+                                
+                                cmd_result = LLE_CMD_SUCCESS;
+                                needs_display_update = false;  // CRITICAL: Block all display updates
+                            } else {
+                                // macOS: Use proven working approach
+                                lle_cmd_move_end(editor->display);
+                                
+                                size_t text_length = editor->buffer->length;
+                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                                
+                                const char *backspace_seq = lle_platform_get_backspace_sequence();
+                                size_t backspace_seq_len = lle_platform_get_backspace_length();
+                                
+                                for (size_t i = 0; i < backspace_count; i++) {
+                                    lle_terminal_write(editor->display->terminal, backspace_seq, backspace_seq_len);
+                                }
+                                
                                 lle_terminal_clear_to_eol(editor->display->terminal);
+                                
+                                // Update buffer state to match cleared content
+                                editor->buffer->length = 0;
+                                editor->buffer->cursor_pos = 0;
+                                
+                                // Phase 3: Insert new content character by character (macOS only)
+                                for (size_t i = 0; i < entry->length; i++) {
+                                    lle_cmd_insert_char(editor->display, entry->command[i]);
+                                }
+                                
+                                cmd_result = LLE_CMD_SUCCESS;
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven exact backspace approach\n");
+                                }
                             }
-                            // Update buffer state to match cleared content
-                            editor->buffer->length = 0;
-                            editor->buffer->cursor_pos = 0;
-                            
-                            // Phase 2: Insert new content using exact same character input as user typing
-                            for (size_t i = 0; i < entry->length; i++) {
-                                lle_cmd_insert_char(editor->display, entry->command[i]);  // Exact same function as regular character input
-                            }
-                            
-                            cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
                                 fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: exact backspace replication complete\n");
@@ -870,36 +918,49 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             }
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - exact backspace clearing\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - clearing current line\n");
                             }
                             
-                            // 100% EXACT BACKSPACE REPLICATION: Clear using simple terminal writes
-                            // Phase 0: Ensure cursor is at end of buffer (like user would be positioned)
-                            lle_cmd_move_end(editor->display);  // Move to end before backspacing
-                            
-                            // Use simple terminal writes for exact backspace replication
-                            size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                            size_t text_length = editor->buffer->length;
-                            
-                            // Use backspace count minus 1 to avoid going too far back
-                            size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Prompt width: %zu, text length: %zu, backspace count: %zu\n", 
-                                       prompt_width, text_length, backspace_count);
+                            // LINUX FIX: Simple cursor positioning for clearing when no history entry
+                            if (lle_platform_is_linux()) {
+                                // Move cursor to beginning of input area and clear
+                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
+                                
+                                lle_terminal_write(editor->display->terminal, "\r", 1);
+                                if (prompt_width > 0) {
+                                    char move_cmd[32];
+                                    snprintf(move_cmd, sizeof(move_cmd), "\x1b[%zuC", prompt_width);
+                                    lle_terminal_write(editor->display->terminal, move_cmd, strlen(move_cmd));
+                                }
+                                lle_terminal_write(editor->display->terminal, "\x1b[K", 3);
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Cleared line, cursor positioned after prompt\n");
+                                }
+                            } else {
+                                // macOS: Use proven working approach
+                                lle_cmd_move_end(editor->display);
+                                
+                                size_t text_length = editor->buffer->length;
+                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
+                                
+                                for (size_t i = 0; i < backspace_count; i++) {
+                                    lle_terminal_write(editor->display->terminal, "\b \b", 3);
+                                }
+                                lle_terminal_clear_to_eol(editor->display->terminal);
+                                
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven backspace clearing\n");
+                                }
                             }
-                            // Use simple terminal writes for exact backspace replication
-                            for (size_t i = 0; i < backspace_count; i++) {
-                                lle_terminal_write(editor->display->terminal, "\b \b", 3);
-                            }
-                            // Clear any remaining artifacts at end of line
-                            lle_terminal_clear_to_eol(editor->display->terminal);
+                            
                             // Update buffer state to match cleared content
                             editor->buffer->length = 0;
                             editor->buffer->cursor_pos = 0;
                             cmd_result = LLE_CMD_SUCCESS;
                             
                             if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Exact backspace clearing complete\n");
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Line clearing complete\n");
                             }
                         }
                     } else {
@@ -1211,8 +1272,31 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     if (debug_mode) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Inserting printable character: '%c'\n", event.character);
                     }
-                    cmd_result = lle_cmd_insert_char(editor->display, event.character);
-                    needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                    
+                    // LINUX FIX: Simple character insertion without display system
+                    if (lle_platform_is_linux()) {
+                        // Direct character insertion for Linux
+                        if (editor->buffer->length < editor->buffer->capacity - 1) {
+                            // Simple append to buffer
+                            editor->buffer->buffer[editor->buffer->length] = event.character;
+                            editor->buffer->length++;
+                            editor->buffer->cursor_pos = editor->buffer->length;
+                            editor->buffer->buffer[editor->buffer->length] = '\0';
+                            
+                            // Direct terminal write (no display system)
+                            lle_terminal_write(editor->display->terminal, &event.character, 1);
+                            
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Direct character insertion\n");
+                            }
+                        }
+                        cmd_result = LLE_CMD_SUCCESS;
+                        needs_display_update = false; // CRITICAL: Block display system
+                    } else {
+                        // macOS: Use sophisticated display system
+                        cmd_result = lle_cmd_insert_char(editor->display, event.character);
+                        needs_display_update = false; // Phase 2B.5: Command handles its own display update
+                    }
                 }
                 else {
                     // Other control characters - ignore in line editor
