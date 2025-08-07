@@ -867,9 +867,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
             fprintf(stderr, "[LLE_INCREMENTAL] True incremental: adding char '%c'\n", new_char);
         }
         
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, &new_char, 1) :
-              lle_terminal_write(state->terminal, &new_char, 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, &new_char, 1)) {
             return false;
         }
         
@@ -892,9 +890,7 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
         }
             
         // Simple terminal backspace with state synchronization
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "\b \b", 3) :
-              lle_terminal_write(state->terminal, "\b \b", 3))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "\b \b", 3)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace failed\n");
             }
@@ -972,24 +968,18 @@ if (state->prompt) {
 }
 
 // Ensure cursor is positioned exactly at prompt end before writing content
-if (!(state->state_integration ? 
-      lle_display_integration_terminal_write(state->state_integration, "\r", 1) :
-      lle_terminal_write(state->terminal, "\r", 1))) {
+if (!lle_display_integration_terminal_write(state->state_integration, "\r", 1)) {
     return false;
 }
 char move_right[32];
 snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-if (!(state->state_integration ? 
-      lle_display_integration_terminal_write(state->state_integration, move_right, strlen(move_right)) :
-      lle_terminal_write(state->terminal, move_right, strlen(move_right)))) {
+if (!lle_display_integration_terminal_write(state->state_integration, move_right, strlen(move_right))) {
     return false;
 }
 
 // Write new content
 if (text && text_length > 0) {
-    if (!(state->state_integration ? 
-          lle_display_integration_terminal_write(state->state_integration, text, text_length) :
-          lle_terminal_write(state->terminal, text, text_length))) {
+    if (!lle_display_integration_terminal_write(state->state_integration, text, text_length)) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new content\n");
         }
@@ -1022,6 +1012,11 @@ if (!lle_display_update_cursor(state)) {
     return false;
 }
     
+// Validate state after complex content replacement
+if (!lle_display_integration_validate_state(state->state_integration)) {
+    lle_display_integration_force_sync(state->state_integration);
+}
+
 if (debug_mode) {
     fprintf(stderr, "[LLE_INCREMENTAL] Simple strategy completed with cursor positioning\n");
 }
@@ -1076,9 +1071,7 @@ static bool lle_display_clear_to_eol_linux_safe(lle_display_state_t *state) {
     
     // Write spaces to clear content, respecting terminal boundaries
     for (size_t i = 0; i < max_safe_clear; i++) {
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, " ", 1) :
-              lle_terminal_write(state->terminal, " ", 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, " ", 1)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_EOL] Failed to write clearing space %zu\n", i);
             }
@@ -1088,9 +1081,7 @@ static bool lle_display_clear_to_eol_linux_safe(lle_display_state_t *state) {
     
     // Return cursor to starting position
     for (size_t i = 0; i < max_safe_clear; i++) {
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "\b", 1) :
-              lle_terminal_write(state->terminal, "\b", 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "\b", 1)) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_EOL] Failed to backspace %zu\n", i);
             }
@@ -1261,6 +1252,11 @@ bool lle_display_update_geometry(lle_display_state_t *state) {
         }
     }
     
+    // Validate state after clear-to-end-of-line operation
+    if (!lle_display_integration_validate_state(state->state_integration)) {
+        lle_display_integration_force_sync(state->state_integration);
+    }
+    
     return true;
 }
 
@@ -1316,9 +1312,7 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
         // Handle newlines in input text
         // Handle newlines in input text
         if (c == '\n') {
-            if (!(state->state_integration ? 
-                  lle_display_integration_terminal_write(state->state_integration, "\n", 1) :
-                  lle_terminal_write(state->terminal, "\n", 1))) {
+            if (!lle_display_integration_terminal_write(state->state_integration, "\n", 1)) {
                 return false;
             }
             continue;
@@ -1328,11 +1322,14 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
         // Terminal will automatically wrap when it reaches the right edge
         
         // Write the character - terminal handles positioning and wrapping
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, &c, 1) :
-              lle_terminal_write(state->terminal, &c, 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, &c, 1)) {
             return false;
         }
+    }
+    
+    // Validate state after character rendering
+    if (!lle_display_integration_validate_state(state->state_integration)) {
+        lle_display_integration_force_sync(state->state_integration);
     }
     
     return true;
@@ -1466,9 +1463,7 @@ static bool lle_display_apply_syntax_color(lle_display_state_t *state, lle_synta
     }
     
     // Apply the color
-    if (!(state->state_integration ? 
-          lle_display_integration_terminal_write(state->state_integration, color_code, strlen(color_code)) :
-          lle_terminal_write(state->terminal, color_code, strlen(color_code)))) {
+    if (!lle_display_integration_terminal_write(state->state_integration, color_code, strlen(color_code))) {
         return false;
     }
     
@@ -1489,9 +1484,7 @@ static bool lle_display_reset_colors(lle_display_state_t *state) {
     
     // ANSI reset sequence
     const char *reset_code = "\033[0m";
-    if (!(state->state_integration ? 
-          lle_display_integration_terminal_write(state->state_integration, reset_code, strlen(reset_code)) :
-          lle_terminal_write(state->terminal, reset_code, strlen(reset_code)))) {
+    if (!lle_display_integration_terminal_write(state->state_integration, reset_code, strlen(reset_code))) {
         return false;
     }
     
@@ -1602,9 +1595,7 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
         // foundation ensures proper multi-line coordinate handling
         size_t segment_length = segment_end - text_pos;
         if (segment_length > 0) {
-            if (!(state->state_integration ? 
-                  lle_display_integration_terminal_write(state->state_integration, text + text_pos, segment_length) :
-                  lle_terminal_write(state->terminal, text + text_pos, segment_length))) {
+            if (!lle_display_integration_terminal_write(state->state_integration, text + text_pos, segment_length)) {
                 return false;
             }
             text_pos = segment_end;
@@ -1858,9 +1849,7 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
     
     // Move to new line for search, starting at column 0
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "\n", 1) :
-              lle_terminal_write(state->terminal, "\n", 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "\n", 1)) {
             return false;
         }
         // Phase 2A.3: Use absolute positioning for search mode entry
@@ -1954,9 +1943,7 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
         // Use direct terminal operations for immediate response
         // Move to beginning of current line and clear it completely
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "\r", 1) :
-              lle_terminal_write(state->terminal, "\r", 1))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "\r", 1)) {
             return false;
         }
         if (!lle_display_clear_to_eol_linux_safe(state)) {
@@ -1964,25 +1951,19 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         }
         
         // Write search prompt components directly for immediate visual feedback
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "(reverse-i-search)`", 19) :
-              lle_terminal_write(state->terminal, "(reverse-i-search)`", 19))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "(reverse-i-search)`", 19)) {
             return false;
         }
         
         // Write search term if provided
         if (search_term && search_length > 0) {
-            if (!(state->state_integration ? 
-                  lle_display_integration_terminal_write(state->state_integration, search_term, search_length) :
-                  lle_terminal_write(state->terminal, search_term, search_length))) {
+            if (!lle_display_integration_terminal_write(state->state_integration, search_term, search_length)) {
                 return false;
             }
         }
         
         // Write search prompt suffix
-        if (!(state->state_integration ? 
-              lle_display_integration_terminal_write(state->state_integration, "': ", 3) :
-              lle_terminal_write(state->terminal, "': ", 3))) {
+        if (!lle_display_integration_terminal_write(state->state_integration, "': ", 3)) {
             return false;
         }
         
@@ -1990,15 +1971,11 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         if (match_text && match_length > 0) {
             size_t max_display = 60; // Conservative limit for terminal width
             size_t display_length = match_length > max_display ? max_display : match_length;
-            if (!(state->state_integration ? 
-                  lle_display_integration_terminal_write(state->state_integration, match_text, display_length) :
-                  lle_terminal_write(state->terminal, match_text, display_length))) {
+            if (!lle_display_integration_terminal_write(state->state_integration, match_text, display_length)) {
                 return false;
             }
             if (match_length > max_display) {
-                if (!(state->state_integration ? 
-                      lle_display_integration_terminal_write(state->state_integration, "...", 3) :
-                      lle_terminal_write(state->terminal, "...", 3))) {
+                if (!lle_display_integration_terminal_write(state->state_integration, "...", 3)) {
                     return false;
                 }
             }
@@ -2086,6 +2063,11 @@ bool lle_display_cache_is_valid(const lle_display_state_t *state) {
         current_cursor_position != cache->cached_cursor_position ||
         state->display_flags != cache->cached_display_flags) {
         return false;
+    }
+    
+    // Validate state after color application
+    if (!lle_display_integration_validate_state(state->state_integration)) {
+        lle_display_integration_force_sync(state->state_integration);
     }
     
     return true;
@@ -2212,9 +2194,7 @@ bool lle_terminal_batch_flush(lle_display_state_t *state) {
     }
     
     // Write all batched operations in single call
-    bool result = state->state_integration ? 
-        lle_display_integration_terminal_write(state->state_integration, batch->batch_buffer, batch->buffer_used) :
-        lle_terminal_write(state->terminal, batch->batch_buffer, batch->buffer_used);
+    bool result = lle_display_integration_terminal_write(state->state_integration, batch->batch_buffer, batch->buffer_used);
     
     // Update statistics
     batch->total_writes++;
@@ -2352,6 +2332,11 @@ bool lle_display_set_performance_optimization(lle_display_state_t *state, bool e
             state->performance_optimization_enabled = false;
             return false;
         }
+    }
+    
+    // Validate state after multiline text rendering
+    if (!lle_display_integration_validate_state(state->state_integration)) {
+        lle_display_integration_force_sync(state->state_integration);
     }
     
     return true;

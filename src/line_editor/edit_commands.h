@@ -17,7 +17,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "text_buffer.h"
 #include "display.h"
+#include "command_history.h"
 #include "input_handler.h"
 
 #ifdef __cplusplus
@@ -47,6 +49,8 @@ typedef enum {
     LLE_CMD_BACKSPACE_WORD,     /**< Delete word backward */
     LLE_CMD_KILL_LINE,          /**< Kill from cursor to end of line */
     LLE_CMD_KILL_BEGINNING,     /**< Kill from beginning to cursor */
+    LLE_CMD_HISTORY_UP,         /**< Navigate to previous history entry */
+    LLE_CMD_HISTORY_DOWN,       /**< Navigate to next history entry */
     LLE_CMD_TYPE_COUNT          /**< Total number of command types */
 } lle_command_type_t;
 
@@ -308,7 +312,37 @@ lle_command_result_t lle_cmd_kill_beginning(lle_display_state_t *state);
 lle_command_result_t lle_cmd_replace_line(lle_display_state_t *state, const char *text, size_t length);
 
 // ============================================================================
-// Key-to-Command Mapping Functions
+// History Navigation Commands
+// ============================================================================
+
+/**
+ * @brief Navigate to previous history entry
+ * 
+ * Navigates to the previous (older) entry in command history and replaces
+ * the current line content with that entry. If not currently in navigation
+ * mode, saves the current line to temporary buffer first.
+ * 
+ * @param state Display state containing text buffer
+ * @param history History structure for navigation
+ * @return Command execution result code
+ */
+lle_command_result_t lle_cmd_history_up(lle_display_state_t *state, lle_history_t *history);
+
+/**
+ * @brief Navigate to next history entry
+ * 
+ * Navigates to the next (newer) entry in command history and replaces
+ * the current line content with that entry. If at the end of history,
+ * restores the original line being edited.
+ * 
+ * @param state Display state containing text buffer
+ * @param history History structure for navigation
+ * @return Command execution result code
+ */
+lle_command_result_t lle_cmd_history_down(lle_display_state_t *state, lle_history_t *history);
+
+// ============================================================================
+// Advanced Editing Commands
 // ============================================================================
 
 /**

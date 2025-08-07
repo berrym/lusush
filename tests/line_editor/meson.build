@@ -48,6 +48,7 @@ lle_test_sources = [
   'test_multiline_architecture_rewrite.c',
   'test_backspace_enhancement.c',
   'test_backspace_logic.c',
+  'test_history_navigation_commands.c',
   'test_boundary_crossing_fix.c',
   'test_platform_detection.c',
   'test_display_stabilization.c',

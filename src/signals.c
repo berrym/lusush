@@ -2,6 +2,7 @@
 
 #include "../include/errors.h"
 #include "../include/termcap.h"
+#include "line_editor/termcap/lle_termcap.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -199,5 +200,7 @@ void execute_exit_traps(void) {
     }
     
     // Cleanup terminal capabilities on exit
-    termcap_cleanup();
+    // Always use LLE termcap cleanup since it's the active system
+    // This prevents corruption from old termcap interfering with LLE state
+    lle_termcap_cleanup();
 }

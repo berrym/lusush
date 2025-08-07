@@ -19,6 +19,7 @@
 #include "terminal_manager.h"
 #include "display_state_integration.h"
 #include "platform_detection.h"
+#include "command_history.h"
 #include "termcap/lle_termcap.h"
 #include <string.h>
 #include <stdlib.h>
@@ -47,7 +48,9 @@ static const char *command_type_names[] = {
     "DELETE_WORD",
     "BACKSPACE_WORD",
     "KILL_LINE",
-    "KILL_BEGINNING"
+    "KILL_BEGINNING",
+    "HISTORY_UP",
+    "HISTORY_DOWN"
 };
 
 /**
@@ -399,9 +402,17 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
                             if (lle_termcap_cursor_to_column((int)target_col) == LLE_TERMCAP_OK) {
                                 fprintf(stderr, "[MATH_DEBUG] SUCCESS: Positioned at target column %zu\n", target_col);
                                 
-                                // Clear from cursor to end of line (removes any remaining content)
-                                if (lle_termcap_clear_to_eol() == LLE_TERMCAP_OK) {
-                                    fprintf(stderr, "[MATH_DEBUG] SUCCESS: Cleared remaining characters from cursor position\n");
+                                // Only clear to EOL if we're not at the end of the line
+                                // When target_col equals terminal width, we're at line end - no clearing needed
+                                if (target_col < terminal_width) {
+                                    if (lle_termcap_clear_to_eol() == LLE_TERMCAP_OK) {
+                                        fprintf(stderr, "[MATH_DEBUG] SUCCESS: Cleared remaining characters from cursor position\n");
+                                    } else {
+                                        fprintf(stderr, "[MATH_DEBUG] WARNING: Failed to clear remaining characters\n");
+                                    }
+                                } else {
+                                    fprintf(stderr, "[MATH_DEBUG] SKIP: No clear needed - cursor at line end (col=%zu, width=%zu)\n", 
+                                            target_col, terminal_width);
                                 }
                             }
                         }
@@ -1042,6 +1053,207 @@ bool lle_extract_character_from_key(const lle_key_event_t *event, char *characte
     
     *character = event->character;
     return true;
+}
+
+// ============================================================================
+// History Navigation Commands
+// ============================================================================
+
+/**
+ * @brief Navigate to previous history entry
+ * 
+ * Navigates to the previous (older) entry in command history and replaces
+ * the current line content with that entry. Uses the proven exact backspace
+ * replication pattern established in the main input loop.
+ * 
+ * @param state Display state containing text buffer
+ * @param history History structure for navigation
+ * @return Command execution result code
+ */
+lle_command_result_t lle_cmd_history_up(lle_display_state_t *state, lle_history_t *history) {
+    if (!state) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!state->buffer) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!history) {
+        return LLE_CMD_ERROR_INVALID_PARAM;
+    }
+    
+    // Navigate to previous entry in history
+    const lle_history_entry_t *entry = lle_history_navigate(history, LLE_HISTORY_PREV);
+    if (!entry) {
+        // No previous entry available
+        return LLE_CMD_SUCCESS;
+    }
+    
+    // Store old content for replacement
+    char *old_content = NULL;
+    size_t old_length = state->buffer->length;
+    if (old_length > 0) {
+        old_content = malloc(old_length + 1);
+        if (old_content) {
+            memcpy(old_content, state->buffer->buffer, old_length);
+            old_content[old_length] = '\0';
+        }
+    }
+    
+    // Use state-synchronized content replacement
+    if (state->state_integration) {
+        if (!lle_display_integration_replace_content(state->state_integration, 
+                                                   old_content, old_length, 
+                                                   entry->command, entry->length)) {
+            free(old_content);
+            return LLE_CMD_ERROR_DISPLAY_UPDATE;
+        }
+    } else {
+        // Fallback if state integration not available
+        if (state->terminal) {
+            // Simple fallback - clear current line and write new content
+            lle_terminal_write(state->terminal, "\r", 1);
+            if (state->prompt) {
+                size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                char move_right[32];
+                snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
+                lle_terminal_write(state->terminal, move_right, strlen(move_right));
+            }
+            lle_terminal_write(state->terminal, "\x1b[K", 3); // Clear to end of line
+            lle_terminal_write(state->terminal, entry->command, entry->length);
+        }
+    }
+    
+    // Update buffer state
+    lle_text_buffer_clear(state->buffer);
+    for (size_t i = 0; i < entry->length; i++) {
+        if (!lle_text_insert_char(state->buffer, entry->command[i])) {
+            free(old_content);
+            return LLE_CMD_ERROR_BUFFER_FULL;
+        }
+    }
+    lle_text_move_cursor(state->buffer, LLE_MOVE_END);
+    
+    // Validate state consistency after complex operations
+    if (state->state_integration) {
+        if (!lle_display_integration_validate_state(state->state_integration)) {
+            lle_display_integration_force_sync(state->state_integration);
+        }
+    }
+    
+    free(old_content);
+    return LLE_CMD_SUCCESS;
+}
+
+/**
+ * @brief Navigate to next history entry
+ * 
+ * Navigates to the next (newer) entry in command history and replaces
+ * the current line content with that entry. If at the end of history,
+ * may restore the original line being edited.
+ * 
+ * @param state Display state containing text buffer
+ * @param history History structure for navigation
+ * @return Command execution result code
+ */
+lle_command_result_t lle_cmd_history_down(lle_display_state_t *state, lle_history_t *history) {
+    if (!state) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!state->buffer) {
+        return LLE_CMD_ERROR_INVALID_STATE;
+    }
+    
+    if (!history) {
+        return LLE_CMD_ERROR_INVALID_PARAM;
+    }
+    
+    // Navigate to next entry in history
+    const lle_history_entry_t *entry = lle_history_navigate(history, LLE_HISTORY_NEXT);
+    
+    // Store old content for replacement
+    char *old_content = NULL;
+    size_t old_length = state->buffer->length;
+    if (old_length > 0) {
+        old_content = malloc(old_length + 1);
+        if (old_content) {
+            memcpy(old_content, state->buffer->buffer, old_length);
+            old_content[old_length] = '\0';
+        }
+    }
+    
+    if (entry) {
+        // Found next entry - replace content
+        if (state->state_integration) {
+            if (!lle_display_integration_replace_content(state->state_integration, 
+                                                       old_content, old_length, 
+                                                       entry->command, entry->length)) {
+                free(old_content);
+                return LLE_CMD_ERROR_DISPLAY_UPDATE;
+            }
+        } else {
+            // Fallback if state integration not available
+            if (state->terminal) {
+                lle_terminal_write(state->terminal, "\r", 1);
+                if (state->prompt) {
+                    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                    char move_right[32];
+                    snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
+                    lle_terminal_write(state->terminal, move_right, strlen(move_right));
+                }
+                lle_terminal_write(state->terminal, "\x1b[K", 3); // Clear to end of line
+                lle_terminal_write(state->terminal, entry->command, entry->length);
+            }
+        }
+        
+        // Update buffer state
+        lle_text_buffer_clear(state->buffer);
+        for (size_t i = 0; i < entry->length; i++) {
+            if (!lle_text_insert_char(state->buffer, entry->command[i])) {
+                free(old_content);
+                return LLE_CMD_ERROR_BUFFER_FULL;
+            }
+        }
+        lle_text_move_cursor(state->buffer, LLE_MOVE_END);
+    } else {
+        // No next entry - at end of history, could restore temp buffer
+        // For now, just clear the current line
+        if (state->state_integration) {
+            if (!lle_display_integration_replace_content(state->state_integration, 
+                                                       old_content, old_length, 
+                                                       NULL, 0)) {
+                free(old_content);
+                return LLE_CMD_ERROR_DISPLAY_UPDATE;
+            }
+        } else {
+            // Fallback clearing
+            if (state->terminal) {
+                lle_terminal_write(state->terminal, "\r", 1);
+                if (state->prompt) {
+                    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                    char move_right[32];
+                    snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
+                    lle_terminal_write(state->terminal, move_right, strlen(move_right));
+                }
+                lle_terminal_write(state->terminal, "\x1b[K", 3); // Clear to end of line
+            }
+        }
+        
+        // Clear buffer
+        lle_text_buffer_clear(state->buffer);
+    }
+    
+    // Validate state consistency after complex operations
+    if (state->state_integration) {
+        if (!lle_display_integration_validate_state(state->state_integration)) {
+            lle_display_integration_force_sync(state->state_integration);
+        }
+    }
+    
+    free(old_content);
+    return LLE_CMD_SUCCESS;
 }
 
 // ============================================================================

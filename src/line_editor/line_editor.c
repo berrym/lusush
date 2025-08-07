@@ -458,6 +458,36 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             editor->buffer->length);
                 }
                 
+                // Check if position tracking was invalidated during editing (especially after cross-line operations)
+                bool position_tracking_invalid = !editor->display->position_tracking_valid;
+                
+                if (position_tracking_invalid && debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Position tracking invalidated - applying comprehensive cursor reset\n");
+                }
+                
+                // Validate state consistency BEFORE writing newline to ensure correct cursor position
+                if (!lle_display_integration_validate_state(editor->state_integration)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] State validation failed before newline, forcing sync\n");
+                    }
+                    lle_display_integration_force_sync(editor->state_integration);
+                }
+                
+                // For invalidated position tracking, explicitly reset cursor to end of content
+                if (position_tracking_invalid) {
+                    // Move to absolute end of current content before writing newline
+                    if (!lle_display_integration_move_cursor_end(editor->state_integration)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] Failed to position cursor at content end\n");
+                        }
+                    }
+                    
+                    // Additional validation after explicit positioning
+                    if (!lle_display_integration_validate_state(editor->state_integration)) {
+                        lle_display_integration_force_sync(editor->state_integration);
+                    }
+                }
+                
                 // Write newline and move cursor to beginning of line for command output
                 if (!lle_display_integration_terminal_write(editor->state_integration, "\n", 1)) {
                     if (debug_mode) {
@@ -465,11 +495,27 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     }
                 }
                 
-                // Move cursor to column 0 to ensure command output starts at beginning of line
-                if (!lle_display_integration_move_cursor(editor->state_integration, 0, 0)) {
+                // Validate state consistency again after newline to ensure proper positioning
+                if (!lle_display_integration_validate_state(editor->state_integration)) {
                     if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to column 0 after Enter\n");
+                        fprintf(stderr, "[LLE_INPUT_LOOP] State validation failed after newline, forcing sync\n");
                     }
+                    lle_display_integration_force_sync(editor->state_integration);
+                }
+                
+                // Move cursor to column 0 of current line to ensure command output starts at beginning of line
+                if (!lle_display_integration_move_cursor_home(editor->state_integration)) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Failed to move cursor to beginning of line after Enter\n");
+                    }
+                }
+                
+                // Final validation for cursor positioning especially after invalidated tracking
+                if (position_tracking_invalid) {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Final validation after position tracking recovery\n");
+                    }
+                    lle_display_integration_validate_state(editor->state_integration);
                 }
                 
                 result = malloc(editor->buffer->length + 1);
@@ -1710,8 +1756,21 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
         
         // Move cursor to end of content and clear any artifacts
         if (editor->display->terminal && isatty(editor->display->terminal->stdin_fd)) {
-            // Write a newline to ensure we're on a clean line
-            lle_terminal_write(editor->display->terminal, "\n", 1);
+            // Write a newline to ensure we're on a clean line using state-synchronized write
+            if (editor->state_integration) {
+                lle_display_integration_terminal_write(editor->state_integration, "\n", 1);
+                // Force immediate sync to ensure proper cursor positioning for shell
+                lle_display_integration_force_sync(editor->state_integration);
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_READLINE] Cleanup newline written via state integration\n");
+                }
+            } else {
+                // Fallback to direct write if state integration not available
+                lle_terminal_write(editor->display->terminal, "\n", 1);
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_READLINE] Cleanup newline written via direct terminal write\n");
+                }
+            }
         }
         
         // Invalidate position tracking to prevent stale state

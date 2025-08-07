@@ -12,6 +12,7 @@
  */
 
 #include "display_state_integration.h"
+#include "termcap/lle_termcap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -258,28 +259,35 @@ bool lle_display_integration_clear_to_eol(lle_display_integration_t *integration
         return false;
     }
     
-    // Get current cursor position
+    // Get current cursor position for state tracking
     size_t cursor_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
     size_t cursor_col = integration->display ? integration->display->cursor_pos.absolute_col : 0;
     size_t terminal_width = integration->display ? integration->display->geometry.width : 80;
     
-    // Perform clear operation using state tracking
+    // Update state tracking first
     bool success = lle_terminal_state_update_clear(integration->sync_ctx, "eol",
                                                    cursor_row, cursor_col,
                                                    cursor_row, terminal_width - 1);
     
     if (success) {
-        // Send actual ANSI clear sequence
-        const char *clear_sequence = "\x1b[K";
-        success = lle_state_sync_terminal_write(integration->sync_ctx, clear_sequence, 3);
+        // Use termcap function and manually update state tracking
+        int termcap_result = lle_termcap_clear_to_eol();
+        success = (termcap_result == LLE_TERMCAP_OK);
         
         if (success) {
+            // Clear to EOL doesn't change cursor position, just clears content
+            if (integration->display) {
+                integration->display->position_tracking_valid = true;
+            }
+            
             lle_integration_update_display_state(integration, "clear_to_eol");
             lle_integration_conditional_sync(integration);
             
             if (integration->debug_mode) {
-                LLE_INTEGRATION_DEBUG("Clear to EOL at (%zu,%zu)", cursor_row, cursor_col);
+                LLE_INTEGRATION_DEBUG("Clear to EOL at (%zu,%zu) via termcap with state update", cursor_row, cursor_col);
             }
+        } else {
+            LLE_INTEGRATION_DEBUG("Failed to clear to EOL at (%zu,%zu), termcap result: %d", cursor_row, cursor_col, termcap_result);
         }
     }
     
@@ -303,17 +311,25 @@ bool lle_display_integration_clear_line(lle_display_integration_t *integration,
                                                    line_number, terminal_width - 1);
     
     if (success) {
-        // Send ANSI clear line sequence
-        const char *clear_sequence = "\x1b[2K";
-        success = lle_state_sync_terminal_write(integration->sync_ctx, clear_sequence, 4);
+        // Use termcap function and manually update state tracking
+        int termcap_result = lle_termcap_clear_line();
+        success = (termcap_result == LLE_TERMCAP_OK);
         
         if (success) {
+            // Manually update cursor position tracking after successful clear
+            if (integration->display) {
+                integration->display->cursor_pos.absolute_col = 0;
+                integration->display->position_tracking_valid = true;
+            }
+            
             lle_integration_update_display_state(integration, "clear_line");
             lle_integration_conditional_sync(integration);
             
             if (integration->debug_mode) {
-                LLE_INTEGRATION_DEBUG("Clear line %zu", line_number);
+                LLE_INTEGRATION_DEBUG("Clear line %zu via termcap with state update", line_number);
             }
+        } else {
+            LLE_INTEGRATION_DEBUG("Failed to clear line %zu, termcap result: %d", line_number, termcap_result);
         }
     }
     
@@ -334,27 +350,44 @@ bool lle_display_integration_move_cursor(lle_display_integration_t *integration,
     bool success = lle_terminal_state_update_cursor(integration->sync_ctx, row, col);
     
     if (success) {
-        // Send ANSI cursor position sequence
-        char cursor_sequence[32];
-        int len = snprintf(cursor_sequence, sizeof(cursor_sequence), "\x1b[%zu;%zuH", row + 1, col + 1);
+        // Use termcap function and manually update state tracking
+        int termcap_result = lle_termcap_move_cursor((int)(row + 1), (int)(col + 1));
+        success = (termcap_result == LLE_TERMCAP_OK);
         
-        if (len > 0 && len < (int)sizeof(cursor_sequence)) {
-            success = lle_state_sync_terminal_write(integration->sync_ctx, cursor_sequence, len);
-            
-            if (success) {
-                // Update display state cursor position
-                if (integration->display) {
-                    integration->display->cursor_pos.absolute_row = row;
-                    integration->display->cursor_pos.absolute_col = col;
-                }
+        if (success) {
+            // Manually update cursor position tracking after successful move
+            if (integration->display) {
+                integration->display->cursor_pos.absolute_row = row;
+                integration->display->cursor_pos.absolute_col = col;
+                integration->display->position_tracking_valid = true;
                 
-                lle_integration_update_display_state(integration, "move_cursor");
-                lle_integration_conditional_sync(integration);
-                
-                if (integration->debug_mode) {
-                    LLE_INTEGRATION_DEBUG("Move cursor to (%zu,%zu)", row, col);
+                // Update content end tracking if this represents content end
+                if (integration->display->buffer) {
+                    size_t prompt_width = 0;
+                    if (integration->display->prompt) {
+                        prompt_width = lle_prompt_get_last_line_width(integration->display->prompt);
+                    }
+                    size_t content_length = integration->display->buffer->length;
+                    size_t absolute_pos = prompt_width + content_length;
+                    size_t expected_row = absolute_pos / integration->display->geometry.width;
+                    size_t expected_col = absolute_pos % integration->display->geometry.width;
+                    
+                    // If this position matches content end, update content end tracking
+                    if (row == expected_row && col == expected_col) {
+                        integration->display->content_end_row = row;
+                        integration->display->content_end_col = col;
+                    }
                 }
             }
+            
+            lle_integration_update_display_state(integration, "move_cursor");
+            lle_integration_conditional_sync(integration);
+            
+            if (integration->debug_mode) {
+                LLE_INTEGRATION_DEBUG("Move cursor to (%zu,%zu) via termcap with state update", row, col);
+            }
+        } else {
+            LLE_INTEGRATION_DEBUG("Failed to move cursor to (%zu,%zu), termcap result: %d", row, col, termcap_result);
         }
     }
     
@@ -370,14 +403,33 @@ bool lle_display_integration_move_cursor_up(lle_display_integration_t *integrati
         return false;
     }
     
-    size_t current_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
-    size_t current_col = integration->display ? integration->display->cursor_pos.absolute_col : 0;
+    // Use termcap function and manually update state tracking
+    int termcap_result = lle_termcap_move_cursor_up((int)rows);
+    bool success = (termcap_result == LLE_TERMCAP_OK);
     
-    if (current_row >= rows) {
-        return lle_display_integration_move_cursor(integration, current_row - rows, current_col);
+    if (success) {
+        // Manually update cursor position tracking after successful move
+        if (integration->display) {
+            if (integration->display->cursor_pos.absolute_row >= rows) {
+                integration->display->cursor_pos.absolute_row -= rows;
+                integration->display->position_tracking_valid = true;
+            } else {
+                // Can't move up that far, invalidate tracking
+                integration->display->position_tracking_valid = false;
+            }
+        }
+        
+        lle_integration_update_display_state(integration, "move_cursor_up");
+        lle_integration_conditional_sync(integration);
+        
+        if (integration->debug_mode) {
+            LLE_INTEGRATION_DEBUG("Moved cursor up %zu rows via termcap with state update", rows);
+        }
+    } else {
+        LLE_INTEGRATION_DEBUG("Failed to move cursor up %zu rows, termcap result: %d", rows, termcap_result);
     }
     
-    return false;
+    return success;
 }
 
 /**
@@ -389,27 +441,59 @@ bool lle_display_integration_move_cursor_down(lle_display_integration_t *integra
         return false;
     }
     
-    size_t current_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
-    size_t current_col = integration->display ? integration->display->cursor_pos.absolute_col : 0;
-    size_t terminal_height = integration->display ? integration->display->geometry.height : 24;
+    // Use termcap function and manually update state tracking
+    int termcap_result = lle_termcap_move_cursor_down((int)rows);
+    bool success = (termcap_result == LLE_TERMCAP_OK);
     
-    if (current_row + rows < terminal_height) {
-        return lle_display_integration_move_cursor(integration, current_row + rows, current_col);
+    if (success) {
+        // Manually update cursor position tracking after successful move
+        if (integration->display) {
+            integration->display->cursor_pos.absolute_row += rows;
+            integration->display->position_tracking_valid = true;
+        }
+        
+        lle_integration_update_display_state(integration, "move_cursor_down");
+        lle_integration_conditional_sync(integration);
+        
+        if (integration->debug_mode) {
+            LLE_INTEGRATION_DEBUG("Moved cursor down %zu rows via termcap with state update", rows);
+        }
+    } else {
+        LLE_INTEGRATION_DEBUG("Failed to move cursor down %zu rows, termcap result: %d", rows, termcap_result);
     }
     
-    return false;
+    return success;
 }
 
 /**
- * @brief Move cursor to beginning of line
+ * @brief Move cursor to beginning of current line (column 0)
  */
 bool lle_display_integration_move_cursor_home(lle_display_integration_t *integration) {
-    if (!integration) {
+    if (!integration || !integration->display) {
         return false;
     }
     
-    size_t current_row = integration->display ? integration->display->cursor_pos.absolute_row : 0;
-    return lle_display_integration_move_cursor(integration, current_row, 0);
+    // Get current row from cursor position tracking
+    size_t current_row = integration->display->cursor_pos.absolute_row;
+    
+    LLE_INTEGRATION_DEBUG("Moving cursor to line beginning: row=%zu, col=0", current_row);
+    
+    // Use termcap function to move to column 0 of current line
+    int termcap_result = lle_termcap_cursor_to_column(0);
+    
+    // Manually update state tracking after successful move
+    if (termcap_result == LLE_TERMCAP_OK && integration->display) {
+        integration->display->cursor_pos.absolute_col = 0;
+        integration->display->position_tracking_valid = true;
+        
+        if (integration->debug_mode) {
+            LLE_INTEGRATION_DEBUG("Moved cursor to beginning of line via termcap with state update");
+        }
+    } else {
+        LLE_INTEGRATION_DEBUG("Failed to move cursor to line beginning, termcap result: %d", termcap_result);
+    }
+    
+    return (termcap_result == LLE_TERMCAP_OK);
 }
 
 /**
@@ -420,15 +504,45 @@ bool lle_display_integration_move_cursor_end(lle_display_integration_t *integrat
         return false;
     }
     
-    size_t current_row = integration->display->cursor_pos.absolute_row;
     size_t content_length = integration->display->buffer->length;
     size_t terminal_width = integration->display->geometry.width;
     
-    // Calculate end position based on content length and terminal width
-    size_t end_col = content_length % terminal_width;
-    size_t end_row = current_row + (content_length / terminal_width);
+    // Calculate end position from prompt position (not invalidated cursor tracking)
+    size_t prompt_width = 0;
+    if (integration->display->prompt) {
+        prompt_width = lle_prompt_get_last_line_width(integration->display->prompt);
+    }
     
-    return lle_display_integration_move_cursor(integration, end_row, end_col);
+    // Calculate absolute position from prompt + content
+    size_t absolute_end_pos = prompt_width + content_length;
+    
+    // Handle boundary condition: when at exact terminal width boundary
+    size_t end_row, end_col;
+    if (absolute_end_pos > 0 && absolute_end_pos % terminal_width == 0) {
+        // Position is at end of previous line, not start of next line
+        end_row = (absolute_end_pos / terminal_width) - 1;
+        end_col = terminal_width;
+    } else {
+        end_row = absolute_end_pos / terminal_width;
+        end_col = absolute_end_pos % terminal_width;
+    }
+    
+    LLE_INTEGRATION_DEBUG("Moving cursor to content end: absolute_pos=%zu, row=%zu, col=%zu", 
+                          absolute_end_pos, end_row, end_col);
+    
+    // Use termcap function for precise cursor positioning
+    int termcap_result = lle_termcap_move_cursor((int)(end_row + 1), (int)(end_col + 1));
+    
+    // Manually update state tracking after successful move
+    if (termcap_result == LLE_TERMCAP_OK && integration->display) {
+        integration->display->cursor_pos.absolute_row = end_row;
+        integration->display->cursor_pos.absolute_col = end_col;
+        integration->display->content_end_row = end_row;
+        integration->display->content_end_col = end_col;
+        integration->display->position_tracking_valid = true;
+    }
+    
+    return (termcap_result == LLE_TERMCAP_OK);
 }
 
 // ============================================================================
