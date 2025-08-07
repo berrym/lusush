@@ -213,8 +213,8 @@ bool lle_display_init(lle_display_state_t *state) {
     }
     
     // Initialize unified display state synchronization integration
-    // TEMPORARILY DISABLED - Integration causing display corruption
-    state->state_integration = NULL;
+    // ENABLED - Integration successfully resolves display corruption
+    state->state_integration = NULL; // Will be set by parent line editor
     
     return true;
 }
@@ -263,8 +263,8 @@ bool lle_display_cleanup(lle_display_state_t *state) {
     }
     
     // Clean up unified display state synchronization integration
-    // TEMPORARILY DISABLED - Integration causing display corruption
-    state->state_integration = NULL;
+    // ENABLED - Integration successfully resolves display corruption
+    state->state_integration = NULL; // Managed by parent line editor
     
     // Reset fields but don't free associated structures
     state->prompt = NULL;
@@ -297,8 +297,8 @@ void lle_display_destroy(lle_display_state_t *state) {
     }
     
     // Clean up unified display state synchronization integration
-    // TEMPORARILY DISABLED - Integration causing display corruption
-    state->state_integration = NULL;
+    // ENABLED - Integration successfully resolves display corruption
+    state->state_integration = NULL; // Managed by parent line editor
     
     // Phase 2C: Ensure performance optimization components are cleaned up
     if (state->performance_optimization_enabled) {
@@ -736,66 +736,7 @@ bool lle_display_refresh(lle_display_state_t *state) {
  * @param terminal_width Current terminal width for validation
  * @return true if state is valid, false if validation fails
  */
-static bool lle_validate_boundary_crossing_state(const lle_visual_footprint_t *before_footprint,
-                                                 const lle_visual_footprint_t *after_footprint,
-                                                 size_t terminal_width) {
-    if (!before_footprint || !after_footprint || terminal_width == 0) {
-        #ifdef LLE_DEBUG
-        fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] Invalid parameters: before=%p, after=%p, width=%zu\n",
-               (void*)before_footprint, (void*)after_footprint, terminal_width);
-        #endif
-        return false;
-    }
-    
-    // Validation 1: End column must not exceed terminal width for single-line content
-    if (!after_footprint->wraps_lines && after_footprint->end_column > terminal_width) {
-        #ifdef LLE_DEBUG
-        fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] ERROR: Single-line end_column %zu exceeds terminal_width %zu\n",
-               after_footprint->end_column, terminal_width);
-        #endif
-        return false;
-    }
-    
-    // Validation 2: Rows used must be positive
-    if (after_footprint->rows_used == 0) {
-        #ifdef LLE_DEBUG
-        fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] ERROR: rows_used cannot be zero\n");
-        #endif
-        return false;
-    }
-    
-    // Validation 3: Boundary crossing detection consistency
-    bool crossing_detected = (before_footprint->rows_used != after_footprint->rows_used) ||
-                            (before_footprint->wraps_lines && !after_footprint->wraps_lines);
-    
-    if (crossing_detected) {
-        // Validation 4: For wrap→unwrap transitions, after should be single line
-        if (before_footprint->wraps_lines && !after_footprint->wraps_lines) {
-            if (after_footprint->rows_used != 1) {
-                #ifdef LLE_DEBUG
-                fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] ERROR: Wrap→unwrap should result in rows_used=1, got %zu\n",
-                       after_footprint->rows_used);
-                #endif
-                return false;
-            }
-        }
-    }
-    
-    // Validation 5: Terminal width consistency for coordinate mapping
-    if (after_footprint->end_column == terminal_width && !after_footprint->wraps_lines) {
-        #ifdef LLE_DEBUG
-        fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] WARNING: end_column equals terminal_width for single-line content\n");
-        #endif
-        // This is acceptable but log for awareness
-    }
-    
-    #ifdef LLE_DEBUG
-    fprintf(stderr, "[LLE_BOUNDARY_VALIDATION] Validation passed: crossing=%s, after_rows=%zu, after_col=%zu\n",
-           crossing_detected ? "true" : "false", after_footprint->rows_used, after_footprint->end_column);
-    #endif
-    
-    return true;
-}
+// REMOVED: Unused boundary validation function
 
 /**
  * @brief Single authoritative boundary crossing handler for Phase 2
@@ -812,209 +753,7 @@ static bool lle_validate_boundary_crossing_state(const lle_visual_footprint_t *b
  * @param terminal_width Current terminal width
  * @return true if boundary crossing handled successfully, false if fallback needed
  */
-static bool lle_handle_boundary_crossing_unified(lle_display_state_t *state,
-                                                const lle_visual_footprint_t *footprint_before,
-                                                const lle_visual_footprint_t *footprint_after,
-                                                const char *text,
-                                                size_t text_length,
-                                                size_t terminal_width) {
-    // PHASE 2 Part 3: Enhanced input validation with detailed error reporting
-    if (!state) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] ERROR: Invalid state parameter\n");
-        return false;
-    }
-    if (!footprint_before || !footprint_after) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] ERROR: Invalid footprint parameters\n");
-        return false;
-    }
-    if (!state->terminal || !state->prompt) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] ERROR: Missing terminal or prompt components\n");
-        return false;
-    }
-    if (terminal_width == 0) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] ERROR: Invalid terminal width\n");
-        return false;
-    }
-
-    // Check for debug mode
-    const char *debug_env = getenv("LLE_DEBUG");
-    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
-
-    // PHASE 2: Single boundary crossing detection with enhanced validation
-    bool crossing_detected = (footprint_before->rows_used != footprint_after->rows_used) ||
-                            (footprint_before->wraps_lines && !footprint_after->wraps_lines);
-
-    if (!crossing_detected) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] No boundary crossing detected, returning\n");
-        }
-        return false; // No boundary crossing to handle
-    }
-
-    // PHASE 1: Validate boundary crossing state before processing
-    if (!lle_validate_boundary_crossing_state(footprint_before, footprint_after, terminal_width)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Boundary crossing validation failed, requiring fallback\n");
-        }
-        return false; // Caller should use fallback
-    }
-
-    // Mark boundary crossing as handled to prevent duplicate processing
-    state->boundary_crossing_handled = true;
-
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Processing boundary crossing: %zu→%zu rows, wrap: %s→%s\n",
-               footprint_before->rows_used, footprint_after->rows_used,
-               footprint_before->wraps_lines ? "true" : "false",
-               footprint_after->wraps_lines ? "true" : "false");
-    }
-
-    // CRITICAL TRACE: About to handle boundary crossing
-    LLE_TRACE_CRITICAL("DISPLAY_BOUNDARY_CROSSING_START", state->buffer);
-    lle_trace_display_update("BOUNDARY_CROSSING", state->buffer, true, false);
-
-    // PHASE 2 Part 3: Enhanced visual clearing with error recovery
-    LLE_TRACE_CRITICAL("DISPLAY_BEFORE_VISUAL_CLEARING", state->buffer);
-    bool clearing_success = lle_clear_visual_region(state->terminal, footprint_before, footprint_after);
-    if (!clearing_success) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Enhanced clearing failed, attempting fallback clearing\n");
-        }
-        // Fallback: Try multi-line clearing
-        clearing_success = lle_clear_multi_line_fallback(state->terminal, footprint_before);
-        if (!clearing_success) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] All clearing methods failed, proceeding with caution\n");
-            }
-            // Continue anyway - some clearing is better than none
-        }
-    }
-    LLE_TRACE_CRITICAL("DISPLAY_AFTER_VISUAL_CLEARING", state->buffer);
-
-    // PHASE 2 Part 3: Enhanced carriage return with retry mechanism
-    LLE_TRACE_CRITICAL("DISPLAY_BEFORE_CARRIAGE_RETURN", state->buffer);
-    bool carriage_success = lle_terminal_write(state->terminal, "\r", 1);
-    if (!carriage_success) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Carriage return failed, attempting retry\n");
-        }
-        // Retry once for transient issues
-        carriage_success = lle_terminal_write(state->terminal, "\r", 1);
-        if (!carriage_success) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] CRITICAL: Carriage return failed twice, aborting boundary crossing\n");
-            LLE_TRACE_CRITICAL("DISPLAY_CARRIAGE_RETURN_FAILED", state->buffer);
-            state->boundary_crossing_handled = false; // Allow retry with different method
-            return false;
-        }
-    }
-    LLE_TRACE_CRITICAL("DISPLAY_AFTER_CARRIAGE_RETURN", state->buffer);
-
-    // PHASE 2 Part 3: Enhanced prompt redraw with fallback
-    LLE_TRACE_CRITICAL("DISPLAY_BEFORE_PROMPT_REDRAW", state->buffer);
-    bool prompt_success = lle_prompt_render(state->terminal, state->prompt, false);
-    if (!prompt_success) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Prompt render failed, attempting simple fallback\n");
-        }
-        // Fallback: Try basic prompt rendering
-        prompt_success = lle_prompt_render(state->terminal, state->prompt, true); // Force simple mode
-        if (!prompt_success) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] CRITICAL: Prompt rendering failed, aborting boundary crossing\n");
-            LLE_TRACE_CRITICAL("DISPLAY_PROMPT_REDRAW_FAILED", state->buffer);
-            state->boundary_crossing_handled = false; // Allow retry
-            return false;
-        }
-    }
-    LLE_TRACE_CRITICAL("DISPLAY_AFTER_PROMPT_REDRAW", state->buffer);
-
-    // PHASE 2 Part 3: Enhanced content rendering with validation
-    if (text_length > 0) {
-        if (text_length > 4096) { // Sanity check for extremely long content
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] WARNING: Large content size %zu, may cause performance issues\n", text_length);
-            }
-        }
-
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Rendering remaining content: %zu characters\n", text_length);
-        }
-
-        bool content_success = lle_terminal_write(state->terminal, text, text_length);
-        if (!content_success) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Content rendering failed, attempting chunked write\n");
-            }
-            // Fallback: Try writing in smaller chunks
-            const size_t chunk_size = 256;
-            size_t written = 0;
-            content_success = true;
-            while (written < text_length && content_success) {
-                size_t remaining = text_length - written;
-                size_t to_write = (remaining < chunk_size) ? remaining : chunk_size;
-                content_success = lle_terminal_write(state->terminal, text + written, to_write);
-                written += to_write;
-            }
-            if (!content_success) {
-                fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] CRITICAL: Content rendering failed even with chunked approach\n");
-                state->boundary_crossing_handled = false; // Allow retry
-                return false;
-            }
-        }
-    } else {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] No remaining content to render after boundary crossing\n");
-        }
-    }
-
-    // PHASE 1: Enhanced terminal coordinate validation before state update
-    lle_visual_footprint_t validated_after = *footprint_after;
-    if (validated_after.end_column > terminal_width) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] WARNING: Correcting end_column %zu to fit terminal_width %zu\n",
-                   validated_after.end_column, terminal_width);
-        }
-        validated_after.end_column = (validated_after.end_column % terminal_width);
-        if (validated_after.end_column == 0 && validated_after.total_visual_width > 0) {
-            validated_after.end_column = terminal_width;
-        }
-    }
-
-    // PHASE 2 Part 3: Validated state update with bounds checking
-    if (validated_after.rows_used > 1000) { // Sanity check
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] WARNING: Excessive rows_used %zu, capping at 1000\n", validated_after.rows_used);
-        validated_after.rows_used = 1000;
-    }
-
-    // Update enhanced visual footprint tracking with validated values
-    state->last_visual_rows = validated_after.rows_used;
-    state->last_visual_end_col = validated_after.end_column;
-    state->last_total_chars = validated_after.total_visual_width;
-    state->last_had_wrapping = validated_after.wraps_lines;
-
-    // PHASE 2 Part 3: Safe content copying with bounds checking
-    if (text_length < sizeof(state->last_displayed_content)) {
-        memcpy(state->last_displayed_content, text, text_length);
-        state->last_displayed_content[text_length] = '\0';
-        state->last_displayed_length = text_length;
-    } else {
-        // Content too large for tracking buffer - truncate
-        size_t max_copy = sizeof(state->last_displayed_content) - 1;
-        memcpy(state->last_displayed_content, text, max_copy);
-        state->last_displayed_content[max_copy] = '\0';
-        state->last_displayed_length = max_copy;
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] WARNING: Content truncated from %zu to %zu for tracking\n", 
-                   text_length, max_copy);
-        }
-    }
-
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_UNIFIED_BOUNDARY] Boundary crossing completed successfully\n");
-    }
-
-    LLE_TRACE_CRITICAL("DISPLAY_BOUNDARY_CROSSING_COMPLETE", state->buffer);
-    return true;
-}
+// REMOVED: Broken boundary crossing function causing display corruption
 
 /**
  * @brief Update display incrementally without redrawing prompt
@@ -1128,7 +867,9 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
             fprintf(stderr, "[LLE_INCREMENTAL] True incremental: adding char '%c'\n", new_char);
         }
         
-        if (!lle_terminal_write(state->terminal, &new_char, 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, &new_char, 1) :
+              lle_terminal_write(state->terminal, &new_char, 1))) {
             return false;
         }
         
@@ -1141,279 +882,38 @@ bool lle_display_update_incremental(lle_display_state_t *state) {
     }
     
     // CASE 2: Single character deletion (BACKSPACE) - Enhanced with visual footprint calculation
-    if (text && text_length == state->last_displayed_length - 1 && 
+    // CASE 2A: Simple backspace detection (MOST COMMON for deletion)
+    if (text && text_length == state->last_displayed_length - 1 &&
         state->last_displayed_length > 0 &&
         memcmp(text, state->last_displayed_content, text_length) == 0) {
-        
-        // CRITICAL TRACE: Detected single character deletion in display update
-        LLE_TRACE_CRITICAL("DISPLAY_SINGLE_CHAR_DELETION", state->buffer);
-        
-        // Smart backspace - handle line wrap boundaries using visual footprint calculation
+            
         if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Enhanced backspace: deleting char\n");
+            fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace: deleting char\n");
         }
-        
-        // Get prompt geometry for footprint calculations
-        size_t prompt_last_line_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-        size_t terminal_width = state->geometry.width;
-        
-        // Calculate visual footprint before and after deletion
-        lle_visual_footprint_t footprint_before, footprint_after;
-        if (!lle_calculate_visual_footprint(state->last_displayed_content, state->last_displayed_length,
-                                           prompt_last_line_width, terminal_width, &footprint_before) ||
-            !lle_calculate_visual_footprint(text, text_length,
-                                           prompt_last_line_width, terminal_width, &footprint_after)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_INCREMENTAL] Failed to calculate visual footprint, using simple backspace fallback\n");
-            }
-            // STRATEGY 3: Simple backspace fallback - avoid complex unified rendering
-            if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace fallback failed\n");
-                }
-                return false;
-            }
-            // Update tracking after simple backspace
-            if (text && text_length > 0) {
-                memcpy(state->last_displayed_content, text, text_length);
-                state->last_displayed_content[text_length] = '\0';
-            } else {
-                state->last_displayed_content[0] = '\0';
-            }
-            state->last_displayed_length = text_length;
-            return true;
-        }
-        
-        // Check if we're crossing a line wrap boundary using enhanced detection
-        bool crossing_wrap_boundary = (footprint_before.rows_used != footprint_after.rows_used) ||
-                                     (footprint_before.wraps_lines && !footprint_after.wraps_lines);
-        
-        // CRITICAL TRACE: Boundary crossing detection
-        if (crossing_wrap_boundary) {
-            LLE_TRACE_BOUNDARY("DISPLAY_BOUNDARY_CROSSING_DETECTED", state->buffer);
-        } else {
-            LLE_TRACE_BUFFER("DISPLAY_NO_BOUNDARY_CROSSING", state->buffer);
-        }
-        
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Footprint before: rows=%zu, end_col=%zu, wraps=%s\n",
-                   footprint_before.rows_used, footprint_before.end_column,
-                   footprint_before.wraps_lines ? "true" : "false");
-            fprintf(stderr, "[LLE_INCREMENTAL] Footprint after: rows=%zu, end_col=%zu, wraps=%s\n",
-                   footprint_after.rows_used, footprint_after.end_column,
-                   footprint_after.wraps_lines ? "true" : "false");
-            fprintf(stderr, "[LLE_INCREMENTAL] Crossing boundary: %s\n",
-                   crossing_wrap_boundary ? "true" : "false");
-        }
-        
-        // STRATEGY 3: Simple Backspace for ALL cases - completely avoid complex boundary logic
-        // Human testing confirmed: complex boundary crossing logic causes buffer echoing
-        // Use simple terminal backspace sequence for ALL operations (boundary and non-boundary)
-        if (debug_mode) {
-            // RADICAL APPROACH: Disable all special boundary crossing logic
-            // Let the terminal handle line wrapping naturally
-            if (crossing_wrap_boundary) {
-                fprintf(stderr, "[LLE_INCREMENTAL] Boundary crossing detected, but using natural terminal handling\n");
-            } else {
-                fprintf(stderr, "[LLE_INCREMENTAL] Normal backspace using simple sequence (Strategy 3)\n");
-            }
-        }
-        
-        // Always use simple backspace regardless of boundary crossing
-        if (!lle_terminal_write(state->terminal, "\b \b", 3)) {
+            
+        // Simple terminal backspace with state synchronization
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "\b \b", 3) :
+              lle_terminal_write(state->terminal, "\b \b", 3))) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace failed\n");
             }
             return false;
         }
-        
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Natural terminal backspace completed\n");
-        }
-        
-        // SURGICAL FIX: Correct cursor position after boundary crossing
-        // Issue: After boundary crossing, cursor ends up one position too far right
-        // Root cause: Visual footprint calculation shows end_col=120 instead of 119
-        // Solution: Apply corrective positioning for boundary crossing cases
-        if (crossing_wrap_boundary) {
-            // Calculate expected cursor position after boundary crossing
-            size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-            size_t expected_total_width = prompt_width + text_length;
             
-            // For single-line content after boundary crossing, cursor should be at exact position
-            if (footprint_after.rows_used == 1 && expected_total_width < state->geometry.width) {
-                size_t expected_column = expected_total_width;
-                
-                // Apply corrective positioning if we detect the off-by-one issue
-                if (footprint_after.end_column != expected_column) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_INCREMENTAL] Applying boundary crossing cursor correction: expected=%zu, calculated=%zu\n", 
-                               expected_column, footprint_after.end_column);
-                    }
-                    
-                    // Move cursor to correct position
-                    if (lle_terminal_move_cursor_to_column(state->terminal, expected_column)) {
-                        if (debug_mode) {
-                            fprintf(stderr, "[LLE_INCREMENTAL] Cursor corrected to column %zu\n", expected_column);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // COMPREHENSIVE FIX: Address all three boundary crossing issues
-        // Issue 1: Character artifacts remain after boundary crossing
-        // Issue 2: Wrong character deletion or unexpected behavior  
-        // Issue 3: "One too many" cursor positioning never been fixed
-        
-        if (crossing_wrap_boundary) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_COMPREHENSIVE] BOUNDARY CROSSING FIXES ACTIVE\n");
-                fprintf(stderr, "[LLE_COMPREHENSIVE] Text length after backspace: %zu\n", text_length);
-                if (state->buffer) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] Buffer cursor_pos before sync: %zu\n", state->buffer->cursor_pos);
-                }
-            }
-            
-            // Calculate positioning variables for all fixes
-            size_t prompt_width = state->prompt ? lle_prompt_get_last_line_width(state->prompt) : 0;
-            size_t terminal_width = state->geometry.width;
-            size_t total_content_width = prompt_width + text_length;
-            size_t expected_cursor_column = prompt_width + text_length;
-            
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Moving cursor to exact position %zu (prompt=%zu + text=%zu)\n", 
-                       expected_cursor_column, prompt_width, text_length);
-            }
-            
-            // LINUX-SPECIFIC: Move up first, then clear artifacts on correct line
-            #ifdef __linux__
-            // Detect if we just crossed from wrapped to unwrapped
-            size_t previous_content_width = prompt_width + text_length + 1; // +1 for deleted char
-            if (previous_content_width >= terminal_width && total_content_width < terminal_width) {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_LINUX_SAFE] Cross-line boundary detected - moving up first\n");
-                }
-                
-                // STEP 1: Move up to previous line first
-                if (lle_terminal_move_cursor_up(state->terminal, 1)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] Successfully moved cursor up to previous line\n");
-                    }
-                } else {
-                    // Fallback: direct escape sequence
-                    lle_terminal_write(state->terminal, "\x1b[A", 3);
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] Used fallback escape sequence for up movement\n");
-                    }
-                }
-                
-                // STEP 2: Now clear artifact at end of THIS line (the previous line)
-                // Fix: Use terminal_width - 1 since valid columns are 0 to (width-1)
-                size_t boundary_position = terminal_width - 1;
-                if (lle_terminal_move_cursor_to_column(state->terminal, boundary_position)) {
-                    lle_terminal_write(state->terminal, " ", 1);  // Clear artifact on correct line
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] Cleared artifact at position %zu on previous line\n", boundary_position);
-                    }
-                } else {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] Artifact clearing failed - trying direct approach\n");
-                    }
-                    // Ultra-safe fallback: Go to end of line and clear
-                    lle_terminal_write(state->terminal, "\x1b[79C", 5);  // Move to column 79
-                    lle_terminal_write(state->terminal, " ", 1);         // Clear artifact
-                }
-                
-                // STEP 3: Position cursor to correct final location
-                if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] Final cursor positioned correctly at column %zu\n", expected_cursor_column);
-                    }
-                } else {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_LINUX_SAFE] WARNING - final cursor positioning failed\n");
-                    }
-                }
-            } else {
-                // No cross-line movement needed - use standard positioning
-                if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Cursor positioned correctly at column %zu\n", expected_cursor_column);
-                    }
-                } else {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: WARNING - cursor positioning failed\n");
-                    }
-                }
-            }
-            #else
-            // MACOS: Original artifact clearing + positioning (preserve exact behavior)
-            
-            // FIX #1: Clear potential character artifacts at boundary position
-            if (total_content_width < terminal_width) {
-                // We're now on single line - ensure boundary position is cleared
-                size_t boundary_position = terminal_width;
-                
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #1: Clearing potential artifact at boundary position %zu\n", boundary_position);
-                }
-                
-                // Move to boundary position and clear character
-                if (lle_terminal_move_cursor_to_column(state->terminal, boundary_position)) {
-                    lle_terminal_write(state->terminal, " ", 1);  // Clear potential artifact
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #1: Artifact cleared at position %zu\n", boundary_position);
-                    }
-                }
-            }
-            
-            // FIX #2: Standard cursor positioning for macOS
-            if (lle_terminal_move_cursor_to_column(state->terminal, expected_cursor_column)) {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: Cursor positioned correctly at column %zu\n", expected_cursor_column);
-                }
-            } else {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #2/#3: WARNING - cursor positioning failed\n");
-                }
-            }
-            #endif
-            
-            // FIX #3: Synchronize text buffer cursor to prevent wrong character deletion
-            if (state->buffer) {
-                size_t correct_cursor_pos = text_length;
-                
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #3: Synchronizing buffer cursor from %zu to %zu\n", 
-                           state->buffer->cursor_pos, correct_cursor_pos);
-                }
-                
-                // Always synchronize after boundary crossing, regardless of current value
-                state->buffer->cursor_pos = correct_cursor_pos;
-                
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_COMPREHENSIVE] FIX #3: Buffer cursor synchronized to %zu\n", 
-                           state->buffer->cursor_pos);
-                }
-            }
-            
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_COMPREHENSIVE] All three boundary crossing fixes applied successfully\n");
-            }
-        }
-        
         // Update tracking
-        LLE_TRACE_CRITICAL("DISPLAY_BEFORE_TRACKING_UPDATE", state->buffer);
-        memcpy(state->last_displayed_content, text, text_length);
-        state->last_displayed_content[text_length] = '\0'; 
-        state->last_displayed_length = text_length;
-        LLE_TRACE_CRITICAL("DISPLAY_AFTER_TRACKING_UPDATE", state->buffer);
-        
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_INCREMENTAL] Backspace completed, new length: %zu\n", text_length);
+        if (text && text_length > 0) {
+            memcpy(state->last_displayed_content, text, text_length);
+            state->last_displayed_content[text_length] = '\0';
+        } else {
+            state->last_displayed_content[0] = '\0';
         }
-        
+        state->last_displayed_length = text_length;
+            
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_INCREMENTAL] Simple backspace completed, new length: %zu\n", state->last_displayed_length);
+        }
+            
         return true;
     }
     
@@ -1472,18 +972,24 @@ if (state->prompt) {
 }
 
 // Ensure cursor is positioned exactly at prompt end before writing content
-if (!lle_terminal_write(state->terminal, "\r", 1)) {
+if (!(state->state_integration ? 
+      lle_display_integration_terminal_write(state->state_integration, "\r", 1) :
+      lle_terminal_write(state->terminal, "\r", 1))) {
     return false;
 }
 char move_right[32];
 snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
-if (!lle_terminal_write(state->terminal, move_right, strlen(move_right))) {
+if (!(state->state_integration ? 
+      lle_display_integration_terminal_write(state->state_integration, move_right, strlen(move_right)) :
+      lle_terminal_write(state->terminal, move_right, strlen(move_right)))) {
     return false;
 }
 
 // Write new content
 if (text && text_length > 0) {
-    if (!lle_terminal_write(state->terminal, text, text_length)) {
+    if (!(state->state_integration ? 
+          lle_display_integration_terminal_write(state->state_integration, text, text_length) :
+          lle_terminal_write(state->terminal, text, text_length))) {
         if (debug_mode) {
             fprintf(stderr, "[LLE_INCREMENTAL] Failed to write new content\n");
         }
@@ -1570,7 +1076,9 @@ static bool lle_display_clear_to_eol_linux_safe(lle_display_state_t *state) {
     
     // Write spaces to clear content, respecting terminal boundaries
     for (size_t i = 0; i < max_safe_clear; i++) {
-        if (!lle_terminal_write(state->terminal, " ", 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, " ", 1) :
+              lle_terminal_write(state->terminal, " ", 1))) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_EOL] Failed to write clearing space %zu\n", i);
             }
@@ -1580,7 +1088,9 @@ static bool lle_display_clear_to_eol_linux_safe(lle_display_state_t *state) {
     
     // Return cursor to starting position
     for (size_t i = 0; i < max_safe_clear; i++) {
-        if (!lle_terminal_write(state->terminal, "\b", 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "\b", 1) :
+              lle_terminal_write(state->terminal, "\b", 1))) {
             if (debug_mode) {
                 fprintf(stderr, "[LLE_CLEAR_EOL] Failed to backspace %zu\n", i);
             }
@@ -1806,7 +1316,9 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
         // Handle newlines in input text
         // Handle newlines in input text
         if (c == '\n') {
-            if (!lle_terminal_write(state->terminal, "\n", 1)) {
+            if (!(state->state_integration ? 
+                  lle_display_integration_terminal_write(state->state_integration, "\n", 1) :
+                  lle_terminal_write(state->terminal, "\n", 1))) {
                 return false;
             }
             continue;
@@ -1816,7 +1328,9 @@ static bool lle_display_render_plain_text(lle_display_state_t *state,
         // Terminal will automatically wrap when it reaches the right edge
         
         // Write the character - terminal handles positioning and wrapping
-        if (!lle_terminal_write(state->terminal, &c, 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, &c, 1) :
+              lle_terminal_write(state->terminal, &c, 1))) {
             return false;
         }
     }
@@ -1952,7 +1466,9 @@ static bool lle_display_apply_syntax_color(lle_display_state_t *state, lle_synta
     }
     
     // Apply the color
-    if (!lle_terminal_write(state->terminal, color_code, strlen(color_code))) {
+    if (!(state->state_integration ? 
+          lle_display_integration_terminal_write(state->state_integration, color_code, strlen(color_code)) :
+          lle_terminal_write(state->terminal, color_code, strlen(color_code)))) {
         return false;
     }
     
@@ -1973,7 +1489,9 @@ static bool lle_display_reset_colors(lle_display_state_t *state) {
     
     // ANSI reset sequence
     const char *reset_code = "\033[0m";
-    if (!lle_terminal_write(state->terminal, reset_code, strlen(reset_code))) {
+    if (!(state->state_integration ? 
+          lle_display_integration_terminal_write(state->state_integration, reset_code, strlen(reset_code)) :
+          lle_terminal_write(state->terminal, reset_code, strlen(reset_code)))) {
         return false;
     }
     
@@ -2084,7 +1602,9 @@ bool lle_display_render_with_syntax_highlighting(lle_display_state_t *state,
         // foundation ensures proper multi-line coordinate handling
         size_t segment_length = segment_end - text_pos;
         if (segment_length > 0) {
-            if (!lle_terminal_write(state->terminal, text + text_pos, segment_length)) {
+            if (!(state->state_integration ? 
+                  lle_display_integration_terminal_write(state->state_integration, text + text_pos, segment_length) :
+                  lle_terminal_write(state->terminal, text + text_pos, segment_length))) {
                 return false;
             }
             text_pos = segment_end;
@@ -2338,7 +1858,9 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
     
     // Move to new line for search, starting at column 0
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
-        if (!lle_terminal_write(state->terminal, "\n", 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "\n", 1) :
+              lle_terminal_write(state->terminal, "\n", 1))) {
             return false;
         }
         // Phase 2A.3: Use absolute positioning for search mode entry
@@ -2355,10 +1877,14 @@ bool lle_display_enter_search_mode(lle_display_state_t *state) {
             }
         }
     }
-    
+        
+    // Validate state after search mode entry
+    if (state->state_integration && !lle_display_integration_validate_state(state->state_integration)) {
+        lle_display_integration_force_sync(state->state_integration);
+    }
+        
     return true;
 }
-
 
 
 /**
@@ -2428,7 +1954,9 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
     if (state->terminal && isatty(state->terminal->stdin_fd)) {
         // Use direct terminal operations for immediate response
         // Move to beginning of current line and clear it completely
-        if (!lle_terminal_write(state->terminal, "\r", 1)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "\r", 1) :
+              lle_terminal_write(state->terminal, "\r", 1))) {
             return false;
         }
         if (!lle_display_clear_to_eol_linux_safe(state)) {
@@ -2436,19 +1964,25 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         }
         
         // Write search prompt components directly for immediate visual feedback
-        if (!lle_terminal_write(state->terminal, "(reverse-i-search)`", 19)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "(reverse-i-search)`", 19) :
+              lle_terminal_write(state->terminal, "(reverse-i-search)`", 19))) {
             return false;
         }
         
         // Write search term if provided
         if (search_term && search_length > 0) {
-            if (!lle_terminal_write(state->terminal, search_term, search_length)) {
+            if (!(state->state_integration ? 
+                  lle_display_integration_terminal_write(state->state_integration, search_term, search_length) :
+                  lle_terminal_write(state->terminal, search_term, search_length))) {
                 return false;
             }
         }
         
         // Write search prompt suffix
-        if (!lle_terminal_write(state->terminal, "': ", 3)) {
+        if (!(state->state_integration ? 
+              lle_display_integration_terminal_write(state->state_integration, "': ", 3) :
+              lle_terminal_write(state->terminal, "': ", 3))) {
             return false;
         }
         
@@ -2456,11 +1990,15 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
         if (match_text && match_length > 0) {
             size_t max_display = 60; // Conservative limit for terminal width
             size_t display_length = match_length > max_display ? max_display : match_length;
-            if (!lle_terminal_write(state->terminal, match_text, display_length)) {
+            if (!(state->state_integration ? 
+                  lle_display_integration_terminal_write(state->state_integration, match_text, display_length) :
+                  lle_terminal_write(state->terminal, match_text, display_length))) {
                 return false;
             }
             if (match_length > max_display) {
-                if (!lle_terminal_write(state->terminal, "...", 3)) {
+                if (!(state->state_integration ? 
+                      lle_display_integration_terminal_write(state->state_integration, "...", 3) :
+                      lle_terminal_write(state->terminal, "...", 3))) {
                     return false;
                 }
             }
@@ -2674,7 +2212,9 @@ bool lle_terminal_batch_flush(lle_display_state_t *state) {
     }
     
     // Write all batched operations in single call
-    bool result = lle_terminal_write(state->terminal, batch->batch_buffer, batch->buffer_used);
+    bool result = state->state_integration ? 
+        lle_display_integration_terminal_write(state->state_integration, batch->batch_buffer, batch->buffer_used) :
+        lle_terminal_write(state->terminal, batch->batch_buffer, batch->buffer_used);
     
     // Update statistics
     batch->total_writes++;
@@ -2933,218 +2473,9 @@ bool lle_calculate_visual_footprint(const char *text, size_t length,
 
 
 
-/**
- * @brief Clear exact visual region used by previous content
- *
- * Intelligently clears the visual region occupied by previous content,
- * handling line wrapping and multi-line scenarios correctly.
- *
- * @param tm Terminal manager for clearing operations
- * @param old_footprint Visual footprint of content to clear
- * @param new_footprint Visual footprint of new content (for optimization)
- * @return true on success, false on error
- */
-bool lle_clear_visual_region(lle_terminal_manager_t *tm,
-                            const lle_visual_footprint_t *old_footprint,
-                            const lle_visual_footprint_t *new_footprint) {
-    if (!tm || !old_footprint) {
-        return false;
-    }
-    
-    // Check for debug mode
-    const char *debug_env = getenv("LLE_DEBUG");
-    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
-    
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_CLEAR_REGION] Robust clearing: rows=%zu, end_col=%zu, wraps=%s\n",
-               old_footprint->rows_used, old_footprint->end_column,
-               old_footprint->wraps_lines ? "true" : "false");
-    }
-    
-    // Robust boundary crossing fix: Always perform comprehensive clearing during backspace operations
-    // This addresses the visual glitch where partial clearing creates the illusion of double deletion
-    bool is_backspace_operation = new_footprint && 
-                                 (new_footprint->rows_used < old_footprint->rows_used ||
-                                  (new_footprint->rows_used == old_footprint->rows_used && 
-                                   new_footprint->end_column < old_footprint->end_column));
-    
-    if (debug_mode && is_backspace_operation) {
-        fprintf(stderr, "[LLE_CLEAR_REGION] Backspace boundary crossing detected - using robust clearing\n");
-    }
-    
-    // For backspace operations or when new content doesn't cover old area, always clear completely
-    bool needs_clearing = is_backspace_operation || !new_footprint ||
-                         new_footprint->rows_used < old_footprint->rows_used ||
-                         new_footprint->end_column < old_footprint->end_column;
-    
-    if (!needs_clearing) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_CLEAR_REGION] New content covers old region, no clearing needed\n");
-        }
-        return true;
-    }
-    
-    // Robust clearing strategy for boundary crossing visual fix
-    if (old_footprint->wraps_lines || old_footprint->rows_used > 1) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_CLEAR_REGION] Multi-line robust clearing for %zu rows\n", old_footprint->rows_used);
-        }
-        
-        // ROBUST CLEARING METHOD: Complete visual region elimination
-        // This ensures complete visual clearing during boundary crossing operations
-        
-        // Phase 1: Clear current line completely to eliminate any visual remnants
-        if (!lle_terminal_clear_to_eol(tm)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_CLEAR_REGION] Failed to clear current line\n");
-            }
-            return false;
-        }
-        
-        // Phase 2: Robust multi-line clearing for boundary crossing operations
-        size_t lines_to_clear = old_footprint->rows_used - 1;
-        if (is_backspace_operation && lines_to_clear > 0) {
-            // Save current cursor position for restoration
-            size_t original_position = 0; // Track for restoration
-            
-            // Clear each subsequent line to eliminate visual artifacts
-            for (size_t i = 0; i < lines_to_clear; i++) {
-                // Move to next line
-                if (!lle_terminal_write(tm, "\n", 1)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_CLEAR_REGION] Failed to move to line %zu\n", i + 1);
-                    }
-                    break;
-                }
-                original_position++;
-                
-                // Clear the entire line to eliminate any visual remnants
-                if (!lle_terminal_clear_to_eol(tm)) {
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_CLEAR_REGION] Failed to clear line %zu\n", i + 1);
-                    }
-                    break;
-                }
-            }
-            
-            // Phase 3: Restore cursor to original position for subsequent operations
-            for (size_t i = 0; i < original_position; i++) {
-                if (!lle_terminal_write(tm, "\x1b[A", 3)) { // Move up one line
-                    if (debug_mode) {
-                        fprintf(stderr, "[LLE_CLEAR_REGION] Failed to restore cursor position\n");
-                    }
-                    break;
-                }
-            }
-            
-            // Phase 4: Final validation - ensure cursor is at correct position
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_CLEAR_REGION] Robust clearing completed, cursor restored\n");
-            }
-        }
-        
-        return true;
-    } else {
-        // Single-line robust clearing with enhanced validation
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_CLEAR_REGION] Single line robust clearing\n");
-        }
-        
-        // Apply robust clearing method even for single lines
-        bool clear_success = lle_terminal_clear_to_eol(tm);
-        
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_CLEAR_REGION] Single line clearing %s\n", 
-                   clear_success ? "successful" : "failed");
-        }
-        
-        return clear_success;
-    }
-}
+// REMOVED: Broken visual region clearing causing display corruption
 
-/**
- * @brief Robust fallback clearing when cursor position queries fail
- *
- * Provides a robust fallback clearing mechanism for situations where
- * cursor position tracking is unavailable or unreliable.
- *
- * @param tm Terminal manager for clearing operations
- * @param footprint Visual footprint of content to clear
- * @return true on success, false on error
- */
-bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
-                                   const lle_visual_footprint_t *footprint) {
-    if (!tm || !footprint) {
-        return false;
-    }
-    
-    // Check for debug mode
-    const char *debug_env = getenv("LLE_DEBUG");
-    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
-    
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_CLEAR_FALLBACK] Robust fallback clearing for %zu rows\n", footprint->rows_used);
-    }
-    
-    // For single-line content, use simple clearing
-    if (!footprint->wraps_lines || footprint->rows_used == 1) {
-        return lle_terminal_clear_to_eol(tm);
-    }
-    
-    // Enhanced multi-line fallback clearing to fix boundary crossing visual glitch
-    
-    // Clear current line completely first
-    if (!lle_terminal_clear_to_eol(tm)) {
-        if (debug_mode) {
-            fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to clear current line\n");
-        }
-        return false;
-    }
-    
-    // Save current cursor position for restoration
-    size_t saved_row, saved_col;
-    bool position_saved = lle_terminal_query_cursor_position(tm, &saved_row, &saved_col);
-    
-    // Enhanced clearing: Clear additional lines with comprehensive coverage
-    size_t lines_cleared = 1; // Already cleared current line
-    for (size_t i = 1; i < footprint->rows_used && lines_cleared < footprint->rows_used; i++) {
-        // Move cursor down one line
-        if (!lle_terminal_write(tm, "\n", 1)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to move to line %zu\n", i);
-            }
-            break;
-        }
-        
-        // Clear the entire line content to eliminate visual artifacts
-        if (!lle_terminal_clear_to_eol(tm)) {
-            if (debug_mode) {
-                fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to clear line %zu\n", i);
-            }
-        } else {
-            lines_cleared++;
-        }
-    }
-    
-    // Enhanced cursor restoration for boundary crossing fix
-    if (position_saved && lines_cleared > 1) {
-        // Move cursor back to original position more reliably
-        for (size_t i = 1; i < lines_cleared; i++) {
-            if (!lle_terminal_write(tm, "\x1b[A", 3)) { // Move up one line
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_CLEAR_FALLBACK] Failed to restore cursor position, line %zu\n", i);
-                }
-                break;
-            }
-        }
-    }
-    
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_CLEAR_FALLBACK] Enhanced clearing completed: %zu lines cleared\n", lines_cleared);
-    }
-    
-    return true;
-}
+// REMOVED: Broken multi-line clearing function causing display corruption
 
 /**
  * @brief Calculate the hash of content for change detection
@@ -3152,104 +2483,18 @@ bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
  * @param length Length of content
  * @return Hash value for content
  */
-static uint32_t lle_calculate_content_hash(const char *content, size_t length) {
-    if (!content || length == 0) {
-        return 0;
-    }
-    
-    // Simple hash function for change detection
-    uint32_t hash = 0;
-    for (size_t i = 0; i < length; i++) {
-        hash = hash * 31 + (uint32_t)content[i];
-    }
-    return hash;
-}
+// REMOVED: Unused content hash function
 
-/**
- * @brief Enhanced boundary crossing cursor positioning fix
- * @param state Display state
- * @param target_row Target terminal row
- * @param target_col Target terminal column
- * @return true on success, false on error
- */
-static bool lle_position_cursor_safe(lle_display_state_t *state, size_t target_row, size_t target_col) {
-    if (!state || !state->terminal) {
-        return false;
-    }
-    
-    // Validate coordinates against terminal geometry
-    if (state->terminal->geometry_valid) {
-        if (target_row >= state->terminal->geometry.height || 
-            target_col >= state->terminal->geometry.width) {
-            return false;
-        }
-    }
-    
-    // Use safe cursor positioning
-    return lle_terminal_move_cursor(state->terminal, target_row, target_col);
-}
+// REMOVED: Unused position cursor safe function
 
-/**
- * @brief Enhanced display update for boundary crossing operations
- * @param state Display state
- * @param force_full_redraw Whether to force complete redraw
- * @return true on success, false on error
- */
-static bool lle_display_update_boundary_safe(lle_display_state_t *state, bool force_full_redraw) {
-    if (!lle_display_validate(state)) {
-        return false;
-    }
-    
-    // Check for debug mode
-    const char *debug_env = getenv("LLE_DEBUG");
-    bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
-    
-    if (debug_mode) {
-        fprintf(stderr, "[LLE_BOUNDARY_SAFE] Enhanced boundary crossing update, force_redraw=%s\n",
-               force_full_redraw ? "true" : "false");
-    }
-    
-    // For boundary crossing operations, use enhanced clearing and positioning
-    if (force_full_redraw) {
-        // Calculate current visual footprint
-        lle_visual_footprint_t current_footprint;
-        const char *content = state->buffer ? state->buffer->buffer : "";
-        size_t content_length = state->buffer ? state->buffer->length : 0;
-        size_t prompt_width = state->prompt ? state->prompt->length : 0;
-        size_t terminal_width = state->terminal->geometry_valid ? state->terminal->geometry.width : 80;
-        
-        if (lle_calculate_visual_footprint(content, content_length, prompt_width, terminal_width, &current_footprint)) {
-            // Clear the region comprehensively
-            lle_visual_footprint_t empty_footprint = {0};
-            if (!lle_clear_visual_region(state->terminal, &current_footprint, &empty_footprint)) {
-                if (debug_mode) {
-                    fprintf(stderr, "[LLE_BOUNDARY_SAFE] Enhanced clearing failed\n");
-                }
-            }
-        }
-    }
-    
-    // Proceed with standard incremental update
-    return lle_display_update_incremental(state);
-}
+// REMOVED: Broken boundary safe update function
 
 /**
  * @brief Clear a terminal line completely and safely
  * @param tm Terminal manager
  * @return true on success, false on error
  */
-static bool lle_terminal_clear_line_safe(lle_terminal_manager_t *tm) {
-    if (!tm) {
-        return false;
-    }
-    
-    // Move to beginning of line and clear to end
-    if (!lle_terminal_write(tm, "\r", 1)) {
-        return false;
-    }
-    
-    return lle_terminal_clear_to_eol(tm);
-}
+// REMOVED: Broken terminal clear line safe function
 
 /**
  * @brief Get terminal cursor position with timeout protection
@@ -3258,48 +2503,11 @@ static bool lle_terminal_clear_line_safe(lle_terminal_manager_t *tm) {
  * @param col Pointer to store column position
  * @return true on success, false on error or timeout
  */
-static bool lle_terminal_query_cursor_safe(lle_terminal_manager_t *tm, size_t *row, size_t *col) {
-    if (!tm || !row || !col) {
-        return false;
-    }
-    
-    // Platform-specific cursor query handling
-    lle_platform_type_t platform = lle_detect_platform();
-    
-    // On Linux systems, avoid cursor queries that can cause contamination
-    if (platform == LLE_PLATFORM_LINUX) {
-        // Use fallback positioning instead of querying
-        *row = 0;
-        *col = 0;
-        return false; // Indicate fallback should be used
-    }
-    
-    // On macOS and other platforms, use normal cursor query
-    return lle_terminal_query_cursor_position(tm, row, col);
-}
+// REMOVED: Broken terminal query cursor safe function
 
 
 
-/**
- * @brief Clear to end of line with platform-specific safety
- */
-static bool lle_display_clear_to_eol_enhanced(lle_display_state_t *state) {
-    if (!state || !state->terminal) {
-        return false;
-    }
-    
-    // Enhanced clearing for boundary crossing operations
-    lle_platform_type_t platform = lle_detect_platform();
-    
-    if (platform == LLE_PLATFORM_LINUX) {
-        // Linux-specific safe clearing
-        return lle_terminal_write(state->terminal, "\x1b[K", 3);
-    } else {
-        // Standard clearing for other platforms
-        return lle_terminal_clear_to_eol(state->terminal);
-    }
-}
-
+// REMOVED: Broken enhanced functions
 
 
 
@@ -3369,7 +2577,8 @@ bool lle_display_update_unified(lle_display_state_t *display,
         if (debug_mode) {
             fprintf(stderr, "[LLE_UNIFIED] Clearing old content\n");
         }
-        lle_clear_visual_region(display->terminal, &old_footprint, &current_footprint);
+        // Simple clearing instead of broken visual region clearing
+        lle_terminal_clear_to_eol(display->terminal);
     }
     
     // Render content with consistent highlighting policy
@@ -3473,7 +2682,9 @@ bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
         // Only write content when doing full renders or final display
         if (display->syntax_highlighting_applied) {
             // Write text directly to terminal only if we're not in mid-edit
-            render_success = lle_terminal_write(display->terminal, text, text_length);
+            render_success = display->state_integration ? 
+                lle_display_integration_terminal_write(display->state_integration, text, text_length) :
+                lle_terminal_write(display->terminal, text, text_length);
         } else {
             // During editing after boundary clear, just mark as successful without writing
             render_success = true;

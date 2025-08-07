@@ -789,33 +789,9 @@ bool lle_calculate_visual_footprint(const char *text, size_t length,
                                    size_t prompt_width, size_t terminal_width,
                                    lle_visual_footprint_t *footprint);
 
-/**
- * @brief Clear exact visual region used by previous content
- *
- * Intelligently clears the visual region occupied by previous content,
- * handling line wrapping and multi-line scenarios correctly.
- *
- * @param tm Terminal manager for clearing operations
- * @param old_footprint Visual footprint of content to clear
- * @param new_footprint Visual footprint of new content (for optimization)
- * @return true on success, false on error
- */
-bool lle_clear_visual_region(lle_terminal_manager_t *tm,
-                            const lle_visual_footprint_t *old_footprint,
-                            const lle_visual_footprint_t *new_footprint);
+// REMOVED: Broken visual region clearing function
 
-/**
- * @brief Robust fallback clearing when cursor position queries fail
- *
- * Provides a robust fallback clearing mechanism for situations where
- * cursor position tracking is unavailable or unreliable.
- *
- * @param tm Terminal manager for clearing operations
- * @param footprint Visual footprint of content to clear
- * @return true on success, false on error
- */
-bool lle_clear_multi_line_fallback(lle_terminal_manager_t *tm,
-                                   const lle_visual_footprint_t *footprint);
+// REMOVED: Broken multi-line fallback clearing function
 
 /**
  * @brief Ensure consistent rendering regardless of path taken

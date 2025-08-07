@@ -14,8 +14,12 @@
 #include "edit_commands.h"
 #include "text_buffer.h"
 #include "display.h"
-#include "cursor_math.h"
+#include "termcap/lle_termcap.h"
 #include "buffer_trace.h"
+#include "terminal_manager.h"
+#include "display_state_integration.h"
+#include "platform_detection.h"
+#include "termcap/lle_termcap.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -142,12 +146,34 @@ lle_command_result_t lle_cmd_insert_char(lle_display_state_t *state, char charac
         return LLE_CMD_ERROR_BUFFER_FULL;
     }
     
-    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
-    // Only update display if state is fully initialized to prevent segfaults
+    // Invalidate position tracking since content has changed
+    state->position_tracking_valid = false;
+    
+    // Use state synchronization system instead of problematic display functions
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Write character using state synchronization
+            if (!lle_display_integration_terminal_write(state->state_integration, &character, 1)) {
+                return LLE_CMD_ERROR_DISPLAY_UPDATE;
+            }
+            
+            // Update display tracking state for consistency
+            if (state->buffer && state->buffer->length < sizeof(state->last_displayed_content)) {
+                memcpy(state->last_displayed_content, state->buffer->buffer, state->buffer->length);
+                state->last_displayed_content[state->buffer->length] = '\0';
+                state->last_displayed_length = state->buffer->length;
+                state->display_state_valid = true;
+            }
+            
+            // Validate state consistency after character insertion
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
+        } else {
+            // Fallback if state integration not available
+            if (state->terminal) {
+                lle_terminal_write(state->terminal, &character, 1);
+            }
         }
     }
     
@@ -175,12 +201,29 @@ lle_command_result_t lle_cmd_delete_char(lle_display_state_t *state) {
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
-    // Only update display if state is fully initialized to prevent segfaults
+    // Use state synchronization system instead of problematic display functions
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // For delete character, just clear the character without moving cursor back
+            lle_display_integration_terminal_write(state->state_integration, " \b", 2);
+            
+            // Update display tracking state for consistency
+            if (state->buffer && state->buffer->length < sizeof(state->last_displayed_content)) {
+                memcpy(state->last_displayed_content, state->buffer->buffer, state->buffer->length);
+                state->last_displayed_content[state->buffer->length] = '\0';
+                state->last_displayed_length = state->buffer->length;
+                state->display_state_valid = true;
+            }
+            
+            // Validate state consistency after delete operation
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
+        } else {
+            // Fallback without state integration
+            if (state->terminal) {
+                lle_terminal_write(state->terminal, " \b", 2);
+            }
         }
     }
     
@@ -202,11 +245,24 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
     
     size_t cursor_pos = state->buffer->cursor_pos;
     
-    // Can't backspace at beginning of buffer
-    if (cursor_pos == 0) {
+    // Can't backspace at beginning of buffer OR when buffer is empty
+    if (cursor_pos == 0 || state->buffer->length == 0) {
+        fprintf(stderr, "[VISUAL_DEBUG] BLOCKED: Backspace at buffer start (cursor_pos=%zu, length=%zu)\n", 
+                cursor_pos, state->buffer->length);
         LLE_TRACE_BUFFER("CMD_BACKSPACE_NO_OP", state->buffer);
         lle_trace_backspace_end(trace_session, state->buffer, state, true);
         return LLE_CMD_SUCCESS; // Not an error, just nothing to delete
+    }
+    
+    // Store original buffer content for content rewrite strategy
+    char *old_content = NULL;
+    size_t old_length = state->buffer->length;
+    if (old_length > 0) {
+        old_content = malloc(old_length + 1);
+        if (old_content) {
+            memcpy(old_content, state->buffer->buffer, old_length);
+            old_content[old_length] = '\0';
+        }
     }
     
     // CRITICAL TRACE: Before buffer modification
@@ -218,6 +274,7 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
         LLE_TRACE_CRITICAL("TEXT_BACKSPACE_FAILED", state->buffer);
         lle_trace_buffer_function("lle_text_backspace", state->buffer, false);
         lle_trace_backspace_end(trace_session, state->buffer, state, false);
+        free(old_content);
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
@@ -230,23 +287,196 @@ lle_command_result_t lle_cmd_backspace(lle_display_state_t *state) {
         LLE_TRACE_CRITICAL("BUFFER_CONSISTENCY_ERROR", state->buffer);
     }
     
-    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
-    // Only update display if state is fully initialized to prevent segfaults
+    // MATHEMATICAL CURSOR POSITIONING STRATEGY: Calculate exact positions without magic numbers
     if (lle_display_validate(state)) {
-        LLE_TRACE_BUFFER("BEFORE_DISPLAY_UPDATE", state->buffer);
+        LLE_TRACE_BUFFER("BEFORE_MATHEMATICAL_BACKSPACE", state->buffer);
         
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            LLE_TRACE_FALLBACK("INCREMENTAL_UPDATE_FAILED", state->buffer);
-            lle_trace_display_update("FALLBACK_RENDER", state->buffer, false, true);
-            lle_display_render(state);
-            LLE_TRACE_FALLBACK("AFTER_FALLBACK_RENDER", state->buffer);
+        // Debug: Show state transition
+        fprintf(stderr, "[MATH_DEBUG] BACKSPACE: old_length=%zu, new_length=%zu\n", 
+                old_length, state->buffer->length);
+        if (old_content) {
+            fprintf(stderr, "[MATH_DEBUG] BEFORE: '%.*s'\n", (int)old_length, old_content);
+        }
+        fprintf(stderr, "[MATH_DEBUG] AFTER: '%.*s'\n", 
+                (int)state->buffer->length, state->buffer->buffer);
+        
+        if (state->state_integration) {
+            fprintf(stderr, "[MATH_DEBUG] Using mathematical cursor positioning\n");
+            
+            // Calculate terminal geometry parameters
+            size_t prompt_width = 0;
+            if (state->prompt) {
+                prompt_width = lle_prompt_get_last_line_width(state->prompt);
+            }
+            size_t terminal_width = state->geometry.width;
+            size_t available_content_width = (terminal_width > prompt_width) ? 
+                                           (terminal_width - prompt_width) : 0;
+            
+            fprintf(stderr, "[MATH_DEBUG] Terminal geometry: prompt=%zu, terminal=%zu, available=%zu\n", 
+                    prompt_width, terminal_width, available_content_width);
+            
+            // Use tracked cursor position directly when available
+            size_t current_line, current_col;
+            if (state->position_tracking_valid && state->content_end_col > 0) {
+                // Use tracked cursor position directly - no conversion needed
+                current_line = state->content_end_row;
+                current_col = state->content_end_col;
+                fprintf(stderr, "[MATH_DEBUG] Using tracked cursor position directly: row=%zu, col=%zu\n", 
+                        current_line, current_col);
+            } else {
+                // Fallback to calculation from buffer length
+                size_t current_absolute_pos = prompt_width + old_length;
+                fprintf(stderr, "[MATH_DEBUG] Using calculated cursor position from buffer length: %zu\n", current_absolute_pos);
+                
+                // Fix boundary condition: when at exact terminal width boundary
+                if (current_absolute_pos > 0 && current_absolute_pos % terminal_width == 0) {
+                    // Position is at end of previous line, not start of next line
+                    current_line = (current_absolute_pos / terminal_width) - 1;
+                    current_col = terminal_width;
+                } else {
+                    current_line = current_absolute_pos / terminal_width;
+                    current_col = current_absolute_pos % terminal_width;
+                }
+                fprintf(stderr, "[MATH_DEBUG] Corrected boundary calculation: current_line=%zu, current_col=%zu\n", 
+                        current_line, current_col);
+            }
+            
+            // Calculate target position - always from buffer length
+            size_t target_absolute_pos = prompt_width + state->buffer->length;
+            // Fix boundary condition for target position too
+            size_t target_line, target_col;
+            if (target_absolute_pos > 0 && target_absolute_pos % terminal_width == 0) {
+                // Position is at end of previous line, not start of next line
+                target_line = (target_absolute_pos / terminal_width) - 1;
+                target_col = terminal_width;
+            } else {
+                target_line = target_absolute_pos / terminal_width;
+                target_col = target_absolute_pos % terminal_width;
+            }
+            fprintf(stderr, "[MATH_DEBUG] Corrected target boundary calculation: target_line=%zu, target_col=%zu\n", 
+                    target_line, target_col);
+            
+            fprintf(stderr, "[MATH_DEBUG] Position calculation: current=(%zu,%zu), target=(%zu,%zu)\n", 
+                    current_line, current_col, target_line, target_col);
+            
+            fprintf(stderr, "[MATH_DEBUG] Final cursor positions: current=(line=%zu,col=%zu), target=(line=%zu,col=%zu)\n", 
+                    current_line, current_col, target_line, target_col);
+            
+            // Execute cursor positioning and content clearing
+            if (current_line == target_line) {
+                // Same line: position cursor at target and clear to end of line
+                fprintf(stderr, "[MATH_DEBUG] Same line operation: positioning and clearing\n");
+                
+                // Position cursor at target column (where new content should end)
+                if (lle_termcap_cursor_to_column((int)target_col) != LLE_TERMCAP_OK) {
+                    fprintf(stderr, "[MATH_DEBUG] ERROR: Failed to position cursor at target column %zu\n", target_col);
+                } else {
+                    fprintf(stderr, "[MATH_DEBUG] SUCCESS: Positioned cursor at target column %zu\n", target_col);
+                }
+                
+                // Clear from cursor to end of line (removes deleted characters)
+                if (lle_termcap_clear_to_eol() != LLE_TERMCAP_OK) {
+                    fprintf(stderr, "[MATH_DEBUG] ERROR: Failed to clear to end of line\n");
+                } else {
+                    fprintf(stderr, "[MATH_DEBUG] SUCCESS: Cleared deleted characters from cursor position\n");
+                }
+            } else {
+                // Different lines: cross-line boundary operation
+                fprintf(stderr, "[MATH_DEBUG] Cross-line operation: from line %zu to line %zu\n", current_line, target_line);
+                
+                // For cross-line operations, clear wrapped lines first, then position cursor
+                if (current_line > target_line) {
+                    // Clear current line (wrapped line) completely
+                    if (lle_termcap_clear_line() == LLE_TERMCAP_OK) {
+                        fprintf(stderr, "[MATH_DEBUG] SUCCESS: Cleared current wrapped line %zu\n", current_line);
+                        
+                        // Move up to target line
+                        size_t lines_to_move_up = current_line - target_line;
+                        if (lle_termcap_move_cursor_up((int)lines_to_move_up) == LLE_TERMCAP_OK) {
+                            fprintf(stderr, "[MATH_DEBUG] SUCCESS: Moved up %zu lines\n", lines_to_move_up);
+                            
+                            // Position cursor at target column
+                            if (lle_termcap_cursor_to_column((int)target_col) == LLE_TERMCAP_OK) {
+                                fprintf(stderr, "[MATH_DEBUG] SUCCESS: Positioned at target column %zu\n", target_col);
+                                
+                                // Clear from cursor to end of line (removes any remaining content)
+                                if (lle_termcap_clear_to_eol() == LLE_TERMCAP_OK) {
+                                    fprintf(stderr, "[MATH_DEBUG] SUCCESS: Cleared remaining characters from cursor position\n");
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    fprintf(stderr, "[MATH_DEBUG] ERROR: Unexpected cursor movement direction - current_line <= target_line\n");
+                }
+            }
+            
+            // Update display tracking state for all successful operations
+            if (state->buffer->length < sizeof(state->last_displayed_content)) {
+                memcpy(state->last_displayed_content, state->buffer->buffer, state->buffer->length);
+                state->last_displayed_content[state->buffer->length] = '\0';
+                state->last_displayed_length = state->buffer->length;
+                state->display_state_valid = true;
+                
+                // Update cursor position tracking
+                state->content_end_row = target_line;
+                state->content_end_col = target_col;
+                state->position_tracking_valid = true;
+                
+                // For cross-line operations, force immediate cursor synchronization
+                if (current_line != target_line) {
+                    // Query actual terminal cursor position to ensure perfect sync
+                    size_t actual_row, actual_col;
+                    if (state->terminal && lle_terminal_query_cursor_position(state->terminal, &actual_row, &actual_col)) {
+                        // Update tracking with actual terminal position
+                        state->content_end_row = actual_row;
+                        state->content_end_col = actual_col;
+                        fprintf(stderr, "[MATH_DEBUG] Cross-line operation - synced with actual cursor position: row=%zu, col=%zu\n", actual_row, actual_col);
+                    } else {
+                        // Fallback: invalidate tracking to force recalculation
+                        state->position_tracking_valid = false;
+                        fprintf(stderr, "[MATH_DEBUG] Cross-line operation - cursor query failed, invalidating position tracking\n");
+                    }
+                }
+                
+                fprintf(stderr, "[MATH_DEBUG] SUCCESS: Display state updated and synchronized\n");
+                fprintf(stderr, "[MATH_DEBUG] Updated cursor tracking: row=%zu, col=%zu\n", target_line, target_col);
+            }
+            
+            // Validate state consistency
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                fprintf(stderr, "[MATH_DEBUG] WARNING: State validation failed - forcing sync\n");
+                lle_display_integration_force_sync(state->state_integration);
+            } else {
+                fprintf(stderr, "[MATH_DEBUG] SUCCESS: State validation passed\n");
+            }
         } else {
-            LLE_TRACE_BUFFER("INCREMENTAL_UPDATE_SUCCESS", state->buffer);
+            // Fallback without state integration - simple character deletion
+            LLE_TRACE_FALLBACK("MATHEMATICAL_FALLBACK", state->buffer);
+            fprintf(stderr, "[MATH_DEBUG] Using fallback mathematical backspace\n");
+                
+            if (state->terminal) {
+                // Mathematical character deletion using termcap - maintain state accuracy
+                if (lle_termcap_move_cursor_left(1) == LLE_TERMCAP_OK) {
+                    // Write space to clear character, then move back
+                    if (lle_terminal_write(state->terminal, " ", 1) == 0) {
+                        if (lle_termcap_move_cursor_left(1) == LLE_TERMCAP_OK) {
+                            // State remains consistent - character visually deleted
+                            fprintf(stderr, "[MATH_DEBUG] Fallback: Character deletion with state consistency\n");
+                        }
+                    }
+                } else {
+                    fprintf(stderr, "[MATH_DEBUG] Fallback: Failed to position cursor for deletion\n");
+                }
+            }
         }
         
-        LLE_TRACE_BUFFER("AFTER_DISPLAY_UPDATE", state->buffer);
+        LLE_TRACE_BUFFER("AFTER_MATHEMATICAL_BACKSPACE", state->buffer);
+        fprintf(stderr, "[MATH_DEBUG] Mathematical backspace completed\n");
     }
+    
+    // Cleanup
+    free(old_content);
     
     // CRITICAL TRACE: End backspace operation
     LLE_TRACE_CRITICAL("CMD_BACKSPACE_EXIT", state->buffer);
@@ -335,9 +565,11 @@ lle_command_result_t lle_cmd_move_cursor(lle_display_state_t *state,
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for cursor movement
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -364,9 +596,11 @@ lle_command_result_t lle_cmd_set_cursor_position(lle_display_state_t *state, siz
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for cursor positioning
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -417,9 +651,11 @@ lle_command_result_t lle_cmd_delete_word(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for word deletion
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -455,9 +691,11 @@ lle_command_result_t lle_cmd_backspace_word(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for word backspace
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -495,9 +733,9 @@ lle_command_result_t lle_cmd_accept_line(lle_display_state_t *state,
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // For line cancellation, clear display if update fails
-            lle_display_clear(state);
+        if (state->state_integration) {
+            // Use state synchronization for line acceptance
+            lle_display_integration_validate_state(state->state_integration);
         }
     }
     
@@ -522,9 +760,9 @@ lle_command_result_t lle_cmd_cancel_line(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // For line acceptance, clear display if update fails
-            lle_display_clear(state);
+        if (state->state_integration) {
+            // Use state synchronization for line cancellation
+            lle_display_integration_validate_state(state->state_integration);
         }
     }
     
@@ -549,9 +787,11 @@ lle_command_result_t lle_cmd_clear_line(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for line clearing
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -656,9 +896,11 @@ lle_command_result_t lle_cmd_kill_line(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for kill line
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     
@@ -693,9 +935,11 @@ lle_command_result_t lle_cmd_kill_beginning(lle_display_state_t *state) {
     // Phase 2B.5: Integrate with Phase 2A absolute positioning system
     // Only update display if state is fully initialized to prevent segfaults
     if (lle_display_validate(state)) {
-        if (!lle_display_update_incremental(state)) {
-            // Graceful fallback: if absolute positioning fails, use full render
-            lle_display_render(state);
+        if (state->state_integration) {
+            // Use state synchronization for kill beginning
+            if (!lle_display_integration_validate_state(state->state_integration)) {
+                lle_display_integration_force_sync(state->state_integration);
+            }
         }
     }
     

@@ -176,6 +176,9 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
         lle_display_integration_set_debug_mode(editor->state_integration, true);
     }
     
+    // Connect display state to use the line editor's state integration context
+    editor->display->state_integration = editor->state_integration;
+    
     // Initialize history if enabled
     if (config->enable_history) {
         editor->history = lle_history_create(config->max_history_size, false);
@@ -512,6 +515,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 
             case LLE_KEY_BACKSPACE:
             case LLE_KEY_CTRL_H:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] BACKSPACE case executed, reverse_search_mode=%d\n", reverse_search_mode);
+                }
                 if (reverse_search_mode) {
                     // Remove character from search query
                     size_t query_len = strlen(reverse_search_query);
@@ -557,8 +563,17 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     needs_display_update = false;
                 } else {
                     // Standard: Ctrl+H is backspace in most terminals
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Entering backspace else branch\n");
+                    }
                     LLE_TRACE_CRITICAL("INPUT_LOOP_BACKSPACE_START", editor->buffer);
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] About to call lle_cmd_backspace\n");
+                    }
                     cmd_result = lle_cmd_backspace(editor->display);
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] lle_cmd_backspace returned: %d\n", cmd_result);
+                    }
                     LLE_TRACE_CRITICAL("INPUT_LOOP_BACKSPACE_END", editor->buffer);
                     needs_display_update = false; // Phase 2B.5: Command handles its own display update
                 }
@@ -1306,30 +1321,9 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         fprintf(stderr, "[LLE_INPUT_LOOP] Inserting printable character: '%c'\n", event.character);
                     }
                     
-                    // LINUX FIX: Simple character insertion without display system
-                    if (lle_platform_is_linux()) {
-                        // Direct character insertion for Linux
-                        if (editor->buffer->length < editor->buffer->capacity - 1) {
-                            // Simple append to buffer
-                            editor->buffer->buffer[editor->buffer->length] = event.character;
-                            editor->buffer->length++;
-                            editor->buffer->cursor_pos = editor->buffer->length;
-                            editor->buffer->buffer[editor->buffer->length] = '\0';
-                            
-                            // Direct terminal write with state synchronization
-                            lle_display_integration_terminal_write(editor->state_integration, &event.character, 1);
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Direct character insertion\n");
-                            }
-                        }
-                        cmd_result = LLE_CMD_SUCCESS;
-                        needs_display_update = false; // CRITICAL: Block display system
-                    } else {
-                        // macOS: Use sophisticated display system
-                        cmd_result = lle_cmd_insert_char(editor->display, event.character);
-                        needs_display_update = false; // Phase 2B.5: Command handles its own display update
-                    }
+                    // Use consistent display system with state synchronization for all platforms
+                    cmd_result = lle_cmd_insert_char(editor->display, event.character);
+                    needs_display_update = false; // Command handles its own display update
                 }
                 else {
                     // Other control characters - ignore in line editor
@@ -1435,17 +1429,24 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
         }
         
-        // Update display if needed and command succeeded
+        // Update display using state synchronization system instead of problematic display functions
         if (needs_display_update && cmd_result != LLE_CMD_ERROR_DISPLAY_UPDATE) {
-            // LLE-R003: Use stabilized display update with error recovery
-            if (!lle_display_update_incremental(editor->display)) {
-                // Apply stabilization error recovery for reliable display updates
-                if (!lle_display_error_recovery((struct lle_display_state *)editor->display, -1)) {
-                    // Final fallback: clear and render if recovery fails
+            // Use state synchronization system to avoid display corruption and prompt cascading
+            if (editor->state_integration) {
+                // Validate state consistency and force sync if needed
+                if (!lle_display_integration_validate_state(editor->state_integration)) {
                     if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Display error recovery failed, falling back to full render\n");
+                        fprintf(stderr, "[LLE_INPUT_LOOP] State validation failed, forcing sync\n");
                     }
-                    lle_display_render(editor->display);
+                    lle_display_integration_force_sync(editor->state_integration);
+                }
+                
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Display update using state synchronization\n");
+                }
+            } else {
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] Warning: State integration not available\n");
                 }
             }
         }
@@ -1700,16 +1701,34 @@ char *lle_readline(lle_line_editor_t *editor, const char *prompt) {
         }
     }
     
+    // Clean up display state and terminal before returning
+    if (editor->display) {
+        // Clear any remaining display artifacts
+        if (debug_mode) {
+            fprintf(stderr, "[LLE_READLINE] Cleaning up display state\n");
+        }
+        
+        // Move cursor to end of content and clear any artifacts
+        if (editor->display->terminal && isatty(editor->display->terminal->stdin_fd)) {
+            // Write a newline to ensure we're on a clean line
+            lle_terminal_write(editor->display->terminal, "\n", 1);
+        }
+        
+        // Invalidate position tracking to prevent stale state
+        editor->display->position_tracking_valid = false;
+        editor->display->display_state_valid = false;
+    }
+
     // Handle result and error status (already set by lle_input_loop)
     if (debug_mode) {
         fprintf(stderr, "[LLE_READLINE] Returning result: %p\n", (void*)result);
     }
-    
+
     if (!result) {
         // Input was cancelled or error occurred
         // Error code already set by lle_input_loop
     }
-    
+
     return result;
 }
 

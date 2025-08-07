@@ -28,7 +28,7 @@
 /**
  * @brief Integration context for display state synchronization
  */
-typedef struct {
+typedef struct lle_display_integration {
     lle_state_sync_context_t *sync_ctx;    /**< State sync context */
     lle_display_state_t *display;          /**< Display state reference */
     lle_terminal_manager_t *terminal;      /**< Terminal manager reference */
