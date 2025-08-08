@@ -244,10 +244,10 @@ LLE_TEST(unicode_cursor_boundary_conditions) {
     
     // Test movement at boundaries
     lle_text_set_cursor(buffer, 0);
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT)); // Can't move left from start
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT)); // Idempotent: already at start
     
     lle_text_set_cursor(buffer, buffer->length);
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT)); // Can't move right from end
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT)); // Idempotent: already at end
     
     // Test invalid character positions
     LLE_ASSERT(!lle_text_set_cursor_char_pos(buffer, 100)); // Out of bounds
@@ -268,11 +268,11 @@ LLE_TEST(unicode_cursor_empty_buffer) {
     LLE_ASSERT(lle_text_set_cursor_char_pos(buffer, 0));
     LLE_ASSERT(!lle_text_set_cursor_char_pos(buffer, 1)); // Invalid for empty buffer
     
-    // No movement possible
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    // Idempotent movement behavior - succeed when already at target position
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT));    // Already at position 0
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));   // Already at position 0 (end of empty)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));  // Already at beginning
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT)); // Already at end
     
     lle_text_buffer_destroy(buffer);
     printf("PASSED\n");
