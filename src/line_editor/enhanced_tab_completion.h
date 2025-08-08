@@ -21,6 +21,7 @@
 // Required includes for proper type definitions
 #include "text_buffer.h" 
 #include "completion.h"
+#include "display_state_integration.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,7 +99,8 @@ void lle_enhanced_tab_completion_cleanup(void);
  *       improved state management and cross-platform compatibility.
  */
 bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
-                                      lle_completion_list_t *completions);
+                                      lle_completion_list_t *completions,
+                                      lle_display_integration_t *display_integration);
 
 /**
  * @brief Reset the current completion session
@@ -159,8 +161,9 @@ const char *lle_enhanced_tab_completion_get_debug_info(void);
  * // [complex static variable management and cycling logic]
  * 
  * // NEW CODE:
- * if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions)) {
- *     needs_display_update = true;
+ * if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions, editor->state_integration)) {
+ *     // Display update handled by tab completion function
+ *     needs_display_update = false;
  *     
  *     // Optional: Show completion info for debugging
  *     if (debug_mode) {

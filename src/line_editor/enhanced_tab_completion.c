@@ -22,6 +22,7 @@
 #include "enhanced_tab_completion.h"
 #include "completion.h"
 #include "text_buffer.h"
+#include "display_state_integration.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -552,7 +553,8 @@ void lle_enhanced_tab_completion_cleanup(void) {
 }
 
 bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
-                                      lle_completion_list_t *completions) {
+                                      lle_completion_list_t *completions,
+                                      lle_display_integration_t *display_integration) {
     if (!buffer || !completions) {
         return false;
     }
@@ -581,10 +583,21 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                     }
                 }
                 
+                // Prepare old content for state sync
+                char old_content[1024];
+                size_t old_content_len = buffer->length;
+                if (old_content_len < sizeof(old_content)) {
+                    memcpy(old_content, buffer->buffer, old_content_len);
+                    old_content[old_content_len] = '\0';
+                } else {
+                    COMPLETION_DEBUG("Buffer too large for state sync");
+                    return false;
+                }
+                
                 // Delete current text
                 if (replace_end > replace_start) {
-                    if (!lle_text_delete_range(buffer, replace_start, replace_end)) {
-                        COMPLETION_DEBUG("Failed to delete range for replacement");
+                    if (!lle_text_delete_range(buffer, replace_start, replace_end - replace_start)) {
+                        COMPLETION_DEBUG("Failed to delete existing text");
                         return false;
                     }
                 }
@@ -597,6 +610,14 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                 
                 // Update cursor position
                 buffer->cursor_pos = replace_start + item->text_len;
+                
+                // Sync display state with updated buffer content
+                if (!lle_display_integration_replace_content(display_integration,
+                                                           old_content, old_content_len,
+                                                           buffer->buffer, buffer->length)) {
+                    COMPLETION_DEBUG("Failed to sync display state after completion");
+                    return false;
+                }
                 
                 // Update session state
                 strncpy(g_completion_state.last_applied_completion, item->text,
@@ -621,6 +642,17 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                 size_t replace_start = g_completion_state.word_start_pos;
                 size_t replace_end = g_completion_state.word_end_pos;
                 
+                // Prepare old content for state sync
+                char old_content[1024];
+                size_t old_content_len = buffer->length;
+                if (old_content_len < sizeof(old_content)) {
+                    memcpy(old_content, buffer->buffer, old_content_len);
+                    old_content[old_content_len] = '\0';
+                } else {
+                    COMPLETION_DEBUG("Buffer too large for state sync");
+                    return false;
+                }
+                
                 // Delete current word
                 if (replace_end > replace_start) {
                     if (!lle_text_delete_range(buffer, replace_start, replace_end)) {
@@ -637,6 +669,14 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                 
                 // Update cursor position
                 buffer->cursor_pos = replace_start + item->text_len;
+                
+                // Sync display state with updated buffer content
+                if (!lle_display_integration_replace_content(display_integration,
+                                                           old_content, old_content_len,
+                                                           buffer->buffer, buffer->length)) {
+                    COMPLETION_DEBUG("Failed to sync display state after first completion");
+                    return false;
+                }
                 
                 // Update session state
                 strncpy(g_completion_state.last_applied_completion, item->text,

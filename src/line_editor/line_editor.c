@@ -1134,10 +1134,20 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_TAB:
+                if (debug_mode) {
+                    fprintf(stderr, "[LLE_INPUT_LOOP] TAB case executed, auto_completion=%d, completions=%p\n", 
+                            editor->auto_completion, (void*)editor->completions);
+                }
                 // Enhanced tab completion (if enabled)
                 if (editor->auto_completion && editor->completions) {
-                    if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions)) {
-                        needs_display_update = true;
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Calling lle_enhanced_tab_completion_handle\n");
+                    }
+                    if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions, editor->state_integration)) {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion handled successfully\n");
+                        }
+                        needs_display_update = false; // Display update handled by tab completion function
                         
                         // Phase 2B.2: Show completion menu for multiple options
                         const lle_enhanced_completion_info_t *info = 
@@ -1167,9 +1177,15 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                    info->current_completion);
                         }
                     } else {
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion handler returned false\n");
+                        }
                         needs_display_update = false;
                     }
                 } else {
+                    if (debug_mode) {
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion disabled or completions NULL\n");
+                    }
                     needs_display_update = false;
                 }
                 break;
