@@ -212,6 +212,39 @@ bool lle_display_integration_replace_content(lle_display_integration_t *integrat
                                              size_t new_length);
 
 /**
+ * @brief Clear content using proven backspace boundary logic
+ * 
+ * Uses the exact same backspace operations that work perfectly for wrapped
+ * lines. This ensures 100% identical behavior to manual user backspacing.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param content_length Length of content to clear using backspace logic
+ * @return true on success, false on error
+ */
+bool lle_display_integration_clear_with_backspace_logic(lle_display_integration_t *integration,
+                                                       size_t content_length);
+
+/**
+ * @brief Replace content using proven backspace boundary logic
+ * 
+ * Uses the exact same backspace operations that work perfectly for wrapped
+ * lines, then inserts new content. This ensures 100% identical behavior
+ * to manual user input and leverages proven boundary crossing logic.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param old_content Previous content (for clearing calculation)
+ * @param old_length Length of previous content
+ * @param new_content New content to display
+ * @param new_length Length of new content
+ * @return true on success, false on error
+ */
+bool lle_display_integration_replace_content_backspace(lle_display_integration_t *integration,
+                                                      const char *old_content,
+                                                      size_t old_length,
+                                                      const char *new_content,
+                                                      size_t new_length);
+
+/**
  * @brief Clear specific region with state synchronization
  * 
  * @param integration Integration context

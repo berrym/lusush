@@ -12,6 +12,7 @@
  */
 
 #include "display_state_integration.h"
+#include "edit_commands.h"
 #include "termcap/lle_termcap.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -505,44 +506,39 @@ bool lle_display_integration_move_cursor_end(lle_display_integration_t *integrat
     }
     
     size_t content_length = integration->display->buffer->length;
-    size_t terminal_width = integration->display->geometry.width;
-    
-    // Calculate end position from prompt position (not invalidated cursor tracking)
     size_t prompt_width = 0;
+    
     if (integration->display->prompt) {
         prompt_width = lle_prompt_get_last_line_width(integration->display->prompt);
     }
     
-    // Calculate absolute position from prompt + content
-    size_t absolute_end_pos = prompt_width + content_length;
+    // Simple, reliable approach: just move to the column position
+    // This avoids complex row tracking that can get out of sync
+    size_t target_column = prompt_width + content_length;
     
-    // Handle boundary condition: when at exact terminal width boundary
-    size_t end_row, end_col;
-    if (absolute_end_pos > 0 && absolute_end_pos % terminal_width == 0) {
-        // Position is at end of previous line, not start of next line
-        end_row = (absolute_end_pos / terminal_width) - 1;
-        end_col = terminal_width;
-    } else {
-        end_row = absolute_end_pos / terminal_width;
-        end_col = absolute_end_pos % terminal_width;
+
+    
+    // Use relative cursor movement to get to the end position
+    // First, move to beginning of line
+    bool success = lle_display_integration_terminal_write(integration, "\r", 1);
+    
+    // Then move to target column
+    if (success && target_column > 0) {
+        char move_right[32];
+        snprintf(move_right, sizeof(move_right), "\x1b[%zuC", target_column);
+        success = lle_display_integration_terminal_write(integration, move_right, strlen(move_right));
     }
     
-    LLE_INTEGRATION_DEBUG("Moving cursor to content end: absolute_pos=%zu, row=%zu, col=%zu", 
-                          absolute_end_pos, end_row, end_col);
-    
-    // Use termcap function for precise cursor positioning
-    int termcap_result = lle_termcap_move_cursor((int)(end_row + 1), (int)(end_col + 1));
-    
-    // Manually update state tracking after successful move
-    if (termcap_result == LLE_TERMCAP_OK && integration->display) {
-        integration->display->cursor_pos.absolute_row = end_row;
-        integration->display->cursor_pos.absolute_col = end_col;
-        integration->display->content_end_row = end_row;
-        integration->display->content_end_col = end_col;
-        integration->display->position_tracking_valid = true;
+    // Update display state cursor tracking with current position
+    if (success && integration->display) {
+        // Don't try to calculate absolute row - just update column
+        integration->display->cursor_pos.absolute_col = target_column % integration->display->geometry.width;
+        integration->display->content_end_col = integration->display->cursor_pos.absolute_col;
+        // Keep position tracking valid if it was already valid
     }
     
-    return (termcap_result == LLE_TERMCAP_OK);
+
+    return success;
 }
 
 // ============================================================================
@@ -557,23 +553,82 @@ bool lle_display_integration_replace_content(lle_display_integration_t *integrat
                                              size_t old_length,
                                              const char *new_content,
                                              size_t new_length) {
-    if (!integration || !new_content) {
+    if (!integration) {
         return false;
+    }
+    
+    // Allow new_content to be NULL for clearing operations
+    if (new_content && new_length == 0) {
+        new_content = NULL;  // Normalize empty content to NULL
     }
     
     bool success = true;
     
-    // Step 1: Clear old content using exact backspace replication
+    // Step 1: Clear old content using prompt-based approach
     if (old_content && old_length > 0) {
-        success = lle_display_integration_exact_backspace(integration, old_length);
+        // Always use comprehensive clearing that redraws prompt
+        // This avoids all multiline cursor positioning issues
+        
+        // Move to beginning of line using state-synchronized function
+        success = lle_display_integration_move_cursor_home(integration);
+        
+        // Clear to end of line using state-synchronized function
+        if (success) {
+            success = lle_display_integration_clear_to_eol(integration);
+        }
+        
+        // For any multiline content, use precise line calculation clearing strategy
+        if (success && integration->display && integration->display->prompt) {
+            size_t prompt_width = lle_prompt_get_last_line_width(integration->display->prompt);
+            size_t terminal_width = integration->display->geometry.width;
+            if (terminal_width == 0) terminal_width = 80;
+            
+            // The old_length represents what's currently displayed on screen that needs clearing
+            // This is the content we're replacing, so it's what the user sees right now
+            size_t total_chars = prompt_width + old_length;
+            if (total_chars > terminal_width) {
+                // Calculate actual lines used by wrapped content
+                size_t actual_lines = ((total_chars - 1) / terminal_width) + 1;
+                size_t additional_lines = actual_lines > 1 ? actual_lines - 1 : 0;
+                
+                // Clear only the actual additional lines needed using state-synchronized functions
+                for (size_t i = 0; i < additional_lines && success; i++) {
+                    // Move cursor down one line and clear to end of line
+                    if (lle_display_integration_move_cursor_down(integration, 1)) {
+                        if (!lle_display_integration_clear_to_eol(integration)) {
+                            success = false;
+                            break;
+                        }
+                    } else {
+                        success = false;
+                        break;
+                    }
+                }
+                
+                // Move cursor back up only the actual lines cleared using state-synchronized function
+                if (additional_lines > 0 && success) {
+                    if (!lle_display_integration_move_cursor_up(integration, additional_lines)) {
+                        success = false;
+                    }
+                }
+            }
+        }
+        
+        // Redraw prompt to ensure correct positioning
+        if (success && integration->display->prompt && integration->display->prompt->text) {
+            success = lle_display_integration_terminal_write(integration, 
+                                                            integration->display->prompt->text,
+                                                            strlen(integration->display->prompt->text));
+        }
+        
         if (!success) {
-            LLE_INTEGRATION_DEBUG("Failed to clear old content");
+            LLE_INTEGRATION_DEBUG("Failed to clear old content with prompt redraw");
             return false;
         }
     }
     
-    // Step 2: Write new content
-    if (new_length > 0) {
+    // Step 2: Write new content (only if we have content to write)
+    if (new_content && new_length > 0) {
         success = lle_display_integration_terminal_write(integration, new_content, new_length);
         if (!success) {
             LLE_INTEGRATION_DEBUG("Failed to write new content");
@@ -586,6 +641,139 @@ bool lle_display_integration_replace_content(lle_display_integration_t *integrat
     
     if (integration->debug_mode) {
         LLE_INTEGRATION_DEBUG("Content replacement: %zu->%zu chars, %s",
+                              old_length, new_length, success ? "SUCCESS" : "FAILED");
+    }
+    
+    return success;
+}
+
+/**
+ * @brief Clear content using proven backspace boundary logic
+ * 
+ * Uses the exact same backspace operations that work perfectly for wrapped
+ * lines. This ensures 100% identical behavior to manual user backspacing.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param content_length Length of content to clear using backspace logic
+ * @return true on success, false on error
+ */
+bool lle_display_integration_clear_with_backspace_logic(lle_display_integration_t *integration,
+                                                       size_t content_length) {
+    if (!integration || !integration->display || content_length == 0) {
+        return true; // Nothing to clear
+    }
+    
+    fprintf(stderr, "[BACKSPACE_DEBUG] Starting backspace clearing for %zu characters\n", content_length);
+    
+    // Use the proven backspace command for each character
+    // This leverages the existing boundary crossing logic that works perfectly
+    bool success = true;
+    for (size_t i = 0; i < content_length && success; i++) {
+        // Call the proven backspace command that handles wrapped lines correctly
+        lle_command_result_t result = lle_cmd_backspace(integration->display);
+        if (result != LLE_CMD_SUCCESS) {
+            fprintf(stderr, "[BACKSPACE_DEBUG] Backspace failed at character %zu\n", i);
+            success = false;
+            break;
+        }
+        if (i % 10 == 0 || i == content_length - 1) {
+            fprintf(stderr, "[BACKSPACE_DEBUG] Cleared %zu/%zu characters\n", i + 1, content_length);
+        }
+    }
+    
+    // Force state synchronization after backspace operations
+    if (success) {
+        success = lle_display_integration_force_sync(integration);
+        fprintf(stderr, "[BACKSPACE_DEBUG] Backspace clearing completed successfully\n");
+    } else {
+        fprintf(stderr, "[BACKSPACE_DEBUG] Backspace clearing failed\n");
+    }
+    
+    return success;
+}
+
+/**
+ * @brief Replace content using proven backspace boundary logic
+ * 
+ * Uses the exact same backspace operations that work perfectly for wrapped
+ * lines, then inserts new content. This ensures 100% identical behavior
+ * to manual user input and leverages proven boundary crossing logic.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param old_content Previous content (for clearing calculation)
+ * @param old_length Length of previous content
+ * @param new_content New content to display
+ * @param new_length Length of new content
+ * @return true on success, false on error
+ */
+bool lle_display_integration_replace_content_backspace(lle_display_integration_t *integration,
+                                                      const char *old_content,
+                                                      size_t old_length,
+                                                      const char *new_content,
+                                                      size_t new_length) {
+    if (!integration || !integration->display) {
+        return false;
+    }
+    
+    fprintf(stderr, "[BACKSPACE_DEBUG] Replace content called: old_length=%zu, new_length=%zu\n", old_length, new_length);
+    
+    // Allow new_content to be NULL for clearing operations
+    if (new_content && new_length == 0) {
+        new_content = NULL;
+    }
+    
+    bool success = true;
+    
+    // Step 1: Clear old content using proven backspace logic
+    if (old_content && old_length > 0) {
+        fprintf(stderr, "[BACKSPACE_DEBUG] Moving cursor to end before clearing\n");
+        // Move cursor to end of content first (proven approach)
+        lle_command_result_t move_result = lle_cmd_move_end(integration->display);
+        if (move_result != LLE_CMD_SUCCESS) {
+            fprintf(stderr, "[BACKSPACE_DEBUG] Move to end failed\n");
+            success = false;
+        }
+        
+        // Use proven backspace boundary logic - exactly like user input
+        if (success) {
+            fprintf(stderr, "[BACKSPACE_DEBUG] Starting backspace clearing sequence\n");
+            success = lle_display_integration_clear_with_backspace_logic(integration, old_length);
+        }
+        
+        if (!success) {
+            LLE_INTEGRATION_DEBUG("Failed to clear old content with backspace logic");
+            return false;
+        }
+    }
+    
+    // Step 2: Insert new content character by character (proven approach)
+    if (new_content && new_length > 0 && success) {
+        fprintf(stderr, "[BACKSPACE_DEBUG] Starting character insertion for %zu characters\n", new_length);
+        for (size_t i = 0; i < new_length && success; i++) {
+            // Use proven character insertion that handles wrapping correctly
+            lle_command_result_t insert_result = lle_cmd_insert_char(integration->display, new_content[i]);
+            if (insert_result != LLE_CMD_SUCCESS) {
+                fprintf(stderr, "[BACKSPACE_DEBUG] Character insertion failed at position %zu\n", i);
+                success = false;
+                break;
+            }
+        }
+        
+        if (success) {
+            fprintf(stderr, "[BACKSPACE_DEBUG] Character insertion completed successfully\n");
+        } else {
+            LLE_INTEGRATION_DEBUG("Failed to insert new content");
+            return false;
+        }
+    }
+    
+    // Step 3: Force comprehensive state synchronization
+    if (success) {
+        success = lle_display_integration_force_sync(integration);
+    }
+    
+    if (integration->debug_mode) {
+        LLE_INTEGRATION_DEBUG("Backspace-based content replacement: %zu->%zu chars, %s",
                               old_length, new_length, success ? "SUCCESS" : "FAILED");
     }
     

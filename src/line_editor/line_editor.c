@@ -718,96 +718,15 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 editor->history_enabled ? "true" : "false", (void*)editor->history);
                     }
                     if (editor->history_enabled && editor->history) {
-                        const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_PREV);
                         if (debug_mode) {
-                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_history_navigate returned entry=%p\n", (void*)entry);
+                            fprintf(stderr, "[LLE_INPUT_LOOP] History UP: Using lle_cmd_history_up function\n");
                         }
-                        if (entry && entry->command) {
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History UP: Platform-aware exact backspace replication\n");
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
-                                        editor->buffer->length, entry->command);
-                            }
-                            
-                            // UNIFIED SAFE REPLACE: Use safe replace content function for all platforms
-                            const char *old_content = editor->buffer->buffer;
-                            size_t old_length = editor->buffer->length;
-                            const char *prompt_text = (editor->display && editor->display->prompt && editor->display->prompt->text) 
-                                                     ? editor->display->prompt->text : NULL;
-                            size_t prompt_width = prompt_text ? strlen(prompt_text) : 0;
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Using safe replace content: old_len=%zu, new_len=%zu, prompt_w=%zu\n",
-                                        old_length, entry->length, prompt_width);
-                            }
-                            
-                            if (lle_display_integration_replace_content(editor->state_integration, 
-                                                                       old_content, old_length, 
-                                                                       entry->command, entry->length)) {
-                                // Update buffer state
-                                lle_text_buffer_clear(editor->buffer);
-                                memcpy(editor->buffer->buffer, entry->command, entry->length);
-                                editor->buffer->length = entry->length;
-                                editor->buffer->cursor_pos = entry->length;
-                                editor->buffer->buffer[entry->length] = '\0';
-                                
-                                // Validate state consistency after content replacement
-                                if (!lle_display_integration_validate_state(editor->state_integration)) {
-                                    lle_display_integration_force_sync(editor->state_integration);
-                                }
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] State-synchronized content replacement successful\n");
-                                }
-                            } else {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] ERROR: Safe content replacement failed\n");
-                                }
-                            }
-                            
-                            cmd_result = LLE_CMD_SUCCESS;
-                        } else {
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
-                            }
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - clearing current line\n");
-                            }
-                            
-                            // LINUX FIX: Multi-line aware clearing when no history entry
-                            // UNIFIED SAFE REPLACE: Use safe replace content function for all platforms
-                            const char *old_content = editor->buffer->buffer;
-                            size_t old_length = editor->buffer->length;
-                            const char *prompt_text = (editor->display && editor->display->prompt && editor->display->prompt->text) 
-                                                     ? editor->display->prompt->text : NULL;
-                            size_t prompt_width = prompt_text ? strlen(prompt_text) : 0;
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry - clearing content: old_len=%zu, prompt_w=%zu\n",
-                                        old_length, prompt_width);
-                            }
-                            
-                            // Clear content without replacement (NULL new content)
-                            if (lle_display_integration_replace_content(editor->state_integration, 
-                                                                       old_content, old_length, 
-                                                                       NULL, 0)) {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Safe content clearing successful\n");
-                                }
-                            } else {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] ERROR: Safe content clearing failed\n");
-                                }
-                            }
-                            
-                            // Update buffer state to match cleared content
-                            lle_text_buffer_clear(editor->buffer);
-                            cmd_result = LLE_CMD_SUCCESS;
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Line clearing complete\n");
-                            }
+                        
+                        // Use the dedicated history command function
+                        cmd_result = lle_cmd_history_up(editor->display, editor->history);
+                        
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_cmd_history_up returned: %d\n", cmd_result);
                         }
                     } else {
                         if (debug_mode) {
@@ -862,184 +781,15 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                 editor->history_enabled ? "true" : "false", (void*)editor->history);
                     }
                     if (editor->history_enabled && editor->history) {
-                        const lle_history_entry_t *entry = lle_history_navigate(editor->history, LLE_HISTORY_NEXT);
                         if (debug_mode) {
-                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_history_navigate returned entry=%p\n", (void*)entry);
+                            fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: Using lle_cmd_history_down function\n");
                         }
                         
-                        if (entry && entry->command) {
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: Linux-fixed history navigation\n");
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content: %.20s...\n", 
-                                        editor->buffer->length, entry->command);
-                            }
-                            
-                            // 🎯 LINUX-FIXED HISTORY NAVIGATION: Multi-line aware approach
-                            // Initialize platform detection for optimal sequences
-                            if (!lle_platform_init()) {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Warning: Platform detection failed\n");
-                                }
-                            }
-                            
-                            if (debug_mode) {
-                                const char *platform_desc = "Unknown";
-                                if (lle_platform_is_macos()) platform_desc = "macOS";
-                                else if (lle_platform_is_linux()) platform_desc = "Linux";
-                                
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Platform: %s, clearing current line for history navigation\n", platform_desc);
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Current buffer length: %zu, new content length: %zu\n", 
-                                       editor->buffer->length, entry->length);
-                            }
-                            
-                            // LINUX FIX: Proper multi-line aware clearing for Linux terminals
-                            if (lle_platform_is_linux()) {
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Using multi-line aware history navigation\n");
-                                }
-                                
-                                // Step 1: Calculate current content dimensions
-                                size_t current_length = editor->buffer->length;
-                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                                size_t terminal_width = editor->display->geometry.width;
-                                
-                                // Step 2: Calculate how many lines current content occupies
-                                size_t total_chars = prompt_width + current_length;
-                                size_t lines_used = (total_chars / terminal_width) + 1;
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Current content uses %zu lines (prompt=%zu, content=%zu, total=%zu, width=%zu)\n", 
-                                           lines_used, prompt_width, current_length, total_chars, terminal_width);
-                                }
-                                
-                                // Step 3: Move to beginning of current line and clear all used lines
-                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);  // Move to start of current line
-                                
-                                // Clear current line and any additional lines used by wrapped content
-                                for (size_t i = 0; i < lines_used; i++) {
-                                    lle_display_integration_clear_to_eol(editor->state_integration);  // Clear to end of line
-                                    if (i < lines_used - 1) {
-                                        lle_display_integration_move_cursor_down(editor->state_integration, 1);  // Move down one line
-                                    }
-                                }
-                                
-                                // Step 4: Move cursor back to original line
-                                if (lines_used > 1) {
-                                    lle_display_integration_move_cursor_up(editor->state_integration, lines_used - 1);
-                                }
-                                
-                                // Step 5: Redraw prompt
-                                if (editor->display->prompt && editor->display->prompt->lines && editor->display->prompt->lines[0]) {
-                                    lle_display_integration_terminal_write(editor->state_integration, editor->display->prompt->lines[0], strlen(editor->display->prompt->lines[0]));
-                                }
-                                
-                                // Step 6: Write new history content
-                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
-                                
-                                // Validate state consistency after complex multiline operations
-                                if (!lle_display_integration_validate_state(editor->state_integration)) {
-                                    lle_display_integration_force_sync(editor->state_integration);
-                                }
-                                
-                                // Step 7: Update buffer state to match terminal
-                                lle_text_buffer_clear(editor->buffer);
-                                for (size_t i = 0; i < entry->length; i++) {
-                                    lle_text_insert_char(editor->buffer, entry->command[i]);
-                                }
-                                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Multi-line history navigation complete\n");
-                                }
-                                
-                                cmd_result = LLE_CMD_SUCCESS;
-                                needs_display_update = false;  // Skip display system updates
-                            } else {
-                                // macOS: Use proven working approach
-                                lle_cmd_move_end(editor->display);
-                                
-                                size_t text_length = editor->buffer->length;
-                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                                
-                                const char *backspace_seq = lle_platform_get_backspace_sequence();
-                                size_t backspace_seq_len = lle_platform_get_backspace_length();
-                                
-                                for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_display_integration_terminal_write(editor->state_integration, backspace_seq, backspace_seq_len);
-                                }
-                                
-                                lle_display_integration_clear_to_eol(editor->state_integration);
-                                
-                                // Update buffer state to match cleared content
-                                editor->buffer->length = 0;
-                                editor->buffer->cursor_pos = 0;
-                                
-                                // Phase 3: Insert new content character by character (macOS only)
-                                for (size_t i = 0; i < entry->length; i++) {
-                                    lle_cmd_insert_char(editor->display, entry->command[i]);
-                                }
-                                
-                                cmd_result = LLE_CMD_SUCCESS;
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven exact backspace approach\n");
-                                }
-                            }
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] History DOWN: exact backspace replication complete\n");
-                            }
-                        } else {
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found, clearing content\n");
-                            }
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] No history entry found - clearing current line\n");
-                            }
-                            
-                            // LINUX FIX: Simple cursor positioning for clearing when no history entry
-                            if (lle_platform_is_linux()) {
-                                // Move cursor to beginning of input area and clear
-                                size_t prompt_width = editor->display->prompt ? lle_prompt_get_last_line_width(editor->display->prompt) : 0;
-                                
-                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                                if (prompt_width > 0) {
-                                    lle_display_integration_move_cursor(editor->state_integration, 0, prompt_width);
-                                }
-                                lle_display_integration_clear_to_eol(editor->state_integration);
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] Linux: Cleared line, cursor positioned after prompt\n");
-                                }
-                            } else {
-                                // macOS: Use proven working approach
-                                lle_cmd_move_end(editor->display);
-                                
-                                size_t text_length = editor->buffer->length;
-                                size_t backspace_count = text_length > 0 ? text_length - 1 : 0;
-                                
-                                for (size_t i = 0; i < backspace_count; i++) {
-                                    lle_display_integration_terminal_write(editor->state_integration, "\b \b", 3);
-                                }
-                                lle_display_integration_clear_to_eol(editor->state_integration);
-                                
-                                // Validate state after exact backspace sequence
-                                lle_display_integration_validate_state(editor->state_integration);
-                                
-                                if (debug_mode) {
-                                    fprintf(stderr, "[LLE_INPUT_LOOP] macOS: Used proven backspace clearing\n");
-                                }
-                            }
-                            
-                            // Update buffer state to match cleared content
-                            editor->buffer->length = 0;
-                            editor->buffer->cursor_pos = 0;
-                            cmd_result = LLE_CMD_SUCCESS;
-                            
-                            if (debug_mode) {
-                                fprintf(stderr, "[LLE_INPUT_LOOP] Line clearing complete\n");
-                            }
+                        // Use the dedicated history command function
+                        cmd_result = lle_cmd_history_down(editor->display, editor->history);
+                        
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] lle_cmd_history_down returned: %d\n", cmd_result);
                         }
                     } else {
                         if (debug_mode) {

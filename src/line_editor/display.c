@@ -12,6 +12,7 @@
 #include "display.h"
 #include "display_state_sync.h"
 #include "display_state_integration.h"
+#include "edit_commands.h"
 #include "buffer_trace.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -390,10 +391,13 @@ bool lle_display_render(lle_display_state_t *state) {
         return false;
     }
     
-    // Clear display if flag is set
-    if (state->display_flags & LLE_DISPLAY_FLAG_CLEAR_FIRST) {
+    // Clear display if flag is set OR on initialization to prevent content bleeding
+    bool should_clear = (state->display_flags & LLE_DISPLAY_FLAG_CLEAR_FIRST) || 
+                       (state->buffer && state->buffer->length == 0 && state->geometry.width > 0);
+    
+    if (should_clear) {
         if (debug_mode) {
-            fprintf(stderr, "[LLE_DISPLAY_RENDER] Clearing display first\n");
+            fprintf(stderr, "[LLE_DISPLAY_RENDER] Clearing display to prevent content bleeding\n");
         }
         if (!lle_display_clear(state)) {
             if (debug_mode) {
@@ -674,6 +678,19 @@ bool lle_display_update_cursor(lle_display_state_t *state) {
 bool lle_display_clear(lle_display_state_t *state) {
     if (!lle_display_validate(state)) {
         return false;
+    }
+    
+    // Comprehensive terminal clearing to prevent content bleeding
+    // Use proven backspace logic approach for multiline content
+    if (state->state_integration && state->buffer && state->buffer->length > 0) {
+        // Clear existing buffer content using proven backspace boundary logic
+        size_t content_length = state->buffer->length;
+        for (size_t i = 0; i < content_length; i++) {
+            lle_command_result_t result = lle_cmd_backspace(state);
+            if (result != LLE_CMD_SUCCESS) {
+                break; // Continue with other clearing methods
+            }
+        }
     }
     
     // Clear prompt from terminal
