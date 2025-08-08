@@ -878,8 +878,8 @@ LLE_TEST(move_cursor_left_at_beginning) {
     LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
     buffer->cursor_pos = 0;
     
-    // Try to move left - should fail
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
+    // Try to move left - should succeed (idempotent behavior: already at beginning)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
     
     lle_text_buffer_destroy(buffer);
@@ -914,8 +914,8 @@ LLE_TEST(move_cursor_right_at_end) {
     LLE_ASSERT(lle_text_insert_string(buffer, "hello"));
     LLE_ASSERT_EQ(buffer->cursor_pos, 5);
     
-    // Try to move right - should fail
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
+    // Try to move right - should succeed (idempotent behavior: already at end)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 5);
     
     lle_text_buffer_destroy(buffer);
@@ -934,8 +934,8 @@ LLE_TEST(move_cursor_home) {
     LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_HOME));
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
     
-    // Try to move home again - should fail (no movement)
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_HOME));
+    // Try to move home again - should succeed (idempotent behavior: already at home)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_HOME));
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
     
     lle_text_buffer_destroy(buffer);
@@ -954,8 +954,8 @@ LLE_TEST(move_cursor_end) {
     LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_END));
     LLE_ASSERT_EQ(buffer->cursor_pos, 11);
     
-    // Try to move end again - should fail (no movement)
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_END));
+    // Try to move end again - should succeed (idempotent behavior: already at end)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_END));
     LLE_ASSERT_EQ(buffer->cursor_pos, 11);
     
     lle_text_buffer_destroy(buffer);
@@ -982,8 +982,8 @@ LLE_TEST(move_cursor_word_left) {
     LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
     
-    // Try to move word left again - should fail
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
+    // Try to move word left again - should succeed (idempotent behavior: already at beginning)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
     
     lle_text_buffer_destroy(buffer);
@@ -1010,8 +1010,8 @@ LLE_TEST(move_cursor_word_right) {
     LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 21);
     
-    // Try to move word right again - should fail
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    // Try to move word right again - should succeed (idempotent behavior: already at end)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
     LLE_ASSERT_EQ(buffer->cursor_pos, 21);
     
     lle_text_buffer_destroy(buffer);
@@ -1091,12 +1091,12 @@ LLE_TEST(move_cursor_empty_buffer) {
     LLE_ASSERT_NOT_NULL(buffer);
     
     // Try various movements in empty buffer
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_LEFT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_HOME));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_END));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));
-    LLE_ASSERT(!lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT));
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_LEFT));   // Idempotent: already at position 0
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_RIGHT));  // Idempotent: already at position 0
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_HOME));   // Idempotent: already at home (0)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_END));    // Idempotent: already at end (0)
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_LEFT));  // Idempotent: already at beginning
+    LLE_ASSERT(lle_text_move_cursor(buffer, LLE_MOVE_WORD_RIGHT)); // Idempotent: already at end
     
     // Cursor should remain at 0
     LLE_ASSERT_EQ(buffer->cursor_pos, 0);
