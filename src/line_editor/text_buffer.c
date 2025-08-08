@@ -794,17 +794,13 @@ bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movem
             break;
 
         case LLE_MOVE_HOME:
-            if (buffer->cursor_pos != 0) {
-                new_pos = 0;
-                moved = true;
-            }
+            new_pos = 0;
+            moved = true; // Always consider HOME movement successful
             break;
 
         case LLE_MOVE_END:
-            if (buffer->cursor_pos != buffer->length) {
-                new_pos = buffer->length;
-                moved = true;
-            }
+            new_pos = buffer->length;
+            moved = true; // Always consider END movement successful
             break;
 
         case LLE_MOVE_WORD_LEFT:
@@ -826,7 +822,9 @@ bool lle_text_move_cursor(lle_text_buffer_t *buffer, lle_cursor_movement_t movem
         return true;
     }
 
-    return false; // No movement occurred
+    // CRITICAL FIX: Return true if cursor is already at correct position
+    // This fixes history navigation regression where move_end failed when cursor was already at end
+    return (buffer->cursor_pos == new_pos);
 }
 
 /**

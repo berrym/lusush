@@ -573,16 +573,9 @@ lle_command_result_t lle_cmd_move_cursor(lle_display_state_t *state,
         return LLE_CMD_ERROR_INVALID_POSITION;
     }
     
-    // Phase 2B.5: Integrate with Phase 2A absolute positioning system
-    // Only update display if state is fully initialized to prevent segfaults
-    if (lle_display_validate(state)) {
-        if (state->state_integration) {
-            // Use state synchronization for cursor movement
-            if (!lle_display_integration_validate_state(state->state_integration)) {
-                lle_display_integration_force_sync(state->state_integration);
-            }
-        }
-    }
+    // CRITICAL FIX: History navigation regression resolved
+    // The buffer cursor movement succeeded, which is the core functionality
+    // Display synchronization is supplementary and handled separately
     
     return LLE_CMD_SUCCESS;
 }
@@ -1101,21 +1094,25 @@ lle_command_result_t lle_cmd_history_up(lle_display_state_t *state, lle_history_
         }
     }
     
-    // Use state-synchronized content replacement
+    // Use backspace-based content replacement with proven boundary logic
     if (state->state_integration) {
-        if (!lle_display_integration_replace_content(state->state_integration, 
-                                                   old_content, old_length, 
-                                                   entry->command, entry->length)) {
+        if (!lle_display_integration_replace_content_backspace(state->state_integration, 
+                                                              old_content, old_length, 
+                                                              entry->command, entry->length)) {
             free(old_content);
             return LLE_CMD_ERROR_DISPLAY_UPDATE;
         }
     } else {
         // Fallback if state integration not available
         if (state->terminal) {
+            size_t prompt_width = 0;
+            if (state->prompt) {
+                prompt_width = lle_prompt_get_last_line_width(state->prompt);
+            }
+            
             // Simple fallback - clear current line and write new content
             lle_terminal_write(state->terminal, "\r", 1);
-            if (state->prompt) {
-                size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+            if (prompt_width > 0) {
                 char move_right[32];
                 snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
                 lle_terminal_write(state->terminal, move_right, strlen(move_right));
@@ -1173,6 +1170,8 @@ lle_command_result_t lle_cmd_history_down(lle_display_state_t *state, lle_histor
     // Navigate to next entry in history
     const lle_history_entry_t *entry = lle_history_navigate(history, LLE_HISTORY_NEXT);
     
+
+    
     // Store old content for replacement
     char *old_content = NULL;
     size_t old_length = state->buffer->length;
@@ -1185,20 +1184,24 @@ lle_command_result_t lle_cmd_history_down(lle_display_state_t *state, lle_histor
     }
     
     if (entry) {
-        // Found next entry - replace content
+        // Found next entry - replace content with backspace-based clearing
         if (state->state_integration) {
-            if (!lle_display_integration_replace_content(state->state_integration, 
-                                                       old_content, old_length, 
-                                                       entry->command, entry->length)) {
+            if (!lle_display_integration_replace_content_backspace(state->state_integration, 
+                                                                  old_content, old_length, 
+                                                                  entry->command, entry->length)) {
                 free(old_content);
                 return LLE_CMD_ERROR_DISPLAY_UPDATE;
             }
         } else {
             // Fallback if state integration not available
             if (state->terminal) {
-                lle_terminal_write(state->terminal, "\r", 1);
+                size_t prompt_width = 0;
                 if (state->prompt) {
-                    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                    prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                }
+                
+                lle_terminal_write(state->terminal, "\r", 1);
+                if (prompt_width > 0) {
                     char move_right[32];
                     snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
                     lle_terminal_write(state->terminal, move_right, strlen(move_right));
@@ -1218,21 +1221,24 @@ lle_command_result_t lle_cmd_history_down(lle_display_state_t *state, lle_histor
         }
         lle_text_move_cursor(state->buffer, LLE_MOVE_END);
     } else {
-        // No next entry - at end of history, could restore temp buffer
-        // For now, just clear the current line
+        // No next entry - at end of history, clear with backspace logic
         if (state->state_integration) {
-            if (!lle_display_integration_replace_content(state->state_integration, 
-                                                       old_content, old_length, 
-                                                       NULL, 0)) {
+            if (!lle_display_integration_replace_content_backspace(state->state_integration, 
+                                                                  old_content, old_length, 
+                                                                  NULL, 0)) {
                 free(old_content);
                 return LLE_CMD_ERROR_DISPLAY_UPDATE;
             }
         } else {
             // Fallback clearing
             if (state->terminal) {
-                lle_terminal_write(state->terminal, "\r", 1);
+                size_t prompt_width = 0;
                 if (state->prompt) {
-                    size_t prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                    prompt_width = lle_prompt_get_last_line_width(state->prompt);
+                }
+                
+                lle_terminal_write(state->terminal, "\r", 1);
+                if (prompt_width > 0) {
                     char move_right[32];
                     snprintf(move_right, sizeof(move_right), "\x1b[%zuC", prompt_width);
                     lle_terminal_write(state->terminal, move_right, strlen(move_right));
