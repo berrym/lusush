@@ -272,6 +272,85 @@ const char *lle_enhanced_tab_completion_get_debug_info(void);
  * - Terminal resize during completion
  */
 
+// ============================================================================
+// Completion Menu Navigation Functions
+// ============================================================================
+
+/**
+ * @brief Navigate up in the completion menu
+ * 
+ * Moves the selection to the previous completion item in the menu.
+ * If at the first item, wraps to the last item.
+ * 
+ * @param buffer Text buffer to update with selected completion
+ * @param completions Completion list to navigate
+ * @param display_integration Display integration for visual updates
+ * @return true if navigation succeeded, false if no active completion session
+ */
+bool lle_enhanced_tab_completion_navigate_up(lle_text_buffer_t *buffer,
+                                            lle_completion_list_t *completions,
+                                            lle_display_integration_t *display_integration);
+
+/**
+ * @brief Navigate down in the completion menu
+ * 
+ * Moves the selection to the next completion item in the menu.
+ * If at the last item, wraps to the first item.
+ * 
+ * @param buffer Text buffer to update with selected completion
+ * @param completions Completion list to navigate
+ * @param display_integration Display integration for visual updates
+ * @return true if navigation succeeded, false if no active completion session
+ */
+bool lle_enhanced_tab_completion_navigate_down(lle_text_buffer_t *buffer,
+                                             lle_completion_list_t *completions,
+                                             lle_display_integration_t *display_integration);
+
+/**
+ * @brief Navigate left in the completion menu
+ * 
+ * Moves the selection to the previous page of completions or previous completion
+ * depending on menu layout. Provides horizontal navigation in multi-column menus.
+ * 
+ * @param buffer Text buffer to update with selected completion
+ * @param completions Completion list to navigate
+ * @param display_integration Display integration for visual updates
+ * @return true if navigation succeeded, false if no active completion session
+ */
+bool lle_enhanced_tab_completion_navigate_left(lle_text_buffer_t *buffer,
+                                             lle_completion_list_t *completions,
+                                             lle_display_integration_t *display_integration);
+
+/**
+ * @brief Navigate right in the completion menu
+ * 
+ * Moves the selection to the next page of completions or next completion
+ * depending on menu layout. Provides horizontal navigation in multi-column menus.
+ * 
+ * @param buffer Text buffer to update with selected completion
+ * @param completions Completion list to navigate
+ * @param display_integration Display integration for visual updates
+ * @return true if navigation succeeded, false if no active completion session
+ */
+bool lle_enhanced_tab_completion_navigate_right(lle_text_buffer_t *buffer,
+                                              lle_completion_list_t *completions,
+                                              lle_display_integration_t *display_integration);
+
+/**
+ * @brief Accept currently selected completion and close menu
+ * 
+ * Applies the currently selected completion to the buffer and ends the
+ * completion session, closing the menu.
+ * 
+ * @param buffer Text buffer to update with selected completion
+ * @param completions Completion list containing current selection
+ * @param display_integration Display integration for visual updates
+ * @return true if completion was accepted, false if no active completion session
+ */
+bool lle_enhanced_tab_completion_accept(lle_text_buffer_t *buffer,
+                                      lle_completion_list_t *completions,
+                                      lle_display_integration_t *display_integration);
+
 #ifdef __cplusplus
 }
 #endif

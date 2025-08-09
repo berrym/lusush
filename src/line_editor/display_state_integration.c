@@ -781,6 +781,88 @@ bool lle_display_integration_replace_content_backspace(lle_display_integration_t
 }
 
 /**
+ * @brief Replace content with optimized clearing for tab completion
+ * 
+ * Optimized version for tab completion that only clears the specific text
+ * area being replaced instead of doing full boundary crossing clearing.
+ * This prevents visual corruption during tab completion cycling.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param old_content Previous content (for clearing calculation)
+ * @param old_length Length of previous content
+ * @param new_content New content to display
+ * @param new_length Length of new content
+ * @return true on success, false on error
+ */
+bool lle_display_integration_replace_content_optimized(lle_display_integration_t *integration,
+                                                      const char *old_content,
+                                                      size_t old_length,
+                                                      const char *new_content,
+                                                      size_t new_length) {
+    if (!integration || !integration->display) {
+        return false;
+    }
+    
+    LLE_INTEGRATION_DEBUG("Optimized replace: old_length=%zu, new_length=%zu", old_length, new_length);
+    
+    // Allow new_content to be NULL for clearing operations
+    if (new_content && new_length == 0) {
+        new_content = NULL;
+    }
+    
+    bool success = true;
+    
+    // Step 1: Minimal but proper clearing for tab completion
+    if (old_content && old_length > 0) {
+        // Try cursor home operation - if it fails, skip clearing entirely
+        success = lle_display_integration_move_cursor_home(integration);
+        
+        if (success) {
+            // Clear only to end of line - avoids heavy multiline clearing
+            success = lle_display_integration_clear_to_eol(integration);
+            
+            // Redraw prompt for consistent positioning
+            if (success && integration->display->prompt && integration->display->prompt->text) {
+                success = lle_display_integration_terminal_write(integration, 
+                                                                integration->display->prompt->text,
+                                                                strlen(integration->display->prompt->text));
+            }
+        } else {
+            // Cursor home failed - fall back to no clearing for tab completion
+            // This avoids the heavy multiline clearing that caused corruption
+            LLE_INTEGRATION_DEBUG("Cursor home failed - using fallback no-clear approach for tab completion");
+            success = true; // Continue with just content replacement
+        }
+    }
+    
+    // Step 2: Write new content directly
+    if (new_content && new_length > 0 && success) {
+        success = lle_display_integration_terminal_write(integration, new_content, new_length);
+        if (!success) {
+            LLE_INTEGRATION_DEBUG("Failed to write new content optimally");
+            return false;
+        }
+    }
+    
+    // Step 3: Restore position tracking for menu display
+    if (success && integration->display) {
+        // Restore position tracking validity after successful content replacement
+        integration->display->position_tracking_valid = true;
+        
+        // Update display state tracking
+        lle_integration_update_display_state(integration, "optimized_replace");
+        lle_integration_conditional_sync(integration);
+        
+        LLE_INTEGRATION_DEBUG("Position tracking restored after optimized replacement");
+    }
+    
+    LLE_INTEGRATION_DEBUG("Optimized content replacement: %zu->%zu chars, %s",
+                          old_length, new_length, success ? "SUCCESS" : "FAILED");
+    
+    return success;
+}
+
+/**
  * @brief Clear specific region with state synchronization
  */
 bool lle_display_integration_clear_region(lle_display_integration_t *integration,

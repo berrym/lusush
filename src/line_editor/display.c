@@ -391,9 +391,9 @@ bool lle_display_render(lle_display_state_t *state) {
         return false;
     }
     
-    // Clear display if flag is set OR on initialization to prevent content bleeding
-    bool should_clear = (state->display_flags & LLE_DISPLAY_FLAG_CLEAR_FIRST) || 
-                       (state->buffer && state->buffer->length == 0 && state->geometry.width > 0);
+    // Clear display only if explicitly requested - do NOT clear on initialization
+    // This prevents consuming the host shell prompt when starting lusush
+    bool should_clear = (state->display_flags & LLE_DISPLAY_FLAG_CLEAR_FIRST);
     
     if (should_clear) {
         if (debug_mode) {

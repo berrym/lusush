@@ -90,6 +90,9 @@ static void init_debug_mode(void) {
     } \
 } while(0)
 
+// Forward declarations
+static void end_completion_session(void);
+
 // ============================================================================
 // Word Extraction and Boundary Detection
 // ============================================================================
@@ -476,6 +479,13 @@ static bool continue_completion_session(lle_completion_list_t *completions) {
         return false;
     }
     
+    // Don't cycle if there's only one completion - end session instead
+    if (completions->count == 1) {
+        COMPLETION_DEBUG("Only 1 completion available - ending session instead of cycling");
+        end_completion_session();
+        return false;
+    }
+    
     // Cycle to next completion
     g_completion_state.completion_index = (g_completion_state.completion_index + 1) % completions->count;
     g_completion_state.has_cycled = true;
@@ -515,20 +525,23 @@ static bool should_continue_session(const char *buffer, size_t cursor_pos) {
         return false;
     }
     
-    // Check if cursor is still in the same completion region
-    // Allow for the completion to have been applied (cursor moved)
+    // Check if cursor is still in the original completion region
     bool cursor_in_region = (cursor_pos >= g_completion_state.word_start_pos &&
-                            cursor_pos <= word_end);
+                            cursor_pos <= g_completion_state.word_end_pos);
     
-    // Check if we're still working on a completion that was applied
+    // Check if we're still working on the same word position
     bool working_on_completion = g_completion_state.has_cycled &&
                                 (word_start == g_completion_state.word_start_pos);
     
-    bool should_continue = cursor_in_region || working_on_completion;
+    // Don't continue session if we've moved to a completely different word
+    bool same_word_region = (word_start == g_completion_state.word_start_pos);
     
-    COMPLETION_DEBUG("Should continue session: cursor_in_region=%s, working_on_completion=%s, result=%s",
+    bool should_continue = (cursor_in_region || working_on_completion) && same_word_region;
+    
+    COMPLETION_DEBUG("Should continue session: cursor_in_region=%s, working_on_completion=%s, same_word_region=%s, result=%s",
                     cursor_in_region ? "yes" : "no",
-                    working_on_completion ? "yes" : "no", 
+                    working_on_completion ? "yes" : "no",
+                    same_word_region ? "yes" : "no",
                     should_continue ? "yes" : "no");
     
     return should_continue;
@@ -572,16 +585,23 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
             if (item) {
                 // Replace the current word with the selected completion
                 size_t replace_start = g_completion_state.word_start_pos;
-                size_t replace_end = buffer->cursor_pos;
+                size_t replace_end = g_completion_state.word_end_pos;
                 
                 // If we've cycled, we need to replace the entire applied completion
+                // Find the actual end of the current word from the start position
                 if (g_completion_state.has_cycled) {
-                    // Find the end of the current word
+                    replace_end = replace_start;
                     while (replace_end < buffer->length && 
                            !is_word_separator(buffer->buffer[replace_end])) {
                         replace_end++;
                     }
                 }
+                
+                COMPLETION_DEBUG("Replace boundaries: start=%zu, end=%zu, buffer_length=%zu", 
+                               replace_start, replace_end, buffer->length);
+                COMPLETION_DEBUG("Text to replace: '%.*s'", 
+                               (int)(replace_end - replace_start), buffer->buffer + replace_start);
+                COMPLETION_DEBUG("Replacement text: '%s'", item->text);
                 
                 // Prepare old content for state sync
                 char old_content[1024];
@@ -594,29 +614,43 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                     return false;
                 }
                 
+                // Debug buffer state before operations
+                COMPLETION_DEBUG("BEFORE: buffer='%.*s', length=%zu, cursor=%zu", 
+                               (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
+                
                 // Delete current text
                 if (replace_end > replace_start) {
-                    if (!lle_text_delete_range(buffer, replace_start, replace_end - replace_start)) {
+                    COMPLETION_DEBUG("Deleting range: start=%zu, count=%zu", replace_start, replace_end - replace_start);
+                    if (!lle_text_delete_range(buffer, replace_start, replace_end)) {
                         COMPLETION_DEBUG("Failed to delete existing text");
                         return false;
                     }
+                    COMPLETION_DEBUG("AFTER DELETE: buffer='%.*s', length=%zu, cursor=%zu", 
+                                   (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
                 }
                 
                 // Insert new completion
+                COMPLETION_DEBUG("Inserting at pos %zu: '%s'", replace_start, item->text);
                 if (!lle_text_insert_at(buffer, replace_start, item->text)) {
                     COMPLETION_DEBUG("Failed to insert completion text");
                     return false;
                 }
+                COMPLETION_DEBUG("AFTER INSERT: buffer='%.*s', length=%zu, cursor=%zu", 
+                               (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
                 
                 // Update cursor position
                 buffer->cursor_pos = replace_start + item->text_len;
+                
+                // Update session word_end_pos to reflect the applied completion
+                g_completion_state.word_end_pos = replace_start + item->text_len;
                 
                 // Sync display state with updated buffer content
                 if (!lle_display_integration_replace_content(display_integration,
                                                            old_content, old_content_len,
                                                            buffer->buffer, buffer->length)) {
-                    COMPLETION_DEBUG("Failed to sync display state after completion");
-                    return false;
+                    COMPLETION_DEBUG("Failed to sync display state after completion - continuing anyway");
+                    // Don't return false - completion was applied successfully to text buffer
+                    // Display sync failure shouldn't prevent completion from working
                 }
                 
                 // Update session state
@@ -670,12 +704,16 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                 // Update cursor position
                 buffer->cursor_pos = replace_start + item->text_len;
                 
+                // Update session word_end_pos to reflect the applied completion
+                g_completion_state.word_end_pos = replace_start + item->text_len;
+                
                 // Sync display state with updated buffer content
                 if (!lle_display_integration_replace_content(display_integration,
                                                            old_content, old_content_len,
                                                            buffer->buffer, buffer->length)) {
-                    COMPLETION_DEBUG("Failed to sync display state after first completion");
-                    return false;
+                    COMPLETION_DEBUG("Failed to sync display state after first completion - continuing anyway");
+                    // Don't return false - completion was applied successfully to text buffer
+                    // Display sync failure shouldn't prevent completion from working
                 }
                 
                 // Update session state

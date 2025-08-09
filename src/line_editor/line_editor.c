@@ -1140,10 +1140,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 }
                 // Enhanced tab completion (if enabled)
                 if (editor->auto_completion && editor->completions) {
+                    // Check if we're in an active completion session before handling
+                    bool was_active_session = lle_enhanced_tab_completion_is_active();
+                    
                     if (debug_mode) {
-                        fprintf(stderr, "[LLE_INPUT_LOOP] Calling lle_enhanced_tab_completion_handle\n");
+                        fprintf(stderr, "[LLE_INPUT_LOOP] Calling lle_enhanced_tab_completion_handle (was_active=%d)\n", was_active_session);
                     }
-                    if (lle_enhanced_tab_completion_handle(editor->buffer, editor->completions, editor->state_integration)) {
+                    
+                    bool completion_handled = lle_enhanced_tab_completion_handle(editor->buffer, editor->completions, editor->state_integration);
+                    
+                    if (completion_handled) {
                         if (debug_mode) {
                             fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion handled successfully\n");
                         }
@@ -1153,6 +1159,11 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                         const lle_enhanced_completion_info_t *info = 
                             lle_enhanced_tab_completion_get_info();
                         
+                        if (debug_mode) {
+                            fprintf(stderr, "[LLE_INPUT_LOOP] Menu check: info=%p, total_count=%d, active=%d\n", 
+                                    (void*)info, info ? info->total_count : -1, info ? info->active : 0);
+                        }
+                        
                         if (info && info->total_count > 1) {
                             // Create completion display for menu
                             lle_completion_display_t *completion_display = 
@@ -1161,9 +1172,16 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             
                             if (completion_display) {
                                 // Show completion menu using Phase 2A absolute positioning
+                                if (debug_mode) {
+                                    fprintf(stderr, "[LLE_INPUT_LOOP] Attempting to show completion menu with %d items\n", info->total_count);
+                                }
                                 if (!lle_completion_display_show(editor->display, completion_display)) {
                                     if (debug_mode) {
                                         fprintf(stderr, "[PHASE_2B_TAB_COMPLETION] Failed to show completion menu\n");
+                                    }
+                                } else {
+                                    if (debug_mode) {
+                                        fprintf(stderr, "[PHASE_2B_TAB_COMPLETION] Successfully showed completion menu\n");
                                     }
                                 }
                                 lle_completion_display_destroy(completion_display);
@@ -1177,10 +1195,42 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                                    info->current_completion);
                         }
                     } else {
-                        if (debug_mode) {
-                            fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion handler returned false\n");
+                        // Tab completion failed - check if this was a cycling attempt
+                        const lle_enhanced_completion_info_t *info = 
+                            lle_enhanced_tab_completion_get_info();
+                        
+                        if (was_active_session && info && info->active) {
+                            // This was a cycling attempt in an active session - prevent prompt redraw
+                            // but still show the completion menu to provide visual feedback
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Tab cycling in active session - showing menu without prompt redraw\n");
+                            }
+                            
+                            // Show completion menu even though display sync failed
+                            if (info->total_count > 1) {
+                                lle_completion_display_t *completion_display = 
+                                    lle_completion_display_create(editor->completions, 
+                                                                info->total_count > 10 ? 10 : info->total_count);
+                                
+                                if (completion_display) {
+                                    // Show completion menu using Phase 2A absolute positioning
+                                    if (!lle_completion_display_show(editor->display, completion_display)) {
+                                        if (debug_mode) {
+                                            fprintf(stderr, "[LLE_INPUT_LOOP] Failed to show completion menu during cycling\n");
+                                        }
+                                    }
+                                    lle_completion_display_destroy(completion_display);
+                                }
+                            }
+                            
+                            // Prevent any display updates that would redraw the prompt
+                            needs_display_update = false;
+                        } else {
+                            if (debug_mode) {
+                                fprintf(stderr, "[LLE_INPUT_LOOP] Tab completion handler returned false\n");
+                            }
+                            needs_display_update = false;
                         }
-                        needs_display_update = false;
                     }
                 } else {
                     if (debug_mode) {

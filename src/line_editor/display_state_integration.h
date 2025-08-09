@@ -245,6 +245,26 @@ bool lle_display_integration_replace_content_backspace(lle_display_integration_t
                                                       size_t new_length);
 
 /**
+ * @brief Replace content with optimized clearing for tab completion
+ * 
+ * Optimized version for tab completion that only clears the specific text
+ * area being replaced instead of doing full boundary crossing clearing.
+ * This prevents visual corruption during tab completion cycling.
+ * 
+ * @param integration Integration context with state synchronization
+ * @param old_content Previous content (for clearing calculation)
+ * @param old_length Length of previous content
+ * @param new_content New content to display
+ * @param new_length Length of new content
+ * @return true on success, false on error
+ */
+bool lle_display_integration_replace_content_optimized(lle_display_integration_t *integration,
+                                                      const char *old_content,
+                                                      size_t old_length,
+                                                      const char *new_content,
+                                                      size_t new_length);
+
+/**
  * @brief Clear specific region with state synchronization
  * 
  * @param integration Integration context
