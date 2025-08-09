@@ -23,6 +23,7 @@
 #include "completion.h"
 #include "text_buffer.h"
 #include "display_state_integration.h"
+#include "edit_commands.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -603,55 +604,47 @@ bool lle_enhanced_tab_completion_handle(lle_text_buffer_t *buffer,
                                (int)(replace_end - replace_start), buffer->buffer + replace_start);
                 COMPLETION_DEBUG("Replacement text: '%s'", item->text);
                 
-                // Prepare old content for state sync
-                char old_content[1024];
-                size_t old_content_len = buffer->length;
-                if (old_content_len < sizeof(old_content)) {
-                    memcpy(old_content, buffer->buffer, old_content_len);
-                    old_content[old_content_len] = '\0';
-                } else {
-                    COMPLETION_DEBUG("Buffer too large for state sync");
-                    return false;
-                }
+                // Calculate the length of only the completion word to backspace
+                size_t completion_word_len = replace_end - replace_start;
                 
                 // Debug buffer state before operations
                 COMPLETION_DEBUG("BEFORE: buffer='%.*s', length=%zu, cursor=%zu", 
                                (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
                 
-                // Delete current text
-                if (replace_end > replace_start) {
-                    COMPLETION_DEBUG("Deleting range: start=%zu, count=%zu", replace_start, replace_end - replace_start);
-                    if (!lle_text_delete_range(buffer, replace_start, replace_end)) {
-                        COMPLETION_DEBUG("Failed to delete existing text");
-                        return false;
-                    }
-                    COMPLETION_DEBUG("AFTER DELETE: buffer='%.*s', length=%zu, cursor=%zu", 
-                                   (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
+                // Step 1: Move cursor to end of current text (like history navigation)
+                if (lle_cmd_move_end(display_integration->display) != LLE_CMD_SUCCESS) {
+                    COMPLETION_DEBUG("Failed to move cursor to end");
+                    return false;
                 }
                 
-                // Insert new completion
-                COMPLETION_DEBUG("Inserting at pos %zu: '%s'", replace_start, item->text);
-                if (!lle_text_insert_at(buffer, replace_start, item->text)) {
-                    COMPLETION_DEBUG("Failed to insert completion text");
-                    return false;
+                // Step 2: Count characters to backspace (only the completion word)
+                size_t backspace_count = completion_word_len;
+                COMPLETION_DEBUG("EXACT BACKSPACE: Will backspace %zu characters (completion word only)", backspace_count);
+                
+                // Step 3: Exact backspace replication - clear current text
+                for (size_t i = 0; i < backspace_count; i++) {
+                    if (lle_cmd_backspace(display_integration->display) != LLE_CMD_SUCCESS) {
+                        COMPLETION_DEBUG("Failed backspace at position %zu", i);
+                        break;
+                    }
+                }
+                COMPLETION_DEBUG("AFTER BACKSPACE: buffer='%.*s', length=%zu, cursor=%zu", 
+                               (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
+                
+                // Step 4: Insert new completion text character by character
+                const char *text = item->text;
+                while (*text) {
+                    if (lle_cmd_insert_char(display_integration->display, *text) != LLE_CMD_SUCCESS) {
+                        COMPLETION_DEBUG("Failed to insert character '%c'", *text);
+                        return false;
+                    }
+                    text++;
                 }
                 COMPLETION_DEBUG("AFTER INSERT: buffer='%.*s', length=%zu, cursor=%zu", 
                                (int)buffer->length, buffer->buffer, buffer->length, buffer->cursor_pos);
                 
-                // Update cursor position
-                buffer->cursor_pos = replace_start + item->text_len;
-                
                 // Update session word_end_pos to reflect the applied completion
-                g_completion_state.word_end_pos = replace_start + item->text_len;
-                
-                // Sync display state with updated buffer content
-                if (!lle_display_integration_replace_content(display_integration,
-                                                           old_content, old_content_len,
-                                                           buffer->buffer, buffer->length)) {
-                    COMPLETION_DEBUG("Failed to sync display state after completion - continuing anyway");
-                    // Don't return false - completion was applied successfully to text buffer
-                    // Display sync failure shouldn't prevent completion from working
-                }
+                g_completion_state.word_end_pos = buffer->cursor_pos;
                 
                 // Update session state
                 strncpy(g_completion_state.last_applied_completion, item->text,
@@ -759,6 +752,10 @@ const lle_enhanced_completion_info_t *lle_enhanced_tab_completion_get_info(void)
     strncpy(info.original_word, g_completion_state.original_word, sizeof(info.original_word) - 1);
     strncpy(info.current_completion, g_completion_state.last_applied_completion, 
            sizeof(info.current_completion) - 1);
+    
+    // Add word position information for visual footprint calculations
+    info.word_start_pos = g_completion_state.word_start_pos;
+    info.word_end_pos = g_completion_state.word_end_pos;
     
     return &info;
 }

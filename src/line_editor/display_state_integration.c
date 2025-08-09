@@ -1245,3 +1245,213 @@ size_t lle_display_integration_validate_and_report(lle_display_integration_t *in
     
     return issues;
 }
+
+// ============================================================================
+// Menu-Specific Display Integration Functions
+// ============================================================================
+
+/**
+ * @brief Show completion menu using state-synchronized operations
+ *
+ * @param integration Display state integration context
+ * @param footprint Visual footprint with menu positioning data
+ * @param completion_display Completion display configuration
+ * @return true on success, false on error
+ *
+ * Displays completion menu at calculated safe position using integrated
+ * terminal operations that maintain perfect state synchronization.
+ */
+bool lle_display_integration_show_completion_menu(
+    lle_display_integration_t *integration,
+    const lle_visual_footprint_t *footprint,
+    lle_completion_display_t *completion_display) {
+    
+    if (!integration || !footprint || !completion_display) {
+        return false;
+    }
+    
+    LLE_INTEGRATION_DEBUG("Starting completion menu display");
+    
+    // Validate state before menu operations
+    if (!lle_display_integration_validate_state(integration)) {
+        LLE_INTEGRATION_DEBUG("State invalid before menu - forcing sync");
+        if (!lle_display_integration_force_sync(integration)) {
+            return false;
+        }
+    }
+    
+    // Move to safe menu position - add newline first to move below current content
+    if (!lle_display_integration_terminal_write(integration, "\n", 1)) {
+        LLE_INTEGRATION_DEBUG("Failed to write newline for menu separation");
+        return false;
+    }
+    
+    // Display each completion item using basic text operations
+    for (size_t i = 0; i < completion_display->display_count; i++) {
+        if (i >= completion_display->completions->count) {
+            break;
+        }
+        
+        // Move to next line for items after the first
+        if (i > 0) {
+            if (!lle_display_integration_terminal_write(integration, "\n", 1)) {
+                LLE_INTEGRATION_DEBUG("Failed to write newline for item %zu", i);
+                continue;
+            }
+        }
+        
+        // Get completion item and format it simply
+        const lle_completion_item_t *item = &completion_display->completions->items[i];
+        char line_buffer[256];
+        
+        // Simple formatting without calling private function
+        snprintf(line_buffer, sizeof(line_buffer), "> %s", 
+                item->text ? item->text : "");
+        
+        // Write item with state tracking
+        if (!lle_display_integration_terminal_write(integration, line_buffer, strlen(line_buffer))) {
+            LLE_INTEGRATION_DEBUG("Failed to write item %zu", i);
+            continue;
+        }
+        
+        // Validate state after each item
+        lle_display_integration_validate_state(integration);
+    }
+    
+    LLE_INTEGRATION_DEBUG("Completion menu displayed successfully");
+    return true;
+}
+
+/**
+ * @brief Restore cursor position after menu display
+ *
+ * @param integration Display state integration context
+ * @param menu_lines_displayed Number of menu lines that were displayed
+ * @return true on success, false on error
+ *
+ * Restores cursor to original input position using precise integrated
+ * cursor movements that maintain state synchronization.
+ */
+bool lle_display_integration_restore_cursor_after_menu(
+    lle_display_integration_t *integration,
+    size_t menu_lines_displayed) {
+    
+    if (!integration) {
+        return false;
+    }
+    
+    LLE_INTEGRATION_DEBUG("Restoring cursor after %zu menu lines", menu_lines_displayed);
+    
+    // Move cursor back to input line using precise movements
+    for (size_t i = 0; i < menu_lines_displayed; i++) {
+        if (!lle_display_integration_move_cursor_up(integration, 1)) {
+            LLE_INTEGRATION_DEBUG("Failed to move up line %zu", i);
+            break;
+        }
+    }
+    
+    // Move to end of input text using safe termcap
+    if (!lle_display_integration_move_cursor_end(integration)) {
+        LLE_INTEGRATION_DEBUG("Failed to move to end of line");
+        return false;
+    }
+    
+    // Validate final state
+    bool success = lle_display_integration_validate_state(integration);
+    LLE_INTEGRATION_DEBUG("Cursor restoration %s", success ? "successful" : "failed");
+    
+    return success;
+}
+
+/**
+ * @brief Move cursor to specific column using integrated termcap
+ *
+ * @param integration Display state integration context
+ * @param column Target column (1-based)
+ * @return true on success, false on error
+ *
+ * Moves cursor to specified column on current row using state-synchronized
+ * termcap operations.
+ */
+bool lle_display_integration_move_to_column(
+    lle_display_integration_t *integration,
+    size_t column) {
+    
+    if (!integration) {
+        return false;
+    }
+    
+    // Use integrated termcap for column movement
+    if (!lle_termcap_cursor_to_column((int)column)) {
+        return false;
+    }
+    
+    // Update state tracking
+    if (integration->sync_ctx && integration->sync_ctx->terminal_state) {
+        integration->sync_ctx->terminal_state->cursor_col = column - 1; // Convert to 0-based
+    }
+    
+    return true;
+}
+
+/**
+ * @brief Get terminal geometry from integration context
+ *
+ * @param integration Display state integration context
+ * @param geometry Output geometry structure
+ * @return true if geometry retrieved successfully, false otherwise
+ *
+ * Retrieves current terminal geometry from the display state integration
+ * system for accurate positioning calculations.
+ */
+bool lle_display_integration_get_terminal_geometry(
+    lle_display_integration_t *integration,
+    lle_terminal_geometry_t *geometry) {
+    
+    if (!integration || !geometry || !integration->display) {
+        return false;
+    }
+    
+    // Get geometry from display state
+    *geometry = integration->display->geometry;
+    
+    return true;
+}
+
+/**
+ * @brief Validate menu positioning against actual terminal state
+ *
+ * @param integration Display state integration context
+ * @param footprint Visual footprint with menu positioning data
+ * @return true if positioning is valid, false otherwise
+ *
+ * Validates that calculated menu positions are consistent with actual
+ * terminal state and won't cause visual corruption.
+ */
+bool lle_display_integration_validate_menu_positioning(
+    lle_display_integration_t *integration,
+    const lle_visual_footprint_t *footprint) {
+    
+    if (!integration || !footprint) {
+        return false;
+    }
+    
+    // Validate basic positioning data
+    if (!footprint->menu_positioning_valid) {
+        return false;
+    }
+    
+    // Check against actual terminal state
+    if (integration->sync_ctx && integration->sync_ctx->terminal_state) {
+        size_t actual_height = integration->sync_ctx->terminal_state->height;
+        size_t actual_width = integration->sync_ctx->terminal_state->width;
+        
+        // Validate menu fits within actual terminal bounds
+        if (footprint->safe_menu_start_row > actual_height ||
+            footprint->menu_required_width > actual_width) {
+            return false;
+        }
+    }
+    
+    return true;
+}

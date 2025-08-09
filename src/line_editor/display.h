@@ -119,6 +119,20 @@ typedef struct {
     size_t end_column;                  /**< Column position on the last row */
     bool wraps_lines;                   /**< Whether content wraps across multiple lines */
     size_t total_visual_width;          /**< Total visual width including wrapping */
+    
+    // Menu-aware positioning support for completion display
+    size_t available_rows_below;        /**< Rows available below current content */
+    size_t available_rows_above;        /**< Rows available above current content */
+    size_t safe_menu_start_row;         /**< Safe row to start menu without overwriting */
+    size_t safe_menu_start_col;         /**< Safe column to start menu */
+    bool menu_positioning_valid;        /**< Whether menu positioning data is accurate */
+    
+    // Completion context awareness
+    size_t completion_word_row;         /**< Row where completion word is located */
+    size_t completion_word_col;         /**< Column where completion word starts */
+    size_t completion_word_length;      /**< Length of word being completed */
+    size_t menu_required_height;        /**< Height needed for current completion menu */
+    size_t menu_required_width;         /**< Width needed for current completion menu */
 } lle_visual_footprint_t;
 
 /**
@@ -788,6 +802,118 @@ bool lle_display_update_search_prompt(lle_display_state_t *state,
 bool lle_calculate_visual_footprint(const char *text, size_t length,
                                    size_t prompt_width, size_t terminal_width,
                                    lle_visual_footprint_t *footprint);
+
+/**
+ * @brief Calculate menu-aware visual footprint with completion positioning
+ *
+ * Enhanced visual footprint calculation that includes safe positioning data
+ * for completion menus, preventing prompt overwriting and display corruption.
+ *
+ * @param text Text content to analyze
+ * @param length Length of text content
+ * @param prompt_width Width of prompt on first line
+ * @param terminal_width Width of terminal for wrapping calculations
+ * @param terminal_height Height of terminal for menu space calculations
+ * @param completion_count Number of completion items to display
+ * @param completion_word_start Byte offset where completion word starts
+ * @param footprint Output structure for calculated footprint with menu data
+ * @return true on success, false on error
+ *
+ * This function calculates not only the visual footprint of existing content
+ * but also determines safe positioning data for completion menus, including
+ * available space above/below content and optimal menu placement coordinates.
+ */
+bool lle_calculate_menu_aware_footprint(const char *text, size_t length,
+                                       size_t prompt_width, size_t terminal_width,
+                                       size_t terminal_height, size_t completion_count,
+                                       size_t completion_word_start,
+                                       lle_visual_footprint_t *footprint);
+
+/**
+ * @brief Validate menu positioning safety against terminal boundaries
+ *
+ * Validates that calculated menu positioning data is safe and won't cause
+ * prompt overwriting or exceed terminal boundaries.
+ *
+ * @param footprint Visual footprint with menu positioning data
+ * @param terminal_height Height of terminal
+ * @param terminal_width Width of terminal
+ * @param menu_items Number of menu items to validate space for
+ * @return true if positioning is safe, false if adjustments needed
+ *
+ * This function ensures that the calculated menu position won't overwrite
+ * existing prompts or content and that there's sufficient space for the
+ * requested number of menu items.
+ */
+bool lle_validate_menu_positioning(const lle_visual_footprint_t *footprint,
+                                  size_t terminal_height, size_t terminal_width,
+                                  size_t menu_items);
+
+/**
+ * @brief Calculate optimal menu position based on visual footprint
+ *
+ * Determines the optimal positioning for completion menus based on the
+ * enhanced visual footprint data and current display state.
+ *
+ * @param footprint Visual footprint with menu positioning data
+ * @param display_state Current display state for coordinate validation
+ * @param menu_height Required height for completion menu
+ * @param menu_width Required width for completion menu
+ * @return Calculated menu position with row/column coordinates
+ *
+ * This function uses the enhanced visual footprint data to calculate the
+ * optimal menu position that avoids overwriting prompts and fits within
+ * terminal boundaries.
+ */
+typedef struct {
+    size_t start_row;                   /**< Row to start menu display */
+    size_t start_col;                   /**< Column to start menu display */
+    bool position_valid;                /**< Whether calculated position is safe */
+    bool display_above;                 /**< Whether menu should display above cursor */
+} lle_menu_position_t;
+
+lle_menu_position_t lle_calculate_optimal_menu_position(
+    const lle_visual_footprint_t *footprint,
+    const lle_display_state_t *display_state,
+    size_t menu_height, size_t menu_width);
+
+/**
+ * @brief Calculate menu-aware visual footprint with state synchronization
+ *
+ * @param integration Display state integration context
+ * @param text Input text content
+ * @param length Length of text content
+ * @param prompt_width Width of current prompt
+ * @param terminal_width Terminal width
+ * @param terminal_height Terminal height
+ * @param completion_count Number of completion items
+ * @param completion_word_start Start position of completion word
+ * @param footprint Output footprint structure
+ * @return true on success, false on error
+ */
+bool lle_calculate_menu_aware_footprint_with_sync(
+    struct lle_display_integration *integration,
+    const char *text, size_t length,
+    size_t prompt_width, size_t terminal_width,
+    size_t terminal_height, size_t completion_count,
+    size_t completion_word_start,
+    lle_visual_footprint_t *footprint);
+
+/**
+ * @brief Restore position tracking validity for completion operations
+ *
+ * Restores position tracking validity by recalculating current cursor position
+ * and content positioning data. Used to ensure completion display operations
+ * have valid positioning data after edit operations that invalidate tracking.
+ *
+ * @param display_state Display state to restore position tracking for
+ * @return true if position tracking was successfully restored, false on error
+ *
+ * This function is critical for completion operations which depend on valid
+ * position tracking data. It recalculates all positioning information needed
+ * for safe menu display without overwriting prompts.
+ */
+bool lle_display_restore_position_tracking(lle_display_state_t *display_state);
 
 // REMOVED: Broken visual region clearing function
 

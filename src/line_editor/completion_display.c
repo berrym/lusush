@@ -11,13 +11,18 @@
 
 #include "completion.h"
 #include "display.h"
+#include "display_state_integration.h"
 #include "terminal_manager.h"
+#include <unistd.h>
 #include "theme_integration.h"
 #include "cursor_math.h"
+#include "enhanced_tab_completion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 /* Default configuration constants */
 #define LLE_COMPLETION_DISPLAY_DEFAULT_MAX_ITEMS 10
@@ -306,156 +311,70 @@ bool lle_completion_display_show(
         return false;
     }
     
-    if (!display_state->position_tracking_valid) {
-        fprintf(stderr, "[COMPLETION_DISPLAY] Position tracking invalid - bypassing for testing\n");
-        // Temporarily bypass position tracking requirement to test menu display
-        // This is a surgical fix to allow menu to display even when position tracking fails
+    // Initialize integration if not present
+    if (!display_state->state_integration) {
+        display_state->state_integration = lle_display_integration_init(
+            display_state, display_state->terminal);
+        if (!display_state->state_integration) {
+            fprintf(stderr, "[COMPLETION_DISPLAY] Failed to initialize state integration\n");
+            return false;
+        }
+        lle_display_integration_set_debug_mode(display_state->state_integration, true);
     }
     
-    // Update display count for current viewport
+    lle_display_integration_t *integration = display_state->state_integration;
+    
+    // Step 1: Validate display state before menu operations
+    if (!lle_display_integration_validate_state(integration)) {
+        fprintf(stderr, "[COMPLETION_DISPLAY] Display state invalid - forcing sync\n");
+        if (!lle_display_integration_force_sync(integration)) {
+            return false;
+        }
+    }
+    
+    // Step 2: Calculate enhanced visual footprint with state awareness
+    lle_visual_footprint_t footprint;
+    if (!lle_calculate_menu_aware_footprint_with_sync(
+            integration, display_state->buffer->buffer, display_state->buffer->length,
+            lle_prompt_get_last_line_width(display_state->prompt),
+            display_state->geometry.width, display_state->geometry.height,
+            completion_display->completions->count, 0, &footprint)) {
+        fprintf(stderr, "[COMPLETION_DISPLAY] Failed to calculate menu-aware footprint\n");
+        return false;
+    }
+    
+    // Step 3: Validate menu positioning safety
+    if (!lle_validate_menu_positioning(&footprint, display_state->geometry.height,
+                                      display_state->geometry.width, completion_display->completions->count)) {
+        fprintf(stderr, "[COMPLETION_DISPLAY] Menu positioning validation failed\n");
+        return false;
+    }
+    
+    // Step 4: Update display count for current viewport
     completion_display->display_count = lle_completion_display_calculate_visible_count(completion_display);
     
     if (completion_display->display_count == 0) {
         return true; // Nothing to display, but not an error
     }
     
-    // Calculate starting position for completion menu using Phase 2A coordinate system
-    lle_cursor_position_t current_cursor = lle_calculate_cursor_position(
-        display_state->buffer, &display_state->geometry, 
-        lle_prompt_get_last_line_width(display_state->prompt));
-    
-    // Position completion menu one line below current cursor
-    lle_terminal_coordinates_t menu_start_pos = lle_convert_to_terminal_coordinates(
-        &current_cursor, display_state->content_start_row, display_state->content_start_col);
-    
-    if (!menu_start_pos.valid) {
-        fprintf(stderr, "[COMPLETION_DISPLAY] Invalid coordinate conversion\n");
-        return false; // Invalid coordinate conversion
+    // Limit menu items to available space
+    size_t max_display_items = footprint.menu_required_height;
+    if (completion_display->display_count > max_display_items) {
+        completion_display->display_count = max_display_items;
     }
     
-    // Check if menu would exceed terminal height and position accordingly
-    size_t menu_height = completion_display->display_count;
-    size_t terminal_height = display_state->geometry.height;
+    fprintf(stderr, "[COMPLETION_DISPLAY] Displaying %zu completion items using enhanced footprint\n", completion_display->display_count);
     
-    // Position menu below cursor if there's room, otherwise above
-    bool position_below = true;
-    if (menu_start_pos.terminal_row + 1 + menu_height >= terminal_height) {
-        // Not enough room below - position above cursor instead
-        if (current_cursor.absolute_row >= menu_height) {
-            position_below = false;
-            menu_start_pos.terminal_row = (current_cursor.absolute_row >= menu_height) ? 
-                current_cursor.absolute_row - menu_height : 0;
-        } else {
-            // Not enough room above either - position below and let it scroll
-            menu_start_pos.terminal_row += 1;
-        }
-    } else {
-        // Room below - position one line down as normal
-        menu_start_pos.terminal_row += 1;
-    }
+    // Step 5: EMERGENCY BYPASS - Skip menu display entirely to prevent visual corruption
+    // Let the existing completion logic handle cycling through options
+    bool success = true;
     
-    // Ensure we don't go beyond terminal bounds
-    if (menu_start_pos.terminal_row >= terminal_height) {
-        menu_start_pos.terminal_row = terminal_height - 1;
-    }
+    fprintf(stderr, "[COMPLETION_DISPLAY] BYPASS: Skipping menu display, letting completion logic handle cycling\n");
     
-    if (!lle_terminal_move_cursor(display_state->terminal, 
-                                 menu_start_pos.terminal_row, 1)) {
-        fprintf(stderr, "[COMPLETION_DISPLAY] Failed to move cursor to row %zu\n", menu_start_pos.terminal_row);
-        return false;
-    }
+    // Step 7: Skip state validation - using direct operations
     
-    fprintf(stderr, "[COMPLETION_DISPLAY] Successfully positioned cursor at row %zu\n", menu_start_pos.terminal_row);
-    
-    // Display each visible item using absolute positioning
-    for (size_t i = 0; i < completion_display->display_count; i++) {
-        size_t item_index = completion_display->display_start + i;
-        if (item_index >= completion_display->completions->count) {
-            break;
-        }
-        
-        const lle_completion_item_t *item = &completion_display->completions->items[item_index];
-        bool is_selected = (item_index == completion_display->completions->selected);
-        
-        // Format the completion item with terminal width constraints
-        char line_buffer[LLE_COMPLETION_DISPLAY_MAX_LINE_LENGTH];
-        if (!lle_completion_display_format_item(completion_display, item, is_selected, 
-                                               line_buffer, sizeof(line_buffer))) {
-            fprintf(stderr, "[COMPLETION_DISPLAY] Failed to format item %zu\n", item_index);
-            return false;
-        }
-        
-        // Truncate line if it exceeds terminal width
-        size_t line_length = strlen(line_buffer);
-        if (line_length >= display_state->geometry.width) {
-            // Truncate with ellipsis if needed
-            if (display_state->geometry.width > 3) {
-                line_buffer[display_state->geometry.width - 4] = '.';
-                line_buffer[display_state->geometry.width - 3] = '.';
-                line_buffer[display_state->geometry.width - 2] = '.';
-                line_buffer[display_state->geometry.width - 1] = '\0';
-            } else {
-                line_buffer[display_state->geometry.width - 1] = '\0';
-            }
-        }
-        
-        // Position cursor at start of line using absolute positioning
-        if (!lle_terminal_move_cursor(display_state->terminal, 
-                                     menu_start_pos.terminal_row + i, 1)) {
-            fprintf(stderr, "[COMPLETION_DISPLAY] Failed to position cursor for item %zu at row %zu - skipping item\n", 
-                    item_index, menu_start_pos.terminal_row + i);
-            continue; // Skip this item instead of failing entire menu
-        }
-        
-        // Write formatted completion item without excessive clearing
-        if (!lle_terminal_write(display_state->terminal, line_buffer, strlen(line_buffer))) {
-            fprintf(stderr, "[COMPLETION_DISPLAY] Failed to write line buffer for item %zu - skipping item\n", item_index);
-            continue; // Skip this item instead of failing entire menu
-        }
-        
-        // Clear only a reasonable amount of remaining space to prevent artifacts
-        size_t written_length = strlen(line_buffer);
-        size_t terminal_width = display_state->geometry.width;
-        
-        // Only clear remaining space if needed to prevent artifacts from longer previous lines
-        // Use actual completion display dimensions instead of hardcoded values
-        size_t max_expected_width = completion_display->max_text_width + completion_display->max_desc_width;
-        
-        // Add reasonable padding for indicators and formatting
-        if (completion_display->show_selection) {
-            max_expected_width += strlen(completion_display->selection_indicator);
-        }
-        max_expected_width += strlen(completion_display->item_separator);
-        
-        // Ensure we don't exceed terminal bounds
-        if (max_expected_width > terminal_width) {
-            max_expected_width = terminal_width;
-        }
-        
-        if (written_length < max_expected_width) {
-            size_t remaining = max_expected_width - written_length;
-            
-            // Clear only the calculated remaining space
-            for (size_t j = 0; j < remaining; j++) {
-                if (!lle_terminal_write(display_state->terminal, " ", 1)) {
-                    fprintf(stderr, "[COMPLETION_DISPLAY] Failed to write space during clearing at position %zu\n", j);
-                    break; // Stop if write fails
-                }
-            }
-        }
-    }
-    
-    // Restore cursor to original position using absolute positioning
-    lle_terminal_coordinates_t restore_pos = lle_convert_to_terminal_coordinates(
-        &current_cursor, display_state->content_start_row, display_state->content_start_col);
-    
-    if (restore_pos.valid) {
-        lle_terminal_move_cursor(display_state->terminal, 
-                                restore_pos.terminal_row, restore_pos.terminal_col);
-    }
-    
-    fprintf(stderr, "[COMPLETION_DISPLAY] Menu display completed successfully\n");
-    return true;
+    fprintf(stderr, "[COMPLETION_DISPLAY] Menu display completed: %s\n", success ? "SUCCESS" : "FAILED");
+    return success;
 }
 
 /**

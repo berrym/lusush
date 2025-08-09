@@ -49,13 +49,15 @@ typedef enum {
  * @brief Information about the current completion session
  */
 typedef struct {
-    bool active;                           /**< Whether completion session is active */
+    bool active;                        /**< Whether completion session is active */
     lle_enhanced_completion_type_t completion_type; /**< Type of completion */
-    int current_index;                     /**< Current completion index (0-based) */
-    int total_count;                       /**< Total number of completions */
-    bool has_cycled;                       /**< Whether user has cycled through completions */
-    char original_word[512];               /**< Original word being completed */
-    char current_completion[512];          /**< Currently applied completion */
+    int current_index;                  /**< Current completion index */
+    int total_count;                    /**< Total number of completions */
+    bool has_cycled;                    /**< Whether user has cycled through completions */
+    char original_word[512];            /**< Original word being completed */
+    char current_completion[512];       /**< Currently applied completion */
+    size_t word_start_pos;              /**< Start position of word in buffer */
+    size_t word_end_pos;                /**< End position of word in buffer */
 } lle_enhanced_completion_info_t;
 
 // ============================================================================

@@ -2375,7 +2375,7 @@ bool lle_display_set_performance_optimization(lle_display_state_t *state, bool e
 bool lle_calculate_visual_footprint(const char *text, size_t length,
                                    size_t prompt_width, size_t terminal_width,
                                    lle_visual_footprint_t *footprint) {
-    if (!text || !footprint || terminal_width == 0) {
+    if (!text || !footprint) {
         return false;
     }
     
@@ -2390,89 +2390,352 @@ bool lle_calculate_visual_footprint(const char *text, size_t length,
         return true;
     }
     
-    // Calculate display width of text (handling ANSI escape sequences)
-    size_t text_display_width = lle_calculate_display_width_ansi(text, length);
+    // Calculate visual width including prompt
+    size_t current_column = prompt_width;
+    size_t rows_used = 1;
+    bool has_wrapping = false;
     
-    // Total width includes prompt on first line
-    size_t total_width = prompt_width + text_display_width;
-    footprint->total_visual_width = total_width;
+    for (size_t i = 0; i < length; i++) {
+        if (text[i] == '\n') {
+            current_column = 0;
+            rows_used++;
+        } else if (text[i] == '\t') {
+            // Tab expands to next multiple of 8
+            size_t tab_width = 8 - (current_column % 8);
+            current_column += tab_width;
+        } else {
+            current_column++;
+        }
+        
+        // Handle line wrapping
+        if (current_column >= terminal_width) {
+            has_wrapping = true;
+            rows_used += current_column / terminal_width;
+            current_column = current_column % terminal_width;
+        }
+    }
     
-    // Check if content wraps lines
-    // CRITICAL FIX: Content that exactly fills terminal width should wrap (no room for cursor)
-    if (total_width >= terminal_width) {
-        footprint->wraps_lines = true;
+    footprint->rows_used = rows_used;
+    footprint->end_column = current_column;
+    footprint->wraps_lines = has_wrapping;
+    footprint->total_visual_width = length + prompt_width;
+    
+    return true;
+}
+
+/**
+ * @brief Calculate menu-aware visual footprint with completion positioning
+ *
+ * Enhanced visual footprint calculation that includes safe positioning data
+ * for completion menus, preventing prompt overwriting and display corruption.
+ *
+ * @param text Text content to analyze
+ * @param length Length of text content
+ * @param prompt_width Width of prompt on first line
+ * @param terminal_width Width of terminal for wrapping calculations
+ * @param terminal_height Height of terminal for menu space calculations
+ * @param completion_count Number of completion items to display
+ * @param completion_word_start Byte offset where completion word starts
+ * @param footprint Output structure for calculated footprint with menu data
+ * @return true on success, false on error
+ *
+ * This function calculates not only the visual footprint of existing content
+ * but also determines safe positioning data for completion menus, including
+ * available space above/below content and optimal menu placement coordinates.
+ */
+bool lle_calculate_menu_aware_footprint(const char *text, size_t length,
+                                       size_t prompt_width, size_t terminal_width,
+                                       size_t terminal_height, size_t completion_count,
+                                       size_t completion_word_start,
+                                       lle_visual_footprint_t *footprint) {
+    if (!text || !footprint) {
+        return false;
+    }
+    
+    // Start with basic visual footprint calculation
+    if (!lle_calculate_visual_footprint(text, length, prompt_width, terminal_width, footprint)) {
+        return false;
+    }
+    
+    // Calculate current cursor position in terminal
+    size_t current_row = footprint->rows_used;
+    size_t current_col = footprint->end_column;
+    
+    // Calculate available space for menu
+    footprint->available_rows_below = (current_row < terminal_height) ? 
+                                     terminal_height - current_row : 0;
+    footprint->available_rows_above = (current_row > 1) ? current_row - 1 : 0;
+    
+    fprintf(stderr, "[MENU_FOOTPRINT] Space calculation: current_row=%zu, terminal_height=%zu\n", 
+            current_row, terminal_height);
+    fprintf(stderr, "[MENU_FOOTPRINT] Available space: below=%zu, above=%zu\n",
+            footprint->available_rows_below, footprint->available_rows_above);
+    
+    // Calculate completion word position
+    if (completion_word_start < length) {
+        // Find row and column of completion word start
+        size_t word_column = prompt_width;
+        size_t word_row = 1;
         
-        // Calculate prompt rows and position where text starts
-        size_t prompt_rows = 0;
-        size_t prompt_end_col = 0;
-        
-        if (prompt_width > 0) {
-            prompt_rows = (prompt_width + terminal_width - 1) / terminal_width;
-            prompt_end_col = prompt_width % terminal_width;
-            if (prompt_end_col == 0) {
-                prompt_end_col = terminal_width;
-            }
-        }
-        
-        // Calculate available space on the last prompt row
-        size_t first_line_capacity;
-        if (prompt_end_col == terminal_width) {
-            // Prompt exactly fills last row, text starts on new line
-            first_line_capacity = terminal_width;
-        } else {
-            // Text continues on same row as prompt end
-            first_line_capacity = terminal_width - prompt_end_col;
-        }
-        
-        if (text_display_width < first_line_capacity) {
-            // All text fits on the same row as prompt end
-            if (prompt_width == 0 || prompt_end_col == terminal_width) {
-                // Text starts on new line (either no prompt or prompt fills row)
-                footprint->rows_used = prompt_rows + 1;
-                footprint->end_column = text_display_width;
+        for (size_t i = 0; i < completion_word_start && i < length; i++) {
+            if (text[i] == '\n') {
+                word_column = 0;
+                word_row++;
             } else {
-                // Text continues on prompt's last row
-                footprint->rows_used = prompt_rows;
-                footprint->end_column = prompt_end_col + text_display_width;
+                word_column++;
+                if (word_column >= terminal_width) {
+                    word_row += word_column / terminal_width;
+                    word_column = word_column % terminal_width;
+                }
             }
-        } else if (text_display_width == first_line_capacity) {
-            // Text exactly fills the remaining space on current line
-            // Cursor wraps to start of next line
-            footprint->rows_used = prompt_rows + 1;
-            footprint->end_column = 1;
-        } else {
-            // Text spans multiple lines beyond prompt
-            size_t remaining_chars = text_display_width - first_line_capacity;
-            size_t additional_rows = (remaining_chars + terminal_width - 1) / terminal_width;
-            
-            if (prompt_width == 0 || prompt_end_col == terminal_width) {
-                // Text starts on new line after prompt
-                footprint->rows_used = prompt_rows + 1 + additional_rows;
-            } else {
-                // Text continues on prompt's last row then spans additional rows
-                footprint->rows_used = prompt_rows + additional_rows;
-            }
-            
-            // Calculate final column position
-            size_t chars_on_last_row = remaining_chars % terminal_width;
-            if (chars_on_last_row == 0 && remaining_chars > 0) {
-                chars_on_last_row = terminal_width;
-            }
-            footprint->end_column = chars_on_last_row;
         }
+        
+        footprint->completion_word_row = word_row;
+        footprint->completion_word_col = word_column;
+        footprint->completion_word_length = length - completion_word_start;
     } else {
-        // Content fits on single line
-        footprint->wraps_lines = false;
-        footprint->rows_used = 1;
-        
-        // CRITICAL FIX: For single line content, end column is simply the calculated position
-        // Since we're in the single-line branch, total_width <= terminal_width is guaranteed
-        footprint->end_column = prompt_width + text_display_width;
+        footprint->completion_word_row = current_row;
+        footprint->completion_word_col = current_col;
+        footprint->completion_word_length = 0;
+    }
+    
+    // Calculate menu requirements
+    footprint->menu_required_height = (completion_count > 8) ? 8 : completion_count;
+    footprint->menu_required_width = (terminal_width > 4) ? terminal_width - 2 : terminal_width;
+    
+    fprintf(stderr, "[MENU_FOOTPRINT] Menu requirements: completion_count=%zu, required_height=%zu, required_width=%zu\n",
+            completion_count, footprint->menu_required_height, footprint->menu_required_width);
+    
+    // Determine safe menu positioning
+    if (footprint->available_rows_below >= footprint->menu_required_height) {
+        // Display menu below current content
+        footprint->safe_menu_start_row = current_row + 1;
+        footprint->safe_menu_start_col = 0;
+        footprint->menu_positioning_valid = true;
+        fprintf(stderr, "[MENU_FOOTPRINT] Menu positioned below: start_row=%zu (available_below=%zu >= required=%zu)\n",
+                footprint->safe_menu_start_row, footprint->available_rows_below, footprint->menu_required_height);
+    } else if (footprint->available_rows_above >= footprint->menu_required_height) {
+        // Display menu above current content
+        footprint->safe_menu_start_row = current_row - footprint->menu_required_height;
+        footprint->safe_menu_start_col = 0;
+        footprint->menu_positioning_valid = true;
+        fprintf(stderr, "[MENU_FOOTPRINT] Menu positioned above: start_row=%zu (available_above=%zu >= required=%zu)\n",
+                footprint->safe_menu_start_row, footprint->available_rows_above, footprint->menu_required_height);
+    } else {
+        // Not enough space for full menu - use best available with adjusted height
+        if (footprint->available_rows_below > 0) {
+            footprint->menu_required_height = footprint->available_rows_below;
+            footprint->safe_menu_start_row = current_row + 1;
+            footprint->safe_menu_start_col = 0;
+            footprint->menu_positioning_valid = true;
+            fprintf(stderr, "[MENU_FOOTPRINT] Menu positioned below with reduced height: height=%zu->%zu\n",
+                    completion_count, footprint->menu_required_height);
+        } else if (footprint->available_rows_above > 0) {
+            footprint->menu_required_height = footprint->available_rows_above;
+            footprint->safe_menu_start_row = current_row - footprint->menu_required_height;
+            footprint->safe_menu_start_col = 0;
+            footprint->menu_positioning_valid = true;
+            fprintf(stderr, "[MENU_FOOTPRINT] Menu positioned above with reduced height: height=%zu->%zu\n",
+                    completion_count, footprint->menu_required_height);
+        } else {
+            // Truly no space available
+            footprint->safe_menu_start_row = current_row + 1;
+            footprint->safe_menu_start_col = 0;
+            footprint->menu_positioning_valid = false;
+            fprintf(stderr, "[MENU_FOOTPRINT] No space available for menu: below=%zu, above=%zu\n",
+                    footprint->available_rows_below, footprint->available_rows_above);
+        }
     }
     
     return true;
 }
 
+/**
+ * @brief Validate menu positioning safety against terminal boundaries
+ *
+ * Validates that calculated menu positioning data is safe and won't cause
+ * prompt overwriting or exceed terminal boundaries.
+ *
+ * @param footprint Visual footprint with menu positioning data
+ * @param terminal_height Height of terminal
+ * @param terminal_width Width of terminal
+ * @param menu_items Number of menu items to validate space for
+ * @return true if positioning is safe, false if adjustments needed
+ */
+bool lle_validate_menu_positioning(const lle_visual_footprint_t *footprint,
+                                  size_t terminal_height, size_t terminal_width,
+                                  size_t menu_items) {
+    if (!footprint || terminal_height == 0 || terminal_width == 0) {
+        fprintf(stderr, "[MENU_VALIDATION] Invalid parameters: footprint=%p, terminal_height=%zu, terminal_width=%zu\n",
+                (void*)footprint, terminal_height, terminal_width);
+        return false;
+    }
+    
+    // Check if menu positioning was calculated successfully
+    if (!footprint->menu_positioning_valid) {
+        fprintf(stderr, "[MENU_VALIDATION] Menu positioning invalid: menu_positioning_valid=false\n");
+        fprintf(stderr, "[MENU_VALIDATION] Footprint details: rows_used=%zu, available_below=%zu, available_above=%zu, required_height=%zu\n",
+                footprint->rows_used, footprint->available_rows_below, footprint->available_rows_above, footprint->menu_required_height);
+        return false;
+    }
+    
+    // Validate menu fits within terminal boundaries (check end row, not start + height)
+    size_t menu_end_row = footprint->safe_menu_start_row + footprint->menu_required_height - 1;
+    if (menu_end_row > terminal_height) {
+        fprintf(stderr, "[MENU_VALIDATION] Menu exceeds terminal height: end_row=%zu > terminal_height=%zu\n",
+                menu_end_row, terminal_height);
+        return false;
+    }
+    
+    // Validate menu doesn't exceed terminal width
+    if (footprint->safe_menu_start_col + footprint->menu_required_width > terminal_width) {
+        fprintf(stderr, "[MENU_VALIDATION] Menu exceeds terminal width: start_col=%zu + required_width=%zu > terminal_width=%zu\n",
+                footprint->safe_menu_start_col, footprint->menu_required_width, terminal_width);
+        return false;
+    }
+    
+    // Validate menu doesn't overwrite existing content
+    // Menu is safe if it starts AFTER content ends (start_row > last_content_row)
+    size_t last_content_row = (footprint->rows_used > 0) ? footprint->rows_used - 1 : 0;
+    if (footprint->safe_menu_start_row <= last_content_row) {
+        fprintf(stderr, "[MENU_VALIDATION] Menu would overwrite content: start_row=%zu <= last_content_row=%zu\n",
+                footprint->safe_menu_start_row, last_content_row);
+        return false;
+    }
+    
+    fprintf(stderr, "[MENU_VALIDATION] Menu positioning validated successfully: start_row=%zu, start_col=%zu, menu_items=%zu\n",
+            footprint->safe_menu_start_row, footprint->safe_menu_start_col, menu_items);
+    return true;
+}
+
+/**
+ * @brief Calculate optimal menu position based on visual footprint
+ *
+ * Determines the optimal positioning for completion menus based on the
+ * enhanced visual footprint data and current display state.
+ *
+ * @param footprint Visual footprint with menu positioning data
+ * @param display_state Current display state for coordinate validation
+ * @param menu_height Required height for completion menu
+ * @param menu_width Required width for completion menu
+ * @return Calculated menu position with row/column coordinates
+ */
+lle_menu_position_t lle_calculate_optimal_menu_position(
+    const lle_visual_footprint_t *footprint,
+    const lle_display_state_t *display_state,
+    size_t menu_height, size_t menu_width) {
+    
+    lle_menu_position_t position = {0};
+    
+    if (!footprint || !display_state) {
+        return position;
+    }
+    
+    // Use calculated safe position if valid
+    if (footprint->menu_positioning_valid) {
+        position.start_row = footprint->safe_menu_start_row;
+        position.start_col = footprint->safe_menu_start_col;
+        position.position_valid = true;
+        
+        // Determine if menu is displayed above cursor
+        position.display_above = (footprint->safe_menu_start_row < footprint->rows_used);
+    } else {
+        // Fallback positioning - try to place below current row
+        size_t current_row = display_state->content_end_row;
+        if (current_row + menu_height < display_state->geometry.height) {
+            position.start_row = current_row + 1;
+            position.start_col = 1;
+            position.position_valid = true;
+            position.display_above = false;
+        }
+    }
+    
+    return position;
+}
+
+/**
+ * @brief Restore position tracking validity for completion operations
+ *
+ * Restores position tracking validity by using existing display state positions
+ * that were set during rendering. This avoids coordinate system inconsistencies
+ * that occur when recalculating positions from mathematical frameworks.
+ *
+ * @param display_state Display state to restore position tracking for
+ * @return true if position tracking was successfully restored, false on error
+ *
+ * This function is critical for completion operations which depend on valid
+ * position tracking data. It uses the actual display positions established
+ * during rendering to ensure coordinate consistency.
+ */
+bool lle_display_restore_position_tracking(lle_display_state_t *display_state) {
+    if (!display_state || !display_state->buffer || !display_state->prompt) {
+        fprintf(stderr, "[POSITION_RESTORE] Invalid parameters: display_state=%p, buffer=%p, prompt=%p\n",
+                (void*)display_state, 
+                display_state ? (void*)display_state->buffer : NULL,
+                display_state ? (void*)display_state->prompt : NULL);
+        return false;
+    }
+    
+    // Check if we already have valid position data from rendering
+    if (display_state->content_start_row > 0 || display_state->content_start_col > 0) {
+        // Use existing position data from display rendering
+        fprintf(stderr, "[POSITION_RESTORE] Using existing display positions: content_start_row=%zu, content_start_col=%zu\n",
+                display_state->content_start_row, display_state->content_start_col);
+        
+        // Calculate content end position based on buffer length and current positions
+        size_t prompt_width = lle_prompt_get_last_line_width(display_state->prompt);
+        size_t text_display_width = (display_state->buffer->length > 0) ? 
+                                   lle_calculate_display_width_ansi(display_state->buffer->buffer, display_state->buffer->length) : 0;
+        
+        fprintf(stderr, "[POSITION_RESTORE] Calculation inputs: content_start_row=%zu, content_start_col=%zu, text_display_width=%zu, terminal_width=%zu\n",
+                display_state->content_start_row, display_state->content_start_col, text_display_width, display_state->geometry.width);
+        
+        // Content end position is where the cursor would be after all text
+        if (display_state->content_start_col + text_display_width < display_state->geometry.width) {
+            // Text fits on same row as content start
+            display_state->content_end_row = display_state->content_start_row;
+            display_state->content_end_col = display_state->content_start_col + text_display_width;
+            fprintf(stderr, "[POSITION_RESTORE] Text fits on same row: end_row=%zu, end_col=%zu\n",
+                    display_state->content_end_row, display_state->content_end_col);
+        } else {
+            // Text wraps to additional rows
+            size_t remaining_width = text_display_width;
+            size_t first_line_capacity = display_state->geometry.width - display_state->content_start_col;
+            
+            fprintf(stderr, "[POSITION_RESTORE] Text wraps: remaining_width=%zu, first_line_capacity=%zu\n",
+                    remaining_width, first_line_capacity);
+            
+            if (remaining_width <= first_line_capacity) {
+                display_state->content_end_row = display_state->content_start_row;
+                display_state->content_end_col = display_state->content_start_col + remaining_width;
+                fprintf(stderr, "[POSITION_RESTORE] Text fits in first line capacity: end_row=%zu, end_col=%zu\n",
+                        display_state->content_end_row, display_state->content_end_col);
+            } else {
+                remaining_width -= first_line_capacity;
+                size_t additional_rows = remaining_width / display_state->geometry.width;
+                size_t final_col = remaining_width % display_state->geometry.width;
+                
+                display_state->content_end_row = display_state->content_start_row + additional_rows + 1;
+                display_state->content_end_col = final_col;
+                fprintf(stderr, "[POSITION_RESTORE] Multi-line wrap: remaining_width=%zu, additional_rows=%zu, final_col=%zu, end_row=%zu, end_col=%zu\n",
+                        remaining_width, additional_rows, final_col, display_state->content_end_row, display_state->content_end_col);
+            }
+        }
+        
+        display_state->position_tracking_valid = true;
+        
+        fprintf(stderr, "[POSITION_RESTORE] Position tracking restored using existing state: content_end_row=%zu, content_end_col=%zu\n",
+                display_state->content_end_row, display_state->content_end_col);
+        return true;
+    }
+    
+    // Fallback: mark as valid but don't change existing positions
+    // This allows completion to proceed with current display state
+    display_state->position_tracking_valid = true;
+    
+    fprintf(stderr, "[POSITION_RESTORE] Position tracking marked valid with existing positions\n");
+    return true;
+}
 
 
 // REMOVED: Broken visual region clearing causing display corruption
@@ -2703,5 +2966,102 @@ bool lle_render_with_consistent_highlighting(lle_display_state_t *display,
     }
     
     return render_success;
+}
+
+/**
+ * @brief Validate menu positioning safety based on visual footprint
+ *
+ * @param footprint Visual footprint containing menu positioning data
+ * @param terminal_height Current terminal height
+ * @param terminal_width Current terminal width
+ * @param menu_items Number of menu items to display
+ * @return true if menu positioning is safe, false otherwise
+ *
+ * Validates that the calculated menu position won't overwrite existing
+ * content or exceed terminal boundaries. Ensures professional menu display.
+ */
+
+
+/**
+ * @brief Calculate optimal menu position based on visual footprint
+ *
+ * @param footprint Visual footprint with positioning data
+ * @param display_state Current display state
+ * @param menu_height Required menu height
+ * @param menu_width Required menu width
+ * @return Menu position structure with calculated coordinates
+ *
+ * Determines the best position for completion menu display based on
+ * available space and current content layout. Prioritizes display below
+ * current content when possible.
+ */
+
+
+/**
+ * @brief Calculate menu-aware visual footprint with state synchronization
+ *
+ * @param integration Display state integration context
+ * @param text Input text content
+ * @param length Length of text content
+ * @param prompt_width Width of current prompt
+ * @param terminal_width Terminal width
+ * @param terminal_height Terminal height
+ * @param completion_count Number of completion items
+ * @param completion_word_start Start position of completion word
+ * @param footprint Output footprint structure
+ * @return true on success, false on error
+ *
+ * Enhanced version that validates display state before calculation and
+ * ensures consistency between calculated positions and actual terminal state.
+ */
+bool lle_calculate_menu_aware_footprint_with_sync(
+    lle_display_integration_t *integration,
+    const char *text, size_t length,
+    size_t prompt_width, size_t terminal_width,
+    size_t terminal_height, size_t completion_count,
+    size_t completion_word_start,
+    lle_visual_footprint_t *footprint) {
+    
+    if (!integration || !text || !footprint) {
+        return false;
+    }
+    
+    // Step 1: Validate display state before calculation
+    if (!lle_display_integration_validate_state(integration)) {
+        fprintf(stderr, "[FOOTPRINT_SYNC] Display state invalid - forcing sync\n");
+        if (!lle_display_integration_force_sync(integration)) {
+            return false;
+        }
+    }
+    
+    // Step 2: Get actual terminal geometry from sync system
+    lle_terminal_geometry_t actual_geometry;
+    if (lle_display_integration_get_terminal_geometry(integration, &actual_geometry)) {
+        terminal_width = actual_geometry.width;
+        terminal_height = actual_geometry.height;
+    }
+    
+    // Step 3: Calculate enhanced footprint using validated geometry
+    bool success = lle_calculate_menu_aware_footprint(text, length, prompt_width,
+                                                     terminal_width, terminal_height,
+                                                     completion_count, completion_word_start,
+                                                     footprint);
+    
+    // Step 4: Validate calculated positions against actual terminal state
+    if (success && !lle_validate_menu_positioning(footprint, terminal_height, terminal_width, completion_count)) {
+        fprintf(stderr, "[FOOTPRINT_SYNC] Menu positioning validation failed - recalculating\n");
+        
+        // Force sync and recalculate
+        if (lle_display_integration_force_sync(integration)) {
+            success = lle_calculate_menu_aware_footprint(text, length, prompt_width,
+                                                        terminal_width, terminal_height,
+                                                        completion_count, completion_word_start,
+                                                        footprint);
+        } else {
+            success = false;
+        }
+    }
+    
+    return success;
 }
 

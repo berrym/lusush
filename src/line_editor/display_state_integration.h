@@ -17,6 +17,7 @@
 #include "display_state_sync.h"
 #include "display.h"
 #include "terminal_manager.h"
+#include "completion.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -470,5 +471,66 @@ void lle_display_integration_set_verbose_logging(lle_display_integration_t *inte
  */
 size_t lle_display_integration_validate_and_report(lle_display_integration_t *integration,
                                                    FILE *output_file);
+
+// ============================================================================
+// Menu-Specific Display Integration Functions
+// ============================================================================
+
+/**
+ * @brief Show completion menu using state-synchronized operations
+ *
+ * @param integration Display state integration context
+ * @param footprint Visual footprint with menu positioning data
+ * @param completion_display Completion display configuration
+ * @return true on success, false on error
+ */
+bool lle_display_integration_show_completion_menu(
+    lle_display_integration_t *integration,
+    const lle_visual_footprint_t *footprint,
+    lle_completion_display_t *completion_display);
+
+/**
+ * @brief Restore cursor position after menu display
+ *
+ * @param integration Display state integration context
+ * @param menu_lines_displayed Number of menu lines that were displayed
+ * @return true on success, false on error
+ */
+bool lle_display_integration_restore_cursor_after_menu(
+    lle_display_integration_t *integration,
+    size_t menu_lines_displayed);
+
+/**
+ * @brief Move cursor to specific column using integrated termcap
+ *
+ * @param integration Display state integration context
+ * @param column Target column (1-based)
+ * @return true on success, false on error
+ */
+bool lle_display_integration_move_to_column(
+    lle_display_integration_t *integration,
+    size_t column);
+
+/**
+ * @brief Get terminal geometry from integration context
+ *
+ * @param integration Display state integration context
+ * @param geometry Output geometry structure
+ * @return true if geometry retrieved successfully, false otherwise
+ */
+bool lle_display_integration_get_terminal_geometry(
+    lle_display_integration_t *integration,
+    lle_terminal_geometry_t *geometry);
+
+/**
+ * @brief Validate menu positioning against actual terminal state
+ *
+ * @param integration Display state integration context
+ * @param footprint Visual footprint with menu positioning data
+ * @return true if positioning is valid, false otherwise
+ */
+bool lle_display_integration_validate_menu_positioning(
+    lle_display_integration_t *integration,
+    const lle_visual_footprint_t *footprint);
 
 #endif // LLE_DISPLAY_STATE_INTEGRATION_H
