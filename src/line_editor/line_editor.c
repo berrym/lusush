@@ -27,6 +27,8 @@
 #include "platform_detection.h"
 #include "display_state_sync.h"
 #include "display_state_integration.h"
+#include "reverse_search.h"
+#include "enhanced_tab_completion.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -118,6 +120,12 @@ static bool lle_initialize_components(lle_line_editor_t *editor, const lle_confi
     if (!lle_trace_init()) {
         // Continue even if tracing fails - it's optional
         // Tracing is controlled by LLE_TRACE_ENABLED environment variable
+    }
+    
+    // Initialize reverse search system
+    if (!lle_reverse_search_init()) {
+        lle_set_last_error(editor, LLE_ERROR_MEMORY_ALLOCATION);
+        return false;
     }
     
     // Initialize text buffer
@@ -291,6 +299,9 @@ static void lle_cleanup_components(lle_line_editor_t *editor) {
     // Shutdown tracing system
     lle_trace_shutdown();
     
+    // Cleanup reverse search system
+    lle_reverse_search_cleanup();
+    
     if (editor->completions) {
         // Cleanup enhanced tab completion system
         lle_enhanced_tab_completion_cleanup();
@@ -421,37 +432,21 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
             case LLE_KEY_ENTER:
             case LLE_KEY_CTRL_M:
             case LLE_KEY_CTRL_J:
-                if (reverse_search_mode) {
-                    // Accept current match and exit reverse search
-                    reverse_search_mode = 0;
-                    if (reverse_search_original_line) {
-                        free(reverse_search_original_line);
-                        reverse_search_original_line = NULL;
-                    }
-                    reverse_search_query[0] = '\0';
-                    reverse_search_index = -1;
+                if (lle_reverse_search_is_active()) {
+                    // Accept current match and exit reliable reverse search
+                    lle_reverse_search_exit(editor->display, true);
+                    if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Accepted match and exited reliable reverse search\n");
                     
-                    // Clear search line and restore prompt
-                    lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                    lle_display_integration_clear_to_eol(editor->state_integration);
-                    lle_display_integration_move_cursor_up(editor->state_integration, 1);
+                    // Clear search line and rebuild display properly
+                    lle_terminal_write(editor->terminal, "\r", 1);
+                    lle_terminal_clear_to_eol(editor->terminal);
+                    lle_terminal_write(editor->terminal, "\x1b[A", 3);
                     
-                    // Redraw the accepted command
-                    prompt_width = lle_prompt_get_last_line_width(editor->display->prompt);
-                    lle_display_integration_move_cursor(editor->state_integration, 0, prompt_width);
-                    lle_display_integration_clear_to_eol(editor->state_integration);
-                    if (editor->buffer->length > 0) {
-                        lle_display_integration_terminal_write(editor->state_integration, editor->buffer->buffer, editor->buffer->length);
-                    }
-                    
-                    // Validate state consistency after complex operations
-                    if (!lle_display_integration_validate_state(editor->state_integration)) {
-                        lle_display_integration_force_sync(editor->state_integration);
-                    }
+                    // Force complete display rebuild from scratch
+                    lle_display_render(editor->display);
                     needs_display_update = false;
                     break;
                 }
-                
                 // Accept current line and complete editing
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] Enter key pressed - completing line with %zu characters\n", 
@@ -564,47 +559,25 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 if (debug_mode) {
                     fprintf(stderr, "[LLE_INPUT_LOOP] BACKSPACE case executed, reverse_search_mode=%d\n", reverse_search_mode);
                 }
-                if (reverse_search_mode) {
-                    // Remove character from search query
-                    size_t query_len = strlen(reverse_search_query);
-                    if (query_len > 0) {
-                        reverse_search_query[query_len - 1] = '\0';
-                        
-                        // Re-search with shortened term
-                        if (query_len > 1 && editor->history_enabled && editor->history) {
-                            for (int i = editor->history->count - 1; i >= 0; i--) {
-                                const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                                if (entry && entry->command && strstr(entry->command, reverse_search_query)) {
-                                    lle_text_buffer_clear(editor->buffer);
-                                    for (size_t j = 0; j < entry->length; j++) {
-                                        lle_text_insert_char(editor->buffer, entry->command[j]);
-                                    }
-                                    lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                    reverse_search_index = i;
-                                    break;
-                                }
+                if (lle_reverse_search_is_active()) {
+                    // Remove character from search query using reliable module
+                    if (lle_reverse_search_backspace(editor->display, editor->buffer, editor->history)) {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Backspaced character in reliable search\n");
+                        // Update search prompt with current query and match using direct terminal operations
+                        const char *query = lle_reverse_search_get_query();
+                        if (query) {
+                            lle_terminal_write(editor->terminal, "\r", 1);
+                            lle_terminal_clear_to_eol(editor->terminal);
+                            lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                            lle_terminal_write(editor->terminal, query, strlen(query));
+                            lle_terminal_write(editor->terminal, "': ", 3);
+                            // Buffer already updated by reverse_search module
+                            if (editor->buffer->length > 0) {
+                                lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
                             }
-                        } else {
-                            // No more query or no match - clear buffer
-                            lle_text_buffer_clear(editor->buffer);
-                            reverse_search_index = -1;
                         }
-                        
-                        // Update search prompt
-                        lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                        lle_display_integration_move_cursor(editor->state_integration, 0, 0);
-                        lle_display_integration_clear_to_eol(editor->state_integration);
-                        lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
-                        if (strlen(reverse_search_query) > 0) {
-                            lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
-                        }
-                        lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
-                        if (editor->buffer->length > 0) {
-                            lle_display_integration_terminal_write(editor->state_integration, editor->buffer->buffer, editor->buffer->length);
-                        }
-                        
-                        // Validate state after complex reverse search operations
-                        lle_display_integration_validate_state(editor->state_integration);
+                    } else {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Failed to backspace in reliable search\n");
                     }
                     needs_display_update = false;
                 } else {
@@ -899,73 +872,44 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                 break;
                 
             case LLE_KEY_CTRL_R:
-                // Working Ctrl+R implementation with complete navigation
-                if (!reverse_search_mode) {
-                    // Enter reverse search mode
-                    reverse_search_mode = 1;
-                    reverse_search_query[0] = '\0';
-                    reverse_search_index = -1;
-                    reverse_search_start_index = editor->history_enabled && editor->history ? editor->history->count - 1 : -1;
-                    
-                    // Save original line
-                    if (reverse_search_original_line) {
-                        free(reverse_search_original_line);
+                // NEW: Reliable Ctrl+R using proven exact backspace replication pattern
+                if (!lle_reverse_search_is_active()) {
+                    // Enter reverse search mode using reliable module
+                    if (lle_reverse_search_enter(editor->display, editor->buffer, editor->history)) {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Entered reliable reverse search mode\n");
+                        // Use direct terminal operations (bypass broken display integration)
+                        lle_terminal_write(editor->terminal, "\n\r", 2);
+                        lle_terminal_write(editor->terminal, "(reverse-i-search)`': ", 22);
+                    } else {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Failed to enter reverse search mode\n");
                     }
-                    reverse_search_original_line = malloc(editor->buffer->length + 1);
-                    if (reverse_search_original_line) {
-                        memcpy(reverse_search_original_line, editor->buffer->buffer, editor->buffer->length);
-                        reverse_search_original_line[editor->buffer->length] = '\0';
-                    }
-                    
-                    // Clear buffer and show search prompt
-                    lle_text_buffer_clear(editor->buffer);
-                    
-                    // Move to next line and show initial search prompt
-                    lle_display_integration_terminal_write(editor->state_integration, "\n", 1);
-                    lle_display_integration_move_cursor(editor->state_integration, 0, 0);
-                    lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`': ", 22);
                 } else {
-                    // Already in reverse search - find next match (search backwards)
-                    if (strlen(reverse_search_query) > 0 && editor->history_enabled && editor->history) {
-                        int start_index = (reverse_search_index > 0) ? reverse_search_index - 1 : editor->history->count - 1;
-                        bool found = false;
-                        
-                        for (int i = start_index; i >= 0; i--) {
-                            const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                            if (entry && entry->command && strstr(entry->command, reverse_search_query)) {
-                                reverse_search_index = i;
-                                found = true;
-                                
-                                // Update buffer with match
-                                lle_text_buffer_clear(editor->buffer);
-                                for (size_t j = 0; j < entry->length; j++) {
-                                    lle_text_insert_char(editor->buffer, entry->command[j]);
-                                }
-                                lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                
-                                // Update search prompt
-                                lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                                lle_display_integration_move_cursor(editor->state_integration, 0, 0);
-                                lle_display_integration_clear_to_eol(editor->state_integration);
-                                lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
-                                lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
-                                lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
-                                lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
-                                
-                                // Validate state after search prompt update
-                                lle_display_integration_validate_state(editor->state_integration);
-                                break;
+                    // Already in reverse search - find next older match
+                    if (lle_reverse_search_next_match(editor->display, editor->buffer, editor->history, LLE_SEARCH_BACKWARD)) {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Found next backward match in reliable search\n");
+                        // Update search prompt with current query and match using direct terminal operations
+                        const char *query = lle_reverse_search_get_query();
+                        if (query) {
+                            lle_terminal_write(editor->terminal, "\r", 1);
+                            lle_terminal_clear_to_eol(editor->terminal);
+                            lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                            lle_terminal_write(editor->terminal, query, strlen(query));
+                            lle_terminal_write(editor->terminal, "': ", 3);
+                            // Buffer already updated by reverse_search module
+                            if (editor->buffer->length > 0) {
+                                lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
                             }
                         }
-                        
-                        if (!found) {
-                            // No more matches - beep or show "failing" indicator
-                            lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                            lle_display_integration_move_cursor(editor->state_integration, 0, 0);
-                            lle_display_integration_clear_to_eol(editor->state_integration);
-                            lle_display_integration_terminal_write(editor->state_integration, "(failed reverse-i-search)`", 26);
-                            lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
-                            lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
+                    } else {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] No more backward matches found\n");
+                        // Show failed search indicator using direct terminal operations
+                        const char *query = lle_reverse_search_get_query();
+                        if (query) {
+                            lle_terminal_write(editor->terminal, "\r", 1);
+                            lle_terminal_clear_to_eol(editor->terminal);
+                            lle_terminal_write(editor->terminal, "(failed reverse-i-search)`", 26);
+                            lle_terminal_write(editor->terminal, query, strlen(query));
+                            lle_terminal_write(editor->terminal, "': ", 3);
                         }
                     }
                 }
@@ -978,44 +922,26 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                             event.character, (event.character >= 32 && event.character <= 126) ? event.character : '?');
                 }
                 
-                // Handle reverse search character input
-                if (reverse_search_mode && event.character >= 32 && event.character <= 126) {
-                    // Add character to search query
-                    size_t query_len = strlen(reverse_search_query);
-                    if (query_len < sizeof(reverse_search_query) - 1) {
-                        reverse_search_query[query_len] = event.character;
-                        reverse_search_query[query_len + 1] = '\0';
-                        
-                        // Search for match
-                        if (editor->history_enabled && editor->history) {
-                            for (int i = editor->history->count - 1; i >= 0; i--) {
-                                const lle_history_entry_t *entry = lle_history_get(editor->history, i);
-                                if (entry && entry->command && strstr(entry->command, reverse_search_query)) {
-                                    // Found match - update buffer and display
-                                    lle_text_buffer_clear(editor->buffer);
-                                    for (size_t j = 0; j < entry->length; j++) {
-                                        lle_text_insert_char(editor->buffer, entry->command[j]);
-                                    }
-                                    lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                                    reverse_search_index = i;
-                                    
-                                    // Update search prompt
-                                    lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                                    lle_display_integration_move_cursor(editor->state_integration, 0, 0);
-                                    lle_display_integration_clear_to_eol(editor->state_integration);
-                                    lle_display_integration_terminal_write(editor->state_integration, "(reverse-i-search)`", 19);
-                                    lle_display_integration_terminal_write(editor->state_integration, reverse_search_query, strlen(reverse_search_query));
-                                    lle_display_integration_terminal_write(editor->state_integration, "': ", 3);
-                                    lle_display_integration_terminal_write(editor->state_integration, entry->command, entry->length);
-                                    
-                                    // Validate state after search prompt update
-                                    lle_display_integration_validate_state(editor->state_integration);
-                                    
-                                    needs_display_update = false;
-                                    break;
-                                }
+                // Handle reverse search character input using reliable module
+                if (lle_reverse_search_is_active() && event.character >= 32 && event.character <= 126) {
+                    // Add character using reliable reverse search module
+                    if (lle_reverse_search_add_char(editor->display, editor->buffer, editor->history, event.character)) {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Added character '%c' to reliable search\n", event.character);
+                        // Update search prompt with current query and match using direct terminal operations
+                        const char *query = lle_reverse_search_get_query();
+                        if (query) {
+                            lle_terminal_write(editor->terminal, "\r", 1);
+                            lle_terminal_clear_to_eol(editor->terminal);
+                            lle_terminal_write(editor->terminal, "(reverse-i-search)`", 19);
+                            lle_terminal_write(editor->terminal, query, strlen(query));
+                            lle_terminal_write(editor->terminal, "': ", 3);
+                            // Buffer already updated by reverse_search module
+                            if (editor->buffer->length > 0) {
+                                lle_terminal_write(editor->terminal, editor->buffer->buffer, editor->buffer->length);
                             }
                         }
+                    } else {
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Failed to add character to reliable search\n");
                     }
                     needs_display_update = false;
                     break;
@@ -1071,31 +997,19 @@ static char *lle_input_loop(lle_line_editor_t *editor) {
                     }
                 }
                 else if (event.character == LLE_ASCII_CTRL_G) { // Ctrl+G (abort) - standard readline cancel
-                    if (reverse_search_mode) {
-                        // Exit reverse search mode and restore original line
-                        reverse_search_mode = 0;
-                        if (reverse_search_original_line) {
-                            lle_text_buffer_clear(editor->buffer);
-                            for (size_t i = 0; i < strlen(reverse_search_original_line); i++) {
-                                lle_text_insert_char(editor->buffer, reverse_search_original_line[i]);
-                            }
-                            lle_text_move_cursor(editor->buffer, LLE_MOVE_END);
-                            free(reverse_search_original_line);
-                            reverse_search_original_line = NULL;
-                            reverse_search_start_index = -1;
-                        }
-                        reverse_search_query[0] = '\0';
-                        reverse_search_index = -1;
-                        reverse_search_start_index = -1;
+                    if (lle_reverse_search_is_active()) {
+                        // Cancel reliable reverse search and restore original line
+                        lle_reverse_search_exit(editor->display, false);
+                        if (debug_mode) fprintf(stderr, "[LLE_INPUT_LOOP] Cancelled reliable reverse search, restored original line\n");
                         
-                        // Clear search line and restore prompt
-                        lle_display_integration_terminal_write(editor->state_integration, "\r", 1);
-                        lle_display_integration_clear_to_eol(editor->state_integration);
-                        lle_display_integration_move_cursor_up(editor->state_integration, 1);
+                        // Clear search line and rebuild display properly
+                        lle_terminal_write(editor->terminal, "\r", 1);
+                        lle_terminal_clear_to_eol(editor->terminal);
+                        lle_terminal_write(editor->terminal, "\x1b[A", 3);
                         
-                        // Validate state after search line clearing
-                        lle_display_integration_validate_state(editor->state_integration);
-                        needs_display_update = true;
+                        // Force complete display rebuild from scratch
+                        lle_display_render(editor->display);
+                        needs_display_update = false;
                     } else {
                         line_cancelled = true;
                         lle_set_last_error(editor, LLE_ERROR_INTERRUPTED);

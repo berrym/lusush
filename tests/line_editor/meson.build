@@ -53,7 +53,8 @@ lle_test_sources = [
   'test_platform_detection.c',
   'test_display_stabilization.c',
   'test_history_navigation_fix.c',
-  'test_lle_state_observer.c'
+  'test_lle_state_observer.c',
+  'test_reverse_search.c'
 ]
 
 # Individual component tests
