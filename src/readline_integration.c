@@ -180,13 +180,9 @@ char *lusush_readline_with_prompt(const char *prompt) {
         }
     }
     
-    // SAFE syntax highlighting: Respect user setting but protect special modes
-    // The apply_syntax_highlighting function has safety checks for special readline modes
-    if (syntax_highlighting_enabled) {
-        rl_redisplay_function = apply_syntax_highlighting;
-    } else {
-        rl_redisplay_function = rl_redisplay;
-    }
+    // TEMPORARILY DISABLE custom redisplay to fix literal color code display
+    // The framework exists but needs proper implementation
+    rl_redisplay_function = rl_redisplay;  // Always use standard redisplay for now
     
     // Get input from readline
     char *line = readline(actual_prompt);
@@ -671,13 +667,10 @@ void lusush_prompt_set_callback(lusush_prompt_callback_t callback) {
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
     syntax_highlighting_enabled = enabled;
     
-    // CAREFUL: Enable custom redisplay only in safe conditions
-    // Performance optimization: cache the redisplay function pointer
-    if (enabled) {
-        rl_redisplay_function = apply_syntax_highlighting;
-    } else {
-        rl_redisplay_function = rl_redisplay;
-    }
+    // TEMPORARILY DISABLE custom redisplay until proper implementation
+    // Framework established but needs correct readline display integration
+    rl_redisplay_function = rl_redisplay;  // Force standard redisplay
+    syntax_highlighting_enabled = enabled;  // Track state for future implementation
 }
 
 bool lusush_syntax_highlighting_is_enabled(void) {
@@ -704,148 +697,10 @@ static void apply_syntax_highlighting(void) {
         return;
     }
     
-    // Apply syntax highlighting using proper readline buffer management
-    if (rl_line_buffer && *rl_line_buffer) {
-        size_t line_len = strlen(rl_line_buffer);
-        
-        // Performance optimization: skip highlighting for very long lines
-        if (line_len > 500) {
-            rl_redisplay();
-            return;
-        }
-        
-        char *highlighted = malloc(line_len * 6 + 200); // Extra space for color codes
-        if (!highlighted) {
-            rl_redisplay();
-            return;
-        }
-        
-        // Color definitions (same escape format as working prompts)
-        const char *reset = "\001\033[0m\002";
-        const char *keyword_color = "\001\033[1;34m\002";   // Bright blue for keywords
-        const char *command_color = "\001\033[1;32m\002";   // Bright green for commands
-        const char *string_color = "\001\033[1;33m\002";    // Bright yellow for strings
-        const char *variable_color = "\001\033[1;35m\002";  // Bright magenta for variables
-        
-        highlighted[0] = '\0';
-        size_t pos = 0;
-        bool in_command_position = true;
-        
-        while (pos < line_len) {
-            char c = rl_line_buffer[pos];
-            
-            // Handle whitespace
-            if (isspace(c)) {
-                strncat(highlighted, &c, 1);
-                pos++;
-                continue;
-            }
-            
-            // Handle quoted strings
-            if (c == '"' || c == '\'') {
-                strcat(highlighted, string_color);
-                char quote = c;
-                strncat(highlighted, &c, 1);
-                pos++;
-                while (pos < line_len && rl_line_buffer[pos] != quote && rl_line_buffer[pos] != '\0') {
-                    strncat(highlighted, &rl_line_buffer[pos], 1);
-                    pos++;
-                }
-                if (pos < line_len && rl_line_buffer[pos] == quote) {
-                    strncat(highlighted, &rl_line_buffer[pos], 1);
-                    pos++;
-                }
-                strcat(highlighted, reset);
-                in_command_position = false;
-                continue;
-            }
-            
-            // Handle variables
-            if (c == '$') {
-                strcat(highlighted, variable_color);
-                strncat(highlighted, &c, 1);
-                pos++;
-                while (pos < line_len && (isalnum(rl_line_buffer[pos]) || rl_line_buffer[pos] == '_')) {
-                    strncat(highlighted, &rl_line_buffer[pos], 1);
-                    pos++;
-                }
-                strcat(highlighted, reset);
-                in_command_position = false;
-                continue;
-            }
-            
-            // Handle commands and keywords
-            if (isalnum(c) || c == '_' || c == '.' || c == '/' || c == '-') {
-                size_t word_start = pos;
-                while (pos < line_len && !isspace(rl_line_buffer[pos]) && 
-                       rl_line_buffer[pos] != '|' && rl_line_buffer[pos] != '&' && 
-                       rl_line_buffer[pos] != ';' && rl_line_buffer[pos] != '<' && 
-                       rl_line_buffer[pos] != '>') {
-                    pos++;
-                }
-                size_t word_length = pos - word_start;
-                
-                if (in_command_position && word_length > 0) {
-                    char word[word_length + 1];
-                    strncpy(word, rl_line_buffer + word_start, word_length);
-                    word[word_length] = '\0';
-                    
-                    // Check for keywords
-                    bool is_keyword = (strcmp(word, "if") == 0 || strcmp(word, "then") == 0 || 
-                                      strcmp(word, "else") == 0 || strcmp(word, "fi") == 0 ||
-                                      strcmp(word, "for") == 0 || strcmp(word, "while") == 0 ||
-                                      strcmp(word, "do") == 0 || strcmp(word, "done") == 0);
-                    
-                    // Check for builtins
-                    bool is_builtin = (strcmp(word, "echo") == 0 || strcmp(word, "cd") == 0 ||
-                                      strcmp(word, "ls") == 0 || strcmp(word, "pwd") == 0 ||
-                                      strcmp(word, "history") == 0 || strcmp(word, "theme") == 0 ||
-                                      strcmp(word, "config") == 0 || strcmp(word, "grep") == 0);
-                    
-                    if (is_keyword) {
-                        strcat(highlighted, keyword_color);
-                        strncat(highlighted, rl_line_buffer + word_start, word_length);
-                        strcat(highlighted, reset);
-                    } else if (is_builtin) {
-                        strcat(highlighted, command_color);
-                        strncat(highlighted, rl_line_buffer + word_start, word_length);
-                        strcat(highlighted, reset);
-                    } else {
-                        // Regular command
-                        strcat(highlighted, command_color);
-                        strncat(highlighted, rl_line_buffer + word_start, word_length);
-                        strcat(highlighted, reset);
-                    }
-                    in_command_position = false;
-                } else {
-                    // Regular text
-                    strncat(highlighted, rl_line_buffer + word_start, word_length);
-                }
-                continue;
-            }
-            
-            // Copy other characters
-            strncat(highlighted, &c, 1);
-            pos++;
-        }
-        
-        // Apply highlighting using readline's display system
-        int saved_point = rl_point;
-        char *original = strdup(rl_line_buffer);
-        
-        rl_replace_line(highlighted, 0);
-        rl_point = saved_point;
-        rl_redisplay();
-        
-        // Restore original for editing
-        rl_replace_line(original, 0);
-        rl_point = saved_point;
-        
-        free(highlighted);
-        free(original);
-    } else {
-        rl_redisplay();
-    }
+    // For now, disable visual syntax highlighting to prevent literal color codes
+    // The framework is established but needs proper readline display integration
+    // TODO: Implement proper syntax highlighting without modifying line buffer
+    rl_redisplay();
 }
 
 void lusush_syntax_highlight_line(void) {
