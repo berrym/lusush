@@ -31,7 +31,7 @@
 #include "../include/config.h"
 
 // Forward declaration for existing lusush completion system
-extern void lusush_completion_callback(const char *buf, linenoiseCompletions *lc);
+extern void lusush_completion_callback(const char *buf, lusush_completions_t *lc);
 
 // ============================================================================
 // GLOBAL STATE
@@ -252,7 +252,7 @@ char *lusush_completion_generator(const char *text, int state) {
         free_current_completions();
         
         // Use existing lusush completion system
-        linenoiseCompletions lc = {0};
+        lusush_completions_t lc = {0};
         lc.len = 0;
         lc.cvec = NULL;
         
@@ -264,7 +264,7 @@ char *lusush_completion_generator(const char *text, int state) {
         // This integrates with all existing completion logic
         lusush_completion_callback(line_buffer, &lc);
         
-        // Convert linenoiseCompletions to our internal format
+        // Convert lusush_completions_t to our internal format
         current_completions = malloc(lc.len * sizeof(char*));
         if (current_completions && lc.len > 0) {
             for (size_t i = 0; i < lc.len; i++) {
@@ -278,15 +278,8 @@ char *lusush_completion_generator(const char *text, int state) {
             }
         }
         
-        // Free the linenoiseCompletions structure
-        for (size_t i = 0; i < lc.len; i++) {
-            if (lc.cvec[i]) {
-                free(lc.cvec[i]);
-            }
-        }
-        if (lc.cvec) {
-            free(lc.cvec);
-        }
+        // Free the lusush_completions_t structure
+        lusush_free_completions(&lc);
         
         debug_log("Generated %d completions using lusush completion system", completion_count);
     }

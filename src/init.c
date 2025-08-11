@@ -10,8 +10,7 @@
 #include "../include/posix_history.h"
 #include "../include/input.h"
 
-#include "../include/linenoise_replacement.h"
-
+#include "../include/readline_integration.h"
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/prompt.h"
@@ -343,9 +342,12 @@ int init(int argc, char **argv, FILE **in) {
 
     // Set up interactive shell features if needed
     if (IS_INTERACTIVE_SHELL) {
-        // UTF-8 encoding is handled automatically by LLE replacement layer
-        // Use multiline mode setting from configuration
-        linenoiseSetMultiLine(config.multiline_mode);
+        // UTF-8 encoding is handled automatically by readline
+        // Initialize readline integration
+        if (!lusush_readline_init()) {
+            fprintf(stderr, "Warning: Failed to initialize readline\n");
+        }
+        lusush_multiline_set_enabled(config.multiline_mode);
         build_prompt();
     }
 
@@ -416,14 +418,11 @@ int init(int argc, char **argv, FILE **in) {
     // Initialize command hash table
     init_command_hash();
 
-    // Set line completion function
-    linenoiseSetCompletionCallback(lusush_completion_callback);
+    // Completion is handled automatically by readline integration
+    // No need to set callbacks - they're integrated in lusush_readline_init()
 
-    // Set hints system callbacks (only if enabled in config)
-    if (config.hints_enabled) {
-        linenoiseSetHintsCallback(lusush_hints_callback);
-        linenoiseSetFreeHintsCallback(lusush_free_hints_callback);
-    }
+    // Hints system is not implemented in readline integration yet
+    // TODO: Implement hints for readline if needed
 
     // Set memory cleanup procedures on termination
     atexit(free_global_symtable);
@@ -447,9 +446,9 @@ int init(int argc, char **argv, FILE **in) {
         process_shebang(*in);
     }
 
-    // Register cleanup for enhanced terminal detection
+    // Register cleanup for readline integration
     if (IS_INTERACTIVE_SHELL) {
-        atexit(linenoise_replacement_cleanup);
+        atexit(lusush_readline_cleanup);
     }
 
     return 0;

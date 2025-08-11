@@ -57,7 +57,7 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "linenoise_replacement.h"
+#include "readline_integration.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -123,7 +123,7 @@ void network_cleanup(void);
 int network_load_config(void);
 
 // SSH host completion
-void complete_ssh_hosts(const char *text, linenoiseCompletions *lc);
+void complete_ssh_hosts(const char *text, lusush_completions_t *lc);
 int parse_ssh_config(const char *config_path, ssh_host_cache_t *cache);
 int parse_ssh_known_hosts(const char *known_hosts_path,
                           ssh_host_cache_t *cache);
@@ -178,13 +178,13 @@ bool is_azure_instance(void);
 // Network command completion
 bool is_network_command(const char *command);
 void complete_network_command_args(const char *command, const char *text,
-                                   linenoiseCompletions *lc);
+                                   lusush_completions_t *lc);
 void complete_network_command_args_with_context(const char *command, const char *text,
-                                                linenoiseCompletions *lc, const char *buf,
+                                                lusush_completions_t *lc, const char *buf,
                                                 int start_pos);
-void complete_ssh_command(const char *text, linenoiseCompletions *lc);
-void complete_scp_command(const char *text, linenoiseCompletions *lc);
-void complete_rsync_command(const char *text, linenoiseCompletions *lc);
+void complete_ssh_command(const char *text, lusush_completions_t *lc);
+void complete_scp_command(const char *text, lusush_completions_t *lc);
+void complete_rsync_command(const char *text, lusush_completions_t *lc);
 
 // Utility functions
 void trim_whitespace(char *str);

@@ -1,7 +1,7 @@
 #include "../../include/history.h"
 
 #include "../../include/errors.h"
-#include "../../include/linenoise_replacement.h"
+#include "../../include/readline_integration.h"
 #include "../../include/lusush.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
@@ -50,28 +50,28 @@ void init_history(void) {
     chmod(fn, S_IRUSR | S_IWUSR);
 
     // Set maximum lines of history
-    linenoiseHistorySetMaxLen(1000);
+    lusush_history_set_max_length(1000);
 
     // Read the history file
-    if (linenoiseHistoryLoad(fn) != 0) {
+    if (!lusush_history_load()) {
         error_return("error: `init_history`");
     }
 
-    linenoiseHistoryRemoveDups();
+    lusush_history_remove_duplicates();
 
     free_str(fn);
 }
 
 /**
  * history_add:
- *      Add a line of history to the linenoise history buffer.
+ *      Add a line of history to the readline history buffer.
  */
 void history_add(const char *line) {
     if (line == NULL) {
         return;
     }
 
-    linenoiseHistoryAdd(line);
+    lusush_history_add(line);
 }
 
 /**
@@ -80,7 +80,7 @@ void history_add(const char *line) {
  */
 void history_save(void) {
     char *fn = __get_histfilename();
-    linenoiseHistorySave(fn);
+    lusush_history_save();
     free_str(fn);
 }
 
@@ -88,7 +88,15 @@ void history_save(void) {
  * history_print:
  *      Print an indexed list of all history entries.
  */
-void history_print(void) { linenoiseHistoryPrint(); }
+void history_print(void) { 
+    int len = lusush_history_length();
+    for (int i = 0; i < len; i++) {
+        const char *entry = lusush_history_get(i);
+        if (entry) {
+            printf("%4d  %s\n", i + 1, entry);
+        }
+    }
+}
 
 /**
  * history_lookup:
@@ -106,7 +114,11 @@ char *history_lookup(const char *s) {
     }
     idx--;
 
-    line = linenoiseHistoryGet(idx);
+    const char *entry = lusush_history_get(idx);
+    if (entry == NULL) {
+        error_return("error: `history_lookup`");
+    }
+    line = strdup(entry);
     if (line == NULL) {
         error_return("error: `history_lookup`");
         return NULL;

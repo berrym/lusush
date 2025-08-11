@@ -7,7 +7,7 @@
 #include "../../include/executor.h"
 #include "../../include/history.h"
 #include "../../include/libhashtable/ht.h"
-#include "../../include/linenoise_replacement.h"
+#include "../../include/readline_integration.h"
 #include "../../include/lusush.h"
 #include "../../include/network.h"
 #include "../../include/prompt.h"
@@ -375,7 +375,7 @@ int bin_termcap(int argc, char **argv) {
  */
 int bin_clear(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
-    linenoiseClearScreen();
+    lusush_clear_screen();
     return 0;
 }
 

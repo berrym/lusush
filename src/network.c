@@ -122,7 +122,7 @@ void set_network_config_defaults(network_config_t *config) {
 /**
  * Complete SSH hosts for network commands
  */
-void complete_ssh_hosts(const char *text, linenoiseCompletions *lc) {
+void complete_ssh_hosts(const char *text, lusush_completions_t *lc) {
     if (!text || !lc || !g_network_config.ssh_completion_enabled) {
         return;
     }
@@ -145,7 +145,7 @@ void complete_ssh_hosts(const char *text, linenoiseCompletions *lc) {
         if (strncmp(host->hostname, text, text_len) == 0) {
             char completion[MAX_HOSTNAME_LEN + 64];
             format_ssh_host_completion(host, completion, sizeof(completion));
-            linenoiseAddCompletion(lc, completion);
+            lusush_add_completion(lc, completion);
             added_count++;
             continue;
         }
@@ -154,7 +154,7 @@ void complete_ssh_hosts(const char *text, linenoiseCompletions *lc) {
         if (host->alias[0] && strncmp(host->alias, text, text_len) == 0) {
             char completion[MAX_HOSTNAME_LEN + 64];
             snprintf(completion, sizeof(completion), "%s", host->alias);
-            linenoiseAddCompletion(lc, completion);
+            lusush_add_completion(lc, completion);
             added_count++;
             continue;
         }
@@ -164,7 +164,7 @@ void complete_ssh_hosts(const char *text, linenoiseCompletions *lc) {
         if (score >= FUZZY_MATCH_THRESHOLD) {
             char completion[MAX_HOSTNAME_LEN + 64];
             format_ssh_host_completion(host, completion, sizeof(completion));
-            linenoiseAddCompletion(lc, completion);
+            lusush_add_completion(lc, completion);
             added_count++;
         }
     }
@@ -844,7 +844,7 @@ bool is_network_command(const char *command) {
  * Complete network command arguments
  */
 void complete_network_command_args(const char *command, const char *text,
-                                   linenoiseCompletions *lc) {
+                                   lusush_completions_t *lc) {
     if (!command || !text || !lc) {
         return;
     }
@@ -863,7 +863,7 @@ void complete_network_command_args(const char *command, const char *text,
  * This preserves the original command when adding completions
  */
 void complete_network_command_args_with_context(const char *command, const char *text,
-                                                linenoiseCompletions *lc, const char *buf,
+                                                lusush_completions_t *lc, const char *buf,
                                                 int start_pos) {
     if (!command || !text || !lc || !buf) {
         return;
@@ -912,7 +912,7 @@ void complete_network_command_args_with_context(const char *command, const char 
 /**
  * Complete SSH command
  */
-void complete_ssh_command(const char *text, linenoiseCompletions *lc) {
+void complete_ssh_command(const char *text, lusush_completions_t *lc) {
     // Look for user@host pattern
     char *at_symbol = strchr(text, '@');
     if (at_symbol) {
@@ -927,7 +927,7 @@ void complete_ssh_command(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete SCP command
  */
-void complete_scp_command(const char *text, linenoiseCompletions *lc) {
+void complete_scp_command(const char *text, lusush_completions_t *lc) {
     // SCP can have local files or remote host:path
     char *colon = strchr(text, ':');
     if (colon) {
@@ -947,7 +947,7 @@ void complete_scp_command(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete rsync command
  */
-void complete_rsync_command(const char *text, linenoiseCompletions *lc) {
+void complete_rsync_command(const char *text, lusush_completions_t *lc) {
     // Similar to SCP
     complete_scp_command(text, lc);
 }

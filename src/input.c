@@ -3,7 +3,7 @@
 #include "../include/errors.h"
 #include "../include/history.h"
 #include "../include/init.h"
-#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
@@ -552,7 +552,7 @@ char *ln_gets(void) {
         }
 
         // Get line from user
-        line = linenoise(prompt);
+        line = lusush_readline_with_prompt(prompt);
         if (!line) {
             if (errno == ENOENT) {
                 // Ctrl-D (EOF) - return accumulated input if any, or NULL

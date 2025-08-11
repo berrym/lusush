@@ -42,28 +42,28 @@
 #ifndef COMPLETION_H
 #define COMPLETION_H
 
-#include "linenoise_replacement.h"
+#include "readline_integration.h"
 
-// Completion callback for linenoise
-void lusush_completion_callback(const char *buf, linenoiseCompletions *lc);
+// Completion callback for readline
+void lusush_completion_callback(const char *buf, lusush_completions_t *lc);
 
-// Hints callback for linenoise
+// Hints callback for readline
 char *lusush_hints_callback(const char *buf, int *color, int *bold);
 void lusush_free_hints_callback(void *hint);
 
 // Individual completion functions
-void complete_commands(const char *text, linenoiseCompletions *lc);
-void complete_files(const char *text, linenoiseCompletions *lc);
-void complete_variables(const char *text, linenoiseCompletions *lc);
-void complete_builtins(const char *text, linenoiseCompletions *lc);
-void complete_aliases(const char *text, linenoiseCompletions *lc);
-void complete_history(const char *text, linenoiseCompletions *lc);
+void complete_commands(const char *text, lusush_completions_t *lc);
+void complete_files(const char *text, lusush_completions_t *lc);
+void complete_variables(const char *text, lusush_completions_t *lc);
+void complete_builtins(const char *text, lusush_completions_t *lc);
+void complete_aliases(const char *text, lusush_completions_t *lc);
+void complete_history(const char *text, lusush_completions_t *lc);
 
 // Helper functions
 char *get_completion_word(const char *buf, int *start_pos);
 char *get_first_command(const char *buf);
 int is_command_position(const char *buf, int pos);
-void add_completion_with_suffix(linenoiseCompletions *lc,
+void add_completion_with_suffix(lusush_completions_t *lc,
                                 const char *completion, const char *suffix);
 
 // Hints system functions

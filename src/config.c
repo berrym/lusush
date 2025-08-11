@@ -4,7 +4,7 @@
 #include "../include/completion.h"
 #include "../include/errors.h"
 #include "../include/history.h"
-#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
@@ -895,18 +895,17 @@ void config_apply_settings(void) {
 
     // Apply behavior settings
     // Use multiline mode with fixed line consumption issues
-    linenoiseSetMultiLine(config.multiline_mode);
+    lusush_multiline_set_enabled(config.multiline_mode);
 
     // Apply history settings
-    linenoiseHistoryNoDups(config.history_no_dups);
+    // History deduplication is handled automatically by readline integration
 
     // Apply hints system settings
     if (config.hints_enabled) {
-        linenoiseSetHintsCallback(lusush_hints_callback);
-        linenoiseSetFreeHintsCallback(lusush_free_hints_callback);
+        // Hints are handled differently in readline integration
+        // TODO: Implement hints system for readline if needed
     } else {
-        linenoiseSetHintsCallback(NULL);
-        linenoiseSetFreeHintsCallback(NULL);
+        // Hints disabled - no action needed for readline integration
     }
 
     // Apply other settings as needed

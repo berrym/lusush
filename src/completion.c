@@ -4,7 +4,7 @@
 #include "../include/builtins.h"
 #include "../include/config.h"
 #include "../include/libhashtable/ht.h"
-#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/symtable.h"
@@ -91,13 +91,13 @@ static int fuzzy_match_score(const char *pattern, const char *candidate) {
  * Forward declarations
  */
 
-static void prioritize_completions(linenoiseCompletions *lc,
+static void prioritize_completions(lusush_completions_t *lc,
                                    const char *pattern);
 
 /**
  * Enhanced completion function that uses fuzzy matching
  */
-static void add_fuzzy_completion(linenoiseCompletions *lc, const char *pattern,
+static void add_fuzzy_completion(lusush_completions_t *lc, const char *pattern,
                                  const char *candidate, const char *suffix,
                                  int min_score) {
     int score = fuzzy_match_score(pattern, candidate);
@@ -107,9 +107,9 @@ static void add_fuzzy_completion(linenoiseCompletions *lc, const char *pattern,
 }
 
 /**
- * Main completion callback for linenoise
+ * Main completion callback for readline
  */
-void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
+void lusush_completion_callback(const char *buf, lusush_completions_t *lc) {
     if (!buf || !lc) {
         return;
     }
@@ -180,7 +180,7 @@ void lusush_completion_callback(const char *buf, linenoiseCompletions *lc) {
         }
     }
 
-    // Completion context is now handled by enhanced linenoise completion
+    // Completion context is now handled by readline completion
     // No need to call display_completion_context here
 
     free(word);
@@ -247,7 +247,7 @@ int is_command_position(const char *buf, int pos) {
 /**
  * Complete builtin commands
  */
-void complete_builtins(const char *text, linenoiseCompletions *lc) {
+void complete_builtins(const char *text, lusush_completions_t *lc) {
     if (!text) {
         return;
     }
@@ -260,8 +260,8 @@ void complete_builtins(const char *text, linenoiseCompletions *lc) {
         if (strncmp(builtins[i].name, text, text_len) == 0) {
             add_completion_with_suffix(lc, builtins[i].name, " ");
         } else {
-            // Try fuzzy matching with lower threshold
-            add_fuzzy_completion(lc, text, builtins[i].name, " ", 60);
+            // Fuzzy matching fallback
+            add_fuzzy_completion(lc, text, builtins[i].name, " ", 30);
         }
     }
 }
@@ -269,7 +269,7 @@ void complete_builtins(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete command aliases
  */
-void complete_aliases(const char *text, linenoiseCompletions *lc) {
+void complete_aliases(const char *text, lusush_completions_t *lc) {
     if (!text) {
         return;
     }
@@ -306,7 +306,7 @@ void complete_aliases(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete executable commands from PATH
  */
-void complete_commands(const char *text, linenoiseCompletions *lc) {
+void complete_commands(const char *text, lusush_completions_t *lc) {
     if (!text) {
         return;
     }
@@ -360,7 +360,7 @@ void complete_commands(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete files and directories
  */
-void complete_files(const char *text, linenoiseCompletions *lc) {
+void complete_files(const char *text, lusush_completions_t *lc) {
     if (!text) {
         return;
     }
@@ -446,7 +446,7 @@ void complete_files(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete shell variables
  */
-void complete_variables(const char *text, linenoiseCompletions *lc) {
+void complete_variables(const char *text, lusush_completions_t *lc) {
     if (!text || text[0] != '$') {
         return;
     }
@@ -478,7 +478,7 @@ void complete_variables(const char *text, linenoiseCompletions *lc) {
                 var_name[0] = '$';
                 strncpy(var_name + 1, *env, var_len);
                 var_name[var_len + 1] = '\0';
-                linenoiseAddCompletion(lc, var_name);
+                lusush_add_completion(lc, var_name);
             }
         }
     }
@@ -491,7 +491,7 @@ void complete_variables(const char *text, linenoiseCompletions *lc) {
 
     for (int i = 0; special_vars[i]; i++) {
         if (strncmp(special_vars[i], text, strlen(text)) == 0) {
-            linenoiseAddCompletion(lc, special_vars[i]);
+            lusush_add_completion(lc, special_vars[i]);
         }
     }
 }
@@ -499,7 +499,7 @@ void complete_variables(const char *text, linenoiseCompletions *lc) {
 /**
  * Complete from history (fallback)
  */
-void complete_history(const char *text, linenoiseCompletions *lc) {
+void complete_history(const char *text, lusush_completions_t *lc) {
     if (!text) {
         return;
     }
@@ -508,9 +508,9 @@ void complete_history(const char *text, linenoiseCompletions *lc) {
     size_t i = 0;
     char *line = NULL;
 
-    while ((line = linenoiseHistoryGet(i)) != NULL) {
+    while ((line = (char*)lusush_history_get(i)) != NULL) {
         if (strncmp(line, text, text_len) == 0 && strlen(line) > text_len) {
-            linenoiseAddCompletion(lc, line);
+            lusush_add_completion(lc, line);
         }
         free(line);
         i++;
@@ -524,7 +524,7 @@ void complete_history(const char *text, linenoiseCompletions *lc) {
 /**
  * Add completion with appropriate suffix and context awareness
  */
-void add_completion_with_suffix(linenoiseCompletions *lc,
+void add_completion_with_suffix(lusush_completions_t *lc,
                                 const char *completion, const char *suffix) {
     if (!completion || !suffix) {
         return;
@@ -541,7 +541,7 @@ void add_completion_with_suffix(linenoiseCompletions *lc,
     char *full_completion = malloc(total_len);
     if (full_completion) {
         snprintf(full_completion, total_len, "%s%s", completion, suffix);
-        linenoiseAddCompletion(lc, full_completion);
+        lusush_add_completion(lc, full_completion);
         free(full_completion);
     }
 }
@@ -588,7 +588,7 @@ char *get_first_command(const char *buf) {
 /**
  * Smart completion prioritization - sorts completions by relevance
  */
-static void prioritize_completions(linenoiseCompletions *lc,
+static void prioritize_completions(lusush_completions_t *lc,
                                    const char *pattern) {
     if (!lc || lc->len <= 1 || !pattern) {
         return;
@@ -655,7 +655,7 @@ char *get_best_completion_match(const char *text) {
         return NULL;
     }
 
-    linenoiseCompletions lc = {0, NULL};
+    lusush_completions_t lc = {0, NULL};
     char *best_match = NULL;
     int best_score = 0;
 
@@ -676,10 +676,7 @@ char *get_best_completion_match(const char *text) {
     }
 
     // Clean up completions
-    for (size_t i = 0; i < lc.len; i++) {
-        free(lc.cvec[i]);
-    }
-    free(lc.cvec);
+    lusush_free_completions(&lc);
 
     return best_match;
 }
@@ -753,7 +750,7 @@ char *generate_file_hint(const char *buf) {
         return NULL;
     }
 
-    linenoiseCompletions lc = {0, NULL};
+    lusush_completions_t lc = {0, NULL};
     complete_files(word, &lc);
 
     char *hint = NULL;
@@ -782,10 +779,7 @@ char *generate_file_hint(const char *buf) {
     }
 
     // Clean up
-    for (size_t i = 0; i < lc.len; i++) {
-        free(lc.cvec[i]);
-    }
-    free(lc.cvec);
+    lusush_free_completions(&lc);
     free(word);
 
     return hint;
@@ -811,7 +805,7 @@ char *generate_variable_hint(const char *buf) {
         return NULL;
     }
 
-    linenoiseCompletions lc = {0, NULL};
+    lusush_completions_t lc = {0, NULL};
     complete_variables(word, &lc);
 
     char *hint = NULL;
@@ -840,10 +834,7 @@ char *generate_variable_hint(const char *buf) {
     }
 
     // Clean up
-    for (size_t i = 0; i < lc.len; i++) {
-        free(lc.cvec[i]);
-    }
-    free(lc.cvec);
+    lusush_free_completions(&lc);
     free(word);
 
     return hint;

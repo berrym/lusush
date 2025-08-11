@@ -1,5 +1,5 @@
 #include "../include/config.h"
-#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
 

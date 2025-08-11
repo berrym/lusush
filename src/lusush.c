@@ -8,7 +8,7 @@
 #include "../include/executor.h"
 #include "../include/init.h"
 #include "../include/input.h"
-#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 #include "../include/posix_history.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
         set_exit_status(exit_status);
 
         if (is_interactive_shell()) {
-            linenoiseFree(line);
+            free(line);
         } else {
             free_input_buffers();
         }
