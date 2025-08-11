@@ -1044,7 +1044,7 @@ bool theme_colorize_text(const char *text, const char *color_name, char *output,
     }
 
     // Apply color: color_code + text + reset
-    snprintf(output, output_size, "%s%s\033[0m", color_code, text);
+    snprintf(output, output_size, "%s%s\001\033[0m\002", color_code, text);
     return true;
 }
 
@@ -1271,7 +1271,7 @@ bool template_process(const char *template_str, template_context_t *ctx,
 
                         // Add reset if color was applied
                         if (var_color && strlen(var_color) > 0) {
-                            const char *reset = "\033[0m";
+                            const char *reset = "\001\033[0m\002";  // With readline escape markers
                             size_t reset_len = strlen(reset);
                             if (output_pos + reset_len < output_size) {
                                 strcpy(output + output_pos, reset);
@@ -1590,7 +1590,7 @@ void theme_display_startup_branding(void) {
 
     if (strlen(current_branding.company_name) > 0) {
         const char *primary_color = use_colors ? theme_get_color("primary") : "";
-        const char *reset = use_colors ? "\033[0m" : "";
+        const char *reset = use_colors ? "\001\033[0m\002" : "";
         
         // Center the company name if terminal is wide enough
         if (terminal_width >= 40) {

@@ -60,6 +60,7 @@ static int lusush_clear_screen_and_redisplay(int count, int key);
 static int lusush_previous_history(int count, int key);
 static int lusush_next_history(int count, int key);
 
+
 // ============================================================================
 // INITIALIZATION AND CLEANUP
 // ============================================================================
@@ -177,10 +178,12 @@ char *lusush_readline_with_prompt(const char *prompt) {
         }
     }
     
-    // Apply syntax highlighting hook if enabled
-    if (syntax_highlighting_enabled) {
-        rl_redisplay_function = apply_syntax_highlighting;
-    }
+    // TEMPORARILY DISABLE custom redisplay to fix Ctrl+R and Ctrl+L issues
+    // The custom redisplay function interferes with readline's special modes
+    // if (syntax_highlighting_enabled) {
+    //     rl_redisplay_function = apply_syntax_highlighting;
+    // }
+    rl_redisplay_function = rl_redisplay;  // Always use standard redisplay
     
     // Get input from readline
     char *line = readline(actual_prompt);
@@ -541,11 +544,14 @@ void lusush_prompt_set_callback(lusush_prompt_callback_t callback) {
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
     syntax_highlighting_enabled = enabled;
     
-    if (enabled) {
-        rl_redisplay_function = apply_syntax_highlighting;
-    } else {
-        rl_redisplay_function = rl_redisplay;
-    }
+    // TEMPORARILY DISABLE custom redisplay - always use standard
+    // if (enabled) {
+    //     rl_redisplay_function = apply_syntax_highlighting;
+    // } else {
+    //     rl_redisplay_function = rl_redisplay;
+    // }
+    rl_redisplay_function = rl_redisplay;  // Force standard redisplay
+    syntax_highlighting_enabled = enabled;  // Track state but don't use custom function
 }
 
 bool lusush_syntax_highlighting_is_enabled(void) {
@@ -553,7 +559,26 @@ bool lusush_syntax_highlighting_is_enabled(void) {
 }
 
 static void apply_syntax_highlighting(void) {
-    // Apply basic syntax highlighting
+    // CRITICAL: Use standard redisplay during any special readline modes
+    // to prevent display corruption in Ctrl+R search, completion, etc.
+    
+    // Check if readline is in any interactive state that needs special handling
+    if (rl_readline_state & (RL_STATE_ISEARCH | RL_STATE_NSEARCH | 
+                            RL_STATE_SEARCH | RL_STATE_COMPLETING |
+                            RL_STATE_VICMDONCE | RL_STATE_VIMOTION)) {
+        rl_redisplay();
+        return;
+    }
+    
+    // Additional safety check for search prompt in the current prompt
+    if (rl_prompt && (strstr(rl_prompt, "(reverse-i-search)") || 
+                     strstr(rl_prompt, "(i-search)") ||
+                     strstr(rl_prompt, "search:"))) {
+        rl_redisplay();
+        return;
+    }
+    
+    // Only apply custom highlighting in normal editing mode
     // This is a simplified implementation - can be enhanced
     rl_redisplay();
 }
@@ -597,21 +622,18 @@ static int lusush_abort_line(int count, int key) {
     rl_on_new_line();
     rl_redisplay();
     
-    fprintf(stderr, "[KEY_DEBUG] lusush_abort_line completed\n");
+    fprintf(stderr, "[KEY_DEBUG] lusush_next_history completed\n");
     return 0;
 }
+
+    // Ctrl-R uses standard readline reverse search
 
 // Custom function to clear screen (Ctrl+L)
 static int lusush_clear_screen_and_redisplay(int count, int key) {
     (void)count; (void)key;
     
-    // Clear screen using readline's function
-    rl_clear_screen(0, 0);
-    
-    // Force complete redisplay to prevent artifacts
-    rl_forced_update_display();
-    rl_redisplay();
-    return 0;
+    // Use standard readline clear screen approach
+    return rl_clear_screen(count, key);
 }
 
 // Custom history navigation with artifact prevention
@@ -655,6 +677,7 @@ static void setup_key_bindings(void) {
     rl_bind_key(21, rl_unix_line_discard); // Ctrl-U: kill line
     rl_bind_key(11, rl_kill_line);    // Ctrl-K: kill to end
     rl_bind_key(23, rl_unix_word_rubout); // Ctrl-W: kill word
+    // Ctrl-R uses standard readline reverse search (rl_reverse_search_history)
     
     // History navigation with artifact prevention
     rl_bind_key(16, lusush_previous_history); // Ctrl-P
@@ -709,8 +732,8 @@ static void setup_readline_config(void) {
     rl_catch_signals = 0; // Let shell handle signals for child processes like git
     rl_catch_sigwinch = 1; // Handle window resize only
     
-    // Redisplay configuration for better history navigation
-    rl_redisplay_function = rl_redisplay;
+    // Redisplay configuration - FORCE standard redisplay only
+    rl_redisplay_function = rl_redisplay;  // Never use custom redisplay
 
     
     // CRITICAL VARIABLES: Completely disable completion system
@@ -720,6 +743,11 @@ static void setup_readline_config(void) {
     rl_variable_bind("visible-stats", "off");           // Disable to prevent interference
     rl_variable_bind("page-completions", "off");
     rl_variable_bind("completion-query-items", "-1");   // Disable completion queries
+    
+    // Multi-line prompt handling for Ctrl+R positioning
+    rl_variable_bind("horizontal-scroll-mode", "off");  // Use vertical scrolling for long lines
+    rl_variable_bind("enable-meta-key", "on");          // Better key handling
+
     
     // Custom getc function for better input handling
     rl_getc_function = lusush_getc;
