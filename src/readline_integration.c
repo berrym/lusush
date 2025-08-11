@@ -54,6 +54,8 @@ static void setup_key_bindings(void);
 static char **lusush_tab_completion(const char *text, int start, int end);
 static char *lusush_completion_entry_function(const char *text, int state);
 static void apply_syntax_highlighting(void);
+static char **lusush_git_subcommand_completion(const char *text);
+static char **lusush_directory_only_completion(const char *text);
 static int lusush_getc(FILE *stream);
 static int lusush_abort_line(int count, int key);
 static int lusush_clear_screen_and_redisplay(int count, int key);
@@ -71,10 +73,10 @@ bool lusush_readline_init(void) {
     // Initialize readline
     rl_readline_name = "lusush";
     
-    // COMPLETELY DISABLE completion to fix arrow key history navigation
-    // Completion was overriding arrow keys causing "display all 4418 possibilities"
-    rl_attempted_completion_function = NULL;
-    rl_completion_entry_function = NULL;
+    // SELECTIVE completion setup - enable TAB completion while preserving arrow keys
+    // Critical: Only TAB should trigger completion, never arrow keys
+    rl_attempted_completion_function = lusush_tab_completion;
+    rl_completion_entry_function = lusush_completion_entry_function;
     rl_ignore_completion_duplicates = 1;
     rl_filename_completion_desired = 0;
     
@@ -178,12 +180,13 @@ char *lusush_readline_with_prompt(const char *prompt) {
         }
     }
     
-    // TEMPORARILY DISABLE custom redisplay to fix Ctrl+R and Ctrl+L issues
-    // The custom redisplay function interferes with readline's special modes
-    // if (syntax_highlighting_enabled) {
-    //     rl_redisplay_function = apply_syntax_highlighting;
-    // }
-    rl_redisplay_function = rl_redisplay;  // Always use standard redisplay
+    // SAFE syntax highlighting: Respect user setting but protect special modes
+    // The apply_syntax_highlighting function has safety checks for special readline modes
+    if (syntax_highlighting_enabled) {
+        rl_redisplay_function = apply_syntax_highlighting;
+    } else {
+        rl_redisplay_function = rl_redisplay;
+    }
     
     // Get input from readline
     char *line = readline(actual_prompt);
@@ -425,11 +428,29 @@ void lusush_completion_setup(void) {
 static char **lusush_tab_completion(const char *text, int start, int end) {
     char **matches = NULL;
     
-    // Use Lusush completion system
-    lusush_completions_t completions = {0, NULL};
-    
-    // Get the full line buffer for context
+    // Get the full line buffer for context-aware completion
     const char *line_buffer = rl_line_buffer;
+    
+    // Extract command for context-aware completion
+    const char *cmd_start = line_buffer;
+    while (isspace(*cmd_start)) cmd_start++;
+    const char *cmd_end = cmd_start;
+    while (*cmd_end && !isspace(*cmd_end)) cmd_end++;
+    size_t cmd_len = cmd_end - cmd_start;
+    
+    // Context-aware completion for specific commands
+    if (cmd_len == 3 && memcmp(cmd_start, "git", 3) == 0 && start > 4) {
+        matches = lusush_git_subcommand_completion(text);
+        if (matches) return matches;
+    }
+    
+    if (cmd_len == 2 && memcmp(cmd_start, "cd", 2) == 0 && start > 3) {
+        matches = lusush_directory_only_completion(text);
+        if (matches) return matches;
+    }
+    
+    // Use standard Lusush completion system for other cases
+    lusush_completions_t completions = {0, NULL};
     
     // Call existing Lusush completion callback
     lusush_completion_callback(line_buffer, &completions);
@@ -500,6 +521,112 @@ char **lusush_completion_matches(const char *text, int start, int end) {
     return lusush_tab_completion(text, start, end);
 }
 
+/**
+ * @brief Git subcommand completion
+ */
+static char **lusush_git_subcommand_completion(const char *text) {
+    // Performance optimization: prioritize most common git commands
+    static const char *git_commands[] = {
+        "status", "add", "commit", "push", "pull", "checkout", "branch",
+        "log", "diff", "merge", "fetch", "clone", "init", "reset", "rebase",
+        "tag", "config", "remote", "show", "stash", "cherry-pick", "revert", 
+        "bisect", "grep", "mv", "rm", "clean", "describe", "shortlog", 
+        "archive", "bundle", "blame", "show-branch", "format-patch",
+        NULL
+    };
+    
+    char **matches = NULL;
+    int match_count = 0;
+    size_t text_len = strlen(text);
+    
+    // Performance optimization: early exit for empty text
+    if (text_len == 0) {
+        // Return most common commands for empty completion
+        matches = malloc(8 * sizeof(char*));
+        if (matches) {
+            matches[0] = strdup("");
+            matches[1] = strdup("status");
+            matches[2] = strdup("add");
+            matches[3] = strdup("commit");
+            matches[4] = strdup("push");
+            matches[5] = strdup("pull");
+            matches[6] = strdup("checkout");
+            matches[7] = NULL;
+        }
+        return matches;
+    }
+    
+    // Count matching commands
+    for (int i = 0; git_commands[i]; i++) {
+        if (strncmp(git_commands[i], text, text_len) == 0) {
+            match_count++;
+        }
+    }
+    
+    if (match_count == 0) return NULL;
+    
+    // Allocate matches array
+    matches = malloc((match_count + 2) * sizeof(char*));
+    if (!matches) return NULL;
+    
+    // Find common prefix for substitution
+    matches[0] = strdup(text);
+    int match_index = 1;
+    
+    // Add matching commands
+    for (int i = 0; git_commands[i]; i++) {
+        if (strncmp(git_commands[i], text, text_len) == 0) {
+            matches[match_index++] = strdup(git_commands[i]);
+        }
+    }
+    matches[match_index] = NULL;
+    
+    return matches;
+}
+
+/**
+ * @brief Directory-only completion for cd command
+ */
+static char **lusush_directory_only_completion(const char *text) {
+    // Performance optimization: limit directory scanning for large directories
+    char **all_matches = rl_completion_matches(text, rl_filename_completion_function);
+    if (!all_matches) return NULL;
+    
+    // Optimized filter to keep only directories with size limit
+    int max_dirs = 100; // Limit for performance
+    char **dir_matches = malloc((max_dirs + 2) * sizeof(char*));
+    if (!dir_matches) {
+        for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
+        free(all_matches);
+        return NULL;
+    }
+    
+    dir_matches[0] = strdup(all_matches[0]); // Keep substitution text
+    int dir_count = 1;
+    
+    for (int i = 1; all_matches[i] && dir_count < max_dirs; i++) {
+        // Check if it's a directory
+        char full_path[1024];
+        if (text[0] == '/' || text[0] == '~') {
+            snprintf(full_path, sizeof(full_path), "%s", all_matches[i]);
+        } else {
+            snprintf(full_path, sizeof(full_path), "%s", all_matches[i]);
+        }
+        
+        struct stat st;
+        if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            dir_matches[dir_count++] = strdup(all_matches[i]);
+        }
+    }
+    dir_matches[dir_count] = NULL;
+    
+    // Clean up original matches
+    for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
+    free(all_matches);
+    
+    return dir_count > 1 ? dir_matches : NULL;
+}
+
 // ============================================================================
 // PROMPT INTEGRATION WITH LUSUSH THEMES
 // ============================================================================
@@ -544,14 +671,13 @@ void lusush_prompt_set_callback(lusush_prompt_callback_t callback) {
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
     syntax_highlighting_enabled = enabled;
     
-    // TEMPORARILY DISABLE custom redisplay - always use standard
-    // if (enabled) {
-    //     rl_redisplay_function = apply_syntax_highlighting;
-    // } else {
-    //     rl_redisplay_function = rl_redisplay;
-    // }
-    rl_redisplay_function = rl_redisplay;  // Force standard redisplay
-    syntax_highlighting_enabled = enabled;  // Track state but don't use custom function
+    // CAREFUL: Enable custom redisplay only in safe conditions
+    // Performance optimization: cache the redisplay function pointer
+    if (enabled) {
+        rl_redisplay_function = apply_syntax_highlighting;
+    } else {
+        rl_redisplay_function = rl_redisplay;
+    }
 }
 
 bool lusush_syntax_highlighting_is_enabled(void) {
@@ -578,9 +704,148 @@ static void apply_syntax_highlighting(void) {
         return;
     }
     
-    // Only apply custom highlighting in normal editing mode
-    // This is a simplified implementation - can be enhanced
-    rl_redisplay();
+    // Apply syntax highlighting using proper readline buffer management
+    if (rl_line_buffer && *rl_line_buffer) {
+        size_t line_len = strlen(rl_line_buffer);
+        
+        // Performance optimization: skip highlighting for very long lines
+        if (line_len > 500) {
+            rl_redisplay();
+            return;
+        }
+        
+        char *highlighted = malloc(line_len * 6 + 200); // Extra space for color codes
+        if (!highlighted) {
+            rl_redisplay();
+            return;
+        }
+        
+        // Color definitions (same escape format as working prompts)
+        const char *reset = "\001\033[0m\002";
+        const char *keyword_color = "\001\033[1;34m\002";   // Bright blue for keywords
+        const char *command_color = "\001\033[1;32m\002";   // Bright green for commands
+        const char *string_color = "\001\033[1;33m\002";    // Bright yellow for strings
+        const char *variable_color = "\001\033[1;35m\002";  // Bright magenta for variables
+        
+        highlighted[0] = '\0';
+        size_t pos = 0;
+        bool in_command_position = true;
+        
+        while (pos < line_len) {
+            char c = rl_line_buffer[pos];
+            
+            // Handle whitespace
+            if (isspace(c)) {
+                strncat(highlighted, &c, 1);
+                pos++;
+                continue;
+            }
+            
+            // Handle quoted strings
+            if (c == '"' || c == '\'') {
+                strcat(highlighted, string_color);
+                char quote = c;
+                strncat(highlighted, &c, 1);
+                pos++;
+                while (pos < line_len && rl_line_buffer[pos] != quote && rl_line_buffer[pos] != '\0') {
+                    strncat(highlighted, &rl_line_buffer[pos], 1);
+                    pos++;
+                }
+                if (pos < line_len && rl_line_buffer[pos] == quote) {
+                    strncat(highlighted, &rl_line_buffer[pos], 1);
+                    pos++;
+                }
+                strcat(highlighted, reset);
+                in_command_position = false;
+                continue;
+            }
+            
+            // Handle variables
+            if (c == '$') {
+                strcat(highlighted, variable_color);
+                strncat(highlighted, &c, 1);
+                pos++;
+                while (pos < line_len && (isalnum(rl_line_buffer[pos]) || rl_line_buffer[pos] == '_')) {
+                    strncat(highlighted, &rl_line_buffer[pos], 1);
+                    pos++;
+                }
+                strcat(highlighted, reset);
+                in_command_position = false;
+                continue;
+            }
+            
+            // Handle commands and keywords
+            if (isalnum(c) || c == '_' || c == '.' || c == '/' || c == '-') {
+                size_t word_start = pos;
+                while (pos < line_len && !isspace(rl_line_buffer[pos]) && 
+                       rl_line_buffer[pos] != '|' && rl_line_buffer[pos] != '&' && 
+                       rl_line_buffer[pos] != ';' && rl_line_buffer[pos] != '<' && 
+                       rl_line_buffer[pos] != '>') {
+                    pos++;
+                }
+                size_t word_length = pos - word_start;
+                
+                if (in_command_position && word_length > 0) {
+                    char word[word_length + 1];
+                    strncpy(word, rl_line_buffer + word_start, word_length);
+                    word[word_length] = '\0';
+                    
+                    // Check for keywords
+                    bool is_keyword = (strcmp(word, "if") == 0 || strcmp(word, "then") == 0 || 
+                                      strcmp(word, "else") == 0 || strcmp(word, "fi") == 0 ||
+                                      strcmp(word, "for") == 0 || strcmp(word, "while") == 0 ||
+                                      strcmp(word, "do") == 0 || strcmp(word, "done") == 0);
+                    
+                    // Check for builtins
+                    bool is_builtin = (strcmp(word, "echo") == 0 || strcmp(word, "cd") == 0 ||
+                                      strcmp(word, "ls") == 0 || strcmp(word, "pwd") == 0 ||
+                                      strcmp(word, "history") == 0 || strcmp(word, "theme") == 0 ||
+                                      strcmp(word, "config") == 0 || strcmp(word, "grep") == 0);
+                    
+                    if (is_keyword) {
+                        strcat(highlighted, keyword_color);
+                        strncat(highlighted, rl_line_buffer + word_start, word_length);
+                        strcat(highlighted, reset);
+                    } else if (is_builtin) {
+                        strcat(highlighted, command_color);
+                        strncat(highlighted, rl_line_buffer + word_start, word_length);
+                        strcat(highlighted, reset);
+                    } else {
+                        // Regular command
+                        strcat(highlighted, command_color);
+                        strncat(highlighted, rl_line_buffer + word_start, word_length);
+                        strcat(highlighted, reset);
+                    }
+                    in_command_position = false;
+                } else {
+                    // Regular text
+                    strncat(highlighted, rl_line_buffer + word_start, word_length);
+                }
+                continue;
+            }
+            
+            // Copy other characters
+            strncat(highlighted, &c, 1);
+            pos++;
+        }
+        
+        // Apply highlighting using readline's display system
+        int saved_point = rl_point;
+        char *original = strdup(rl_line_buffer);
+        
+        rl_replace_line(highlighted, 0);
+        rl_point = saved_point;
+        rl_redisplay();
+        
+        // Restore original for editing
+        rl_replace_line(original, 0);
+        rl_point = saved_point;
+        
+        free(highlighted);
+        free(original);
+    } else {
+        rl_redisplay();
+    }
 }
 
 void lusush_syntax_highlight_line(void) {
@@ -711,22 +976,22 @@ int lusush_keybinding_remove(int key) {
 // ============================================================================
 
 static void setup_readline_config(void) {
-    // MINIMAL configuration to prevent completion interference
-    rl_completion_append_character = 0;  // Disable completion entirely
-    rl_attempted_completion_over = 1;    // Override completion
-    rl_filename_completion_desired = 0;  // Disable to prevent arrow key issues
-    rl_filename_quoting_desired = 0;
-    rl_inhibit_completion = 1;           // Completely inhibit completion
+    // TAB-ONLY completion configuration - preserve arrow key protection
+    rl_completion_append_character = ' ';  // Standard completion append
+    rl_attempted_completion_over = 0;      // Allow completion processing
+    rl_filename_completion_desired = 1;    // Enable filename completion for TAB
+    rl_filename_quoting_desired = 1;       // Enable quote handling
+    rl_inhibit_completion = 0;             // Allow completion but only for TAB
     
     // History configuration
     // rl_history_search_delimiter_chars = " \t\n;&()|<>"; // Not available in all readline versions
     
-    // Completion configuration - DISABLE ALL
-    // CRITICAL: Prevent completion from interfering with arrow key history
-    rl_completion_query_items = -1;   // Disable completion queries entirely
-    rl_completion_suppress_quote = 1; // Suppress all completion
-    rl_completion_quote_character = 0;
-    rl_completion_suppress_append = 1;
+    // TAB completion configuration - optimized for performance
+    // CRITICAL: Protect arrow keys while enabling TAB completion
+    rl_completion_query_items = 50;       // Optimized query threshold for large sets
+    rl_completion_suppress_quote = 0;     // Allow quote handling for TAB
+    rl_completion_quote_character = '"';  // Standard quote character
+    rl_completion_suppress_append = 0;    // Allow append for TAB completion
     
     // Input configuration - minimal signal handling
     rl_catch_signals = 0; // Let shell handle signals for child processes like git
@@ -736,13 +1001,15 @@ static void setup_readline_config(void) {
     rl_redisplay_function = rl_redisplay;  // Never use custom redisplay
 
     
-    // CRITICAL VARIABLES: Completely disable completion system
-    rl_variable_bind("disable-completion", "on");       // MASTER SWITCH: Disable all completion
+    // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
+    rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
     rl_variable_bind("show-all-if-unmodified", "off");  // CRITICAL: Prevents arrow key completion
     rl_variable_bind("show-all-if-ambiguous", "off");   // CRITICAL: Prevents "display all possibilities"
     rl_variable_bind("visible-stats", "off");           // Disable to prevent interference
-    rl_variable_bind("page-completions", "off");
-    rl_variable_bind("completion-query-items", "-1");   // Disable completion queries
+    rl_variable_bind("page-completions", "on");         // Enable paging for large completion lists
+    rl_variable_bind("completion-query-items", "50");   // Optimized threshold for large sets
+    rl_variable_bind("completion-display-width", "4");  // Optimize column display
+    rl_variable_bind("print-completions-horizontally", "on"); // Better layout for many items
     
     // Multi-line prompt handling for Ctrl+R positioning
     rl_variable_bind("horizontal-scroll-mode", "off");  // Use vertical scrolling for long lines
