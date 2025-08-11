@@ -16,6 +16,7 @@
 #include "../include/builtins.h"
 #include "../include/config.h"
 #include "../include/debug.h"
+#include "../include/init.h"
 #include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/parser.h"
@@ -1609,6 +1610,13 @@ static int execute_external_command_with_redirection(executor_t *executor,
         return 1;
     }
 
+    // Reset terminal state before forking for external commands
+    // This ensures git and other commands get proper TTY behavior
+    if (is_interactive_shell()) {
+        fflush(stdout);
+        fflush(stderr);
+    }
+
     pid_t pid = fork();
     if (pid == -1) {
         set_executor_error(executor, "Failed to fork");
@@ -1971,6 +1979,13 @@ static int execute_external_command_with_setup(executor_t *executor,
                                                node_t *command) {
     if (!argv || !argv[0]) {
         return 1;
+    }
+
+    // Reset terminal state before forking for external commands
+    // This ensures git and other commands get proper TTY behavior
+    if (is_interactive_shell()) {
+        fflush(stdout);
+        fflush(stderr);
     }
 
     pid_t pid = fork();

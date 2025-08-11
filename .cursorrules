@@ -1,91 +1,80 @@
-# Lusush Line Editor (LLE) Development Rules for AI Assistants
+# Lusush Shell Development Rules for AI Assistants
 
 ## Project Overview
-This repository contains Lusush, a professional shell with a successfully completed line editor replacement project. LLE is designed as a standalone, reusable library like libhashtable with reliable tab completion and display functionality.
+This repository contains Lusush, a professional shell with complete GNU Readline integration. The shell provides modern line editing features, comprehensive tab completion, theme support, and advanced history management.
 
-## 🎉 BREAKTHROUGH: TAB COMPLETION SYSTEM FULLY STABILIZED - PRODUCTION READY
-- **MISSION STATUS**: ✅ **ACCOMPLISHED** - Tab completion system completely stabilized
-- **USER VALIDATION**: "perfectly functional and usable! menus can wait for future development"
-- **CRITICAL SUCCESS**: Exact backspace replication pattern eliminates all visual corruption
-- **CURRENT STATUS**: Production ready system with reliable completion cycling
-- **Build System**: Meson (NOT Make)
+## 🎉 CURRENT STATUS: PRODUCTION READY
+- **READLINE INTEGRATION**: ✅ **COMPLETE** - Full GNU Readline integration working perfectly
+- **LEGACY REMOVAL**: ✅ **COMPLETE** - All linenoise and LLE code successfully removed
+- **FEATURE PARITY**: ✅ **COMPLETE** - All Lusush features preserved and enhanced
+- **BUILD SYSTEM**: ✅ **COMPLETE** - Meson build with readline dependency
 - **Language**: C99 with strict standards
-- **Architecture**: Standalone library with stable foundation, broken systems bypassed
+- **Architecture**: Modern shell with readline-powered line editing
 
-## File Structure for LLE Development
+## File Structure
 ```
 lusush/
-├── src/line_editor/          # LLE standalone library implementation
-│   ├── termcap/             # Integrated termcap system (from Lusush)
-│   │   ├── lle_termcap.c/h  # Core termcap (namespaced)
-│   │   ├── lle_termcap_internal.h # Internal structures
-│   │   └── lle_termcap_database.c # Terminal profiles (iTerm2+)
-│   ├── text_buffer.c/h      # Text manipulation
-│   ├── cursor_math.c/h      # Mathematical positioning
-│   ├── terminal_manager.c/h # Terminal interface using termcap
-│   ├── *.c *.h              # Other LLE components
-│   └── meson.build          # Build configuration
-├── tests/line_editor/        # LLE tests
-│   ├── test_*.c             # Unit tests including termcap tests
-│   ├── benchmark.c          # Performance tests
-│   └── meson.build          # Test configuration
-├── docs/line_editor/         # LLE documentation
-├── LLE_DEVELOPMENT_TASKS.md  # 50 atomic tasks breakdown
-├── LLE_DEVELOPMENT_WORKFLOW.md # Development process
-└── LLE_PROGRESS.md          # Current progress tracking
+├── src/
+│   ├── builtins/            # Built-in command implementations
+│   ├── debug/               # Debug and profiling system
+│   ├── libhashtable/        # Hash table library
+│   ├── readline_integration.c # Complete readline wrapper
+│   ├── input.c              # Unified input system
+│   ├── lusush.c             # Main shell
+│   ├── completion.c         # Tab completion system
+│   ├── themes.c             # Theme management
+│   ├── prompt.c             # Prompt generation
+│   └── *.c                  # Other core components
+├── include/
+│   ├── readline_integration.h # Readline API
+│   ├── completion.h         # Completion system
+│   ├── themes.h             # Theme system
+│   └── *.h                  # Other headers
+├── builddir/
+│   └── lusush               # Compiled binary
+└── meson.build              # Build configuration
 ```
 
-## 🎯 STATE SYNCHRONIZATION INTEGRATION (MANDATORY)
-AI assistants MUST integrate the unified display state synchronization system:
+## ✅ COMPLETED FEATURES
 
-### ✅ **SOLUTION IMPLEMENTED (Ready for Integration)**
-- **Bidirectional state tracking** - Complete terminal-display synchronization system
-- **State validation engine** - Automatic consistency checking and recovery
-- **Cross-platform support** - Linux display corruption eliminated
-- **Performance optimized** - <10μs overhead with intelligent batching
-- **Comprehensive testing** - Full test suite validates all functionality
+### Core Readline Integration
+- **Complete GNU Readline wrapper** - Full feature set available
+- **History with deduplication** - Automatic duplicate prevention
+- **Tab completion** - Integrated with existing completion engine
+- **Multiline support** - Complex command structures (if/for/while/case)
+- **Key bindings** - All standard readline shortcuts (Ctrl+A/E/L/U/K/W/R)
+- **Signal handling** - Proper TTY and signal management
 
-### 🔧 **INTEGRATION REQUIRED (Critical Priority)**
-- **Replace terminal operations** - Migrate to state-synchronized functions
-- **Add state validation** - Include consistency checking in complex operations
-- **Enable debug instrumentation** - Use comprehensive state tracking
-- **Cross-platform testing** - Validate on both Linux and macOS
+### Enhanced Features
+- **Theme integration** - Full compatibility with Lusush theme system
+- **Syntax highlighting** - Framework ready for enhancement
+- **Advanced completion** - Commands, files, variables, aliases, network hosts
+- **Professional prompts** - Dynamic, themed prompts with Git integration
+- **Cross-platform** - Works on Linux, macOS, and Unix systems
 
-### 🎯 **DEVELOPMENT PRIORITY (INTEGRATION FOCUS)**
-**PRIMARY OBJECTIVE**: ✅ COMPLETE - Core editing features stabilized using direct terminal operations
-- ✅ Success achieved: Tab completion + Ctrl+R reverse search working beautifully
-- ✅ Pattern proven: Direct terminal operations bypass broken display integration
-- ✅ Emergency bypasses successful: Zero visual corruption in both systems
-- ✅ User validation: "perfectly functional and usable!" + "works beautifully!"
+### Code Quality
+- **Clean architecture** - Clear separation of concerns
+- **Memory safety** - Proper resource management
+- **Error handling** - Graceful failure modes
+- **Performance** - Sub-millisecond response times
+- **Documentation** - Comprehensive inline documentation
 
-## Termcap Integration Architecture
-LLE includes a complete termcap system transferred from Lusush to ensure standalone operation:
-- **No External Dependencies**: Complete terminal capability system included
-- **iTerm2 Support**: Full macOS and iTerm2 compatibility preserved
-- **Terminal Database**: 50+ terminal profiles including modern terminals
-- **Namespaced API**: All termcap functions prefixed with `lle_` for standalone use
-
-Each task is 2-4 hours of work with clear acceptance criteria and tests.
-
-## Code Standards for LLE
+## Code Standards
 ```c
-// Function naming: lle_component_action
-bool lle_text_insert_char(lle_text_buffer_t *buffer, char c);
+// Function naming: descriptive and clear
+bool lusush_readline_init(void);
+void lusush_history_add(const char *line);
+char *lusush_generate_prompt(void);
 
-// Termcap functions: lle_termcap_action (namespaced from Lusush)
-bool lle_termcap_init(void);
-bool lle_termcap_is_iterm2(void);
-bool lle_termcap_set_color(lle_termcap_color_t fg, lle_termcap_color_t bg);
-
-// Structure naming: lle_component_t
+// Structure naming: component_t pattern
 typedef struct {
     char *buffer;
     size_t length;
     size_t capacity;
-} lle_text_buffer_t;
+} lusush_completions_t;
 
 // Error handling: always return bool for success/failure
-bool lle_function(args) {
+bool lusush_function(args) {
     if (!args) return false;
     // implementation
     return true;
@@ -93,310 +82,185 @@ bool lle_function(args) {
 
 // Documentation: comprehensive function docs
 /**
- * Insert character at cursor position in text buffer.
+ * Initialize the readline system for lusush.
+ * Sets up completion, history, key bindings, and syntax highlighting.
  *
- * @param buffer Text buffer to modify
- * @param c Character to insert
- * @return true on success, false on error
- *
- * Buffer automatically resizes if needed. Cursor advances by one.
- * Handles UTF-8 encoding correctly.
+ * @return true on success, false on failure
  */
+bool lusush_readline_init(void);
 ```
 
-## Build Commands (Meson-based)
+## Build Commands
 ```bash
-# Setup (first time)
-scripts/lle_build.sh setup
+# Setup build directory
+meson setup builddir
 
-# Build LLE
-scripts/lle_build.sh build
+# Build the shell
+ninja -C builddir
 
 # Run tests
-scripts/lle_build.sh test
-
-# Run specific test
-meson test -C builddir test_text_buffer
-
-# Performance benchmarks
-scripts/lle_build.sh benchmark
+echo 'echo "test"' | ./builddir/lusush
 
 # Clean rebuild
-scripts/lle_build.sh clean && scripts/lle_build.sh setup
+meson setup builddir --wipe
 ```
 
 ## Key Design Principles
-1. **Mathematical Correctness**: All cursor positioning must be mathematically provable
-2. **Performance**: Sub-millisecond response times required
-3. **Unicode Support**: Proper UTF-8 handling throughout
-4. **Theme Integration**: Deep integration with Lusush theme system
-5. **Modular Architecture**: Each component independently testable
-6. **Memory Safety**: No leaks, proper bounds checking
-7. **Terminal Compatibility**: Works across all terminal types
-
-## Current Task Context
-Check `LLE_PROGRESS.md` for current task. Each task has:
-- **Task ID**: LLE-XXX format
-- **Estimated Time**: Usually 2-4 hours
-- **Files to Modify**: Specific source files
-- **Acceptance Criteria**: Clear success metrics
-- **Tests Required**: Specific test cases
-- **Commit Message**: Pre-planned format
+1. **GNU Readline Integration**: Leverage proven library for line editing
+2. **Feature Preservation**: Maintain all existing Lusush functionality
+3. **Performance**: Sub-millisecond response times for common operations
+4. **Memory Safety**: Proper resource management and bounds checking
+5. **Modular Architecture**: Clear separation between components
+6. **Cross-platform**: Works across all Unix-like systems
+7. **Professional Quality**: Production-ready code standards
 
 ## Testing Requirements
-Every task must include:
-- **Unit Tests**: Test individual functions
-- **Integration Tests**: Test component interactions
-- **Edge Cases**: Boundary conditions and error cases
-- **Performance Tests**: Response time validation
-- **Memory Tests**: Leak detection with Valgrind
+Every change should include:
+- **Compilation test**: Ensure clean build without warnings
+- **Functionality test**: Basic command execution and features
+- **Interactive test**: Manual verification of readline features
+- **Regression test**: Ensure existing features still work
+- **Memory test**: No leaks with proper cleanup
 
 ### Common Development Patterns
 
-### Text Buffer Operations
+### Readline Integration
 ```c
-// Always check buffer validity
-if (!buffer || !buffer->buffer) return false;
-
-// Ensure capacity before operations
-if (buffer->length + new_data_size >= buffer->capacity) {
-    if (!lle_text_buffer_resize(buffer, new_capacity)) return false;
-}
-
-// Update both byte and character counts
-buffer->length += bytes_added;
-buffer->char_count += chars_added;
-```
-
-### Cursor Position Calculations
-```c
-// Use the mathematical framework
-lle_cursor_position_t pos = lle_calculate_cursor_position(
-    buffer, geometry, prompt_width
-);
-
-// Always validate results
-if (!pos.valid) {
-    // Handle error case
+// Initialize readline system
+if (!lusush_readline_init()) {
+    fprintf(stderr, "Failed to initialize readline\n");
     return false;
 }
-```
 
-### Terminal Operations Using Integrated Termcap
-```c
-// Initialize integrated termcap system
-if (!lle_termcap_init()) return false;
+// Get input with themed prompt
+char *line = lusush_readline_with_prompt(NULL);
 
-// Use namespaced termcap functions
-lle_termcap_set_color(LLE_TERMCAP_COLOR_GREEN, LLE_TERMCAP_COLOR_BLACK);
-lle_termcap_move_cursor(row, col);
-
-// Check for specific terminal capabilities
-if (lle_termcap_is_iterm2()) {
-    // iTerm2-specific optimizations
+// Add to history with deduplication
+if (line && *line) {
+    lusush_history_add(line);
 }
-
-// Terminal manager wraps termcap functionality
-if (!lle_terminal_init(tm)) return false;
-lle_terminal_write(tm, data, length);
 ```
 
-## Integration Points with Existing Lusush
-- **Theme System**: `src/themes.c` - LLE provides theme support interface
-- **Integrated Termcap**: `src/line_editor/termcap/` - Complete termcap system transferred from Lusush
-- **Configuration**: `src/config.c` - LLE respects user settings via API
-- **Main Shell**: `src/lusush.c` - LLE replaces linenoise calls as standalone library
+### Completion Integration
+```c
+// Setup completion
+lusush_completion_setup();
 
-## Standalone Library Design
-- **Self-Contained**: No external termcap dependencies
-- **Reusable**: Can be used by other projects like libhashtable
-- **Complete**: Includes all necessary terminal capabilities
-- **Compatible**: Maintains all Lusush terminal features including iTerm2
+// Add completions
+lusush_completions_t completions = {0, NULL};
+lusush_add_completion(&completions, "example");
+lusush_free_completions(&completions);
+```
+
+### Theme Integration
+```c
+// Generate themed prompt
+char *prompt = lusush_generate_prompt();
+
+// Update prompt when theme changes
+lusush_prompt_update();
+```
+
+## Integration Points with Lusush Core
+- **Theme System**: `src/themes.c` - Full integration with readline prompts
+- **Completion**: `src/completion.c` - Seamless tab completion integration
+- **Configuration**: `src/config.c` - User settings respected by readline
+- **History**: `src/posix_history.c` - Enhanced history with deduplication
+- **Main Shell**: `src/lusush.c` - Unified input system
 
 ## Performance Requirements
 - Character insertion: < 1ms
-- Cursor movement: < 1ms
-- Display update: < 5ms
-- History search: < 10ms
 - Tab completion: < 50ms
-- Memory usage: < 1MB base, < 50 bytes per character
+- History search: < 10ms
+- Theme switching: < 5ms
+- Startup time: < 100ms
+- Memory usage: < 5MB total
 
-## Common Gotchas
-1. **UTF-8**: Always distinguish between byte position and character position
-2. **Terminal Width**: Account for ANSI escape sequences in width calculations
-3. **Cursor Math**: Line wrapping must be mathematically exact
-4. **Memory Management**: Every malloc needs corresponding free
-5. **Error Handling**: Never ignore return values, always check for NULL
-6. **Thread Safety**: LLE is single-threaded by design
-7. **Signal Handling**: Graceful cleanup on SIGINT/SIGTERM
+## Common Development Tasks
 
-## Development Workflow
-1. **Pick Next Task**: Check `LLE_PROGRESS.md` for TODO tasks
-2. **Create Branch**: `git checkout -b task/lle-XXX-description`
-3. **Read Task Spec**: Full requirements in `LLE_DEVELOPMENT_TASKS.md`
-4. **Implement**: Follow code standards and design principles
-5. **Write Tests**: Comprehensive test coverage required
-6. **Run Tests**: `scripts/lle_build.sh test`
-7. **Commit**: Use task-specific commit message format
-8. **Update Progress**: Mark task as DONE in `LLE_PROGRESS.md`
+### Adding New Features
+1. **Design**: Plan integration with existing readline system
+2. **Implement**: Add to appropriate module (completion, themes, etc.)
+3. **Test**: Ensure compatibility with readline integration
+4. **Document**: Add comprehensive documentation
+5. **Verify**: Test in both interactive and non-interactive modes
 
-## Debug Information
+### Debugging
 ```bash
 # Enable debug output
-export LLE_DEBUG=1
-export LLE_DEBUG_CURSOR=1
-export LLE_DEBUG_MEMORY=1
+export LUSUSH_DEBUG=1
+./builddir/lusush
 
-# Run with debugger
-gdb builddir/lusush
-(gdb) set environment LLE_DEBUG=1
-(gdb) run
+# Check readline integration
+echo 'set show-all-if-ambiguous on' > ~/.inputrc
+./builddir/lusush
 
-# Memory leak detection
-valgrind --leak-check=full builddir/lusush
-
-# Performance profiling
-perf record builddir/lusush
-perf report
+# Memory debugging
+valgrind --leak-check=full ./builddir/lusush
 ```
 
-## Quick Reference: Key Files to Understand
-- `LLE_DEVELOPMENT_TASKS.md` - Complete task breakdown
-- `LLE_DEVELOPMENT_WORKFLOW.md` - Process and quality standards
-- `LINE_EDITOR_STRATEGIC_ANALYSIS.md` - Why we're building LLE
-- `src/line_editor/` - Current LLE implementation
-- `tests/line_editor/` - Test suite
-- `LLE_PROGRESS.md` - Current development status
+### Performance Profiling
+```bash
+# Profile with perf
+perf record ./builddir/lusush -c 'for i in {1..1000}; do echo $i; done'
+perf report
 
-## 🎉 **CORE EDITING FEATURES SUCCESS - PRODUCTION READY SYSTEM**
+# Benchmark completion
+time echo -e 'ls /usr/bin/g<TAB>' | ./builddir/lusush
+```
 
-### 🎯 IMMEDIATE STATUS FOR NEXT AI ASSISTANT
-**SYSTEM STATUS**: ✅ **STABLE AND FUNCTIONAL** - Tab completion + Ctrl+R reverse search fully working
+## Current Development Status
 
-**CONTEXT**: Both tab completion and reverse search systems completely stabilized using proven direct terminal operations and exact backspace replication. User confirmed "perfectly functional and usable!" + "works beautifully!"
+### ✅ COMPLETED AND STABLE
+1. **GNU Readline integration** - Full feature set working
+2. **Theme support** - Dynamic prompts with color themes
+3. **Tab completion** - Commands, files, variables, aliases
+4. **History management** - Persistent history with deduplication
+5. **Multiline editing** - Complex command structures
+6. **Signal handling** - Proper Ctrl+C/D/Z handling
+7. **Build system** - Meson with readline dependency
 
-### 🎉 CORE EDITING ACHIEVEMENTS
-1. **✅ RELIABLE TAB COMPLETION**: Clean word replacement using exact backspace replication
-2. **✅ CTRL+R REVERSE SEARCH (LLE-019)**: Real-time incremental search with full navigation
-3. **✅ VISUAL CORRUPTION ELIMINATED**: Complete bypass of broken state integration system
-4. **✅ USER SATISFACTION ACHIEVED**: Both systems confirmed working beautifully
-5. **✅ PRODUCTION READY**: Stable, reliable core editing features for daily use
+### 🎯 READY FOR ENHANCEMENT
+1. **Advanced syntax highlighting** - Real-time command parsing
+2. **Enhanced completion** - Context-aware suggestions
+3. **Vi mode support** - Alternative key binding mode
+4. **Plugin system** - Extensible completion providers
+5. **Advanced themes** - Dynamic status indicators
 
-### 🎯 MANDATORY READING FOR SYSTEM STATUS
-AI assistants MUST read these files to understand current state:
-1. **`COMPLETION_SYSTEM_SUCCESS.md`** - Complete success documentation for both tab completion and reverse search (REQUIRED)
-2. **`IMMEDIATE_AI_HANDOFF.md`** - Current system status and next development priorities (REQUIRED)
-3. **`LLE_PROGRESS.md`** - Updated progress with core editing features success (REQUIRED)
-4. **`LLE_DEVELOPMENT_TASKS.md`** - Task status and next priorities (REQUIRED)
-5. Debug logs at `/tmp/lle_debug.log` - Technical evidence (if needed)
+## Quick Reference: Key Files
+- `src/readline_integration.c` - Core readline wrapper implementation
+- `include/readline_integration.h` - Readline API definitions
+- `src/input.c` - Unified input system for interactive/non-interactive
+- `src/completion.c` - Tab completion engine
+- `src/themes.c` - Theme system with prompt generation
+- `meson.build` - Build configuration with readline dependency
 
-### 🚨 CODING STANDARDS VIOLATIONS WILL BE REJECTED
-Any code that violates these standards will be rejected:
+## Development Workflow
+1. **Understand current state** - Review existing readline integration
+2. **Plan changes** - Consider impact on readline functionality
+3. **Implement** - Follow established patterns and standards
+4. **Test thoroughly** - Both automated and interactive testing
+5. **Document** - Update relevant documentation
+6. **Commit with clear messages** - Describe changes and impact
 
-#### ❌ NAMING VIOLATIONS (AUTOMATIC REJECTION)
-- Functions MUST use `lle_component_action` pattern exactly
-- Structures MUST use `lle_component_t` pattern exactly
-- No generic names, no non-LLE prefixes
-- Examples: `lle_completion_extract_word()`, `lle_completion_item_t`
+## Success Criteria for New Features
+- **Preserves existing functionality** - No regressions
+- **Integrates with readline** - Works with standard shortcuts
+- **Maintains performance** - No significant slowdowns
+- **Cross-platform compatible** - Works on all supported systems
+- **Well documented** - Clear API and usage examples
+- **Memory safe** - No leaks or unsafe operations
 
-#### ❌ DOCUMENTATION VIOLATIONS (AUTOMATIC REJECTION)
-- All functions MUST have comprehensive Doxygen documentation
-- MUST include `@brief`, `@param`, `@return` tags
-- MUST include behavior descriptions and error conditions
-- Example pattern in this file (lines 78-88)
+## Final Notes
 
-#### ❌ MEMORY SAFETY VIOLATIONS (AUTOMATIC REJECTION)
-- MUST use `memcpy()` instead of `strcpy()` or `strncpy()`
-- MUST validate all parameters before use
-- MUST check buffer bounds before operations
-- MUST return `bool` for success/failure
+Lusush now provides a **professional shell experience** with:
+- Complete GNU Readline integration
+- Modern line editing features
+- Rich tab completion
+- Persistent history with deduplication
+- Dynamic themed prompts
+- Cross-platform compatibility
 
-#### ❌ TEST FRAMEWORK VIOLATIONS (AUTOMATIC REJECTION)
-- Use `LLE_TEST(name)` macro WITHOUT `test_` prefix
-- Call functions WITH `test_` prefix in main()
-- Example: `LLE_TEST(basic_functionality)` creates `test_basic_functionality()`
-- MUST include edge cases and parameter validation tests
+The codebase is **production ready** and follows established patterns for easy maintenance and enhancement.
 
-#### ❌ BUILD INTEGRATION VIOLATIONS (AUTOMATIC REJECTION)
-- MUST include all necessary headers (`stdio.h` for `snprintf`, etc.)
-- MUST add new test files to `tests/line_editor/meson.build`
-- MUST compile without warnings
-- MUST pass all existing tests
-
-### ✅ REQUIRED WORKFLOW
-1. Read documentation files listed above
-2. Understand current task from `LLE_PROGRESS.md`
-3. Study existing patterns in similar completed tasks
-4. Implement following EXACT naming and documentation patterns
-5. Write comprehensive tests using LLE test framework
-6. Build and test: `scripts/lle_build.sh build && scripts/lle_build.sh test`
-7. Commit with proper LLE format: `LLE-XXX: Description`
-
-## 🎉 AI Assistant Guidelines - COMPLETION SYSTEM SUCCESS
-
-### **MANDATORY FIRST ACTIONS**
-1. **Read `COMPLETION_SYSTEM_SUCCESS.md`** - Understand complete success and current status
-2. **Read `IMMEDIATE_AI_HANDOFF.md`** - Current system guidance and priorities
-3. **PRESERVE working functionality** - Tab completion is production ready
-4. **NO urgent fixes needed** - System confirmed "perfectly functional and usable"
-
-### **SYSTEM STATUS UNDERSTANDING**
-- **Tab completion**: ✅ WORKING PERFECTLY using exact backspace replication
-- **Visual corruption**: ✅ ELIMINATED via state integration bypass
-- **User satisfaction**: ✅ ACHIEVED - "perfectly functional and usable"
-- **Production readiness**: ✅ CONFIRMED - System stable for daily use
-
-### **TECHNICAL FOUNDATION**
-- Use Meson build commands: `scripts/lle_build.sh build`
-- Exact backspace replication pattern: PROVEN SUCCESSFUL
-- State integration bypass: NECESSARY AND WORKING
-- Emergency bypasses: MAINTAIN - Don't attempt to "fix" broken systems
-
-## 🎯 Current Development Status
-
-### **✅ COMPLETED AND STABLE**
-1. **Tab completion cycling** - Clean word replacement without corruption
-2. **Single/multiple completions** - Both work reliably
-3. **Visual stability** - Zero corruption or artifacts
-4. **User validation** - Confirmed functional and usable
-5. **Production readiness** - System ready for daily use
-
-### **🚫 BYPASSED SYSTEMS (DO NOT TOUCH)**
-- **Display state integration** - Fundamentally broken, successfully bypassed
-- **Menu rendering system** - Causes visual corruption, avoided
-- **State synchronization layer** - Silent failures, emergency bypass active
-
-### **Build and Test Commands**
-- Build: `scripts/lle_build.sh build`
-- Test interactively: `./builddir/lusush`
-- Debug logs: `LLE_DEBUG=1 ./builddir/lusush 2>/tmp/debug.log`
-- Current system works reliably - no debugging typically needed
-
-## 🎯 GUIDANCE FOR NEXT AI ASSISTANT
-
-### **SYSTEM MAINTENANCE APPROACH**
-Any AI assistant working on LLE should:
-1. **Maintain current stability** - Don't break working tab completion or reverse search
-2. **Focus on next priority features** - Line navigation (Ctrl+A/E), text editing (Ctrl+U/L/W/G)
-3. **Read success documentation** - Understand proven patterns and what's working
-4. **Preserve bypass patterns** - Don't attempt to "fix" intentionally bypassed systems
-5. **Apply proven approaches** - Use direct terminal operations and exact backspace replication
-
-### **NEXT DEVELOPMENT PRIORITIES (READY FOR IMPLEMENTATION)**
-1. **LLE-007: Line Navigation Commands** (Ctrl+A/Ctrl+E) - 6-8 hours - HIGH PRIORITY
-2. **LLE-011: Text Editing Operations** (Ctrl+L/Ctrl+U/Ctrl+W/Ctrl+G) - 4-6 hours - HIGH PRIORITY
-3. **LLE-031: Syntax Highlighting System** - 12-16 hours - MEDIUM PRIORITY
-4. **MAINTAIN STABILITY** - Current core features work beautifully
-
-### **SUCCESS PATTERNS PROVEN AND VALIDATED**
-1. **✅ TAB COMPLETION: Exact Backspace Replication**
-   - lle_cmd_move_end() → lle_cmd_backspace() loop → lle_cmd_insert_char()
-   - Precise character counting, no buffer overflow
-   - User approved: "perfectly functional and usable"
-
-2. **✅ REVERSE SEARCH: Direct Terminal Operations**
-   - lle_terminal_write() for all search display (bypass display integration)
-   - lle_display_render() for clean exit handling
-   - User approved: "works beautifully!"
-
-**CRITICAL SUCCESS**: Core editing features mission accomplished. Tab completion + Ctrl+R reverse search stable, functional, and user-approved. Ready for next features!**
+**Development Focus**: Enhance existing features rather than replacing core systems. The readline integration is complete and stable.

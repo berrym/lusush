@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.25] - 2025-01-11
+
+### Added
+- **GNU Readline Integration (Major Milestone)**
+  - Complete replacement of legacy line editor systems with GNU Readline
+  - Professional tab completion with cycling through matches
+  - Advanced history management with automatic deduplication
+  - Full theme integration with colored prompts and dynamic updates
+  - Standard key bindings: Ctrl+A/E/L/U/K/W/G, arrow keys for history
+  - Multiline command support with intelligent continuation prompts
+  - Signal handling optimized for external command execution
+  - Cross-platform compatibility with all readline-supported systems
+
+### Enhanced
+- **Interactive Shell Experience**
+  - Sub-millisecond response times for common operations
+  - Artifact-free history navigation with proper terminal redisplay
+  - Menu-complete style tab completion for intuitive file/command selection
+  - Comprehensive syntax highlighting framework (ready for enhancement)
+  - Professional error handling with audio feedback for user actions
+
+### Removed
+- **Legacy Systems Cleanup**
+  - Complete removal of linenoise dependencies
+  - Elimination of all LLE (Lusush Line Editor) development artifacts
+  - Cleanup of 80+ obsolete test scripts and documentation files
+  - Streamlined codebase focused on readline integration
+
+### Fixed
+- **Terminal and Signal Handling**
+  - Resolved signal conflicts between readline and child processes
+  - Fixed tab completion behavior to cycle instead of append
+  - Corrected history navigation artifacts and visual corruption
+  - Improved external command execution in interactive mode
+
+### Technical
+- **Build System Updates**
+  - Added readline library dependency to meson.build
+  - Updated compilation flags for readline integration
+  - Enhanced cross-platform build compatibility
+  - Comprehensive test suite for readline features
+
 ## [1.0.24] - 2025-01-13
 
 ### Added

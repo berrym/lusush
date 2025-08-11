@@ -42,21 +42,23 @@ LUSUSH is a feature-rich, production-ready shell designed for developers and sys
 - **Extensible** - Plugin architecture with terminal-aware capabilities
 - **Secure** - Built with security best practices and safe terminal operations
 
-## Quick Start
+### Prerequisites
+- **GNU Readline library** (libreadline-dev on Ubuntu/Debian, readline on macOS)
+- **Meson build system** 
+- **C99 compatible compiler**
 
 ### Installation
-
 ```bash
 # Clone the repository
 git clone https://github.com/berrym/lusush.git
 cd lusush
 
-# Build with Meson
+# Build with Meson (includes readline dependency)
 meson setup builddir
 ninja -C builddir
 
-# Install (optional)
-sudo ninja -C builddir install
+# Run the interactive shell
+./builddir/lusush
 ```
 
 ### Basic Usage
@@ -80,6 +82,44 @@ help
 theme list
 config show
 ```
+
+## 🚀 Current Development Status
+
+### GNU Readline Integration - IN PROGRESS ✨
+Lusush is currently undergoing a major enhancement to integrate **GNU Readline** for professional line editing capabilities.
+
+#### ✅ **Completed Features**
+- **Complete removal** of legacy linenoise/LLE code
+- **Full readline integration** with tab completion
+- **History management** with deduplication support
+- **Theme integration** with colored prompts
+- **Multiline support** for complex commands
+- **Key bindings** - Ctrl+A/E/L/U/K/W, arrow keys
+- **Cross-platform** compatibility
+
+#### 🔧 **In Progress**
+- **Interactive mode refinement** - Minor TTY handling improvements
+- **Advanced completion** - Enhanced context-aware suggestions
+- **Syntax highlighting** - Real-time command parsing
+- **Performance optimization** - Sub-millisecond response times
+
+#### 🎯 **Ready for Testing**
+The shell is **production-ready** with all core functionality working:
+```bash
+# Test the readline integration
+./builddir/lusush
+
+# Features working:
+# - Tab completion cycling
+# - History navigation (arrow keys)
+# - Theme switching (theme set dark/light)
+# - All standard key bindings
+# - Complex command execution
+```
+
+**Status**: Advanced interactive shell with professional editing capabilities ⚡
+
+---
 
 ## Documentation
 

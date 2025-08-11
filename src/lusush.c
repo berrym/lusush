@@ -60,42 +60,18 @@ int main(int argc, char **argv) {
     // Read input (buffering complete syntactic units) until user exits
     // or EOF is read from either stdin or input file
     while (!exit_flag) {
-        // Debug: Check shell mode
-        const char *debug_env = getenv("LLE_DEBUG");
-        bool debug_mode = debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0);
-        
-        if (debug_mode) {
-            fprintf(stderr, "[LUSUSH_MAIN] Starting input read, interactive=%s\n", 
-                    is_interactive_shell() ? "true" : "false");
-        }
-        
         // Read complete command(s) using unified input system
         // This ensures consistent parsing behavior between interactive and
         // non-interactive modes
         line = get_unified_input(in);
-
-        if (debug_mode) {
-            if (line) {
-                fprintf(stderr, "[LUSUSH_MAIN] get_unified_input returned: '%s'\n", line);
-            } else {
-                fprintf(stderr, "[LUSUSH_MAIN] get_unified_input returned NULL, setting exit_flag\n");
-            }
-        }
 
         if (line == NULL) {
             exit_flag = true;
             continue;
         }
 
-        // Add command to enhanced history if in interactive mode
-        if (is_interactive_shell() && global_posix_history && line && *line) {
-            // Skip commands that are just whitespace
-            const char *trimmed = line;
-            while (*trimmed && isspace(*trimmed)) trimmed++;
-            if (*trimmed) {
-                enhanced_history_add(line);
-            }
-        }
+        // Add command to history if in interactive mode (handled by readline)
+        // History is automatically managed by the readline integration
 
         // Execute using unified modern parser and store exit status
         int exit_status = parse_and_execute(line);
@@ -118,9 +94,9 @@ int main(int argc, char **argv) {
         config_execute_logout_scripts();
     }
 
-    // Save enhanced history before exit
-    if (is_interactive_shell() && global_posix_history) {
-        enhanced_history_save();
+    // Save history before exit (handled by readline cleanup)
+    if (is_interactive_shell()) {
+        lusush_readline_cleanup();
     }
 
     // Execute EXIT traps before shell terminates normally
