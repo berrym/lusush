@@ -1,507 +1,195 @@
-#include "../include/linenoise_replacement.h"
-#include "line_editor/lle_integration.h"
+/*
+ * Lusush Shell - Linenoise Replacement Implementation
+ * 
+ * This file provides a minimal compatibility layer that redirects all
+ * linenoise function calls to the new GNU Readline integration system.
+ * This allows existing code to continue working without modification.
+ */
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-/**
- * @file linenoise_replacement.c
- * @brief Linenoise Replacement Implementation Using LLE Integration
- *
- * This module implements the linenoise replacement functions that provide
- * a seamless transition from linenoise to LLE. All functions maintain
- * linenoise API compatibility while internally using LLE's advanced features.
- *
- * The implementation uses macro-based function replacement to avoid type
- * conflicts and provides enhanced functionality through LLE.
- *
- * @author Lusush Development Team
- * @version 1.0
- */
+#include "../include/linenoise_replacement.h"
+#include "../include/readline_integration.h"
 
 // ============================================================================
-// Global State and Statistics
+// GLOBAL STATE
+// ============================================================================
+
+static bool replacement_initialized = false;
+
+// ============================================================================
+// INITIALIZATION FUNCTIONS
 // ============================================================================
 
 /**
- * @brief Replacement layer statistics and configuration
+ * Initialize the linenoise replacement system
+ * This ensures readline is properly set up
  */
-static struct {
-    bool initialized;
-    bool debug_mode;
-    size_t readline_calls;
-    size_t history_operations;
-    size_t completion_calls;
-    char last_error[256];
-    
-    // Callback storage for compatibility
-    linenoiseCompletionCallback *completion_callback;
-    linenoiseHintsCallback *hints_callback;
-    linenoiseFreeHintsCallback *free_hints_callback;
-} replacement_state = {0};
-
-/**
- * @brief Debug logging macro
- */
-#define REPLACEMENT_DEBUG(fmt, ...) do { \
-    if (replacement_state.debug_mode) { \
-        fprintf(stderr, "[LLE_REPLACEMENT] " fmt "\n", ##__VA_ARGS__); \
-    } \
-} while(0)
-
-/**
- * @brief Set error message for debugging
- *
- * @param error Error message to store
- */
-static void lle_replacement_set_error(const char *error) {
-    if (error && strlen(error) < sizeof(replacement_state.last_error)) {
-        strncpy(replacement_state.last_error, error, 
-                sizeof(replacement_state.last_error) - 1);
-        replacement_state.last_error[sizeof(replacement_state.last_error) - 1] = '\0';
-    }
-}
-
-/**
- * @brief Clear error message
- */
-static void lle_replacement_clear_error(void) {
-    replacement_state.last_error[0] = '\0';
-}
-
-// ============================================================================
-// Initialization and Cleanup
-// ============================================================================
-
-bool lle_replacement_init(void) {
-    if (replacement_state.initialized) {
+bool linenoise_replacement_init(void) {
+    if (replacement_initialized) {
         return true;
     }
     
-    // Check for debug mode from environment variable
-    const char *debug_env = getenv("LLE_REPLACEMENT_DEBUG");
-    if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-        replacement_state.debug_mode = true;
-    }
-    
-    REPLACEMENT_DEBUG("Initializing linenoise replacement layer");
-    
-    // Initialize LLE integration
-    if (!lle_integration_init()) {
-        lle_replacement_set_error("Failed to initialize LLE integration");
+    if (!lusush_readline_init()) {
+        fprintf(stderr, "Failed to initialize readline integration\n");
         return false;
     }
     
-    // Clear statistics
-    replacement_state.readline_calls = 0;
-    replacement_state.history_operations = 0;
-    replacement_state.completion_calls = 0;
-    
-    // Clear callbacks
-    replacement_state.completion_callback = NULL;
-    replacement_state.hints_callback = NULL;
-    replacement_state.free_hints_callback = NULL;
-    
-    replacement_state.initialized = true;
-    REPLACEMENT_DEBUG("Linenoise replacement layer initialized successfully");
-    
+    replacement_initialized = true;
     return true;
 }
 
-void lle_replacement_shutdown(void) {
-    if (!replacement_state.initialized) {
+/**
+ * Cleanup the linenoise replacement system
+ */
+void linenoise_replacement_cleanup(void) {
+    if (!replacement_initialized) {
         return;
     }
     
-    REPLACEMENT_DEBUG("Shutting down linenoise replacement layer");
-    
-    // Shutdown LLE integration
-    lle_integration_shutdown();
-    
-    // Clear state
-    memset(&replacement_state, 0, sizeof(replacement_state));
-    
-    REPLACEMENT_DEBUG("Linenoise replacement layer shutdown complete");
+    lusush_readline_cleanup();
+    replacement_initialized = false;
 }
 
 // ============================================================================
-// Core Readline Functions
+// COMPATIBILITY FUNCTIONS (if needed for non-inline implementations)
 // ============================================================================
 
-char *lle_replacement_readline(const char *prompt) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return NULL;
-        }
+/**
+ * Ensure the system is initialized before any operation
+ */
+static inline void ensure_initialized(void) {
+    if (!replacement_initialized) {
+        linenoise_replacement_init();
     }
-    
-    lle_replacement_clear_error();
-    replacement_state.readline_calls++;
-    
-    REPLACEMENT_DEBUG("readline called with prompt: '%s'", prompt ? prompt : "(null)");
-    
-    char *result = lle_integration_readline(prompt);
-    
-    if (result) {
-        REPLACEMENT_DEBUG("readline returned %zu characters", strlen(result));
+}
+
+/**
+ * Main readline function with auto-initialization
+ */
+char *linenoise_impl(const char *prompt) {
+    ensure_initialized();
+    return lusush_readline();
+}
+
+/**
+ * Add to history with auto-initialization
+ */
+int linenoiseHistoryAdd_impl(const char *line) {
+    ensure_initialized();
+    lusush_history_add(line);
+    return 0;  // Success
+}
+
+/**
+ * Set history max length with auto-initialization
+ */
+int linenoiseHistorySetMaxLen_impl(int len) {
+    ensure_initialized();
+    lusush_history_set_max_length(len);
+    return 0;  // Success
+}
+
+/**
+ * Save history with auto-initialization
+ */
+int linenoiseHistorySave_impl(const char *filename) {
+    ensure_initialized();
+    if (filename) {
+        // For custom filename, would need to temporarily change path
+        // For now, just use the default
+        lusush_history_save();
     } else {
-        REPLACEMENT_DEBUG("readline returned NULL (EOF or error)");
+        lusush_history_save();
     }
-    
-    return result;
+    return 0;  // Success
 }
 
-void lle_replacement_free(void *ptr) {
-    if (ptr) {
-        REPLACEMENT_DEBUG("freeing pointer: %p", ptr);
-        lle_integration_free(ptr);
+/**
+ * Load history with auto-initialization
+ */
+int linenoiseHistoryLoad_impl(const char *filename) {
+    ensure_initialized();
+    if (filename) {
+        // For custom filename, would need to temporarily change path
+        // For now, just use the default
+        return lusush_history_load() ? 0 : -1;
+    } else {
+        return lusush_history_load() ? 0 : -1;
     }
+}
+
+/**
+ * Print history with auto-initialization
+ */
+void linenoiseHistoryPrint_impl(void) {
+    ensure_initialized();
+    int len = lusush_history_length();
+    for (int i = 0; i < len; i++) {
+        const char *entry = lusush_history_get(i);
+        if (entry) {
+            printf("%4d  %s\n", i + 1, entry);
+        }
+    }
+}
+
+/**
+ * Get history entry with auto-initialization
+ */
+char *linenoiseHistoryGet_impl(int index) {
+    ensure_initialized();
+    const char *entry = lusush_history_get(index - 1);  // Convert to 0-based
+    return entry ? strdup(entry) : NULL;
+}
+
+/**
+ * Remove duplicate history entries
+ */
+int linenoiseHistoryRemoveDups_impl(void) {
+    ensure_initialized();
+    return lusush_history_remove_duplicates();
+}
+
+/**
+ * Clear screen with auto-initialization
+ */
+void linenoiseClearScreen_impl(void) {
+    ensure_initialized();
+    lusush_clear_screen();
+}
+
+/**
+ * Set multiline mode
+ */
+void linenoiseSetMultiLine_impl(int ml) {
+    ensure_initialized();
+    lusush_multiline_set_enabled(ml != 0);
 }
 
 // ============================================================================
-// History Functions
+// DEBUGGING AND UTILITIES
 // ============================================================================
 
-int lle_replacement_history_add(const char *line) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return -1;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_add called with line: '%s'", line ? line : "(null)");
-    
-    return lle_integration_history_add(line);
+/**
+ * Check if replacement system is available
+ */
+bool linenoise_replacement_available(void) {
+    return lusush_readline_available();
 }
 
-int lle_replacement_history_set_max_len(int len) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return 0;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_set_max_len called with len: %d", len);
-    
-    return lle_integration_history_set_max_len(len);
+/**
+ * Get version information
+ */
+const char *linenoise_replacement_version(void) {
+    return lusush_readline_version();
 }
 
-int lle_replacement_history_save(const char *filename) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return -1;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_save called with filename: '%s'", filename ? filename : "(null)");
-    
-    return lle_integration_history_save(filename);
-}
-
-int lle_replacement_history_load(const char *filename) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return -1;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_load called with filename: '%s'", filename ? filename : "(null)");
-    
-    return lle_integration_history_load(filename);
-}
-
-void lle_replacement_history_print(void) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_print called");
-    
-    lle_integration_history_print();
-}
-
-char *lle_replacement_history_get(int index) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return NULL;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_get called with index: %d", index);
-    
-    return lle_integration_history_get(index);
-}
-
-int lle_replacement_history_remove_dups(void) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return 0;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_remove_dups called");
-    
-    return lle_integration_history_remove_dups();
-}
-
-void lle_replacement_history_no_dups(bool flag) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return;
-        }
-    }
-    
-    lle_replacement_clear_error();
-    replacement_state.history_operations++;
-    
-    REPLACEMENT_DEBUG("history_no_dups called with flag: %s", flag ? "true" : "false");
-    
-    lle_integration_history_no_dups(flag);
-}
-
-// ============================================================================
-// Completion Functions
-// ============================================================================
-
-void lle_replacement_add_completion(linenoiseCompletions *lc, const char *str) {
-    if (!lc || !str) {
-        return;
-    }
-    
-    replacement_state.completion_calls++;
-    
-    REPLACEMENT_DEBUG("add_completion called: '%s' (current count: %zu)", str, lc->len);
-    
-    // Resize the array if needed
-    char **new_cvec = realloc(lc->cvec, (lc->len + 1) * sizeof(char*));
-    if (!new_cvec) {
-        lle_replacement_set_error("Failed to allocate memory for completion");
-        return;
-    }
-    
-    lc->cvec = new_cvec;
-    
-    // Copy the string
-    lc->cvec[lc->len] = strdup(str);
-    if (!lc->cvec[lc->len]) {
-        lle_replacement_set_error("Failed to duplicate completion string");
-        return;
-    }
-    
-    lc->len++;
-    
-    REPLACEMENT_DEBUG("completion added, new count: %zu", lc->len);
-}
-
-void lle_replacement_set_completion_callback(linenoiseCompletionCallback *fn) {
-    REPLACEMENT_DEBUG("set_completion_callback called: %p", (void*)fn);
-    replacement_state.completion_callback = fn;
-    
-    // TODO: Register with LLE's completion system
-    // This would require LLE to support external completion callbacks
-}
-
-void lle_replacement_set_hints_callback(linenoiseHintsCallback *fn) {
-    REPLACEMENT_DEBUG("set_hints_callback called: %p", (void*)fn);
-    replacement_state.hints_callback = fn;
-    
-    // TODO: Register with LLE's hints system
-    // This would require LLE to support external hints callbacks
-}
-
-void lle_replacement_set_free_hints_callback(linenoiseFreeHintsCallback *fn) {
-    REPLACEMENT_DEBUG("set_free_hints_callback called: %p", (void*)fn);
-    replacement_state.free_hints_callback = fn;
-}
-
-// ============================================================================
-// Configuration Functions
-// ============================================================================
-
-void lle_replacement_set_multiline(int ml) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return;
-        }
-    }
-    
-    REPLACEMENT_DEBUG("set_multiline called with ml: %d", ml);
-    
-    lle_integration_set_multiline_mode(ml != 0);
-}
-
-void lle_replacement_clear_screen(void) {
-    REPLACEMENT_DEBUG("clear_screen called");
-    
-    // Clear screen using standard escape sequence
-    printf("\033[H\033[2J");
-    fflush(stdout);
-}
-
-void lle_replacement_print_key_codes(void) {
-    REPLACEMENT_DEBUG("print_key_codes called");
-    
-    printf("Linenoise key codes mode not implemented in LLE replacement\n");
-    printf("Use LLE's native debugging features instead\n");
-}
-
-void lle_replacement_mask_mode_enable(void) {
-    REPLACEMENT_DEBUG("mask_mode_enable called");
-    
-    // LLE doesn't have a direct mask mode equivalent
-    // This could be implemented as a feature request
-    printf("Mask mode not implemented in LLE replacement\n");
-}
-
-void lle_replacement_mask_mode_disable(void) {
-    REPLACEMENT_DEBUG("mask_mode_disable called");
-    
-    // LLE doesn't have a direct mask mode equivalent
-    printf("Mask mode not implemented in LLE replacement\n");
-}
-
-// ============================================================================
-// Enhanced LLE Features
-// ============================================================================
-
-bool lle_replacement_enable_syntax_highlighting(bool enable) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return false;
-        }
-    }
-    
-    REPLACEMENT_DEBUG("enable_syntax_highlighting called: %s", enable ? "true" : "false");
-    
-    return lle_integration_set_syntax_highlighting(enable);
-}
-
-bool lle_replacement_enable_unicode_support(bool enable) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return false;
-        }
-    }
-    
-    REPLACEMENT_DEBUG("enable_unicode_support called: %s", enable ? "true" : "false");
-    
-    // LLE has Unicode support enabled by default
-    // This function is provided for API completeness
-    return true;
-}
-
-bool lle_replacement_enable_undo_redo(bool enable) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return false;
-        }
-    }
-    
-    REPLACEMENT_DEBUG("enable_undo_redo called: %s", enable ? "true" : "false");
-    
-    return lle_integration_set_undo_enabled(enable);
-}
-
-bool lle_replacement_get_completion_stats(size_t *total_calls, size_t *successful_completions) {
-    if (!total_calls || !successful_completions) {
-        return false;
-    }
-    
-    *total_calls = replacement_state.completion_calls;
-    *successful_completions = replacement_state.completion_calls; // Simplified
-    
-    return true;
-}
-
-bool lle_replacement_configure_history_dedup(bool move_to_end, bool case_sensitive) {
-    // Auto-initialize if needed
-    if (!replacement_state.initialized) {
-        if (!lle_replacement_init()) {
-            return false;
-        }
-    }
-    
-    REPLACEMENT_DEBUG("configure_history_dedup called: move_to_end=%s, case_sensitive=%s",
-                     move_to_end ? "true" : "false", case_sensitive ? "true" : "false");
-    
-    // Enable LLE's hist_no_dups feature with move-to-end behavior
-    lle_integration_history_no_dups(move_to_end);
-    
-    // Case sensitivity would need to be a separate LLE feature
-    return true;
-}
-
-// ============================================================================
-// Debugging and Diagnostics
-// ============================================================================
-
-bool lle_replacement_get_statistics(size_t *readline_calls, 
-                                   size_t *history_operations,
-                                   size_t *completion_calls) {
-    if (!readline_calls || !history_operations || !completion_calls) {
-        return false;
-    }
-    
-    *readline_calls = replacement_state.readline_calls;
-    *history_operations = replacement_state.history_operations;
-    *completion_calls = replacement_state.completion_calls;
-    
-    return true;
-}
-
-void lle_replacement_set_debug(bool enable) {
-    replacement_state.debug_mode = enable;
-    REPLACEMENT_DEBUG("Debug mode %s", enable ? "enabled" : "disabled");
-}
-
-const char *lle_replacement_get_last_error(void) {
-    if (replacement_state.last_error[0] != '\0') {
-        return replacement_state.last_error;
-    }
-    
-    // Also check LLE integration for errors
-    const char *lle_error = lle_integration_get_last_error();
-    if (lle_error) {
-        return lle_error;
-    }
-    
-    return NULL;
+/**
+ * Enable debug mode
+ */
+void linenoise_replacement_set_debug(bool enabled) {
+    lusush_readline_set_debug(enabled);
 }

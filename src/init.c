@@ -11,7 +11,7 @@
 #include "../include/input.h"
 
 #include "../include/linenoise_replacement.h"
-#include "line_editor/enhanced_terminal_integration.h"
+
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/prompt.h"
@@ -234,15 +234,8 @@ int init(int argc, char **argv, FILE **in) {
     // Parse command line options
     size_t optind = parse_opts(argc, argv);
 
-    // Initialize enhanced terminal detection system
-    // This must happen after argument parsing but before interactive detection
-    if (!lle_enhanced_integration_init(true)) {
-        // Enhanced detection failed, will fall back to traditional methods
-        const char *debug_env = getenv("LLE_DEBUG");
-        if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-            fprintf(stderr, "[INIT] Enhanced terminal detection initialization failed, using traditional detection\n");
-        }
-    }
+    // Terminal detection using standard methods
+    // Enhanced terminal integration has been replaced with readline
 
     // POSIX-compliant shell type determination
 
@@ -255,7 +248,7 @@ int init(int argc, char **argv, FILE **in) {
     bool stdin_is_terminal = isatty(STDIN_FILENO);
     
     // Debug: Show TTY detection details
-    const char *debug_env = getenv("LLE_DEBUG");
+    const char *debug_env = getenv("READLINE_DEBUG");
     if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
         fprintf(stderr, "[INIT] TTY Detection: STDIN_FILENO=%d, isatty()=%s\n",
                 STDIN_FILENO, stdin_is_terminal ? "true" : "false");
@@ -317,24 +310,20 @@ int init(int argc, char **argv, FILE **in) {
                 process_shebang(*in);
             }
         }
-    } else if (lle_enhanced_should_shell_be_interactive(forced_interactive, false, shell_opts.stdin_mode)) {
+    } else if (forced_interactive || (stdin_is_terminal && !shell_opts.stdin_mode)) {
         // Interactive shell: enhanced detection OR forced with -i
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
         
         // Debug: Show interactive detection
-        const char *debug_env = getenv("LLE_DEBUG");
+        const char *debug_env = getenv("READLINE_DEBUG");
         if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
             fprintf(stderr, "[INIT] Interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
                     stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");
-            fprintf(stderr, "[INIT] Enhanced detection: %s\n", 
-                    lle_enhanced_is_interactive_terminal() ? "interactive" : "non-interactive");
-            if (lle_enhanced_is_interactive_terminal() != stdin_is_terminal) {
-                fprintf(stderr, "[INIT] Enhanced detection differs from traditional isatty() - providing enhanced capabilities\n");
-            }
+            fprintf(stderr, "[INIT] Using readline integration for interactive terminal\n");
         }
     } else {
         // Non-interactive: piped input, -s mode, or stdin not a terminal
@@ -343,7 +332,7 @@ int init(int argc, char **argv, FILE **in) {
         *in = stdin;
         
         // Debug: Show non-interactive detection
-        const char *debug_env = getenv("LLE_DEBUG");
+        const char *debug_env = getenv("READLINE_DEBUG");
         if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
             fprintf(stderr, "[INIT] Non-interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
@@ -460,7 +449,7 @@ int init(int argc, char **argv, FILE **in) {
 
     // Register cleanup for enhanced terminal detection
     if (IS_INTERACTIVE_SHELL) {
-        atexit(lle_enhanced_integration_cleanup);
+        atexit(linenoise_replacement_cleanup);
     }
 
     return 0;

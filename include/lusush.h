@@ -135,7 +135,7 @@ char *substitute_str(char *s1, char *s2, size_t start, size_t end);
 char *wordlist_to_str(word_t *word);
 
 // Core expansion functions
-expansion_t tilde_expand(const char *str, const exp_ctx_t *ctx);
+expansion_t lusush_tilde_expand(const char *str, const exp_ctx_t *ctx);
 expansion_t var_expand(const char *str, const exp_ctx_t *ctx);
 expansion_t command_substitute_exp(const char *str, const exp_ctx_t *ctx);
 expansion_t arithm_expand_exp(const char *str, const exp_ctx_t *ctx);

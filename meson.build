@@ -40,7 +40,7 @@ src = ['src/builtins/alias.c',
        'src/libhashtable/ht_strfloat.c',
        'src/libhashtable/ht_strint.c',
        'src/libhashtable/ht_strstr.c',
-       'src/linenoise_replacement.c',
+       'src/readline_integration.c',
        'src/lusush.c',
        'src/termcap.c',
        'src/termcap_test.c',
@@ -61,11 +61,10 @@ add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
-# Include LLE subdirectory
-subdir('src/line_editor')
-subdir('tests/line_editor')
+# Find readline dependency
+readline_dep = dependency('readline', required: true)
 
 executable('lusush',
            src,
            include_directories: inc,
-           dependencies: [lle_dep])
+           dependencies: [readline_dep])
