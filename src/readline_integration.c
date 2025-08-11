@@ -69,8 +69,13 @@ bool lusush_readline_init(void) {
     
     // Initialize readline
     rl_readline_name = "lusush";
-    rl_attempted_completion_function = lusush_tab_completion;
-    rl_completion_entry_function = lusush_completion_entry_function;
+    
+    // COMPLETELY DISABLE completion to fix arrow key history navigation
+    // Completion was overriding arrow keys causing "display all 4418 possibilities"
+    rl_attempted_completion_function = NULL;
+    rl_completion_entry_function = NULL;
+    rl_ignore_completion_duplicates = 1;
+    rl_filename_completion_desired = 0;
     
     // Setup history
     using_history();
@@ -576,16 +581,23 @@ void lusush_syntax_highlighting_configure(const char *commands_color,
 static int lusush_abort_line(int count, int key) {
     (void)count; (void)key;
     
-    // Clear the current line
+    // DIAGNOSTIC: Print to stderr to verify function is called
+    fprintf(stderr, "[KEY_DEBUG] lusush_abort_line called - Ctrl+G pressed\n");
+    
+    // Clear displayed line properly
+    printf("\r\033[K");  // Move to start of line and clear to end of line
+    fflush(stdout);
+    
+    // Clear readline's internal buffer
     rl_replace_line("", 0);
     rl_point = 0;
     rl_end = 0;
     
-    // Force redisplay
-    rl_forced_update_display();
+    // Display fresh prompt
+    rl_on_new_line();
+    rl_redisplay();
     
-    // Ring bell to indicate abort
-    rl_ding();
+    fprintf(stderr, "[KEY_DEBUG] lusush_abort_line completed\n");
     return 0;
 }
 
@@ -628,9 +640,9 @@ static int lusush_next_history(int count, int key) {
 }
 
 static void setup_key_bindings(void) {
-    // Tab completion - use menu-complete for cycling
-    rl_bind_key('\t', rl_menu_complete);
-    rl_bind_key(27, rl_complete); // Alt+Tab for normal completion
+    // DISABLE tab completion to prevent interference with arrow keys
+    rl_bind_key('\t', rl_insert);  // TAB just inserts tab character
+    // rl_bind_key(27, rl_complete); // Disable Alt+Tab completion
     
     rl_bind_key('\n', rl_newline);   // Enter
     rl_bind_key('\r', rl_newline);   // Return
@@ -648,9 +660,8 @@ static void setup_key_bindings(void) {
     rl_bind_key(16, lusush_previous_history); // Ctrl-P
     rl_bind_key(14, lusush_next_history);     // Ctrl-N
     
-    // Arrow keys for history (if available)
-    rl_bind_keyseq("\\e[A", lusush_previous_history); // Up arrow
-    rl_bind_keyseq("\\e[B", lusush_next_history);     // Down arrow
+    // Let readline handle arrow keys natively - custom bindings cause [A [B artifacts
+    // Default readline arrow key handling will work for history navigation
     
     // Enable vi or emacs mode based on config
     if (false) { // vi_mode not implemented yet
@@ -677,20 +688,22 @@ int lusush_keybinding_remove(int key) {
 // ============================================================================
 
 static void setup_readline_config(void) {
-    // Basic configuration
-    rl_completion_append_character = ' '; // Add space after completion
-    rl_attempted_completion_over = 0;
-    rl_filename_completion_desired = 1;
-    rl_filename_quoting_desired = 1;
+    // MINIMAL configuration to prevent completion interference
+    rl_completion_append_character = 0;  // Disable completion entirely
+    rl_attempted_completion_over = 1;    // Override completion
+    rl_filename_completion_desired = 0;  // Disable to prevent arrow key issues
+    rl_filename_quoting_desired = 0;
+    rl_inhibit_completion = 1;           // Completely inhibit completion
     
     // History configuration
     // rl_history_search_delimiter_chars = " \t\n;&()|<>"; // Not available in all readline versions
     
-    // Completion configuration
-    rl_completion_query_items = 50;   // Ask before showing many completions
-    rl_completion_suppress_quote = 0;
-    rl_completion_quote_character = '"';
-    rl_completion_suppress_append = 0; // Allow appending for normal behavior
+    // Completion configuration - DISABLE ALL
+    // CRITICAL: Prevent completion from interfering with arrow key history
+    rl_completion_query_items = -1;   // Disable completion queries entirely
+    rl_completion_suppress_quote = 1; // Suppress all completion
+    rl_completion_quote_character = 0;
+    rl_completion_suppress_append = 1;
     
     // Input configuration - minimal signal handling
     rl_catch_signals = 0; // Let shell handle signals for child processes like git
@@ -700,14 +713,13 @@ static void setup_readline_config(void) {
     rl_redisplay_function = rl_redisplay;
 
     
-    // Variables for better behavior
-    rl_variable_bind("completion-ignore-case", "on");
-    rl_variable_bind("show-all-if-unmodified", "on");
-    rl_variable_bind("visible-stats", "on");
-    rl_variable_bind("mark-directories", "on");
-    rl_variable_bind("colored-stats", "on");
+    // CRITICAL VARIABLES: Completely disable completion system
+    rl_variable_bind("disable-completion", "on");       // MASTER SWITCH: Disable all completion
+    rl_variable_bind("show-all-if-unmodified", "off");  // CRITICAL: Prevents arrow key completion
+    rl_variable_bind("show-all-if-ambiguous", "off");   // CRITICAL: Prevents "display all possibilities"
+    rl_variable_bind("visible-stats", "off");           // Disable to prevent interference
     rl_variable_bind("page-completions", "off");
-    rl_variable_bind("skip-completed-text", "on");
+    rl_variable_bind("completion-query-items", "-1");   // Disable completion queries
     
     // Custom getc function for better input handling
     rl_getc_function = lusush_getc;

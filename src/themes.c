@@ -83,40 +83,40 @@ static theme_definition_t *create_corporate_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Corporate color scheme - professional blues and grays
-    strncpy(theme->colors.primary, "\033[38;5;24m",
+    strncpy(theme->colors.primary, "\001\033[38;5;24m\002",
             COLOR_CODE_MAX - 1); // Dark blue
-    strncpy(theme->colors.secondary, "\033[38;5;67m",
+    strncpy(theme->colors.secondary, "\001\033[38;5;67m\002",
             COLOR_CODE_MAX - 1); // Steel blue
-    strncpy(theme->colors.success, "\033[38;5;28m",
+    strncpy(theme->colors.success, "\001\033[38;5;28m\002",
             COLOR_CODE_MAX - 1); // Dark green
-    strncpy(theme->colors.warning, "\033[38;5;172m",
+    strncpy(theme->colors.warning, "\001\033[38;5;172m\002",
             COLOR_CODE_MAX - 1); // Orange
-    strncpy(theme->colors.error, "\033[38;5;124m",
+    strncpy(theme->colors.error, "\001\033[38;5;124m\002",
             COLOR_CODE_MAX - 1); // Dark red
-    strncpy(theme->colors.info, "\033[38;5;31m", COLOR_CODE_MAX - 1); // Cyan
-    strncpy(theme->colors.text, "\033[38;5;250m",
+    strncpy(theme->colors.info, "\001\033[38;5;31m\002", COLOR_CODE_MAX - 1); // Cyan
+    strncpy(theme->colors.text, "\001\033[38;5;250m\002",
             COLOR_CODE_MAX - 1); // Light gray
-    strncpy(theme->colors.text_dim, "\033[38;5;242m",
+    strncpy(theme->colors.text_dim, "\001\033[38;5;242m\002",
             COLOR_CODE_MAX - 1); // Dim gray
-    strncpy(theme->colors.background, "\033[48;5;235m",
+    strncpy(theme->colors.background, "\001\033[48;5;235m\002",
             COLOR_CODE_MAX - 1); // Dark gray bg
-    strncpy(theme->colors.border, "\033[38;5;238m",
+    strncpy(theme->colors.border, "\001\033[38;5;238m\002",
             COLOR_CODE_MAX - 1); // Medium gray
-    strncpy(theme->colors.highlight, "\033[38;5;117m",
+    strncpy(theme->colors.highlight, "\001\033[38;5;117m\002",
             COLOR_CODE_MAX - 1); // Light blue
-    strncpy(theme->colors.git_clean, "\033[38;5;28m",
+    strncpy(theme->colors.git_clean, "\001\033[38;5;28m\002",
             COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_dirty, "\033[38;5;172m",
+    strncpy(theme->colors.git_dirty, "\001\033[38;5;172m\002",
             COLOR_CODE_MAX - 1); // Orange
-    strncpy(theme->colors.git_staged, "\033[38;5;34m",
+    strncpy(theme->colors.git_staged, "\001\033[38;5;34m\002",
             COLOR_CODE_MAX - 1); // Bright green
-    strncpy(theme->colors.git_branch, "\033[38;5;67m",
+    strncpy(theme->colors.git_branch, "\001\033[38;5;67m\002",
             COLOR_CODE_MAX - 1); // Steel blue
-    strncpy(theme->colors.path_home, "\033[38;5;117m",
+    strncpy(theme->colors.path_home, "\001\033[38;5;117m\002",
             COLOR_CODE_MAX - 1); // Light blue
-    strncpy(theme->colors.path_root, "\033[38;5;124m",
+    strncpy(theme->colors.path_root, "\001\033[38;5;124m\002",
             COLOR_CODE_MAX - 1); // Red
-    strncpy(theme->colors.path_normal, "\033[38;5;250m",
+    strncpy(theme->colors.path_normal, "\001\033[38;5;250m\002",
             COLOR_CODE_MAX - 1); // Gray
 
     // Corporate prompt templates
@@ -209,7 +209,7 @@ static theme_definition_t *create_dark_theme(void) {
     // Dark theme templates
     strncpy(theme->templates.primary_template,
             "%{primary}┌─[%{text}%u%{text_dim}@%{text}%h%{primary}]─[%{path_"
-            "normal}%d%{primary}]%{git_branch}%g\n\r"
+            "normal}%d%{primary}]%{git_branch}%g\n"
             "%{primary}└─%{highlight}$ %{text}",
             TEMPLATE_MAX - 1);
     strncpy(theme->templates.secondary_template,

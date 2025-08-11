@@ -138,7 +138,7 @@ static const prompt_opts attr_opts[] = {
 };
 static const int NUM_VALID_ATTRIB = sizeof(attr_opts) / sizeof(prompt_opts);
 
-static const char *RESET = "\x1b[0m"; // ansi color reset
+static const char *RESET = "\001\x1b[0m\002"; // ansi color reset with readline markers
 static char *colors = NULL;           // ansi color sequence
 // Static variables for legacy prompt support
 static FG_COLOR fg_color = ANSI_FG_GREEN;        // default foreground color
@@ -410,10 +410,10 @@ void build_prompt(void) {
         }
     } else if (prompt_style == PRO_PROMPT) {
         if (has_color_support) {
-            sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n\r%s%s", colors, u, h, d, t,
+            sprintf(prompt, "%s%s@%s\tin\t%s\t%s\n%s%s", colors, u, h, d, t,
                     (getuid() > 0) ? PS1 : PS1_ROOT, RESET);
         } else {
-            sprintf(prompt, "%s@%s\tin\t%s\t%s\n\r%s", u, h, d, t,
+            sprintf(prompt, "%s@%s\tin\t%s\t%s\n%s", u, h, d, t,
                     (getuid() > 0) ? PS1 : PS1_ROOT);
         }
     } else if (prompt_style == GIT_PROMPT) {
