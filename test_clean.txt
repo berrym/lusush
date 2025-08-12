@@ -1,5 +1,0 @@
-echo "test command 1"
-echo "test command 2"
-echo "test command 3"
-history
-exit

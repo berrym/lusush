@@ -4,7 +4,7 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '1.0.22',
+        version: '1.1.0',
         license: 'MIT')
 
 inc = include_directories('include',
