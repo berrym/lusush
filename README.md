@@ -1,9 +1,9 @@
-# Lusush Shell v1.1.0
+# Lusush Shell v1.1.1
 
 **Enterprise-Ready Professional Shell with Advanced Features**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/berrym/lusush)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/berrym/lusush)
 [![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-green.svg)]()
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
@@ -250,7 +250,9 @@ We welcome contributions to Lusush! This project follows modern development prac
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+**Note**: Lusush uses GNU Readline, which requires GPL-compatible licensing. This ensures full compliance with readline's licensing requirements while maintaining the project's open-source nature.
 
 ---
 
@@ -293,8 +295,8 @@ meson setup builddir && ninja -C builddir
 # - Enterprise-grade performance and reliability
 ```
 
-**Lusush v1.1.0** - *Where enterprise reliability meets cutting-edge shell innovation.*
+**Lusush v1.1.1** - *Where enterprise reliability meets cutting-edge shell innovation.*
 
 ---
 
-*Copyright © 2025 Lusush Shell Project. Licensed under MIT License.*
+*Copyright © 2025 Lusush Shell Project. Licensed under GPL v3.*

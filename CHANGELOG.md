@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-02-15 - 📄 LICENSE CHANGE - GNU READLINE COMPLIANCE
+
+### 🔄 BREAKING CHANGE
+- **License Change**: Migrated from MIT License to GNU General Public License v3.0+
+  - **Reason**: Full compliance with GNU Readline library licensing requirements
+  - **Impact**: Ensures legal compatibility with GNU Readline integration
+  - **Author Authorization**: Change authorized by copyright holder Michael Berry
+  - **GPL Headers**: Added to core source files (lusush.c, readline_integration.c, lusush.h, readline_integration.h)
+  - **Documentation**: Updated README.md, meson.build, and all license references
+
+### 📋 TECHNICAL DETAILS
+- **License File**: Replaced with complete GPL v3 license text
+- **Build System**: Updated meson.build license field to 'GPL-3.0+'
+- **Source Headers**: Added GPL copyright notices to key files
+- **Documentation**: Updated badge and copyright notices in README.md
+- **Compatibility**: Maintains all existing functionality while ensuring legal compliance
+
+### ⚖️ LEGAL RATIONALE
+Since Lusush uses GNU Readline (which is GPL v3+), the entire project must be GPL-compatible to ensure proper licensing compliance. This change preserves the open-source nature while meeting all legal requirements for distribution.
+
 ## [1.1.0] - 2025-02-15 - 🚀 MAJOR FEATURE RELEASE - ENTERPRISE READY
 
 ### 🎉 MAJOR FEATURES ADDED

@@ -4,8 +4,8 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '1.1.0',
-        license: 'MIT')
+        version: '1.1.1',
+        license: 'GPL-3.0+')
 
 inc = include_directories('include',
                           'include/libhashtable',
