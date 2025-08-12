@@ -185,6 +185,7 @@ static void analyze_line(const char *line, input_state_t *state) {
                 
                 // Check for control keywords
                 if (is_control_keyword(word)) {
+                    
                     if (strcmp(word, "if") == 0) {
                         state->in_if_statement = true;
                         state->compound_command_depth++;
@@ -207,6 +208,7 @@ static void analyze_line(const char *line, input_state_t *state) {
                         state->compound_command_depth++;
                     } else if (strcmp(word, "fi") == 0) {
                         state->in_if_statement = false;
+                        state->has_continuation = false;  // Clear continuation flag when closing if
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
@@ -214,11 +216,13 @@ static void analyze_line(const char *line, input_state_t *state) {
                         state->in_while_loop = false;
                         state->in_for_loop = false;
                         state->in_until_loop = false;
+                        state->has_continuation = false;  // Clear continuation flag when closing loop
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
                     } else if (strcmp(word, "esac") == 0) {
                         state->in_case_statement = false;
+                        state->has_continuation = false;  // Clear continuation flag when closing case
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
@@ -246,12 +250,22 @@ static void analyze_line(const char *line, input_state_t *state) {
     }
     
     // Handle remaining word
+    // Check final word at end of line if any
     if (word_pos > 0) {
         word[word_pos] = '\0';
+        
         if (is_control_keyword(word)) {
             // Handle keywords found at end of line
             if (strcmp(word, "then") == 0 || strcmp(word, "do") == 0) {
                 state->has_continuation = true;
+            } else if (strcmp(word, "done") == 0) {
+                state->in_while_loop = false;
+                state->in_for_loop = false;
+                state->in_until_loop = false;
+                state->has_continuation = false;  // Clear continuation flag when closing loop
+                if (state->compound_command_depth > 0) {
+                    state->compound_command_depth--;
+                }
             }
         }
     }

@@ -143,7 +143,14 @@ bool lusush_syntax_highlighting_is_enabled(void);
  * Apply syntax highlighting to current line buffer
  * Called automatically by readline during editing
  */
-void lusush_syntax_highlight_line(void);
+int lusush_syntax_highlight_line(void);
+
+/**
+ * Show syntax highlighted preview of command when complete
+ * Safe approach that shows colors without interfering with readline
+ * @param command the command line to preview with syntax highlighting
+ */
+void lusush_show_command_syntax_preview(const char *command);
 
 /**
  * Configure syntax highlighting colors and styles

@@ -221,7 +221,7 @@ static int run_command(const char *cmd, char *output, size_t output_size) {
  *      Get the current git branch name.
  */
 static int get_git_branch(char *branch, size_t branch_size) {
-    return run_command("git branch --show-current 2>/dev/null", branch, branch_size);
+    return run_command("git branch --show-current", branch, branch_size);
 }
 
 /**
@@ -235,7 +235,7 @@ static void get_git_status(git_info_t *info) {
     memset(info, 0, sizeof(git_info_t));
 
     // Check if we're in a git repository
-    if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
+    if (run_command("git rev-parse --git-dir", NULL, 0) != 0) {
         return; // Not in a git repository
     }
 
@@ -245,25 +245,25 @@ static void get_git_status(git_info_t *info) {
     }
 
     // Check for staged changes
-    if (run_command("git diff --cached --quiet 2>/dev/null", NULL, 0) != 0) {
+    if (run_command("git diff --cached --quiet", NULL, 0) != 0) {
         info->has_staged = 1;
     }
 
     // Check for unstaged changes
-    if (run_command("git diff --quiet 2>/dev/null", NULL, 0) != 0) {
+    if (run_command("git diff --quiet", NULL, 0) != 0) {
         info->has_changes = 1;
     }
 
     // Check for untracked files
-    if (run_command("git ls-files --others --exclude-standard 2>/dev/null", output,
+    if (run_command("git ls-files --others --exclude-standard", output,
                     sizeof(output)) == 0 &&
         strlen(output) > 0) {
         info->has_untracked = 1;
     }
 
     // Check ahead/behind status - only if upstream exists
-    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null", NULL, 0) == 0) {
-        if (run_command("git rev-list --count --left-right @{upstream}...HEAD 2>/dev/null",
+    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name @{upstream}", NULL, 0) == 0) {
+        if (run_command("git rev-list --count --left-right @{upstream}...HEAD",
                         output, sizeof(output)) == 0) {
             sscanf(output, "%d\t%d", &info->behind, &info->ahead);
         }
@@ -309,18 +309,17 @@ void format_git_prompt(char *git_prompt, size_t size) {
         strcat(status_indicators, "?");
     }
 
-    // Format ahead/behind indicators
-    char ahead_behind[32] = "";
+    // Add ahead/behind indicators
+    char ahead_behind[16] = "";
     if (git_info.ahead > 0 && git_info.behind > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), "↕%d/%d", git_info.ahead,
-                 git_info.behind);
+        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d↓%d", git_info.ahead, git_info.behind);
     } else if (git_info.ahead > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), "↑%d", git_info.ahead);
+        snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d", git_info.ahead);
     } else if (git_info.behind > 0) {
-        snprintf(ahead_behind, sizeof(ahead_behind), "↓%d", git_info.behind);
+        snprintf(ahead_behind, sizeof(ahead_behind), " ↓%d", git_info.behind);
     }
 
-    // Combine all git information
+    // Format the complete git prompt
     if (strlen(status_indicators) > 0 || strlen(ahead_behind) > 0) {
         snprintf(git_prompt, size, " (%s%s%s%s)", git_info.branch,
                  strlen(status_indicators) > 0 ? " " : "", status_indicators,
