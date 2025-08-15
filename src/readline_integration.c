@@ -284,10 +284,7 @@ char *lusush_readline_with_prompt(const char *prompt) {
     char *line = readline(actual_prompt);
     
     // Debug: Track what commands are being entered in interactive mode
-    if (debug_enabled && line && *line) {
-        fprintf(stderr, "[READLINE_DEBUG] Command entered: '%s'\n", line);
-        fflush(stderr);
-    }
+
     
     // Call post-input hook
     if (post_input_hook) {
@@ -850,10 +847,7 @@ void lusush_configure_smart_triggering(int frequency, int max_fps, bool debug) {
     trigger_config.max_fps = max_fps;
     trigger_config.debug_logging = debug;
     
-    if (debug) {
-        fprintf(stderr, "[INFO] Smart triggering configured: freq=%d, fps=%d\n", 
-                frequency, max_fps);
-    }
+
 }
 
 // Public function to get current triggering statistics
@@ -869,7 +863,6 @@ void lusush_get_trigger_stats(int *total_triggers, int *chars_processed) {
 // Simple function to enable debug mode for testing
 void lusush_enable_trigger_debug(void) {
     trigger_config.debug_logging = true;
-    fprintf(stderr, "[INFO] Smart triggering debug mode enabled\n");
 }
 
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
@@ -891,7 +884,7 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         // Phase 2: Use custom redisplay for real-time highlighting
         rl_redisplay_function = lusush_safe_redisplay;
         
-        fprintf(stderr, "[INFO] Phase 2 syntax highlighting enabled\n");
+
     } else {
         // Disable: clean up and use standard functions
         cleanup_highlight_buffer();
@@ -899,7 +892,7 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         rl_getc_function = rl_getc;
         rl_pre_input_hook = NULL;
         
-        fprintf(stderr, "[INFO] Syntax highlighting disabled\n");
+
     }
 }
 
@@ -1203,11 +1196,7 @@ static bool needs_highlight_update(void) {
     
     // Debug output for cache behavior
     if (debug_enabled && rl_line_buffer && strlen(rl_line_buffer) > 0) {
-        static int debug_counter = 0;
-        if (++debug_counter % 10 == 0) {  // Only show every 10th check
-            fprintf(stderr, "[DEBUG] Cache check: content_changed=%d, cursor_moved=%d, needs_update=%d\n", 
-                    content_changed, cursor_moved, needs_update);
-        }
+
     }
     
     return needs_update;
@@ -1342,20 +1331,14 @@ static void lusush_apply_optimized_highlighting(void) {
     // Check if update is needed
     if (!needs_highlight_update()) {
         perf_stats.cache_hits++;
-        if (debug_enabled && perf_stats.cache_hits % 100 == 0) {
-            fprintf(stderr, "[DEBUG] Cache hit #%lu (%.1f%% hit rate)\n", 
-                    perf_stats.cache_hits, 
-                    (double)perf_stats.cache_hits / (perf_stats.cache_hits + perf_stats.cache_misses) * 100.0);
-        }
+
         return;
     }
     
     perf_stats.cache_misses++;
     perf_stats.total_updates++;
     
-    if (debug_enabled) {
-        fprintf(stderr, "[DEBUG] Cache miss #%lu, performing highlight update\n", perf_stats.cache_misses);
-    }
+
     
     // Calculate update region
     highlight_region_t region = calculate_update_region();
@@ -1457,9 +1440,7 @@ void lusush_show_highlight_performance(void) {
 // Enable debug output for Phase 3 optimization
 void lusush_set_debug_enabled(bool enabled) {
     debug_enabled = enabled;
-    if (enabled) {
-        fprintf(stderr, "[DEBUG] Phase 3 optimization debug output enabled\n");
-    }
+
 }
 
 // Custom redisplay function - disabled for safety
@@ -1494,9 +1475,6 @@ void lusush_syntax_highlighting_configure(const char *commands_color,
 static int lusush_abort_line(int count, int key) {
     (void)count; (void)key;
     
-    // DIAGNOSTIC: Print to stderr to verify function is called
-    fprintf(stderr, "[KEY_DEBUG] lusush_abort_line called - Ctrl+G pressed\n");
-    
     // Clear displayed line properly
     printf("\r\033[K");  // Move to start of line and clear to end of line
     fflush(stdout);
@@ -1510,7 +1488,6 @@ static int lusush_abort_line(int count, int key) {
     rl_on_new_line();
     rl_redisplay();
     
-    fprintf(stderr, "[KEY_DEBUG] lusush_next_history completed\n");
     return 0;
 }
 
