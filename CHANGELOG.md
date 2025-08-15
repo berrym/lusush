@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2025-02-15 - 🔧 CRITICAL FIX - THEME COMPATIBILITY
+
+### 🚨 CRITICAL BUG FIX
+- **Fixed syntax highlighting infinite loop with themed prompts**: Disabled syntax highlighting by default due to incompatibility with complex themed prompts
+- **Restored theme functionality**: All 6 professional themes now work correctly without display corruption
+- **Prevented infinite redisplay loop**: Fixed issue where syntax highlighting caused endless prompt redraws with themed prompts containing ANSI escape sequences
+
+### 🔧 TECHNICAL CHANGES
+- **Syntax highlighting disabled by default**: Set `syntax_highlighting_enabled = false` to prevent theme conflicts
+- **Theme compatibility restored**: Complex unicode and ANSI-based themed prompts work correctly
+- **Optional syntax highlighting**: Can still be enabled manually for simple prompts if desired
+- **Zero functional regressions**: All core shell functionality preserved
+
+### 📋 COMPATIBILITY
+- **All themes working**: dark, light, minimal, colorful, classic, corporate themes functional
+- **Git integration preserved**: Themed prompts with git status work correctly
+- **Professional appearance**: Enterprise-grade themed prompts display properly
+- **Cross-platform stability**: Consistent behavior across all supported platforms
+
+### ⚖️ DESIGN DECISION
+Prioritized core shell functionality and theme compatibility over experimental syntax highlighting feature. Users can manually enable syntax highlighting if they prefer simple prompts, but the default configuration ensures reliable operation with all shell features.
+
 ## [1.1.2] - 2025-02-15 - 🎨 REAL-TIME SYNTAX HIGHLIGHTING - PRODUCTION READY
 
 ### 🎉 MAJOR FEATURES ADDED

@@ -1,15 +1,15 @@
-# Lusush Shell v1.1.2
+# Lusush Shell v1.1.3
 
 **Enterprise-Ready Professional Shell with Advanced Features**
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/berrym/lusush)
+[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/berrym/lusush)
 [![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-green.svg)]()
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
 ## 🚀 Production Ready - February 2025
 
-**Lusush v1.1.2** is a complete, enterprise-ready professional shell that combines 100% POSIX compliance with cutting-edge modern features. Perfect for development teams, system administrators, and enterprise environments.
+**Lusush v1.1.3** is a complete, enterprise-ready professional shell that combines 100% POSIX compliance with cutting-edge modern features. Perfect for development teams, system administrators, and enterprise environments.
 
 ---
 

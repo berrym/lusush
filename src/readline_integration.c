@@ -54,7 +54,7 @@
 static bool initialized = false;
 static char *current_prompt = NULL;
 static char *history_file_path = NULL;
-static bool syntax_highlighting_enabled = true;
+static bool syntax_highlighting_enabled = false;
 static bool debug_enabled = false;
 
 // Syntax highlighting colors (without readline escape sequences for direct output)
@@ -198,8 +198,8 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
-    // Enable syntax highlighting by default
-    lusush_syntax_highlighting_set_enabled(true);
+    // Disable syntax highlighting by default due to theme compatibility issues
+    lusush_syntax_highlighting_set_enabled(false);
     
     // Phase 3: Initialize change detection and performance monitoring
     init_change_detector();
