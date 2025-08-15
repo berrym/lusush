@@ -77,6 +77,39 @@ static char **history_cache = NULL;
 static int history_cache_size = 0;
 static int history_cache_capacity = 0;
 
+// Phase 3: Performance Optimization - Change Detection System
+typedef struct {
+    char *cached_line;
+    size_t cached_length;
+    size_t last_cursor_pos;
+    uint32_t line_hash;
+    bool cache_valid;
+    clock_t last_update_time;
+} change_detector_t;
+
+static change_detector_t change_cache = {NULL, 0, 0, 0, false, 0};
+
+// Phase 3: Region-based highlighting for incremental updates
+typedef struct {
+    size_t start_pos;
+    size_t end_pos;
+    bool full_line;
+} highlight_region_t;
+
+// Phase 3: Performance monitoring
+typedef struct {
+    uint64_t total_updates;
+    uint64_t cache_hits;
+    uint64_t cache_misses;
+    uint64_t incremental_updates;
+    uint64_t full_updates;
+    double total_update_time;
+    double peak_update_time;
+    double avg_update_time;
+} perf_stats_t;
+
+static perf_stats_t perf_stats = {0, 0, 0, 0, 0, 0.0, 0.0, 0.0};
+
 // Forward declarations
 static void setup_readline_config(void);
 static void setup_key_bindings(void);
@@ -96,6 +129,25 @@ static int lusush_abort_line(int count, int key);
 static int lusush_clear_screen_and_redisplay(int count, int key);
 static int lusush_previous_history(int count, int key);
 static int lusush_next_history(int count, int key);
+
+// Phase 3: Optimization function declarations
+static bool init_change_detector(void);
+static void cleanup_change_detector(void);
+static bool needs_highlight_update(void);
+static void update_change_cache(void);
+static uint32_t calculate_line_hash(const char *line, size_t length);
+static highlight_region_t calculate_update_region(void);
+static size_t expand_to_word_boundary_left(size_t pos);
+static size_t expand_to_word_boundary_right(size_t pos);
+static double get_current_time_ms(void);
+static void lusush_apply_optimized_highlighting(void);
+static void lusush_get_highlight_performance_stats(uint64_t *cache_hits, uint64_t *cache_misses, uint64_t *total_updates, double *avg_time);
+static void lusush_reset_highlight_performance_stats(void);
+static void lusush_report_performance(void);
+
+// Public interface
+void lusush_show_highlight_performance(void);
+void lusush_set_debug_enabled(bool enabled);
 
 
 // ============================================================================
@@ -149,6 +201,10 @@ bool lusush_readline_init(void) {
     // Enable syntax highlighting by default
     lusush_syntax_highlighting_set_enabled(true);
     
+    // Phase 3: Initialize change detection and performance monitoring
+    init_change_detector();
+    lusush_reset_highlight_performance_stats();
+    
     // Initialize history cache for deduplication
     history_cache_capacity = 100;
     history_cache = malloc(history_cache_capacity * sizeof(char*));
@@ -191,6 +247,9 @@ void lusush_readline_cleanup(void) {
         free(history_file_path);
         history_file_path = NULL;
     }
+    
+    // Phase 3: Cleanup optimization systems
+    cleanup_change_detector();
     
     initialized = false;
 }
@@ -1078,7 +1137,330 @@ static void lusush_output_colored_line(const char *line, int cursor_pos __attrib
     }
 }
 
+// ============================================================================
+// PHASE 3: PERFORMANCE OPTIMIZATION FUNCTIONS
+// ============================================================================
 
+// Fast hash function for line content
+static uint32_t calculate_line_hash(const char *line, size_t length) {
+    if (!line || length == 0) return 0;
+    
+    uint32_t hash = 5381;
+    for (size_t i = 0; i < length; i++) {
+        hash = ((hash << 5) + hash) + (unsigned char)line[i];
+    }
+    return hash;
+}
+
+// Initialize change detection system
+static bool init_change_detector(void) {
+    if (change_cache.cached_line) {
+        free(change_cache.cached_line);
+    }
+    
+    change_cache.cached_line = NULL;
+    change_cache.cached_length = 0;
+    change_cache.last_cursor_pos = 0;
+    change_cache.line_hash = 0;
+    change_cache.cache_valid = false;
+    change_cache.last_update_time = 0;
+    
+    return true;
+}
+
+// Clean up change detection system
+static void cleanup_change_detector(void) {
+    if (change_cache.cached_line) {
+        free(change_cache.cached_line);
+        change_cache.cached_line = NULL;
+    }
+    change_cache.cached_length = 0;
+    change_cache.cache_valid = false;
+}
+
+// Check if highlighting update is needed
+static bool needs_highlight_update(void) {
+    if (!rl_line_buffer) {
+        return change_cache.cache_valid; // Clear if we had content before
+    }
+    
+    size_t current_length = strlen(rl_line_buffer);
+    uint32_t current_hash = calculate_line_hash(rl_line_buffer, current_length);
+    
+    // Check for changes
+    bool content_changed = (current_hash != change_cache.line_hash) ||
+                          (current_length != change_cache.cached_length) ||
+                          !change_cache.cache_valid;
+    
+    bool cursor_moved = (rl_point != (int)change_cache.last_cursor_pos);
+    
+    // Throttle updates to maximum refresh rate
+    clock_t current_time = clock();
+    bool throttle_ok = (current_time - change_cache.last_update_time) > 
+                       (CLOCKS_PER_SEC / 60); // Max 60 FPS
+    
+    bool needs_update = (content_changed || cursor_moved) && throttle_ok;
+    
+    // Debug output for cache behavior
+    if (debug_enabled && rl_line_buffer && strlen(rl_line_buffer) > 0) {
+        static int debug_counter = 0;
+        if (++debug_counter % 10 == 0) {  // Only show every 10th check
+            fprintf(stderr, "[DEBUG] Cache check: content_changed=%d, cursor_moved=%d, needs_update=%d\n", 
+                    content_changed, cursor_moved, needs_update);
+        }
+    }
+    
+    return needs_update;
+}
+
+// Update the change cache
+static void update_change_cache(void) {
+    if (!rl_line_buffer) {
+        change_cache.cache_valid = false;
+        return;
+    }
+    
+    size_t current_length = strlen(rl_line_buffer);
+    
+    // Reallocate cache buffer if needed
+    if (current_length + 1 > change_cache.cached_length) {
+        char *new_cache = realloc(change_cache.cached_line, current_length + 1);
+        if (!new_cache) {
+            change_cache.cache_valid = false;
+            return;
+        }
+        change_cache.cached_line = new_cache;
+        change_cache.cached_length = current_length + 1;
+    }
+    
+    // Update cache content
+    strcpy(change_cache.cached_line, rl_line_buffer);
+    change_cache.line_hash = calculate_line_hash(rl_line_buffer, current_length);
+    change_cache.last_cursor_pos = rl_point;
+    change_cache.cache_valid = true;
+    change_cache.last_update_time = clock();
+}
+
+// Expand region to word boundary (left)
+static size_t expand_to_word_boundary_left(size_t pos) {
+    if (!rl_line_buffer || pos == 0) return 0;
+    
+    // Move left to find word/token boundary
+    while (pos > 0 && !lusush_is_word_separator(rl_line_buffer[pos - 1]) &&
+           rl_line_buffer[pos - 1] != '|' && rl_line_buffer[pos - 1] != '&' &&
+           rl_line_buffer[pos - 1] != ';' && rl_line_buffer[pos - 1] != '<' &&
+           rl_line_buffer[pos - 1] != '>') {
+        pos--;
+    }
+    
+    return pos;
+}
+
+// Expand region to word boundary (right)
+static size_t expand_to_word_boundary_right(size_t pos) {
+    if (!rl_line_buffer) return 0;
+    
+    size_t len = strlen(rl_line_buffer);
+    if (pos >= len) return len;
+    
+    // Move right to find word/token boundary
+    while (pos < len && !lusush_is_word_separator(rl_line_buffer[pos]) &&
+           rl_line_buffer[pos] != '|' && rl_line_buffer[pos] != '&' &&
+           rl_line_buffer[pos] != ';' && rl_line_buffer[pos] != '<' &&
+           rl_line_buffer[pos] != '>') {
+        pos++;
+    }
+    
+    return pos;
+}
+
+// Calculate the minimal region that needs re-highlighting
+static highlight_region_t calculate_update_region(void) {
+    highlight_region_t region = {0, 0, true};
+    
+    if (!rl_line_buffer || !change_cache.cached_line || !change_cache.cache_valid) {
+        // Full update needed
+        region.full_line = true;
+        region.start_pos = 0;
+        region.end_pos = rl_line_buffer ? strlen(rl_line_buffer) : 0;
+        return region;
+    }
+    
+    size_t current_len = strlen(rl_line_buffer);
+    size_t cached_len = strlen(change_cache.cached_line);
+    
+    // Find first difference
+    size_t start_diff = 0;
+    size_t min_len = (current_len < cached_len) ? current_len : cached_len;
+    
+    while (start_diff < min_len && 
+           rl_line_buffer[start_diff] == change_cache.cached_line[start_diff]) {
+        start_diff++;
+    }
+    
+    // Find last difference
+    size_t end_diff_current = current_len;
+    size_t end_diff_cached = cached_len;
+    
+    while (end_diff_current > start_diff && end_diff_cached > start_diff &&
+           rl_line_buffer[end_diff_current - 1] == change_cache.cached_line[end_diff_cached - 1]) {
+        end_diff_current--;
+        end_diff_cached--;
+    }
+    
+    // Expand region to word boundaries for better syntax highlighting
+    size_t region_start = expand_to_word_boundary_left(start_diff);
+    size_t region_end = expand_to_word_boundary_right(end_diff_current);
+    
+    // Check if region is significant enough for partial update
+    if (region_end - region_start > current_len * 0.7) {
+        // Large change, do full update
+        region.full_line = true;
+        region.start_pos = 0;
+        region.end_pos = current_len;
+    } else {
+        // Small change, partial update
+        region.full_line = false;
+        region.start_pos = region_start;
+        region.end_pos = region_end;
+    }
+    
+    return region;
+}
+
+// Get current time in milliseconds for performance monitoring
+static double get_current_time_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
+}
+
+// Optimized highlighting with performance monitoring
+static void lusush_apply_optimized_highlighting(void) {
+    double start_time = get_current_time_ms();
+    
+    // Check if update is needed
+    if (!needs_highlight_update()) {
+        perf_stats.cache_hits++;
+        if (debug_enabled && perf_stats.cache_hits % 100 == 0) {
+            fprintf(stderr, "[DEBUG] Cache hit #%lu (%.1f%% hit rate)\n", 
+                    perf_stats.cache_hits, 
+                    (double)perf_stats.cache_hits / (perf_stats.cache_hits + perf_stats.cache_misses) * 100.0);
+        }
+        return;
+    }
+    
+    perf_stats.cache_misses++;
+    perf_stats.total_updates++;
+    
+    if (debug_enabled) {
+        fprintf(stderr, "[DEBUG] Cache miss #%lu, performing highlight update\n", perf_stats.cache_misses);
+    }
+    
+    // Calculate update region
+    highlight_region_t region = calculate_update_region();
+    
+    if (region.full_line) {
+        perf_stats.full_updates++;
+        
+        // Full line update - use existing function
+        printf("\r\033[K");  // Return to start and clear line
+        
+        // Print current prompt
+        const char *prompt = rl_prompt ? rl_prompt : "$ ";
+        printf("%s", prompt);
+        
+        // Print line with syntax highlighting
+        lusush_output_colored_line(rl_line_buffer, rl_point);
+        
+        // Move cursor to correct position
+        printf("\r%s", prompt);
+        for (int i = 0; i < rl_point && i < rl_end; i++) {
+            printf("\033[C");  // Move cursor right
+        }
+    } else {
+        perf_stats.incremental_updates++;
+        
+        // For now, fall back to full update for safety
+        // TODO: Implement true incremental updates in future optimization
+        printf("\r\033[K");
+        
+        const char *prompt = rl_prompt ? rl_prompt : "$ ";
+        printf("%s", prompt);
+        lusush_output_colored_line(rl_line_buffer, rl_point);
+        
+        printf("\r%s", prompt);
+        for (int i = 0; i < rl_point && i < rl_end; i++) {
+            printf("\033[C");
+        }
+    }
+    
+    // Update cache
+    update_change_cache();
+    
+    // Update performance statistics
+    double end_time = get_current_time_ms();
+    double update_time = end_time - start_time;
+    perf_stats.total_update_time += update_time;
+    if (update_time > perf_stats.peak_update_time) {
+        perf_stats.peak_update_time = update_time;
+    }
+    perf_stats.avg_update_time = perf_stats.total_update_time / perf_stats.total_updates;
+    
+    fflush(stdout);
+}
+
+// Performance monitoring and reporting functions
+static void lusush_get_highlight_performance_stats(uint64_t *cache_hits, uint64_t *cache_misses, 
+                                                  uint64_t *total_updates, double *avg_time) {
+    if (cache_hits) *cache_hits = perf_stats.cache_hits;
+    if (cache_misses) *cache_misses = perf_stats.cache_misses;
+    if (total_updates) *total_updates = perf_stats.total_updates;
+    if (avg_time) *avg_time = perf_stats.avg_update_time;
+}
+
+static void lusush_reset_highlight_performance_stats(void) {
+    perf_stats.total_updates = 0;
+    perf_stats.cache_hits = 0;
+    perf_stats.cache_misses = 0;
+    perf_stats.incremental_updates = 0;
+    perf_stats.full_updates = 0;
+    perf_stats.total_update_time = 0.0;
+    perf_stats.peak_update_time = 0.0;
+    perf_stats.avg_update_time = 0.0;
+}
+
+static void lusush_report_performance(void) {
+    if (perf_stats.total_updates == 0) {
+        printf("No highlighting updates recorded.\n");
+        return;
+    }
+    
+    double cache_hit_rate = (double)perf_stats.cache_hits / 
+                           (perf_stats.cache_hits + perf_stats.cache_misses) * 100.0;
+    
+    printf("Syntax Highlighting Performance Report:\n");
+    printf("  Total updates: %lu\n", perf_stats.total_updates);
+    printf("  Cache hits: %lu (%.1f%%)\n", perf_stats.cache_hits, cache_hit_rate);
+    printf("  Cache misses: %lu\n", perf_stats.cache_misses);
+    printf("  Full updates: %lu\n", perf_stats.full_updates);
+    printf("  Incremental updates: %lu\n", perf_stats.incremental_updates);
+    printf("  Average update time: %.3f ms\n", perf_stats.avg_update_time);
+    printf("  Peak update time: %.3f ms\n", perf_stats.peak_update_time);
+}
+
+// Public interface for performance stats
+void lusush_show_highlight_performance(void) {
+    lusush_report_performance();
+}
+
+// Enable debug output for Phase 3 optimization
+void lusush_set_debug_enabled(bool enabled) {
+    debug_enabled = enabled;
+    if (enabled) {
+        fprintf(stderr, "[DEBUG] Phase 3 optimization debug output enabled\n");
+    }
+}
 
 // Custom redisplay function - disabled for safety
 static void lusush_custom_redisplay(void) {
@@ -1528,25 +1910,8 @@ static void lusush_safe_redisplay(void) {
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Validate buffer
         if (rl_line_buffer && rl_end > 0 && strlen(rl_line_buffer) > 0) {
-            // Use readline's prompt if available, otherwise fallback to default
-            const char *prompt = rl_prompt ? rl_prompt : "$ ";
-            
-            // Direct terminal output approach
-            printf("\r\033[K");  // Return to start and clear line
-            
-            // Print current prompt (preserves loop>, if>, etc.)
-            printf("%s", prompt);
-            
-            // Print line with syntax highlighting directly
-            lusush_output_colored_line(rl_line_buffer, rl_point);
-            
-            // Move cursor to correct position
-            printf("\r%s", prompt);
-            for (int i = 0; i < rl_point && i < rl_end; i++) {
-                printf("\033[C");  // Move cursor right
-            }
-            
-            fflush(stdout);
+            // Phase 3: Use optimized highlighting with caching and change detection
+            lusush_apply_optimized_highlighting();
             in_redisplay = false;
             return;
         }

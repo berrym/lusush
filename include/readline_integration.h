@@ -378,6 +378,18 @@ void lusush_set_pre_input_hook(lusush_pre_input_hook_t hook);
  */
 void lusush_set_post_input_hook(lusush_post_input_hook_t hook);
 
+/**
+ * Show syntax highlighting performance statistics
+ * Displays cache hit rates, update times, and optimization metrics
+ */
+void lusush_show_highlight_performance(void);
+
+/**
+ * Enable debug output for Phase 3 optimization
+ * @param enabled true to enable debug output, false to disable
+ */
+void lusush_set_debug_enabled(bool enabled);
+
 #ifdef __cplusplus
 }
 #endif
