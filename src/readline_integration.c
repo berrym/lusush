@@ -34,6 +34,8 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <ctype.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -46,6 +48,7 @@
 #include "../include/posix_history.h"
 #include "../include/lusush.h"
 #include "../include/init.h"
+#include "../include/input.h"
 
 // Global state
 static bool initialized = false;
@@ -54,7 +57,7 @@ static char *history_file_path = NULL;
 static bool syntax_highlighting_enabled = true;
 static bool debug_enabled = false;
 
-// Syntax highlighting colors
+// Syntax highlighting colors (without readline escape sequences for direct output)
 static const char *keyword_color = "\033[1;34m";    // Bright blue
 static const char *command_color = "\033[1;32m";    // Bright green
 static const char *string_color = "\033[1;33m";     // Bright yellow
@@ -695,16 +698,150 @@ void lusush_prompt_set_callback(lusush_prompt_callback_t callback) {
 }
 
 // ============================================================================
-// SYNTAX HIGHLIGHTING
+// SYNTAX HIGHLIGHTING API
 // ============================================================================
+
+// Configuration structure for smart triggering
+typedef struct {
+    int trigger_frequency;     // Every Nth character during typing (default: 3)
+    int max_fps;              // Maximum updates per second (default: 30)
+    bool debug_logging;       // Enable debug output (default: false)
+} smart_trigger_config_t;
+
+static smart_trigger_config_t trigger_config = {3, 30, false};
+
+// Global state for intelligent triggering
+static struct {
+    int consecutive_alphas;
+    int last_char;
+    bool in_word;
+    clock_t last_trigger_time;
+} typing_state = {0, 0, false, 0};
+
+// Forward declarations for smart character detection
+static bool should_trigger_highlighting(int c);
+static int lusush_syntax_update_hook(void);
+static void reset_typing_state(void);
+static bool is_word_boundary_char(int c);
+static bool is_syntax_significant_char(int c);
+static bool is_safe_for_highlighting(void);
+
+static void lusush_safe_redisplay(void);
+
+// Buffer management for safe highlighting
+typedef struct {
+    char *colored_buffer;
+    size_t buffer_size;
+    size_t buffer_capacity;
+    bool needs_realloc;
+} highlight_buffer_t;
+
+static highlight_buffer_t highlight_buf = {NULL, 0, 0, false};
+
+// Initialize highlighting buffer
+static bool init_highlight_buffer(size_t initial_size) {
+    if (highlight_buf.colored_buffer) {
+        free(highlight_buf.colored_buffer);
+    }
+    
+    highlight_buf.buffer_capacity = initial_size * 10; // Extra space for color codes
+    highlight_buf.colored_buffer = malloc(highlight_buf.buffer_capacity);
+    
+    if (!highlight_buf.colored_buffer) {
+        highlight_buf.buffer_capacity = 0;
+        return false;
+    }
+    
+    highlight_buf.buffer_size = 0;
+    highlight_buf.needs_realloc = false;
+    return true;
+}
+
+// Clean up highlighting buffer
+static void cleanup_highlight_buffer(void) {
+    if (highlight_buf.colored_buffer) {
+        free(highlight_buf.colored_buffer);
+        highlight_buf.colored_buffer = NULL;
+        highlight_buf.buffer_size = 0;
+        highlight_buf.buffer_capacity = 0;
+    }
+}
+
+// Ensure buffer has enough space
+static bool ensure_buffer_capacity(size_t needed_size) {
+    if (needed_size <= highlight_buf.buffer_capacity) {
+        return true;
+    }
+    
+    size_t new_capacity = needed_size * 2;
+    char *new_buffer = realloc(highlight_buf.colored_buffer, new_capacity);
+    
+    if (!new_buffer) {
+        return false;
+    }
+    
+    highlight_buf.colored_buffer = new_buffer;
+    highlight_buf.buffer_capacity = new_capacity;
+    return true;
+}
+
+// Public function to configure smart triggering
+void lusush_configure_smart_triggering(int frequency, int max_fps, bool debug) {
+    trigger_config.trigger_frequency = frequency;
+    trigger_config.max_fps = max_fps;
+    trigger_config.debug_logging = debug;
+    
+    if (debug) {
+        fprintf(stderr, "[INFO] Smart triggering configured: freq=%d, fps=%d\n", 
+                frequency, max_fps);
+    }
+}
+
+// Public function to get current triggering statistics
+void lusush_get_trigger_stats(int *total_triggers, int *chars_processed) {
+    static int total_chars = 0;
+    static int total_highlights = 0;
+    
+    // These would be updated in the actual triggering functions
+    *total_triggers = total_highlights;
+    *chars_processed = total_chars;
+}
+
+// Simple function to enable debug mode for testing
+void lusush_enable_trigger_debug(void) {
+    trigger_config.debug_logging = true;
+    fprintf(stderr, "[INFO] Smart triggering debug mode enabled\n");
+}
 
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
     syntax_highlighting_enabled = enabled;
     
-    // Always use standard functions to prevent display issues
-    // Real-time highlighting disabled to prevent prompt spam
-    rl_redisplay_function = rl_redisplay;
-    rl_getc_function = rl_getc;
+    if (enabled) {
+        // Phase 2: Enable smart character triggering with safe highlighting
+        rl_getc_function = lusush_getc;
+        reset_typing_state();
+        
+        // Initialize highlighting buffer
+        if (!init_highlight_buffer(1024)) {
+            fprintf(stderr, "[ERROR] Failed to initialize highlighting buffer\n");
+            syntax_highlighting_enabled = false;
+            rl_getc_function = rl_getc;
+            return;
+        }
+        
+        // Phase 2: Use custom redisplay for real-time highlighting
+        rl_redisplay_function = lusush_safe_redisplay;
+        
+        fprintf(stderr, "[INFO] Phase 2 syntax highlighting enabled\n");
+    } else {
+        // Disable: clean up and use standard functions
+        cleanup_highlight_buffer();
+        rl_redisplay_function = rl_redisplay;
+        rl_getc_function = rl_getc;
+        rl_pre_input_hook = NULL;
+        
+        fprintf(stderr, "[INFO] Syntax highlighting disabled\n");
+    }
 }
 
 bool lusush_syntax_highlighting_is_enabled(void) {
@@ -1247,6 +1384,180 @@ void lusush_set_post_input_hook(lusush_post_input_hook_t hook) {
 }
 
 // ============================================================================
+// SMART CHARACTER TRIGGERING
+// ============================================================================
+
+static bool should_trigger_highlighting(int c) {
+    clock_t current_time = clock();
+    
+    // Prevent too-frequent updates (max 30 FPS = ~33ms between updates)
+    if (current_time - typing_state.last_trigger_time < CLOCKS_PER_SEC / 30) {
+        // Only allow high-priority characters during throttling
+        if (!(c == ' ' || c == '\n' || c == '\t' || c == ';' || c == '|' || c == '&')) {
+            return false;
+        }
+    }
+    
+    // Always trigger on word boundaries and operators
+    if (is_word_boundary_char(c)) {
+        typing_state.in_word = false;
+        typing_state.consecutive_alphas = 0;
+        typing_state.last_trigger_time = current_time;
+        return true;
+    }
+    
+    // Always trigger on syntax-significant characters
+    if (is_syntax_significant_char(c)) {
+        typing_state.last_trigger_time = current_time;
+        return true;
+    }
+    
+    // Handle continuous typing (alphanumeric characters)
+    if (isalnum(c) || c == '_' || c == '-') {
+        typing_state.in_word = true;
+        typing_state.consecutive_alphas++;
+        
+        // Trigger every 3rd character during word typing to reduce spam
+        if (typing_state.consecutive_alphas % 3 == 0) {
+            typing_state.last_trigger_time = current_time;
+            return true;
+        }
+        return false;
+    }
+    
+    // Handle backspace/delete - always trigger to update highlighting
+    if (c == 8 || c == 127) {
+        typing_state.consecutive_alphas = 0;
+        typing_state.last_trigger_time = current_time;
+        return true;
+    }
+    
+    // Default: don't trigger for other characters
+    return false;
+}
+
+static bool is_word_boundary_char(int c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static bool is_syntax_significant_char(int c) {
+    return strchr("|&;<>()[]{}$\"'#", c) != NULL;
+}
+
+static int lusush_syntax_update_hook(void) {
+    // Phase 2: Just mark that we need an update
+    // The actual highlighting happens in lusush_safe_redisplay
+    // Don't force immediate redisplay to avoid multiple calls
+    
+    // Remove the hook after use
+    rl_pre_input_hook = NULL;
+    return 0;
+}
+
+static void reset_typing_state(void) {
+    typing_state.consecutive_alphas = 0;
+    typing_state.last_char = 0;
+    typing_state.in_word = false;
+    typing_state.last_trigger_time = 0;
+}
+
+static bool is_safe_for_highlighting(void) {
+    // Enhanced safety checks for Phase 2
+    
+    // 1. Basic readline state validation
+    if (rl_readline_state & (RL_STATE_ISEARCH | RL_STATE_NSEARCH | 
+                            RL_STATE_SEARCH | RL_STATE_COMPLETING |
+                            RL_STATE_VICMDONCE | RL_STATE_VIMOTION |
+                            RL_STATE_MOREINPUT | RL_STATE_MULTIKEY)) {
+        return false;
+    }
+    
+    // 2. Buffer validity - must have content
+    if (!rl_line_buffer || rl_end <= 0 || strlen(rl_line_buffer) == 0) {
+        return false;
+    }
+    
+    // 3. Terminal state
+    if (!isatty(STDOUT_FILENO)) {
+        return false;
+    }
+    
+    // 4. Recursion protection
+    static bool in_highlighting_check = false;
+    if (in_highlighting_check) {
+        return false;
+    }
+    
+    // 5. Check if we're in the middle of input processing
+    if (rl_point < 0 || rl_point > rl_end) {
+        return false;
+    }
+    
+    // 6. Skip highlighting for very short or empty input
+    if (strlen(rl_line_buffer) < 2) {
+        return false;
+    }
+    
+    return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Custom redisplay function for real-time syntax highlighting
+static void lusush_safe_redisplay(void) {
+    // Prevent recursive calls
+    static bool in_redisplay = false;
+    if (in_redisplay) {
+        rl_redisplay();
+        return;
+    }
+    
+    in_redisplay = true;
+    
+    // Check if we should apply highlighting
+    if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
+        // Validate buffer
+        if (rl_line_buffer && rl_end > 0 && strlen(rl_line_buffer) > 0) {
+            // Use readline's prompt if available, otherwise fallback to default
+            const char *prompt = rl_prompt ? rl_prompt : "$ ";
+            
+            // Direct terminal output approach
+            printf("\r\033[K");  // Return to start and clear line
+            
+            // Print current prompt (preserves loop>, if>, etc.)
+            printf("%s", prompt);
+            
+            // Print line with syntax highlighting directly
+            lusush_output_colored_line(rl_line_buffer, rl_point);
+            
+            // Move cursor to correct position
+            printf("\r%s", prompt);
+            for (int i = 0; i < rl_point && i < rl_end; i++) {
+                printf("\033[C");  // Move cursor right
+            }
+            
+            fflush(stdout);
+            in_redisplay = false;
+            return;
+        }
+    }
+    
+    in_redisplay = false;
+    // Fallback to standard redisplay
+    rl_redisplay();
+}
+
+// ============================================================================
 // CUSTOM INPUT HANDLING
 // ============================================================================
 
@@ -1265,8 +1576,14 @@ static int lusush_getc(FILE *stream) {
         }
     }
     
-    // Real-time highlighting disabled to prevent display issues
-    // Character-based triggering causes prompt spam
+    // Smart highlighting trigger - only when enabled and meaningful
+    if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
+        // Schedule update after input processing (non-blocking)
+        rl_pre_input_hook = lusush_syntax_update_hook;
+    }
+    
+    // Update typing state
+    typing_state.last_char = c;
     
     return c;
 }

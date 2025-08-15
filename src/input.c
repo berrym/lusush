@@ -61,6 +61,9 @@ static bool is_input_complete(input_state_t *state);
 static const char *get_continuation_prompt(input_state_t *state);
 static bool is_control_keyword(const char *word);
 static bool is_terminator(const char *line);
+
+// Public function to get current continuation prompt
+const char *lusush_get_current_continuation_prompt(void);
 static char *convert_multiline_for_history(const char *input);
 
 // ============================================================================
@@ -328,6 +331,35 @@ static const char *get_continuation_prompt(input_state_t *state) {
     }
     
     return ps2;
+}
+
+// Public function to get current continuation prompt
+const char *lusush_get_current_continuation_prompt(void) {
+    if (!state_initialized) {
+        return "$ ";  // Return primary prompt if not in multiline mode
+    }
+    
+    // Check for any active multiline state indicators
+    bool in_multiline = (global_state.in_single_quote || 
+                        global_state.in_double_quote ||
+                        global_state.in_backtick ||
+                        global_state.paren_count > 0 ||
+                        global_state.brace_count > 0 ||
+                        global_state.bracket_count > 0 ||
+                        global_state.in_if_statement ||
+                        global_state.in_while_loop ||
+                        global_state.in_for_loop ||
+                        global_state.in_until_loop ||
+                        global_state.in_case_statement ||
+                        global_state.in_function_definition ||
+                        global_state.compound_command_depth > 0);
+    
+    if (!in_multiline) {
+        return "$ ";  // Return primary prompt
+    }
+    
+    // Return appropriate continuation prompt
+    return get_continuation_prompt(&global_state);
 }
 
 static char *convert_multiline_for_history(const char *input) {

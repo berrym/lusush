@@ -15,4 +15,7 @@ char *get_unified_input(FILE *in);
 // Legacy compatibility (deprecated - use get_unified_input instead)
 char *ln_gets_complete(void);
 
+// Get current continuation prompt for multiline input
+const char *lusush_get_current_continuation_prompt(void);
+
 #endif
