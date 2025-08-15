@@ -1910,8 +1910,25 @@ static void lusush_safe_redisplay(void) {
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Validate buffer
         if (rl_line_buffer && rl_end > 0 && strlen(rl_line_buffer) > 0) {
-            // Phase 3: Use optimized highlighting with caching and change detection
-            lusush_apply_optimized_highlighting();
+            // Use readline's prompt if available, otherwise fallback to default
+            const char *prompt = rl_prompt ? rl_prompt : "$ ";
+            
+            // Direct terminal output approach
+            printf("\r\033[K");  // Return to start and clear line
+            
+            // Print current prompt (preserves loop>, if>, etc.)
+            printf("%s", prompt);
+            
+            // Print line with syntax highlighting directly
+            lusush_output_colored_line(rl_line_buffer, rl_point);
+            
+            // Move cursor to correct position
+            printf("\r%s", prompt);
+            for (int i = 0; i < rl_point && i < rl_end; i++) {
+                printf("\033[C");  // Move cursor right
+            }
+            
+            fflush(stdout);
             in_redisplay = false;
             return;
         }
