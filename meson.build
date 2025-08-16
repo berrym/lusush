@@ -9,6 +9,7 @@ project('lusush',
 
 inc = include_directories('include',
                           'include/libhashtable',
+                          'include/display',
                           'src')
 
 src = ['src/builtins/alias.c',
@@ -27,6 +28,9 @@ src = ['src/builtins/alias.c',
        'src/debug/debug_builtin.c',
        'src/debug/debug_profile.c',
        'src/debug/debug_analysis.c',
+       'src/display/base_terminal.c',
+       'src/display/terminal_control.c',
+       'src/display/layer_events.c',
        'src/errors.c',
        'src/executor.c',
        'src/expand.c',

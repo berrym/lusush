@@ -52,6 +52,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 #ifdef __linux__
 #include <sys/epoll.h>
@@ -316,9 +317,23 @@ base_terminal_error_t base_terminal_flush(base_terminal_t *terminal) {
         return BASE_TERMINAL_ERROR_INVALID_PARAM;
     }
     
-    if (fsync(terminal->output_fd) != 0) {
-        terminal->last_error = BASE_TERMINAL_ERROR_FLUSH_FAILED;
-        return BASE_TERMINAL_ERROR_FLUSH_FAILED;
+    // Use fflush for stdout/stderr, fsync for other file descriptors
+    if (terminal->output_fd == STDOUT_FILENO) {
+        if (fflush(stdout) != 0) {
+            terminal->last_error = BASE_TERMINAL_ERROR_FLUSH_FAILED;
+            return BASE_TERMINAL_ERROR_FLUSH_FAILED;
+        }
+    } else if (terminal->output_fd == STDERR_FILENO) {
+        if (fflush(stderr) != 0) {
+            terminal->last_error = BASE_TERMINAL_ERROR_FLUSH_FAILED;
+            return BASE_TERMINAL_ERROR_FLUSH_FAILED;
+        }
+    } else {
+        // For other file descriptors, use fsync
+        if (fsync(terminal->output_fd) != 0) {
+            terminal->last_error = BASE_TERMINAL_ERROR_FLUSH_FAILED;
+            return BASE_TERMINAL_ERROR_FLUSH_FAILED;
+        }
     }
     
     return BASE_TERMINAL_SUCCESS;
@@ -546,6 +561,7 @@ static base_terminal_error_t detect_terminal_type(base_terminal_t *terminal) {
  * Setup signal handlers for terminal events
  */
 static base_terminal_error_t setup_signal_handlers(base_terminal_t *terminal) {
+    (void)terminal; // Unused parameter
     struct sigaction sa;
     sa.sa_handler = sigwinch_handler;
     sigemptyset(&sa.sa_mask);
@@ -562,6 +578,7 @@ static base_terminal_error_t setup_signal_handlers(base_terminal_t *terminal) {
  * Restore original signal handlers
  */
 static base_terminal_error_t restore_signal_handlers(base_terminal_t *terminal) {
+    (void)terminal; // Unused parameter
     if (sigaction(SIGWINCH, &original_sigwinch_handler, NULL) == -1) {
         return BASE_TERMINAL_ERROR_SIGNAL_HANDLER;
     }
@@ -586,7 +603,24 @@ static void sigwinch_handler(int sig) {
  * Validate terminal file descriptors
  */
 static base_terminal_error_t validate_terminal_fds(base_terminal_t *terminal) {
-    if (!isatty(terminal->input_fd) || !isatty(terminal->output_fd)) {
+    // Check if file descriptors are valid
+    if (terminal->input_fd < 0 || terminal->output_fd < 0) {
+        return BASE_TERMINAL_ERROR_TERMINAL_DETECTION;
+    }
+    
+    // For interactive terminals, both input and output should be TTYs
+    // For testing or non-interactive use, allow non-TTY file descriptors
+    bool input_is_tty = isatty(terminal->input_fd);
+    bool output_is_tty = isatty(terminal->output_fd);
+    
+    // If we're dealing with standard streams, be more permissive
+    if ((terminal->input_fd == STDIN_FILENO && terminal->output_fd == STDOUT_FILENO)) {
+        // Allow operation even if not TTYs (for testing/scripting)
+        return BASE_TERMINAL_SUCCESS;
+    }
+    
+    // For other file descriptors, require TTY status
+    if (!input_is_tty || !output_is_tty) {
         return BASE_TERMINAL_ERROR_TERMINAL_DETECTION;
     }
     
@@ -597,6 +631,7 @@ static base_terminal_error_t validate_terminal_fds(base_terminal_t *terminal) {
  * Configure initial terminal modes
  */
 static base_terminal_error_t configure_terminal_modes(base_terminal_t *terminal) {
+    (void)terminal; // Unused parameter
     // Start in canonical mode (normal terminal behavior)
     // Raw mode can be enabled later if needed
     return BASE_TERMINAL_SUCCESS;
