@@ -432,8 +432,9 @@ int init(int argc, char **argv, FILE **in) {
     atexit(theme_cleanup);
     atexit(network_cleanup);
     
-    // Enhanced history cleanup
-    if (global_posix_history) {
+    // Enhanced history cleanup - only in non-interactive mode
+    // In interactive mode, readline handles history
+    if (global_posix_history && !IS_INTERACTIVE_SHELL) {
         atexit(enhanced_history_cleanup);
     }
     // atexit(config_cleanup);  // Temporarily disabled

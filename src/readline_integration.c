@@ -56,6 +56,7 @@ static char *current_prompt = NULL;
 static char *history_file_path = NULL;
 static bool syntax_highlighting_enabled = false;
 static bool debug_enabled = false;
+static bool is_multiline_theme = false;
 
 // Syntax highlighting colors (without readline escape sequences for direct output)
 static const char *keyword_color = "\033[1;34m";    // Bright blue
@@ -198,8 +199,8 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
-    // Disable syntax highlighting by default due to theme compatibility issues
-    lusush_syntax_highlighting_set_enabled(false);
+    // Enable syntax highlighting by default - works with single-line themes
+    lusush_syntax_highlighting_set_enabled(true);
     
     // Phase 3: Initialize change detection and performance monitoring
     init_change_detector();
@@ -235,6 +236,8 @@ void lusush_readline_cleanup(void) {
         history_cache_size = 0;
         history_cache_capacity = 0;
     }
+    
+
     
     // Free current prompt
     if (current_prompt) {
@@ -397,8 +400,51 @@ void lusush_history_add(const char *line) {
 }
 
 void lusush_history_save(void) {
-    if (history_file_path) {
-        write_history(history_file_path);
+    if (!history_file_path) return;
+    
+    // Check if we have any history to save
+    HIST_ENTRY **hist_list = history_list();
+    if (!hist_list || history_length == 0) {
+        return;
+    }
+    
+    // Create backup file path for safety
+    char backup_path[512];
+    snprintf(backup_path, sizeof(backup_path), "%s.tmp", history_file_path);
+    
+    // Try manual writing first (more reliable)
+    FILE *file = fopen(backup_path, "w");
+    if (!file) {
+        // Try creating directory if it doesn't exist
+        char *dir_end = strrchr(history_file_path, '/');
+        if (dir_end) {
+            *dir_end = '\0';
+            mkdir(history_file_path, 0755);
+            *dir_end = '/';
+        }
+        file = fopen(backup_path, "w");
+        if (!file) return;
+    }
+    
+    // Write all history entries
+    int entries_written = 0;
+    for (int i = 0; hist_list[i]; i++) {
+        if (hist_list[i]->line && strlen(hist_list[i]->line) > 0) {
+            fprintf(file, "%s\n", hist_list[i]->line);
+            entries_written++;
+        }
+    }
+    
+    // Force flush and close
+    fflush(file);
+    fsync(fileno(file));
+    fclose(file);
+    
+    // Atomically move backup to actual file
+    if (entries_written > 0) {
+        rename(backup_path, history_file_path);
+    } else {
+        unlink(backup_path);
     }
 }
 
@@ -781,6 +827,7 @@ static void reset_typing_state(void);
 static bool is_word_boundary_char(int c);
 static bool is_syntax_significant_char(int c);
 static bool is_safe_for_highlighting(void);
+static bool detect_multiline_theme(void);
 
 static void lusush_safe_redisplay(void);
 
@@ -866,10 +913,10 @@ void lusush_enable_trigger_debug(void) {
 }
 
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
-    syntax_highlighting_enabled = enabled;
-    
     if (enabled) {
-        // Phase 2: Enable smart character triggering with safe highlighting
+        // Check if we can safely enable highlighting
+        // We'll check the prompt content when it's actually used
+        syntax_highlighting_enabled = true;
         rl_getc_function = lusush_getc;
         reset_typing_state();
         
@@ -883,16 +930,14 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         
         // Phase 2: Use custom redisplay for real-time highlighting
         rl_redisplay_function = lusush_safe_redisplay;
-        
 
     } else {
         // Disable: clean up and use standard functions
+        syntax_highlighting_enabled = false;
         cleanup_highlight_buffer();
         rl_redisplay_function = rl_redisplay;
         rl_getc_function = rl_getc;
         rl_pre_input_hook = NULL;
-        
-
     }
 }
 
@@ -1517,13 +1562,44 @@ static int lusush_previous_history(int count, int key) {
 static int lusush_next_history(int count, int key) {
     (void)count; (void)key;
     
-    // Move to next history entry
-    rl_get_next_history(1, 0);
+
     
-    // Force complete redisplay to prevent artifacts
-    rl_forced_update_display();
-    rl_redisplay();
-    return 0;
+    // Check if we have content BEFORE calling rl_get_next_history (which might clear it)
+    bool has_content = rl_line_buffer && strlen(rl_line_buffer) > 0;
+    
+    // Try to check if we can move forward in history
+    HIST_ENTRY *next = next_history();
+    if (next) {
+        // We can move forward, put it back and use normal navigation
+        previous_history();
+
+        return rl_get_next_history(count, key);
+    } else {
+        // We're at the end of history
+        if (has_content) {
+
+            
+            // Use same methodology as lusush_abort_line (Ctrl+G) which works correctly
+            
+            // Clear displayed line properly
+            printf("\r\033[K");  // Move to start of line and clear to end of line
+            fflush(stdout);
+            
+            // Clear readline's internal buffer
+            rl_replace_line("", 0);
+            rl_point = 0;
+            rl_end = 0;
+            
+            // Display fresh prompt
+            rl_on_new_line();
+            rl_redisplay();
+            
+
+        } else {
+
+        }
+        return 0;
+    }
 }
 
 static void setup_key_bindings(void) {
@@ -1544,12 +1620,10 @@ static void setup_key_bindings(void) {
     rl_bind_key(23, rl_unix_word_rubout); // Ctrl-W: kill word
     // Ctrl-R uses standard readline reverse search (rl_reverse_search_history)
     
-    // History navigation with artifact prevention
-    rl_bind_key(16, lusush_previous_history); // Ctrl-P
-    rl_bind_key(14, lusush_next_history);     // Ctrl-N
+    // History navigation with clean down arrow handling
+    rl_bind_keyseq("\\e[B", lusush_next_history); // Down arrow key
     
-    // Let readline handle arrow keys natively - custom bindings cause [A [B artifacts
-    // Default readline arrow key handling will work for history navigation
+    // Let readline handle up arrow natively
     
     // Enable vi or emacs mode based on config
     if (false) { // vi_mode not implemented yet
@@ -1883,8 +1957,15 @@ static void lusush_safe_redisplay(void) {
     
     in_redisplay = true;
     
-    // Check if we should apply highlighting
+    // Check if we should apply highlighting (only for single-line themes)
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
+        // Runtime check for multi-line theme
+        if (detect_multiline_theme()) {
+            // Skip highlighting for multi-line themes
+            in_redisplay = false;
+            rl_redisplay();
+            return;
+        }
         // Validate buffer
         if (rl_line_buffer && rl_end > 0 && strlen(rl_line_buffer) > 0) {
             // Use readline's prompt if available, otherwise fallback to default
@@ -1915,6 +1996,27 @@ static void lusush_safe_redisplay(void) {
     // Fallback to standard redisplay
     rl_redisplay();
 }
+
+// Detect if current theme uses multi-line prompts
+static bool detect_multiline_theme(void) {
+    const char *prompt = rl_prompt ? rl_prompt : "$ ";
+    
+    // Check for multi-line indicators in the prompt
+    // Dark theme uses ┌─ and └─ box drawing characters
+    if (strstr(prompt, "┌─") || strstr(prompt, "└─")) {
+        return true;
+    }
+    
+    // Check for explicit newlines in prompt
+    if (strchr(prompt, '\n')) {
+        return true;
+    }
+    
+    // Single-line themes: minimal ($), light/classic (user@host:path$), colorful (● user@host)
+    return false;
+}
+
+
 
 // ============================================================================
 // CUSTOM INPUT HANDLING
