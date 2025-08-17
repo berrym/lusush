@@ -170,40 +170,40 @@ static theme_definition_t *create_dark_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Dark theme colors - bright on dark
-    strncpy(theme->colors.primary, "\033[38;5;39m",
+    strncpy(theme->colors.primary, "\001\033[38;5;39m\002",
             COLOR_CODE_MAX - 1); // Bright blue
-    strncpy(theme->colors.secondary, "\033[38;5;141m",
+    strncpy(theme->colors.secondary, "\001\033[38;5;141m\002",
             COLOR_CODE_MAX - 1); // Purple
-    strncpy(theme->colors.success, "\033[38;5;46m",
+    strncpy(theme->colors.success, "\001\033[38;5;46m\002",
             COLOR_CODE_MAX - 1); // Bright green
-    strncpy(theme->colors.warning, "\033[38;5;226m",
+    strncpy(theme->colors.warning, "\001\033[38;5;226m\002",
             COLOR_CODE_MAX - 1); // Bright yellow
-    strncpy(theme->colors.error, "\033[38;5;196m",
+    strncpy(theme->colors.error, "\001\033[38;5;196m\002",
             COLOR_CODE_MAX - 1); // Bright red
-    strncpy(theme->colors.info, "\033[38;5;51m",
+    strncpy(theme->colors.info, "\001\033[38;5;51m\002",
             COLOR_CODE_MAX - 1); // Bright cyan
-    strncpy(theme->colors.text, "\033[38;5;255m", COLOR_CODE_MAX - 1); // White
-    strncpy(theme->colors.text_dim, "\033[38;5;244m",
+    strncpy(theme->colors.text, "\001\033[38;5;255m\002", COLOR_CODE_MAX - 1); // White
+    strncpy(theme->colors.text_dim, "\001\033[38;5;244m\002",
             COLOR_CODE_MAX - 1); // Gray
-    strncpy(theme->colors.background, "\033[48;5;232m",
+    strncpy(theme->colors.background, "\001\033[48;5;232m\002",
             COLOR_CODE_MAX - 1); // Very dark
-    strncpy(theme->colors.border, "\033[38;5;240m",
+    strncpy(theme->colors.border, "\001\033[38;5;240m\002",
             COLOR_CODE_MAX - 1); // Dark gray
-    strncpy(theme->colors.highlight, "\033[38;5;51m",
+    strncpy(theme->colors.highlight, "\001\033[38;5;51m\002",
             COLOR_CODE_MAX - 1); // Bright cyan
-    strncpy(theme->colors.git_clean, "\033[38;5;46m",
+    strncpy(theme->colors.git_clean, "\001\033[38;5;46m\002",
             COLOR_CODE_MAX - 1); // Bright green
-    strncpy(theme->colors.git_dirty, "\033[38;5;226m",
+    strncpy(theme->colors.git_dirty, "\001\033[38;5;226m\002",
             COLOR_CODE_MAX - 1); // Yellow
-    strncpy(theme->colors.git_staged, "\033[38;5;82m",
+    strncpy(theme->colors.git_staged, "\001\033[38;5;82m\002",
             COLOR_CODE_MAX - 1); // Lime green
-    strncpy(theme->colors.git_branch, "\033[38;5;141m",
+    strncpy(theme->colors.git_branch, "\001\033[38;5;141m\002",
             COLOR_CODE_MAX - 1); // Purple
-    strncpy(theme->colors.path_home, "\033[38;5;39m",
+    strncpy(theme->colors.path_home, "\001\033[38;5;39m\002",
             COLOR_CODE_MAX - 1); // Bright blue
-    strncpy(theme->colors.path_root, "\033[38;5;196m",
+    strncpy(theme->colors.path_root, "\001\033[38;5;196m\002",
             COLOR_CODE_MAX - 1); // Bright red
-    strncpy(theme->colors.path_normal, "\033[38;5;255m",
+    strncpy(theme->colors.path_normal, "\001\033[38;5;255m\002",
             COLOR_CODE_MAX - 1); // White
 
     // Dark theme templates
@@ -256,41 +256,41 @@ static theme_definition_t *create_light_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Light theme colors - dark on light
-    strncpy(theme->colors.primary, "\033[38;5;21m",
+    strncpy(theme->colors.primary, "\001\033[38;5;21m\002",
             COLOR_CODE_MAX - 1); // Dark blue
-    strncpy(theme->colors.secondary, "\033[38;5;90m",
+    strncpy(theme->colors.secondary, "\001\033[38;5;90m\002",
             COLOR_CODE_MAX - 1); // Dark purple
-    strncpy(theme->colors.success, "\033[38;5;22m",
+    strncpy(theme->colors.success, "\001\033[38;5;22m\002",
             COLOR_CODE_MAX - 1); // Dark green
-    strncpy(theme->colors.warning, "\033[38;5;130m",
+    strncpy(theme->colors.warning, "\001\033[38;5;130m\002",
             COLOR_CODE_MAX - 1); // Dark orange
-    strncpy(theme->colors.error, "\033[38;5;88m",
+    strncpy(theme->colors.error, "\001\033[38;5;88m\002",
             COLOR_CODE_MAX - 1); // Dark red
-    strncpy(theme->colors.info, "\033[38;5;23m",
+    strncpy(theme->colors.info, "\001\033[38;5;23m\002",
             COLOR_CODE_MAX - 1); // Dark cyan
-    strncpy(theme->colors.text, "\033[38;5;232m",
+    strncpy(theme->colors.text, "\001\033[38;5;232m\002",
             COLOR_CODE_MAX - 1); // Very dark gray
-    strncpy(theme->colors.text_dim, "\033[38;5;243m",
+    strncpy(theme->colors.text_dim, "\001\033[38;5;243m\002",
             COLOR_CODE_MAX - 1); // Medium gray
-    strncpy(theme->colors.background, "\033[48;5;255m",
+    strncpy(theme->colors.background, "\001\033[48;5;255m\002",
             COLOR_CODE_MAX - 1); // White
-    strncpy(theme->colors.border, "\033[38;5;250m",
+    strncpy(theme->colors.border, "\001\033[38;5;250m\002",
             COLOR_CODE_MAX - 1); // Light gray
-    strncpy(theme->colors.highlight, "\033[38;5;27m",
+    strncpy(theme->colors.highlight, "\001\033[38;5;27m\002",
             COLOR_CODE_MAX - 1); // Blue
-    strncpy(theme->colors.git_clean, "\033[38;5;22m",
+    strncpy(theme->colors.git_clean, "\001\033[38;5;22m\002",
             COLOR_CODE_MAX - 1); // Dark green
-    strncpy(theme->colors.git_dirty, "\033[38;5;130m",
+    strncpy(theme->colors.git_dirty, "\001\033[38;5;130m\002",
             COLOR_CODE_MAX - 1); // Orange
-    strncpy(theme->colors.git_staged, "\033[38;5;28m",
+    strncpy(theme->colors.git_staged, "\001\033[38;5;28m\002",
             COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_branch, "\033[38;5;90m",
+    strncpy(theme->colors.git_branch, "\001\033[38;5;90m\002",
             COLOR_CODE_MAX - 1); // Purple
-    strncpy(theme->colors.path_home, "\033[38;5;21m",
+    strncpy(theme->colors.path_home, "\001\033[38;5;21m\002",
             COLOR_CODE_MAX - 1); // Blue
-    strncpy(theme->colors.path_root, "\033[38;5;88m",
+    strncpy(theme->colors.path_root, "\001\033[38;5;88m\002",
             COLOR_CODE_MAX - 1); // Dark red
-    strncpy(theme->colors.path_normal, "\033[38;5;232m",
+    strncpy(theme->colors.path_normal, "\001\033[38;5;232m\002",
             COLOR_CODE_MAX - 1); // Dark gray
 
     // Light theme templates - clean and simple
@@ -341,39 +341,39 @@ static theme_definition_t *create_colorful_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Colorful theme - vibrant rainbow colors
-    strncpy(theme->colors.primary, "\033[38;5;201m",
+    strncpy(theme->colors.primary, "\001\033[38;5;201m\002",
             COLOR_CODE_MAX - 1); // Magenta
-    strncpy(theme->colors.secondary, "\033[38;5;45m",
+    strncpy(theme->colors.secondary, "\001\033[38;5;45m\002",
             COLOR_CODE_MAX - 1); // Cyan
-    strncpy(theme->colors.success, "\033[38;5;118m",
+    strncpy(theme->colors.success, "\001\033[38;5;118m\002",
             COLOR_CODE_MAX - 1); // Lime
-    strncpy(theme->colors.warning, "\033[38;5;220m",
+    strncpy(theme->colors.warning, "\001\033[38;5;220m\002",
             COLOR_CODE_MAX - 1);                                        // Gold
-    strncpy(theme->colors.error, "\033[38;5;196m", COLOR_CODE_MAX - 1); // Red
-    strncpy(theme->colors.info, "\033[38;5;75m",
+    strncpy(theme->colors.error, "\001\033[38;5;196m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.info, "\001\033[38;5;75m\002",
             COLOR_CODE_MAX - 1); // Sky blue
-    strncpy(theme->colors.text, "\033[38;5;255m", COLOR_CODE_MAX - 1); // White
-    strncpy(theme->colors.text_dim, "\033[38;5;245m",
+    strncpy(theme->colors.text, "\001\033[38;5;255m\002", COLOR_CODE_MAX - 1); // White
+    strncpy(theme->colors.text_dim, "\001\033[38;5;245m\002",
             COLOR_CODE_MAX - 1); // Gray
-    strncpy(theme->colors.background, "\033[48;5;233m",
+    strncpy(theme->colors.background, "\001\033[48;5;233m\002",
             COLOR_CODE_MAX - 1); // Dark
-    strncpy(theme->colors.border, "\033[38;5;93m",
+    strncpy(theme->colors.border, "\001\033[38;5;93m\002",
             COLOR_CODE_MAX - 1); // Purple
-    strncpy(theme->colors.highlight, "\033[38;5;226m",
+    strncpy(theme->colors.highlight, "\001\033[38;5;226m\002",
             COLOR_CODE_MAX - 1); // Yellow
-    strncpy(theme->colors.git_clean, "\033[38;5;118m",
+    strncpy(theme->colors.git_clean, "\001\033[38;5;118m\002",
             COLOR_CODE_MAX - 1); // Lime
-    strncpy(theme->colors.git_dirty, "\033[38;5;220m",
+    strncpy(theme->colors.git_dirty, "\001\033[38;5;220m\002",
             COLOR_CODE_MAX - 1); // Gold
-    strncpy(theme->colors.git_staged, "\033[38;5;46m",
+    strncpy(theme->colors.git_staged, "\001\033[38;5;46m\002",
             COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_branch, "\033[38;5;201m",
+    strncpy(theme->colors.git_branch, "\001\033[38;5;201m\002",
             COLOR_CODE_MAX - 1); // Magenta
-    strncpy(theme->colors.path_home, "\033[38;5;45m",
+    strncpy(theme->colors.path_home, "\001\033[38;5;45m\002",
             COLOR_CODE_MAX - 1); // Cyan
-    strncpy(theme->colors.path_root, "\033[38;5;196m",
+    strncpy(theme->colors.path_root, "\001\033[38;5;196m\002",
             COLOR_CODE_MAX - 1); // Red
-    strncpy(theme->colors.path_normal, "\033[38;5;75m",
+    strncpy(theme->colors.path_normal, "\001\033[38;5;75m\002",
             COLOR_CODE_MAX - 1); // Sky blue
 
     // Colorful templates with Unicode symbols
@@ -426,24 +426,24 @@ static theme_definition_t *create_minimal_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Minimal colors - only basic ANSI
-    strncpy(theme->colors.primary, "\033[0m", COLOR_CODE_MAX - 1);    // Reset
-    strncpy(theme->colors.secondary, "\033[0m", COLOR_CODE_MAX - 1);  // Reset
-    strncpy(theme->colors.success, "\033[32m", COLOR_CODE_MAX - 1);   // Green
-    strncpy(theme->colors.warning, "\033[33m", COLOR_CODE_MAX - 1);   // Yellow
-    strncpy(theme->colors.error, "\033[31m", COLOR_CODE_MAX - 1);     // Red
-    strncpy(theme->colors.info, "\033[36m", COLOR_CODE_MAX - 1);      // Cyan
-    strncpy(theme->colors.text, "\033[0m", COLOR_CODE_MAX - 1);       // Default
-    strncpy(theme->colors.text_dim, "\033[2m", COLOR_CODE_MAX - 1);   // Dim
-    strncpy(theme->colors.background, "\033[0m", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.border, "\033[0m", COLOR_CODE_MAX - 1);     // Default
-    strncpy(theme->colors.highlight, "\033[1m", COLOR_CODE_MAX - 1);  // Bold
-    strncpy(theme->colors.git_clean, "\033[32m", COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_dirty, "\033[33m", COLOR_CODE_MAX - 1); // Yellow
-    strncpy(theme->colors.git_staged, "\033[32m", COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_branch, "\033[0m", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.path_home, "\033[0m", COLOR_CODE_MAX - 1);  // Default
-    strncpy(theme->colors.path_root, "\033[31m", COLOR_CODE_MAX - 1); // Red
-    strncpy(theme->colors.path_normal, "\033[0m",
+    strncpy(theme->colors.primary, "\001\033[0m\002", COLOR_CODE_MAX - 1);    // Reset
+    strncpy(theme->colors.secondary, "\001\033[0m\002", COLOR_CODE_MAX - 1);  // Reset
+    strncpy(theme->colors.success, "\001\033[32m\002", COLOR_CODE_MAX - 1);   // Green
+    strncpy(theme->colors.warning, "\001\033[33m\002", COLOR_CODE_MAX - 1);   // Yellow
+    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1);     // Red
+    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1);      // Cyan
+    strncpy(theme->colors.text, "\001\033[0m\002", COLOR_CODE_MAX - 1);       // Default
+    strncpy(theme->colors.text_dim, "\001\033[2m\002", COLOR_CODE_MAX - 1);   // Dim
+    strncpy(theme->colors.background, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.border, "\001\033[0m\002", COLOR_CODE_MAX - 1);     // Default
+    strncpy(theme->colors.highlight, "\001\033[1m\002", COLOR_CODE_MAX - 1);  // Bold
+    strncpy(theme->colors.git_clean, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_dirty, "\001\033[33m\002", COLOR_CODE_MAX - 1); // Yellow
+    strncpy(theme->colors.git_staged, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_branch, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.path_home, "\001\033[0m\002", COLOR_CODE_MAX - 1);  // Default
+    strncpy(theme->colors.path_root, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.path_normal, "\001\033[0m\002",
             COLOR_CODE_MAX - 1); // Default
 
     // Minimal template - extremely simple
@@ -488,26 +488,26 @@ static theme_definition_t *create_classic_theme(void) {
     theme->requires_powerline_fonts = false;
 
     // Classic ANSI colors
-    strncpy(theme->colors.primary, "\033[34m", COLOR_CODE_MAX - 1);   // Blue
-    strncpy(theme->colors.secondary, "\033[35m", COLOR_CODE_MAX - 1); // Magenta
-    strncpy(theme->colors.success, "\033[32m", COLOR_CODE_MAX - 1);   // Green
-    strncpy(theme->colors.warning, "\033[33m", COLOR_CODE_MAX - 1);   // Yellow
-    strncpy(theme->colors.error, "\033[31m", COLOR_CODE_MAX - 1);     // Red
-    strncpy(theme->colors.info, "\033[36m", COLOR_CODE_MAX - 1);      // Cyan
-    strncpy(theme->colors.text, "\033[0m", COLOR_CODE_MAX - 1);       // Default
-    strncpy(theme->colors.text_dim, "\033[2m", COLOR_CODE_MAX - 1);   // Dim
-    strncpy(theme->colors.background, "\033[0m", COLOR_CODE_MAX - 1); // Default
-    strncpy(theme->colors.border, "\033[37m", COLOR_CODE_MAX - 1);    // White
-    strncpy(theme->colors.highlight, "\033[1;37m",
+    strncpy(theme->colors.primary, "\001\033[34m\002", COLOR_CODE_MAX - 1);   // Blue
+    strncpy(theme->colors.secondary, "\001\033[35m\002", COLOR_CODE_MAX - 1); // Magenta
+    strncpy(theme->colors.success, "\001\033[32m\002", COLOR_CODE_MAX - 1);   // Green
+    strncpy(theme->colors.warning, "\001\033[33m\002", COLOR_CODE_MAX - 1);   // Yellow
+    strncpy(theme->colors.error, "\001\033[31m\002", COLOR_CODE_MAX - 1);     // Red
+    strncpy(theme->colors.info, "\001\033[36m\002", COLOR_CODE_MAX - 1);      // Cyan
+    strncpy(theme->colors.text, "\001\033[0m\002", COLOR_CODE_MAX - 1);       // Default
+    strncpy(theme->colors.text_dim, "\001\033[2m\002", COLOR_CODE_MAX - 1);   // Dim
+    strncpy(theme->colors.background, "\001\033[0m\002", COLOR_CODE_MAX - 1); // Default
+    strncpy(theme->colors.border, "\001\033[37m\002", COLOR_CODE_MAX - 1);    // White
+    strncpy(theme->colors.highlight, "\001\033[1;37m\002",
             COLOR_CODE_MAX - 1); // Bright white
-    strncpy(theme->colors.git_clean, "\033[32m", COLOR_CODE_MAX - 1);  // Green
-    strncpy(theme->colors.git_dirty, "\033[33m", COLOR_CODE_MAX - 1);  // Yellow
-    strncpy(theme->colors.git_staged, "\033[32m", COLOR_CODE_MAX - 1); // Green
-    strncpy(theme->colors.git_branch, "\033[35m",
+    strncpy(theme->colors.git_clean, "\001\033[32m\002", COLOR_CODE_MAX - 1);  // Green
+    strncpy(theme->colors.git_dirty, "\001\033[33m\002", COLOR_CODE_MAX - 1);  // Yellow
+    strncpy(theme->colors.git_staged, "\001\033[32m\002", COLOR_CODE_MAX - 1); // Green
+    strncpy(theme->colors.git_branch, "\001\033[35m\002",
             COLOR_CODE_MAX - 1);                                      // Magenta
-    strncpy(theme->colors.path_home, "\033[34m", COLOR_CODE_MAX - 1); // Blue
-    strncpy(theme->colors.path_root, "\033[31m", COLOR_CODE_MAX - 1); // Red
-    strncpy(theme->colors.path_normal, "\033[0m",
+    strncpy(theme->colors.path_home, "\001\033[34m\002", COLOR_CODE_MAX - 1); // Blue
+    strncpy(theme->colors.path_root, "\001\033[31m\002", COLOR_CODE_MAX - 1); // Red
+    strncpy(theme->colors.path_normal, "\001\033[0m\002",
             COLOR_CODE_MAX - 1); // Default
 
     // Classic bash-style template
@@ -940,15 +940,27 @@ bool theme_validate_color_code(const char *color_code) {
         return true;
     }
 
-    // Must start with escape sequence
-    if (strncmp(color_code, "\033[", 2) != 0) {
-        return false;
-    }
-
-    // Must end with 'm'
-    size_t len = strlen(color_code);
-    if (len < 3 || color_code[len - 1] != 'm') {
-        return false;
+    // Handle readline escape sequences: \001\033[...m\002
+    if (color_code[0] == '\001') {
+        // Must start with \001\033[
+        if (strlen(color_code) < 4 || strncmp(color_code, "\001\033[", 3) != 0) {
+            return false;
+        }
+        // Must end with m\002
+        size_t len = strlen(color_code);
+        if (len < 6 || color_code[len - 1] != '\002' || color_code[len - 2] != 'm') {
+            return false;
+        }
+    } else {
+        // Regular ANSI escape sequence: \033[...m
+        if (strncmp(color_code, "\033[", 2) != 0) {
+            return false;
+        }
+        // Must end with 'm'
+        size_t len = strlen(color_code);
+        if (len < 3 || color_code[len - 1] != 'm') {
+            return false;
+        }
     }
 
     return true;
