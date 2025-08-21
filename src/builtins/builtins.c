@@ -8,6 +8,7 @@
 #include "../../include/history.h"
 #include "../../include/libhashtable/ht.h"
 #include "../../include/readline_integration.h"
+#include "../../include/display_integration.h"
 #include "../../include/lusush.h"
 #include "../../include/network.h"
 #include "../../include/prompt.h"
@@ -34,6 +35,7 @@ int bin_readonly(int argc, char **argv);
 int bin_config(int argc, char **argv);
 int bin_hash(int argc, char **argv);
 int bin_theme(int argc, char **argv);
+int bin_display(int argc, char **argv);
 int bin_network(int argc, char **argv);
 int bin_debug(int argc, char **argv);
 #include <ctype.h>
@@ -97,6 +99,7 @@ builtin builtins[] = {
     {  "config",       "manage shell configuration",   bin_config},
     {    "hash",       "remember utility locations",     bin_hash},
     {   "theme",              "manage shell themes",    bin_theme},
+    { "display",       "manage layered display system", bin_display},
     { "network",     "manage network and SSH hosts",  bin_network},
     {   "debug", "advanced debugging and profiling",    bin_debug},
 };
@@ -375,7 +378,7 @@ int bin_termcap(int argc, char **argv) {
  */
 int bin_clear(int argc __attribute__((unused)),
               char **argv __attribute__((unused))) {
-    lusush_clear_screen();
+    display_integration_clear_screen();
     return 0;
 }
 
@@ -3472,4 +3475,193 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
     fprintf(stderr, "debug: Unknown command '%s'\n", subcmd);
     fprintf(stderr, "debug: Use 'debug help' for usage information\n");
     return 1;
+}
+
+/**
+ * bin_display:
+ *      Manage the layered display system (Week 8 - Display Integration)
+ *      Usage: display status|enable|disable|config|stats|diagnostics|help
+ */
+int bin_display(int argc, char **argv) {
+    if (argc < 2) {
+        printf("Display Integration System (Week 8 - Layered Display Architecture)\n");
+        printf("Usage: display <command> [options]\n");
+        printf("\nCommands:\n");
+        printf("  status      - Show display integration status\n");
+        printf("  enable      - Enable layered display system\n");
+        printf("  disable     - Disable layered display system\n");
+        printf("  config      - Show current configuration\n");
+        printf("  stats       - Show performance statistics\n");
+        printf("  diagnostics - Show detailed diagnostic information\n");
+        printf("  help        - Show this help message\n");
+        printf("\nEnvironment Variables:\n");
+        printf("  LUSUSH_LAYERED_DISPLAY=1|0     - Enable/disable layered display\n");
+        printf("  LUSUSH_DISPLAY_DEBUG=1|0       - Enable/disable debug output\n");
+        printf("  LUSUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
+        return 0;
+    }
+
+    const char *subcmd = argv[1];
+
+    if (strcmp(subcmd, "status") == 0) {
+        // Show display integration status
+        if (display_integration_is_layered_active()) {
+            printf("Display Integration: ACTIVE (Layered display enabled)\n");
+            display_integration_health_t health = display_integration_get_health();
+            printf("Health Status: %s\n", display_integration_health_string(health));
+        } else {
+            printf("Display Integration: INACTIVE (Using standard display)\n");
+        }
+        
+        display_integration_config_t config;
+        if (display_integration_get_config(&config)) {
+            printf("Configuration:\n");
+            printf("  Layered display: %s\n", config.enable_layered_display ? "enabled" : "disabled");
+            printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
+            printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
+            printf("  Optimization level: %d\n", config.optimization_level);
+            printf("  Debug mode: %s\n", config.debug_mode ? "enabled" : "disabled");
+        }
+        return 0;
+
+    } else if (strcmp(subcmd, "enable") == 0) {
+        // Enable layered display
+        display_integration_config_t config;
+        if (!display_integration_get_config(&config)) {
+            fprintf(stderr, "display: Failed to get current configuration\n");
+            return 1;
+        }
+        
+        config.enable_layered_display = true;
+        if (display_integration_set_config(&config)) {
+            printf("Layered display system enabled\n");
+            return 0;
+        } else {
+            fprintf(stderr, "display: Failed to enable layered display system\n");
+            return 1;
+        }
+
+    } else if (strcmp(subcmd, "disable") == 0) {
+        // Disable layered display
+        display_integration_config_t config;
+        if (!display_integration_get_config(&config)) {
+            fprintf(stderr, "display: Failed to get current configuration\n");
+            return 1;
+        }
+        
+        config.enable_layered_display = false;
+        if (display_integration_set_config(&config)) {
+            printf("Layered display system disabled\n");
+            return 0;
+        } else {
+            fprintf(stderr, "display: Failed to disable layered display system\n");
+            return 1;
+        }
+
+    } else if (strcmp(subcmd, "config") == 0) {
+        // Show detailed configuration
+        display_integration_config_t config;
+        if (!display_integration_get_config(&config)) {
+            fprintf(stderr, "display: Failed to get configuration\n");
+            return 1;
+        }
+        
+        printf("=== Display Integration Configuration ===\n");
+        printf("Core Features:\n");
+        printf("  Layered display: %s\n", config.enable_layered_display ? "enabled" : "disabled");
+        printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
+        printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
+        printf("\nOptimization:\n");
+        printf("  Optimization level: %d ", config.optimization_level);
+        switch (config.optimization_level) {
+            case 0: printf("(Disabled)\n"); break;
+            case 1: printf("(Basic)\n"); break;
+            case 2: printf("(Standard)\n"); break;
+            case 3: printf("(Aggressive)\n"); break;
+            case 4: printf("(Maximum)\n"); break;
+            default: printf("(Unknown)\n"); break;
+        }
+        printf("  Performance threshold: %u ms\n", config.performance_threshold_ms);
+        printf("  Cache hit rate threshold: %.1f%%\n", config.cache_hit_rate_threshold * 100.0);
+        printf("\nBehavior:\n");
+        printf("  Fallback on error: %s\n", config.fallback_on_error ? "enabled" : "disabled");
+        printf("  Debug mode: %s\n", config.debug_mode ? "enabled" : "disabled");
+        printf("  Max output size: %zu bytes\n", config.max_output_size);
+        printf("========================================\n");
+        return 0;
+
+    } else if (strcmp(subcmd, "stats") == 0) {
+        // Show performance statistics
+        display_integration_stats_t stats;
+        if (!display_integration_get_stats(&stats)) {
+            fprintf(stderr, "display: Failed to get statistics\n");
+            return 1;
+        }
+        
+        printf("=== Display Integration Statistics ===\n");
+        printf("Usage:\n");
+        printf("  Total display calls: %lu\n", stats.total_display_calls);
+        printf("  Layered display calls: %lu\n", stats.layered_display_calls);
+        printf("  Fallback calls: %lu\n", stats.fallback_calls);
+        
+        if (stats.total_display_calls > 0) {
+            double layered_rate = (double)stats.layered_display_calls / stats.total_display_calls * 100.0;
+            double fallback_rate = (double)stats.fallback_calls / stats.total_display_calls * 100.0;
+            printf("  Layered display rate: %.1f%%\n", layered_rate);
+            printf("  Fallback rate: %.1f%%\n", fallback_rate);
+        }
+        
+        if (display_integration_is_layered_active()) {
+            printf("\nPerformance:\n");
+            printf("  Average display time: %.2f ms\n", stats.avg_layered_display_time_ns / 1000000.0);
+            printf("  Cache hit rate: %.1f%%\n", stats.cache_hit_rate * 100.0);
+            printf("  Memory usage: %zu bytes\n", stats.memory_usage_bytes);
+            
+            printf("\nHealth:\n");
+            printf("  Performance within threshold: %s\n", stats.performance_within_threshold ? "yes" : "no");
+            printf("  Cache efficiency good: %s\n", stats.cache_efficiency_good ? "yes" : "no");
+            printf("  Memory usage acceptable: %s\n", stats.memory_usage_acceptable ? "yes" : "no");
+        }
+        printf("=====================================\n");
+        return 0;
+
+    } else if (strcmp(subcmd, "diagnostics") == 0) {
+        // Show detailed diagnostics
+        display_integration_print_diagnostics();
+        return 0;
+
+    } else if (strcmp(subcmd, "help") == 0) {
+        // Show help
+        printf("Display Integration System - Week 8 Layered Display Architecture\n");
+        printf("\nThe display integration system provides coordinated display\n");
+        printf("management using the revolutionary layered display architecture.\n");
+        printf("It enables universal prompt compatibility, real-time syntax\n");
+        printf("highlighting, and intelligent layer combination with enterprise-\n");
+        printf("grade performance optimization.\n");
+        printf("\nCommands:\n");
+        printf("  display status           - Show system status and health\n");
+        printf("  display enable           - Enable layered display system\n");
+        printf("  display disable          - Disable layered display system\n");
+        printf("  display config           - Show detailed configuration\n");
+        printf("  display stats            - Show performance statistics\n");
+        printf("  display diagnostics      - Show comprehensive diagnostics\n");
+        printf("\nConfiguration:\n");
+        printf("  Environment variables can be used to control behavior:\n");
+        printf("  - LUSUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");
+        printf("  - LUSUSH_DISPLAY_DEBUG=1|0       Enable debug output\n");
+        printf("  - LUSUSH_DISPLAY_OPTIMIZATION=0-4 Set optimization level\n");
+        printf("\nOptimization Levels:\n");
+        printf("  0 - Disabled (no optimization)\n");
+        printf("  1 - Basic (basic caching only)\n");
+        printf("  2 - Standard (default optimization)\n");
+        printf("  3 - Aggressive (aggressive optimization)\n");
+        printf("  4 - Maximum (maximum performance mode)\n");
+        printf("\nFor more information, see the Week 8 implementation documentation.\n");
+        return 0;
+
+    } else {
+        fprintf(stderr, "display: Unknown command '%s'\n", subcmd);
+        fprintf(stderr, "display: Use 'display help' for usage information\n");
+        return 1;
+    }
 }

@@ -19,6 +19,7 @@
 #include "../include/termcap.h"
 #include "../include/themes.h"
 #include "../include/version.h"
+#include "../include/display_integration.h"
 
 #include <getopt.h>
 #include <locale.h>
@@ -348,6 +349,54 @@ int init(int argc, char **argv, FILE **in) {
             fprintf(stderr, "Warning: Failed to initialize readline\n");
         }
         lusush_multiline_set_enabled(config.multiline_mode);
+        
+        // Initialize display integration system (Week 8 - Layered Display Architecture)
+        display_integration_config_t display_config;
+        display_integration_create_default_config(&display_config);
+        
+        // Configure based on environment and user preferences
+        const char *layered_display_env = getenv("LUSUSH_LAYERED_DISPLAY");
+        if (layered_display_env) {
+            if (strcmp(layered_display_env, "0") == 0 || strcmp(layered_display_env, "false") == 0) {
+                display_config.enable_layered_display = false;
+            } else if (strcmp(layered_display_env, "1") == 0 || strcmp(layered_display_env, "true") == 0) {
+                display_config.enable_layered_display = true;
+            }
+        }
+        
+        // Enable debug mode if requested
+        const char *display_debug_env = getenv("LUSUSH_DISPLAY_DEBUG");
+        if (display_debug_env && (strcmp(display_debug_env, "1") == 0 || strcmp(display_debug_env, "true") == 0)) {
+            display_config.debug_mode = true;
+        }
+        
+        // Set optimization level based on environment
+        const char *optimization_env = getenv("LUSUSH_DISPLAY_OPTIMIZATION");
+        if (optimization_env) {
+            int opt_level = atoi(optimization_env);
+            if (opt_level >= DISPLAY_OPTIMIZATION_DISABLED && opt_level <= DISPLAY_OPTIMIZATION_MAXIMUM) {
+                display_config.optimization_level = (display_optimization_level_t)opt_level;
+            }
+        }
+        
+        // Initialize display integration
+        if (!display_integration_init(&display_config)) {
+            if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
+                fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+            }
+            // Continue with standard display - no fatal error
+        } else {
+            // FERRARI ENGINE: Announce activation with visual impact
+            if (display_config.enable_layered_display) {
+                printf("\n🏎️  Lusush v1.1.3 - FERRARI DISPLAY ENGINE ACTIVATED\n");
+                printf("✨ Enhanced prompts, syntax highlighting, and performance\n");
+                printf("📊 Layered display architecture running at full power\n");
+                printf("🎨 Professional themes with advanced visual enhancements\n\n");
+            } else if (display_config.debug_mode) {
+                printf("Display integration initialized (layered_display=disabled)\n");
+            }
+        }
+        
         build_prompt();
     }
 

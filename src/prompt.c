@@ -1,9 +1,10 @@
 #include "../include/prompt.h"
 
 #include "../include/config.h"
+#include "../include/display_integration.h"
 #include "../include/errors.h"
+#include "../include/libhashtable/ht.h"
 #include "../include/lusush.h"
-#include "../include/strings.h"
 #include "../include/symtable.h"
 #include "../include/termcap.h"
 #include "../include/themes.h"

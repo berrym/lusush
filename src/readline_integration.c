@@ -40,10 +40,12 @@
 #include <readline/history.h>
 
 #include "../include/readline_integration.h"
+#include "../include/display_integration.h"
+#include "../include/lusush.h"
+#include "../include/prompt.h"
+#include "../include/themes.h"
 #include "../include/completion.h"
 #include "../include/config.h"
-#include "../include/themes.h"
-#include "../include/prompt.h"
 #include "../include/symtable.h"
 #include "../include/posix_history.h"
 #include "../include/lusush.h"
@@ -767,31 +769,54 @@ static char **lusush_directory_only_completion(const char *text) {
 // ============================================================================
 
 char *lusush_generate_prompt(void) {
-    if (prompt_callback) {
-        return prompt_callback();
+    static bool in_prompt_generation = false;
+    
+    // Prevent infinite recursion
+    if (in_prompt_generation) {
+        return strdup("$ ");
     }
     
-    // Use Lusush prompt building system
+    in_prompt_generation = true;
+    
+    // FERRARI ENGINE: Use enhanced prompt when available
+    if (display_integration_is_layered_active()) {
+        char *enhanced_prompt = NULL;
+        if (display_integration_get_enhanced_prompt(&enhanced_prompt)) {
+            if (enhanced_prompt) {
+                in_prompt_generation = false;
+                return enhanced_prompt;  // Ferrari engine success!
+            }
+        }
+    }
+    
+    // Fallback to standard prompt generation
+    if (prompt_callback) {
+        char *result = prompt_callback();
+        in_prompt_generation = false;
+        return result;
+    }
+    
+    // Use basic Lusush prompt building system
     build_prompt();
     
     // Get the generated prompt from symbol table
     const char *ps1 = symtable_get_global_default("PS1", "$ ");
     
-    // Free previous prompt
-    if (current_prompt) {
-        free(current_prompt);
-    }
-    
     // Make a copy for readline
-    current_prompt = strdup(ps1);
+    current_prompt = strdup(ps1 ? ps1 : "$ ");
+    in_prompt_generation = false;
     return current_prompt;
 }
 
 void lusush_prompt_update(void) {
-    // Force rebuild of prompt
-    rebuild_prompt();
+    // FERRARI ENGINE: Use layered display for prompt updates
+    if (display_integration_is_layered_active()) {
+        display_integration_prompt_update();
+        return;
+    }
     
-    // Update current_prompt
+    // Desperate fallback only
+    rebuild_prompt();
     lusush_generate_prompt();
 }
 
@@ -928,8 +953,8 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
             return;
         }
         
-        // Phase 2: Use custom redisplay for real-time highlighting
-        rl_redisplay_function = lusush_safe_redisplay;
+        // FERRARI ENGINE: Use layered display for ALL redisplay operations
+        rl_redisplay_function = display_integration_redisplay;
 
     } else {
         // Disable: clean up and use standard functions
@@ -1542,7 +1567,14 @@ static int lusush_abort_line(int count, int key) {
 static int lusush_clear_screen_and_redisplay(int count, int key) {
     (void)count; (void)key;
     
-    // Use standard readline clear screen approach
+    // FERRARI ENGINE: Use layered display for clear screen
+    if (display_integration_is_layered_active()) {
+        display_integration_clear_screen();
+        display_integration_redisplay();
+        return 0;
+    }
+    
+    // Desperate fallback only
     return rl_clear_screen(count, key);
 }
 
@@ -1614,7 +1646,7 @@ static void setup_key_bindings(void) {
     rl_bind_key(1, rl_beg_of_line);   // Ctrl-A: beginning of line
     rl_bind_key(5, rl_end_of_line);   // Ctrl-E: end of line
     rl_bind_key(7, lusush_abort_line); // Ctrl-G: abort/cancel line
-    rl_bind_key(12, lusush_clear_screen_and_redisplay); // Ctrl-L: clear screen
+    rl_bind_key(12, lusush_clear_screen_and_redisplay); // Ctrl-L: clear screen (uses Ferrari engine)
     rl_bind_key(21, rl_unix_line_discard); // Ctrl-U: kill line
     rl_bind_key(11, rl_kill_line);    // Ctrl-K: kill to end
     rl_bind_key(23, rl_unix_word_rubout); // Ctrl-W: kill word
@@ -1730,10 +1762,24 @@ void lusush_multiline_set_enabled(bool enabled) {
 // ============================================================================
 
 void lusush_clear_screen(void) {
+    // FERRARI ENGINE: Use layered display for clear screen
+    if (display_integration_is_layered_active()) {
+        display_integration_clear_screen();
+        return;
+    }
+    
+    // Desperate fallback only
     rl_clear_screen(0, 0);
 }
 
 void lusush_refresh_line(void) {
+    // FERRARI ENGINE: Use layered display for line refresh
+    if (display_integration_is_layered_active()) {
+        display_integration_redisplay();
+        return;
+    }
+    
+    // Desperate fallback only
     rl_forced_update_display();
 }
 
@@ -1948,6 +1994,9 @@ static bool is_safe_for_highlighting(void) {
 
 // Custom redisplay function for real-time syntax highlighting
 static void lusush_safe_redisplay(void) {
+    // FERRARI ENGINE: This function should rarely be called now
+    // Most redisplay operations should go through display_integration_redisplay
+    
     // Prevent recursive calls
     static bool in_redisplay = false;
     if (in_redisplay) {
@@ -1957,6 +2006,14 @@ static void lusush_safe_redisplay(void) {
     
     in_redisplay = true;
     
+    // Try Ferrari engine first, even in legacy function
+    if (display_integration_is_layered_active()) {
+        display_integration_redisplay();
+        in_redisplay = false;
+        return;
+    }
+    
+    // Desperate fallback - original implementation
     // Check if we should apply highlighting (only for single-line themes)
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Runtime check for multi-line theme
@@ -1993,7 +2050,7 @@ static void lusush_safe_redisplay(void) {
     }
     
     in_redisplay = false;
-    // Fallback to standard redisplay
+    // Final fallback to standard redisplay
     rl_redisplay();
 }
 

@@ -26,6 +26,7 @@
 #include "../include/posix_history.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
+#include "../include/display_integration.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -111,6 +112,9 @@ int main(int argc, char **argv) {
     // Save history before exit (handled by readline cleanup)
     if (is_interactive_shell()) {
         lusush_readline_cleanup();
+        
+        // Cleanup display integration system
+        display_integration_cleanup();
     }
 
     // Execute EXIT traps before shell terminates normally
