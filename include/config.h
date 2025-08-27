@@ -115,6 +115,9 @@ typedef struct {
     // Advanced settings
     bool verbose_errors;
     bool debug_mode;
+    
+    // Display settings
+    bool enhanced_display_mode;
 
     // Network settings
     bool ssh_completion_enabled;

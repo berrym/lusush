@@ -386,12 +386,9 @@ int init(int argc, char **argv, FILE **in) {
             }
             // Continue with standard display - no fatal error
         } else {
-            // FERRARI ENGINE: Announce activation with visual impact
+            // Announce activation with visual impact
             if (display_config.enable_layered_display) {
-                printf("\n🏎️  Lusush v1.1.3 - FERRARI DISPLAY ENGINE ACTIVATED\n");
-                printf("✨ Enhanced prompts, syntax highlighting, and performance\n");
-                printf("📊 Layered display architecture running at full power\n");
-                printf("🎨 Professional themes with advanced visual enhancements\n\n");
+                printf("Lusush v1.1.3 - Enhanced display mode enabled\n");
             } else if (display_config.debug_mode) {
                 printf("Display integration initialized (layered_display=disabled)\n");
             }
@@ -536,6 +533,9 @@ static int parse_opts(int argc, char **argv) {
                 printf("%s\n", LUSUSH_DESCRIPTION);
                 printf("Copyright (c) 2025. Licensed under MIT License.\n");
                 exit(EXIT_SUCCESS);
+            } else if (strcmp(arg, "--enhanced-display") == 0 || strcmp(arg, "--layered-display") == 0) {
+                config.enhanced_display_mode = true;
+                printf("Enhanced display mode enabled\n");
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -647,6 +647,8 @@ static void usage(int err) {
     printf("  -v               Verbose mode - print input lines (set -v)\n");
     printf("  -f               Disable pathname expansion (set -f)\n");
     printf("  -m               Enable job control (set -m)\n");
+    printf("  --enhanced-display Enable enhanced display features\n");
+    printf("  --layered-display  Enable full layered display controller\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");

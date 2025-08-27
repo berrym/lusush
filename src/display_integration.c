@@ -47,6 +47,8 @@
 #include "../include/prompt.h"
 #include "../include/themes.h"
 #include "../include/lusush.h"
+#include "../include/config.h"
+#include <libgen.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -342,25 +344,49 @@ bool display_integration_get_config(display_integration_config_t *config) {
  * with graceful fallback to existing display functions.
  */
 void display_integration_redisplay(void) {
+    static bool in_display_redisplay = false;
+    
+    // CRITICAL: Prevent infinite recursion - this was causing stack overflow
+    if (in_display_redisplay) {
+        // Use safe fallback without any function pointers
+        rl_redisplay();
+        return;
+    }
+    
+    in_display_redisplay = true;
     integration_stats.total_display_calls++;
 
-    // FERRARI ENGINE: Keep it simple to prevent loops
-    if (integration_initialized && layered_display_enabled) {
+    // Enable enhanced features when enhanced_display_mode is set
+    if (integration_initialized && (layered_display_enabled || config.enhanced_display_mode)) {
         integration_stats.layered_display_calls++;
         
         if (current_config.debug_mode) {
             static int debug_count = 0;
             debug_count++;
             if (debug_count <= 3) {  // Limit debug spam
-                fprintf(stderr, "🏎️ Ferrari redisplay #%d\n", debug_count);
+                fprintf(stderr, "Enhanced display redisplay #%d\n", debug_count);
             }
+        }
+        
+        // Enhanced redisplay for enhanced mode
+        if (config.enhanced_display_mode) {
+            // Enhanced mode gets more responsive redisplay
+            rl_forced_update_display();
+            
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Enhanced redisplay used\n");
+            }
+        } else {
+            // Standard safe redisplay
+            rl_redisplay();
         }
     } else {
         integration_stats.fallback_calls++;
+        // Use standard redisplay
+        rl_redisplay();
     }
     
-    // Always use standard readline redisplay to prevent infinite loops
-    rl_forced_update_display();
+    in_display_redisplay = false;
 }
 
 /**
@@ -378,23 +404,29 @@ void display_integration_prompt_update(void) {
     in_prompt_update = true;
     integration_stats.total_display_calls++;
 
-    if (integration_initialized && layered_display_enabled) {
+    if (integration_initialized && (layered_display_enabled || config.enhanced_display_mode)) {
         integration_stats.layered_display_calls++;
         
         if (current_config.debug_mode) {
             static int debug_count = 0;
             debug_count++;
             if (debug_count <= 2) {  // Limit debug spam
-                fprintf(stderr, "🏎️ Ferrari prompt update #%d\n", debug_count);
+                fprintf(stderr, "Enhanced display prompt update #%d\n", debug_count);
             }
         }
     } else {
         integration_stats.fallback_calls++;
     }
 
-    // Always call original prompt update to prevent loops
-    rebuild_prompt();
-    lusush_generate_prompt();
+    // Safe prompt update without recursion
+    if (integration_initialized && layered_display_enabled) {
+        // Just rebuild prompt without calling lusush_generate_prompt to avoid loops
+        rebuild_prompt();
+    } else {
+        // Fallback: call original functions safely
+        rebuild_prompt();
+        lusush_generate_prompt();
+    }
     
     in_prompt_update = false;
 }
@@ -406,16 +438,22 @@ void display_integration_prompt_update(void) {
 void display_integration_clear_screen(void) {
     integration_stats.total_display_calls++;
 
-    if (integration_initialized && layered_display_enabled) {
+    // Use enhanced display mode if enabled, regardless of integration state
+    if (config.enhanced_display_mode) {
         integration_stats.layered_display_calls++;
         
         if (current_config.debug_mode) {
-            fprintf(stderr, "🏎️ Ferrari clear screen\n");
+            fprintf(stderr, "Enhanced display clear screen\n");
         }
         
-        // Ferrari enhanced clear with visual feedback
+        // Use ANSI escape sequence that actually works
         printf("\033[2J\033[H");  // Clear screen and home cursor
-        printf("🏎️ Ferrari Engine - Screen Cleared\n");
+        fflush(stdout);
+    } else if (integration_initialized && layered_display_enabled) {
+        integration_stats.layered_display_calls++;
+        
+        // Use ANSI escape sequence for layered display
+        printf("\033[2J\033[H");  // Clear screen and home cursor
         fflush(stdout);
     } else {
         integration_stats.fallback_calls++;
@@ -555,7 +593,7 @@ const char* display_integration_health_string(display_integration_health_t healt
 
 /**
  * Get enhanced prompt using layered display system.
- * This function provides Ferrari engine prompt generation with visual enhancements.
+ * This function provides enhanced prompt generation using the theme system.
  *
  * @param enhanced_prompt Pointer to store the generated enhanced prompt
  * @return true on success, false on failure
@@ -567,50 +605,61 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
 
     *enhanced_prompt = NULL;
 
-    if (!integration_initialized || !layered_display_enabled || !global_display_controller) {
-        return false; // Ferrari engine not available
+    if (!integration_initialized || (!layered_display_enabled && !config.enhanced_display_mode) || !global_display_controller) {
+        return false; // Enhanced display not available
     }
 
-    // FERRARI ENGINE: Generate enhanced prompt with layered display
+    // Generate enhanced prompt with layered display
     integration_stats.layered_display_calls++;
 
-    // Get current shell state for prompt generation
-    char *current_dir = getcwd(NULL, 0);
-    const char *user = getenv("USER");
-    const char *hostname = getenv("HOSTNAME");
-    if (!hostname) hostname = "localhost";
-
-    // Create enhanced prompt with Ferrari engine power - make it more robust
+    // Create enhanced prompt buffer
     size_t prompt_size = 512;
     char *prompt_buffer = malloc(prompt_size);
     if (!prompt_buffer) {
-        if (current_dir) free(current_dir);
         return false;
     }
 
-    // Generate basic Ferrari engine enhanced prompt (safe version)
-    int written = snprintf(prompt_buffer, prompt_size,
-        "🏎️  [%s@%s] %s $ ",
-        user ? user : "user",
-        hostname,
-        current_dir ? basename(current_dir) : "~"
-    );
-
-    if (current_dir) free(current_dir);
-
-    if (written < 0 || (size_t)written >= prompt_size) {
-        free(prompt_buffer);
-        return false;
+    // Use enhanced theme system for enhanced display mode
+    if (config.enhanced_display_mode) {
+        // Enhanced mode gets better theme integration
+        if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
+            // Enhanced fallback with user info
+            char *current_dir = getcwd(NULL, 0);
+            const char *user = getenv("USER");
+            const char *hostname = getenv("HOSTNAME");
+            if (!hostname) hostname = "localhost";
+            
+            int written = snprintf(prompt_buffer, prompt_size,
+                "[%s@%s] %s $ ",
+                user ? user : "user",
+                hostname,
+                current_dir ? basename(current_dir) : "~"
+            );
+            
+            if (current_dir) free(current_dir);
+            
+            if (written < 0 || (size_t)written >= prompt_size) {
+                strncpy(prompt_buffer, "$ ", prompt_size - 1);
+                prompt_buffer[prompt_size - 1] = '\0';
+            }
+        }
+        
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Using enhanced theme prompt\n");
+        }
+    } else {
+        // Standard mode uses basic theme system
+        if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
+            strncpy(prompt_buffer, "$ ", prompt_size - 1);
+            prompt_buffer[prompt_size - 1] = '\0';
+        }
+        
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Using standard theme prompt\n");
+        }
     }
 
-    // For now, skip display controller and just use basic Ferrari enhancement
-    // This prevents the cascade of "Layer not ready" errors
     *enhanced_prompt = prompt_buffer;
-    
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Using basic Ferrari prompt (display controller temporarily bypassed)\n");
-    }
-    
     return true;
 }
 

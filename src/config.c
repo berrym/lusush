@@ -195,6 +195,11 @@ static config_option_t config_options[] = {
      &config.max_completion_hosts,           "Maximum hosts to show in completion",
      config_validate_int                                                                                       },
 
+    // Display settings
+    {         "enhanced_display_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
+     &config.enhanced_display_mode,           "Enable enhanced display features",
+     config_validate_bool                                                                                      },
+
     // Script execution control
     {            "script_execution",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SCRIPTS,
      &config.script_execution,                       "Enable script execution",         config_validate_bool   },

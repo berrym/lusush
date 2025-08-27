@@ -201,8 +201,8 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
-    // Enable syntax highlighting by default - works with single-line themes
-    lusush_syntax_highlighting_set_enabled(true);
+    // Enable syntax highlighting when enhanced display mode is set
+    lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
     
     // Phase 3: Initialize change detection and performance monitoring
     init_change_detector();
@@ -290,6 +290,12 @@ char *lusush_readline_with_prompt(const char *prompt) {
     
     // Debug: Track what commands are being entered in interactive mode
 
+    
+    // STABILITY FIX: Remove Enter-key syntax highlighting
+    // Real-time word-boundary highlighting is now implemented instead
+    // if (line && *line && config.enhanced_display_mode && syntax_highlighting_enabled) {
+    //     lusush_show_command_syntax_preview(line);
+    // }
     
     // Call post-input hook
     if (post_input_hook) {
@@ -778,16 +784,21 @@ char *lusush_generate_prompt(void) {
     
     in_prompt_generation = true;
     
-    // FERRARI ENGINE: Use enhanced prompt when available
+    // STABILITY FIX: Disable enhanced prompt in enhanced display mode to prevent corruption
+    // The display corruption is caused by interaction between enhanced prompts and enhanced display
+    // Use standard prompt generation for all modes to ensure stability
+    /*
+    // Use enhanced prompt when available
     if (display_integration_is_layered_active()) {
         char *enhanced_prompt = NULL;
         if (display_integration_get_enhanced_prompt(&enhanced_prompt)) {
             if (enhanced_prompt) {
                 in_prompt_generation = false;
-                return enhanced_prompt;  // Ferrari engine success!
+                return enhanced_prompt;
             }
         }
     }
+    */
     
     // Fallback to standard prompt generation
     if (prompt_callback) {
@@ -809,13 +820,17 @@ char *lusush_generate_prompt(void) {
 }
 
 void lusush_prompt_update(void) {
-    // FERRARI ENGINE: Use layered display for prompt updates
+    // STABILITY FIX: Use standard prompt updates to prevent display corruption
+    // Enhanced display mode should not interfere with prompt generation
+    /*
+    // Use layered display for prompt updates
     if (display_integration_is_layered_active()) {
         display_integration_prompt_update();
         return;
     }
+    */
     
-    // Desperate fallback only
+    // Use stable fallback for all modes
     rebuild_prompt();
     lusush_generate_prompt();
 }
@@ -939,10 +954,12 @@ void lusush_enable_trigger_debug(void) {
 
 void lusush_syntax_highlighting_set_enabled(bool enabled) {
     if (enabled) {
-        // Check if we can safely enable highlighting
-        // We'll check the prompt content when it's actually used
+        // Enable real-time word-boundary syntax highlighting
         syntax_highlighting_enabled = true;
+        
+        // Use custom getc function to detect word boundaries for highlighting
         rl_getc_function = lusush_getc;
+        
         reset_typing_state();
         
         // Initialize highlighting buffer
@@ -953,8 +970,8 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
             return;
         }
         
-        // FERRARI ENGINE: Use layered display for ALL redisplay operations
-        rl_redisplay_function = display_integration_redisplay;
+        // Keep standard redisplay function to prevent constant redraw
+        rl_redisplay_function = rl_redisplay;
 
     } else {
         // Disable: clean up and use standard functions
@@ -985,8 +1002,18 @@ static void apply_syntax_highlighting(void) {
         return;
     }
     
-    // Use a much simpler and safer approach
-    lusush_simple_syntax_display();
+    // Use enhanced syntax highlighting display when enabled
+    // STABILITY FIX: Always use safe redisplay regardless of mode
+    // Enhanced display mode syntax highlighting disabled to prevent constant redraws
+    rl_redisplay();
+    
+    /* ORIGINAL CODE DISABLED FOR STABILITY
+    if (config.enhanced_display_mode) {
+        lusush_simple_syntax_display();
+    } else {
+        rl_redisplay();
+    }
+    */
 }
 
 // Helper function to check if a word is a shell keyword
@@ -1036,42 +1063,62 @@ static bool lusush_is_word_separator(char c) {
            c == '<' || c == '>' || c == '\0';
 }
 
-// Simple and safe syntax display
+// Conservative syntax display for enhanced display mode - SAFE VERSION
 static void lusush_simple_syntax_display(void) {
-    if (!rl_line_buffer) {
+    // STABILITY FIX: Always use safe redisplay to prevent constant redraws
+    // The printf("\r\033[K") approach causes flickering on every keypress
+    rl_redisplay();
+    return;
+    
+    /* ORIGINAL CODE DISABLED FOR STABILITY
+    if (!rl_line_buffer || !config.enhanced_display_mode) {
         rl_redisplay();
         return;
     }
     
-    // Clear line and redraw with colors
-    printf("\r\033[K");
+    // Conservative approach: only highlight simple single-line commands
+    // Avoid highlighting if line is too long to prevent wrapping issues
+    size_t line_length = strlen(rl_line_buffer);
+    if (line_length > 60) {  // Conservative length limit
+        rl_redisplay();
+        return;
+    }
+    
+    // Check for complex constructs that might cause issues
+    if (strstr(rl_line_buffer, "for ") || strstr(rl_line_buffer, "while ") || 
+        strstr(rl_line_buffer, "if ") || strstr(rl_line_buffer, "case ")) {
+        rl_redisplay();  // Use safe redisplay for complex constructs
+        return;
+    }
+    
+    // Safe syntax highlighting for simple commands only
+    printf("\r\033[K");  // Clear line
     
     // Print prompt
     if (rl_prompt) {
         printf("%s", rl_prompt);
     }
     
-    // Print line with syntax highlighting
+    // Apply conservative syntax highlighting
     lusush_output_colored_line(rl_line_buffer, rl_point);
     
-    // Move cursor to correct position
-    if (rl_point > 0) {
-        printf("\r");
-        if (rl_prompt) {
-            printf("%s", rl_prompt);
-        }
-        // Simple cursor positioning - just move forward
-        for (int i = 0; i < rl_point && i < (int)strlen(rl_line_buffer); i++) {
-            printf("\033[C");
-        }
-    }
-    
-    fflush(stdout);
+    // Simple cursor positioning - just redisplay
+    rl_forced_update_display();
+    */
 }
 
 // Show syntax highlighted version of command when user presses Enter
 void lusush_show_command_syntax_preview(const char *command) {
-    // Disable preview since we now have real-time highlighting
+    // STABILITY FIX: Enable Enter-key syntax highlighting for enhanced mode
+    if (!command || !*command || !config.enhanced_display_mode) {
+        return;
+    }
+    
+    // Show a brief syntax-highlighted version of what was just entered
+    printf("   → ");
+    lusush_output_colored_line(command, strlen(command));
+    printf("\n");
+    fflush(stdout); // Ensure output is visible immediately
     (void)command; // Suppress unused parameter warning
     return;
 }
@@ -1567,15 +1614,14 @@ static int lusush_abort_line(int count, int key) {
 static int lusush_clear_screen_and_redisplay(int count, int key) {
     (void)count; (void)key;
     
-    // FERRARI ENGINE: Use layered display for clear screen
-    if (display_integration_is_layered_active()) {
-        display_integration_clear_screen();
-        display_integration_redisplay();
-        return 0;
-    }
+    // Clear screen with ANSI codes like clear command
+    printf("\033[2J\033[H");  // Clear screen and home cursor
+    fflush(stdout);
     
-    // Desperate fallback only
-    return rl_clear_screen(count, key);
+    // Tell readline to redraw prompt and current line
+    rl_forced_update_display();
+    
+    return 0;
 }
 
 // Custom history navigation with artifact prevention
@@ -1609,26 +1655,11 @@ static int lusush_next_history(int count, int key) {
     } else {
         // We're at the end of history
         if (has_content) {
-
-            
-            // Use same methodology as lusush_abort_line (Ctrl+G) which works correctly
-            
-            // Clear displayed line properly
-            printf("\r\033[K");  // Move to start of line and clear to end of line
-            fflush(stdout);
-            
-            // Clear readline's internal buffer
+            // Let readline handle line clearing properly to avoid display corruption
             rl_replace_line("", 0);
             rl_point = 0;
             rl_end = 0;
-            
-            // Display fresh prompt
-            rl_on_new_line();
             rl_redisplay();
-            
-
-        } else {
-
         }
         return 0;
     }
@@ -1646,7 +1677,7 @@ static void setup_key_bindings(void) {
     rl_bind_key(1, rl_beg_of_line);   // Ctrl-A: beginning of line
     rl_bind_key(5, rl_end_of_line);   // Ctrl-E: end of line
     rl_bind_key(7, lusush_abort_line); // Ctrl-G: abort/cancel line
-    rl_bind_key(12, lusush_clear_screen_and_redisplay); // Ctrl-L: clear screen (uses Ferrari engine)
+    rl_bind_key(12, lusush_clear_screen_and_redisplay); // Ctrl-L: clear screen
     rl_bind_key(21, rl_unix_line_discard); // Ctrl-U: kill line
     rl_bind_key(11, rl_kill_line);    // Ctrl-K: kill to end
     rl_bind_key(23, rl_unix_word_rubout); // Ctrl-W: kill word
@@ -1762,7 +1793,7 @@ void lusush_multiline_set_enabled(bool enabled) {
 // ============================================================================
 
 void lusush_clear_screen(void) {
-    // FERRARI ENGINE: Use layered display for clear screen
+    // Use layered display for clear screen
     if (display_integration_is_layered_active()) {
         display_integration_clear_screen();
         return;
@@ -1773,7 +1804,7 @@ void lusush_clear_screen(void) {
 }
 
 void lusush_refresh_line(void) {
-    // FERRARI ENGINE: Use layered display for line refresh
+    // Use layered display for line refresh
     if (display_integration_is_layered_active()) {
         display_integration_redisplay();
         return;
@@ -1867,52 +1898,134 @@ void lusush_set_post_input_hook(lusush_post_input_hook_t hook) {
 // ============================================================================
 
 static bool should_trigger_highlighting(int c) {
-    clock_t current_time = clock();
+    // Use existing comprehensive word separator function plus quotes for strings
+    return lusush_is_word_separator(c) || c == '"' || c == '\'';
+}
+
+// Enhanced highlighting with variables, operators, strings, and numbers
+static void lusush_highlight_previous_word(void) {
+    if (!rl_line_buffer || rl_point < 1) {
+        return;
+    }
     
-    // Prevent too-frequent updates (max 30 FPS = ~33ms between updates)
-    if (current_time - typing_state.last_trigger_time < CLOCKS_PER_SEC / 30) {
-        // Only allow high-priority characters during throttling
-        if (!(c == ' ' || c == '\n' || c == '\t' || c == ';' || c == '|' || c == '&')) {
-            return false;
+    char separator = rl_line_buffer[rl_point - 1];
+    
+    // Handle string literals (quotes)
+    if (separator == '"' || separator == '\'') {
+        // Find matching quote to highlight entire string
+        int quote_start = rl_point - 1;
+        for (int i = quote_start - 1; i >= 0; i--) {
+            if (rl_line_buffer[i] == separator) {
+                // Found opening quote, highlight the whole string
+                int string_len = quote_start - i + 1;
+                printf("\033[s");
+                printf("\033[%dD", rl_point - i);
+                printf("%s", string_color);
+                for (int j = 0; j < string_len; j++) {
+                    printf("%c", rl_line_buffer[i + j]);
+                }
+                printf("%s", reset_color);
+                printf("\033[u");
+                fflush(stdout);
+                return;
+            }
         }
+        return; // No matching opening quote found
     }
     
-    // Always trigger on word boundaries and operators
-    if (is_word_boundary_char(c)) {
-        typing_state.in_word = false;
-        typing_state.consecutive_alphas = 0;
-        typing_state.last_trigger_time = current_time;
-        return true;
+    // Handle operators immediately
+    if (separator == '|' || separator == '&' || separator == ';' || separator == '<' || separator == '>') {
+        printf("\033[s");
+        printf("\033[1D");
+        printf("%s%c%s", operator_color, separator, reset_color);
+        printf("\033[u");
+        fflush(stdout);
+        return;
     }
     
-    // Always trigger on syntax-significant characters
-    if (is_syntax_significant_char(c)) {
-        typing_state.last_trigger_time = current_time;
-        return true;
-    }
-    
-    // Handle continuous typing (alphanumeric characters)
-    if (isalnum(c) || c == '_' || c == '-') {
-        typing_state.in_word = true;
-        typing_state.consecutive_alphas++;
+    // Handle variables ($VAR)
+    if (rl_point >= 2 && rl_line_buffer[rl_point - 2] == '$') {
+        int var_start = rl_point - 2;
+        int var_end = rl_point - 1;
         
-        // Trigger every 3rd character during word typing to reduce spam
-        if (typing_state.consecutive_alphas % 3 == 0) {
-            typing_state.last_trigger_time = current_time;
-            return true;
+        // Extend to capture full variable name
+        while (var_end < (int)strlen(rl_line_buffer) && 
+               (isalnum(rl_line_buffer[var_end]) || rl_line_buffer[var_end] == '_')) {
+            var_end++;
         }
-        return false;
+        var_end--; // Back to last char of variable
+        
+        printf("\033[s");
+        printf("\033[%dD", rl_point - var_start);
+        int var_len = var_end - var_start + 1;
+        printf("%s", variable_color);
+        for (int i = 0; i < var_len; i++) {
+            printf("%c", rl_line_buffer[var_start + i]);
+        }
+        printf("%s", reset_color);
+        printf("\033[u");
+        fflush(stdout);
+        return;
     }
     
-    // Handle backspace/delete - always trigger to update highlighting
-    if (c == 8 || c == 127) {
-        typing_state.consecutive_alphas = 0;
-        typing_state.last_trigger_time = current_time;
-        return true;
+    // Find the word that was just completed (before the separator we just typed)
+    int word_end = rl_point - 1;
+    while (word_end >= 0 && lusush_is_word_separator(rl_line_buffer[word_end])) {
+        word_end--;
+    }
+    if (word_end < 0) {
+        return;
     }
     
-    // Default: don't trigger for other characters
-    return false;
+    int word_start = word_end;
+    while (word_start > 0 && !lusush_is_word_separator(rl_line_buffer[word_start - 1])) {
+        word_start--;
+    }
+    
+    int word_len = word_end - word_start + 1;
+    if (word_len <= 0 || word_len > 32) {
+        return;
+    }
+    
+    char word[33];
+    strncpy(word, &rl_line_buffer[word_start], word_len);
+    word[word_len] = '\0';
+    
+    bool should_highlight = false;
+    const char *color = NULL;
+    
+    // Check for keywords
+    if (lusush_is_shell_keyword(word, word_len)) {
+        should_highlight = true;
+        color = keyword_color;
+    }
+    // Check for built-ins
+    else if (lusush_is_shell_builtin(word, word_len)) {
+        should_highlight = true;
+        color = command_color;
+    }
+    // Check for numbers
+    else if (word_len > 0 && isdigit(word[0])) {
+        bool is_number = true;
+        for (int j = 0; j < word_len; j++) {
+            if (!isdigit(word[j]) && word[j] != '.') {
+                is_number = false;
+                break;
+            }
+        }
+        if (is_number) {
+            should_highlight = true;
+            color = number_color;
+        }
+    }
+    
+    if (should_highlight) {
+        printf("\033[s");
+        printf("\033[%dD", rl_point - word_start);
+        printf("%s%s%s", color, word, reset_color);
+        printf("\033[u");
+        fflush(stdout);
+    }
 }
 
 static bool is_word_boundary_char(int c) {
@@ -1924,9 +2037,15 @@ static bool is_syntax_significant_char(int c) {
 }
 
 static int lusush_syntax_update_hook(void) {
-    // Phase 2: Just mark that we need an update
-    // The actual highlighting happens in lusush_safe_redisplay
-    // Don't force immediate redisplay to avoid multiple calls
+    // Apply syntax highlighting actively but safely
+    if (syntax_highlighting_enabled && rl_line_buffer && *rl_line_buffer) {
+        // Only apply if we're in a safe state
+        if (!(rl_readline_state & (RL_STATE_ISEARCH | RL_STATE_NSEARCH | 
+                                  RL_STATE_SEARCH | RL_STATE_COMPLETING |
+                                  RL_STATE_VICMDONCE | RL_STATE_VIMOTION))) {
+            apply_syntax_highlighting();
+        }
+    }
     
     // Remove the hook after use
     rl_pre_input_hook = NULL;
@@ -1994,7 +2113,7 @@ static bool is_safe_for_highlighting(void) {
 
 // Custom redisplay function for real-time syntax highlighting
 static void lusush_safe_redisplay(void) {
-    // FERRARI ENGINE: This function should rarely be called now
+    // This function should rarely be called now
     // Most redisplay operations should go through display_integration_redisplay
     
     // Prevent recursive calls
@@ -2006,7 +2125,7 @@ static void lusush_safe_redisplay(void) {
     
     in_redisplay = true;
     
-    // Try Ferrari engine first, even in legacy function
+    // Try enhanced display first, even in legacy function
     if (display_integration_is_layered_active()) {
         display_integration_redisplay();
         in_redisplay = false;
@@ -2094,10 +2213,9 @@ static int lusush_getc(FILE *stream) {
         }
     }
     
-    // Smart highlighting trigger - only when enabled and meaningful
+    // Real-time enhanced syntax highlighting - triggered on word boundaries
     if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
-        // Schedule update after input processing (non-blocking)
-        rl_pre_input_hook = lusush_syntax_update_hook;
+        lusush_highlight_previous_word();
     }
     
     // Update typing state

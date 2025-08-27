@@ -254,7 +254,7 @@ void display_integration_clear_screen(void);
 
 /**
  * Get enhanced prompt using layered display system.
- * Provides Ferrari engine prompt generation with visual enhancements.
+ * Provides enhanced prompt generation with visual enhancements.
  * 
  * @param enhanced_prompt Pointer to store the generated enhanced prompt
  * @return true on success, false on failure
