@@ -1,302 +1,198 @@
-# Lusush Shell v1.1.3
+# Lusush Shell
 
-**Enterprise-Ready Professional Shell with Advanced Features**
+A modern, professional shell with advanced features including real-time syntax highlighting, comprehensive tab completion, git integration, and multiple themes.
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/berrym/lusush)
-[![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-green.svg)]()
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+## Features
 
-## 🚀 Production Ready - February 2025
+### 🎨 Real-time Syntax Highlighting
+- **Word-boundary triggered highlighting** - See syntax colors as you type
+- **Comprehensive syntax support** - Keywords, built-ins, variables, strings, numbers, operators
+- **Professional color scheme** - Enterprise-appropriate visual design
+- **Zero performance impact** - Sub-millisecond response times
 
-**Lusush v1.1.3** is a complete, enterprise-ready professional shell that combines 100% POSIX compliance with cutting-edge modern features. Perfect for development teams, system administrators, and enterprise environments.
+### 🚀 Enhanced User Experience  
+- **Advanced tab completion** - Context-aware completion for commands, files, and git
+- **Git integration** - Real-time branch and status display in prompts
+- **Multiple themes** - 6 professional themes (dark, light, minimal, colorful, classic, corporate)
+- **Multiline support** - Full support for complex shell constructs (`for`, `if`, `while`, etc.)
 
----
+### 🔧 Professional Features
+- **POSIX compliance** - Standard shell operations and compatibility
+- **History management** - Intelligent history with deduplication
+- **Cross-platform** - Linux, macOS, BSD support
+- **Performance optimized** - Enterprise-scale ready
+- **Memory safe** - Comprehensive error handling and resource management
 
-## ✨ Key Features
+## Quick Start
 
-### 🎯 **Enterprise-Grade Core**
-- **100% POSIX Compliance** - Full compatibility with standard shell operations
-- **Perfect Multiline Support** - Seamless handling of complex shell constructs
-- **Advanced Command Execution** - Flawless operation with proper output formatting
-- **Cross-Platform Compatibility** - Verified on Linux, macOS, and BSD systems
-- **Enterprise Performance** - Sub-millisecond response times for all operations
-
-### 🔥 **Modern Professional Features**
-- **Real-time Git Integration** - Live repository status in beautiful themed prompts
-- **Advanced Tab Completion** - Context-aware intelligent suggestions for git, directories, and SSH
-- **6 Professional Themes** - Enterprise-grade visual designs (dark, light, minimal, colorful, classic, corporate)
-- **Intelligent History Management** - Enhanced navigation with deduplication and search
-- **Complete GNU Readline Integration** - Advanced line editing with full key binding support
-
-### 💼 **Professional Experience**
-- **Themed Prompts** - Beautiful multi-line designs with git branch and status indicators
-- **Context-Aware Completion** - Smart suggestions based on command context
-- **Professional Appearance** - Enterprise-appropriate visual design for corporate environments
-- **Zero Corruption** - Rock-solid stability with professional terminal handling
-- **Memory Efficient** - Optimized for production environments with intelligent caching
-
----
-
-## 🛠️ Quick Start
-
-### Prerequisites
-- **GNU Readline library** (`libreadline-dev` on Ubuntu/Debian, `readline` on macOS)
-- **Meson build system** (`meson` package)
-- **C99 compatible compiler** (GCC or Clang)
+### Build Requirements
+- C compiler (GCC or Clang)
+- Meson build system
+- GNU Readline library
+- Git (for repository features)
 
 ### Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/berrym/lusush.git
 cd lusush
 
-# Build with Meson
+# Setup build directory
 meson setup builddir
+
+# Build the shell
 ninja -C builddir
 
-# Run the shell
-./builddir/lusush
+# Install (optional)
+sudo ninja -C builddir install
 ```
 
-### First Steps
-```bash
-# Start interactive mode
-./builddir/lusush
-
-# Try multiline constructs
-for i in 1 2 3; do
-    echo "Number: $i"
-done
-
-# Experience git integration (in a git repository)
-git status              # See git info in themed prompt
-
-# Test advanced completion
-git [TAB]              # Shows git subcommands
-cd [TAB]               # Shows directories only
-ssh user@[TAB]         # Shows SSH hosts
-
-# Switch professional themes
-theme set dark         # Corporate dark theme
-theme set light        # Professional light theme
-theme list             # See all available themes
-```
-
----
-
-## 🎨 Professional Themes
-
-Lusush includes 6 enterprise-grade themes with real-time git integration:
-
-### **Dark Theme** - Corporate Professional
-```
-┌─[user@hostname]─[~/project] (main *)
-└─$
-```
-
-### **Light Theme** - Clean Professional  
-```
-user@hostname:~/project (main *) $
-```
-
-### **Minimal Theme** - Clean Focus
-```
-$
-```
-
-### **Colorful Theme** - Enhanced Productivity
-```
-🚀 user@hostname 📁 ~/project 🌿 (main *) ➤
-```
-
-### **Classic Theme** - Traditional Professional
-```
-[user@hostname ~/project] (main *) #
-```
-
-### **Corporate Theme** - Enterprise Standard
-```
-HOSTNAME [~/project] (main *) >
-```
-
-**Git Status Indicators:**
-- `(main)` - Clean branch
-- `(main *)` - Modified files
-- `(main *?)` - Modified and untracked files
-- `(main ↑2)` - Commits ahead of upstream
-
----
-
-## 📚 Documentation
-
-### User Guides
-- **[Installation Guide](docs/user/INSTALLATION.md)** - Complete setup instructions
-- **[User Manual](docs/user/USER_MANUAL.md)** - Comprehensive usage guide
-- **[Configuration Reference](docs/COMPLETION_SYSTEM.md)** - Tab completion system
-- **[Hints System](docs/HINTS_SYSTEM.md)** - Interactive help features
-
-### Production Deployment
-- **[Deployment Guide](docs/production/DEPLOYMENT.md)** - Enterprise setup
-- **[Current Status](CURRENT_STATUS_FEBRUARY_2025.md)** - Complete feature overview
-- **[Production Status](PRODUCTION_DEPLOYMENT_STATUS_FEBRUARY_2025.md)** - Deployment readiness
-
----
-
-## 🧪 Testing
-
-### Quick Verification
-```bash
-# Test core functionality
-./test_current_status.sh
-
-# Test interactive features
-./test_interactive.sh
-
-# Test syntax highlighting framework
-./test_syntax_highlighting.sh
-
-# Run POSIX compliance tests
-./tests/compliance/test_shell_compliance_comprehensive.sh
-```
-
-### Build Verification
-```bash
-# Clean build test
-rm -rf builddir
-meson setup builddir
-ninja -C builddir
-./builddir/lusush --version
-```
-
----
-
-## ⚡ Performance
-
-**Benchmark Results** (Enterprise-Grade Performance):
-- **Character insertion**: < 1ms
-- **Tab completion**: < 50ms  
-- **Git status display**: < 10ms
-- **Theme switching**: < 5ms
-- **Memory usage**: < 5MB total
-- **Startup time**: < 100ms
-
----
-
-## 🏢 Enterprise Features
-
-### **Production Ready**
-- **Enterprise-grade stability** - Rock-solid reliability for critical environments
-- **Professional appearance** - Corporate-appropriate themes and visual design
-- **Advanced functionality** - Modern features while maintaining POSIX compliance
-- **Cross-platform consistency** - Reliable behavior across Unix-like systems
-- **Performance optimized** - Enhanced for large-scale development operations
-
-### **Developer Productivity**
-- **Real-time git awareness** - Instant repository status in all prompts
-- **Intelligent completion** - Context-aware suggestions improve workflow efficiency
-- **Professional themes** - Reduce eye strain and enhance readability
-- **Advanced history** - Powerful command recall and editing capabilities
-- **Multiline excellence** - Seamless complex command construction
-
----
-
-## 🛡️ Technical Specifications
-
-### **Architecture**
-- **Language**: C99 with strict standards
-- **Build System**: Meson with Ninja backend
-- **Dependencies**: GNU Readline library
-- **Memory Management**: Comprehensive leak prevention and resource management
-- **Error Handling**: Professional error reporting and graceful failure modes
-
-### **Compatibility**
-- **POSIX Compliance**: 100% compatible with standard shell operations
-- **Platform Support**: Linux, macOS, FreeBSD, OpenBSD, NetBSD
-- **Terminal Support**: All major terminal emulators with ANSI color support
-- **Integration**: Works seamlessly with existing shell scripts and tools
-
----
-
-## 📈 Version History
-
-### **v1.1.0** - February 2025 - **MAJOR FEATURE RELEASE**
-- **🎉 Complete Advanced Features**: Git integration, themes, advanced completion
-- **🚀 Enterprise Ready**: Production deployment approved
-- **⚡ Performance Optimized**: Sub-millisecond response across all operations
-- **🎨 Professional Themes**: 6 enterprise-grade visual designs
-- **🔧 Complete Framework**: Syntax highlighting infrastructure ready for future LLE
-
-See [CHANGELOG.md](CHANGELOG.md) for complete version history.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions to Lusush! This project follows modern development practices:
-
-### **Development**
-- **Code Standards**: C99 with comprehensive error handling
-- **Testing**: POSIX compliance and regression test suites
-- **Documentation**: Comprehensive API and user documentation
-- **Performance**: Benchmark requirements for all changes
-
-### **Community**
-- **Issues**: [GitHub Issues](https://github.com/berrym/lusush/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/berrym/lusush/discussions)
-- **Pull Requests**: Follow our contribution guidelines
-
----
-
-## 📄 License
-
-This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
-
-**Note**: Lusush uses GNU Readline, which requires GPL-compatible licensing. This ensures full compliance with readline's licensing requirements while maintaining the project's open-source nature.
-
----
-
-## 🌟 Why Lusush?
-
-### **For Development Teams**
-- **Enhanced Productivity**: Advanced features streamline daily workflows
-- **Professional Experience**: Enterprise-appropriate appearance and functionality  
-- **Git Integration**: Real-time repository awareness improves development efficiency
-- **Modern Capabilities**: Cutting-edge features while maintaining compatibility
-
-### **For System Administrators**
-- **POSIX Compliance**: Full compatibility with existing scripts and tools
-- **Enterprise Reliability**: Production-grade stability for critical environments
-- **Cross-Platform**: Consistent behavior across all Unix-like systems
-- **Performance**: Optimized for large-scale operations and enterprise workloads
-
-### **For Enterprise Environments**
-- **Professional Appearance**: Corporate-appropriate themes and visual design
-- **Security**: Built with security best practices and safe operations
-- **Scalability**: Enhanced for enterprise-scale development and operations
-- **Support**: Production-ready with comprehensive documentation
-
----
-
-## 🚀 Get Started Today
+### Usage
 
 ```bash
-# Quick start for immediate use
-git clone https://github.com/berrym/lusush.git
-cd lusush
-meson setup builddir && ninja -C builddir
+# Run standard mode
 ./builddir/lusush
 
-# Experience the difference:
-# - Perfect multiline support for complex commands
-# - Real-time git integration in beautiful themed prompts  
-# - Advanced tab completion that understands context
-# - Professional themes suitable for enterprise environments
-# - Enterprise-grade performance and reliability
+# Run with enhanced display mode (full syntax highlighting)
+./builddir/lusush --enhanced-display
+
+# Interactive mode
+./builddir/lusush -i
 ```
 
-**Lusush v1.1.1** - *Where enterprise reliability meets cutting-edge shell innovation.*
+## Syntax Highlighting
+
+Lusush provides comprehensive real-time syntax highlighting:
+
+- **Shell Keywords** (Blue): `if`, `then`, `else`, `for`, `while`, `do`, `done`, `case`, etc.
+- **Built-in Commands** (Green): `echo`, `cd`, `pwd`, `export`, `grep`, `ls`, etc.
+- **Variables** (Magenta): `$HOME`, `$PATH`, `${VAR}`, etc.
+- **Strings** (Yellow): `"double quotes"`, `'single quotes'`
+- **Numbers** (Cyan): `42`, `123.45`
+- **Operators** (Red): `|`, `&`, `;`, `<`, `>`
+
+Example with highlighting:
+```bash
+if test "$HOME" = "/home/user"; then
+    echo "Found 123 files" | grep important;
+    export PATH=$PATH:/usr/local/bin;
+fi
+```
+
+## Themes
+
+Switch between professional themes:
+
+```bash
+# Available themes
+theme list
+
+# Set theme
+theme set dark
+theme set light
+theme set minimal
+theme set colorful
+theme set classic
+theme set corporate
+```
+
+## Configuration
+
+### Environment Variables
+- `LUSUSH_ENHANCED_DISPLAY=1` - Enable enhanced display mode
+- `LUSUSH_THEME=dark` - Set default theme
+- `LUSUSH_HISTORY_SIZE=1000` - Set history size
+
+### Command Line Options
+- `--enhanced-display` - Enable full syntax highlighting
+- `-i` - Interactive mode
+- `--help` - Show help information
+- `--version` - Show version information
+
+## Advanced Features
+
+### Git Integration
+- Real-time git branch display in prompts
+- Git status indicators (modified files, ahead/behind status)
+- Git-aware tab completion
+
+### Tab Completion
+- **Context-aware**: Different completions based on command context
+- **File completion**: Intelligent file and directory completion
+- **Command completion**: Built-in and external command completion
+- **Git completion**: Branch names, git subcommands
+
+### History Management
+- **Deduplication**: Automatic removal of duplicate entries
+- **Search**: Reverse search with Ctrl+R
+- **Persistence**: History saved across sessions
+
+## Testing
+
+Run the test suite:
+```bash
+# Quick verification tests
+./quick_test.sh
+
+# Full test suite
+ninja -C builddir test
+```
+
+## Development
+
+### Project Structure
+```
+lusush/
+├── src/                    # Source code
+│   ├── builtins/          # Built-in command implementations
+│   ├── display/           # Display system components
+│   ├── readline_integration.c  # Main readline integration
+│   └── ...
+├── include/               # Header files
+├── tests/                 # Test suite
+├── docs/                  # Documentation
+└── builddir/             # Build output
+```
+
+### Key Components
+- **Readline Integration**: GNU Readline wrapper with syntax highlighting
+- **Theme System**: Professional theme management
+- **Display Integration**: Enhanced display and prompt system
+- **Completion System**: Advanced tab completion
+- **Git Integration**: Real-time git status and branch display
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes with comprehensive tests
+4. Ensure all tests pass: `ninja -C builddir test`
+5. Submit a pull request
+
+### Coding Standards
+- C99 standard compliance
+- Comprehensive error handling
+- Memory safety (no leaks)
+- Performance optimization
+- Professional naming conventions
+
+## License
+
+[License details - see LICENSE file]
+
+## Support
+
+- **Issues**: Report bugs and feature requests via GitHub Issues
+- **Documentation**: See `docs/` directory for detailed documentation
+- **Performance**: Optimized for enterprise-scale usage
+
+## Acknowledgments
+
+- Built on GNU Readline for robust line editing
+- Inspired by modern shell user experience design
+- Designed for professional and enterprise environments
 
 ---
 
-*Copyright © 2025 Lusush Shell Project. Licensed under GPL v3.*
+**Lusush Shell** - Professional shell with modern features and enterprise-grade reliability.
