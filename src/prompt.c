@@ -5,6 +5,7 @@
 #include "../include/errors.h"
 #include "../include/libhashtable/ht.h"
 #include "../include/lusush.h"
+#include "../include/strings.h"
 #include "../include/symtable.h"
 #include "../include/termcap.h"
 #include "../include/themes.h"
@@ -405,7 +406,7 @@ void build_prompt(void) {
             sprintf(prompt, "%s%s@%s in %s%s%s", colors, u, h, d, RESET,
                     (getuid() > 0) ? PS1 : PS1_ROOT);
         } else {
-            sprintf(prompt, "%s@%s in %s%s", u, h, d, 
+            sprintf(prompt, "%s@%s in %s%s", u, h, d,
                     (getuid() > 0) ? PS1 : PS1_ROOT);
         }
     } else if (prompt_style == PRO_PROMPT) {

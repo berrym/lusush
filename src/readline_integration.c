@@ -1901,23 +1901,35 @@ static bool should_trigger_highlighting(int c) {
     // Use existing comprehensive word separator function plus quotes for strings
     return lusush_is_word_separator(c) || c == '"' || c == '\'';
 }
-
+ 
 // Enhanced highlighting with variables, operators, strings, and numbers
 static void lusush_highlight_previous_word(void) {
     if (!rl_line_buffer || rl_point < 1) {
         return;
     }
-    
+     
+    // Simple check to avoid wrapped line issues - if we're near terminal edge, just skip highlighting
+    if (rl_point > 70) {  // Conservative check for potential wrapping
+        return;  // Just skip highlighting for edge cases
+    }
+     
     char separator = rl_line_buffer[rl_point - 1];
-    
+     
     // Handle string literals (quotes)
     if (separator == '"' || separator == '\'') {
         // Find matching quote to highlight entire string
         int quote_start = rl_point - 1;
         for (int i = quote_start - 1; i >= 0; i--) {
             if (rl_line_buffer[i] == separator) {
-                // Found opening quote, highlight the whole string
+                // Found opening quote, check if safe to highlight
                 int string_len = quote_start - i + 1;
+                if (string_len > 50) return; // Safety check for very long strings
+                
+                // Conservative check: if string might wrap, just skip highlighting
+                if (string_len > 20) {
+                    return;  // Skip highlighting for potentially long strings
+                }
+                 
                 printf("\033[s");
                 printf("\033[%dD", rl_point - i);
                 printf("%s", string_color);
@@ -1932,7 +1944,7 @@ static void lusush_highlight_previous_word(void) {
         }
         return; // No matching opening quote found
     }
-    
+     
     // Handle operators immediately
     if (separator == '|' || separator == '&' || separator == ';' || separator == '<' || separator == '>') {
         printf("\033[s");
@@ -1942,22 +1954,29 @@ static void lusush_highlight_previous_word(void) {
         fflush(stdout);
         return;
     }
-    
+     
     // Handle variables ($VAR)
     if (rl_point >= 2 && rl_line_buffer[rl_point - 2] == '$') {
         int var_start = rl_point - 2;
         int var_end = rl_point - 1;
-        
+         
         // Extend to capture full variable name
         while (var_end < (int)strlen(rl_line_buffer) && 
                (isalnum(rl_line_buffer[var_end]) || rl_line_buffer[var_end] == '_')) {
             var_end++;
         }
         var_end--; // Back to last char of variable
+         
+        int var_len = var_end - var_start + 1;
+        if (var_len > 30) return; // Safety check
         
+        // Conservative check: if variable might wrap, just skip highlighting
+        if (var_len > 15) {
+            return;  // Skip highlighting for potentially long variables
+        }
+         
         printf("\033[s");
         printf("\033[%dD", rl_point - var_start);
-        int var_len = var_end - var_start + 1;
         printf("%s", variable_color);
         for (int i = 0; i < var_len; i++) {
             printf("%c", rl_line_buffer[var_start + i]);
@@ -2018,8 +2037,15 @@ static void lusush_highlight_previous_word(void) {
             color = number_color;
         }
     }
-    
+     
     if (should_highlight) {
+        if (word_len > 40) return; // Safety check for very long words
+        
+        // Conservative check: if word might wrap, just skip highlighting
+        if (word_len > 12) {
+            return;  // Skip highlighting for potentially long words
+        }
+         
         printf("\033[s");
         printf("\033[%dD", rl_point - word_start);
         printf("%s%s%s", color, word, reset_color);
