@@ -1986,11 +1986,13 @@ static void lusush_highlight_previous_word(void) {
     if (!rl_line_buffer || rl_point < 1) {
         return;
     }
-     
-    // REMOVED: Conservative check for potential wrapping - now handles all lengths
-    // if (rl_point > 70) {  // Conservative check for potential wrapping
-    //     return;  // Just skip highlighting for edge cases
-    // }
+
+#ifdef __linux__
+    // Linux-specific: Apply safety checks for potential wrapping issues
+    if (rl_point > 70) {  // Conservative check for potential wrapping
+        return;  // Skip highlighting for edge cases
+    }
+#endif
      
     char separator = rl_line_buffer[rl_point - 1];
      
@@ -2000,13 +2002,17 @@ static void lusush_highlight_previous_word(void) {
         int quote_start = rl_point - 1;
         for (int i = quote_start - 1; i >= 0; i--) {
             if (rl_line_buffer[i] == separator) {
-                // Found opening quote, highlight string of any length
+                // Found opening quote, check if safe to highlight
                 int string_len = quote_start - i + 1;
-                // REMOVED: Safety checks for string length - now handles all lengths
-                // if (string_len > 50) return; // Safety check for very long strings
-                // if (string_len > 20) {
-                //     return;  // Skip highlighting for potentially long strings
-                // }
+#ifdef __linux__
+                // Linux-specific: Safety checks for string length
+                if (string_len > 50) return; // Safety check for very long strings
+                
+                // Conservative check: if string might wrap, just skip highlighting
+                if (string_len > 20) {
+                    return;  // Skip highlighting for potentially long strings
+                }
+#endif
                  
                 printf("\033[s");
                 printf("\033[%dD", rl_point - i);
@@ -2046,11 +2052,15 @@ static void lusush_highlight_previous_word(void) {
         var_end--; // Back to last char of variable
          
         int var_len = var_end - var_start + 1;
-        // REMOVED: Safety checks for variable length - now handles all lengths
-        // if (var_len > 30) return; // Safety check
-        // if (var_len > 15) {
-        //     return;  // Skip highlighting for potentially long variables
-        // }
+#ifdef __linux__
+        // Linux-specific: Safety checks for variable length
+        if (var_len > 30) return; // Safety check
+        
+        // Conservative check: if variable might wrap, just skip highlighting
+        if (var_len > 15) {
+            return;  // Skip highlighting for potentially long variables
+        }
+#endif
          
         printf("\033[s");
         printf("\033[%dD", rl_point - var_start);
@@ -2118,11 +2128,15 @@ static void lusush_highlight_previous_word(void) {
     }
      
     if (should_highlight) {
-        // REMOVED: All word length restrictions - now handles all lengths
-        // if (word_len > 40) return; // Safety check for very long words
-        // if (word_len > 12) {
-        //     return;  // Skip highlighting for potentially long words
-        // }
+#ifdef __linux__
+        // Linux-specific: Safety checks for word length
+        if (word_len > 40) return; // Safety check for very long words
+        
+        // Conservative check: if word might wrap, just skip highlighting
+        if (word_len > 12) {
+            return;  // Skip highlighting for potentially long words
+        }
+#endif
          
         printf("\033[s");
         printf("\033[%dD", rl_point - word_start);
