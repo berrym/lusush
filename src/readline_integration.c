@@ -126,6 +126,142 @@ static bool lusush_is_shell_keyword(const char *word, size_t length);
 static bool lusush_is_shell_builtin(const char *word, size_t length);
 static bool lusush_is_word_separator(char c);
 static void lusush_custom_redisplay(void);
+// New function for wrapped output
+static void lusush_output_colored_line_wrapped(const char *line, int available_width) {
+    if (!line) return;
+    
+    // Color definitions
+    const char *cmd_color = "\033[1;32m";    // Bright green for commands
+    const char *str_color = "\033[1;33m";    // Yellow for strings
+    const char *var_color = "\033[1;35m";    // Magenta for variables
+    const char *keyword_color = "\033[1;34m"; // Blue for keywords
+    const char *reset = "\033[0m";
+    
+    size_t len = strlen(line);
+    size_t pos = 0;
+    int current_col = 0;
+    bool in_string = false;
+    char string_delimiter = 0;
+    bool first_word = true;
+    
+    while (pos < len) {
+        char c = line[pos];
+        
+        // Handle line wrapping
+        if (current_col >= available_width && available_width > 0) {
+            printf("\n");
+            current_col = 0;
+        }
+        
+        // Handle strings
+        if (!in_string && (c == '"' || c == '\'' || c == '`')) {
+            in_string = true;
+            string_delimiter = c;
+            printf("%s%c", str_color, c);
+            current_col++;
+            pos++;
+            continue;
+        }
+        
+        if (in_string) {
+            if (c == string_delimiter) {
+                printf("%c%s", c, reset);
+                in_string = false;
+            } else {
+                printf("%c", c);
+            }
+            current_col++;
+            pos++;
+            continue;
+        }
+        
+        // Handle variables
+        if (c == '$') {
+            printf("%s$", var_color);
+            current_col++;
+            pos++;
+            
+            // Highlight variable name
+            while (pos < len && (isalnum(line[pos]) || line[pos] == '_')) {
+                printf("%c", line[pos]);
+                current_col++;
+                if (current_col >= available_width && available_width > 0) {
+                    printf("\n");
+                    current_col = 0;
+                }
+                pos++;
+            }
+            printf("%s", reset);
+            continue;
+        }
+        
+        // Handle words (potential commands/keywords)
+        if (isalpha(c) && (pos == 0 || isspace(line[pos-1]) || line[pos-1] == '|' || line[pos-1] == '&' || line[pos-1] == ';')) {
+            size_t word_start = pos;
+            size_t word_end = pos;
+            
+            // Find end of word
+            while (word_end < len && (isalnum(line[word_end]) || line[word_end] == '_' || line[word_end] == '-')) {
+                word_end++;
+            }
+            
+            // Extract word
+            char word[64];
+            size_t word_len = word_end - word_start;
+            if (word_len < sizeof(word)) {
+                strncpy(word, line + word_start, word_len);
+                word[word_len] = '\0';
+                
+                // Check if it's a keyword or command
+                const char *color = NULL;
+                if (first_word || (pos > 0 && (line[pos-1] == '|' || line[pos-1] == '&' || line[pos-1] == ';'))) {
+                    // First word or after pipe/semicolon is likely a command
+                    if (strcmp(word, "if") == 0 || strcmp(word, "then") == 0 || strcmp(word, "else") == 0 || 
+                        strcmp(word, "elif") == 0 || strcmp(word, "fi") == 0 || strcmp(word, "for") == 0 || 
+                        strcmp(word, "while") == 0 || strcmp(word, "do") == 0 || strcmp(word, "done") == 0 ||
+                        strcmp(word, "case") == 0 || strcmp(word, "esac") == 0) {
+                        color = keyword_color;
+                    } else {
+                        color = cmd_color;
+                    }
+                }
+                
+                if (color) {
+                    printf("%s", color);
+                }
+                
+                // Print the word with wrapping
+                for (size_t i = 0; i < word_len; i++) {
+                    if (current_col >= available_width && available_width > 0) {
+                        printf("\n");
+                        current_col = 0;
+                    }
+                    printf("%c", word[word_start + i]);
+                    current_col++;
+                }
+                
+                if (color) {
+                    printf("%s", reset);
+                }
+                
+                pos = word_end;
+                first_word = false;
+                continue;
+            }
+        }
+        
+        // Handle regular characters
+        if (!isspace(c)) {
+            first_word = false;
+        }
+        
+        printf("%c", c);
+        current_col++;
+        pos++;
+    }
+}
+
+// Original function for compatibility  
 static void lusush_output_colored_line(const char *line, int cursor_pos);
 static int lusush_getc(FILE *stream);
 static int lusush_abort_line(int count, int key);
@@ -1063,48 +1199,111 @@ static bool lusush_is_word_separator(char c) {
            c == '<' || c == '>' || c == '\0';
 }
 
-// Conservative syntax display for enhanced display mode - SAFE VERSION
+// Robust syntax highlighting with proper line wrapping support
 static void lusush_simple_syntax_display(void) {
-    // STABILITY FIX: Always use safe redisplay to prevent constant redraws
-    // The printf("\r\033[K") approach causes flickering on every keypress
-    rl_redisplay();
-    return;
-    
-    /* ORIGINAL CODE DISABLED FOR STABILITY
     if (!rl_line_buffer || !config.enhanced_display_mode) {
         rl_redisplay();
         return;
     }
     
-    // Conservative approach: only highlight simple single-line commands
-    // Avoid highlighting if line is too long to prevent wrapping issues
-    size_t line_length = strlen(rl_line_buffer);
-    if (line_length > 60) {  // Conservative length limit
-        rl_redisplay();
-        return;
+    // Get terminal dimensions for proper wrapping calculations
+    int terminal_width = 80; // Safe default
+    int terminal_height = 24;
+    rl_get_screen_size(&terminal_height, &terminal_width);
+    if (terminal_width <= 0) terminal_width = 80;
+    
+    // Calculate prompt length (without ANSI escape sequences)
+    int prompt_len = rl_prompt ? rl_expand_prompt(rl_prompt) : 0;
+    if (prompt_len < 0) prompt_len = 0;
+    
+    // Calculate total visual length
+    size_t command_len = strlen(rl_line_buffer);
+    int total_visual_len = prompt_len + command_len;
+    
+    // Calculate cursor position accounting for wrapping
+    int cursor_visual_pos = prompt_len + rl_point;
+    int cursor_line = cursor_visual_pos / terminal_width;
+    int cursor_col = cursor_visual_pos % terminal_width;
+    
+    // Save current cursor position
+    printf("\033[s");
+    
+    // Move to beginning of current line group
+    if (cursor_line > 0) {
+        printf("\033[%dA", cursor_line); // Move up cursor_line lines
+    }
+    printf("\r"); // Move to beginning of line
+    
+    // Clear all lines that might be affected
+    int total_lines = (total_visual_len + terminal_width - 1) / terminal_width;
+    for (int i = 0; i < total_lines; i++) {
+        printf("\033[K"); // Clear current line
+        if (i < total_lines - 1) {
+            printf("\n"); // Move to next line
+        }
     }
     
-    // Check for complex constructs that might cause issues
-    if (strstr(rl_line_buffer, "for ") || strstr(rl_line_buffer, "while ") || 
-        strstr(rl_line_buffer, "if ") || strstr(rl_line_buffer, "case ")) {
-        rl_redisplay();  // Use safe redisplay for complex constructs
-        return;
+    // Move back to start
+    if (total_lines > 1) {
+        printf("\033[%dA", total_lines - 1);
     }
-    
-    // Safe syntax highlighting for simple commands only
-    printf("\r\033[K");  // Clear line
+    printf("\r");
     
     // Print prompt
     if (rl_prompt) {
         printf("%s", rl_prompt);
     }
     
-    // Apply conservative syntax highlighting
-    lusush_output_colored_line(rl_line_buffer, rl_point);
+    // Apply syntax highlighting with proper wrapping
+    lusush_output_colored_line_wrapped(rl_line_buffer, terminal_width - prompt_len);
     
-    // Simple cursor positioning - just redisplay
-    rl_forced_update_display();
-    */
+    // Position cursor correctly
+    int final_line = cursor_visual_pos / terminal_width;
+    int final_col = cursor_visual_pos % terminal_width;
+    
+    // Move to correct line
+    if (final_line > 0) {
+        printf("\033[%dB", final_line);
+    }
+    
+    // Move to correct column
+    printf("\r");
+    if (final_col > 0) {
+        printf("\033[%dC", final_col);
+    }
+    
+    fflush(stdout);
+}
+
+// Original function for compatibility
+static void lusush_output_colored_line(const char *line, int cursor_pos __attribute__((unused))) {
+    // Simple implementation without wrapping for compatibility
+    if (!line) return;
+    
+    const char *cmd_color = "\033[1;32m";    // Bright green for commands
+    const char *reset = "\033[0m";
+    
+    size_t len = strlen(line);
+    bool first_word = true;
+    
+    for (size_t i = 0; i < len; i++) {
+        char c = line[i];
+        
+        // Simple highlighting - first word as command
+        if (first_word && isalpha(c)) {
+            printf("%s", cmd_color);
+            while (i < len && !isspace(line[i])) {
+                printf("%c", line[i]);
+                i++;
+            }
+            printf("%s", reset);
+            first_word = false;
+            i--; // Adjust for loop increment
+        } else {
+            printf("%c", c);
+            if (!isspace(c)) first_word = false;
+        }
+    }
 }
 
 // Show syntax highlighted version of command when user presses Enter
@@ -1121,130 +1320,6 @@ void lusush_show_command_syntax_preview(const char *command) {
     fflush(stdout); // Ensure output is visible immediately
     (void)command; // Suppress unused parameter warning
     return;
-}
-
-// Output the line with syntax highlighting colors
-static void lusush_output_colored_line(const char *line, int cursor_pos __attribute__((unused))) {
-    if (!line || !*line) {
-        return;
-    }
-    
-    size_t len = strlen(line);
-    size_t i = 0;
-    bool in_string = false;
-    bool in_single_quote __attribute__((unused)) = false;
-    char string_char = '\0';
-    
-    while (i < len) {
-        char c = line[i];
-        
-        // Handle string literals
-        if (!in_string && (c == '"' || c == '\'')) {
-            in_string = true;
-            string_char = c;
-            if (c == '\'') {
-                in_single_quote = true;
-            }
-            printf("%s%c", string_color, c);
-            i++;
-            continue;
-        } else if (in_string && c == string_char) {
-            printf("%c%s", c, reset_color);
-            in_string = false;
-            in_single_quote = false;
-            string_char = '\0';
-            i++;
-            continue;
-        } else if (in_string) {
-            printf("%c", c);
-            i++;
-            continue;
-        }
-        
-        // Handle comments
-        if (c == '#') {
-            printf("%s", comment_color);
-            while (i < len) {
-                printf("%c", line[i]);
-                i++;
-            }
-            printf("%s", reset_color);
-            break;
-        }
-        
-        // Handle variables
-        if (c == '$') {
-            printf("%s%c", variable_color, c);
-            i++;
-            while (i < len && (isalnum(line[i]) || line[i] == '_' || 
-                              line[i] == '{' || line[i] == '}')) {
-                printf("%c", line[i]);
-                i++;
-            }
-            printf("%s", reset_color);
-            continue;
-        }
-        
-        // Handle operators
-        if (c == '|' || c == '&' || c == ';' || c == '<' || c == '>') {
-            printf("%s%c", operator_color, c);
-            printf("%s", reset_color);
-            i++;
-            continue;
-        }
-        
-        // Handle word separators
-        if (lusush_is_word_separator(c)) {
-            printf("%c", c);
-            i++;
-            continue;
-        }
-        
-        // Handle words (commands, keywords)
-        if (isalnum(c) || c == '_' || c == '-' || c == '.') {
-            size_t word_start = i;
-            while (i < len && (isalnum(line[i]) || line[i] == '_' || 
-                              line[i] == '-' || line[i] == '.')) {
-                i++;
-            }
-            
-            size_t word_len = i - word_start;
-            const char *word = line + word_start;
-            
-            // Check if it's a keyword
-            if (lusush_is_shell_keyword(word, word_len)) {
-                printf("%s", keyword_color);
-            }
-            // Check if it's a builtin command
-            else if (lusush_is_shell_builtin(word, word_len)) {
-                printf("%s", command_color);
-            }
-            // Check if it's a number
-            else if (word_len > 0 && isdigit(word[0])) {
-                bool is_number = true;
-                for (size_t j = 0; j < word_len; j++) {
-                    if (!isdigit(word[j]) && word[j] != '.') {
-                        is_number = false;
-                        break;
-                    }
-                }
-                if (is_number) {
-                    printf("%s", number_color);
-                }
-            }
-            
-            // Print the word
-            for (size_t j = 0; j < word_len; j++) {
-                printf("%c", word[j]);
-            }
-            printf("%s", reset_color);
-            continue;
-        }
-        
-        // Default: print character as-is
-        printf("%c", c);
-        i++;
-    }
 }
 
 // ============================================================================
@@ -1734,9 +1809,13 @@ static void setup_readline_config(void) {
     rl_catch_signals = 0; // Let shell handle signals for child processes like git
     rl_catch_sigwinch = 1; // Handle window resize only
     
-    // Redisplay configuration - Use standard redisplay for safety
-    // Syntax highlighting framework exists but is disabled to prevent output issues
-    rl_redisplay_function = rl_redisplay;
+    // Enable robust syntax highlighting with proper wrapping support
+    // Only enable for enhanced display mode
+    if (config.enhanced_display_mode) {
+        rl_redisplay_function = lusush_safe_redisplay;
+    } else {
+        rl_redisplay_function = rl_redisplay;
+    }
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
     rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
@@ -1908,10 +1987,10 @@ static void lusush_highlight_previous_word(void) {
         return;
     }
      
-    // Simple check to avoid wrapped line issues - if we're near terminal edge, just skip highlighting
-    if (rl_point > 70) {  // Conservative check for potential wrapping
-        return;  // Just skip highlighting for edge cases
-    }
+    // REMOVED: Conservative check for potential wrapping - now handles all lengths
+    // if (rl_point > 70) {  // Conservative check for potential wrapping
+    //     return;  // Just skip highlighting for edge cases
+    // }
      
     char separator = rl_line_buffer[rl_point - 1];
      
@@ -1921,14 +2000,13 @@ static void lusush_highlight_previous_word(void) {
         int quote_start = rl_point - 1;
         for (int i = quote_start - 1; i >= 0; i--) {
             if (rl_line_buffer[i] == separator) {
-                // Found opening quote, check if safe to highlight
+                // Found opening quote, highlight string of any length
                 int string_len = quote_start - i + 1;
-                if (string_len > 50) return; // Safety check for very long strings
-                
-                // Conservative check: if string might wrap, just skip highlighting
-                if (string_len > 20) {
-                    return;  // Skip highlighting for potentially long strings
-                }
+                // REMOVED: Safety checks for string length - now handles all lengths
+                // if (string_len > 50) return; // Safety check for very long strings
+                // if (string_len > 20) {
+                //     return;  // Skip highlighting for potentially long strings
+                // }
                  
                 printf("\033[s");
                 printf("\033[%dD", rl_point - i);
@@ -1968,12 +2046,11 @@ static void lusush_highlight_previous_word(void) {
         var_end--; // Back to last char of variable
          
         int var_len = var_end - var_start + 1;
-        if (var_len > 30) return; // Safety check
-        
-        // Conservative check: if variable might wrap, just skip highlighting
-        if (var_len > 15) {
-            return;  // Skip highlighting for potentially long variables
-        }
+        // REMOVED: Safety checks for variable length - now handles all lengths
+        // if (var_len > 30) return; // Safety check
+        // if (var_len > 15) {
+        //     return;  // Skip highlighting for potentially long variables
+        // }
          
         printf("\033[s");
         printf("\033[%dD", rl_point - var_start);
@@ -2002,11 +2079,13 @@ static void lusush_highlight_previous_word(void) {
     }
     
     int word_len = word_end - word_start + 1;
-    if (word_len <= 0 || word_len > 32) {
+    if (word_len <= 0) {
         return;
     }
+    // REMOVED: word_len > 32 restriction - now handles all word lengths
     
-    char word[33];
+    char word[256];  // Increased buffer size to handle longer words safely
+    if (word_len >= sizeof(word)) word_len = sizeof(word) - 1;  // Safety clamp
     strncpy(word, &rl_line_buffer[word_start], word_len);
     word[word_len] = '\0';
     
@@ -2039,12 +2118,11 @@ static void lusush_highlight_previous_word(void) {
     }
      
     if (should_highlight) {
-        if (word_len > 40) return; // Safety check for very long words
-        
-        // Conservative check: if word might wrap, just skip highlighting
-        if (word_len > 12) {
-            return;  // Skip highlighting for potentially long words
-        }
+        // REMOVED: All word length restrictions - now handles all lengths
+        // if (word_len > 40) return; // Safety check for very long words
+        // if (word_len > 12) {
+        //     return;  // Skip highlighting for potentially long words
+        // }
          
         printf("\033[s");
         printf("\033[%dD", rl_point - word_start);
@@ -2160,6 +2238,10 @@ static void lusush_safe_redisplay(void) {
     
     // Desperate fallback - original implementation
     // Check if we should apply highlighting (only for single-line themes)
+    fprintf(stderr, "[DEBUG] lusush_safe_redisplay: syntax_enabled=%s, is_safe=%s\n", 
+           syntax_highlighting_enabled ? "true" : "false",
+           is_safe_for_highlighting() ? "true" : "false");
+           
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Runtime check for multi-line theme
         if (detect_multiline_theme()) {
@@ -2168,30 +2250,10 @@ static void lusush_safe_redisplay(void) {
             rl_redisplay();
             return;
         }
-        // Validate buffer
-        if (rl_line_buffer && rl_end > 0 && strlen(rl_line_buffer) > 0) {
-            // Use readline's prompt if available, otherwise fallback to default
-            const char *prompt = rl_prompt ? rl_prompt : "$ ";
-            
-            // Direct terminal output approach
-            printf("\r\033[K");  // Return to start and clear line
-            
-            // Print current prompt (preserves loop>, if>, etc.)
-            printf("%s", prompt);
-            
-            // Print line with syntax highlighting directly
-            lusush_output_colored_line(rl_line_buffer, rl_point);
-            
-            // Move cursor to correct position
-            printf("\r%s", prompt);
-            for (int i = 0; i < rl_point && i < rl_end; i++) {
-                printf("\033[C");  // Move cursor right
-            }
-            
-            fflush(stdout);
-            in_redisplay = false;
-            return;
-        }
+        // Use new robust syntax highlighting with line wrapping support
+        lusush_simple_syntax_display();
+        in_redisplay = false;
+        return;
     }
     
     in_redisplay = false;
