@@ -62,3 +62,28 @@ cachegrind.out.*
 # Static analysis output
 *.scan-build/
 cppcheck-report.xml
+
+# Production build artifacts
+builddir/
+*.o
+*.d
+*.so
+*.dylib
+*.dll
+
+# Development files
+debug*.log
+temp_*
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Archive directory (development artifacts)
+archive/development_tests/
+archive/debug_files/
+archive/temp_files/
+
+# External git repositories
+readline/
+research/readline/

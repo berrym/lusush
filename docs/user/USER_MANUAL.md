@@ -1,558 +1,440 @@
-# LUSUSH USER MANUAL v1.0.0
+# Lusush Shell User Manual
+
+**Version**: 1.1.3  
+**Date**: January 2025  
+**Status**: Production Ready
 
 ## Table of Contents
+
 1. [Introduction](#introduction)
-2. [Installation](#installation)
-3. [Getting Started](#getting-started)
-4. [Basic Usage](#basic-usage)
-5. [Configuration System](#configuration-system)
-6. [Completion and Hints](#completion-and-hints)
-7. [Themes and Customization](#themes-and-customization)
-8. [Network Integration](#network-integration)
-9. [Built-in Commands](#built-in-commands)
-10. [Advanced Features](#advanced-features)
+2. [Getting Started](#getting-started)
+3. [Basic Usage](#basic-usage)
+4. [Themes](#themes)
+5. [Git Integration](#git-integration)
+6. [Tab Completion](#tab-completion)
+7. [History Management](#history-management)
+8. [Key Bindings](#key-bindings)
+9. [Advanced Features](#advanced-features)
+10. [Configuration](#configuration)
 11. [Troubleshooting](#troubleshooting)
 12. [FAQ](#faq)
 
 ## Introduction
 
-Lusush is a modern, POSIX-compliant shell that combines traditional shell functionality with enhanced user experience features. It provides intelligent tab completion with real-time hints, professional themes, network integration, and advanced command-line editing while maintaining full compatibility with POSIX shell scripts.
+Lusush is a modern, professional shell designed for developers and system administrators who need a reliable, feature-rich command-line environment. Built on the foundation of POSIX compliance, Lusush adds contemporary features like themed prompts, real-time git integration, and intelligent tab completion while maintaining full compatibility with standard shell operations.
 
 ### Key Features
 
-- **100% POSIX Compliance**: Full compatibility with POSIX shell standards
-- **Real-time Hints**: Intelligent suggestions that appear as you type
-- **Enhanced Tab Completion**: Context-aware completion with fuzzy matching
-- **Professional Themes**: Corporate, dark, light, colorful, minimal, and classic themes
-- **Network Integration**: SSH host completion and network-aware features
-- **Advanced Line Editing**: Powerful command-line editing with history
-- **Modern Configuration**: Unified configuration system with INI-style sections
-- **Git Integration**: Git-aware prompts with branch status
-- **Hybrid Configuration**: Support for both modern config and traditional scripts
+- **Professional Themes**: 6 enterprise-grade visual themes
+- **Git Integration**: Real-time branch and status display
+- **Intelligent Completion**: Context-aware tab completion
+- **POSIX Compliance**: Full compatibility with standard shell operations
+- **Enterprise Ready**: Optimized for professional environments
+- **Cross-Platform**: Linux, macOS, and BSD support
 
 ### System Requirements
 
-- Linux, macOS, or Unix-like operating system
-- Terminal with ANSI color support
-- 64-bit architecture (recommended)
-- Minimum 50MB disk space
-- Internet connection (for network features)
-
-## Installation
-
-### Building from Source
-
-1. **Prerequisites**:
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install build-essential meson ninja-build git
-   
-   # macOS
-   brew install meson ninja git
-   
-   # CentOS/RHEL
-   sudo yum install gcc meson ninja-build git
-   ```
-
-2. **Download and Build**:
-   ```bash
-   git clone https://github.com/berrym/lusush.git
-   cd lusush
-   meson setup builddir --buildtype=release
-   ninja -C builddir
-   ```
-
-3. **Install**:
-   ```bash
-   sudo ninja -C builddir install
-   ```
-
-### Verification
-
-Test your installation:
-```bash
-lusush --version
-lusush -c "echo 'Hello, Lusush!'"
-```
+- **Operating System**: Linux, macOS, or BSD
+- **Memory**: 512MB RAM minimum (2GB recommended)
+- **Disk Space**: 100MB available space
+- **Terminal**: Any ANSI-compatible terminal emulator
 
 ## Getting Started
 
-### First Launch
+### Installation
 
-Start Lusush by typing:
-```bash
-lusush
-```
+1. **Download and Build**:
+   ```bash
+   git clone https://github.com/berrym/lusush.git
+   cd lusush
+   meson setup builddir
+   ninja -C builddir
+   ```
 
-You'll see the default prompt:
-```
-lusush:~$ 
-```
+2. **Test the Installation**:
+   ```bash
+   ./builddir/lusush --version
+   ```
 
-### Setting as Default Shell
+3. **First Run**:
+   ```bash
+   ./builddir/lusush --enhanced-display -i
+   ```
 
-To make Lusush your default shell:
-```bash
-# Add lusush to /etc/shells (if not already present)
-echo "$(which lusush)" | sudo tee -a /etc/shells
+### Initial Setup
 
-# Change your default shell
-chsh -s $(which lusush)
-```
-
-### Initial Configuration
-
-Lusush works out of the box with sensible defaults. For customization, create a configuration file:
-
-```bash
-# Create your configuration file
-cat > ~/.lusushrc << 'EOF'
-[history]
-history_enabled = true
-history_size = 10000
-history_no_dups = true
-
-[completion]
-completion_enabled = true
-fuzzy_completion = true
-hints_enabled = true
-
-[prompt]
-prompt_style = git
-prompt_theme = default
-
-[theme]
-theme_name = corporate
-EOF
-```
+When you first run Lusush, it will:
+- Initialize with default settings
+- Set up history management
+- Configure basic tab completion
+- Apply the default theme
 
 ## Basic Usage
 
+### Starting Lusush
+
+```bash
+# Standard mode
+lusush
+
+# Enhanced display mode (recommended)
+lusush --enhanced-display -i
+
+# Execute a single command
+lusush -c "echo 'Hello, World!'"
+
+# Interactive mode
+lusush -i
+```
+
 ### Command Execution
 
-Lusush executes commands just like any POSIX shell:
+Lusush supports all standard shell operations:
 
 ```bash
 # Basic commands
 ls -la
 pwd
-cd /path/to/directory
-echo "Hello World"
-
-# Command chaining
-ls && pwd || echo "Error"
+cd /home/user
 
 # Pipes and redirection
-ls | grep ".txt" > output.txt
-cat < input.txt
+ls | grep txt > files.list
+cat file.txt | sort | uniq
+
+# Variables
+export MY_VAR="value"
+echo $MY_VAR
+echo "Home is: $HOME"
+
+# Multiline commands
+for file in *.txt; do
+    echo "Processing: $file"
+    wc -l "$file"
+done
+
+# Conditional statements
+if [ -f "config.txt" ]; then
+    echo "Configuration found"
+    source config.txt
+else
+    echo "No configuration file"
+fi
+
+# Background processes
+long_running_command &
+jobs
+fg %1
 ```
 
-### Variables and Environment
+### Command-Line Options
+
+| Option | Description |
+|--------|-------------|
+| `-c "command"` | Execute command and exit |
+| `-i` | Interactive mode |
+| `--enhanced-display` | Enable enhanced display features |
+| `--help` | Show help information |
+| `--version` | Display version information |
+
+## Themes
+
+Lusush includes 6 professional themes designed for different work environments.
+
+### Available Themes
+
+1. **Corporate** - Professional theme for business environments
+   ```
+   [user@hostname] ~/project (main) $
+   ```
+
+2. **Dark** - Modern dark theme with bright accent colors
+   ```
+   ┌─[user@hostname]─[~/project] (main ✓)
+   └─$
+   ```
+
+3. **Light** - Clean light theme with excellent readability
+   ```
+   user@hostname:~/project (main)$
+   ```
+
+4. **Minimal** - Ultra-minimal theme for distraction-free work
+   ```
+   ~/project $
+   ```
+
+5. **Colorful** - Vibrant colorful theme for creative workflows
+   ```
+   ● user@hostname ~/project (main ✓) ➜
+   ```
+
+6. **Classic** - Traditional shell appearance with basic colors
+   ```
+   user@hostname:~/project$
+   ```
+
+### Theme Management
 
 ```bash
-# Set variables
-name="John Doe"
-export PATH="/usr/local/bin:$PATH"
+# List all available themes
+theme list
 
-# Use variables
-echo $name
-echo "Hello, $name!"
+# Set active theme
+theme set dark
 
-# View environment
-env
-config show
+# Get current theme
+theme get
+
+# Theme examples
+theme set corporate    # For business environments
+theme set colorful     # For creative work
+theme set minimal      # For focused work
+```
+
+### Theme Customization
+
+Themes automatically adapt to your environment:
+- Git repository status
+- Current working directory
+- User and hostname information
+- Terminal color capabilities
+
+## Git Integration
+
+Lusush provides seamless git integration that displays repository information directly in your prompt.
+
+### Git Status Indicators
+
+| Symbol | Meaning |
+|--------|---------|
+| `(main)` | Current branch name |
+| `(main *)` | Modified files present |
+| `(main +)` | Staged files present |
+| `(main %)` | Untracked files present |
+| `(main ✓)` | Clean working directory |
+| `(main ↑1)` | 1 commit ahead of remote |
+| `(main ↓2)` | 2 commits behind remote |
+| `(main ↑1↓2)` | Diverged from remote |
+
+### Git-Aware Commands
+
+Git integration enhances several commands:
+
+```bash
+# Tab completion for git commands
+git checkout <TAB>    # Shows available branches
+git merge <TAB>       # Shows available branches
+git push <TAB>        # Shows available remotes
+
+# Automatic git status in prompt
+cd /path/to/git/repo  # Prompt automatically shows git info
+```
+
+### Repository Navigation
+
+```bash
+# Clone and navigate
+git clone https://github.com/user/repo.git
+cd repo  # Prompt now shows git branch
+
+# Branch operations
+git checkout -b feature-branch  # Prompt updates immediately
+git commit -m "Changes"         # Status indicators update
+```
+
+## Tab Completion
+
+Lusush provides intelligent, context-aware tab completion that adapts to what you're typing.
+
+### Basic Completion
+
+```bash
+# Command completion
+ec<TAB>        # Expands to "echo"
+ls -<TAB>      # Shows available options: -a, -l, -h, etc.
+
+# File completion
+cat myf<TAB>   # Completes to matching filenames
+cd ~/Doc<TAB>  # Completes to ~/Documents/
+```
+
+### Context-Aware Completion
+
+```bash
+# Git commands
+git checkout <TAB>     # Shows branch names
+git push origin <TAB>  # Shows branch names
+git merge <TAB>        # Shows available branches
+
+# Directory-only completion for cd
+cd <TAB>              # Only shows directories, not files
+
+# Variable completion
+echo $HO<TAB>         # Completes to $HOME
+export PATH=$PATH:<TAB>  # Shows directory paths
+```
+
+### SSH Host Completion
+
+```bash
+# Completes known SSH hosts
+ssh <TAB>             # Shows hosts from ~/.ssh/config and known_hosts
+scp file.txt user@<TAB>  # Shows available hosts
+```
+
+### Advanced Completion Features
+
+- **Smart Filtering**: Only relevant options shown
+- **Fuzzy Matching**: Partial matches work intelligently
+- **History Integration**: Recently used completions prioritized
+- **Performance Optimized**: Fast completion even with large datasets
+
+## History Management
+
+Lusush provides powerful history management with intelligent features.
+
+### Basic History Commands
+
+```bash
+# Show command history
+history
+
+# Show last 10 commands
+history | tail -10
+
+# Clear history
+history clear
+
+# Search history (interactive)
+Ctrl+R  # Then type search term
+```
+
+### History Features
+
+- **Automatic Deduplication**: Duplicate commands removed automatically
+- **Persistent Storage**: History saved between sessions
+- **Search Integration**: Fast history search with Ctrl+R
+- **Size Management**: Configurable history size limits
+
+### History Expansion
+
+```bash
+# Repeat last command
+!!
+
+# Use last argument
+ls -la /some/long/path
+cd !$  # Goes to /some/long/path
+
+# Repeat command by number
+!123   # Repeat command #123
+
+# Search and repeat
+!git   # Repeat last command starting with "git"
+```
+
+### Configuration
+
+```bash
+# Set history size (in lusushrc or environment)
+export LUSUSH_HISTORY_SIZE=10000
+
+# Enable/disable deduplication
+export LUSUSH_HISTORY_DEDUPE=1
+```
+
+## Key Bindings
+
+Lusush uses standard readline key bindings with some enhancements.
+
+### Movement
+
+| Key Combination | Action |
+|-----------------|--------|
+| `Ctrl+A` | Move to beginning of line |
+| `Ctrl+E` | Move to end of line |
+| `Alt+F` | Move forward one word |
+| `Alt+B` | Move backward one word |
+| `Arrow Keys` | Move cursor left/right, navigate history up/down |
+
+### Editing
+
+| Key Combination | Action |
+|-----------------|--------|
+| `Ctrl+D` | Delete character at cursor |
+| `Ctrl+H` / `Backspace` | Delete character before cursor |
+| `Ctrl+W` | Delete word before cursor |
+| `Ctrl+U` | Delete from cursor to beginning of line |
+| `Ctrl+K` | Delete from cursor to end of line |
+| `Ctrl+Y` | Paste previously deleted text |
+
+### History Navigation
+
+| Key Combination | Action |
+|-----------------|--------|
+| `Up Arrow` | Previous command in history |
+| `Down Arrow` | Next command in history |
+| `Ctrl+R` | Reverse search through history |
+| `Ctrl+G` | Cancel current operation |
+
+### System Commands
+
+| Key Combination | Action |
+|-----------------|--------|
+| `Ctrl+L` | Clear screen |
+| `Ctrl+C` | Interrupt current command |
+| `Ctrl+Z` | Suspend current command |
+| `Tab` | Auto-completion |
+
+## Advanced Features
+
+### Multiline Commands
+
+Lusush fully supports complex multiline shell constructs:
+
+```bash
+# For loops
+for i in {1..5}; do
+    echo "Number: $i"
+    sleep 1
+done
+
+# Conditional statements
+if [ -d "/etc" ]; then
+    echo "System directory exists"
+    ls -la /etc | head -5
+else
+    echo "System directory not found"
+fi
+
+# While loops
+counter=1
+while [ $counter -le 3 ]; do
+    echo "Iteration: $counter"
+    ((counter++))
+done
+
+# Function definitions
+my_function() {
+    echo "Function called with args: $@"
+    return 0
+}
+my_function arg1 arg2
 ```
 
 ### Job Control
 
 ```bash
-# Background jobs
-long_running_command &
-
-# List jobs
-jobs
-
-# Bring to foreground
-fg %1
-
-# Send to background
-bg %1
-```
-
-## Configuration System
-
-### Modern Configuration (.lusushrc)
-
-Lusush uses a modern INI-style configuration system:
-
-```ini
-[history]
-history_enabled = true
-history_size = 1000
-history_no_dups = true
-history_timestamps = false
-history_file = ~/.lusush_history
-
-[completion]
-completion_enabled = true
-fuzzy_completion = true
-completion_threshold = 60
-completion_case_sensitive = false
-hints_enabled = true
-
-[prompt]
-prompt_style = git
-prompt_theme = default
-git_prompt_enabled = true
-git_cache_timeout = 5
-
-[theme]
-theme_name = corporate
-theme_auto_detect_colors = true
-
-[behavior]
-auto_cd = false
-spell_correction = true
-confirm_exit = false
-
-[network]
-ssh_completion_enabled = true
-cache_ssh_hosts = true
-```
-
-### Configuration Commands
-
-```bash
-# View all configuration
-config show
-
-# View specific section
-config show completion
-
-# Get specific value
-config get hints_enabled
-
-# Set configuration value
-config set completion_enabled true
-config set theme_name dark
-
-# Save configuration
-config save
-```
-
-### Traditional Script Support
-
-Lusush also supports traditional shell scripts:
-
-```bash
-# ~/.profile - Login script
-export EDITOR=vim
-export PAGER=less
-
-# ~/.lusushrc.sh - Interactive shell configuration
-alias ll='ls -la'
-alias grep='grep --color=auto'
-
-# ~/.lusush_login - Login-specific initialization
-echo "Welcome to Lusush!"
-
-# ~/.lusush_logout - Logout cleanup
-echo "Goodbye!"
-```
-
-## Completion and Hints
-
-### Tab Completion
-
-Lusush provides intelligent tab completion:
-
-```bash
-# Command completion
-ec<TAB>        # Expands to echo, ed, etc.
-
-# File completion
-ls test<TAB>   # Shows test files
-
-# Variable completion
-echo $HO<TAB>  # Expands to $HOME
-
-# SSH completion
-ssh user@<TAB> # Shows SSH hosts from ~/.ssh/config
-```
-
-### Real-time Hints
-
-Hints appear as you type, showing likely completions:
-
-```bash
-# As you type 'ec', you see:
-$ ec█ho [text...]
-
-# As you type 'cd', you see:
-$ cd█ [directory]
-
-# As you type 'echo $HO', you see:
-$ echo $HO█ME
-```
-
-### Completion Configuration
-
-```bash
-# Enable/disable completion
-config set completion_enabled true
-
-# Enable/disable hints
-config set hints_enabled true
-
-# Configure fuzzy matching
-config set fuzzy_completion true
-config set completion_threshold 70
-
-# Case sensitivity
-config set completion_case_sensitive false
-```
-
-## Themes and Customization
-
-### Available Themes
-
-Lusush includes several professional themes:
-
-```bash
-# Corporate theme (default)
-theme set corporate
-
-# Dark theme
-theme set dark
-
-# Light theme
-theme set light
-
-# Colorful theme
-theme set colorful
-
-# Minimal theme
-theme set minimal
-
-# Classic theme
-theme set classic
-
-# List all themes
-theme list
-```
-
-### Theme Information
-
-```bash
-# View current theme
-theme info
-
-# View theme details
-theme info corporate
-
-# Theme statistics
-theme stats
-
-# Color schemes
-theme colors
-```
-
-### Custom Prompts
-
-Configure your prompt style:
-
-```bash
-# Git-aware prompt (default)
-config set prompt_style git
-
-# Simple prompt
-config set prompt_style normal
-
-# Colorful prompt
-config set prompt_style color
-
-# Professional prompt
-config set prompt_style pro
-```
-
-## Network Integration
-
-### SSH Host Completion
-
-Lusush automatically reads SSH hosts from your configuration:
-
-```bash
-# SSH completion from ~/.ssh/config
-ssh user@<TAB>
-
-# SCP completion
-scp file.txt user@<TAB>:
-
-# SFTP completion
-sftp user@<TAB>
-```
-
-### Network Commands
-
-```bash
-# View network status
-network status
-
-# SSH host management
-network hosts list
-network hosts cache
-network hosts clear
-
-# Network configuration
-network config
-network diagnostics
-```
-
-### Network Configuration
-
-```bash
-# Enable SSH completion
-config set ssh_completion_enabled true
-
-# Cache SSH hosts
-config set cache_ssh_hosts true
-
-# Cloud discovery
-config set cloud_discovery_enabled false
-```
-
-## Built-in Commands
-
-### Core POSIX Commands
-
-All 28 required POSIX built-in commands are implemented:
-
-```bash
-# Navigation
-cd [directory]          # Change directory
-pwd                     # Print working directory
-
-# Variables
-export VAR=value        # Export variable
-unset VAR              # Unset variable
-set                    # Set shell options
-readonly VAR=value     # Create read-only variable
-
-# I/O
-echo [text]            # Print text
-printf format [args]   # Formatted output
-read [var]             # Read input
-
-# Control
-test expression        # Test conditions
-[ expression ]         # Test conditions (alias)
-true                   # Return success
-false                  # Return failure
-:                      # No-op command
-
-# Process control
-exec command           # Replace shell
-exit [code]            # Exit shell
-trap signal handler    # Set signal handler
-wait [pid]             # Wait for process
-
-# Utilities
-type command           # Show command type
-hash                   # Hash table utilities
-umask [mask]           # Set file creation mask
-ulimit [options]       # Set resource limits
-times                  # Show process times
-getopts optstring var  # Parse options
-
-# Job control
-jobs                   # List jobs
-fg [job]               # Foreground job
-bg [job]               # Background job
-
-# Functions
-return [code]          # Return from function
-local var=value        # Local variable
-shift [n]              # Shift parameters
-
-# Control flow
-break [n]              # Break from loop
-continue [n]           # Continue loop
-
-# File operations
-source file            # Execute script
-. file                 # Execute script (alias)
-```
-
-### Enhanced Commands
-
-Lusush adds several enhanced commands:
-
-```bash
-# Configuration management
-config show [section]   # Show configuration
-config set key value    # Set configuration
-config get key          # Get configuration value
-
-# Theme management
-theme set name          # Set theme
-theme list              # List themes
-theme info [name]       # Theme information
-theme colors            # Color schemes
-
-# Network integration
-network status          # Network status
-network hosts           # SSH host management
-network config          # Network configuration
-network diagnostics     # Network diagnostics
-
-# Development tools
-debug                   # Debug utilities
-dump                    # Dump symbol table
-```
-
-### Command Examples
-
-```bash
-# File operations
-ls -la                 # List files
-cat file.txt           # Display file
-cp source dest         # Copy file
-mv old new            # Move file
-rm file               # Remove file
-mkdir dir             # Create directory
-
-# Text processing
-grep pattern file      # Search patterns
-sed 's/old/new/' file  # Stream editor
-awk '{print $1}' file  # Text processor
-
-# System information
-ps aux                 # Process list
-df -h                  # Disk usage
-free -m                # Memory usage
-who                    # Logged in users
-```
-
-## Advanced Features
-
-### History Management
-
-```bash
-# View history
-history
-
-# Search history
-history | grep command
-
-# History expansion
-!!                     # Previous command
-!n                     # Command number n
-!string                # Last command starting with string
-
-# Configuration
-config set history_enabled true
-config set history_size 10000
-config set history_no_dups true
+# Background processes
+sleep 100 &
+long_command &
+
+# Job management
+jobs              # List active jobs
+fg %1             # Bring job 1 to foreground
+bg %2             # Send job 2 to background
+kill %1           # Terminate job 1
+disown %1         # Remove job from shell's job table
 ```
 
 ### Aliases
@@ -560,187 +442,380 @@ config set history_no_dups true
 ```bash
 # Create aliases
 alias ll='ls -la'
-alias grep='grep --color=auto'
+alias grep='grep --color=always'
 alias ..='cd ..'
 
-# View aliases
+# Use aliases
+ll                # Runs 'ls -la'
+grep pattern file # Uses colored grep
+
+# List aliases
 alias
 
 # Remove aliases
 unalias ll
 ```
 
-### Functions
+### Variables and Environment
 
 ```bash
-# Define functions
-function myfunction() {
-    echo "Hello from function"
-    return 0
-}
+# Local variables
+name="John"
+count=42
 
-# Use functions
-myfunction
+# Environment variables
+export PATH="$PATH:/usr/local/bin"
+export EDITOR="nano"
+
+# Special variables
+echo $0    # Shell name
+echo $#    # Number of arguments
+echo $?    # Exit status of last command
+echo $$    # Process ID of shell
 ```
 
-### Auto-correction
+## Configuration
+
+### Environment Variables
+
+Customize Lusush behavior with environment variables:
 
 ```bash
-# Enable spell correction
-config set spell_correction true
+# Theme settings
+export LUSUSH_THEME=dark
 
-# Example: typo correction
-$ eco "hello"
-Did you mean: echo "hello"? (y/n)
+# History settings
+export LUSUSH_HISTORY_SIZE=10000
+export LUSUSH_HISTORY_DEDUPE=1
+
+# Display settings
+export LUSUSH_ENHANCED_DISPLAY=1
+
+# Git integration
+export LUSUSH_GIT_PROMPT=1
+export LUSUSH_GIT_STATUS_TIMEOUT=2
+
+# Performance tuning
+export LUSUSH_COMPLETION_CACHE_SIZE=1000
 ```
 
-### Git Integration
+### Configuration File
+
+Create `~/.lusushrc` for persistent configuration:
+
+```ini
+[theme]
+name = corporate
+auto_detect_terminal = true
+
+[history]
+size = 10000
+dedupe = true
+save_on_exit = true
+
+[completion]
+enabled = true
+fuzzy = false
+case_sensitive = false
+max_suggestions = 50
+
+[git]
+prompt_enabled = true
+status_timeout = 2
+branch_display = true
+
+[display]
+enhanced_mode = true
+color_support = auto
+```
+
+### Startup Scripts
+
+Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-# Git-aware prompts show:
-# - Current branch
-# - Dirty state
-# - Ahead/behind status
-
-# Enable git prompts
-config set git_prompt_enabled true
-config set prompt_style git
+# Auto-start Lusush with enhanced features
+if command -v lusush &> /dev/null; then
+    export LUSUSH_THEME=corporate
+    export LUSUSH_ENHANCED_DISPLAY=1
+    alias lsh='lusush --enhanced-display -i'
+fi
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Completion Not Working
+#### 1. Colors Not Displaying
 
+**Problem**: Themes and colors not showing in terminal.
+
+**Solutions**:
 ```bash
-# Check completion settings
-config get completion_enabled
+# Check terminal color support
+echo $TERM
+echo $COLORTERM
 
-# Enable completion
-config set completion_enabled true
+# Test ANSI colors
+echo -e '\033[1;32mGreen\033[0m \033[1;34mBlue\033[0m'
 
-# Verify PATH
-echo $PATH
+# Force color mode
+export TERM=xterm-256color
+lusush --enhanced-display -i
 ```
 
-#### Hints Not Appearing
+#### 2. Git Integration Not Working
 
+**Problem**: Git branch not showing in prompt.
+
+**Solutions**:
 ```bash
-# Check hints setting
-config get hints_enabled
+# Check git installation
+git --version
 
-# Enable hints
-config set hints_enabled true
+# Verify you're in a git repository
+git status
 
-# Verify completion is enabled
-config get completion_enabled
+# Check git configuration
+git config --list
+
+# Enable git prompt explicitly
+export LUSUSH_GIT_PROMPT=1
 ```
 
-#### Theme Issues
+#### 3. Tab Completion Issues
 
+**Problem**: Tab completion not working or slow.
+
+**Solutions**:
 ```bash
-# Check current theme
-theme info
+# Check completion is enabled
+echo "Tab completion test: ec" # Press TAB after 'ec'
 
-# Reset to default
-theme set corporate
+# Clear completion cache
+rm -rf ~/.lusush_completion_cache
 
-# Verify color support
-config get theme_auto_detect_colors
+# Reduce completion timeout
+export LUSUSH_COMPLETION_TIMEOUT=1
 ```
 
-#### Performance Issues
+#### 4. Performance Issues
 
+**Problem**: Shell feels slow or unresponsive.
+
+**Solutions**:
 ```bash
-# Check completion threshold
-config get completion_threshold
+# Reduce history size
+export LUSUSH_HISTORY_SIZE=1000
 
-# Increase threshold
-config set completion_threshold 80
+# Disable git status for large repositories
+cd large_repo
+export LUSUSH_GIT_PROMPT=0
 
-# Disable hints if needed
-config set hints_enabled false
+# Use minimal theme
+theme set minimal
+
+# Check system resources
+top | grep lusush
 ```
 
-### Debug Information
+#### 5. Build Issues
+
+**Problem**: Compilation fails during installation.
+
+**Solutions**:
+```bash
+# Install required dependencies
+# Ubuntu/Debian:
+sudo apt-get install build-essential meson ninja-build libreadline-dev
+
+# RHEL/CentOS/Fedora:
+sudo dnf install gcc meson ninja-build readline-devel
+
+# macOS:
+brew install meson ninja readline
+
+# Clean and rebuild
+rm -rf builddir
+meson setup builddir
+ninja -C builddir
+```
+
+### Diagnostic Commands
 
 ```bash
-# Show version information
+# Check version and build info
 lusush --version
+lusush --build-info
 
-# Show configuration
-config show
+# Test basic functionality
+lusush -c "echo 'Basic test: OK'"
 
-# Debug utilities
-debug
+# Test themes
+lusush -c "theme list"
 
-# Check shell features
-help
+# Test git integration
+cd /path/to/git/repo
+lusush -c "pwd"  # Should show git info in prompt
+
+# Performance test
+time lusush -c "for i in {1..100}; do echo \$i; done > /dev/null"
+```
+
+### Log Files
+
+Check log files for detailed error information:
+
+```bash
+# System logs
+journalctl -u lusush
+tail -f /var/log/lusush.log
+
+# User logs
+tail -f ~/.lusush.log
 ```
 
 ### Getting Help
 
-```bash
-# Built-in help
-help
+If you need additional help:
 
-# Command-specific help
-help cd
-help config
-help theme
-
-# Manual pages
-man lusush
-```
+1. **Check Documentation**: `/usr/local/share/doc/lusush/`
+2. **Visit GitHub**: https://github.com/berrym/lusush
+3. **Report Issues**: https://github.com/berrym/lusush/issues
+4. **Community Support**: Project discussions and forums
 
 ## FAQ
 
 ### General Questions
 
-**Q: Is Lusush POSIX compliant?**
-A: Yes, Lusush is 100% POSIX compliant and passes all POSIX compliance tests.
+**Q: Is Lusush compatible with existing shell scripts?**
 
-**Q: Can I use my existing shell scripts?**
-A: Yes, all POSIX shell scripts will work without modification.
+A: Yes, Lusush is fully POSIX-compliant and runs standard shell scripts without modification.
 
-**Q: How do I migrate from bash/zsh?**
-A: Most bash/zsh scripts will work. Use the configuration system instead of shell-specific options.
+**Q: Can I use Lusush as my default shell?**
 
-### Configuration Questions
+A: Yes, after installation, you can set Lusush as your default shell:
+```bash
+chsh -s /usr/local/bin/lusush
+```
 
-**Q: Where is the configuration file?**
-A: `~/.lusushrc` for the main configuration, plus traditional scripts like `~/.lusushrc.sh`.
+**Q: Does Lusush work with tmux/screen?**
 
-**Q: How do I disable features?**
-A: Use `config set feature_name false` to disable specific features.
+A: Yes, Lusush works perfectly with terminal multiplexers. Themes and git integration work normally.
 
-**Q: Can I use both modern and traditional configuration?**
-A: Yes, Lusush supports both INI-style configuration and traditional shell scripts.
+**Q: Is Lusush suitable for production environments?**
 
-### Performance Questions
+A: Absolutely. Lusush is designed for enterprise use with stability, security, and performance in mind.
 
-**Q: Does Lusush impact performance?**
-A: No, Lusush is optimized for performance with minimal overhead.
+### Features
 
-**Q: Can I disable resource-intensive features?**
-A: Yes, you can disable completion, hints, or themes if needed.
+**Q: How do I customize themes?**
 
-### Compatibility Questions
+A: Use the built-in theme system:
+```bash
+theme list        # See available themes
+theme set dark    # Switch to dark theme
+```
 
-**Q: Does Lusush work on macOS?**
-A: Yes, Lusush works on Linux, macOS, and Unix-like systems.
+**Q: Can I disable git integration?**
 
-**Q: Can I use Lusush in scripts?**
-A: Yes, use `#!/usr/bin/env lusush` or `#!/usr/local/bin/lusush` in your scripts.
+A: Yes, set the environment variable:
+```bash
+export LUSUSH_GIT_PROMPT=0
+```
 
-### Support
+**Q: How do I backup my configuration?**
 
-For additional support:
-- Documentation: `docs/` directory
-- Issues: GitHub issue tracker
-- Community: Project discussions
+A: Copy your configuration files:
+```bash
+cp ~/.lusushrc ~/backup/
+cp ~/.lusush_history ~/backup/
+```
+
+### Performance
+
+**Q: Why is Lusush using more memory than bash?**
+
+A: Lusush includes additional features like git integration and enhanced completion, which require more memory but provide significantly better functionality.
+
+**Q: How can I optimize Lusush for large repositories?**
+
+A: For large git repositories, consider:
+```bash
+export LUSUSH_GIT_STATUS_TIMEOUT=1  # Reduce timeout
+theme set minimal                   # Use minimal theme
+```
+
+**Q: Is there a way to profile performance?**
+
+A: Yes, use the built-in profiling:
+```bash
+lusush --profile -c "your command here"
+```
+
+### Troubleshooting
+
+**Q: What should I do if Lusush crashes?**
+
+A: 
+1. Check system logs for error messages
+2. Try running with minimal configuration
+3. Report the issue on GitHub with details
+
+**Q: How do I reset Lusush to default settings?**
+
+A: Remove configuration files and restart:
+```bash
+rm ~/.lusushrc ~/.lusush_history
+lusush --enhanced-display -i
+```
+
+### Integration
+
+**Q: Does Lusush work with IDEs?**
+
+A: Yes, most IDEs can be configured to use Lusush as their integrated terminal shell.
+
+**Q: Can I use Lusush in Docker containers?**
+
+A: Yes, Lusush works well in containers. Add it to your Dockerfile:
+```dockerfile
+RUN git clone https://github.com/berrym/lusush.git && \
+    cd lusush && \
+    meson setup builddir && \
+    ninja -C builddir && \
+    ninja -C builddir install
+```
 
 ---
 
-*This manual covers Lusush v1.0.0. For the latest features and updates, refer to the project documentation and changelog.*
+## Appendix
+
+### Quick Reference Card
+
+**Theme Commands**:
+- `theme list` - Show all themes
+- `theme set <name>` - Change theme
+- `theme get` - Show current theme
+
+**Git Integration**:
+- Automatic branch display in prompt
+- Git status indicators (*, +, %, ✓)
+- Git-aware tab completion
+
+**Key Bindings**:
+- `Ctrl+R` - History search
+- `Ctrl+L` - Clear screen
+- `Tab` - Auto-completion
+- `Ctrl+A/E` - Line beginning/end
+
+**Configuration**:
+- `~/.lusushrc` - User configuration
+- Environment variables for runtime settings
+- `/etc/lusush/` - System-wide configuration
+
+---
+
+**Lusush Shell User Manual v1.1.3** - For the most up-to-date information, visit: https://github.com/berrym/lusush
+
+*Happy shell computing!*
