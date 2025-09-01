@@ -88,7 +88,7 @@ typedef struct {
     int history_suggestions;       // Count by source type
     int completion_suggestions;
     int alias_suggestions;
-} autosuggestion_stats_t;
+} lusush_autosuggestion_stats_t;
 
 // ============================================================================
 // CORE API FUNCTIONS
@@ -270,7 +270,7 @@ void lusush_preload_suggestions(const char **input_patterns, size_t pattern_coun
  * 
  * @return Pointer to current statistics (read-only)
  */
-const autosuggestion_stats_t* lusush_get_autosuggestion_stats(void);
+const lusush_autosuggestion_stats_t* lusush_get_autosuggestion_stats(void);
 
 /**
  * Reset autosuggestion statistics

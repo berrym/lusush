@@ -39,7 +39,7 @@
 
 static bool initialized = false;
 static lusush_autosuggestion_t current_suggestion = {0};
-static autosuggestion_config_t config = {
+static autosuggestion_config_t autosugg_config = {
     .enabled = true,
     .history_enabled = true,
     .completion_enabled = true,
@@ -67,9 +67,9 @@ typedef struct {
     int cache_hits;
     int cache_misses;
     double avg_generation_time_ms;
-} autosuggestion_stats_t;
+} autosuggestion_internal_stats_t;
 
-static autosuggestion_stats_t stats = {0};
+static autosuggestion_internal_stats_t stats = {0};
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -120,14 +120,14 @@ static void copy_suggestion(lusush_autosuggestion_t *dest, const lusush_autosugg
  * Check if input is suitable for suggestions
  */
 static bool should_suggest(const char *input, size_t cursor_pos) {
-    if (!config.enabled || !input) {
+    if (!autosugg_config.enabled || !input) {
         return false;
     }
     
     size_t len = strlen(input);
     
     // Must meet minimum length requirement
-    if (len < config.min_input_length) {
+    if (len < autosugg_config.min_input_length) {
         return false;
     }
     
@@ -233,13 +233,13 @@ static lusush_autosuggestion_t* generate_history_suggestion(const char *input) {
     
     // Create display text (may be truncated)
     size_t remaining_len = strlen(best_match) - strlen(input);
-    if (remaining_len <= config.max_suggestion_length) {
+    if (remaining_len <= autosugg_config.max_suggestion_length) {
         suggestion->display_text = strdup(best_match + strlen(input));
     } else {
-        char *truncated = malloc(config.max_suggestion_length + 4);
+        char *truncated = malloc(autosugg_config.max_suggestion_length + 4);
         if (truncated) {
-            strncpy(truncated, best_match + strlen(input), config.max_suggestion_length - 3);
-            strcpy(truncated + config.max_suggestion_length - 3, "...");
+            strncpy(truncated, best_match + strlen(input), autosugg_config.max_suggestion_length - 3);
+            strcpy(truncated + autosugg_config.max_suggestion_length - 3, "...");
             suggestion->display_text = truncated;
         }
     }
@@ -290,13 +290,13 @@ static lusush_autosuggestion_t* generate_completion_suggestion(const char *input
             
             // Create display text
             size_t remaining_len = strlen(best_match) - strlen(input);
-            if (remaining_len <= config.max_suggestion_length) {
+            if (remaining_len <= autosugg_config.max_suggestion_length) {
                 suggestion->display_text = strdup(best_match + strlen(input));
             } else {
-                char *truncated = malloc(config.max_suggestion_length + 4);
+                char *truncated = malloc(autosugg_config.max_suggestion_length + 4);
                 if (truncated) {
-                    strncpy(truncated, best_match + strlen(input), config.max_suggestion_length - 3);
-                    strcpy(truncated + config.max_suggestion_length - 3, "...");
+                    strncpy(truncated, best_match + strlen(input), autosugg_config.max_suggestion_length - 3);
+                    strcpy(truncated + autosugg_config.max_suggestion_length - 3, "...");
                     suggestion->display_text = truncated;
                 }
             }
@@ -313,7 +313,7 @@ static lusush_autosuggestion_t* generate_completion_suggestion(const char *input
  * Generate suggestion from alias expansion
  */
 static lusush_autosuggestion_t* generate_alias_suggestion(const char *input) {
-    if (!config.alias_enabled || !input) {
+    if (!autosugg_config.alias_enabled || !input) {
         return NULL;
     }
     
@@ -422,11 +422,23 @@ void lusush_accept_suggestion(lusush_autosuggestion_t *suggestion) {
 }
 
 /**
- * Dismiss current suggestion (user continues typing differently)
+ * Dismiss any current suggestion
  */
 void lusush_dismiss_suggestion(void) {
     clear_suggestion(&current_suggestion);
     cache.cache_valid = false;
+}
+
+/**
+ * Free autosuggestion structure
+ */
+void lusush_free_autosuggestion(lusush_autosuggestion_t *suggestion) {
+    if (!suggestion) {
+        return;
+    }
+    
+    clear_suggestion(suggestion);
+    free(suggestion);
 }
 
 // ============================================================================
@@ -446,8 +458,8 @@ bool lusush_autosuggestions_init(void) {
     memset(&stats, 0, sizeof(stats));
     
     // Set default colors if not configured
-    if (!config.suggestion_color) {
-        config.suggestion_color = strdup("\033[90m");  // Gray
+    if (!autosugg_config.suggestion_color) {
+        autosugg_config.suggestion_color = strdup("\033[90m");  // Gray
     }
     
     initialized = true;
@@ -466,10 +478,10 @@ void lusush_autosuggestions_cleanup(void) {
     clear_suggestion(&cache.cached_suggestion);
     
     free(cache.last_input);
-    free(config.suggestion_color);
+    free(autosugg_config.suggestion_color);
     
     memset(&cache, 0, sizeof(cache));
-    memset(&config, 0, sizeof(config));
+    memset(&autosugg_config, 0, sizeof(autosugg_config));
     memset(&stats, 0, sizeof(stats));
     
     initialized = false;
@@ -482,19 +494,19 @@ void lusush_configure_autosuggestions(const autosuggestion_config_t *new_config)
     if (!new_config) return;
     
     // Update configuration
-    config.enabled = new_config->enabled;
-    config.history_enabled = new_config->history_enabled;
-    config.completion_enabled = new_config->completion_enabled;
-    config.alias_enabled = new_config->alias_enabled;
-    config.max_suggestion_length = new_config->max_suggestion_length;
-    config.min_input_length = new_config->min_input_length;
-    config.show_source_info = new_config->show_source_info;
+    autosugg_config.enabled = new_config->enabled;
+    autosugg_config.history_enabled = new_config->history_enabled;
+    autosugg_config.completion_enabled = new_config->completion_enabled;
+    autosugg_config.alias_enabled = new_config->alias_enabled;
+    autosugg_config.max_suggestion_length = new_config->max_suggestion_length;
+    autosugg_config.min_input_length = new_config->min_input_length;
     
     if (new_config->suggestion_color) {
-        free(config.suggestion_color);
-        config.suggestion_color = strdup(new_config->suggestion_color);
+        free(autosugg_config.suggestion_color);
+        autosugg_config.suggestion_color = strdup(new_config->suggestion_color);
     }
     
+    autosugg_config.show_source_info = new_config->show_source_info;
     // Invalidate cache when config changes
     cache.cache_valid = false;
 }
@@ -518,7 +530,7 @@ void lusush_autosuggestion_update_display(void) {
 /**
  * Handle keypress events for autosuggestion interaction
  */
-void lusush_autosuggestion_handle_keypress(int key) {
+bool lusush_autosuggestion_handle_keypress(int key) {
     // Handle keys that interact with suggestions:
     // - Right arrow: accept suggestion
     // - Ctrl+F: accept suggestion  
@@ -534,6 +546,7 @@ void lusush_autosuggestion_handle_keypress(int key) {
         case '\005': // Ctrl+E (End)
             if (current_suggestion.is_valid) {
                 lusush_accept_suggestion(&current_suggestion);
+                return true;
             }
             break;
             
@@ -542,6 +555,7 @@ void lusush_autosuggestion_handle_keypress(int key) {
             lusush_dismiss_suggestion();
             break;
     }
+    return false;
 }
 
 // ============================================================================
