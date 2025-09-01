@@ -344,13 +344,13 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
-    // Initialize autosuggestions system
-    if (!lusush_autosuggestions_init()) {
-        fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
-    }
+    // TEMPORARILY DISABLED: Initialize autosuggestions system
+    // if (!lusush_autosuggestions_init()) {
+    //     fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
+    // }
     
-    // Set custom redisplay function for autosuggestions
-    rl_redisplay_function = lusush_redisplay_with_suggestions;
+    // TEMPORARILY DISABLED: Set custom redisplay function for autosuggestions
+    // rl_redisplay_function = lusush_redisplay_with_suggestions;
     
     // Enable syntax highlighting when enhanced display mode is set
     lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
@@ -390,12 +390,14 @@ void lusush_readline_cleanup(void) {
         history_cache_capacity = 0;
     }
     
-    // Cleanup autosuggestions
-    if (current_suggestion) {
-        lusush_free_autosuggestion(current_suggestion);
-        current_suggestion = NULL;
-    }
-    lusush_autosuggestions_cleanup();
+    // TEMPORARILY DISABLED: Cleanup autosuggestions safely
+    // if (current_suggestion) {
+    //     lusush_free_autosuggestion(current_suggestion);
+    //     current_suggestion = NULL;
+    // }
+    // if (initialized) {
+    //     lusush_autosuggestions_cleanup();
+    // }
     
 
     
@@ -1809,8 +1811,10 @@ static int lusush_accept_suggestion_key(int count, int key) {
         lusush_accept_suggestion(current_suggestion);
         
         // Clear current suggestion
-        lusush_free_autosuggestion(current_suggestion);
-        current_suggestion = NULL;
+        if (current_suggestion) {
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
         
         return 0;
     }
@@ -1859,8 +1863,10 @@ static int lusush_accept_suggestion_word_key(int count, int key) {
             } else {
                 // No more text, clear suggestion
                 free(remaining);
-                lusush_free_autosuggestion(current_suggestion);
-                current_suggestion = NULL;
+                if (current_suggestion) {
+                    lusush_free_autosuggestion(current_suggestion);
+                    current_suggestion = NULL;
+                }
             }
         }
         
