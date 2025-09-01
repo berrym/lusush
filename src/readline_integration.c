@@ -760,7 +760,18 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         }
     }
     
-    // Try rich completion system first
+    // Context-aware completion for specific commands takes priority
+    if (cmd_len == 3 && memcmp(cmd_start, "git", 3) == 0 && start >= 4) {
+        matches = lusush_git_subcommand_completion(text);
+        if (matches) return matches;
+    }
+    
+    if (cmd_len == 2 && memcmp(cmd_start, "cd", 2) == 0 && start >= 3) {
+        matches = lusush_directory_only_completion(text);
+        if (matches) return matches;
+    }
+
+    // Try rich completion system for other cases
     if (lusush_are_rich_completions_enabled()) {
         rich_completion_list_t *rich_completions = lusush_get_rich_completions(text, context);
         if (rich_completions && rich_completions->count > 0) {
@@ -817,18 +828,6 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         if (rich_completions) {
             lusush_free_rich_completions(rich_completions);
         }
-    }
-    
-    // Fall back to standard completion system for backward compatibility
-    // Context-aware completion for specific commands
-    if (cmd_len == 3 && memcmp(cmd_start, "git", 3) == 0 && start > 4) {
-        matches = lusush_git_subcommand_completion(text);
-        if (matches) return matches;
-    }
-    
-    if (cmd_len == 2 && memcmp(cmd_start, "cd", 2) == 0 && start > 3) {
-        matches = lusush_directory_only_completion(text);
-        if (matches) return matches;
     }
     
     // Use standard Lusush completion system for other cases
