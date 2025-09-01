@@ -802,11 +802,13 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
                 matches[rich_completions->count + 1] = NULL;
                 
                 // Display rich completions if multiple matches and descriptions available
+                // Temporarily disabled to prevent display corruption
+                /*
                 if (rich_completions->count > 1) {
                     printf("\n");
                     lusush_display_rich_completions(rich_completions);
-                    rl_forced_update_display();
                 }
+                */
             }
             
             lusush_free_rich_completions(rich_completions);
@@ -1742,11 +1744,12 @@ static void lusush_custom_redisplay(void) {
     rl_redisplay();
 }
 
-// Autosuggestion-enhanced redisplay function
+// Autosuggestion-enhanced redisplay function - temporarily disabled to prevent display corruption
 void lusush_redisplay_with_suggestions(void) {
-    // Call original redisplay first
+    // Use standard redisplay to prevent cursor position conflicts
     rl_redisplay();
     
+    /* Temporarily disabled to fix display corruption
     // Only show suggestions if we have current input and cursor is at end
     if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end) {
         return;
@@ -1775,6 +1778,7 @@ void lusush_redisplay_with_suggestions(void) {
         lusush_free_autosuggestion(current_suggestion);
         current_suggestion = NULL;
     }
+    */
 }
 
 
@@ -2029,12 +2033,8 @@ static void setup_readline_config(void) {
     rl_catch_sigwinch = 1; // Handle window resize only
     
     // Enable robust syntax highlighting with proper wrapping support
-    // Only enable for enhanced display mode
-    if (config.enhanced_display_mode) {
-        rl_redisplay_function = lusush_safe_redisplay;
-    } else {
-        rl_redisplay_function = lusush_redisplay_with_suggestions;
-    }
+    // Temporarily use standard redisplay to prevent display corruption
+    rl_redisplay_function = rl_redisplay;
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
     rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
