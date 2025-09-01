@@ -347,6 +347,7 @@ lusush_autosuggestion_t* lusush_get_suggestion(const char *current_line, size_t 
     if (!initialized || !should_suggest(current_line, cursor_pos)) {
         return NULL;
     }
+    
     // Start with simple history-based suggestions
     lusush_autosuggestion_t *suggestion = generate_history_suggestion(current_line);
     
