@@ -1132,7 +1132,7 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         // Disable: clean up and use standard functions
         syntax_highlighting_enabled = false;
         cleanup_highlight_buffer();
-        rl_redisplay_function = rl_redisplay;
+        rl_redisplay_function = lusush_redisplay_with_suggestions;
         rl_getc_function = rl_getc;
         rl_pre_input_hook = NULL;
     }
@@ -1951,7 +1951,7 @@ static void setup_readline_config(void) {
     if (config.enhanced_display_mode) {
         rl_redisplay_function = lusush_safe_redisplay;
     } else {
-        rl_redisplay_function = rl_redisplay;
+        rl_redisplay_function = lusush_redisplay_with_suggestions;
     }
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
