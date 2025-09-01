@@ -48,6 +48,7 @@
 #include "../include/config.h"
 #include "../include/symtable.h"
 #include "../include/posix_history.h"
+#include "../include/autosuggestions.h"
 #include "../include/lusush.h"
 #include "../include/init.h"
 #include "../include/input.h"
@@ -77,6 +78,9 @@ static lusush_prompt_callback_t prompt_callback = NULL;
 
 // History deduplication support
 static char **history_cache = NULL;
+
+// Autosuggestion support
+static lusush_autosuggestion_t *current_suggestion = NULL;
 static int history_cache_size = 0;
 static int history_cache_capacity = 0;
 
@@ -126,6 +130,7 @@ static bool lusush_is_shell_keyword(const char *word, size_t length);
 static bool lusush_is_shell_builtin(const char *word, size_t length);
 static bool lusush_is_word_separator(char c);
 static void lusush_custom_redisplay(void);
+static void lusush_redisplay_with_suggestions(void);
 // New function for wrapped output
 static void lusush_output_colored_line_wrapped(const char *line, int available_width) {
     if (!line) return;
@@ -268,6 +273,8 @@ static int lusush_abort_line(int count, int key);
 static int lusush_clear_screen_and_redisplay(int count, int key);
 static int lusush_previous_history(int count, int key);
 static int lusush_next_history(int count, int key);
+static int lusush_accept_suggestion_key(int count, int key);
+static int lusush_accept_suggestion_word_key(int count, int key);
 
 // Phase 3: Optimization function declarations
 static bool init_change_detector(void);
@@ -337,6 +344,11 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
+    // Initialize autosuggestions system
+    if (!lusush_autosuggestions_init()) {
+        fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
+    }
+    
     // Enable syntax highlighting when enhanced display mode is set
     lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
     
@@ -374,6 +386,13 @@ void lusush_readline_cleanup(void) {
         history_cache_size = 0;
         history_cache_capacity = 0;
     }
+    
+    // Cleanup autosuggestions safely
+    if (current_suggestion) {
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+    lusush_autosuggestions_cleanup();
     
 
     
@@ -1113,7 +1132,7 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         // Disable: clean up and use standard functions
         syntax_highlighting_enabled = false;
         cleanup_highlight_buffer();
-        rl_redisplay_function = rl_redisplay;
+        rl_redisplay_function = lusush_redisplay_with_suggestions;
         rl_getc_function = rl_getc;
         rl_pre_input_hook = NULL;
     }
@@ -1641,6 +1660,41 @@ static void lusush_custom_redisplay(void) {
     rl_redisplay();
 }
 
+// Autosuggestion-enhanced redisplay function
+void lusush_redisplay_with_suggestions(void) {
+    // Call original redisplay first
+    rl_redisplay();
+    
+    // Only show suggestions if we have current input and cursor is at end
+    if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end) {
+        return;
+    }
+    
+    // Get current suggestion
+    lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
+    if (suggestion && suggestion->display_text && *suggestion->display_text) {
+        // Save cursor position
+        printf("\033[s");
+        
+        // Display suggestion in gray after cursor
+        printf("\033[90m%s\033[0m", suggestion->display_text);
+        
+        // Restore cursor position
+        printf("\033[u");
+        fflush(stdout);
+        
+        // Store for keypress handling
+        if (current_suggestion && current_suggestion != suggestion) {
+            lusush_free_autosuggestion(current_suggestion);
+        }
+        current_suggestion = suggestion;
+    } else if (current_suggestion) {
+        // Clear old suggestion if no new one
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+}
+
 
 
 int lusush_syntax_highlight_line(void) {
@@ -1740,6 +1794,84 @@ static int lusush_next_history(int count, int key) {
     }
 }
 
+// Autosuggestion key handlers
+static int lusush_accept_suggestion_key(int count, int key) {
+    (void)count; (void)key;
+    
+    if (current_suggestion && current_suggestion->is_valid && current_suggestion->display_text) {
+        // Insert suggestion text at cursor
+        rl_insert_text(current_suggestion->display_text);
+        
+        // Accept the suggestion (updates statistics)
+        lusush_accept_suggestion(current_suggestion);
+        
+        // Clear current suggestion
+        if (current_suggestion) {
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
+        
+        return 0;
+    }
+    
+    // If no suggestion, handle as normal key
+    if (key == CTRL('F')) {
+        // Ctrl+F with no suggestion - move forward one character
+        return rl_forward_char(count, key);
+    } else {
+        // Right arrow with no suggestion - move forward one character  
+        return rl_forward_char(count, key);
+    }
+}
+
+static int lusush_accept_suggestion_word_key(int count, int key) {
+    (void)count; (void)key;
+    
+    if (current_suggestion && current_suggestion->is_valid && current_suggestion->display_text) {
+        // Find next word boundary in suggestion
+        const char *text = current_suggestion->display_text;
+        size_t word_len = 0;
+        
+        // Skip leading whitespace
+        while (text[word_len] && isspace(text[word_len])) {
+            word_len++;
+        }
+        
+        // Find end of word
+        while (text[word_len] && !isspace(text[word_len])) {
+            word_len++;
+        }
+        
+        if (word_len > 0) {
+            // Insert just the first word
+            char *word = strndup(text, word_len);
+            if (word) {
+                rl_insert_text(word);
+                free(word);
+            }
+            
+            // Update suggestion to remove the accepted part
+            char *remaining = strdup(text + word_len);
+            if (remaining && *remaining) {
+                free(current_suggestion->display_text);
+                current_suggestion->display_text = remaining;
+            } else {
+                // No more text, clear suggestion
+                free(remaining);
+                if (current_suggestion) {
+                    lusush_free_autosuggestion(current_suggestion);
+                    current_suggestion = NULL;
+                }
+            }
+        }
+        
+        return 0;
+    }
+    
+    // No suggestion - move forward one word
+    return rl_forward_word(count, key);
+}
+
 static void setup_key_bindings(void) {
     // DISABLE tab completion to prevent interference with arrow keys
     rl_bind_key('\t', rl_insert);  // TAB just inserts tab character
@@ -1760,6 +1892,11 @@ static void setup_key_bindings(void) {
     
     // History navigation with clean down arrow handling
     rl_bind_keyseq("\\e[B", lusush_next_history); // Down arrow key
+    
+    // Autosuggestion key bindings
+    rl_bind_key(CTRL('F'), lusush_accept_suggestion_key);     // Ctrl+F: accept full suggestion
+    rl_bind_keyseq("\\e[C", lusush_accept_suggestion_key);    // Right arrow: accept full suggestion
+    rl_bind_keyseq("\\e[1;5C", lusush_accept_suggestion_word_key); // Ctrl+Right arrow: accept word
     
     // Let readline handle up arrow natively
     
@@ -1814,7 +1951,7 @@ static void setup_readline_config(void) {
     if (config.enhanced_display_mode) {
         rl_redisplay_function = lusush_safe_redisplay;
     } else {
-        rl_redisplay_function = rl_redisplay;
+        rl_redisplay_function = lusush_redisplay_with_suggestions;
     }
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
@@ -2246,15 +2383,32 @@ static void lusush_safe_redisplay(void) {
     // Try enhanced display first, even in legacy function
     if (display_integration_is_layered_active()) {
         display_integration_redisplay();
+        
+        // Add autosuggestions after display integration
+        if (rl_line_buffer && *rl_line_buffer && rl_point == rl_end) {
+            lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
+            if (suggestion && suggestion->display_text && *suggestion->display_text) {
+                printf("\033[s");
+                printf("\033[90m%s\033[0m", suggestion->display_text);
+                printf("\033[u");
+                fflush(stdout);
+                
+                if (current_suggestion && current_suggestion != suggestion) {
+                    lusush_free_autosuggestion(current_suggestion);
+                }
+                current_suggestion = suggestion;
+            } else if (current_suggestion) {
+                lusush_free_autosuggestion(current_suggestion);
+                current_suggestion = NULL;
+            }
+        }
+        
         in_redisplay = false;
         return;
     }
     
     // Desperate fallback - original implementation
     // Check if we should apply highlighting (only for single-line themes)
-    fprintf(stderr, "[DEBUG] lusush_safe_redisplay: syntax_enabled=%s, is_safe=%s\n", 
-           syntax_highlighting_enabled ? "true" : "false",
-           is_safe_for_highlighting() ? "true" : "false");
            
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Runtime check for multi-line theme

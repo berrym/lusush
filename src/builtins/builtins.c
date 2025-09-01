@@ -17,6 +17,7 @@
 #include "../../include/termcap.h"
 #include "../../include/themes.h"
 #include "../../include/version.h"
+#include "../../include/autosuggestions.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -3500,6 +3501,44 @@ int bin_display(int argc, char **argv) {
         printf("  LUSUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
         return 0;
     }
+    
+    if (strcmp(argv[1], "testsuggestion") == 0) {
+        printf("Testing autosuggestion system...\n");
+        
+        // Force initialize autosuggestions for testing
+        printf("Force initializing autosuggestions...\n");
+        if (!lusush_autosuggestions_init()) {
+            printf("ERROR: Failed to initialize autosuggestions\n");
+            return 1;
+        }
+        
+        // Add some test history entries
+        printf("Adding test history entries...\n");
+        extern void lusush_history_add(const char *line);
+        lusush_history_add("echo hello world");
+        lusush_history_add("echo test command");
+        lusush_history_add("ls -la");
+        
+        // Test with some sample input
+        const char *test_input = "echo";
+        printf("Testing input: '%s'\n", test_input);
+        
+        // Call the suggestion system directly
+        lusush_autosuggestion_t *suggestion = lusush_get_suggestion(test_input, strlen(test_input));
+        
+        if (suggestion) {
+            printf("SUCCESS: Got suggestion: '%s'\n", suggestion->display_text ? suggestion->display_text : "NULL");
+            
+            // Clean up
+            lusush_free_autosuggestion(suggestion);
+        } else {
+            printf("No suggestion generated\n");
+        }
+        
+        return 0;
+    }
+    
+
 
     const char *subcmd = argv[1];
 
@@ -3600,9 +3639,9 @@ int bin_display(int argc, char **argv) {
         
         printf("=== Display Integration Statistics ===\n");
         printf("Usage:\n");
-        printf("  Total display calls: %lu\n", stats.total_display_calls);
-        printf("  Layered display calls: %lu\n", stats.layered_display_calls);
-        printf("  Fallback calls: %lu\n", stats.fallback_calls);
+        printf("  Total display calls: %llu\n", (unsigned long long)stats.total_display_calls);
+        printf("  Layered display calls: %llu\n", (unsigned long long)stats.layered_display_calls);
+        printf("  Fallback calls: %llu\n", (unsigned long long)stats.fallback_calls);
         
         if (stats.total_display_calls > 0) {
             double layered_rate = (double)stats.layered_display_calls / stats.total_display_calls * 100.0;
