@@ -349,9 +349,6 @@ bool lusush_readline_init(void) {
         fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
     }
     
-    // Set custom redisplay function for autosuggestions
-    rl_redisplay_function = lusush_redisplay_with_suggestions;
-    
     // Enable syntax highlighting when enhanced display mode is set
     lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
     
@@ -1664,7 +1661,7 @@ static void lusush_custom_redisplay(void) {
 }
 
 // Autosuggestion-enhanced redisplay function
-static void lusush_redisplay_with_suggestions(void) {
+void lusush_redisplay_with_suggestions(void) {
     // Call original redisplay first
     rl_redisplay();
     
@@ -2386,15 +2383,32 @@ static void lusush_safe_redisplay(void) {
     // Try enhanced display first, even in legacy function
     if (display_integration_is_layered_active()) {
         display_integration_redisplay();
+        
+        // Add autosuggestions after display integration
+        if (rl_line_buffer && *rl_line_buffer && rl_point == rl_end) {
+            lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
+            if (suggestion && suggestion->display_text && *suggestion->display_text) {
+                printf("\033[s");
+                printf("\033[90m%s\033[0m", suggestion->display_text);
+                printf("\033[u");
+                fflush(stdout);
+                
+                if (current_suggestion && current_suggestion != suggestion) {
+                    lusush_free_autosuggestion(current_suggestion);
+                }
+                current_suggestion = suggestion;
+            } else if (current_suggestion) {
+                lusush_free_autosuggestion(current_suggestion);
+                current_suggestion = NULL;
+            }
+        }
+        
         in_redisplay = false;
         return;
     }
     
     // Desperate fallback - original implementation
     // Check if we should apply highlighting (only for single-line themes)
-    fprintf(stderr, "[DEBUG] lusush_safe_redisplay: syntax_enabled=%s, is_safe=%s\n", 
-           syntax_highlighting_enabled ? "true" : "false",
-           is_safe_for_highlighting() ? "true" : "false");
            
     if (syntax_highlighting_enabled && is_safe_for_highlighting()) {
         // Runtime check for multi-line theme

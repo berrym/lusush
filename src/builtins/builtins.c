@@ -3537,6 +3537,8 @@ int bin_display(int argc, char **argv) {
         
         return 0;
     }
+    
+
 
     const char *subcmd = argv[1];
 
