@@ -49,6 +49,7 @@
 #include "../include/symtable.h"
 #include "../include/posix_history.h"
 #include "../include/autosuggestions.h"
+#include "../include/rich_completion.h"
 #include "../include/lusush.h"
 #include "../include/init.h"
 #include "../include/input.h"
@@ -349,6 +350,11 @@ bool lusush_readline_init(void) {
         fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
     }
     
+    // Initialize rich completion system
+    if (!lusush_rich_completion_init()) {
+        fprintf(stderr, "Warning: Failed to initialize rich completions\n");
+    }
+    
     // Enable syntax highlighting when enhanced display mode is set
     lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
     
@@ -393,6 +399,9 @@ void lusush_readline_cleanup(void) {
         current_suggestion = NULL;
     }
     lusush_autosuggestions_cleanup();
+    
+    // Cleanup rich completion system
+    lusush_rich_completion_cleanup();
     
 
     
@@ -736,15 +745,89 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
     while (*cmd_end && !isspace(*cmd_end)) cmd_end++;
     size_t cmd_len = cmd_end - cmd_start;
     
-    // Context-aware completion for specific commands
-    if (cmd_len == 3 && memcmp(cmd_start, "git", 3) == 0 && start > 4) {
+    // Determine completion context
+    completion_context_t context = CONTEXT_MIXED;
+    if (start == 0 || (start == (cmd_start - line_buffer))) {
+        context = CONTEXT_COMMAND;  // First word - command completion
+    } else if (start > 3) {
+        // Argument completion - could be files, options, etc.
+        if (text && text[0] == '$') {
+            context = CONTEXT_VARIABLE;
+        } else if (text && text[0] == '-') {
+            context = CONTEXT_OPTION;
+        } else {
+            context = CONTEXT_FILE;
+        }
+    }
+    
+    // Context-aware completion for specific commands takes priority
+    if (cmd_len == 3 && memcmp(cmd_start, "git", 3) == 0 && start >= 4) {
         matches = lusush_git_subcommand_completion(text);
         if (matches) return matches;
     }
     
-    if (cmd_len == 2 && memcmp(cmd_start, "cd", 2) == 0 && start > 3) {
+    if (cmd_len == 2 && memcmp(cmd_start, "cd", 2) == 0 && start >= 3) {
         matches = lusush_directory_only_completion(text);
         if (matches) return matches;
+    }
+
+    // Try rich completion system for other cases
+    if (lusush_are_rich_completions_enabled()) {
+        rich_completion_list_t *rich_completions = lusush_get_rich_completions(text, context);
+        if (rich_completions && rich_completions->count > 0) {
+            // Convert rich completions to readline format
+            matches = malloc((rich_completions->count + 2) * sizeof(char*));
+            if (matches) {
+                // First element is the substitution text (common prefix)
+                if (rich_completions->count == 1) {
+                    matches[0] = strdup(rich_completions->items[0]->completion);
+                } else {
+                    // Find common prefix
+                    size_t prefix_len = strlen(rich_completions->items[0]->completion);
+                    for (size_t i = 1; i < rich_completions->count; i++) {
+                        size_t j = 0;
+                        while (j < prefix_len && 
+                               j < strlen(rich_completions->items[i]->completion) &&
+                               rich_completions->items[0]->completion[j] == 
+                               rich_completions->items[i]->completion[j]) {
+                            j++;
+                        }
+                        prefix_len = j;
+                    }
+                    
+                    if (prefix_len > strlen(text)) {
+                        matches[0] = malloc(prefix_len + 1);
+                        if (matches[0]) {
+                            strncpy(matches[0], rich_completions->items[0]->completion, prefix_len);
+                            matches[0][prefix_len] = '\0';
+                        }
+                    } else {
+                        matches[0] = strdup(text);
+                    }
+                }
+                
+                // Copy completions
+                for (size_t i = 0; i < rich_completions->count; i++) {
+                    matches[i + 1] = strdup(rich_completions->items[i]->completion);
+                }
+                matches[rich_completions->count + 1] = NULL;
+                
+                // Display rich completions if multiple matches and descriptions available
+                // Temporarily disabled to prevent display corruption
+                /*
+                if (rich_completions->count > 1) {
+                    printf("\n");
+                    lusush_display_rich_completions(rich_completions);
+                }
+                */
+            }
+            
+            lusush_free_rich_completions(rich_completions);
+            if (matches) return matches;
+        }
+        if (rich_completions) {
+            lusush_free_rich_completions(rich_completions);
+        }
     }
     
     // Use standard Lusush completion system for other cases
@@ -1660,11 +1743,12 @@ static void lusush_custom_redisplay(void) {
     rl_redisplay();
 }
 
-// Autosuggestion-enhanced redisplay function
+// Autosuggestion-enhanced redisplay function - temporarily disabled to prevent display corruption
 void lusush_redisplay_with_suggestions(void) {
-    // Call original redisplay first
+    // Use standard redisplay to prevent cursor position conflicts
     rl_redisplay();
     
+    /* Temporarily disabled to fix display corruption
     // Only show suggestions if we have current input and cursor is at end
     if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end) {
         return;
@@ -1693,6 +1777,7 @@ void lusush_redisplay_with_suggestions(void) {
         lusush_free_autosuggestion(current_suggestion);
         current_suggestion = NULL;
     }
+    */
 }
 
 
@@ -1947,12 +2032,8 @@ static void setup_readline_config(void) {
     rl_catch_sigwinch = 1; // Handle window resize only
     
     // Enable robust syntax highlighting with proper wrapping support
-    // Only enable for enhanced display mode
-    if (config.enhanced_display_mode) {
-        rl_redisplay_function = lusush_safe_redisplay;
-    } else {
-        rl_redisplay_function = lusush_redisplay_with_suggestions;
-    }
+    // Temporarily use standard redisplay to prevent display corruption
+    rl_redisplay_function = rl_redisplay;
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
     rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
