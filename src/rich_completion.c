@@ -41,7 +41,7 @@
 
 static bool initialized = false;
 
-static rich_completion_config_t config = {
+static rich_completion_config_t rich_config = {
     .enabled = true,
     .show_descriptions = true,
     .show_file_details = true,
@@ -263,11 +263,11 @@ static char* get_external_command_description(const char *command) {
                 if (newline) *newline = '\0';
                 
                 // Truncate if too long
-                if (strlen(dash) > config.max_description_length) {
-                    dash[config.max_description_length - 3] = '.';
-                    dash[config.max_description_length - 2] = '.';
-                    dash[config.max_description_length - 1] = '.';
-                    dash[config.max_description_length] = '\0';
+                if (strlen(dash) > rich_config.max_description_length) {
+                    dash[rich_config.max_description_length - 3] = '.';
+                    dash[rich_config.max_description_length - 2] = '.';
+                    dash[rich_config.max_description_length - 1] = '.';
+                    dash[rich_config.max_description_length] = '\0';
                 }
                 
                 description = strdup(dash);
@@ -307,7 +307,7 @@ static char* get_external_command_description(const char *command) {
  * Get description for a file or directory
  */
 static char* get_file_description(const char *filename) {
-    if (!config.show_file_details) {
+    if (!rich_config.show_file_details) {
         return NULL;
     }
     
@@ -391,12 +391,12 @@ static char* get_variable_description(const char *varname) {
     // Try to get the variable value to show as description
     const char *value = getenv(varname);
     if (value && strlen(value) > 0) {
-        char *desc = malloc(config.max_description_length + 16);
+        char *desc = malloc(rich_config.max_description_length + 16);
         if (desc) {
-            if (strlen(value) <= config.max_description_length - 10) {
-                snprintf(desc, config.max_description_length + 16, "value: %s", value);
+            if (strlen(value) <= rich_config.max_description_length - 10) {
+                snprintf(desc, rich_config.max_description_length + 16, "value: %s", value);
             } else {
-                snprintf(desc, config.max_description_length + 16, "value: %.50s...", value);
+                snprintf(desc, rich_config.max_description_length + 16, "value: %.50s...", value);
             }
             return desc;
         }
@@ -425,17 +425,17 @@ static rich_completion_item_t* create_rich_completion(const char *text,
     // Set display properties based on category
     switch (category) {
         case COMPLETION_COMMAND:
-            item->display_color = config.command_color;
+            item->display_color = rich_config.command_color;
             break;
         case COMPLETION_BUILTIN:
-            item->display_color = config.command_color;
+            item->display_color = rich_config.command_color;
             break;
         case COMPLETION_FILE:
         case COMPLETION_DIRECTORY:
-            item->display_color = config.file_color;
+            item->display_color = rich_config.file_color;
             break;
         case COMPLETION_VARIABLE:
-            item->display_color = config.variable_color;
+            item->display_color = rich_config.variable_color;
             break;
         default:
             item->display_color = NULL;
@@ -458,7 +458,7 @@ static void generate_rich_command_completions(const char *text, rich_completion_
         completion_category_t category = COMPLETION_COMMAND;
         
         // Check if it's a builtin
-        if (is_builtin_command(cmd)) {
+        if (is_builtin(cmd)) {
             description = get_builtin_description(cmd);
             category = COMPLETION_BUILTIN;
         } else {
@@ -592,7 +592,7 @@ void lusush_rich_completion_cleanup(void) {
  * Generate rich completions for given input
  */
 rich_completion_list_t* lusush_get_rich_completions(const char *text, completion_context_t context) {
-    if (!initialized || !config.enabled || !text) {
+    if (!initialized || !rich_config.enabled || !text) {
         return NULL;
     }
     
@@ -649,33 +649,33 @@ void lusush_free_rich_completions(rich_completion_list_t *list) {
 void lusush_configure_rich_completion(const rich_completion_config_t *new_config) {
     if (!new_config) return;
     
-    config.enabled = new_config->enabled;
-    config.show_descriptions = new_config->show_descriptions;
-    config.show_file_details = new_config->show_file_details;
-    config.show_command_types = new_config->show_command_types;
-    config.max_description_length = new_config->max_description_length;
-    config.max_completions_displayed = new_config->max_completions_displayed;
+    rich_config.enabled = new_config->enabled;
+    rich_config.show_descriptions = new_config->show_descriptions;
+    rich_config.show_file_details = new_config->show_file_details;
+    rich_config.show_command_types = new_config->show_command_types;
+    rich_config.max_description_length = new_config->max_description_length;
+    rich_config.max_completions_displayed = new_config->max_completions_displayed;
     
     // Update colors if provided
     if (new_config->description_color) {
-        free((char*)config.description_color);
-        config.description_color = strdup(new_config->description_color);
+        free((char*)rich_config.description_color);
+        rich_config.description_color = strdup(new_config->description_color);
     }
     if (new_config->category_color) {
-        free((char*)config.category_color);
-        config.category_color = strdup(new_config->category_color);
+        free((char*)rich_config.category_color);
+        rich_config.category_color = strdup(new_config->category_color);
     }
     if (new_config->file_color) {
-        free((char*)config.file_color);
-        config.file_color = strdup(new_config->file_color);
+        free((char*)rich_config.file_color);
+        rich_config.file_color = strdup(new_config->file_color);
     }
     if (new_config->command_color) {
-        free((char*)config.command_color);
-        config.command_color = strdup(new_config->command_color);
+        free((char*)rich_config.command_color);
+        rich_config.command_color = strdup(new_config->command_color);
     }
     if (new_config->variable_color) {
-        free((char*)config.variable_color);
-        config.variable_color = strdup(new_config->variable_color);
+        free((char*)rich_config.variable_color);
+        rich_config.variable_color = strdup(new_config->variable_color);
     }
 }
 
@@ -700,11 +700,11 @@ void lusush_display_rich_completions(const rich_completion_list_t *list) {
     
     // Display completions with descriptions
     size_t displayed = 0;
-    for (size_t i = 0; i < list->count && displayed < config.max_completions_displayed; i++) {
+    for (size_t i = 0; i < list->count && displayed < rich_config.max_completions_displayed; i++) {
         rich_completion_item_t *item = list->items[i];
         
         // Print completion with color if enabled
-        if (item->display_color && config.show_command_types) {
+        if (item->display_color && rich_config.show_command_types) {
             printf("%s%-*s\033[0m", item->display_color, 
                    (int)max_completion_len + 2, item->completion);
         } else {
@@ -712,19 +712,53 @@ void lusush_display_rich_completions(const rich_completion_list_t *list) {
         }
         
         // Print description if available and enabled
-        if (item->description && config.show_descriptions) {
-            printf("%s%s\033[0m", config.description_color, item->description);
+        if (item->description && rich_config.show_descriptions) {
+            printf("%s%s\033[0m", rich_config.description_color, item->description);
         }
         
         printf("\n");
         displayed++;
     }
     
-    if (list->count > config.max_completions_displayed) {
+    if (list->count > rich_config.max_completions_displayed) {
         printf("%s... and %zu more\033[0m\n", 
-               config.description_color,
-               list->count - config.max_completions_displayed);
+               rich_config.description_color,
+               list->count - rich_config.max_completions_displayed);
     }
     
     printf("\n");
+}
+
+/**
+ * Check if rich completions are enabled
+ */
+bool lusush_are_rich_completions_enabled(void) {
+    return initialized && rich_config.enabled;
+}
+
+/**
+ * Set rich completion enabled state
+ */
+void lusush_set_rich_completion_enabled(bool enabled) {
+    rich_config.enabled = enabled;
+}
+
+/**
+ * Get default rich completion configuration
+ */
+rich_completion_config_t lusush_get_default_rich_completion_config(void) {
+    rich_completion_config_t default_config = {
+        .enabled = true,
+        .show_descriptions = true,
+        .show_file_details = true,
+        .show_command_types = true,
+        .max_description_length = 60,
+        .max_completions_displayed = 50,
+        .description_color = "\033[90m",      // Gray
+        .category_color = "\033[94m",         // Blue
+        .file_color = "\033[92m",             // Green
+        .command_color = "\033[93m",          // Yellow
+        .variable_color = "\033[95m"          // Magenta
+    };
+    return default_config;
 }
