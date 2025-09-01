@@ -3600,9 +3600,9 @@ int bin_display(int argc, char **argv) {
         
         printf("=== Display Integration Statistics ===\n");
         printf("Usage:\n");
-        printf("  Total display calls: %lu\n", stats.total_display_calls);
-        printf("  Layered display calls: %lu\n", stats.layered_display_calls);
-        printf("  Fallback calls: %lu\n", stats.fallback_calls);
+        printf("  Total display calls: %llu\n", (unsigned long long)stats.total_display_calls);
+        printf("  Layered display calls: %llu\n", (unsigned long long)stats.layered_display_calls);
+        printf("  Fallback calls: %llu\n", (unsigned long long)stats.fallback_calls);
         
         if (stats.total_display_calls > 0) {
             double layered_rate = (double)stats.layered_display_calls / stats.total_display_calls * 100.0;

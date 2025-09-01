@@ -195,7 +195,7 @@ static int calculate_similarity_score(const char *input, const char *candidate) 
  * Generate suggestion from command history
  */
 static lusush_autosuggestion_t* generate_history_suggestion(const char *input) {
-    if (!config.history_enabled || !input) {
+    if (!autosugg_config.history_enabled || !input) {
         return NULL;
     }
     
@@ -344,10 +344,26 @@ static lusush_autosuggestion_t* generate_alias_suggestion(const char *input) {
  * Generate the best suggestion for current input
  */
 lusush_autosuggestion_t* lusush_get_suggestion(const char *current_line, size_t cursor_pos) {
-    // Temporarily disabled for testing - return NULL to avoid memory issues
-    (void)current_line;
-    (void)cursor_pos;
-    return NULL;
+    if (!initialized || !should_suggest(current_line, cursor_pos)) {
+        return NULL;
+    }
+    // Start with simple history-based suggestions
+    lusush_autosuggestion_t *suggestion = generate_history_suggestion(current_line);
+    
+    if (suggestion) {
+        // Update statistics
+        stats.suggestions_generated++;
+        
+        // Simple cache update - store the input for next time
+        if (cache.last_input) {
+            free(cache.last_input);
+        }
+        cache.last_input = strdup(current_line);
+        cache.cache_valid = true;
+        cache.cache_time = time(NULL);
+    }
+    
+    return suggestion;
 }
 
 /**
@@ -426,9 +442,14 @@ void lusush_autosuggestions_cleanup(void) {
     clear_suggestion(&current_suggestion);
     clear_suggestion(&cache.cached_suggestion);
     
-    free(cache.last_input);
+    if (cache.last_input) {
+        free(cache.last_input);
+        cache.last_input = NULL;
+    }
+    
     if (autosugg_config.suggestion_color) {
         free(autosugg_config.suggestion_color);
+        autosugg_config.suggestion_color = NULL;
     }
     
     memset(&cache, 0, sizeof(cache));
