@@ -270,6 +270,7 @@ static void lusush_output_colored_line_wrapped(const char *line, int available_w
 // Original function for compatibility  
 static void lusush_output_colored_line(const char *line, int cursor_pos);
 static int lusush_getc(FILE *stream);
+static int lusush_getc_with_autosuggestions(FILE *stream);
 static int lusush_abort_line(int count, int key);
 static int lusush_clear_screen_and_redisplay(int count, int key);
 static int lusush_previous_history(int count, int key);
@@ -1196,7 +1197,8 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
         syntax_highlighting_enabled = true;
         
         // Use custom getc function to detect word boundaries for highlighting
-        rl_getc_function = lusush_getc;
+        // Set custom getc for character-by-character processing with autosuggestions
+        rl_getc_function = lusush_getc_with_autosuggestions;
         
         reset_typing_state();
         
@@ -1208,15 +1210,15 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
             return;
         }
         
-        // Keep standard redisplay function to prevent constant redraw
-        rl_redisplay_function = rl_redisplay;
+        // Use hybrid redisplay that supports both syntax highlighting and autosuggestions
+        rl_redisplay_function = lusush_redisplay_with_suggestions;
 
     } else {
         // Disable: clean up and use standard functions
         syntax_highlighting_enabled = false;
         cleanup_highlight_buffer();
         rl_redisplay_function = lusush_redisplay_with_suggestions;
-        rl_getc_function = rl_getc;
+        rl_getc_function = lusush_getc_with_autosuggestions;
         rl_pre_input_hook = NULL;
     }
 }
@@ -1743,41 +1745,83 @@ static void lusush_custom_redisplay(void) {
     rl_redisplay();
 }
 
-// Autosuggestion-enhanced redisplay function - temporarily disabled to prevent display corruption
+// Hybrid redisplay function - supports both syntax highlighting and autosuggestions
 void lusush_redisplay_with_suggestions(void) {
-    // Use standard redisplay to prevent cursor position conflicts
+    // Always do standard redisplay first for stability
     rl_redisplay();
     
-    /* Temporarily disabled to fix display corruption
-    // Only show suggestions if we have current input and cursor is at end
-    if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end) {
+    // DEBUG: Show when function is called (disabled by default)
+    if (debug_enabled) {
+        fprintf(stderr, "[DEBUG] redisplay_with_suggestions called, line='%s', point=%d, end=%d\n", 
+                rl_line_buffer ? rl_line_buffer : "(null)", rl_point, rl_end);
+    }
+    
+    // SAFETY: Skip autosuggestions in special readline states
+    if (RL_ISSTATE(RL_STATE_OVERWRITE | RL_STATE_ISEARCH | 
+                   RL_STATE_MOREINPUT | RL_STATE_CALLBACK | 
+                   RL_STATE_VICMDONCE | RL_STATE_VIMOTION)) {
+        if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - in special readline state\n");
         return;
     }
     
-    // Get current suggestion
+    // SAFETY: Only show suggestions if we have input and cursor is at end
+    if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end || rl_end < 2) {
+        // Clear any existing suggestion display
+        if (current_suggestion) {
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
+        if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - no input or cursor not at end\n");
+        return;
+    }
+    
+    // SAFETY: Skip if line is too long to prevent display issues
+    if (rl_end > 80) {
+        if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - line too long (%d chars)\n", rl_end);
+        return;
+    }
+    
+    if (debug_enabled) fprintf(stderr, "[DEBUG] Getting suggestion for: '%s'\n", rl_line_buffer);
+    
+    // Get current suggestion with error handling
     lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
     if (suggestion && suggestion->display_text && *suggestion->display_text) {
-        // Save cursor position
-        printf("\033[s");
+        if (debug_enabled) fprintf(stderr, "[DEBUG] Got suggestion: '%s'\n", suggestion->display_text);
         
-        // Display suggestion in gray after cursor
-        printf("\033[90m%s\033[0m", suggestion->display_text);
-        
-        // Restore cursor position
-        printf("\033[u");
-        fflush(stdout);
-        
-        // Store for keypress handling
-        if (current_suggestion && current_suggestion != suggestion) {
-            lusush_free_autosuggestion(current_suggestion);
+        // SAFETY: Validate suggestion text is reasonable
+        size_t sugg_len = strlen(suggestion->display_text);
+        if (sugg_len > 0 && sugg_len < 50 && !strchr(suggestion->display_text, '\n')) {
+            if (debug_enabled) fprintf(stderr, "[DEBUG] Displaying suggestion\n");
+            
+            // Save terminal state
+            printf("\033[s");
+            
+            // Display suggestion in visible gray after cursor (Fish-like style)
+            printf("\033[90m%s\033[0m", suggestion->display_text);
+            
+            // Restore terminal state
+            printf("\033[u");
+            fflush(stdout);
+            
+            // Store for keypress handling
+            if (current_suggestion && current_suggestion != suggestion) {
+                lusush_free_autosuggestion(current_suggestion);
+            }
+            current_suggestion = suggestion;
+        } else {
+            if (debug_enabled) fprintf(stderr, "[DEBUG] Invalid suggestion - len=%zu, has_newline=%d\n", 
+                                     sugg_len, strchr(suggestion->display_text, '\n') != NULL);
+            // Invalid suggestion, clean up
+            lusush_free_autosuggestion(suggestion);
         }
-        current_suggestion = suggestion;
-    } else if (current_suggestion) {
-        // Clear old suggestion if no new one
-        lusush_free_autosuggestion(current_suggestion);
-        current_suggestion = NULL;
+    } else {
+        if (debug_enabled) fprintf(stderr, "[DEBUG] No valid suggestion found\n");
+        if (current_suggestion) {
+            // Clear old suggestion if no new one
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
     }
-    */
 }
 
 
@@ -2032,8 +2076,8 @@ static void setup_readline_config(void) {
     rl_catch_sigwinch = 1; // Handle window resize only
     
     // Enable robust syntax highlighting with proper wrapping support
-    // Temporarily use standard redisplay to prevent display corruption
-    rl_redisplay_function = rl_redisplay;
+    // Use hybrid redisplay function for both syntax highlighting and autosuggestions
+    rl_redisplay_function = lusush_redisplay_with_suggestions;
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
     rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
@@ -2557,6 +2601,36 @@ static int lusush_getc(FILE *stream) {
     
     // Update typing state
     typing_state.last_char = c;
+    
+    return c;
+}
+
+// Enhanced getc function with autosuggestion triggering
+static int lusush_getc_with_autosuggestions(FILE *stream) {
+    int c = getc(stream);
+    
+    // Handle EOF properly
+    if (c == EOF) {
+        if (feof(stream)) {
+            // Real EOF
+            return EOF;
+        } else if (ferror(stream)) {
+            // Error reading
+            clearerr(stream);
+            return EOF;
+        }
+    }
+    
+    // Real-time enhanced syntax highlighting - triggered on word boundaries
+    if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
+        lusush_highlight_previous_word();
+    }
+    
+    // Update typing state
+    typing_state.last_char = c;
+    
+    // AUTOSUGGESTION TRIGGER: Removed forced updates to prevent display corruption
+    // Autosuggestions will be shown during normal redisplay cycles instead
     
     return c;
 }

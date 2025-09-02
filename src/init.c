@@ -388,7 +388,7 @@ int init(int argc, char **argv, FILE **in) {
         } else {
             // Announce activation with visual impact
             if (display_config.enable_layered_display) {
-                printf("Lusush v1.1.3 - Enhanced display mode enabled\n");
+                printf("Lusush v" LUSUSH_VERSION_STRING " - Enhanced display mode enabled\n");
             } else if (display_config.debug_mode) {
                 printf("Display integration initialized (layered_display=disabled)\n");
             }
