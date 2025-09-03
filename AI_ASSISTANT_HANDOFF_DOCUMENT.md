@@ -703,7 +703,8 @@ ninja -C builddir
 
 **Commit Current Progress**: Phase 1 achievements should be committed as a checkpoint before starting Phase 2.
 
-### Priority 1: Phase 2 Enhanced Display System (Next 2-3 days)
+### Priority 1: Phase 2 Enhanced Display System (Next 2-3 days) [L706-707]
+**Hash Table Requirement**: All performance optimizations and caching implementations MUST use lusush's existing `src/libhashtable` library.
 **Goal**: Add Fish-like tab completions with descriptions
 
 **Tasks**:

@@ -48,8 +48,11 @@ void lusush_display_completion_menu(char **matches, int len, int max) {
     // 3. Apply visual selection highlighting
     // 4. Use theme colors for professional appearance
     // 5. Handle terminal width changes gracefully
+    // 6. Use src/libhashtable for any caching optimizations
 }
 ```
+
+**IMPORTANT**: All performance optimizations and caching implementations MUST use lusush's existing `src/libhashtable` library for consistency with the rest of the codebase.
 
 #### Step 2: Visual Selection Highlighting (1-2 hours)
 - [ ] **Add selection state tracking** in menu_completion_state_t
@@ -199,6 +202,11 @@ const char *normal_color = lusush_theme_get_menu_normal_color();
 - **Performance tests**: Timing of display operations
 - **Regression tests**: All existing functionality preserved
 
+### Hash Table Implementation:
+- **REQUIREMENT**: All caching and performance optimizations MUST use `src/libhashtable`
+- **Consistency**: Follow existing lusush patterns for hash table usage
+- **No External Dependencies**: Do not use external hash table libraries
+
 ## 📊 Success Metrics
 
 ### Functional Requirements:
@@ -214,6 +222,11 @@ const char *normal_color = lusush_theme_get_menu_normal_color();
 - ✅ Performance targets met
 - ✅ Memory safety verified
 - ✅ Cross-platform compatibility
+
+### Implementation Requirements:
+- ✅ All hash table implementations use `src/libhashtable`
+- ✅ Consistent with existing lusush architecture
+- ✅ No external hash table dependencies
 
 ## 🎉 Completion Criteria
 

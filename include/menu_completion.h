@@ -6,6 +6,10 @@
 
 // ============================================================================
 // MENU COMPLETION SYSTEM
+// 
+// IMPORTANT: All hash table implementations in this module MUST use lusush's
+// existing src/libhashtable library for consistency with the rest of the 
+// codebase. Do not implement custom hash tables or use external libraries.
 // ============================================================================
 
 /**
@@ -105,6 +109,16 @@ void lusush_display_completion_menu(char **matches, int len, int max);
  * Clears current completion session and prepares for new one
  */
 void lusush_menu_completion_reset(void);
+
+/**
+ * Prepare menu state for cycling without displaying
+ * 
+ * @param matches Array of completion matches
+ * @param len Number of matches
+ * 
+ * NOTE: Any caching optimizations MUST use src/libhashtable for consistency
+ */
+void lusush_prepare_menu_state(char **matches, int len);
 
 // ============================================================================
 // DISPLAY FUNCTIONS

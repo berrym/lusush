@@ -729,6 +729,9 @@ void lusush_completion_setup(void) {
     rl_attempted_completion_function = lusush_tab_completion;
     rl_completion_entry_function = lusush_completion_entry_function;
     
+    // Set up enhanced menu completion display hook
+    rl_completion_display_matches_hook = lusush_display_completion_menu;
+    
     // Configure completion behavior for cycling
     rl_completion_append_character = ' ';
     rl_completion_suppress_append = 0;
