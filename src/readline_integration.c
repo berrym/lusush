@@ -729,8 +729,8 @@ void lusush_completion_setup(void) {
     rl_attempted_completion_function = lusush_tab_completion;
     rl_completion_entry_function = lusush_completion_entry_function;
     
-    // Set up enhanced menu completion display hook
-    rl_completion_display_matches_hook = lusush_display_completion_menu;
+    // FINAL FIX: Remove ALL custom display hooks - let readline handle everything
+    // rl_completion_display_matches_hook = lusush_display_completion_menu;
     
     // Configure completion behavior for cycling
     rl_completion_append_character = ' ';
@@ -739,19 +739,21 @@ void lusush_completion_setup(void) {
     rl_filename_quoting_desired = 1;
     rl_completion_query_items = 50;
     
-    // Configure tab completion based on menu completion setting
+    // FINAL FIX: Configure pure readline menu completion
     if (config.menu_completion_enabled && config.menu_completion_cycle_on_tab) {
-        // Use GNU Readline's built-in menu completion
+        // Use readline's menu completion with proper configuration
         rl_bind_key('\t', rl_menu_complete);
-        
-        // Bind Shift-TAB for backward cycling if supported
         rl_bind_keyseq("\\e[Z", rl_backward_menu_complete);
         
-        // Configure for menu completion behavior
-        rl_completion_suppress_append = 1;  // Don't auto-append space in menu mode
-        rl_completion_query_items = 0;      // Don't ask before showing menu
+        // Critical readline variables for proper menu behavior
+        rl_completion_suppress_append = 1;
+        rl_completion_query_items = 0;
+        
+        // Show completions immediately and use prefix display
+        rl_variable_bind("show-all-if-ambiguous", "on");
+        rl_variable_bind("menu-complete-display-prefix", "on");
+        rl_variable_bind("completion-ignore-case", "off");
     } else {
-        // Use standard completion
         rl_bind_key('\t', rl_complete);
     }
     
@@ -811,8 +813,10 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         if (matches) return matches;
     }
 
-    // Try rich completion system for other cases (with safety limits)
-    if (lusush_are_rich_completions_enabled() && text && strlen(text) >= 2) {
+    // EMERGENCY FIX: Disable expensive rich completions for Phase 2 performance
+    // Rich completions cause 9+ second delays due to external command execution
+    // TODO: Re-enable rich completions with proper caching in Phase 3
+    if (false && lusush_are_rich_completions_enabled() && text && strlen(text) >= 2) {
         rich_completion_list_t *rich_completions = lusush_get_rich_completions(text, context);
         if (rich_completions && rich_completions->count > 0) {
             // Convert rich completions to readline format
@@ -851,23 +855,12 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
                     matches[i + 1] = strdup(rich_completions->items[i]->completion);
                 }
                 matches[rich_completions->count + 1] = NULL;
-                
-                // Display rich completions if multiple matches and descriptions available
-                // Temporarily disabled to prevent display corruption
-                /*
-                if (rich_completions->count > 1) {
-                    printf("\n");
-                    lusush_display_rich_completions(rich_completions);
-                }
-                */
             }
             
             lusush_free_rich_completions(rich_completions);
-            if (matches) return matches;
+            return matches;
         }
-        if (rich_completions) {
-            lusush_free_rich_completions(rich_completions);
-        }
+        lusush_free_rich_completions(rich_completions);
     }
     
     // Use standard Lusush completion system for other cases
@@ -2092,9 +2085,8 @@ static int lusush_accept_suggestion_word_key(int count, int key) {
 }
 
 static void setup_key_bindings(void) {
-    // DISABLE tab completion to prevent interference with arrow keys
-    rl_bind_key('\t', rl_insert);  // TAB just inserts tab character
-    // rl_bind_key(27, rl_complete); // Disable Alt+Tab completion
+    // TAB completion is handled in lusush_completion_setup()
+    // Don't override it here to avoid binding conflicts
     
     rl_bind_key('\n', rl_newline);   // Enter
     rl_bind_key('\r', rl_newline);   // Return

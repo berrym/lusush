@@ -444,107 +444,9 @@ char *lusush_format_completion_entry(const char *completion,
 }
 
 void lusush_render_completion_menu(menu_completion_state_t *state) {
-    if (!state || !lusush_validate_menu_state(state)) {
-        return;
-    }
-    
-    double start_time = get_time_ms();
-    
-    menu_layout_info_t layout = lusush_calculate_menu_layout(
-        state->completions, state->descriptions, state->count);
-    
-    if (layout.columns == 0 || layout.rows == 0) {
-        return;
-    }
-    
-    // Clear current line and move to menu display area
-    printf("\033[2K\r"); // Clear entire line and return to start
-    printf("\n"); // Move to next line for menu
-    
-    // Get theme-aware colors
-    const char *selection_color = NULL;
-    const char *description_color = NULL;
-
-    
-    // Use theme colors if available, otherwise fall back to config or defaults
-    if (config.menu_completion_selection_color && 
-        strcmp(config.menu_completion_selection_color, "auto") != 0) {
-        selection_color = config.menu_completion_selection_color;
-    } else {
-        // Get theme selection color (highlight color works well for selections)
-        selection_color = theme_get_color("highlight");
-        if (!selection_color || strlen(selection_color) == 0) {
-            selection_color = DEFAULT_SELECTION_COLOR;
-        }
-    }
-    
-    if (config.menu_completion_description_color && 
-        strcmp(config.menu_completion_description_color, "auto") != 0) {
-        description_color = config.menu_completion_description_color;
-    } else {
-        // Get theme description color (text_dim works well for descriptions)
-        description_color = theme_get_color("text_dim");
-        if (!description_color || strlen(description_color) == 0) {
-            description_color = DEFAULT_DESCRIPTION_COLOR;
-        }
-    }
-    
-    for (int row = 0; row < layout.rows; row++) {
-        for (int col = 0; col < layout.columns; col++) {
-            int index = row * layout.columns + col;
-            if (index >= state->count) break;
-            
-            bool is_selected = (index == state->selected_index);
-            
-            // Enhanced display with theme-aware colors and rich descriptions
-            if (is_selected && config.menu_completion_show_selection_highlight) {
-                printf("%s", selection_color);
-            }
-            
-            // Print completion name
-            printf("%s", state->completions[index]);
-            
-            // Add description if available with better formatting
-            if (layout.has_descriptions && state->descriptions[index]) {
-                // Use description color
-                printf("%s - %s%s", description_color, state->descriptions[index], COLOR_RESET);
-            }
-            
-            // Calculate padding for column alignment (simplified for performance)
-            int content_length = strlen(state->completions[index]);
-            if (layout.has_descriptions && state->descriptions[index]) {
-                content_length += 3 + strlen(state->descriptions[index]); // " - " + description
-            }
-            
-            // Add padding to maintain column width
-            int padding = layout.column_width - content_length;
-            if (padding > 0 && padding < 50) { // Reasonable padding limit
-                printf("%*s", padding, "");
-            }
-            
-            // Reset color after selection
-            if (is_selected && config.menu_completion_show_selection_highlight) {
-                printf("%s", COLOR_RESET);
-            }
-            
-            // Add column separator (except for last column)  
-            if (col < layout.columns - 1) {
-                printf("  ");
-            }
-        }
-        printf("\n");
-    }
-    
-    // Don't reposition cursor - let readline handle it naturally
-    
-    fflush(stdout);
-    
-    // Update performance stats
-    double elapsed = get_time_ms() - start_time;
-    perf_stats.menu_displays++;
-    perf_stats.avg_display_time_ms = 
-        (perf_stats.avg_display_time_ms * (perf_stats.menu_displays - 1) + elapsed) 
-        / perf_stats.menu_displays;
+    // This function is no longer used since we use readline's standard display
+    // Keeping it for potential future enhancements
+    return;
 }
 
 // ============================================================================
@@ -552,103 +454,14 @@ void lusush_render_completion_menu(menu_completion_state_t *state) {
 // ============================================================================
 
 int lusush_menu_complete_handler(int count, int key) {
-    if (!initialized || !config.menu_completion_enabled) {
-        return rl_complete(count, key);
-    }
-    
-    double start_time = get_time_ms();
-    
-    // Clear any autosuggestion remnants before completion
-    lusush_dismiss_suggestion();
-    printf("\033[K");  // Clear to end of line
-    fflush(stdout);
-    
-    // Update menu state selection if cycling through existing menu
-    if (menu_state.active && menu_state.count > 0) {
-        // Move to next completion
-        menu_state.selected_index = (menu_state.selected_index + 1) % menu_state.count;
-        
-        // Replace the current input with selected completion
-        if (menu_state.completions[menu_state.selected_index]) {
-            rl_delete_text(0, rl_end);
-            rl_insert_text(menu_state.completions[menu_state.selected_index]);
-            rl_point = rl_end;
-        }
-        
-        // Re-render menu with updated selection
-        lusush_render_completion_menu(&menu_state);
-        
-        // Update performance stats
-        double elapsed = get_time_ms() - start_time;
-        perf_stats.avg_cycling_time_ms = 
-            (perf_stats.avg_cycling_time_ms * perf_stats.total_completions + elapsed)
-            / (perf_stats.total_completions + 1);
-        perf_stats.total_completions++;
-        
-        return 0; // Success, handled internally
-    }
-    
-    // First time completion - use standard completion to generate matches
-    int result = rl_complete(count, key);
-    
-    // Update performance stats  
-    double elapsed = get_time_ms() - start_time;
-    perf_stats.avg_cycling_time_ms = 
-        (perf_stats.avg_cycling_time_ms * perf_stats.total_completions + elapsed)
-        / (perf_stats.total_completions + 1);
-    perf_stats.total_completions++;
-    
-    return result;
+    // Option 2: Let readline handle menu completion entirely
+    // We only enhance the initial display, then get out of the way
+    return rl_menu_complete(count, key);
 }
 
 int lusush_menu_complete_backward_handler(int count, int key) {
-    if (!initialized || !config.menu_completion_enabled) {
-        return rl_complete(count, key);
-    }
-    
-    double start_time = get_time_ms();
-    
-    // Clear any autosuggestion remnants before completion
-    lusush_dismiss_suggestion();
-    printf("\033[K");  // Clear to end of line
-    fflush(stdout);
-    
-    // Update menu state selection if cycling through existing menu
-    if (menu_state.active && menu_state.count > 0) {
-        // Move to previous completion (wrap around)
-        menu_state.selected_index = (menu_state.selected_index - 1 + menu_state.count) % menu_state.count;
-        
-        // Replace the current input with selected completion
-        if (menu_state.completions[menu_state.selected_index]) {
-            rl_delete_text(0, rl_end);
-            rl_insert_text(menu_state.completions[menu_state.selected_index]);
-            rl_point = rl_end;
-        }
-        
-        // Re-render menu with updated selection
-        lusush_render_completion_menu(&menu_state);
-        
-        // Update performance stats
-        double elapsed = get_time_ms() - start_time;
-        perf_stats.avg_cycling_time_ms = 
-            (perf_stats.avg_cycling_time_ms * perf_stats.total_completions + elapsed)
-            / (perf_stats.total_completions + 1);
-        perf_stats.total_completions++;
-        
-        return 0; // Success, handled internally
-    }
-    
-    // First time completion - use standard completion to generate matches
-    int result = rl_complete(count, key);
-    
-    // Update performance stats  
-    double elapsed = get_time_ms() - start_time;
-    perf_stats.avg_cycling_time_ms = 
-        (perf_stats.avg_cycling_time_ms * perf_stats.total_completions + elapsed)
-        / (perf_stats.total_completions + 1);
-    perf_stats.total_completions++;
-    
-    return result;
+    // Option 2: Let readline handle backward menu completion entirely
+    return rl_backward_menu_complete(count, key);
 }
 
 void lusush_display_completion_menu(char **matches, int len, int max) {
@@ -658,59 +471,12 @@ void lusush_display_completion_menu(char **matches, int len, int max) {
         return;
     }
     
-    // Don't display menu immediately - let the completion happen first
-    // The menu will be shown during cycling
-    if (!menu_state.active) {
-        // Store matches for future cycling but don't display menu yet
-        lusush_prepare_menu_state(matches, len);
-        
-        // Use standard readline display for first completion
-        rl_display_match_list(matches, len, max);
-        return;
-    }
+    // Minimal enhancement: Use readline's standard display behavior
+    // but with our completion data preparation for consistency
+    lusush_prepare_menu_state(matches, len);
     
-    // Skip first element (common prefix) and create our state
-    int actual_count = len - 1;
-    if (actual_count <= 0) {
-        return;
-    }
-    
-    // Free previous state safely
-    if (menu_state.active) {
-        free_menu_state(&menu_state);
-    }
-    
-    // Allocate new state with zero initialization
-    menu_state.completions = calloc(actual_count, sizeof(char*));
-    menu_state.descriptions = calloc(actual_count, sizeof(char*));
-    
-    if (!menu_state.completions || !menu_state.descriptions) {
-        fprintf(stderr, "lusush: menu_completion: memory allocation failed\n");
-        rl_display_match_list(matches, len, max);
-        return;
-    }
-    
-    // Copy completions and get rich descriptions efficiently (skip first element which is common prefix)
-    menu_state.count = actual_count;
-    
-    // Skip expensive rich completion lookup for initial display performance
-    rich_completion_list_t* rich_list = NULL;
-    
-    for (int i = 0; i < actual_count; i++) {
-        menu_state.completions[i] = safe_strdup(matches[i + 1]);
-        menu_state.descriptions[i] = NULL; // Default to no description
-        
-        // Use fast hash table lookup for optimal performance
-        menu_state.descriptions[i] = get_fast_description(matches[i + 1]);
-    }
-    
-    // No rich list cleanup needed for performance optimization
-    
-    menu_state.selected_index = 0;
-    menu_state.active = true;
-    menu_state.common_prefix = safe_strdup(matches[0]);
-    
-    // Don't render immediately - will render during cycling
+    // Use readline's standard display - this is fully compatible
+    rl_display_match_list(matches, len, max);
 }
 
 // Helper function to prepare menu state without displaying
@@ -735,21 +501,13 @@ void lusush_prepare_menu_state(char **matches, int len) {
         return;
     }
     
-    // Copy completions and get rich descriptions efficiently
+    // Copy completions and get descriptions efficiently
     menu_state.count = actual_count;
-    
-    // Use fast simple descriptions for initial performance
-    rich_completion_list_t* rich_list = NULL;
     
     for (int i = 0; i < actual_count; i++) {
         menu_state.completions[i] = safe_strdup(matches[i + 1]);
-        menu_state.descriptions[i] = NULL;
-        
-        // Fast hash table descriptions only
         menu_state.descriptions[i] = get_fast_description(matches[i + 1]);
     }
-    
-    // No rich list cleanup needed for performance optimization
     
     menu_state.selected_index = 0;
     menu_state.active = true;
