@@ -69,6 +69,17 @@ typedef struct {
     bool completion_show_all;
     bool hints_enabled;
 
+    // Menu completion settings
+    bool menu_completion_enabled;
+    bool menu_completion_show_descriptions;
+    bool menu_completion_cycle_on_tab;
+    bool menu_completion_show_selection_highlight;
+    int menu_completion_max_columns;
+    int menu_completion_max_rows;
+    char *menu_completion_selection_color;
+    char *menu_completion_description_color;
+    bool menu_completion_sort_completions;
+
     // Prompt settings
     char *prompt_style;
     char *prompt_theme;

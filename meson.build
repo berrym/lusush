@@ -4,7 +4,7 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '1.2.0',
+        version: '1.2.1',
         license: 'GPL-3.0+')
 
 inc = include_directories('include',
@@ -23,6 +23,7 @@ src = ['src/builtins/alias.c',
        'src/autosuggestions.c',
        'src/completion.c',
        'src/rich_completion.c',
+       'src/menu_completion.c',
        'src/config.c',
        'src/debug/debug_core.c',
        'src/debug/debug_trace.c',

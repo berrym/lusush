@@ -18,6 +18,23 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <time.h>
+
+// ============================================================================
+// COMPLETION CACHE
+// ============================================================================
+
+#define COMPLETION_CACHE_SIZE 8
+#define COMPLETION_CACHE_TTL 30  // seconds
+
+typedef struct {
+    char *query;
+    lusush_completions_t completions;
+    time_t timestamp;
+} completion_cache_entry_t;
+
+static completion_cache_entry_t completion_cache[COMPLETION_CACHE_SIZE] = {0};
+static int cache_index = 0;
 
 /**
  * Fuzzy matching algorithm for enhanced completion
@@ -311,6 +328,21 @@ void complete_commands(const char *text, lusush_completions_t *lc) {
         return;
     }
 
+    // Check cache for recent identical queries
+    time_t now = time(NULL);
+    for (int i = 0; i < COMPLETION_CACHE_SIZE; i++) {
+        if (completion_cache[i].query && 
+            strcmp(completion_cache[i].query, text) == 0 &&
+            (now - completion_cache[i].timestamp) < COMPLETION_CACHE_TTL) {
+            
+            // Copy cached completions
+            for (size_t j = 0; j < completion_cache[i].completions.len; j++) {
+                add_completion_with_suffix(lc, completion_cache[i].completions.cvec[j], " ");
+            }
+            return;
+        }
+    }
+
     char *path_env = getenv("PATH");
     if (!path_env) {
         return;
@@ -323,29 +355,32 @@ void complete_commands(const char *text, lusush_completions_t *lc) {
 
     size_t text_len = strlen(text);
     char *dir = strtok(path, ":");
+    
+    // Performance optimization: limit completions for short prefixes
+    int max_completions = (text_len <= 2) ? 20 : 100;
+    int found_count = 0;
 
-    while (dir) {
+    while (dir && found_count < max_completions) {
         DIR *d = opendir(dir);
         if (d) {
             struct dirent *entry;
-            while ((entry = readdir(d)) != NULL) {
-                if (entry->d_name[0] != '.') {
-                    // Check if it's executable first
-                    char full_path[strlen(dir) + strlen(entry->d_name) + 2];
-                    snprintf(full_path, sizeof(full_path), "%s/%s", dir,
-                             entry->d_name);
+            while ((entry = readdir(d)) != NULL && found_count < max_completions) {
+                // Quick rejection: check prefix first before any I/O
+                if (entry->d_name[0] == '.' || 
+                    strncmp(entry->d_name, text, text_len) != 0) {
+                    continue;
+                }
+                
+                // Only check executability for matching prefixes
+                char full_path[strlen(dir) + strlen(entry->d_name) + 2];
+                snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
 
-                    struct stat st;
-                    if (stat(full_path, &st) == 0 && (st.st_mode & S_IXUSR)) {
-                        // Exact prefix match gets priority
-                        if (strncmp(entry->d_name, text, text_len) == 0 &&
-                            strlen(entry->d_name) > text_len) {
-                            add_completion_with_suffix(lc, entry->d_name, " ");
-                        } else {
-                            // Try fuzzy matching for commands
-                            add_fuzzy_completion(lc, text, entry->d_name, " ",
-                                                 70);
-                        }
+                // Use access() instead of stat() for faster executable check
+                if (access(full_path, X_OK) == 0) {
+                    // Exact prefix match - no fuzzy matching for performance
+                    if (strlen(entry->d_name) > text_len) {
+                        add_completion_with_suffix(lc, entry->d_name, " ");
+                        found_count++;
                     }
                 }
             }
@@ -355,6 +390,57 @@ void complete_commands(const char *text, lusush_completions_t *lc) {
     }
 
     free(path);
+
+    // Cache the results for future queries (only for short prefixes)
+    if (strlen(text) <= 3 && lc->len > 0) {
+        // Free old cache entry
+        completion_cache_entry_t *entry = &completion_cache[cache_index];
+        if (entry->query) {
+            free(entry->query);
+            lusush_free_completions(&entry->completions);
+        }
+        
+        // Store new cache entry
+        entry->query = strdup(text);
+        entry->completions.len = 0;
+        entry->completions.cvec = NULL;
+        entry->timestamp = time(NULL);
+        
+        // Copy completions to cache
+        for (size_t i = 0; i < lc->len; i++) {
+            lusush_add_completion(&entry->completions, lc->cvec[i]);
+        }
+        
+        cache_index = (cache_index + 1) % COMPLETION_CACHE_SIZE;
+    }
+}
+
+/**
+ * Initialize completion cache
+ */
+void lusush_completion_cache_init(void) {
+    for (int i = 0; i < COMPLETION_CACHE_SIZE; i++) {
+        completion_cache[i].query = NULL;
+        completion_cache[i].completions.len = 0;
+        completion_cache[i].completions.cvec = NULL;
+        completion_cache[i].timestamp = 0;
+    }
+    cache_index = 0;
+}
+
+/**
+ * Cleanup completion cache
+ */
+void lusush_completion_cache_cleanup(void) {
+    for (int i = 0; i < COMPLETION_CACHE_SIZE; i++) {
+        if (completion_cache[i].query) {
+            free(completion_cache[i].query);
+            completion_cache[i].query = NULL;
+        }
+        lusush_free_completions(&completion_cache[i].completions);
+        completion_cache[i].timestamp = 0;
+    }
+    cache_index = 0;
 }
 
 /**

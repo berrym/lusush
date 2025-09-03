@@ -65,6 +65,35 @@ static config_option_t config_options[] = {
     {               "hints_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.hints_enabled,                            "Enable input hints",         config_validate_bool      },
 
+    // Menu completion settings
+    {    "menu_completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_enabled,                "Enable menu completion cycling",
+     config_validate_bool                                                                                      },
+    {"menu_completion_show_descriptions", CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_show_descriptions,        "Show descriptions in menu completions",
+     config_validate_bool                                                                                      },
+    { "menu_completion_cycle_on_tab",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_cycle_on_tab,              "Enable TAB cycling through completions",
+     config_validate_bool                                                                                      },
+    {"menu_completion_show_selection_highlight", CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_show_selection_highlight,  "Highlight selected completion",
+     config_validate_bool                                                                                      },
+    { "menu_completion_max_columns",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_max_columns,               "Maximum completion columns (0=auto)",
+     config_validate_int                                                                                       },
+    {    "menu_completion_max_rows",    CONFIG_TYPE_INT, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_max_rows,                  "Maximum completion rows before paging",
+     config_validate_int                                                                                       },
+    {"menu_completion_selection_color", CONFIG_TYPE_STRING, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_selection_color,           "Color for selected completion",
+     config_validate_string                                                                                    },
+    {"menu_completion_description_color", CONFIG_TYPE_STRING, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_description_color,         "Color for completion descriptions",
+     config_validate_string                                                                                    },
+    {"menu_completion_sort_completions", CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
+     &config.menu_completion_sort_completions,          "Sort completions alphabetically",
+     config_validate_bool                                                                                      },
+
     // Prompt settings
     {                "prompt_style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_style, "Prompt style (normal, color, fancy, pro, git)",
@@ -572,6 +601,17 @@ void config_set_defaults(void) {
     config.completion_case_sensitive = false;
     config.completion_show_all = false;
     config.hints_enabled = false;
+
+    // Menu completion defaults
+    config.menu_completion_enabled = true;
+    config.menu_completion_show_descriptions = true;
+    config.menu_completion_cycle_on_tab = true;
+    config.menu_completion_show_selection_highlight = true;
+    config.menu_completion_max_columns = 0;  // Auto-calculate
+    config.menu_completion_max_rows = 10;
+    config.menu_completion_selection_color = strdup("auto");
+    config.menu_completion_description_color = strdup("auto");
+    config.menu_completion_sort_completions = true;
 
     // Prompt defaults
     config.prompt_style = strdup("git");

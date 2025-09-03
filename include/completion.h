@@ -74,4 +74,8 @@ char *generate_builtin_hint(const char *buf);
 char *get_best_completion_match(const char *text);
 int should_show_hints(const char *buf);
 
+// Cache management functions
+void lusush_completion_cache_init(void);
+void lusush_completion_cache_cleanup(void);
+
 #endif /* COMPLETION_H */

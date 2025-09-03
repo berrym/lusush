@@ -386,11 +386,10 @@ int init(int argc, char **argv, FILE **in) {
             }
             // Continue with standard display - no fatal error
         } else {
-            // Announce activation with visual impact
-            if (display_config.enable_layered_display) {
-                printf("Lusush v" LUSUSH_VERSION_STRING " - Enhanced display mode enabled\n");
-            } else if (display_config.debug_mode) {
-                printf("Display integration initialized (layered_display=disabled)\n");
+            // Display integration initialized (no startup message needed)
+            if (display_config.debug_mode) {
+                printf("Display integration initialized (layered_display=%s)\n", 
+                       display_config.enable_layered_display ? "enabled" : "disabled");
             }
         }
         
@@ -535,7 +534,6 @@ static int parse_opts(int argc, char **argv) {
                 exit(EXIT_SUCCESS);
             } else if (strcmp(arg, "--enhanced-display") == 0 || strcmp(arg, "--layered-display") == 0) {
                 config.enhanced_display_mode = true;
-                printf("Enhanced display mode enabled\n");
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);

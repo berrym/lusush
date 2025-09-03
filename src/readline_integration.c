@@ -50,6 +50,7 @@
 #include "../include/posix_history.h"
 #include "../include/autosuggestions.h"
 #include "../include/rich_completion.h"
+#include "../include/menu_completion.h"
 #include "../include/lusush.h"
 #include "../include/init.h"
 #include "../include/input.h"
@@ -344,6 +345,7 @@ bool lusush_readline_init(void) {
     setup_key_bindings();
     
     // Initialize completion system
+    lusush_completion_cache_init();
     lusush_completion_setup();
     
     // Initialize autosuggestions system
@@ -354,6 +356,11 @@ bool lusush_readline_init(void) {
     // Initialize rich completion system
     if (!lusush_rich_completion_init()) {
         fprintf(stderr, "Warning: Failed to initialize rich completions\n");
+    }
+    
+    // Initialize menu completion system
+    if (!lusush_menu_completion_init()) {
+        fprintf(stderr, "Warning: Failed to initialize menu completion\n");
     }
     
     // Enable syntax highlighting when enhanced display mode is set
@@ -393,6 +400,9 @@ void lusush_readline_cleanup(void) {
         history_cache_size = 0;
         history_cache_capacity = 0;
     }
+    
+    // Cleanup completion cache
+    lusush_completion_cache_cleanup();
     
     // Cleanup autosuggestions safely
     if (current_suggestion) {
@@ -471,11 +481,17 @@ char *lusush_readline_with_prompt(const char *prompt) {
     if (line && *line && is_interactive_shell()) {
         lusush_history_add(line);
     }
-    
+
+    // Clear any autosuggestion state after command completion
+    if (current_suggestion) {
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+
     // Ensure output is visible before returning
     fflush(stdout);
     fflush(stderr);
-    
+
     return line;
 }
 
@@ -720,8 +736,22 @@ void lusush_completion_setup(void) {
     rl_filename_quoting_desired = 1;
     rl_completion_query_items = 50;
     
-    // Configure tab completion to cycle through matches
-    rl_bind_key('\t', rl_complete);
+    // Configure tab completion based on menu completion setting
+    if (config.menu_completion_enabled && config.menu_completion_cycle_on_tab) {
+        // Use GNU Readline's built-in menu completion
+        rl_bind_key('\t', rl_menu_complete);
+        
+        // Bind Shift-TAB for backward cycling if supported
+        rl_bind_keyseq("\\e[Z", rl_backward_menu_complete);
+        
+        // Configure for menu completion behavior
+        rl_completion_suppress_append = 1;  // Don't auto-append space in menu mode
+        rl_completion_query_items = 0;      // Don't ask before showing menu
+    } else {
+        // Use standard completion
+        rl_bind_key('\t', rl_complete);
+    }
+    
     rl_variable_bind("menu-complete-display-prefix", "on");
     
     // Better completion behavior
@@ -730,11 +760,17 @@ void lusush_completion_setup(void) {
     rl_variable_bind("visible-stats", "on");
     rl_variable_bind("mark-directories", "on");
     rl_variable_bind("mark-symlinked-directories", "on");
-    rl_variable_bind("menu-complete-display-prefix", "on");
 }
 
 static char **lusush_tab_completion(const char *text, int start, int end __attribute__((unused))) {
     char **matches = NULL;
+    
+    // Safety check: prevent expensive completion on very short text
+    if (text && strlen(text) == 1 && start == 0) {
+        // Single character command completion can be expensive, disable rich completions
+        // This prevents hanging and slow performance on 'b', 'c', etc.
+        return NULL;  // Let readline handle basic filename completion
+    }
     
     // Get the full line buffer for context-aware completion
     const char *line_buffer = rl_line_buffer;
@@ -772,8 +808,8 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         if (matches) return matches;
     }
 
-    // Try rich completion system for other cases
-    if (lusush_are_rich_completions_enabled()) {
+    // Try rich completion system for other cases (with safety limits)
+    if (lusush_are_rich_completions_enabled() && text && strlen(text) >= 2) {
         rich_completion_list_t *rich_completions = lusush_get_rich_completions(text, context);
         if (rich_completions && rich_completions->count > 0) {
             // Convert rich completions to readline format
@@ -1761,17 +1797,31 @@ void lusush_redisplay_with_suggestions(void) {
                    RL_STATE_MOREINPUT | RL_STATE_CALLBACK | 
                    RL_STATE_VICMDONCE | RL_STATE_VIMOTION)) {
         if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - in special readline state\n");
-        return;
-    }
-    
-    // SAFETY: Only show suggestions if we have input and cursor is at end
-    if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end || rl_end < 2) {
-        // Clear any existing suggestion display
+        // Clear any suggestion remnants when in special states
+        printf("\033[K");  // Clear to end of line to remove suggestion remnants
+        fflush(stdout);
         if (current_suggestion) {
             lusush_free_autosuggestion(current_suggestion);
             current_suggestion = NULL;
         }
-        if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - no input or cursor not at end\n");
+        return;
+    }
+    
+    // Clear suggestion display and free memory in these cases:
+    // 1. Empty line (backspaced to nothing)
+    // 2. Cursor not at end (user navigated away)  
+    // 3. Line too short for meaningful suggestions
+    if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end || rl_end < 2) {
+        // Actively clear any suggestion remnants from display
+        printf("\033[K");  // Clear to end of line
+        fflush(stdout);
+        
+        // Clear any existing suggestion state
+        if (current_suggestion) {
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
+        if (debug_enabled) fprintf(stderr, "[DEBUG] Cleared suggestions - no input or cursor not at end\n");
         return;
     }
     
@@ -1785,6 +1835,24 @@ void lusush_redisplay_with_suggestions(void) {
     
     // Get current suggestion with error handling
     lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
+    
+    // Check if current command diverges from previous suggestion
+    if (current_suggestion && current_suggestion->suggestion) {
+        // Check if the current input no longer matches the suggestion prefix
+        size_t current_len = strlen(rl_line_buffer);
+        size_t suggestion_len = strlen(current_suggestion->suggestion);
+        
+        if (current_len >= suggestion_len || 
+            strncmp(rl_line_buffer, current_suggestion->suggestion, current_len) != 0) {
+            // Command has diverged from suggestion - clear it
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+            if (debug_enabled) fprintf(stderr, "[DEBUG] Cleared diverged suggestion\n");
+        }
+    }
+    
     if (suggestion && suggestion->display_text && *suggestion->display_text) {
         if (debug_enabled) fprintf(stderr, "[DEBUG] Got suggestion: '%s'\n", suggestion->display_text);
         
@@ -1792,6 +1860,9 @@ void lusush_redisplay_with_suggestions(void) {
         size_t sugg_len = strlen(suggestion->display_text);
         if (sugg_len > 0 && sugg_len < 50 && !strchr(suggestion->display_text, '\n')) {
             if (debug_enabled) fprintf(stderr, "[DEBUG] Displaying suggestion\n");
+            
+            // Clear any existing suggestion remnants first
+            printf("\033[K");
             
             // Save terminal state
             printf("\033[s");
@@ -1811,13 +1882,17 @@ void lusush_redisplay_with_suggestions(void) {
         } else {
             if (debug_enabled) fprintf(stderr, "[DEBUG] Invalid suggestion - len=%zu, has_newline=%d\n", 
                                      sugg_len, strchr(suggestion->display_text, '\n') != NULL);
-            // Invalid suggestion, clean up
+            // Invalid suggestion, clear display and clean up
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
             lusush_free_autosuggestion(suggestion);
         }
     } else {
         if (debug_enabled) fprintf(stderr, "[DEBUG] No valid suggestion found\n");
+        // Clear any existing suggestion display and state
+        printf("\033[K");  // Clear to end of line 
+        fflush(stdout);
         if (current_suggestion) {
-            // Clear old suggestion if no new one
             lusush_free_autosuggestion(current_suggestion);
             current_suggestion = NULL;
         }
@@ -1849,20 +1924,26 @@ void lusush_syntax_highlighting_configure(const char *commands_color,
 // Custom function to abort current line (Ctrl+G)
 static int lusush_abort_line(int count, int key) {
     (void)count; (void)key;
-    
+
     // Clear displayed line properly
     printf("\r\033[K");  // Move to start of line and clear to end of line
     fflush(stdout);
-    
+
+    // Clear any autosuggestion state
+    if (current_suggestion) {
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+
     // Clear readline's internal buffer
     rl_replace_line("", 0);
     rl_point = 0;
     rl_end = 0;
-    
+
     // Display fresh prompt
     rl_on_new_line();
     rl_redisplay();
-    
+
     return 0;
 }
 
@@ -1897,22 +1978,28 @@ static int lusush_previous_history(int count, int key) {
 
 static int lusush_next_history(int count, int key) {
     (void)count; (void)key;
-    
 
-    
+
+
     // Check if we have content BEFORE calling rl_get_next_history (which might clear it)
     bool has_content = rl_line_buffer && strlen(rl_line_buffer) > 0;
-    
+
     // Try to check if we can move forward in history
     HIST_ENTRY *next = next_history();
     if (next) {
-        // We can move forward, put it back and use normal navigation
+        // Restore position for rl_get_next_history to work correctly
         previous_history();
 
         return rl_get_next_history(count, key);
     } else {
         // We're at the end of history
         if (has_content) {
+            // Clear any autosuggestion state when clearing line
+            if (current_suggestion) {
+                lusush_free_autosuggestion(current_suggestion);
+                current_suggestion = NULL;
+            }
+            
             // Let readline handle line clearing properly to avoid display corruption
             rl_replace_line("", 0);
             rl_point = 0;
