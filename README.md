@@ -11,6 +11,7 @@ A modern, professional shell with advanced interactive features including themed
 - **Professional Appearance** - Enterprise-appropriate visual design
 
 ### 🚀 Enhanced User Experience  
+- **Fish-like Autosuggestions** - Real-time command suggestions based on history
 - **Advanced Tab Completion** - Context-aware completion for commands, files, and git
 - **Robust Syntax Highlighting** - Real-time highlighting with full line wrapping support
 - **Multiline Support** - Full support for complex shell constructs (`for`, `if`, `while`, etc.)
@@ -23,6 +24,12 @@ A modern, professional shell with advanced interactive features including themed
 - **Intelligent Line Wrapping** - Proper terminal dimension detection and multi-line handling
 - **Professional Color Schemes** - Enterprise-appropriate syntax colors
 - **Zero Display Corruption** - Robust cursor positioning and screen management
+
+### 🐟 Fish-Inspired Features
+- **Smart Autosuggestions** - Context-aware suggestions with professional clearing behavior
+- **Enhanced History Navigation** - Clean UP/DOWN arrow navigation with artifact clearing
+- **Continuation Prompt Support** - Proper autosuggestion handling in multiline contexts
+- **Architectural Excellence** - Clean separation of concerns with enhanced dismiss functions
 
 ### 🔧 Enterprise Features
 - **POSIX Compliance** - Standard shell operations and compatibility
@@ -103,6 +110,20 @@ theme set classic      # Traditional shell appearance with basic colors
 ```bash
 ● user@hostname ~/project (main ✓) ➜
 ```
+
+## Recent Enhancements (January 2025)
+
+### 🎯 Autosuggestion System Improvements
+- **Fixed Continuation Prompt Clearing** - Autosuggestions now clear properly when entering multiline constructs (`loop>`, `if>`, etc.)
+- **Enhanced History Navigation** - Eliminated grey suggestion artifacts during UP/DOWN arrow history navigation
+- **Architectural Improvements** - Added `lusush_dismiss_suggestion_with_display()` for proper encapsulation
+- **Smooth Navigation** - Optimized history navigation without unnecessary prompt redraws
+
+### 🔧 Technical Enhancements
+- **Proper Key Bindings** - Both UP (`\e[A`) and DOWN (`\e[B`) arrow keys now use enhanced clearing functions
+- **Enhanced Architecture** - Clean separation between autosuggestion logic and display handling
+- **Zero Regressions** - All existing functionality preserved while fixing edge cases
+- **Professional Behavior** - Smooth, artifact-free autosuggestion experience in all scenarios
 
 ## Git Integration
 

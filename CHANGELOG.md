@@ -5,6 +5,24 @@ All notable changes to Lusush Shell will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-01-16
+
+### Fixed
+- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
+- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
+- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
+- **Visual Prompt Redraws** - Optimized history navigation to prevent unnecessary prompt redraws
+
+### Added
+- **Enhanced Dismiss Function** - Added `lusush_dismiss_suggestion_with_display()` for proper state and visual clearing
+- **Architectural Improvements** - Clean separation between autosuggestion logic and display handling
+- **Professional Navigation Experience** - Smooth, artifact-free autosuggestion behavior in all scenarios
+
+### Technical
+- **Enhanced Key Bindings** - Both UP and DOWN arrow keys now use enhanced clearing functions
+- **Improved Code Architecture** - Centralized autosuggestion clearing logic in dedicated functions
+- **Zero Regressions** - All existing functionality preserved while fixing edge cases
+
 ## [1.3.0] - 2025-01-16
 
 ### Added
