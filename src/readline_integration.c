@@ -85,6 +85,9 @@ static lusush_autosuggestion_t *current_suggestion = NULL;
 static int history_cache_size = 0;
 static int history_cache_capacity = 0;
 
+// Track continuation prompt transitions to clear autosuggestions
+static bool was_in_continuation_prompt = false;
+
 // Phase 3: Performance Optimization - Change Detection System
 typedef struct {
     char *cached_line;
@@ -1747,6 +1750,24 @@ static void lusush_custom_redisplay(void) {
 
 // Hybrid redisplay function - supports both syntax highlighting and autosuggestions
 void lusush_redisplay_with_suggestions(void) {
+    // Check if we're transitioning to a continuation prompt
+    extern const char *lusush_get_current_continuation_prompt(void);
+    const char *current_prompt_type = lusush_get_current_continuation_prompt();
+    bool is_continuation = (current_prompt_type && 
+                           (strstr(current_prompt_type, "loop>") || 
+                            strstr(current_prompt_type, "if>") ||
+                            strstr(current_prompt_type, "quote>") ||
+                            strstr(current_prompt_type, "function>") ||
+                            strcmp(current_prompt_type, "> ") == 0));
+    
+    // Clear suggestions when transitioning TO continuation prompt
+    if (is_continuation && !was_in_continuation_prompt && current_suggestion) {
+        // Clean transition: just clear the current suggestion state
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+    was_in_continuation_prompt = is_continuation;
+    
     // Always do standard redisplay first for stability
     rl_redisplay();
     
@@ -1886,13 +1907,14 @@ static int lusush_clear_screen_and_redisplay(int count, int key) {
 static int lusush_previous_history(int count, int key) {
     (void)count; (void)key;
     
-    // Move to previous history entry
-    rl_get_previous_history(1, 0);
+    // Clear any autosuggestion before history navigation
+    if (current_suggestion) {
+        lusush_dismiss_suggestion_with_display();
+        current_suggestion = NULL;
+    }
     
-    // Force complete redisplay to prevent artifacts
-    rl_forced_update_display();
-    rl_redisplay();
-    return 0;
+    // Move to previous history entry - let readline handle the display
+    return rl_get_previous_history(count, key);
 }
 
 static int lusush_next_history(int count, int key) {
@@ -1909,10 +1931,22 @@ static int lusush_next_history(int count, int key) {
         // We can move forward, put it back and use normal navigation
         previous_history();
 
+        // Clear any autosuggestion before history navigation
+        if (current_suggestion) {
+            lusush_dismiss_suggestion_with_display();
+            current_suggestion = NULL;
+        }
+        
         return rl_get_next_history(count, key);
     } else {
         // We're at the end of history
         if (has_content) {
+            // Clear any autosuggestion before clearing line
+            if (current_suggestion) {
+                lusush_dismiss_suggestion_with_display();
+                current_suggestion = NULL;
+            }
+            
             // Let readline handle line clearing properly to avoid display corruption
             rl_replace_line("", 0);
             rl_point = 0;
@@ -2019,15 +2053,14 @@ static void setup_key_bindings(void) {
     rl_bind_key(23, rl_unix_word_rubout); // Ctrl-W: kill word
     // Ctrl-R uses standard readline reverse search (rl_reverse_search_history)
     
-    // History navigation with clean down arrow handling
+    // History navigation with clean up/down arrow handling
+    rl_bind_keyseq("\\e[A", lusush_previous_history); // Up arrow key
     rl_bind_keyseq("\\e[B", lusush_next_history); // Down arrow key
     
     // Autosuggestion key bindings
     rl_bind_key(CTRL('F'), lusush_accept_suggestion_key);     // Ctrl+F: accept full suggestion
     rl_bind_keyseq("\\e[C", lusush_accept_suggestion_key);    // Right arrow: accept full suggestion
     rl_bind_keyseq("\\e[1;5C", lusush_accept_suggestion_word_key); // Ctrl+Right arrow: accept word
-    
-    // Let readline handle up arrow natively
     
     // Enable vi or emacs mode based on config
     if (false) { // vi_mode not implemented yet

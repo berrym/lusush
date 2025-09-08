@@ -393,6 +393,20 @@ void lusush_dismiss_suggestion(void) {
 }
 
 /**
+ * Dismiss any current suggestion and clear display artifacts
+ * Enhanced version that handles both state and visual clearing
+ */
+void lusush_dismiss_suggestion_with_display(void) {
+    // Clear internal state
+    clear_suggestion(&current_suggestion);
+    cache.cache_valid = false;
+    
+    // Clear visual artifacts from display
+    printf("\033[K");  // Clear to end of line
+    fflush(stdout);
+}
+
+/**
  * Free autosuggestion structure
  */
 void lusush_free_autosuggestion(lusush_autosuggestion_t *suggestion) {

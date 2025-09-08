@@ -143,6 +143,12 @@ lusush_autosuggestion_t* lusush_accept_partial_suggestion(lusush_autosuggestion_
 void lusush_dismiss_suggestion(void);
 
 /**
+ * Dismiss any current suggestion and clear display artifacts
+ * Enhanced version that handles both state and visual clearing
+ */
+void lusush_dismiss_suggestion_with_display(void);
+
+/**
  * Free autosuggestion structure
  * 
  * @param suggestion The suggestion to free
