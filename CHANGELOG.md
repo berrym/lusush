@@ -5,39 +5,42 @@ All notable changes to Lusush Shell will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - 2025-01-16
+## [1.2.1] - 2025-01-16 (Enhanced)
 
-### Fixed
-- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
-- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
-- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
-- **Visual Prompt Redraws** - Optimized history navigation to prevent unnecessary prompt redraws
-
-### Added
-- **Enhanced Dismiss Function** - Added `lusush_dismiss_suggestion_with_display()` for proper state and visual clearing
-- **Architectural Improvements** - Clean separation between autosuggestion logic and display handling
-- **Professional Navigation Experience** - Smooth, artifact-free autosuggestion behavior in all scenarios
-
-### Technical
-- **Enhanced Key Bindings** - Both UP and DOWN arrow keys now use enhanced clearing functions
-- **Improved Code Architecture** - Centralized autosuggestion clearing logic in dedicated functions
-- **Zero Regressions** - All existing functionality preserved while fixing edge cases
-
-## [1.3.0] - 2025-01-16
-
-### Added
+### Added (Original Release)
+- **Fish-like Autosuggestions** - Real-time command suggestions based on history with professional behavior
 - **Robust Syntax Highlighting with Line Wrapping Support** - Complete implementation with universal length support
 - **Terminal Dimension Detection** - Automatic terminal width/height detection for proper wrapping calculations
 - **Multi-line Display Management** - Intelligent clearing and redrawing of wrapped command lines
 - **Enhanced Buffer Management** - 256-character word buffers for handling long tokens safely
 - **Professional Visual Experience** - Enterprise-grade syntax highlighting without display corruption
 
+### Enhanced (January 2025 Improvements)
+- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
+- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
+- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
+- **Enhanced Dismiss Function** - Added `lusush_dismiss_suggestion_with_display()` for proper state and visual clearing
+- **Architectural Improvements** - Clean separation between autosuggestion logic and display handling
+- **Professional Navigation Experience** - Smooth, artifact-free autosuggestion behavior in all scenarios
+
 ### Improved
 - **Removed All Length-Based Safety Restrictions** - No more artificial limits on command length
 - **Enhanced Token Recognition** - Commands, keywords, strings, variables, operators of any length
 - **Cursor Position Mathematics** - Accurate positioning for wrapped lines and multi-line scenarios
+- **Enhanced Key Bindings** - Both UP and DOWN arrow keys now use enhanced clearing functions
+- **Zero Regressions** - All existing functionality preserved while fixing edge cases
 - **ANSI Escape Sequence Mastery** - Proper save/restore cursor, clear lines, move cursor operations
 - **Performance Optimization** - Sub-millisecond highlighting with intelligent wrapping calculations
+
+## [Planned: 1.2.2] - TBD
+
+### Planned Features
+- **Configurable Multiline History** - Bash-like multiline command recall and editing with full readline support
+- **Enhanced History Navigation** - Arrow keys work across line boundaries in multiline history entries
+- **Multiline Configuration Options** - Toggle between single-line and multiline history storage formats
+- **Backward Compatibility** - Preserve existing single-line behavior when multiline mode disabled
+
+*Note: Version 1.2.2 will be released when multiline history implementation is complete*
 
 ### Fixed
 - **70-character cursor position limit** - Removed, now handles unlimited cursor positions
