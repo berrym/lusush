@@ -1,10 +1,47 @@
 # Changelog
 
-All notable changes to Lusush Shell will be documented in this file.
+All notable changes to the Lusush Shell project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2025-09-11
+
+### Added
+- **Complete repositioning as "The Shell Development Environment"**
+- **Advanced Scripting Guide** - Comprehensive 1000+ line guide for function systems and debugging
+- **Configuration Mastery Guide** - Complete 800+ line enterprise configuration reference
+- **Professional README.md** - Clear positioning emphasizing debugging, functions, and configuration
+
+### Changed
+- **Repository cleanup** - Removed all legacy test scripts, validation files, and outdated documentation
+- **Clear project identity** - Established as the premier shell development environment
+- **Documentation focus** - Streamlined to emphasize unique development capabilities
+
+### Fixed
+- **License consistency** - All files now correctly reference GPL-3.0+ license
+- **Copyright consistency** - All files now properly attribute copyright to Michael Berry
+- **Version consistency** - Updated all version references to 1.2.2
+- **Version output** - Fixed `--version` and `-V` flags to show correct license and copyright
+- **Author attribution** - Replaced "Lusush Development Team" references with "Michael Berry"
+- **Theme authorship** - All built-in themes now properly attributed to Michael Berry
+- **Configuration syntax** - Corrected all documentation to use actual config commands
+- **Configuration options** - Updated guides to reflect real available configuration keys
+- **Command examples** - Fixed `config set key value` syntax throughout documentation
+- **Traditional configuration** - Added comprehensive documentation of shell script configuration methods
+- **Development disclaimers** - Added important notes about active development and potential changes
+- **Configuration documentation** - Fixed all config command syntax to match actual implementation
+- **Development status notes** - Added important disclaimers about active development status
+
+### Removed
+- All legacy .sh test and validation scripts (14+ files)
+- Outdated development documentation (PHASE*, LINUX*, PRODUCTION* files)
+- Legacy directories (archive/, readline/, research/, scripts/, tools/)
+- Development artifacts and assessment documents
+- Redundant documentation in docs/ directory
+- Incorrect MIT license references throughout codebase
+
+## [Unreleased]
 ## [1.2.1] - 2025-01-16 (Enhanced)
 
 ### Added (Original Release)
@@ -32,15 +69,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ANSI Escape Sequence Mastery** - Proper save/restore cursor, clear lines, move cursor operations
 - **Performance Optimization** - Sub-millisecond highlighting with intelligent wrapping calculations
 
-## [Planned: 1.2.2] - TBD
+## [1.2.2] - 2025-01-16
 
-### Planned Features
-- **Configurable Multiline History** - Bash-like multiline command recall and editing with full readline support
-- **Enhanced History Navigation** - Arrow keys work across line boundaries in multiline history entries
-- **Multiline Configuration Options** - Toggle between single-line and multiline history storage formats
-- **Backward Compatibility** - Preserve existing single-line behavior when multiline mode disabled
+### Enhanced
+- **Autosuggestion System** - Improved clearing behavior and navigation experience
+- **History Navigation Artifacts** - Eliminated grey autosuggestion remnants during UP/DOWN arrow history navigation
+- **Enhanced Key Bindings** - Proper UP/DOWN arrow key handling with autosuggestion clearing
+- **Professional Navigation** - Smooth, artifact-free autosuggestion behavior in all scenarios
+- **Display Integration** - Removed unnecessary startup messages for cleaner user experience
 
-*Note: Version 1.2.2 will be released when multiline history implementation is complete*
+### Fixed
+- **Autosuggestion Clearing on Continuation Prompts** - Fixed autosuggestions not clearing when transitioning to multiline constructs (`loop>`, `if>`, etc.)
+- **UP Arrow Key Binding** - Properly bound UP arrow (`\e[A`) to custom history function with autosuggestion clearing
+- **Enhanced Dismiss Function** - Added proper state and visual clearing for autosuggestions
+- **Startup Messages** - Removed verbose enhanced display mode messages
+
+### Technical Improvements
+- **Clean Architecture** - Improved separation between autosuggestion logic and display handling
+- **Version Consistency** - Updated all version references to 1.2.2
+- **Code Quality** - Enhanced error handling and state management
 
 ### Fixed
 - **70-character cursor position limit** - Removed, now handles unlimited cursor positions

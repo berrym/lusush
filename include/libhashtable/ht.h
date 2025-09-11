@@ -1,9 +1,28 @@
-/* ht.h - A generic hash table implementation.
+/*
+ * libhashtable - A generic hash table implementation
+ * 
+ * Original Project: https://github.com/berrym/libhashtable (MIT License)
+ * Copyright (C) 2023-2025 Michael Berry <trismegustis@gmail.com>
  *
- * Project: libhashtable
- * URL: https://github.com/berrym/libhashtable
- * License: MIT
- * Copyright (c) Michael Berry <trismegustis@gmail.com> 2023
+ * NOTE: This is integrated source code from the author's own libhashtable project.
+ * The standalone libhashtable repository remains MIT licensed, but this integrated
+ * version is relicensed under GPL-3.0+ as part of the Lusush project.
+ * 
+ * As the copyright holder of libhashtable, the author has full rights to 
+ * relicense this code for integration into GPL-licensed projects.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef __HT_H__

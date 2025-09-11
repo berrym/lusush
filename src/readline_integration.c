@@ -543,26 +543,24 @@ void lusush_history_add(const char *line) {
     
     // Check for duplicates if hist_no_dups is enabled
     if (config.history_no_dups) {
-        // Check recent history (last 50 entries)
-        HIST_ENTRY *entry;
+        // Check recent history (last 50 entries) and remove old duplicates
         for (int i = 1; i <= 50 && i <= history_length; i++) {
-            entry = history_get(history_length - i + 1);
+            HIST_ENTRY *entry = history_get(history_length - i + 1);
             if (entry && entry->line && strcmp(entry->line, line) == 0) {
-                return; // Skip duplicate
+                // Found duplicate - remove the old entry to keep the new one
+                HIST_ENTRY *removed = remove_history(history_length - i);
+                if (removed) {
+                    free(removed->line);
+                    free(removed->data);
+                    free(removed);
+                }
+                break; // Only remove the first (most recent) duplicate found
             }
-        }
-        
-        // Check cache for more comprehensive deduplication
-        if (is_duplicate_in_cache(line)) {
-            return;
         }
     }
     
     // Add to readline history
     add_history(line);
-    
-    // Add to our cache for deduplication
-    add_to_history_cache(line);
     
     // Limit history size
     if (config.history_size > 0 && history_length > config.history_size) {
@@ -639,9 +637,7 @@ bool lusush_history_load(void) {
     // Populate cache from loaded history for deduplication
     HIST_ENTRY **hist_list = history_list();
     if (hist_list) {
-        for (int i = 0; hist_list[i]; i++) {
-            add_to_history_cache(hist_list[i]->line);
-        }
+        // History loaded successfully
     }
     
     return true;

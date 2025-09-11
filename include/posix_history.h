@@ -17,7 +17,7 @@
  * - File operations (read, write, append)
  * - Range parsing and validation
  *
- * @author Lusush Development Team
+ * @author Michael Berry
  * @version 1.0
  */
 

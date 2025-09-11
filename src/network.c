@@ -5,8 +5,8 @@
  * remote context detection, and cloud provider integration for modern DevOps
  * workflows and remote development environments.
  *
- * Copyright (c) 2025 lusush project
- * Licensed under MIT License
+ * Copyright (C) 2021-2025 Michael Berry
+ * Licensed under GPL-3.0+
  */
 
 #include "../include/network.h"

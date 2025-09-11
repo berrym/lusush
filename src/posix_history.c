@@ -25,7 +25,7 @@
  * numbering, range handling, and command execution while providing
  * enhanced features for modern shell usage.
  *
- * @author Lusush Development Team
+ * @author Michael Berry
  * @version 1.0
  */
 

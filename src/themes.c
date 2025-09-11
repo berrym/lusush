@@ -74,7 +74,7 @@ static theme_definition_t *create_corporate_theme(void) {
     strncpy(theme->name, "corporate", THEME_NAME_MAX - 1);
     strncpy(theme->description, "Professional theme for business environments",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_PROFESSIONAL;
     theme->is_built_in = true;
@@ -161,7 +161,7 @@ static theme_definition_t *create_dark_theme(void) {
     strncpy(theme->name, "dark", THEME_NAME_MAX - 1);
     strncpy(theme->description, "Modern dark theme with bright accent colors",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_DEVELOPER;
     theme->is_built_in = true;
@@ -247,7 +247,7 @@ static theme_definition_t *create_light_theme(void) {
     strncpy(theme->name, "light", THEME_NAME_MAX - 1);
     strncpy(theme->description, "Clean light theme with excellent readability",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_MINIMAL;
     theme->is_built_in = true;
@@ -332,7 +332,7 @@ static theme_definition_t *create_colorful_theme(void) {
     strncpy(theme->name, "colorful", THEME_NAME_MAX - 1);
     strncpy(theme->description, "Vibrant colorful theme for creative workflows",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_CREATIVE;
     theme->is_built_in = true;
@@ -417,7 +417,7 @@ static theme_definition_t *create_minimal_theme(void) {
     strncpy(theme->name, "minimal", THEME_NAME_MAX - 1);
     strncpy(theme->description, "Ultra-minimal theme for distraction-free work",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_MINIMAL;
     theme->is_built_in = true;
@@ -479,7 +479,7 @@ static theme_definition_t *create_classic_theme(void) {
     strncpy(theme->description,
             "Traditional shell appearance with basic colors",
             THEME_DESC_MAX - 1);
-    strncpy(theme->author, "Lusush Team", BRAND_TEXT_MAX - 1);
+    strncpy(theme->author, "Michael Berry", BRAND_TEXT_MAX - 1);
     strncpy(theme->version, "1.0", 15);
     theme->category = THEME_CATEGORY_CLASSIC;
     theme->is_built_in = true;

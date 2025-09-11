@@ -8,7 +8,7 @@
 # shell features with proper edge case coverage and real-world scenarios.
 #
 # Version: 2.0
-# Author: Lusush Development Team
+# Author: Michael Berry
 # Date: December 2024
 # ============================================================================
 

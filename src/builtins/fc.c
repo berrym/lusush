@@ -25,7 +25,7 @@
  * - fc -l [-nr] [first [last]]            # List commands
  * - fc -s [old=new] [first]               # Substitute and re-execute
  *
- * @author Lusush Development Team
+ * @author Michael Berry
  * @version 1.0
  */
 

@@ -48,6 +48,7 @@ static config_option_t config_options[] = {
     {                "history_file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
      &config.history_file,                             "History file path",       config_validate_string       },
 
+
     // Completion settings
     {          "completion_enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
      &config.completion_enabled,                         "Enable tab completion",         config_validate_bool },
@@ -564,6 +565,7 @@ void config_set_defaults(void) {
     config.history_no_dups = true;
     config.history_timestamps = false;
     config.history_file = NULL;
+
 
     // Completion defaults
     config.completion_enabled = true;

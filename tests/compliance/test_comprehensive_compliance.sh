@@ -26,7 +26,7 @@
 # - Final score represents overall shell completeness
 # - Comparison benchmarks with bash/zsh behavior
 #
-# Author: Lusush Development Team
+# Author: Michael Berry
 # Version: 1.0.0
 # Target: Complete POSIX + Modern Shell Compliance Assessment
 # =============================================================================

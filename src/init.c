@@ -387,9 +387,7 @@ int init(int argc, char **argv, FILE **in) {
             // Continue with standard display - no fatal error
         } else {
             // Announce activation with visual impact
-            if (display_config.enable_layered_display) {
-                printf("Lusush v" LUSUSH_VERSION_STRING " - Enhanced display mode enabled\n");
-            } else if (display_config.debug_mode) {
+            if (display_config.debug_mode) {
                 printf("Display integration initialized (layered_display=disabled)\n");
             }
         }
@@ -531,11 +529,10 @@ static int parse_opts(int argc, char **argv) {
             } else if (strcmp(arg, "--version") == 0) {
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
-                printf("Copyright (c) 2025. Licensed under MIT License.\n");
+                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
             } else if (strcmp(arg, "--enhanced-display") == 0 || strcmp(arg, "--layered-display") == 0) {
                 config.enhanced_display_mode = true;
-                printf("Enhanced display mode enabled\n");
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -555,7 +552,7 @@ static int parse_opts(int argc, char **argv) {
             case 'V':
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
                 printf("%s\n", LUSUSH_DESCRIPTION);
-                printf("Copyright (c) 2025. Licensed under MIT License.\n");
+                printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
                 break;
             case 'c':

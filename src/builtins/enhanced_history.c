@@ -29,7 +29,7 @@
  * - history -n [filename]          # Read new entries from file
  * - history -t                     # Show timestamps
  *
- * @author Lusush Development Team
+ * @author Michael Berry
  * @version 1.0
  */
 
