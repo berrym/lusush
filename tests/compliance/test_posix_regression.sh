@@ -5,7 +5,7 @@
 
 set -e
 
-SHELL_PATH="./builddir/lusush"
+SHELL_PATH="${1:-./builddir/lusush}"
 TEST_COUNT=0
 PASSED_COUNT=0
 FAILED_COUNT=0
@@ -20,11 +20,11 @@ NC='\033[0m' # No Color
 echo "=== Lusush POSIX Regression Test Suite ==="
 echo "Testing shell: $SHELL_PATH"
 echo "Verifying no regressions in existing POSIX functionality"
-echo
+echo ""
 
 # Check if shell exists
-if [ ! -x "$SHELL_PATH" ]; then
-    echo -e "${RED}Error: Shell binary not found at $SHELL_PATH${NC}"
+if [[ ! -x "$SHELL_PATH" ]]; then
+    echo "Error: Shell binary not found at $SHELL_PATH"
     echo "Please build the shell first with: meson compile -C builddir"
     exit 1
 fi
