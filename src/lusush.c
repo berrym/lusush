@@ -37,6 +37,9 @@
 // Forward declarations
 extern posix_history_manager_t *global_posix_history;
 
+// Global executor for persistent function definitions across commands
+static executor_t *global_executor = NULL;
+
 int main(int argc, char **argv) {
     FILE *in = NULL;   // input file stream pointer
     char *line = NULL; // pointer to a line of input read
@@ -117,6 +120,12 @@ int main(int argc, char **argv) {
         display_integration_cleanup();
     }
 
+    // Cleanup global executor before exit
+    if (global_executor) {
+        executor_free(global_executor);
+        global_executor = NULL;
+    }
+
     // Execute EXIT traps before shell terminates normally
     execute_exit_traps();
 
@@ -125,20 +134,20 @@ int main(int argc, char **argv) {
 }
 
 int parse_and_execute(const char *command) {
-    // Use unified executor for all commands
-    executor_t *executor = executor_new();
-    if (!executor) {
-        return 1;
+    // Use global persistent executor for all commands to maintain function definitions
+    if (!global_executor) {
+        global_executor = executor_new();
+        if (!global_executor) {
+            return 1;
+        }
     }
 
-    int exit_status = executor_execute_command_line(executor, command);
+    int exit_status = executor_execute_command_line(global_executor, command);
 
     // Print error messages to stderr if there were any errors
-    if (executor_has_error(executor)) {
-        fprintf(stderr, "lusush: %s\n", executor_error(executor));
+    if (executor_has_error(global_executor)) {
+        fprintf(stderr, "lusush: %s\n", executor_error(global_executor));
     }
-
-    executor_free(executor);
 
     return exit_status;
 }
