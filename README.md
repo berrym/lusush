@@ -4,6 +4,8 @@
 
 Lusush is a modern POSIX-compliant shell that combines traditional shell functionality with advanced scripting features. Built for reliability and developer productivity, it provides enhanced function systems, comprehensive debugging tools, and robust multiline construct support.
 
+> **⚠️ Development Status**: Lusush is under active development. While most documented features work as described, some advanced features and configuration options may be partially implemented or subject to change. Always test functionality in your environment and use `debug help` and `config show` to verify available features in your version.
+
 ## 🎯 Current Status
 
 - **Shell Compliance**: 85% (134/136 comprehensive tests passing)
@@ -56,10 +58,11 @@ debug function calculate          # Show function details
 
 # Available debug commands:
 # debug break add/remove/list     - Breakpoint management
-# debug step/next/continue        - Step-through execution
+# debug step/next/continue        - Step-through execution  
 # debug vars/stack                - Variable and stack inspection
 # debug trace on/off              - Execution tracing
 # debug profile on/off/report     - Performance profiling
+# Note: Some debug features may be partially implemented
 ```
 
 ### **Complete Multiline Support**
@@ -246,6 +249,8 @@ debug trace off
 - **Cross-Platform**: Verified on Linux, macOS, BSD systems
 - **Memory Safety**: Valgrind clean, no memory leaks
 
+> **Note**: Test results reflect current capabilities. As development continues, some edge cases or advanced features may not be fully implemented.
+
 ## 🚀 Use Cases
 
 ### **System Administration**
@@ -317,4 +322,6 @@ Licensed under GPL-3.0+. See LICENSE file for details.
 
 ---
 
-**Note**: All examples in this README have been tested and verified to work with the current version of Lusush. The shell provides a solid foundation for both interactive use and complex scripting tasks while maintaining POSIX compatibility.
+**Development Status Disclaimer**: Lusush is actively developed software. While all examples in this README have been tested and work with the current version, some advanced features, configuration options, or edge cases may be partially implemented or subject to change. We recommend testing functionality in your specific environment and staying updated with the latest releases.
+
+**Contributing**: Report issues, suggest improvements, or contribute to development. The shell provides a solid foundation for both interactive use and complex scripting tasks while maintaining POSIX compatibility.

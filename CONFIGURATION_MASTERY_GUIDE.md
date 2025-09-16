@@ -4,7 +4,7 @@
 
 Lusush's configuration system is enterprise-grade, providing runtime configuration changes, validation, sectioned organization, and seamless integration with all shell features. This guide covers everything from basic configuration to advanced enterprise deployment patterns.
 
-> **⚠️ Development Status Note**: Lusush is under active development and has undergone significant evolution. While most configuration options documented here are fully functional, some advanced features may be in various stages of integration. Future versions may introduce changes to configuration syntax, option names, or behaviors as the shell continues to mature. Always test configuration changes in your environment and refer to `config show` for the current state of available options.
+> **⚠️ Development Status**: Lusush is under active development with evolving configuration capabilities. While most configuration options documented here are functional, some advanced features, integration points, or specific settings may be partially implemented or subject to change. Configuration syntax, option names, or behaviors may evolve in future versions. Always verify available options with `config show`, test configuration changes thoroughly in your environment, and expect potential changes between versions.
 
 ## 🎯 Why Configuration Mastery Matters
 
@@ -70,7 +70,7 @@ git_timeout = 5
 
 ```bash
 # View current configuration
-config show                 # Show all current settings
+config show                 # Show all current settings (verify available options)
 config show history         # Show history section only
 config show completion      # Show completion section only
 config show prompt          # Show prompt section only
@@ -84,9 +84,11 @@ config set theme_name dark              # Change theme instantly
 config get history_size     # Get specific setting value
 config get theme_name       # Get current theme name
 
-# Reload and save
-config reload               # Reload configuration files
-config save                 # Save current configuration
+# Reload and save (availability may vary)
+config reload               # Reload all configuration files
+config save                 # Save current configuration to file
+
+# Note: Use 'config show' to verify which options are currently available
 ```
 
 > **💡 Pro Tip**: Use `config show` to see all currently available options in your version of Lusush. Configuration capabilities continue to expand with each release.
@@ -264,14 +266,16 @@ config show network                             # Show network settings (if sect
 
 ## 🏢 Enterprise Configuration Patterns
 
+> **⚠️ Enterprise Feature Status**: Advanced enterprise features like centralized configuration management, config servers, and automated deployment patterns are under development. Basic configuration management works reliably, but enterprise-specific integrations may be partially implemented. Verify enterprise features in your environment before production deployment.
+
 ### Centralized Configuration Management
 
 ```bash
-# System administrator setup
+# System administrator setup (enterprise features may be partially implemented)
 # file: /etc/lusush/enterprise.conf
 
 [enterprise]
-# Corporate standards
+# Corporate standards (verify availability with 'config show')
 config_server = "https://config.company.com/lusush"
 update_interval = 3600              # Check for updates hourly
 mandatory_settings = "security,logging,audit"

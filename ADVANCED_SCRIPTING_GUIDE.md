@@ -4,6 +4,8 @@
 
 Lusush provides advanced scripting capabilities that go beyond standard POSIX shells. This guide covers the enhanced function system, debugging workflows, multiline construct handling, and real-world scripting patterns that make Lusush suitable for professional development environments.
 
+> **⚠️ Development Status**: Lusush is under active development. While the core features documented here (functions, debugging, multiline constructs) are functional, some advanced debug commands, configuration options, or edge cases may be partially implemented or evolving. Always verify functionality with `debug help` and test thoroughly in your environment.
+
 ## 🎯 What Makes Lusush Advanced
 
 Lusush builds upon solid POSIX foundations while adding modern development features:
@@ -705,4 +707,6 @@ This guide demonstrates the advanced scripting capabilities available in Lusush.
 
 ---
 
-**Note**: All examples in this guide have been designed to work with Lusush's POSIX-compliant syntax. Test your scripts thoroughly and use `debug help` to explore available debugging commands in your version of Lusush.
+**Development Status Disclaimer**: Lusush is actively developed software. While all examples in this guide have been tested with current Lusush, some advanced debugging features, configuration integration, or edge cases may be partially implemented or subject to change. Always test scripts thoroughly in your environment and use `debug help` and `config show` to verify available features in your version.
+
+**Note**: All examples use POSIX-compliant syntax that works in current Lusush. Report any issues or inconsistencies to help improve the shell's reliability and documentation accuracy.
