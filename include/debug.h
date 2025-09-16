@@ -9,6 +9,10 @@
 #include <sys/types.h>
 #include <time.h>
 
+// Forward declarations
+struct executor;
+typedef struct executor executor_t;
+
 // Debug levels for different types of debugging information
 typedef enum {
     DEBUG_NONE = 0,
@@ -84,6 +88,15 @@ typedef struct debug_context {
     // Execution state
     debug_frame_t *current_frame;
     int stack_depth;
+
+    // Execution context preservation (for loop debugging fix)
+    struct {
+        bool in_loop;
+        char *loop_variable;        // Current loop variable name
+        char *loop_variable_value;  // Current iteration value
+        int loop_iteration;         // Current iteration number
+        node_t *loop_node;         // AST node of current loop
+    } execution_context;
 
     // Breakpoints
     breakpoint_t *breakpoints;
@@ -237,5 +250,19 @@ void debug_stack_down(debug_context_t *ctx);
 void debug_set_variable(debug_context_t *ctx, const char *assignment);
 void debug_evaluate_expression(debug_context_t *ctx, const char *expression);
 bool debug_evaluate_condition(debug_context_t *ctx, const char *condition);
+
+// Execution context preservation functions (for loop debugging fix)
+void debug_save_execution_context(debug_context_t *ctx, executor_t *executor, node_t *node);
+void debug_restore_execution_context(debug_context_t *ctx, executor_t *executor, node_t *node);
+void debug_cleanup_execution_context(debug_context_t *ctx);
+
+// Loop context tracking functions (architectural fix)
+void debug_enter_loop(debug_context_t *ctx, const char *loop_type, const char *variable, const char *value);
+void debug_update_loop_variable(debug_context_t *ctx, const char *variable, const char *value);
+void debug_exit_loop(debug_context_t *ctx);
+
+// Enhanced breakpoint check with context preservation
+bool debug_check_breakpoint_with_context(debug_context_t *ctx, const char *file, int line, 
+                                         executor_t *executor, node_t *node);
 
 #endif // DEBUG_H

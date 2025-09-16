@@ -65,6 +65,13 @@ debug_context_t *debug_init(void) {
     ctx->total_time_ns = 0;
     clock_gettime(CLOCK_MONOTONIC, &ctx->session_start);
 
+    // Initialize execution context (for loop debugging fix)
+    ctx->execution_context.in_loop = false;
+    ctx->execution_context.loop_variable = NULL;
+    ctx->execution_context.loop_variable_value = NULL;
+    ctx->execution_context.loop_iteration = 0;
+    ctx->execution_context.loop_node = NULL;
+
     // Set global context
     g_debug_context = ctx;
 
@@ -97,6 +104,15 @@ void debug_cleanup(debug_context_t *ctx) {
 
     // Clean up analysis issues
     debug_clear_analysis_issues(ctx);
+
+    // Clean up execution context (for loop debugging fix)
+    free(ctx->execution_context.loop_variable);
+    free(ctx->execution_context.loop_variable_value);
+    ctx->execution_context.loop_variable = NULL;
+    ctx->execution_context.loop_variable_value = NULL;
+    ctx->execution_context.in_loop = false;
+    ctx->execution_context.loop_node = NULL;
+    ctx->execution_context.loop_iteration = 0;
 
     // Close output files if they're not stderr
     if (ctx->debug_output != stderr) {

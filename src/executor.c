@@ -342,9 +342,14 @@ static int execute_node(executor_t *executor, node_t *node) {
     // Advanced debug system integration
     DEBUG_TRACE_NODE(node, __FILE__, __LINE__);
 
-    // Check for breakpoints using script context
+    // Check for breakpoints using script context with execution context preservation
     if (executor->in_script_execution && executor->current_script_file) {
-        DEBUG_BREAKPOINT_CHECK(executor->current_script_file, executor->current_script_line);
+        if (g_debug_context && g_debug_context->enabled) {
+            debug_save_execution_context(g_debug_context, executor, node);
+            if (debug_check_breakpoint(g_debug_context, executor->current_script_file, executor->current_script_line)) {
+                debug_restore_execution_context(g_debug_context, executor, node);
+            }
+        }
     }
 
     switch (node->type) {
@@ -1096,6 +1101,11 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         return 1;
     }
 
+    // Notify debug system we're entering a loop
+    if (g_debug_context && g_debug_context->enabled) {
+        debug_enter_loop(g_debug_context, "for", var_name, NULL);
+    }
+
     int last_result = 0;
 
     // Build expanded word list for iteration
@@ -1190,12 +1200,20 @@ static int execute_for(executor_t *executor, node_t *for_node) {
                 }
                 free(expanded_words);
                 symtable_pop_scope(executor->symtable);
+                if (g_debug_context && g_debug_context->enabled) {
+                    debug_exit_loop(g_debug_context);
+                }
                 return 1;
             }
 
             if (executor->debug) {
                 printf("DEBUG: FOR loop setting %s=%s\n", var_name,
                        expanded_words[i]);
+            }
+
+            // Notify debug system of loop variable update
+            if (g_debug_context && g_debug_context->enabled) {
+                debug_update_loop_variable(g_debug_context, var_name, expanded_words[i]);
             }
 
             // Execute body
@@ -1208,6 +1226,11 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         free(expanded_words[i]);
     }
     free(expanded_words);
+
+    // Notify debug system we're exiting the loop
+    if (g_debug_context && g_debug_context->enabled) {
+        debug_exit_loop(g_debug_context);
+    }
 
     // Pop loop scope
     symtable_pop_scope(executor->symtable);
