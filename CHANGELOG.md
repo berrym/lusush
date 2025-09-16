@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-## [Unreleased] - 2025-09-16
+## [1.2.5] - 2025-09-16
 
 ### Fixed
 - **CRITICAL: Multiline parser issues completely resolved** - Fixed fundamental parser bugs that prevented production use
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation accuracy** - Complete overhaul with tested examples and verified capabilities
 - **Cross-platform support** - Verified functionality on Linux, macOS, BSD systems
 
-## [1.2.4] - 2025-01-16
+## [1.2.4] - 2025-09-15
 
 ### Fixed
 - **Documentation accuracy restored** - All examples now tested and verified working
