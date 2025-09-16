@@ -179,6 +179,10 @@ void debug_add_analysis_issue(debug_context_t *ctx, const char *file, int line,
 void debug_show_analysis_report(debug_context_t *ctx);
 void debug_clear_analysis_issues(debug_context_t *ctx);
 
+// Function introspection
+void debug_list_functions(debug_context_t *ctx);
+void debug_show_function(debug_context_t *ctx, const char *function_name);
+
 // Utility functions
 void debug_print_node(debug_context_t *ctx, node_t *node, int indent);
 void debug_print_ast(debug_context_t *ctx, node_t *ast);

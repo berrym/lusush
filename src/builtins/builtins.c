@@ -3439,6 +3439,21 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
         return 0;
     }
 
+    if (strcmp(subcmd, "functions") == 0) {
+        debug_list_functions(ctx);
+        return 0;
+    }
+
+    if (strcmp(subcmd, "function") == 0) {
+        if (argc_real < 3) {
+            fprintf(stderr, "debug: Usage: debug function <name>\n");
+            return 1;
+        }
+
+        debug_show_function(ctx, argv[2]);
+        return 0;
+    }
+
     if (strcmp(subcmd, "help") == 0) {
         printf("Debug command usage:\n");
         printf("  debug                    - Show debug status\n");
@@ -3461,6 +3476,8 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
         printf("  debug print <var>        - Print variable value\n");
         printf("  debug profile on|off|report|reset - Control profiling\n");
         printf("  debug analyze <script>   - Analyze script for issues\n");
+        printf("  debug functions          - List all defined functions\n");
+        printf("  debug function <name>    - Show function definition\n");
         printf("  debug help               - Show this help\n");
         printf("\nDebug levels:\n");
         printf("  0 - None (disabled)\n");

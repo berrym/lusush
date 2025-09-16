@@ -1,5 +1,6 @@
 #include "../../include/debug.h"
 #include "../../include/errors.h"
+#include "../../include/executor.h"
 #include "../../include/lusush.h"
 
 #include <stdarg.h>
@@ -11,6 +12,9 @@
 
 // Global debug context
 debug_context_t *g_debug_context = NULL;
+
+// External reference to current executor for function introspection
+extern executor_t *current_executor;
 
 // Initialize debug context
 debug_context_t *debug_init(void) {
@@ -451,4 +455,79 @@ void debug_clear_analysis_issues(debug_context_t *ctx) {
 
     ctx->analysis_issues = NULL;
     ctx->issue_count = 0;
+}
+
+// Function introspection implementation
+void debug_list_functions(debug_context_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+
+    // Access the current executor to get function definitions
+    if (!current_executor || !current_executor->functions) {
+        printf("No functions defined.\n");
+        return;
+    }
+
+    printf("Defined functions:\n");
+    
+    function_def_t *func = current_executor->functions;
+    int count = 0;
+    
+    while (func) {
+        count++;
+        printf("  %d. %s\n", count, func->name);
+        func = func->next;
+    }
+    
+    if (count == 0) {
+        printf("  (none)\n");
+    } else {
+        printf("\nTotal: %d function%s\n", count, count == 1 ? "" : "s");
+        printf("Use 'debug function <name>' to see function details.\n");
+    }
+}
+
+void debug_show_function(debug_context_t *ctx, const char *function_name) {
+    if (!ctx || !function_name) {
+        return;
+    }
+
+    // Access the current executor to find the function
+    if (!current_executor) {
+        printf("No executor context available.\n");
+        return;
+    }
+
+    // Find the function in the executor's function list
+    function_def_t *func = current_executor->functions;
+    while (func) {
+        if (strcmp(func->name, function_name) == 0) {
+            break;
+        }
+        func = func->next;
+    }
+
+    if (!func) {
+        printf("Function '%s' not found.\n", function_name);
+        printf("Use 'debug functions' to list all defined functions.\n");
+        return;
+    }
+
+    // Display function information
+    printf("Function: %s\n", func->name);
+    printf("========================================\n");
+    
+    if (!func->body) {
+        printf("Body: (empty function)\n");
+    } else {
+        printf("Body: (AST representation)\n");
+        
+        // Print the AST structure for the function body
+        printf("AST Structure:\n");
+        debug_print_node(ctx, func->body, 2);
+    }
+    
+    printf("========================================\n");
+    printf("Usage: %s [arguments...]\n", func->name);
 }
