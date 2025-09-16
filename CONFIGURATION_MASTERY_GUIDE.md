@@ -372,7 +372,7 @@ function load_environment_config() {
     local environment=$1
     local config_file="configs/${environment}.conf"
     
-    if [[ ! -f "$config_file" ]]; then
+    if [ ! -f "$config_file" ]; then
         echo "Configuration file not found: $config_file" >&2
         return 1
     fi
@@ -382,8 +382,10 @@ function load_environment_config() {
     # Load configuration sections
     while IFS='=' read -r key value; do
         # Skip comments and empty lines
-        [[ $key =~ ^#.*$ ]] && continue
-        [[ -z $key ]] && continue
+        case "$key" in
+            \#*) continue ;;
+            "") continue ;;
+        esac
         
         # Apply configuration
         config set "$key" "$value"
@@ -503,7 +505,7 @@ function validate_enterprise_config() {
     fi
     
     # Report validation results
-    if [[ ${#errors[@]} -eq 0 ]]; then
+    if [ -z "$errors" ]; then
         echo "✅ Configuration validation passed"
         return 0
     else
@@ -664,11 +666,17 @@ function monitor_config_drift() {
         diff "$baseline_file" "$current_config" || true
         
         # Optionally restore baseline
-        read -p "Restore baseline configuration? (y/N) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        printf "Restore baseline configuration? (y/N) "
+        read -r reply
+        case "$reply" in
+            [Yy]*) 
             config load "$baseline_file"
-            echo "✅ Baseline configuration restored"
+                echo "✅ Baseline configuration restored"
+                ;;
+            *)
+                echo "Keeping current configuration"
+                ;;
+        esac
         fi
     else
         echo "✅ Configuration matches baseline"
@@ -709,7 +717,7 @@ EOF
 function restore_configuration() {
     local backup_file=$1
     
-    if [[ ! -f "$backup_file" ]]; then
+    if [ ! -f "$backup_file" ]; then
         echo "Backup file not found: $backup_file" >&2
         return 1
     fi
