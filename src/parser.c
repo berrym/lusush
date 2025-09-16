@@ -1602,16 +1602,7 @@ static node_t *parse_case_statement(parser_t *parser) {
         while (!tokenizer_match(parser->tokenizer, TOK_ESAC) &&
                !tokenizer_match(parser->tokenizer, TOK_EOF)) {
 
-            // Skip separators before each command (handles multiline cases)
-            skip_separators(parser);
-            
-            // Check again for terminators after skipping separators
-            if (tokenizer_match(parser->tokenizer, TOK_ESAC) ||
-                tokenizer_match(parser->tokenizer, TOK_EOF)) {
-                break;
-            }
-
-            // Check for ;; pattern at start of loop
+            // Check for ;; pattern FIRST, before any other processing
             if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
                 token_t *next = tokenizer_peek(parser->tokenizer);
                 if (next && next->type == TOK_SEMICOLON) {
@@ -1620,6 +1611,15 @@ static node_t *parse_case_statement(parser_t *parser) {
                 // Single semicolon - consume it and continue parsing commands
                 tokenizer_advance(parser->tokenizer);
                 continue;
+            }
+
+            // Skip separators before each command (handles multiline cases)
+            skip_separators(parser);
+            
+            // Check again for terminators after skipping separators
+            if (tokenizer_match(parser->tokenizer, TOK_ESAC) ||
+                tokenizer_match(parser->tokenizer, TOK_EOF)) {
+                break;
             }
 
             node_t *command = parse_simple_command(parser);
@@ -1653,8 +1653,11 @@ static node_t *parse_case_statement(parser_t *parser) {
             }
         }
 
-        // Skip all separators after ;; to handle any stray tokens
-        skip_separators(parser);
+        // Only skip non-semicolon separators (newlines, whitespace)
+        while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+               tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+            tokenizer_advance(parser->tokenizer);
+        }
 
         // Add case item to case statement
         add_child_node(case_node, case_item);
