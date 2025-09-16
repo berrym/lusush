@@ -9,6 +9,7 @@
 
 #include "../include/node.h"
 #include "../include/tokenizer.h"
+#include "../include/executor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1717,10 +1718,139 @@ static node_t *parse_function_definition(parser_t *parser) {
         return NULL;
     }
 
+    // Parse parameters between ( and )
+    function_param_t *params = NULL;
+    function_param_t *last_param = NULL;
+    int param_count = 0;
+
+    // Check if we have parameters (not immediate ')')
+    current = tokenizer_current(parser->tokenizer);
+    while (current && current->type != TOK_RPAREN && current->type != TOK_EOF) {
+        // Expect parameter name (word token)
+        if (!token_is_word_like(current->type)) {
+            set_parser_error(parser, "Expected parameter name");
+            free_function_params(params);
+            free_node_tree(function_node);
+            return NULL;
+        }
+
+        char *param_name = strdup(current->text);
+        if (!param_name) {
+            free_function_params(params);
+            free_node_tree(function_node);
+            return NULL;
+        }
+
+        tokenizer_advance(parser->tokenizer);
+        current = tokenizer_current(parser->tokenizer);
+
+        // Check for default value (= token)
+        char *default_value = NULL;
+        if (current && current->type == TOK_ASSIGN) {
+            tokenizer_advance(parser->tokenizer); // Skip '='
+            current = tokenizer_current(parser->tokenizer);
+
+            if (!current || (!token_is_word_like(current->type) && current->type != TOK_STRING && current->type != TOK_EXPANDABLE_STRING)) {
+                set_parser_error(parser, "Expected default value after '='");
+                free(param_name);
+                free_function_params(params);
+                free_node_tree(function_node);
+                return NULL;
+            }
+
+            default_value = strdup(current->text);
+            if (!default_value) {
+                free(param_name);
+                free_function_params(params);
+                free_node_tree(function_node);
+                return NULL;
+            }
+
+            tokenizer_advance(parser->tokenizer);
+            current = tokenizer_current(parser->tokenizer);
+        }
+
+        // Create parameter structure
+        function_param_t *param = create_function_param(param_name, default_value);
+        if (!param) {
+            free(param_name);
+            free(default_value);
+            free_function_params(params);
+            free_node_tree(function_node);
+            return NULL;
+        }
+
+        // Add to parameter list
+        if (!params) {
+            params = param;
+        } else {
+            last_param->next = param;
+        }
+        last_param = param;
+        param_count++;
+
+        free(param_name);
+        free(default_value);
+
+        // Check for comma or end
+        if (current && current->type == TOK_RPAREN) {
+            // End of parameters
+            break;
+        } else if (current && current->text && strcmp(current->text, ",") == 0) {
+            tokenizer_advance(parser->tokenizer); // Skip comma
+            current = tokenizer_current(parser->tokenizer);
+            // Continue to next parameter
+        } else {
+            set_parser_error(parser, "Expected ',' or ')' after parameter");
+            free_function_params(params);
+            free_node_tree(function_node);
+            return NULL;
+        }
+    }
+
     // Expect ')'
     if (!expect_token(parser, TOK_RPAREN)) {
+        free_function_params(params);
         free_node_tree(function_node);
         return NULL;
+    }
+
+    // Store parameters in the function node
+    // We need a way to pass this to the executor
+    // Create a special parameter info string to embed in the node
+    if (params) {
+        // Encode parameter info as JSON-like string for later parsing
+        char *param_info = malloc(2048);
+        if (param_info) {
+            strcpy(param_info, "PARAMS{");
+            function_param_t *p = params;
+            bool first = true;
+            while (p) {
+                if (!first) strcat(param_info, ",");
+                strcat(param_info, p->name);
+                if (p->default_value) {
+                    strcat(param_info, "=");
+                    strcat(param_info, p->default_value);
+                }
+                p = p->next;
+                first = false;
+            }
+            strcat(param_info, "}");
+            
+            // Store in function node's string value temporarily
+            if (function_node->val.str) {
+                char *old_name = function_node->val.str;
+                function_node->val.str = malloc(strlen(old_name) + strlen(param_info) + 2);
+                strcpy(function_node->val.str, old_name);
+                strcat(function_node->val.str, "|");
+                strcat(function_node->val.str, param_info);
+                free(old_name);
+            }
+            free(param_info);
+        }
+        
+        // Clean up params since we've encoded them
+        free_function_params(params);
     }
 
     // Skip separators before '{'

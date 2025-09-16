@@ -518,6 +518,31 @@ void debug_show_function(debug_context_t *ctx, const char *function_name) {
     printf("Function: %s\n", func->name);
     printf("========================================\n");
     
+    // Display parameter information
+    if (func->params) {
+        printf("Parameters:\n");
+        function_param_t *param = func->params;
+        int param_num = 1;
+        
+        while (param) {
+            printf("  %d. %s", param_num++, param->name);
+            if (param->is_required) {
+                printf(" (required)");
+            } else {
+                printf(" (optional");
+                if (param->default_value) {
+                    printf(", default: \"%s\"", param->default_value);
+                }
+                printf(")");
+            }
+            printf("\n");
+            param = param->next;
+        }
+        printf("\n");
+    } else {
+        printf("Parameters: (none defined - accepts any arguments)\n\n");
+    }
+    
     if (!func->body) {
         printf("Body: (empty function)\n");
     } else {
@@ -529,5 +554,19 @@ void debug_show_function(debug_context_t *ctx, const char *function_name) {
     }
     
     printf("========================================\n");
-    printf("Usage: %s [arguments...]\n", func->name);
+    if (func->params) {
+        printf("Usage: %s", func->name);
+        function_param_t *param = func->params;
+        while (param) {
+            if (param->is_required) {
+                printf(" <%s>", param->name);
+            } else {
+                printf(" [%s]", param->name);
+            }
+            param = param->next;
+        }
+        printf("\n");
+    } else {
+        printf("Usage: %s [arguments...]\n", func->name);
+    }
 }

@@ -16,11 +16,21 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+// Function parameter definition
+typedef struct function_param {
+    char *name;                    // Parameter name
+    char *default_value;          // Default value (NULL if required)
+    bool is_required;             // True if parameter is required
+    struct function_param *next;  // Next parameter in list
+} function_param_t;
+
 // Function definition storage
 typedef struct function_def {
-    char *name;
-    node_t *body;
-    struct function_def *next;
+    char *name;                   // Function name
+    node_t *body;                 // Function body AST
+    function_param_t *params;     // Parameter list (NULL for no params)
+    int param_count;              // Number of parameters
+    struct function_def *next;    // Next function in list
 } function_def_t;
 
 // Job states
@@ -99,5 +109,9 @@ void executor_remove_job(executor_t *executor, int job_id);
 int executor_builtin_jobs(executor_t *executor, char **argv);
 int executor_builtin_fg(executor_t *executor, char **argv);
 int executor_builtin_bg(executor_t *executor, char **argv);
+
+// Function parameter management utilities
+function_param_t *create_function_param(const char *name, const char *default_value);
+void free_function_params(function_param_t *params);
 
 #endif // EXECUTOR_H

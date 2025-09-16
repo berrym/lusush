@@ -55,7 +55,8 @@ static bool is_function_defined(executor_t *executor,
 static function_def_t *find_function(executor_t *executor,
                                      const char *function_name);
 static int store_function(executor_t *executor, const char *function_name,
-                          node_t *body);
+                          node_t *body, function_param_t *params, int param_count);
+static int validate_function_parameters(function_def_t *func, char **argv, int argc);
 static node_t *copy_ast_node(node_t *node);
 static node_t *copy_ast_chain(node_t *node);
 static int execute_if(executor_t *executor, node_t *if_node);
@@ -2333,14 +2334,79 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     // Get function body (can be NULL for empty function bodies)
     node_t *body = node->first_child;
 
+    // Extract parameter information from function name if encoded
+    function_param_t *params = NULL;
+    int param_count = 0;
+    char *actual_function_name = function_name;
+    
+    // Check if function name contains parameter encoding
+    char *param_separator = strchr(function_name, '|');
+    if (param_separator) {
+        // Extract actual function name
+        size_t name_len = param_separator - function_name;
+        actual_function_name = malloc(name_len + 1);
+        strncpy(actual_function_name, function_name, name_len);
+        actual_function_name[name_len] = '\0';
+        
+        // Parse parameter information
+        char *param_info = param_separator + 1;
+        if (strncmp(param_info, "PARAMS{", 7) == 0) {
+            char *param_list = param_info + 7;
+            char *end_brace = strchr(param_list, '}');
+            if (end_brace) {
+                *end_brace = '\0'; // Temporarily null-terminate
+                
+                // Parse parameter list
+                char *param_copy = strdup(param_list);
+                char *token = strtok(param_copy, ",");
+                function_param_t *last_param = NULL;
+                
+                while (token) {
+                    char *equals = strchr(token, '=');
+                    char *param_name = token;
+                    char *default_value = NULL;
+                    
+                    if (equals) {
+                        *equals = '\0';
+                        default_value = equals + 1;
+                    }
+                    
+                    function_param_t *param = create_function_param(param_name, default_value);
+                    if (param) {
+                        if (!params) {
+                            params = param;
+                        } else {
+                            last_param->next = param;
+                        }
+                        last_param = param;
+                        param_count++;
+                    }
+                    
+                    token = strtok(NULL, ",");
+                }
+                
+                free(param_copy);
+                *end_brace = '}'; // Restore original string
+            }
+        }
+    }
+
     // Store function in function table
-    if (store_function(executor, function_name, body) != 0) {
+    if (store_function(executor, actual_function_name, body, params, param_count) != 0) {
         set_executor_error(executor, "Failed to define function");
+        if (actual_function_name != function_name) {
+            free(actual_function_name);
+        }
         return 1;
     }
 
     if (executor->debug) {
-        printf("DEBUG: Defined function '%s'\n", function_name);
+        printf("DEBUG: Defined function '%s' with %d parameters\n", actual_function_name, param_count);
+    }
+
+    // Clean up allocated function name if we created one
+    if (actual_function_name != function_name) {
+        free(actual_function_name);
     }
 
     return 0;
@@ -2366,6 +2432,12 @@ static int execute_function_call(executor_t *executor,
         return 1;
     }
 
+    // Validate function parameters
+    if (validate_function_parameters(func, argv, argc) != 0) {
+        set_executor_error(executor, "Function parameter validation failed");
+        return 1;
+    }
+
     if (executor->debug) {
         printf("DEBUG: Calling function '%s' with %d args\n", function_name,
                argc - 1);
@@ -2378,7 +2450,33 @@ static int execute_function_call(executor_t *executor,
         return 1;
     }
 
-    // Set positional parameters ($1, $2, etc.)
+    // Set parameters (both positional and named)
+    if (func->params) {
+        // Set named parameters with defaults
+        int arg_index = 1; // Skip function name at argv[0]
+        function_param_t *param = func->params;
+        
+        while (param) {
+            const char *value;
+            if (arg_index < argc) {
+                // Use provided argument
+                value = argv[arg_index++];
+            } else {
+                // Use default value (already validated that required params are present)
+                value = param->default_value ? param->default_value : "";
+            }
+            
+            // Set named parameter
+            if (symtable_set_local_var(executor->symtable, param->name, value) != 0) {
+                symtable_pop_scope(executor->symtable);
+                set_executor_error(executor, "Failed to set function parameter");
+                return 1;
+            }
+            param = param->next;
+        }
+    }
+    
+    // Set positional parameters ($1, $2, etc.) for backward compatibility
     for (int i = 1; i < argc; i++) {
         char param_name[16];
         snprintf(param_name, sizeof(param_name), "%d", i);
@@ -2424,6 +2522,79 @@ static int execute_function_call(executor_t *executor,
     return result;
 }
 
+// Create a new function parameter
+function_param_t *create_function_param(const char *name, const char *default_value) {
+    if (!name) {
+        return NULL;
+    }
+    
+    function_param_t *param = malloc(sizeof(function_param_t));
+    if (!param) {
+        return NULL;
+    }
+    
+    param->name = strdup(name);
+    if (!param->name) {
+        free(param);
+        return NULL;
+    }
+    
+    param->default_value = default_value ? strdup(default_value) : NULL;
+    param->is_required = (default_value == NULL);
+    param->next = NULL;
+    
+    return param;
+}
+
+// Free function parameter list
+void free_function_params(function_param_t *params) {
+    while (params) {
+        function_param_t *next = params->next;
+        free(params->name);
+        free(params->default_value);
+        free(params);
+        params = next;
+    }
+}
+
+// Validate function parameters against call arguments
+static int validate_function_parameters(function_def_t *func, char **argv, int argc) {
+    if (!func) {
+        return 1;
+    }
+    
+    // If no parameters defined, allow any arguments (backward compatibility)
+    if (!func->params) {
+        return 0;
+    }
+    
+    int arg_index = 1; // Skip function name at argv[0]
+    function_param_t *param = func->params;
+    
+    while (param) {
+        if (arg_index < argc) {
+            // Argument provided for this parameter
+            arg_index++;
+        } else if (param->is_required) {
+            // Required parameter missing
+            fprintf(stderr, "Error: Function '%s' requires parameter '%s'\n", 
+                    func->name, param->name);
+            return 1;
+        }
+        // Optional parameter without argument - will use default
+        param = param->next;
+    }
+    
+    // Check for too many arguments
+    if (arg_index < argc) {
+        fprintf(stderr, "Error: Function '%s' called with %d arguments but only accepts %d\n",
+                func->name, argc - 1, func->param_count);
+        return 1;
+    }
+    
+    return 0;
+}
+
 // Find function in function table
 static function_def_t *find_function(executor_t *executor,
                                      const char *function_name) {
@@ -2443,7 +2614,7 @@ static function_def_t *find_function(executor_t *executor,
 
 // Store function in function table
 static int store_function(executor_t *executor, const char *function_name,
-                          node_t *body) {
+                          node_t *body, function_param_t *params, int param_count) {
     if (!executor || !function_name) {
         return 1;
     }
@@ -2456,6 +2627,7 @@ static int store_function(executor_t *executor, const char *function_name,
             *current = (*current)->next;
             free(to_remove->name);
             free_node_tree(to_remove->body);
+            free_function_params(to_remove->params);
             free(to_remove);
             break;
         }
@@ -2483,6 +2655,10 @@ static int store_function(executor_t *executor, const char *function_name,
         free(new_func);
         return 1;
     }
+
+    // Store parameter information
+    new_func->params = params;
+    new_func->param_count = param_count;
 
     // Add to front of function list
     new_func->next = executor->functions;
@@ -3563,65 +3739,151 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                         }
 
                     case '*': // All positional parameters as single word
-                        if (shell_argc > 1) {
-                            size_t total_len = 0;
-                            for (int i = 1; i < shell_argc; i++) {
-                                if (shell_argv[i]) {
-                                    total_len += strlen(shell_argv[i]) +
-                                                 1; // +1 for space
-                                }
-                            }
-                            if (total_len > 0) {
-                                char *result = malloc(total_len);
-                                if (result) {
-                                    result[0] = '\0';
-                                    for (int i = 1; i < shell_argc; i++) {
-                                        if (shell_argv[i]) {
-                                            if (i > 1) {
-                                                strcat(result, " ");
-                                            }
-                                            strcat(result, shell_argv[i]);
+                        {
+                            // Check if we're in function scope - try to get $# from local scope
+                            char *func_argc_str = symtable_get_var(executor->symtable, "#");
+                            if (func_argc_str && executor->symtable) {
+                                // We're in a function scope - use function parameters
+                                int func_argc = atoi(func_argc_str);
+                                if (func_argc > 0) {
+                                    size_t total_len = 0;
+                                    // Calculate total length needed
+                                    for (int i = 1; i <= func_argc; i++) {
+                                        char param_name[16];
+                                        snprintf(param_name, sizeof(param_name), "%d", i);
+                                        char *param_value = symtable_get_var(executor->symtable, param_name);
+                                        if (param_value) {
+                                            total_len += strlen(param_value) + 1; // +1 for space
                                         }
                                     }
-                                    free(name);
-                                    return result;
+                                    if (total_len > 0) {
+                                        char *result = malloc(total_len);
+                                        if (result) {
+                                            result[0] = '\0';
+                                            for (int i = 1; i <= func_argc; i++) {
+                                                char param_name[16];
+                                                snprintf(param_name, sizeof(param_name), "%d", i);
+                                                char *param_value = symtable_get_var(executor->symtable, param_name);
+                                                if (param_value) {
+                                                    if (i > 1) {
+                                                        strcat(result, " ");
+                                                    }
+                                                    strcat(result, param_value);
+                                                }
+                                            }
+                                            free(name);
+                                            return result;
+                                        }
+                                    }
                                 }
+                                free(name);
+                                return strdup("");
+                            } else {
+                                // Use global shell parameters
+                                if (shell_argc > 1) {
+                                    size_t total_len = 0;
+                                    for (int i = 1; i < shell_argc; i++) {
+                                        if (shell_argv[i]) {
+                                            total_len += strlen(shell_argv[i]) +
+                                                         1; // +1 for space
+                                        }
+                                    }
+                                    if (total_len > 0) {
+                                        char *result = malloc(total_len);
+                                        if (result) {
+                                            result[0] = '\0';
+                                            for (int i = 1; i < shell_argc; i++) {
+                                                if (shell_argv[i]) {
+                                                    if (i > 1) {
+                                                        strcat(result, " ");
+                                                    }
+                                                    strcat(result, shell_argv[i]);
+                                                }
+                                            }
+                                            free(name);
+                                            return result;
+                                        }
+                                    }
+                                }
+                                free(name);
+                                return strdup("");
                             }
                         }
-                        free(name);
-                        return strdup("");
 
                     case '@': // All positional parameters as separate words
-                        // Note: This should ideally preserve word boundaries,
-                        // but for now we'll implement it similarly to $* for
-                        // compatibility
-                        if (shell_argc > 1) {
-                            size_t total_len = 0;
-                            for (int i = 1; i < shell_argc; i++) {
-                                if (shell_argv[i]) {
-                                    total_len += strlen(shell_argv[i]) +
-                                                 1; // +1 for space
-                                }
-                            }
-                            if (total_len > 0) {
-                                char *result = malloc(total_len);
-                                if (result) {
-                                    result[0] = '\0';
-                                    for (int i = 1; i < shell_argc; i++) {
-                                        if (shell_argv[i]) {
-                                            if (i > 1) {
-                                                strcat(result, " ");
-                                            }
-                                            strcat(result, shell_argv[i]);
+                        {
+                            // Check if we're in function scope - try to get $# from local scope
+                            char *func_argc_str = symtable_get_var(executor->symtable, "#");
+                            if (func_argc_str && executor->symtable) {
+                                // We're in a function scope - use function parameters
+                                int func_argc = atoi(func_argc_str);
+                                if (func_argc > 0) {
+                                    size_t total_len = 0;
+                                    // Calculate total length needed
+                                    for (int i = 1; i <= func_argc; i++) {
+                                        char param_name[16];
+                                        snprintf(param_name, sizeof(param_name), "%d", i);
+                                        char *param_value = symtable_get_var(executor->symtable, param_name);
+                                        if (param_value) {
+                                            total_len += strlen(param_value) + 1; // +1 for space
                                         }
                                     }
-                                    free(name);
-                                    return result;
+                                    if (total_len > 0) {
+                                        char *result = malloc(total_len);
+                                        if (result) {
+                                            result[0] = '\0';
+                                            for (int i = 1; i <= func_argc; i++) {
+                                                char param_name[16];
+                                                snprintf(param_name, sizeof(param_name), "%d", i);
+                                                char *param_value = symtable_get_var(executor->symtable, param_name);
+                                                if (param_value) {
+                                                    if (i > 1) {
+                                                        strcat(result, " ");
+                                                    }
+                                                    strcat(result, param_value);
+                                                }
+                                            }
+                                            free(name);
+                                            return result;
+                                        }
+                                    }
                                 }
+                                free(name);
+                                return strdup("");
+                            } else {
+                                // Use global shell parameters  
+                                // Note: This should ideally preserve word boundaries,
+                                // but for now we'll implement it similarly to $* for
+                                // compatibility
+                                if (shell_argc > 1) {
+                                    size_t total_len = 0;
+                                    for (int i = 1; i < shell_argc; i++) {
+                                        if (shell_argv[i]) {
+                                            total_len += strlen(shell_argv[i]) +
+                                                         1; // +1 for space
+                                        }
+                                    }
+                                    if (total_len > 0) {
+                                        char *result = malloc(total_len);
+                                        if (result) {
+                                            result[0] = '\0';
+                                            for (int i = 1; i < shell_argc; i++) {
+                                                if (shell_argv[i]) {
+                                                    if (i > 1) {
+                                                        strcat(result, " ");
+                                                    }
+                                                    strcat(result, shell_argv[i]);
+                                                }
+                                            }
+                                            free(name);
+                                            return result;
+                                        }
+                                    }
+                                }
+                                free(name);
+                                return strdup("");
                             }
                         }
-                        free(name);
-                        return strdup("");
 
                     default:
                         if (name[0] >= '0' && name[0] <= '9') {
