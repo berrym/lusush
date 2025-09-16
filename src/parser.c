@@ -1602,7 +1602,19 @@ static node_t *parse_case_statement(parser_t *parser) {
         while (!tokenizer_match(parser->tokenizer, TOK_ESAC) &&
                !tokenizer_match(parser->tokenizer, TOK_EOF)) {
 
-            // Check for ;; pattern FIRST, before any other processing
+            // Check for terminators before processing command
+            if (tokenizer_match(parser->tokenizer, TOK_ESAC) ||
+                tokenizer_match(parser->tokenizer, TOK_EOF)) {
+                break;
+            }
+
+            // Skip only newlines and whitespace, NOT semicolons (preserve ;; for detection)
+            while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+                   tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+                tokenizer_advance(parser->tokenizer);
+            }
+
+            // Check for ;; pattern AFTER skipping separators
             if (tokenizer_match(parser->tokenizer, TOK_SEMICOLON)) {
                 token_t *next = tokenizer_peek(parser->tokenizer);
                 if (next && next->type == TOK_SEMICOLON) {
@@ -1611,15 +1623,6 @@ static node_t *parse_case_statement(parser_t *parser) {
                 // Single semicolon - consume it and continue parsing commands
                 tokenizer_advance(parser->tokenizer);
                 continue;
-            }
-
-            // Skip separators before each command (handles multiline cases)
-            skip_separators(parser);
-            
-            // Check again for terminators after skipping separators
-            if (tokenizer_match(parser->tokenizer, TOK_ESAC) ||
-                tokenizer_match(parser->tokenizer, TOK_EOF)) {
-                break;
             }
 
             node_t *command = parse_simple_command(parser);
