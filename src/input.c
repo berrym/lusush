@@ -483,7 +483,7 @@ void free_input_buffers(void) {
 }
 
 char *get_input(FILE *in) {
-    // For non-interactive input, read a line directly
+    // For non-interactive input, read a line directly (single line only)
     if (!in) in = stdin;
     
     char *line = NULL;
@@ -501,6 +501,43 @@ char *get_input(FILE *in) {
     }
     
     return line;
+}
+
+// Helper function to check if state needs continuation
+static bool needs_continuation(input_state_t *state) {
+    if (!state) return false;
+    
+    // Need continuation if we're in any compound structure
+    if (state->compound_command_depth > 0) {
+        return true;
+    }
+    
+    // Need continuation if we're in any specific construct
+    if (state->in_function_definition ||
+        state->in_case_statement ||
+        state->in_if_statement ||
+        state->in_while_loop ||
+        state->in_for_loop ||
+        state->in_until_loop) {
+        return true;
+    }
+    
+    // Need continuation if we have pending quotes or escapes
+    if (state->in_single_quote ||
+        state->in_double_quote ||
+        state->escaped ||
+        state->has_continuation) {
+        return true;
+    }
+    
+    // Need continuation if we have unmatched brackets
+    if (state->paren_count > 0 ||
+        state->bracket_count > 0 ||
+        state->brace_count > 0) {
+        return true;
+    }
+    
+    return false;
 }
 
 char *ln_gets(void) {
@@ -611,8 +648,58 @@ char *ln_gets(void) {
 }
 
 char *get_input_complete(FILE *in) {
-    // For non-interactive mode, use simple line reading
-    return get_input(in);
+    // For non-interactive mode, accumulate lines for complete constructs
+    if (!in) in = stdin;
+    
+    char *accumulated = NULL;
+    size_t accumulated_len = 0;
+    input_state_t state = {0};
+    
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    
+    while ((read = getline(&line, &len, in)) != -1) {
+        // Remove trailing newline for analysis
+        if (read > 0 && line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+            read--;
+        }
+        
+        // Analyze this line to update state
+        analyze_line(line, &state);
+        
+        // Accumulate the line
+        if (accumulated == NULL) {
+            accumulated = malloc(read + 2); // +2 for newline and null terminator
+            if (!accumulated) {
+                free(line);
+                return NULL;
+            }
+            strcpy(accumulated, line);
+            accumulated_len = read;
+        } else {
+            size_t new_len = accumulated_len + read + 2; // +2 for newline and null terminator
+            char *new_accumulated = realloc(accumulated, new_len);
+            if (!new_accumulated) {
+                free(accumulated);
+                free(line);
+                return NULL;
+            }
+            accumulated = new_accumulated;
+            strcat(accumulated, "\n");
+            strcat(accumulated, line);
+            accumulated_len = new_len - 1;
+        }
+        
+        // Check if we have a complete construct
+        if (!needs_continuation(&state)) {
+            break;
+        }
+    }
+    
+    free(line);
+    return accumulated;
 }
 
 char *get_unified_input(FILE *in) {
