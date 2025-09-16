@@ -551,30 +551,16 @@ This captures the essence - Lusush is built with passion for **craftsmanship** a
 
 **Impact:** Basic shell functionality that was broken is now working. Professional shell scripting workflows that were previously broken now work seamlessly. Lusush can now handle fundamental case statement constructs that are essential for any production shell.
 
-#### **🎯 IMMEDIATE NEXT PRIORITY: Complete Function System Enhancements (Priority 2A)**
-**STATUS: ALL CRITICAL BLOCKERS RESOLVED - Resume planned function enhancements**
+#### **🎯 IMMEDIATE NEXT PRIORITY: Function Documentation System (Final Phase 2A Item)**
+**STATUS: ALMOST COMPLETE - Only function documentation system remaining in Phase 2A**
 
-**RATIONALE**: With the critical input system context tracking bug resolved, we can now return to the originally planned Priority 2A function enhancements. The function introspection system is already complete, so we need to finish the remaining Phase 2A features before moving to Phase 2B and eventually bash compatibility.
+**COMPLETED Phase 2A Features** ✅:
+1. ✅ **Function Introspection Tools** - COMPLETED (debug functions, debug function <name>)
+2. ✅ **Function Parameter Validation** - COMPLETED (function greet(name, greeting="Hello") syntax working)
+3. ✅ **Advanced Return Values** - COMPLETED (return_value and capture working)
 
-1. **PRIORITY 1: Function Parameter Validation** (2-3 hours) - CORE ENHANCEMENT
-   ```bash
-   function greet(name, greeting="Hello") {
-       echo "$greeting, $name!"
-   }
-   greet "World"                    # Uses default greeting
-   greet "World" "Hi"              # Uses custom greeting
-   ```
-
-2. **PRIORITY 2: Advanced Return Values** (1-2 hours) - PRODUCTIVITY FEATURE
-   ```bash
-   function calculate() {
-       local result=$((a + b))
-       return_value "$result"       # Set return value
-   }
-   result=$(calculate 5 10)        # Capture return value
-   ```
-
-3. **PRIORITY 3: Function Documentation System** (1-2 hours) - DEVELOPER EXPERIENCE
+**REMAINING Phase 2A Feature**:
+1. **PRIORITY 1: Function Documentation System** (1-2 hours) - DEVELOPER EXPERIENCE
    ```bash
    ## @description Greets a user with optional greeting
    ## @param name The name to greet
@@ -583,17 +569,10 @@ This captures the essence - Lusush is built with passion for **craftsmanship** a
    help greet                      # Show function documentation
    ```
 
-4. **PRIORITY 4: Function Libraries/Modules** (2-3 hours) - ADVANCED FEATURE
-   ```bash
-   source lib/string_utils.lsh     # Load function library
-   export function greet           # Export function to subshells
-   ```
+**AFTER Function Documentation COMPLETION**: Move to Phase 2B (Function Testing Framework) and then Priority 2C (Bash Compatibility Extensions including arrays, brace expansion, and enhanced parameter expansion).
+**RATIONALE**: With all critical blockers resolved and most Phase 2A function enhancements complete, the only remaining item is the function documentation system. This will complete Phase 2A and allow progression to Phase 2B and eventually the essential bash compatibility features.
 
-**AFTER Phase 2A COMPLETION**: Move to Phase 2B (Function Testing Framework) and then Priority 2C (Bash Compatibility Extensions including arrays, brace expansion, and enhanced parameter expansion).
-   - Function library loading system
-   - Module-based function organization
-
-#### **Enhancement Opportunity: Multiple Case Items**
+**Enhancement Opportunity: Multiple Case Items**
 While the critical parser issue is resolved, there's a minor enhancement opportunity:
 - **Multiple case items in one statement** - Currently works for single items, multiple items need refinement
 - This is not critical since workarounds exist and single items handle most use cases
