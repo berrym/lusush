@@ -553,6 +553,21 @@ void debug_show_function(debug_context_t *ctx, const char *function_name) {
         debug_print_node(ctx, func->body, 2);
     }
     
+    // Display return value information
+    printf("Return Values:\n");
+    printf("  Exit Status: 0-255 (via 'return [code]')\n");
+    printf("  String Value: any text (via 'return_value \"text\"')\n");
+    printf("  Stdout Capture: $(function_name args) captures output\n");
+    printf("  Return Value Capture: $(function_name args) captures return_value if set\n");
+    printf("\n");
+    
+    printf("Debug Integration:\n");
+    printf("  • Function calls traced in debug mode\n");
+    printf("  • Return values inspectable via command substitution\n");
+    printf("  • Parameter validation during execution\n");
+    printf("  • Performance profiling available\n");
+    printf("\n");
+    
     printf("========================================\n");
     if (func->params) {
         printf("Usage: %s", func->name);
@@ -569,4 +584,9 @@ void debug_show_function(debug_context_t *ctx, const char *function_name) {
     } else {
         printf("Usage: %s [arguments...]\n", func->name);
     }
+    
+    printf("\nReturn Value Examples:\n");
+    printf("  %s args               # Execute function\n", func->name);
+    printf("  result=$(%s args)     # Capture output or return_value\n", func->name);
+    printf("  echo $?               # Check exit status after call\n");
 }

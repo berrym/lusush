@@ -87,6 +87,7 @@ builtin builtins[] = {
     {   "break",               "break out of loops",    bin_break},
     {"continue",  "continue to next loop iteration", bin_continue},
     {  "return",            "return from functions",   bin_return},
+    {"return_value",     "set function return value", bin_return_value},
     {    "trap",              "set signal handlers",     bin_trap},
     {    "exec",       "replace shell with command",     bin_exec},
     {    "wait",         "wait for background jobs",     bin_wait},
@@ -1428,7 +1429,27 @@ int bin_continue(int argc, char **argv) {
     current_executor->loop_control = LOOP_CONTINUE;
 
     return 0;
-} /**
+}
+
+/**
+ * bin_return_value:
+ *      Set a string return value for the current function
+ */
+int bin_return_value(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "return_value: missing value argument\n");
+        return 1;
+    }
+    
+    // Output the return value with a special marker that command substitution can recognize
+    printf("__LUSUSH_RETURN__:%s:__END__\n", argv[1]);
+    fflush(stdout);
+    
+    // Return success
+    return 0;
+}
+
+/**
    * bin_return:
    *      Return from function with optional exit code
    */
@@ -1446,10 +1467,6 @@ int bin_return(int argc, char **argv) {
             return 1;
         }
     }
-
-    // For now, we'll implement return by setting a special exit code
-    // The function execution mechanism will need to be updated to handle this
-    // TODO: Add proper function return mechanism to executor
 
     // Set the last exit status to the return code
     extern int last_exit_status;
