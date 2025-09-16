@@ -176,6 +176,62 @@ static void analyze_line(const char *line, input_state_t *state) {
             state->bracket_count--;
         }
         
+        // Handle here document detection
+        if (c == '<' && *(p+1) == '<' && !state->in_here_doc) {
+            // Found <<, look for delimiter
+            const char *delim_start = p + 2;
+            
+            // Skip optional '-' for <<-
+            if (*delim_start == '-') {
+                delim_start++;
+            }
+            
+            // Skip whitespace
+            while (*delim_start == ' ' || *delim_start == '\t') {
+                delim_start++;
+            }
+            
+            // Extract delimiter (up to end of line or whitespace)
+            const char *delim_end = delim_start;
+            while (*delim_end && *delim_end != '\n' && *delim_end != ' ' && *delim_end != '\t') {
+                delim_end++;
+            }
+            
+            if (delim_end > delim_start) {
+                // Found a delimiter, enter here document mode
+                state->in_here_doc = true;
+                if (state->here_doc_delimiter) {
+                    free(state->here_doc_delimiter);
+                }
+                size_t delim_len = delim_end - delim_start;
+                state->here_doc_delimiter = malloc(delim_len + 1);
+                if (state->here_doc_delimiter) {
+                    strncpy(state->here_doc_delimiter, delim_start, delim_len);
+                    state->here_doc_delimiter[delim_len] = '\0';
+                }
+            }
+        }
+        
+        // Check if current line is a here document delimiter (ends here doc)
+        if (state->in_here_doc && state->here_doc_delimiter) {
+            // Check if this entire line matches the delimiter
+            const char *line_start = line;
+            while (*line_start == ' ' || *line_start == '\t') {
+                line_start++; // Skip leading whitespace
+            }
+            
+            if (strncmp(line_start, state->here_doc_delimiter, strlen(state->here_doc_delimiter)) == 0) {
+                // Check if delimiter is followed by end of line or whitespace
+                const char *after_delim = line_start + strlen(state->here_doc_delimiter);
+                if (*after_delim == '\0' || *after_delim == '\n' || *after_delim == ' ' || *after_delim == '\t') {
+                    // This line is the delimiter, end here document
+                    state->in_here_doc = false;
+                    free(state->here_doc_delimiter);
+                    state->here_doc_delimiter = NULL;
+                }
+            }
+        }
+        
         // Collect words for keyword analysis
         if (isalnum(c) || c == '_') {
             if (word_pos < (int)sizeof(word) - 1) {
@@ -527,6 +583,11 @@ static bool needs_continuation(input_state_t *state) {
         state->in_double_quote ||
         state->escaped ||
         state->has_continuation) {
+        return true;
+    }
+    
+    // Need continuation if we're in a here document
+    if (state->in_here_doc) {
         return true;
     }
     
