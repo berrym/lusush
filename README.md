@@ -16,11 +16,11 @@ Lusush is a modern POSIX-compliant shell that combines traditional shell functio
 
 ## ✨ Key Features
 
-### **🚀 Interactive Shell Debugging (Development Feature)**
+### **🚀 Interactive Shell Debugging (Development Feature with Known Limitations)**
 Lusush includes a unique interactive debugging system for shell scripts - a capability not found in other shells:
 
 ```bash
-# Basic debugging workflow (verified working)
+# Basic debugging workflow (verified working for simple scripts)
 debug on                        # Enable debugging
 debug break add script.sh 10    # Set breakpoint at line 10
 source script.sh                # Run script - pauses at breakpoint
@@ -45,12 +45,19 @@ debug help                      # Show all available debug commands
 - **Command system**: 20+ debug commands with comprehensive help system
 - **Non-interactive mode**: Works in pipelines and automated testing
 
+**🚨 CRITICAL LIMITATION - KNOWN BUG:**
+- **Loop debugging is broken**: Breakpoints inside `for`, `while`, or `until` loops cause parser errors
+- **Error**: `DEBUG: Unhandled keyword type 46 (DONE)` when breakpoint hits inside loop
+- **Impact**: Loop variables become empty, execution fails
+- **Workaround**: Set breakpoints before/after loops, not inside loop bodies
+- **Status**: Critical bug requiring immediate fix before production use
+
 **Interactive Features (In Development):**
 - Interactive debugging prompt `(lusush-debug)` opens controlling terminal
 - Step-through debugging commands (step, next, continue) implemented
 - Professional error handling and graceful fallbacks
 
-> **Development Status**: Core debugging functionality is working and tested. Interactive features work when lusush is run interactively. Use `debug help` to see all available commands.
+> **Development Status**: Core debugging functionality works for simple scripts. CRITICAL BUG with loop debugging must be fixed before production use. Avoid breakpoints inside loop bodies. Use `debug help` to see all available commands.
 
 ### **Enhanced Function System**
 Lusush provides advanced function capabilities beyond standard POSIX shells:
@@ -238,11 +245,11 @@ fi
 
 ## 🔍 Development and Debugging
 
-### **Interactive Script Debugging**
-Lusush provides comprehensive debugging capabilities for shell scripts:
+### **Interactive Script Debugging (⚠️ CRITICAL LIMITATIONS)**
+Lusush provides debugging capabilities for shell scripts with important limitations:
 
 ```bash
-# Verified working debugging workflow
+# Verified working debugging workflow (SIMPLE SCRIPTS ONLY)
 debug on                           # Enable debugging mode
 debug break add myscript.sh 10     # Set breakpoint at line 10
 
@@ -264,9 +271,25 @@ debug vars                         # Show all variables with metadata
 debug help                         # Show all debug commands
 debug break list                   # List all breakpoints
 debug break clear                  # Clear all breakpoints
+```
 
-# Note: Conditional breakpoints accept syntax but evaluation is not fully implemented
-# debug break add script.sh 10 'x > 5'  # Framework exists but always evaluates true
+### **🚨 CRITICAL BUG: Loop Debugging Broken**
+```bash
+# ❌ DO NOT DO THIS - WILL FAIL:
+for i in 1 2 3; do
+    echo "Item: $i"    # <- Breakpoint here causes parser error
+done
+
+# ERROR OUTPUT:
+# Iteration : x=42    # <- Loop variable $i is EMPTY
+# DEBUG: Unhandled keyword type 46 (DONE)
+
+# ✅ WORKAROUND - Set breakpoints OUTSIDE loops:
+debug break add script.sh 5    # Before loop
+for i in 1 2 3; do
+    echo "Item: $i"
+done
+debug break add script.sh 10   # After loop
 ```
 
 ### **Breakpoint Management**
@@ -362,11 +385,15 @@ echo 'debug on; debug break add script.sh 10; source script.sh' | lusush
 - ✅ **Verified Working**: Debug command system, help system, breakpoint management
 - ✅ **Verified Working**: Non-interactive debugging, error handling
 - ✅ **Verified Working**: Conditional breakpoint syntax (but evaluation is stub - always true)
+- 🚨 **CRITICAL BUG**: Loop debugging is broken - breakpoints inside loops cause parser errors
+- 🚨 **BROKEN**: `for`, `while`, `until` loops fail when breakpoints hit inside loop body
+- 🚨 **ERROR**: "DEBUG: Unhandled keyword type 46 (DONE)" corrupts parser state
+- 🚨 **IMPACT**: Loop variables become empty, makes debugging unusable for real scripts
 - 🚧 **Interactive Features**: Debugging prompt works but may need controlling terminal
 - 🚧 **In Development**: Conditional breakpoint evaluation logic, call stack navigation
 - 🚧 **Framework Ready**: Expression evaluation, variable modification during debugging
 
-> **Note**: All documented examples have been tested and verified to work. The debugging system is functional for development and testing. Interactive features work best when lusush is run interactively. Conditional breakpoints accept conditions but currently always evaluate to true.
+> **CRITICAL WARNING**: Loop debugging is currently broken. Do not set breakpoints inside `for`, `while`, or `until` loop bodies. This is a showstopper bug that must be fixed before production use. Simple scripts without loops work as documented. Interactive features work best when lusush is run interactively.
 
 ## 📊 Compatibility
 
