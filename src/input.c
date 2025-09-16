@@ -182,6 +182,75 @@ static void analyze_line(const char *line, input_state_t *state) {
                 word[word_pos++] = c;
             }
             at_word_start = false;
+        } else if (c == '{' || c == '}') {
+            // Handle { and } as single-character keywords
+            if (word_pos > 0) {
+                // Process any accumulated word first
+                word[word_pos] = '\0';
+                
+                // Check for control keywords
+                if (is_control_keyword(word)) {
+                    
+                    if (strcmp(word, "if") == 0) {
+                        state->in_if_statement = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "while") == 0) {
+                        state->in_while_loop = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "for") == 0) {
+                        state->in_for_loop = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "until") == 0) {
+                        state->in_until_loop = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "case") == 0) {
+                        state->in_case_statement = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "function") == 0) {
+                        state->in_function_definition = true;
+                        state->compound_command_depth++;
+                    } else if (strcmp(word, "fi") == 0) {
+                        state->in_if_statement = false;
+                        state->has_continuation = false;
+                        if (state->compound_command_depth > 0) {
+                            state->compound_command_depth--;
+                        }
+                    } else if (strcmp(word, "done") == 0) {
+                        state->in_while_loop = false;
+                        state->in_for_loop = false;
+                        state->in_until_loop = false;
+                        state->has_continuation = false;
+                        if (state->compound_command_depth > 0) {
+                            state->compound_command_depth--;
+                        }
+                    } else if (strcmp(word, "esac") == 0) {
+                        state->in_case_statement = false;
+                        state->has_continuation = false;
+                        if (state->compound_command_depth > 0) {
+                            state->compound_command_depth--;
+                        }
+                    }
+                }
+                
+                word_pos = 0;
+                memset(word, 0, sizeof(word));
+            }
+            
+            // Now handle the { or } character as a single-character keyword
+            if (c == '{') {
+                // Only increment depth if not already in a function definition
+                // (function keyword already incremented depth)
+                if (!state->in_function_definition) {
+                    state->compound_command_depth++;
+                }
+            } else if (c == '}') {
+                if (state->compound_command_depth > 0) {
+                    state->compound_command_depth--;
+                }
+                if (state->compound_command_depth == 0) {
+                    state->in_function_definition = false;
+                }
+            }
         } else {
             if (word_pos > 0) {
                 word[word_pos] = '\0';
@@ -266,6 +335,25 @@ static void analyze_line(const char *line, input_state_t *state) {
                 state->in_for_loop = false;
                 state->in_until_loop = false;
                 state->has_continuation = false;  // Clear continuation flag when closing loop
+                if (state->compound_command_depth > 0) {
+                    state->compound_command_depth--;
+                }
+            } else if (strcmp(word, "esac") == 0) {
+                state->in_case_statement = false;
+                state->has_continuation = false;  // Clear continuation flag when closing case
+                if (state->compound_command_depth > 0) {
+                    state->compound_command_depth--;
+                }
+            } else if (strcmp(word, "}") == 0) {
+                if (state->compound_command_depth > 0) {
+                    state->compound_command_depth--;
+                }
+                if (state->compound_command_depth == 0) {
+                    state->in_function_definition = false;
+                }
+            } else if (strcmp(word, "fi") == 0) {
+                state->in_if_statement = false;
+                state->has_continuation = false;  // Clear continuation flag when closing if
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
