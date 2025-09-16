@@ -381,18 +381,20 @@ function config_init() {
 }
 
 function config_validate() {
-    local required_keys=("database.host" "api.port" "logging.level")
-    local missing_keys=()
+    local required_keys="database.host api.port logging.level"
+    local missing_keys=""
     
-    for key in "${required_keys[@]}"; do
+    for key in $required_keys; do
         if ! config_has_key "$key"; then
-            missing_keys+=("$key")
+            missing_keys="$missing_keys $key"
         fi
     done
     
-    if [[ ${#missing_keys[@]} -gt 0 ]]; then
+    if [ -n "$missing_keys" ]; then
         echo "Missing required configuration keys:" >&2
-        printf '  - %s\n' "${missing_keys[@]}" >&2
+        for key in $missing_keys; do
+            echo "  - $key" >&2
+        done
         return 1
     fi
     
@@ -518,7 +520,7 @@ function migrate_database() {
     local total=${#pending_migrations[@]}
     local current=0
     
-    for migration in "${pending_migrations[@]}"; do
+    for migration in $pending_migrations; do
         ((current++))
         echo "Applying migration $current/$total: $(basename "$migration")"
         
@@ -570,9 +572,9 @@ function monitor_deployment() {
         local failed_count=0
         failed_services=()
         
-        for url in "${service_urls[@]}"; do
+        for url in $service_urls; do
             if ! check_service_health "$url"; then
-                failed_services+=("$url")
+                failed_services="$failed_services $url"
                 ((failed_count++))
             fi
         done
@@ -796,7 +798,7 @@ function advanced_deployment_logic() {
     local services_to_check=("api" "web" "worker")
     local all_healthy=true
     
-    for service in "${services_to_check[@]}"; do
+    for service in $services_to_check; do
         if ! verify_service_health "$service"; then
             echo "Service $service failed health check" >&2
             all_healthy=false

@@ -90,7 +90,7 @@ function calculate() {
     return $result
 }
 
-for i in {1..3}; do
+for i in 1 2 3; do
     calculate $i
 done
 EOF
@@ -218,11 +218,11 @@ debug profile report
 ```bash
 # Interactive debugging of complex scripts
 function backup_databases() {
-    local servers=("db1" "db2" "db3")
+    local servers="db1 db2 db3"
     local backup_dir="/backups/$(date +%Y-%m-%d)"
     
     # Set breakpoint for inspection
-    for server in "${servers[@]}"; do
+    for server in $servers; do
         echo "Backing up $server..."
         # Backup logic here
     done

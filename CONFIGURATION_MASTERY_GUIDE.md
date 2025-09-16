@@ -476,30 +476,30 @@ EOF
 ```bash
 function validate_enterprise_config() {
     local config_file=$1
-    local errors=()
+    local errors=""
     
     echo "Validating enterprise configuration..."
     
     # Check required sections
-    local required_sections=("security" "logging" "audit")
-    for section in "${required_sections[@]}"; do
+    local required_sections="security logging audit"
+    for section in $required_sections; do
         if ! config_has_section "$config_file" "$section"; then
-            errors+=("Missing required section: $section")
+            errors="$errors Missing required section: $section\n"
         fi
     done
     
     # Check security requirements
     local audit_enabled
     audit_enabled=$(config_get "$config_file" "security.audit_commands")
-    if [[ "$audit_enabled" != "true" ]]; then
-        errors+=("Security audit must be enabled")
+    if [ "$audit_enabled" != "true" ]; then
+        errors="$errors Security audit must be enabled\n"
     fi
     
     # Check logging configuration
     local log_level
-    log_level=$(config_get "$config_file" "logging.log_level")
-    if [[ ! "$log_level" =~ ^(DEBUG|INFO|WARN|ERROR)$ ]]; then
-        errors+=("Invalid log level: $log_level")
+    log_level=$(config_get "$config_file" "logging.level")
+    if [ "$log_level" != "info" ] && [ "$log_level" != "warn" ] && [ "$log_level" != "error" ]; then
+        errors="$errors Invalid logging level: $log_level\n"
     fi
     
     # Report validation results
