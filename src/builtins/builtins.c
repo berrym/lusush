@@ -976,9 +976,22 @@ int bin_source(int argc, char **argv) {
         return 1;
     }
 
+    // Get global executor for script context tracking
+    executor_t *executor = get_global_executor();
+    if (!executor) {
+        fclose(file);
+        error_message("source: no execution context available");
+        return 1;
+    }
+
+    // Set script execution context for debugging
+    executor_set_script_context(executor, argv[1], 1);
+
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
+    int line_number = 1;
+    int result = 0;
 
     while ((read = getline(&line, &len, file)) != -1) {
         // Remove newline
@@ -986,13 +999,32 @@ int bin_source(int argc, char **argv) {
             line[read - 1] = '\0';
         }
 
+        // Skip empty lines and comments, but still track line numbers
+        char *trimmed = line;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (*trimmed == '\0' || *trimmed == '#') {
+            line_number++;
+            continue;
+        }
+
+        // Update current line number for debugging BEFORE parsing
+        executor_set_script_context(executor, argv[1], line_number);
+
         // Parse and execute the line
-        parse_and_execute(line);
+        int line_result = parse_and_execute(line);
+        if (line_result != 0) {
+            result = line_result;
+        }
+
+        line_number++;
     }
+
+    // Clear script execution context
+    executor_clear_script_context(executor);
 
     free(line);
     fclose(file);
-    return 0;
+    return result;
 }
 
 /**

@@ -252,8 +252,11 @@ void debug_handle_user_input(debug_context_t *ctx, const char *input) {
         trimmed++;
     }
 
-    // Handle empty input (repeat last command)
+    // Handle empty input (default to continue)
     if (strlen(trimmed) == 0) {
+        debug_printf(ctx, "Continuing execution...\n");
+        ctx->step_mode = false;
+        ctx->mode = DEBUG_MODE_CONTINUE;
         free(cmd);
         return;
     }
@@ -417,20 +420,48 @@ void debug_enter_interactive_mode(debug_context_t *ctx) {
     debug_printf(
         ctx, "\nEntering interactive debug mode. Type 'help' for commands.\n");
 
+    // Check if we're in interactive mode by testing if stdin is connected to a terminal
+    bool is_interactive = isatty(STDIN_FILENO);
+    FILE *debug_input = stdin;
+    
+    // If not interactive, try to open the controlling terminal
+    if (!is_interactive) {
+        debug_input = fopen("/dev/tty", "r");
+        if (!debug_input) {
+            debug_printf(ctx, "Warning: Cannot access controlling terminal for interactive debugging.\n");
+            debug_printf(ctx, "Run lusush interactively for full debugging experience.\n");
+            debug_printf(ctx, "Continuing execution...\n");
+            ctx->step_mode = false;
+            return;
+        }
+        debug_printf(ctx, "Opened controlling terminal for debug input.\n");
+    }
+
+    // Show available commands
+    debug_printf(ctx, "Common commands: c/continue, s/step, n/next, vars, help, q/quit\n");
+
     while (ctx->step_mode) {
         debug_printf(ctx, "(lusush-debug) ");
         fflush(ctx->debug_output);
 
         char input[256];
-        if (fgets(input, sizeof(input), stdin)) {
+        if (fgets(input, sizeof(input), debug_input)) {
             debug_handle_user_input(ctx, input);
         } else {
-            // EOF or error - exit debug mode
-            debug_printf(ctx, "\nExiting debug mode\n");
+            // EOF or error - check why
+            if (feof(debug_input)) {
+                debug_printf(ctx, "\nEOF received - continuing execution\n");
+            } else {
+                debug_printf(ctx, "\nInput error - continuing execution\n");
+            }
             ctx->step_mode = false;
-            ctx->enabled = false;
             break;
         }
+    }
+    
+    // Close the debug input stream if we opened /dev/tty
+    if (!is_interactive && debug_input != stdin) {
+        fclose(debug_input);
     }
 }
 

@@ -88,6 +88,10 @@ typedef struct string_builder {
 // parser functions
 int parse_and_execute(const char *command);
 
+// executor access functions
+struct executor;
+struct executor *get_global_executor(void);
+
 // symbol table variable functions
 char *get_shell_varp(char *, char *);
 int get_shell_vari(char *, int);

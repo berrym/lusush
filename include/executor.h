@@ -76,6 +76,11 @@ typedef struct executor {
     pid_t shell_pgid;             // Shell process group ID
     loop_control_t loop_control;  // Loop control state
     int loop_depth;               // Current loop nesting depth
+    
+    // Script execution context for debugging
+    char *current_script_file;    // Current script file being executed
+    int current_script_line;      // Current line number in script
+    bool in_script_execution;     // True if executing from script file
 } executor_t;
 
 // Main execution interface
@@ -113,5 +118,11 @@ int executor_builtin_bg(executor_t *executor, char **argv);
 // Function parameter management utilities
 function_param_t *create_function_param(const char *name, const char *default_value);
 void free_function_params(function_param_t *params);
+
+// Script context management for debugging
+void executor_set_script_context(executor_t *executor, const char *script_file, int line_number);
+void executor_clear_script_context(executor_t *executor);
+const char *executor_get_current_script_file(executor_t *executor);
+int executor_get_current_script_line(executor_t *executor);
 
 #endif // EXECUTOR_H

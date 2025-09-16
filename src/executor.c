@@ -127,6 +127,9 @@ executor_t *executor_new(void) {
     executor->error_message = NULL;
     executor->has_error = false;
     executor->functions = NULL;
+    executor->current_script_file = NULL;
+    executor->current_script_line = 0;
+    executor->in_script_execution = false;
     initialize_job_control(executor);
 
     return executor;
@@ -148,6 +151,9 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->error_message = NULL;
     executor->has_error = false;
     executor->functions = NULL;
+    executor->current_script_file = NULL;
+    executor->current_script_line = 0;
+    executor->in_script_execution = false;
     initialize_job_control(executor);
 
     return executor;
@@ -167,6 +173,9 @@ void executor_free(executor_t *executor) {
             free(func);
             func = next;
         }
+
+        // Free script context
+        free(executor->current_script_file);
 
         free(executor);
     }
@@ -195,6 +204,40 @@ void executor_set_symtable(executor_t *executor, symtable_manager_t *symtable) {
         // Don't free the old symtable if it exists - it might be external
         executor->symtable = symtable;
     }
+}
+
+// Script context management for debugging
+void executor_set_script_context(executor_t *executor, const char *script_file, int line_number) {
+    if (!executor) {
+        return;
+    }
+
+    // Free existing script file name
+    free(executor->current_script_file);
+
+    // Set new script context
+    executor->current_script_file = script_file ? strdup(script_file) : NULL;
+    executor->current_script_line = line_number;
+    executor->in_script_execution = (script_file != NULL);
+}
+
+void executor_clear_script_context(executor_t *executor) {
+    if (!executor) {
+        return;
+    }
+
+    free(executor->current_script_file);
+    executor->current_script_file = NULL;
+    executor->current_script_line = 0;
+    executor->in_script_execution = false;
+}
+
+const char *executor_get_current_script_file(executor_t *executor) {
+    return executor ? executor->current_script_file : NULL;
+}
+
+int executor_get_current_script_line(executor_t *executor) {
+    return executor ? executor->current_script_line : 0;
 }
 
 // Check for errors
@@ -299,8 +342,10 @@ static int execute_node(executor_t *executor, node_t *node) {
     // Advanced debug system integration
     DEBUG_TRACE_NODE(node, __FILE__, __LINE__);
 
-    // Check for breakpoints
-    DEBUG_BREAKPOINT_CHECK(__FILE__, __LINE__);
+    // Check for breakpoints using script context
+    if (executor->in_script_execution && executor->current_script_file) {
+        DEBUG_BREAKPOINT_CHECK(executor->current_script_file, executor->current_script_line);
+    }
 
     switch (node->type) {
     case NODE_COMMAND:

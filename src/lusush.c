@@ -151,3 +151,8 @@ int parse_and_execute(const char *command) {
 
     return exit_status;
 }
+
+// Get global executor for use by builtins (e.g., source command for debugging)
+executor_t *get_global_executor(void) {
+    return global_executor;
+}

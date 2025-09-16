@@ -264,21 +264,62 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
     // Clean variable name (remove $ prefix if present)
     const char *clean_name = (name[0] == '$') ? name + 1 : name;
 
-    // Try to get variable value from global symtable
-    const char *value = symtable_get_global(clean_name);
+    // Get current executor to access symtable
+    extern executor_t *current_executor;
+    if (!current_executor) {
+        debug_printf(ctx, "  Error: No executor context available\n");
+        return;
+    }
+
+    // First try local variables if in function context
+    const char *value = NULL;
+    const char *scope = "unknown";
+
+    if (ctx->current_frame && ctx->current_frame->local_vars) {
+        // TODO: Look up in local variables when symtable iteration is available
+        debug_printf(ctx, "  (checking local scope - needs implementation)\n");
+    }
+
+    // Try global symtable
+    value = symtable_get_global(clean_name);
+    if (value) {
+        scope = "global";
+    } else {
+        // Check environment variables
+        value = getenv(clean_name);
+        if (value) {
+            scope = "environment";
+        }
+    }
+
     if (value) {
         debug_printf(ctx, "  Value: '%s'\n", value);
         debug_printf(ctx, "  Type: string\n");
-        debug_printf(ctx, "  Length: %zu\n", strlen(value));
-        debug_printf(ctx, "  Scope: global\n");
+        debug_printf(ctx, "  Length: %zu characters\n", strlen(value));
+        debug_printf(ctx, "  Scope: %s\n", scope);
+        
+        // Show first few characters if value is very long
+        if (strlen(value) > 100) {
+            char preview[104];
+            strncpy(preview, value, 100);
+            preview[100] = '\0';
+            debug_printf(ctx, "  Preview: '%.100s...'\n", preview);
+        }
     } else {
         // Check for special variables
         if (strcmp(clean_name, "?") == 0) {
-            debug_printf(ctx, "  Value: '%s' (exit status)\n",
-                         symtable_get_global("?") ?: "0");
+            const char *exit_status = symtable_get_global("?") ?: "0";
+            debug_printf(ctx, "  Value: '%s' (last exit status)\n", exit_status);
+            debug_printf(ctx, "  Type: numeric\n");
+            debug_printf(ctx, "  Scope: special\n");
         } else if (strcmp(clean_name, "$") == 0) {
-            debug_printf(ctx, "  Value: '%s' (shell PID)\n",
-                         symtable_get_global("$") ?: "unknown");
+            const char *shell_pid = symtable_get_global("$");
+            if (!shell_pid) {
+                shell_pid = "unknown";
+            }
+            debug_printf(ctx, "  Value: '%s' (shell PID)\n", shell_pid);
+            debug_printf(ctx, "  Type: numeric\n");
+            debug_printf(ctx, "  Scope: special\n");
         } else if (strcmp(clean_name, "PWD") == 0) {
             debug_printf(ctx, "  Value: '%s' (current directory)\n",
                          symtable_get_global("PWD") ?: "unknown");
@@ -318,30 +359,51 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
 
     debug_print_header(ctx, "Variable Inspection");
 
+    // Get current executor to access symtable
+    extern executor_t *current_executor;
+    if (!current_executor) {
+        debug_printf(ctx, "No executor context available\n");
+        return;
+    }
+
     debug_printf(ctx, "Current scope: %s\n",
                  ctx->current_frame ? ctx->current_frame->function_name
                                     : "global");
     debug_printf(ctx, "\n");
 
-    // Show commonly accessed variables
-    const char *common_vars[] = {"PWD",   "HOME", "PATH", "USER",
-                                 "SHELL", "?",    "$",    NULL};
-    bool found_any = false;
+    // Show local function variables if in function context
+    if (ctx->current_frame && ctx->current_frame->local_vars) {
+        debug_printf(ctx, "Local Variables:\n");
+        symtable_t *locals = ctx->current_frame->local_vars;
+        // TODO: Implement symtable iteration to show local variables
+        debug_printf(ctx, "  (local variables inspection needs symtable iteration)\n");
+        debug_printf(ctx, "\n");
+    }
 
-    debug_printf(ctx, "Shell Variables:\n");
-    for (int i = 0; common_vars[i]; i++) {
-        const char *value = symtable_get_global(common_vars[i]);
-        if (value) {
-            debug_printf(ctx, "  %-8s = '%s'\n", common_vars[i], value);
-            found_any = true;
+    // Show shell variables using symtable manager
+    if (current_executor->symtable) {
+        debug_printf(ctx, "Shell Variables:\n");
+        
+        // Show commonly accessed variables
+        const char *common_vars[] = {"PWD", "HOME", "PATH", "USER", "SHELL", 
+                                     "?", "$", "OLDPWD", "PS1", "PS2", NULL};
+        bool found_any = false;
+
+        for (int i = 0; common_vars[i]; i++) {
+            const char *value = symtable_get_global(common_vars[i]);
+            if (value) {
+                debug_printf(ctx, "  %-8s = '%s'\n", common_vars[i], value);
+                found_any = true;
+            }
         }
+
+        if (!found_any) {
+            debug_printf(ctx, "  (no standard shell variables found)\n");
+        }
+        debug_printf(ctx, "\n");
     }
 
-    if (!found_any) {
-        debug_printf(ctx, "  (no standard variables found)\n");
-    }
-
-    debug_printf(ctx, "\nEnvironment Variables:\n");
+    debug_printf(ctx, "Environment Variables (first 10):\n");
     // Show a few key environment variables
     extern char **environ;
     int count = 0;
@@ -355,10 +417,8 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
     }
 
     if (environ && *environ) {
-        debug_printf(ctx, "  ... (showing first %d environment variables)\n",
-                     count);
-        debug_printf(ctx,
-                     "  Use 'p <varname>' to inspect specific variables\n");
+        debug_printf(ctx, "\nUse 'debug print <varname>' to inspect specific variables\n");
+        debug_printf(ctx, "Use 'debug stack' to see call stack and context\n");
     }
 }
 
