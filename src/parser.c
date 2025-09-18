@@ -36,6 +36,8 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
 static void set_parser_error(parser_t *parser, const char *message);
 static bool expect_token(parser_t *parser, token_type_t expected);
 
+
+
 // Create new parser
 parser_t *parser_new(const char *input) {
     if (!input) {
@@ -1915,3 +1917,5 @@ static node_t *parse_function_definition(parser_t *parser) {
 
     return function_node;
 }
+
+

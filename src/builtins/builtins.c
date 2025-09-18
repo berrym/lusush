@@ -987,42 +987,38 @@ int bin_source(int argc, char **argv) {
     // Set script execution context for debugging
     executor_set_script_context(executor, argv[1], 1);
 
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    int line_number = 1;
+    extern char *get_input_complete(FILE *in);
+    char *complete_input;
     int result = 0;
+    int construct_number = 1;
 
-    while ((read = getline(&line, &len, file)) != -1) {
-        // Remove newline
-        if (line[read - 1] == '\n') {
-            line[read - 1] = '\0';
-        }
-
-        // Skip empty lines and comments, but still track line numbers
-        char *trimmed = line;
-        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-        if (*trimmed == '\0' || *trimmed == '#') {
-            line_number++;
+    // Read complete multi-line constructs instead of line by line
+    while ((complete_input = get_input_complete(file)) != NULL) {
+        // Skip empty constructs
+        char *trimmed = complete_input;
+        while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n') trimmed++;
+        if (*trimmed == '\0') {
+            free(complete_input);
+            construct_number++;
             continue;
         }
 
-        // Update current line number for debugging BEFORE parsing
-        executor_set_script_context(executor, argv[1], line_number);
+        // Update script context for debugging
+        executor_set_script_context(executor, argv[1], construct_number);
 
-        // Parse and execute the line
-        int line_result = parse_and_execute(line);
-        if (line_result != 0) {
-            result = line_result;
+        // Parse and execute the complete construct
+        int construct_result = parse_and_execute(complete_input);
+        if (construct_result != 0) {
+            result = construct_result;
         }
 
-        line_number++;
+        free(complete_input);
+        construct_number++;
     }
 
     // Clear script execution context
     executor_clear_script_context(executor);
 
-    free(line);
     fclose(file);
     return result;
 }

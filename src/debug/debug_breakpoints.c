@@ -492,7 +492,7 @@ void debug_enter_interactive_mode(debug_context_t *ctx) {
     if (!is_interactive && debug_input != stdin) {
         fclose(debug_input);
     }
-    
+    debug_printf(ctx, "Exited interactive debug mode\n");
     // Don't clean up execution context here - let the loop manage its own context
 }
 

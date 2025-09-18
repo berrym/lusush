@@ -81,6 +81,7 @@ typedef struct executor {
     char *current_script_file;    // Current script file being executed
     int current_script_line;      // Current line number in script
     bool in_script_execution;     // True if executing from script file
+
 } executor_t;
 
 // Main execution interface

@@ -325,6 +325,8 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
     return result;
 }
 
+
+
 // Core node execution dispatcher
 static int execute_node(executor_t *executor, node_t *node) {
     if (!node) {
@@ -342,14 +344,9 @@ static int execute_node(executor_t *executor, node_t *node) {
     // Advanced debug system integration
     DEBUG_TRACE_NODE(node, __FILE__, __LINE__);
 
-    // Check for breakpoints using script context with execution context preservation
+    // Check for breakpoints using script context
     if (executor->in_script_execution && executor->current_script_file) {
-        if (g_debug_context && g_debug_context->enabled) {
-            debug_save_execution_context(g_debug_context, executor, node);
-            if (debug_check_breakpoint(g_debug_context, executor->current_script_file, executor->current_script_line)) {
-                debug_restore_execution_context(g_debug_context, executor, node);
-            }
-        }
+        DEBUG_BREAKPOINT_CHECK(executor->current_script_file, executor->current_script_line);
     }
 
     switch (node->type) {
@@ -1000,6 +997,8 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
 
+
+
     while (iteration < max_iterations) {
         // Execute condition
         int condition_result = execute_node(executor, condition);
@@ -1022,8 +1021,11 @@ static int execute_while(executor_t *executor, node_t *while_node) {
 
     if (iteration >= max_iterations) {
         set_executor_error(executor, "While loop exceeded maximum iterations");
+
         return 1;
     }
+
+
 
     return last_result;
 }
@@ -1045,6 +1047,8 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     int last_result = 0;
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
+
+
 
     while (iteration < max_iterations) {
         // Execute condition
@@ -1069,8 +1073,11 @@ static int execute_until(executor_t *executor, node_t *until_node) {
 
     if (iteration >= max_iterations) {
         set_executor_error(executor, "Until loop exceeded maximum iterations");
+
         return 1;
     }
+
+
 
     return last_result;
 }
@@ -1100,6 +1107,8 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         set_executor_error(executor, "Failed to create loop scope");
         return 1;
     }
+
+
 
     // Notify debug system we're entering a loop
     if (g_debug_context && g_debug_context->enabled) {
@@ -1231,6 +1240,8 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     if (g_debug_context && g_debug_context->enabled) {
         debug_exit_loop(g_debug_context);
     }
+
+
 
     // Pop loop scope
     symtable_pop_scope(executor->symtable);
