@@ -131,7 +131,8 @@ node_t *parser_parse_command_line(parser_t *parser) {
 static void skip_separators(parser_t *parser) {
     while (tokenizer_match(parser->tokenizer, TOK_SEMICOLON) ||
            tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
-           tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+           tokenizer_match(parser->tokenizer, TOK_WHITESPACE) ||
+           tokenizer_match(parser->tokenizer, TOK_COMMENT)) {
         tokenizer_advance(parser->tokenizer);
     }
 }
@@ -263,9 +264,10 @@ static node_t *parse_command_list(parser_t *parser) {
     node_t *current = NULL;
 
     while (!tokenizer_match(parser->tokenizer, TOK_EOF) && !parser->has_error) {
-        // Skip separators and newlines
+        // Skip separators, newlines, and comments
         while (tokenizer_match(parser->tokenizer, TOK_SEMICOLON) ||
-               tokenizer_match(parser->tokenizer, TOK_NEWLINE)) {
+               tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+               tokenizer_match(parser->tokenizer, TOK_COMMENT)) {
             tokenizer_advance(parser->tokenizer);
         }
 
