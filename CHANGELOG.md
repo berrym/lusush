@@ -77,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy directories (archive/, readline/, research/, scripts/, tools/)
 - Development artifacts and assessment documents
 - Redundant documentation in docs/ directory
-- Incorrect MIT license references throughout codebase
+- Incorrect MIT license references throughout codebase - RESOLVED: Updated to GPL-3.0+
 
 ## [Unreleased]
 ## [1.2.1] - 2025-01-16 (Enhanced)

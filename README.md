@@ -3,7 +3,7 @@
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/lusush/lusush)
 [![POSIX Compliance](https://img.shields.io/badge/POSIX-85%25-orange)](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 [![Version](https://img.shields.io/badge/version-v1.3.0--dev-orange)](https://github.com/lusush/lusush/releases)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0+-blue)](LICENSE)
 
 **Revolutionary shell that transforms script development with integrated interactive debugging, modern UI features, and enterprise-grade configuration.**
 
@@ -386,7 +386,9 @@ For enterprise deployments and professional support, contact the development tea
 
 ## 📜 **License**
 
-Lusush is released under the MIT License. See [LICENSE](LICENSE) for details.
+Lusush is released under the GPL-3.0+ License. See [LICENSE](LICENSE) for details.
+
+**License Note**: Lusush uses GNU Readline for line editing, which requires GPL licensing. This ensures compatibility with the readline library while maintaining the copyleft protections of the GPL.
 
 ---
 
