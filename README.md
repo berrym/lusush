@@ -1,7 +1,7 @@
 # Lusush - The World's First Shell Development Environment
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/lusush/lusush)
-[![POSIX Compliance](https://img.shields.io/badge/POSIX-100%25-blue)](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
+[![POSIX Compliance](https://img.shields.io/badge/POSIX-85%25-orange)](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 [![Version](https://img.shields.io/badge/version-v1.3.0--dev-orange)](https://github.com/lusush/lusush/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -91,7 +91,7 @@ source test.sh
 | Feature | Status | Description |
 |---------|---------|-------------|
 | **Interactive Debugger** | ✅ **Complete** | Breakpoints, variable inspection, step execution |
-| **POSIX Compliance** | ✅ **100%** | Full POSIX shell compliance (49/49 tests) |
+| **POSIX Compliance** | ✅ **85%** | Strong POSIX compatibility (134/136 tests passing) |
 | **Multiline Support** | ✅ **Complete** | Functions, loops, conditionals, here documents |
 | **Advanced Functions** | ✅ **Complete** | Parameter validation, return values, local scope |
 
@@ -250,6 +250,26 @@ Lusush is designed with a developer-first philosophy:
 - **BSD**: Compatible with BSD systems
 - **Consistent**: Same features across all platforms
 
+### **Compatibility & Limitations**
+
+**✅ What Lusush Supports:**
+- **POSIX Shell Grammar**: 85% compliance with POSIX shell standards
+- **Standard Shell Features**: Variables, functions, loops, conditionals, pipes, redirections
+- **POSIX Built-ins**: Standard POSIX commands and utilities
+- **Shell Scripts**: POSIX-compliant shell scripts work reliably
+
+**❌ What Lusush Currently Does NOT Support:**
+- **Bash Extensions**: `[[ ]]` tests, `{1..10}` brace expansion, associative arrays
+- **Bash Arrays**: `array[index]` syntax, `${array[@]}` expansions  
+- **Zsh Extensions**: Advanced glob patterns, parameter expansion modifiers
+- **Advanced Features**: Process substitution `<()`, co-processes, advanced parameter expansions
+
+**📋 Planned for Future:**
+- Bash compatibility layer for common extensions
+- Enhanced parameter expansion support
+- Advanced array implementations
+- Extended glob pattern support
+
 ---
 
 ## 📚 **Documentation**
@@ -274,7 +294,7 @@ Lusush is designed with a developer-first philosophy:
 
 ### **Production Ready Features** ✅
 - **Interactive debugger**: Full breakpoint, variable inspection, loop debugging support
-- **POSIX compliance**: 100% compatibility (49/49 tests passing)
+- **POSIX compliance**: 85% compatibility (134/136 comprehensive tests passing)
 - **Core shell functionality**: All standard shell operations working reliably
 - **Git integration**: Real-time branch/status display in themed prompts  
 - **Professional themes**: 6 enterprise-grade themes fully functional
@@ -331,7 +351,7 @@ We welcome contributions to the world's first Shell Development Environment!
 | Feature | Lusush | Bash | Zsh | Fish | PowerShell |
 |---------|--------|------|-----|------|------------|
 | **Interactive Debugger** | ✅ **Only Shell** | ❌ | ❌ | ❌ | ⚠️ Limited |
-| **POSIX Compliance** | ✅ 100% | ✅ 99% | ✅ 95% | ❌ 60% | ❌ N/A |
+| **POSIX Compliance** | ✅ 85% | ✅ 98% | ✅ 95% | ❌ 60% | ❌ N/A |
 | **Syntax Highlighting** | 🟡 *In Development* | ❌ | ⚠️ Plugin | ✅ Built-in | ✅ Built-in |
 | **Autosuggestions** | 🟡 *In Development* | ❌ | ⚠️ Plugin | ✅ Built-in | ✅ Built-in |
 | **Git Integration** | ✅ Built-in | ⚠️ Manual | ⚠️ Plugin | ⚠️ Plugin | ⚠️ Plugin |
@@ -347,7 +367,7 @@ We welcome contributions to the world's first Shell Development Environment!
 
 - **Industry First**: World's first shell with integrated interactive debugger
 - **Innovation**: Revolutionary approach to shell design and development workflow
-- **Technical Excellence**: 100% POSIX compliance with modern features
+- **Technical Excellence**: Strong POSIX compliance (85%) with modern debugging features
 
 ---
 

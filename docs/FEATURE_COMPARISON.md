@@ -22,7 +22,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 | Feature | Lusush | Bash | Zsh | Fish | PowerShell | Dash |
 |---------|--------|------|-----|------|------------|------|
-| **POSIX Compliance** | ✅ 100% | ✅ 99% | ✅ 95% | ❌ 60% | ❌ N/A | ✅ 100% |
+| **POSIX Compliance** | ✅ 85% | ✅ 98% | ✅ 95% | ❌ 60% | ❌ N/A | ✅ 100% |
 | **Interactive Use** | ✅ Excellent | ✅ Good | ✅ Excellent | ✅ Excellent | ✅ Good | ❌ Minimal |
 | **Scripting Support** | ✅ Advanced | ✅ Excellent | ✅ Excellent | ⚠️ Limited | ✅ Advanced | ✅ Fast |
 | **Performance** | ✅ Fast | ✅ Good | ⚠️ Moderate | ✅ Fast | ⚠️ Moderate | ✅ Very Fast |
@@ -81,7 +81,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 **Best Use Case for Lusush**: Script development, debugging complex scripts, modern development workflows
 
-**Best Use Case for Bash**: System administration, legacy script compatibility, universal availability
+**Best Use Case for Bash**: System administration, legacy script compatibility, universal availability, advanced scripting features
 
 ### **Lusush vs. Zsh**
 
@@ -104,7 +104,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 **Lusush Advantages:**
 - **Interactive Debugging**: Complete debugging system vs. none in Fish
-- **POSIX Compliance**: 100% compatible vs. intentionally non-POSIX
+- **POSIX Compliance**: 85% compatible vs. intentionally non-POSIX
 - **Script Development**: Designed for development vs. interactive focus
 - **Enterprise Features**: Business-ready vs. personal use focus
 - **Git Integration**: Built-in professional themes vs. basic integration
@@ -160,7 +160,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 #### **Choose Bash When:**
 - **Universal Compatibility**: Need maximum compatibility across systems
-- **Legacy Scripts**: Working with existing large Bash script libraries
+- **Legacy Scripts**: Working with existing large Bash script libraries (Bash-specific features required)
 - **Simple Tasks**: Basic system administration without debugging needs
 - **Minimal Requirements**: Environments with strict dependency limitations
 
@@ -209,12 +209,12 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 **Migration Steps:**
 1. Install Lusush alongside Bash
-2. Test existing scripts (100% POSIX compatibility)
+2. Test existing scripts (85% POSIX compatibility - some advanced features may not work)
 3. Add debugging to problematic scripts
 4. Gradually adopt enhanced features
 5. Configure professional themes and git integration
 
-**Compatibility**: ✅ Full - All Bash scripts work in Lusush
+**Compatibility**: ⚠️ Limited - Only POSIX-compliant Bash scripts work. Bash-specific features like `[[ ]]`, arrays, brace expansion `{1..10}` are not supported
 
 ### **Migrating from Zsh to Lusush**
 
@@ -231,7 +231,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 4. Adapt complex Zsh functions if needed
 5. Set up debugging for script development
 
-**Compatibility**: ✅ High - Most Zsh scripts work with minor adjustments
+**Compatibility**: ⚠️ Limited - Only POSIX-compliant Zsh scripts work. Zsh-specific features, advanced expansions, and glob patterns are not supported
 
 ### **Migrating from Fish to Lusush**
 
@@ -282,7 +282,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 | Shell | Philosophy | Focus | Target Users |
 |-------|------------|-------|--------------|
-| **Lusush** | Development Environment | Script debugging & development | Professional developers |
+| **Lusush** | Development Environment | POSIX script debugging & development | Professional developers working with POSIX scripts |
 | **Bash** | Universal Compatibility | Broad compatibility & stability | System administrators |
 | **Zsh** | Power User Enhancement | Interactive enhancement & plugins | Power users |
 | **Fish** | User Experience | Interactive simplicity & usability | Daily interactive users |

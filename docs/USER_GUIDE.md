@@ -10,14 +10,16 @@ The complete guide to using Lusush - the world's first Shell Development Environ
 
 ## 🎯 **What is Lusush?**
 
-Lusush is a revolutionary POSIX-compliant shell that transforms script development by providing:
+Lusush is a POSIX-compliant shell (85% compliance) that provides unique script development capabilities through integrated debugging:
 
-- **Interactive Debugging**: Set breakpoints, inspect variables, step through code
-- **Modern Interface**: Syntax highlighting, autosuggestions, git integration
-- **Enterprise Features**: Advanced configuration, professional themes
-- **Development Focus**: Built specifically for script development workflows
+- **Interactive Debugging**: Set breakpoints, inspect variables, step through code *(unique among shells)*
+- **Modern Interface**: Syntax highlighting, autosuggestions, git integration *(in development)*
+- **POSIX Foundation**: Strong POSIX compliance for standard shell scripting
+- **Development Focus**: Built specifically for POSIX script development and debugging workflows
 
-> **Development Status**: Lusush is under active development. Core debugging functionality and documented features work reliably, but some advanced features are still being enhanced. Most features described in this guide work as expected.
+**Important**: Lusush focuses on POSIX shell scripting with debugging capabilities. For advanced shell features, Bash and Zsh remain more mature and feature-complete options.
+
+> **Development Status**: Lusush is under active development with 85% POSIX compliance. Core debugging functionality works reliably. Advanced shell features found in Bash/Zsh (arrays, `[[ ]]`, brace expansion) are not currently supported.
 
 ---
 
@@ -427,7 +429,7 @@ debug break conditions on    # Enable conditional breakpoints
 
 ### **POSIX Compliance** *(Production Ready)*
 
-Lusush maintains 100% POSIX compliance while adding modern features:
+Lusush maintains strong POSIX compliance (85%) while adding modern features:
 
 ```bash
 # All standard POSIX features work exactly as expected
@@ -886,8 +888,8 @@ Lusush is under active development with regular updates and new features.
 
 ### **What Works Reliably**
 - Interactive debugging system (production ready)
-- POSIX shell compliance (100% compatible)
-- Basic enhanced display features
+- POSIX shell compliance (85% compatible)
+- Standard POSIX shell features (variables, functions, loops, pipes, redirections)
 - Configuration and theme systems
 - Cross-platform compatibility
 
@@ -896,6 +898,19 @@ Lusush is under active development with regular updates and new features.
 - Enhanced autosuggestion algorithms
 - Extended tab completion contexts
 - Additional debugging features
+
+### **Not Currently Supported (Use Bash/Zsh for these)**
+- **Bash Extensions**: `[[ ]]` tests, associative arrays, brace expansion `{1..10}`
+- **Advanced Arrays**: `array[index]` syntax, `${array[@]}` expansions
+- **Process Substitution**: `<()` and `>()` constructs
+- **Zsh Extensions**: Advanced glob patterns, parameter expansion modifiers
+- **Advanced Parameter Expansion**: Most non-POSIX parameter expansions
+
+### **When to Choose Lusush vs Others**
+- **Choose Lusush**: When you need to debug POSIX shell scripts or develop new POSIX-compliant scripts
+- **Choose Bash**: For system administration, existing Bash scripts, or need Bash-specific features
+- **Choose Zsh**: For advanced interactive use, complex customization, or Zsh-specific features
+- **Choose Fish**: For modern interactive experience without POSIX script compatibility needs
 
 Always check the latest documentation and release notes for current feature status. Most features documented in this guide work as described, but advanced features may be subject to ongoing enhancement.
 

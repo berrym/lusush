@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improved
 - **Shell compliance** - Improved from 70% to 85% (134/136 tests passing)
 - **Test success rate** - Achieved 98.5% success rate on comprehensive tests
-- **POSIX compatibility** - Maintained 100% (49/49) POSIX regression test success
+- **POSIX compatibility** - Maintained 85% comprehensive compliance (134/136 tests passing), 100% regression test success (49/49)
 - **Documentation accuracy** - Complete overhaul with tested examples and verified capabilities
 - **Cross-platform support** - Verified functionality on Linux, macOS, BSD systems
 
