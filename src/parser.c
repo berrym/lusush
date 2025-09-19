@@ -823,13 +823,13 @@ static node_t *parse_redirection(parser_t *parser) {
         char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
 
-        // Check if delimiter is quoted (no variable expansion if quoted)
+        // Check if delimiter is quoted (only single quotes disable expansion)
         bool expand_variables = true;
-        if ((delimiter[0] == '"' || delimiter[0] == '\'') &&
-            strlen(delimiter) > 2 &&
-            delimiter[strlen(delimiter) - 1] == delimiter[0]) {
+        if (target_token->type == TOK_STRING) {
+            // Single-quoted string - disable expansion
             expand_variables = false;
         }
+        // Double-quoted strings (TOK_EXPANDABLE_STRING) and unquoted allow expansion
 
         // Advance past the delimiter token first
         tokenizer_advance(parser->tokenizer);
@@ -963,6 +963,8 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
         }
     }
 
+
+
     size_t delimiter_len = strlen(match_delimiter);
 
     for (size_t i = 0; i < tokenizer->input_length - 1; i++) {
@@ -983,13 +985,45 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                 delimiter_pos++;
             }
 
-            // Check if delimiter matches
-            if (delimiter_pos + delimiter_len <= tokenizer->input_length &&
-                strncmp(&tokenizer->input[delimiter_pos], match_delimiter,
-                        delimiter_len) == 0) {
+            // Try to match delimiter - first check if it's quoted in the input
+            bool found_delimiter = false;
+            size_t delim_end_pos = delimiter_pos;
+            
+            // Check for quoted delimiter in input (like 'EOF' or "EOF")
+            if (delimiter_pos < tokenizer->input_length &&
+                (tokenizer->input[delimiter_pos] == '\'' || tokenizer->input[delimiter_pos] == '"')) {
+                char quote = tokenizer->input[delimiter_pos];
+                delim_end_pos = delimiter_pos + 1;
+                
+                // Find matching quote
+                while (delim_end_pos < tokenizer->input_length &&
+                       tokenizer->input[delim_end_pos] != quote) {
+                    delim_end_pos++;
+                }
+                
+                if (delim_end_pos < tokenizer->input_length &&
+                    tokenizer->input[delim_end_pos] == quote) {
+                    // Extract the quoted delimiter content
+                    size_t quoted_len = delim_end_pos - delimiter_pos - 1;
+                    if (quoted_len == strlen(match_delimiter) &&
+                        strncmp(&tokenizer->input[delimiter_pos + 1], match_delimiter, quoted_len) == 0) {
+                        found_delimiter = true;
+                        delim_end_pos++; // Include the closing quote
+                    }
+                }
+            } else {
+                // Check for unquoted delimiter
+                size_t match_len = strlen(match_delimiter);
+                if (delimiter_pos + match_len <= tokenizer->input_length &&
+                    strncmp(&tokenizer->input[delimiter_pos], match_delimiter, match_len) == 0) {
+                    found_delimiter = true;
+                    delim_end_pos = delimiter_pos + match_len;
+                }
+            }
 
+            if (found_delimiter) {
                 // Found our << delimiter, find the end of this line
-                content_start = delimiter_pos + delimiter_len;
+                content_start = delim_end_pos;
                 while (content_start < tokenizer->input_length &&
                        tokenizer->input[content_start] != '\n') {
                     content_start++;
@@ -1001,6 +1035,7 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
             }
         }
     }
+
 
     // Collect lines until we find the delimiter
     size_t content_size = 0;

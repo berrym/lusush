@@ -198,15 +198,28 @@ static void analyze_line(const char *line, input_state_t *state) {
             }
             
             if (delim_end > delim_start) {
+                // Handle quoted delimiters - strip surrounding quotes
+                const char *actual_delim_start = delim_start;
+                const char *actual_delim_end = delim_end;
+                
+                // Check for single or double quotes
+                if ((*delim_start == '\'' || *delim_start == '"') && 
+                    delim_end > delim_start + 1 && 
+                    *(delim_end - 1) == *delim_start) {
+                    // Strip quotes
+                    actual_delim_start++;
+                    actual_delim_end--;
+                }
+                
                 // Found a delimiter, enter here document mode
                 state->in_here_doc = true;
                 if (state->here_doc_delimiter) {
                     free(state->here_doc_delimiter);
                 }
-                size_t delim_len = delim_end - delim_start;
+                size_t delim_len = actual_delim_end - actual_delim_start;
                 state->here_doc_delimiter = malloc(delim_len + 1);
                 if (state->here_doc_delimiter) {
-                    strncpy(state->here_doc_delimiter, delim_start, delim_len);
+                    strncpy(state->here_doc_delimiter, actual_delim_start, delim_len);
                     state->here_doc_delimiter[delim_len] = '\0';
                 }
             }
@@ -758,7 +771,7 @@ char *get_input_complete(FILE *in) {
             break;
         }
     }
-    
+
     free(line);
     return accumulated;
 }
