@@ -346,7 +346,20 @@ static int execute_node(executor_t *executor, node_t *node) {
 
     // Check for breakpoints using script context
     if (executor->in_script_execution && executor->current_script_file) {
+        // Handle loop-aware line tracking
+        if (g_debug_context && g_debug_context->execution_context.in_loop) {
+            // If this is the first statement in a loop body, save the line number
+            if (g_debug_context->execution_context.loop_body_start_line == 0 && node->type == NODE_COMMAND) {
+                g_debug_context->execution_context.loop_body_start_line = executor->current_script_line;
+            }
+        }
+        
         DEBUG_BREAKPOINT_CHECK(executor->current_script_file, executor->current_script_line);
+        
+        // Only increment line number for simple sequential commands, not control structures
+        if (node->type == NODE_COMMAND) {
+            executor->current_script_line++;
+        }
     }
 
     switch (node->type) {
@@ -1223,6 +1236,11 @@ static int execute_for(executor_t *executor, node_t *for_node) {
             // Notify debug system of loop variable update
             if (g_debug_context && g_debug_context->enabled) {
                 debug_update_loop_variable(g_debug_context, var_name, expanded_words[i]);
+                
+                // Reset line number to loop body start for iterations after the first
+                if (i > 0 && g_debug_context->execution_context.loop_body_start_line > 0) {
+                    executor->current_script_line = g_debug_context->execution_context.loop_body_start_line;
+                }
             }
 
             // Execute body

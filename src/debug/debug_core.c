@@ -69,6 +69,7 @@ debug_context_t *debug_init(void) {
     ctx->execution_context.in_loop = false;
     ctx->execution_context.loop_variable = NULL;
     ctx->execution_context.loop_variable_value = NULL;
+    ctx->execution_context.loop_body_start_line = 0;
     ctx->execution_context.loop_iteration = 0;
     ctx->execution_context.loop_node = NULL;
 
@@ -113,6 +114,7 @@ void debug_cleanup(debug_context_t *ctx) {
     ctx->execution_context.in_loop = false;
     ctx->execution_context.loop_node = NULL;
     ctx->execution_context.loop_iteration = 0;
+    ctx->execution_context.loop_body_start_line = 0;
 
     // Close output files if they're not stderr
     if (ctx->debug_output != stderr) {

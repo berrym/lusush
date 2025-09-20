@@ -127,6 +127,7 @@ bool debug_check_breakpoint(debug_context_t *ctx, const char *file, int line) {
 
             // Enter interactive debugging mode
             debug_printf(ctx, "[DEBUG] About to enter interactive debug mode\n");
+            ctx->step_mode = true;  // Enable step mode for interactive debugging
             debug_enter_interactive_mode(ctx);
             debug_printf(ctx, "[DEBUG] Exited interactive debug mode\n");
 
@@ -619,6 +620,7 @@ void debug_cleanup_execution_context(debug_context_t *ctx) {
     ctx->execution_context.in_loop = false;
     ctx->execution_context.loop_node = NULL;
     ctx->execution_context.loop_iteration = 0;
+    ctx->execution_context.loop_body_start_line = 0;
 }
 
 // Loop context tracking functions (architectural fix)
@@ -633,6 +635,8 @@ void debug_enter_loop(debug_context_t *ctx, const char *loop_type, const char *v
                 value ? value : "unknown");
 
     ctx->execution_context.in_loop = true;
+    // Save the current line as the loop body start line (will be set to body start on first iteration)
+    ctx->execution_context.loop_body_start_line = 0; // Will be set when we hit the first loop body statement
     
     // Save loop variable information
     free(ctx->execution_context.loop_variable);
@@ -668,6 +672,7 @@ void debug_exit_loop(debug_context_t *ctx) {
 
     // Clean up loop context
     ctx->execution_context.in_loop = false;
+    ctx->execution_context.loop_body_start_line = 0;
     free(ctx->execution_context.loop_variable);
     free(ctx->execution_context.loop_variable_value);
     ctx->execution_context.loop_variable = NULL;

@@ -96,6 +96,7 @@ typedef struct debug_context {
         char *loop_variable_value;  // Current iteration value
         int loop_iteration;         // Current iteration number
         node_t *loop_node;         // AST node of current loop
+        int loop_body_start_line;   // Line number where loop body starts
     } execution_context;
 
     // Breakpoints
