@@ -7,7 +7,7 @@
 # Tests both presence and correct behavior according to POSIX standards
 # ===============================================================================
 
-SHELL_PATH="./builddir/lusush"
+SHELL_PATH="$(pwd)/builddir/lusush"
 TEMP_DIR="/tmp/lusush_posix_builtin_tests"
 LOGFILE="$TEMP_DIR/posix_builtin_test.log"
 

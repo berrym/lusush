@@ -233,6 +233,11 @@ bool autocorrect_prompt_user(const correction_results_t *results,
         return false;
     }
 
+    // Don't prompt if not running in an interactive terminal
+    if (!isatty(STDIN_FILENO)) {
+        return false;
+    }
+
     if (results->count == 0) {
         return false;
     }
