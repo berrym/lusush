@@ -778,8 +778,8 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         if (matches) return matches;
     }
     
-    // Handle path completion for file arguments
-    if (context == CONTEXT_FILE && text && (text[0] == '/' || text[0] == '~' || text[0] == '.')) {
+    // Final simple attempt: enable path completion for all file contexts
+    if (context == CONTEXT_FILE && text && strlen(text) > 0) {
         matches = lusush_path_completion(text);
         if (matches) return matches;
     }
@@ -1087,35 +1087,13 @@ static char **lusush_path_completion(const char *text) {
     }
     filtered_matches[filtered_idx] = NULL;
     
-    // Calculate the common prefix of filtered matches for substitution text
+    // Set substitution text following config completion pattern
     if (match_count == 1) {
-        // Single match - use the complete match
+        // Single match - use the complete match for substitution
         filtered_matches[0] = strdup(filtered_matches[1]);
     } else {
-        // Multiple matches - find common prefix
-        size_t common_len = strlen(filtered_matches[1]);
-        for (int i = 2; i < filtered_idx; i++) {
-            size_t j = 0;
-            while (j < common_len && j < strlen(filtered_matches[i]) &&
-                   filtered_matches[1][j] == filtered_matches[i][j]) {
-                j++;
-            }
-            common_len = j;
-        }
-        
-        // Use common prefix if it's longer than input text
-        if (common_len > text_len) {
-            filtered_matches[0] = malloc(common_len + 1);
-            if (filtered_matches[0]) {
-                strncpy(filtered_matches[0], filtered_matches[1], common_len);
-                filtered_matches[0][common_len] = '\0';
-            } else {
-                filtered_matches[0] = strdup(text);
-            }
-        } else {
-            // No useful common prefix beyond input
-            filtered_matches[0] = strdup(text);
-        }
+        // Multiple matches - keep original text, let readline show options
+        filtered_matches[0] = strdup(text);
     }
     
     // Clean up original matches
