@@ -1038,69 +1038,11 @@ static char **lusush_config_subcommand_completion(const char *text) {
 }
 
 /**
- * @brief Dedicated path completion for file paths
+ * @brief Simplified path completion using readline default behavior
  */
 static char **lusush_path_completion(const char *text) {
-    char **all_matches = rl_completion_matches(text, rl_filename_completion_function);
-    if (!all_matches) return NULL;
-    
-    // For paths, we want proper prefix completion behavior
-    // The first element is the substitution text, rest are display options
-    size_t text_len = strlen(text);
-    char **filtered_matches = NULL;
-    int match_count = 0;
-    
-    // Count valid matches - check if filename part starts with our text
-    for (int i = 1; all_matches[i]; i++) {
-        // Extract just the filename part for comparison
-        const char *filename = strrchr(all_matches[i], '/');
-        filename = filename ? filename + 1 : all_matches[i];
-        
-        if (strncmp(text, filename, text_len) == 0) {
-            match_count++;
-        }
-    }
-    
-    if (match_count == 0) {
-        // No valid prefix matches, return original results
-        return all_matches;
-    }
-    
-    // Create filtered results with proper prefix matches
-    filtered_matches = malloc((match_count + 2) * sizeof(char*));
-    if (!filtered_matches) {
-        for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
-        free(all_matches);
-        return NULL;
-    }
-    
-    // Add only the prefix-matching entries first
-    int filtered_idx = 1;
-    for (int i = 1; all_matches[i] && filtered_idx <= match_count; i++) {
-        // Extract just the filename part for comparison
-        const char *filename = strrchr(all_matches[i], '/');
-        filename = filename ? filename + 1 : all_matches[i];
-        
-        if (strncmp(text, filename, text_len) == 0) {
-            filtered_matches[filtered_idx++] = strdup(all_matches[i]);
-        }
-    }
-    filtered_matches[filtered_idx] = NULL;
-    
-    // Set substitution text following config completion pattern
-    if (match_count == 1) {
-        // Single match - use the complete match for substitution
-        filtered_matches[0] = strdup(filtered_matches[1]);
-    } else {
-        // Multiple matches - keep original text, let readline show options
-        filtered_matches[0] = strdup(text);
-    }
-    
-    // Clean up original matches
-    for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
-    free(all_matches);
-    
-    return filtered_matches;
+    // Use readline's default file completion without complex filtering
+    return rl_completion_matches(text, rl_filename_completion_function);
 }
 
 /**
