@@ -130,6 +130,7 @@ static void apply_syntax_highlighting(void);
 static void lusush_simple_syntax_display(void);
 static char **lusush_git_subcommand_completion(const char *text);
 static char **lusush_config_subcommand_completion(const char *text);
+static char **lusush_path_completion(const char *text);
 static char **lusush_directory_only_completion(const char *text);
 static bool lusush_is_shell_keyword(const char *word, size_t length);
 static bool lusush_is_shell_builtin(const char *word, size_t length);
@@ -776,6 +777,12 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         matches = lusush_config_subcommand_completion(text);
         if (matches) return matches;
     }
+    
+    // Handle path completion for file arguments
+    if (context == CONTEXT_FILE && text && (text[0] == '/' || text[0] == '~' || text[0] == '.')) {
+        matches = lusush_path_completion(text);
+        if (matches) return matches;
+    }
 
     // Try rich completion system for other cases
     if (lusush_are_rich_completions_enabled()) {
@@ -1028,6 +1035,94 @@ static char **lusush_config_subcommand_completion(const char *text) {
     }
     
     return matches;
+}
+
+/**
+ * @brief Dedicated path completion for file paths
+ */
+static char **lusush_path_completion(const char *text) {
+    char **all_matches = rl_completion_matches(text, rl_filename_completion_function);
+    if (!all_matches) return NULL;
+    
+    // For paths, we want proper prefix completion behavior
+    // The first element is the substitution text, rest are display options
+    size_t text_len = strlen(text);
+    char **filtered_matches = NULL;
+    int match_count = 0;
+    
+    // Count valid matches - check if filename part starts with our text
+    for (int i = 1; all_matches[i]; i++) {
+        // Extract just the filename part for comparison
+        const char *filename = strrchr(all_matches[i], '/');
+        filename = filename ? filename + 1 : all_matches[i];
+        
+        if (strncmp(text, filename, text_len) == 0) {
+            match_count++;
+        }
+    }
+    
+    if (match_count == 0) {
+        // No valid prefix matches, return original results
+        return all_matches;
+    }
+    
+    // Create filtered results with proper prefix matches
+    filtered_matches = malloc((match_count + 2) * sizeof(char*));
+    if (!filtered_matches) {
+        for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
+        free(all_matches);
+        return NULL;
+    }
+    
+    // Add only the prefix-matching entries first
+    int filtered_idx = 1;
+    for (int i = 1; all_matches[i] && filtered_idx <= match_count; i++) {
+        // Extract just the filename part for comparison
+        const char *filename = strrchr(all_matches[i], '/');
+        filename = filename ? filename + 1 : all_matches[i];
+        
+        if (strncmp(text, filename, text_len) == 0) {
+            filtered_matches[filtered_idx++] = strdup(all_matches[i]);
+        }
+    }
+    filtered_matches[filtered_idx] = NULL;
+    
+    // Calculate the common prefix of filtered matches for substitution text
+    if (match_count == 1) {
+        // Single match - use the complete match
+        filtered_matches[0] = strdup(filtered_matches[1]);
+    } else {
+        // Multiple matches - find common prefix
+        size_t common_len = strlen(filtered_matches[1]);
+        for (int i = 2; i < filtered_idx; i++) {
+            size_t j = 0;
+            while (j < common_len && j < strlen(filtered_matches[i]) &&
+                   filtered_matches[1][j] == filtered_matches[i][j]) {
+                j++;
+            }
+            common_len = j;
+        }
+        
+        // Use common prefix if it's longer than input text
+        if (common_len > text_len) {
+            filtered_matches[0] = malloc(common_len + 1);
+            if (filtered_matches[0]) {
+                strncpy(filtered_matches[0], filtered_matches[1], common_len);
+                filtered_matches[0][common_len] = '\0';
+            } else {
+                filtered_matches[0] = strdup(text);
+            }
+        } else {
+            // No useful common prefix beyond input
+            filtered_matches[0] = strdup(text);
+        }
+    }
+    
+    // Clean up original matches
+    for (int i = 0; all_matches[i]; i++) free(all_matches[i]);
+    free(all_matches);
+    
+    return filtered_matches;
 }
 
 /**
