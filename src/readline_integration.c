@@ -129,6 +129,7 @@ static char *lusush_completion_entry_function(const char *text, int state);
 static void apply_syntax_highlighting(void);
 static void lusush_simple_syntax_display(void);
 static char **lusush_git_subcommand_completion(const char *text);
+static char **lusush_config_subcommand_completion(const char *text);
 static char **lusush_directory_only_completion(const char *text);
 static bool lusush_is_shell_keyword(const char *word, size_t length);
 static bool lusush_is_shell_builtin(const char *word, size_t length);
@@ -770,6 +771,11 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         matches = lusush_directory_only_completion(text);
         if (matches) return matches;
     }
+    
+    if (cmd_len == 6 && memcmp(cmd_start, "config", 6) == 0 && start >= 7) {
+        matches = lusush_config_subcommand_completion(text);
+        if (matches) return matches;
+    }
 
     // Try rich completion system for other cases
     if (lusush_are_rich_completions_enabled()) {
@@ -882,6 +888,11 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         }
     }
     
+    // Fallback: if no specific completion was handled, use readline's default file completion
+    if (matches == NULL) {
+        matches = rl_completion_matches(text, rl_filename_completion_function);
+    }
+    
     return matches;
 }
 
@@ -961,6 +972,60 @@ static char **lusush_git_subcommand_completion(const char *text) {
         }
     }
     matches[match_index] = NULL;
+    
+    return matches;
+}
+
+/**
+ * @brief Config subcommand completion for config command
+ */
+static char **lusush_config_subcommand_completion(const char *text) {
+    static const char *config_subcommands[] = {
+        "show", "set", "get", "reload", "save", NULL
+    };
+    
+    char **matches = NULL;
+    int count = 0;
+    size_t text_len = strlen(text);
+    
+    // Count matching subcommands
+    for (int i = 0; config_subcommands[i]; i++) {
+        if (strncmp(text, config_subcommands[i], text_len) == 0) {
+            count++;
+        }
+    }
+    
+    if (count == 0) return NULL;
+    
+    // Allocate matches array
+    matches = malloc((count + 2) * sizeof(char*));
+    if (!matches) return NULL;
+    
+    // Find common prefix for substitution
+    if (count == 1) {
+        // Single match - find the matching command
+        for (int i = 0; config_subcommands[i]; i++) {
+            if (strncmp(text, config_subcommands[i], text_len) == 0) {
+                matches[0] = strdup(config_subcommands[i]);
+                matches[1] = strdup(config_subcommands[i]);
+                matches[2] = NULL;
+                break;
+            }
+        }
+    } else {
+        // Multiple matches - set substitution text to input text
+        matches[0] = strdup(text);
+        
+        // Add all matching commands
+        int match_idx = 1;
+        for (int i = 0; config_subcommands[i] && match_idx <= count; i++) {
+            if (strncmp(text, config_subcommands[i], text_len) == 0) {
+                matches[match_idx] = strdup(config_subcommands[i]);
+                match_idx++;
+            }
+        }
+        matches[match_idx] = NULL;
+    }
     
     return matches;
 }
