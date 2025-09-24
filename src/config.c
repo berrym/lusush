@@ -936,6 +936,9 @@ void config_apply_settings(void) {
     autocorrect_cfg.correct_external = config.autocorrect_external;
     autocorrect_cfg.case_sensitive = config.autocorrect_case_sensitive;
     autocorrect_load_config(&autocorrect_cfg);
+
+    // Update readline debug mode
+    lusush_readline_set_debug(config.debug_mode);
 }
 
 /**

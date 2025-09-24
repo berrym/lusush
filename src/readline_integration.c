@@ -1785,6 +1785,9 @@ void lusush_redisplay_with_suggestions(void) {
     if (!rl_line_buffer || !*rl_line_buffer || rl_point != rl_end || rl_end < 2) {
         // Clear any existing suggestion display
         if (current_suggestion) {
+            // Clear the visual suggestion from screen
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
             lusush_free_autosuggestion(current_suggestion);
             current_suggestion = NULL;
         }
@@ -1799,6 +1802,12 @@ void lusush_redisplay_with_suggestions(void) {
     }
     
     if (debug_enabled) fprintf(stderr, "[DEBUG] Getting suggestion for: '%s'\n", rl_line_buffer);
+    
+    // Clear any previous suggestion display first
+    if (current_suggestion) {
+        printf("\033[K");  // Clear to end of line
+        fflush(stdout);
+    }
     
     // Get current suggestion with error handling
     lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
@@ -1834,7 +1843,9 @@ void lusush_redisplay_with_suggestions(void) {
     } else {
         if (debug_enabled) fprintf(stderr, "[DEBUG] No valid suggestion found\n");
         if (current_suggestion) {
-            // Clear old suggestion if no new one
+            // Clear old suggestion display and free memory
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
             lusush_free_autosuggestion(current_suggestion);
             current_suggestion = NULL;
         }
@@ -2031,13 +2042,27 @@ static int lusush_accept_suggestion_word_key(int count, int key) {
     return rl_forward_word(count, key);
 }
 
+// Custom newline handler to clear autosuggestions when commands are executed
+static int lusush_newline_with_clear(int count, int key) {
+    // Clear any autosuggestion before executing command
+    if (current_suggestion) {
+        printf("\033[K");  // Clear to end of line
+        fflush(stdout);
+        lusush_free_autosuggestion(current_suggestion);
+        current_suggestion = NULL;
+    }
+    
+    // Execute normal newline behavior
+    return rl_newline(count, key);
+}
+
 static void setup_key_bindings(void) {
     // DISABLE tab completion to prevent interference with arrow keys
     rl_bind_key('\t', rl_insert);  // TAB just inserts tab character
     // rl_bind_key(27, rl_complete); // Disable Alt+Tab completion
     
-    rl_bind_key('\n', rl_newline);   // Enter
-    rl_bind_key('\r', rl_newline);   // Return
+    rl_bind_key('\n', lusush_newline_with_clear);   // Enter
+    rl_bind_key('\r', lusush_newline_with_clear);   // Return
     
     // Ctrl key bindings
     rl_bind_key(1, rl_beg_of_line);   // Ctrl-A: beginning of line
