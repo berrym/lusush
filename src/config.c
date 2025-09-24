@@ -1,6 +1,7 @@
 #include "../include/config.h"
 
 #include "../include/alias.h"
+#include "../include/autocorrect.h"
 #include "../include/completion.h"
 #include "../include/errors.h"
 #include "../include/history.h"
@@ -600,7 +601,7 @@ void config_set_defaults(void) {
 
     // Behavior defaults
     config.auto_cd = false;
-    config.spell_correction = false;
+    config.spell_correction = true;
     config.confirm_exit = false;
     config.tab_width = 4;
     config.no_word_expand = false;
@@ -922,6 +923,19 @@ void config_apply_settings(void) {
     symtable_set_global_int("COLORS_ENABLED", config.colors_enabled);
     symtable_set_global_int("NO_WORD_EXPAND", config.no_word_expand);
     symtable_set_global_int("MULTILINE_MODE", config.multiline_mode);
+
+    // Update autocorrect configuration when spell correction settings change
+    autocorrect_config_t autocorrect_cfg;
+    autocorrect_get_default_config(&autocorrect_cfg);
+    autocorrect_cfg.enabled = config.spell_correction;
+    autocorrect_cfg.max_suggestions = config.autocorrect_max_suggestions;
+    autocorrect_cfg.similarity_threshold = config.autocorrect_threshold;
+    autocorrect_cfg.interactive_prompts = config.autocorrect_interactive;
+    autocorrect_cfg.learn_from_history = config.autocorrect_learn_history;
+    autocorrect_cfg.correct_builtins = config.autocorrect_builtins;
+    autocorrect_cfg.correct_external = config.autocorrect_external;
+    autocorrect_cfg.case_sensitive = config.autocorrect_case_sensitive;
+    autocorrect_load_config(&autocorrect_cfg);
 }
 
 /**
