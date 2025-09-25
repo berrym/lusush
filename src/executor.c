@@ -80,6 +80,7 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
 
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg);
+static char **ifs_field_split(const char *text, const char *ifs, int *count);
 static int execute_external_command_with_setup(executor_t *executor,
                                                char **argv,
                                                bool redirect_stderr,
@@ -130,6 +131,8 @@ executor_t *executor_new(void) {
     executor->current_script_file = NULL;
     executor->current_script_line = 0;
     executor->in_script_execution = false;
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -154,6 +157,8 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->current_script_file = NULL;
     executor->current_script_line = 0;
     executor->in_script_execution = false;
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -452,6 +457,10 @@ static int execute_command(executor_t *executor, node_t *command) {
         return 1;
     }
 
+    // Reset expansion error flags for this command
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
+
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {
         return execute_assignment(executor, command->val.str);
@@ -492,6 +501,16 @@ static int execute_command(executor_t *executor, node_t *command) {
     char **argv = build_argv_from_ast(executor, command, &argc);
     if (!argv || argc == 0) {
         return 1;
+    }
+
+    // Check for expansion errors (like arithmetic division by zero)
+    if (executor->expansion_error) {
+        // Free argv before returning
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+        free(argv);
+        return executor->expansion_exit_status;
     }
 
     // Check if all arguments are parameter expansions
@@ -1334,6 +1353,80 @@ static int add_to_argv_list(char ***argv_list, int *argv_count,
     return 1;
 }
 
+// Simple field splitting implementation for IFS
+static char **ifs_field_split(const char *text, const char *ifs, int *count) {
+    if (!text || !count) {
+        *count = 0;
+        return NULL;
+    }
+
+    // Default IFS if not provided
+    if (!ifs) {
+        ifs = " \t\n";
+    }
+
+    *count = 0;
+    char **result = NULL;
+    int capacity = 0;
+
+    const char *start = text;
+    const char *end = text;
+
+    while (*end) {
+        // Skip leading delimiters
+        while (*start && strchr(ifs, *start)) {
+            start++;
+        }
+        
+        if (!*start) break;
+        
+        // Find end of current field
+        end = start;
+        while (*end && !strchr(ifs, *end)) {
+            end++;
+        }
+        
+        // Extract field
+        size_t field_len = end - start;
+        if (field_len > 0) {
+            // Expand result array if needed
+            if (*count >= capacity) {
+                capacity = capacity ? capacity * 2 : 4;
+                char **new_result = realloc(result, capacity * sizeof(char *));
+                if (!new_result) {
+                    // Cleanup on failure
+                    for (int i = 0; i < *count; i++) {
+                        free(result[i]);
+                    }
+                    free(result);
+                    *count = 0;
+                    return NULL;
+                }
+                result = new_result;
+            }
+            
+            result[*count] = malloc(field_len + 1);
+            if (!result[*count]) {
+                // Cleanup on failure
+                for (int i = 0; i < *count; i++) {
+                    free(result[i]);
+                }
+                free(result);
+                *count = 0;
+                return NULL;
+            }
+            
+            strncpy(result[*count], start, field_len);
+            result[*count][field_len] = '\0';
+            (*count)++;
+        }
+        
+        start = end;
+    }
+
+    return result;
+}
+
 // Build argv from AST
 static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                   int *argc) {
@@ -1575,14 +1668,71 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         free(
                             expanded_arg); // We copied the strings or used them
                     } else {
-                        // No expansion needed
-                        if (!add_to_argv_list(&argv_list, &argv_count,
-                                              &argv_capacity, expanded_arg)) {
-                            free(expanded_arg);
-                            goto cleanup_and_fail;
+                        // Check if this needs field splitting (only for variable expansions)
+                        if (child->val.str && child->val.str[0] == '$' && 
+                            child->type != NODE_STRING_LITERAL && 
+                            child->type != NODE_STRING_EXPANDABLE) {
+                            
+                            // Get IFS for field splitting
+                            const char *ifs = symtable_get(executor->symtable, "IFS");
+                            if (!ifs) {
+                                ifs = " \t\n"; // Default IFS
+                            }
+                            
+                            // Check if expanded_arg contains any IFS characters
+                            bool needs_splitting = false;
+                            for (const char *p = ifs; *p; p++) {
+                                if (strchr(expanded_arg, *p)) {
+                                    needs_splitting = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (needs_splitting) {
+                                int field_count = 0;
+                                char **fields = ifs_field_split(expanded_arg, ifs, &field_count);
+                                
+                                if (fields && field_count > 0) {
+                                    // Add each field as separate argument
+                                    for (int i = 0; i < field_count; i++) {
+                                        if (!add_to_argv_list(&argv_list, &argv_count,
+                                                              &argv_capacity, fields[i])) {
+                                            // Cleanup remaining fields on failure
+                                            for (int j = i; j < field_count; j++) {
+                                                free(fields[j]);
+                                            }
+                                            free(fields);
+                                            free(expanded_arg);
+                                            goto cleanup_and_fail;
+                                        }
+                                        // Ownership transferred, don't free fields[i]
+                                    }
+                                    free(fields);
+                                    free(expanded_arg);
+                                } else {
+                                    // Field splitting failed, use original
+                                    if (!add_to_argv_list(&argv_list, &argv_count,
+                                                          &argv_capacity, expanded_arg)) {
+                                        free(expanded_arg);
+                                        goto cleanup_and_fail;
+                                    }
+                                }
+                            } else {
+                                // No field splitting needed
+                                if (!add_to_argv_list(&argv_list, &argv_count,
+                                                      &argv_capacity, expanded_arg)) {
+                                    free(expanded_arg);
+                                    goto cleanup_and_fail;
+                                }
+                            }
+                        } else {
+                            // No field splitting for non-variables
+                            if (!add_to_argv_list(&argv_list, &argv_count,
+                                                  &argv_capacity, expanded_arg)) {
+                                free(expanded_arg);
+                                goto cleanup_and_fail;
+                            }
                         }
-                        // expanded_arg ownership transferred to argv_list,
-                        // don't free
                     }
                 }
             }
@@ -3789,11 +3939,11 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                     if (name_len != 1 ||
                         (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
                          name[0] != '0' && name[0] != '@' && name[0] != '*')) {
-                        fprintf(stderr, "%s: %s: unbound variable\n", "lusush",
-                                name);
                         free(name);
-                        exit(1); // POSIX requires shell to exit on unbound
-                                 // variable
+                        // Set expansion error instead of exiting to allow || constructs
+                        executor->expansion_error = true;
+                        executor->expansion_exit_status = 1;
+                        return strdup(""); // Return empty string for unbound variable
                     }
                 }
 
@@ -4110,7 +4260,9 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
         fprintf(stderr, "lusush: arithmetic: evaluation error\n");
     }
 
-    set_exit_status(1);
+    // Set expansion error flag instead of immediate exit status
+    executor->expansion_error = true;
+    executor->expansion_exit_status = 1;
     return strdup("");
 }
 
@@ -4656,27 +4808,6 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             char escape_char;
 
             switch (next_char) {
-            case 'n':
-                escape_char = '\n';
-                break;
-            case 't':
-                escape_char = '\t';
-                break;
-            case 'r':
-                escape_char = '\r';
-                break;
-            case 'b':
-                escape_char = '\b';
-                break;
-            case 'f':
-                escape_char = '\f';
-                break;
-            case 'v':
-                escape_char = '\v';
-                break;
-            case 'a':
-                escape_char = '\a';
-                break;
             case '\\':
                 escape_char = '\\';
                 break;
@@ -4686,16 +4817,18 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             case '$':
                 escape_char = '$';
                 break;
+            case '`':
+                escape_char = '`';
+                break;
             default:
-                // Not a recognized escape sequence, keep backslash
+                // POSIX: only \, ", $, ` are valid escapes in double quotes
+                // All other backslash sequences are literal
                 escape_char = '\\';
                 break;
             }
 
-            if (next_char == 'n' || next_char == 't' || next_char == 'r' ||
-                next_char == 'b' || next_char == 'f' || next_char == 'v' ||
-                next_char == 'a' || next_char == '\\' || next_char == '"' ||
-                next_char == '$') {
+            if (next_char == '\\' || next_char == '"' || next_char == '$' || 
+                next_char == '`') {
                 // Valid escape sequence, skip both backslash and next char
                 if (result_pos >= buffer_size - 1) {
                     buffer_size *= 2;
