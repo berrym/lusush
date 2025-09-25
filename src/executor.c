@@ -2488,9 +2488,17 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
     // Expand the value using modern expansion
     char *value = expand_if_needed(executor, eq + 1);
 
-    // Set the variable in the global scope by default (shell behavior)
-    int result = symtable_set_global_var(executor->symtable, var_name,
+    // POSIX compliance: assignments inside functions should be local by default
+    int result;
+    if (symtable_current_level(executor->symtable) > 0) {
+        // Inside function - use local scope
+        result = symtable_set_local_var(executor->symtable, var_name,
+                                        value ? value : "");
+    } else {
+        // Global scope - use global variable
+        result = symtable_set_global_var(executor->symtable, var_name,
                                          value ? value : "");
+    }
 
     if (executor->debug) {
         printf("DEBUG: Assignment %s=%s (result: %d)\n", var_name,
