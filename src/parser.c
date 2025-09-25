@@ -32,7 +32,7 @@ static bool is_function_definition(parser_t *parser);
 static node_t *parse_logical_expression(parser_t *parser);
 static node_t *parse_redirection(parser_t *parser);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
-                                     bool strip_tabs);
+                                     bool strip_tabs, bool expand_variables);
 static void set_parser_error(parser_t *parser, const char *message);
 static bool expect_token(parser_t *parser, token_type_t expected);
 
@@ -825,20 +825,20 @@ static node_t *parse_redirection(parser_t *parser) {
         char *delimiter = strdup(target_token->text);
         bool strip_tabs = (node_type == NODE_REDIR_HEREDOC_STRIP);
 
-        // Check if delimiter is quoted (only single quotes disable expansion)
+        // Check if delimiter is quoted (any quoted delimiter disables expansion)
         bool expand_variables = true;
-        if (target_token->type == TOK_STRING) {
-            // Single-quoted string - disable expansion
+        if (target_token->type == TOK_STRING || target_token->type == TOK_EXPANDABLE_STRING) {
+            // Any quoted string - disable expansion per POSIX
             expand_variables = false;
         }
-        // Double-quoted strings (TOK_EXPANDABLE_STRING) and unquoted allow expansion
+        // Only unquoted delimiters allow variable expansion
 
         // Advance past the delimiter token first
         tokenizer_advance(parser->tokenizer);
 
         // Collect the here document content (this will advance the tokenizer
         // further)
-        char *content = collect_heredoc_content(parser, delimiter, strip_tabs);
+        char *content = collect_heredoc_content(parser, delimiter, strip_tabs, expand_variables);
         if (!content) {
             free(delimiter);
             free_node_tree(redir_node);
@@ -930,18 +930,12 @@ static node_t *parse_redirection(parser_t *parser) {
 
 // Collect here document content until delimiter is found
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
-                                     bool strip_tabs) {
+                                     bool strip_tabs, bool expand_variables) {
     if (!parser || !delimiter) {
         return NULL;
     }
 
-    // Check if delimiter is quoted (no variable expansion if quoted)
-    bool expand_variables = true;
-    if ((delimiter[0] == '"' || delimiter[0] == '\'') &&
-        strlen(delimiter) > 2 &&
-        delimiter[strlen(delimiter) - 1] == delimiter[0]) {
-        expand_variables = false;
-    }
+    // expand_variables is now passed as parameter from tokenizer analysis
 
     tokenizer_t *tokenizer = parser->tokenizer;
 

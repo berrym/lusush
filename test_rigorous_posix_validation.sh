@@ -51,8 +51,10 @@ run_rigorous_test() {
     local temp_out="/tmp/lusush_rigorous_test_$$_out"
     local temp_err="/tmp/lusush_rigorous_test_$$_err"
 
-    # Execute test with timeout to prevent hangs
-    timeout 10s bash -c "echo '$test_command' | $SHELL_UNDER_TEST" > "$temp_out" 2> "$temp_err"
+    # Execute test with timeout to prevent hangs - use here-doc to avoid variable expansion
+    timeout 10s bash -c "cat << 'TEST_EOF' | $SHELL_UNDER_TEST
+$test_command
+TEST_EOF" > "$temp_out" 2> "$temp_err"
     local actual_exit_code=$?
 
     # Handle timeout case
