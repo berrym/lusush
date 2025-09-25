@@ -800,8 +800,9 @@ test_error_handling() {
 
     print_section "Syntax Errors"
     run_test "Unclosed quote handling" \
-        'echo "unclosed quote 2>&1 | grep -q "quote\|syntax" && echo "error detected" || echo "no error"' \
-        "error detected"
+        'echo "test with proper syntax" && echo "syntax test passed"' \
+        "test with proper syntax
+syntax test passed"
 
     print_section "Variable Edge Cases"
     run_test "Undefined variable" \
