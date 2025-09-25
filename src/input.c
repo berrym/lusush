@@ -592,7 +592,6 @@ static bool needs_continuation(input_state_t *state) {
     }
     
     // Need continuation if we have pending quotes or escapes
-    // BUT: treat unterminated quotes as syntax errors in non-interactive mode
     if (state->in_single_quote ||
         state->in_double_quote ||
         state->escaped ||
@@ -723,24 +722,65 @@ char *ln_gets(void) {
 }
 
 char *get_input_complete(FILE *in) {
-    // For non-interactive mode, read one line and let parser handle syntax errors
+    // For non-interactive mode, accumulate lines for complete constructs
     if (!in) in = stdin;
+    
+    char *accumulated = NULL;
+    size_t accumulated_len = 0;
+    input_state_t state = {0};
     
     char *line = NULL;
     size_t len = 0;
-    ssize_t read = getline(&line, &len, in);
+    ssize_t read;
     
-    if (read == -1) {
-        if (line) free(line);
-        return NULL;
+    while ((read = getline(&line, &len, in)) != -1) {
+        // Remove trailing newline for analysis
+        if (read > 0 && line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+            read--;
+        }
+        
+        // Analyze this line to update state
+        analyze_line(line, &state);
+        
+        // Accumulate the line
+        if (accumulated == NULL) {
+            accumulated = malloc(read + 2); // +2 for newline and null terminator
+            if (!accumulated) {
+                free(line);
+                return NULL;
+            }
+            strcpy(accumulated, line);
+            accumulated_len = read;
+        } else {
+            size_t new_len = accumulated_len + read + 2; // +2 for newline and null terminator
+            char *new_accumulated = realloc(accumulated, new_len);
+            if (!new_accumulated) {
+                free(accumulated);
+                free(line);
+                return NULL;
+            }
+            accumulated = new_accumulated;
+            strcat(accumulated, "\n");
+            strcat(accumulated, line);
+            accumulated_len = new_len - 1;
+        }
+        
+        // Check if we have a complete construct
+        if (!needs_continuation(&state)) {
+            break;
+        }
     }
     
-    // Remove trailing newline
-    if (read > 0 && line[read - 1] == '\n') {
-        line[read - 1] = '\0';
+    // If we reach EOF while waiting for continuation (e.g., unterminated quotes),
+    // return what we have so the parser can handle it as a syntax error
+    if (accumulated != NULL && needs_continuation(&state)) {
+        // We have partial input that needs continuation but hit EOF
+        // Let the parser handle this as a syntax error
     }
-    
-    return line;
+
+    free(line);
+    return accumulated;
 }
 
 char *get_unified_input(FILE *in) {
@@ -748,8 +788,24 @@ char *get_unified_input(FILE *in) {
         // Interactive mode - use readline-based input with multiline support
         return ln_gets();
     } else {
-        // Non-interactive mode - use file input with EOF syntax error handling
-        return get_input_complete(in);
+        // Non-interactive mode - read line by line and let parser handle syntax errors
+        if (!in) in = stdin;
+        
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read = getline(&line, &len, in);
+        
+        if (read == -1) {
+            if (line) free(line);
+            return NULL;
+        }
+        
+        // Remove trailing newline
+        if (read > 0 && line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+        }
+        
+        return line;
     }
 }
 
