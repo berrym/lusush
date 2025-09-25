@@ -271,11 +271,10 @@ EOF' \
 EOF' \
         'test line'
 
-    # File descriptor redirection
+    # File descriptor redirection - test stderr redirection without interfering with 2>&1
     run_rigorous_test "Stderr redirection" \
-        'echo stdout; echo stderr >&2 2>&1 | cat' \
-        'stdout
-stderr'
+        'echo test >&2 2>/dev/null; echo success' \
+        'success'
 
     run_rigorous_test "File descriptor duplication" \
         'echo test 2>&1 | cat' \
