@@ -82,6 +82,10 @@ typedef struct executor {
     int current_script_line;      // Current line number in script
     bool in_script_execution;     // True if executing from script file
 
+    // Expansion error tracking
+    bool expansion_error;         // True if error occurred during expansion
+    int expansion_exit_status;    // Exit status from expansion errors
+
 } executor_t;
 
 // Main execution interface

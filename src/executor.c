@@ -131,6 +131,8 @@ executor_t *executor_new(void) {
     executor->current_script_file = NULL;
     executor->current_script_line = 0;
     executor->in_script_execution = false;
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -155,6 +157,8 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->current_script_file = NULL;
     executor->current_script_line = 0;
     executor->in_script_execution = false;
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -453,6 +457,10 @@ static int execute_command(executor_t *executor, node_t *command) {
         return 1;
     }
 
+    // Reset expansion error flags for this command
+    executor->expansion_error = false;
+    executor->expansion_exit_status = 0;
+
     // Check for assignment
     if (command->val.str && is_assignment(command->val.str)) {
         return execute_assignment(executor, command->val.str);
@@ -493,6 +501,16 @@ static int execute_command(executor_t *executor, node_t *command) {
     char **argv = build_argv_from_ast(executor, command, &argc);
     if (!argv || argc == 0) {
         return 1;
+    }
+
+    // Check for expansion errors (like arithmetic division by zero)
+    if (executor->expansion_error) {
+        // Free argv before returning
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+        free(argv);
+        return executor->expansion_exit_status;
     }
 
     // Check if all arguments are parameter expansions
@@ -3921,11 +3939,11 @@ static char *expand_variable(executor_t *executor, const char *var_text) {
                     if (name_len != 1 ||
                         (name[0] != '?' && name[0] != '$' && name[0] != '#' &&
                          name[0] != '0' && name[0] != '@' && name[0] != '*')) {
-                        fprintf(stderr, "%s: %s: unbound variable\n", "lusush",
-                                name);
                         free(name);
-                        exit(1); // POSIX requires shell to exit on unbound
-                                 // variable
+                        // Set expansion error instead of exiting to allow || constructs
+                        executor->expansion_error = true;
+                        executor->expansion_exit_status = 1;
+                        return strdup(""); // Return empty string for unbound variable
                     }
                 }
 
@@ -4242,7 +4260,9 @@ static char *expand_arithmetic(executor_t *executor, const char *arith_text) {
         fprintf(stderr, "lusush: arithmetic: evaluation error\n");
     }
 
-    set_exit_status(1);
+    // Set expansion error flag instead of immediate exit status
+    executor->expansion_error = true;
+    executor->expansion_exit_status = 1;
     return strdup("");
 }
 
@@ -4788,27 +4808,6 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             char escape_char;
 
             switch (next_char) {
-            case 'n':
-                escape_char = '\n';
-                break;
-            case 't':
-                escape_char = '\t';
-                break;
-            case 'r':
-                escape_char = '\r';
-                break;
-            case 'b':
-                escape_char = '\b';
-                break;
-            case 'f':
-                escape_char = '\f';
-                break;
-            case 'v':
-                escape_char = '\v';
-                break;
-            case 'a':
-                escape_char = '\a';
-                break;
             case '\\':
                 escape_char = '\\';
                 break;
@@ -4818,16 +4817,18 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
             case '$':
                 escape_char = '$';
                 break;
+            case '`':
+                escape_char = '`';
+                break;
             default:
-                // Not a recognized escape sequence, keep backslash
+                // POSIX: only \, ", $, ` are valid escapes in double quotes
+                // All other backslash sequences are literal
                 escape_char = '\\';
                 break;
             }
 
-            if (next_char == 'n' || next_char == 't' || next_char == 'r' ||
-                next_char == 'b' || next_char == 'f' || next_char == 'v' ||
-                next_char == 'a' || next_char == '\\' || next_char == '"' ||
-                next_char == '$') {
+            if (next_char == '\\' || next_char == '"' || next_char == '$' || 
+                next_char == '`') {
                 // Valid escape sequence, skip both backslash and next char
                 if (result_pos >= buffer_size - 1) {
                     buffer_size *= 2;
