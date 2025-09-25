@@ -148,6 +148,16 @@ Focus Areas (Apply Simple Fixes First):
 - Target specific failing tests with minimal targeted fixes
 - Avoid breaking existing working functionality
 - Incremental improvements based on honest compliance assessment
+
+**Specific Priority Fixes Identified (82% baseline, 10 failing tests):**
+1. **Here document quoting** - Quoted delimiters should prevent variable expansion
+2. **Complex quoting/escaping** - Nested quotes, backslash escaping, dollar escaping
+3. **IFS field splitting** - Multiple delimiter handling
+4. **Function variable scoping** - Local vs global variable behavior
+5. **Advanced error handling** - Division by zero, stderr redirection, set -u behavior
+6. **Arithmetic edge cases** - Error condition handling in arithmetic expressions
+
+**Estimated Impact**: Each fix targets 1-2 specific test failures, realistic path to 90%+ compliance
 ```
 
 #### **2. Documentation Verification & Accuracy** (MEDIUM PRIORITY)
@@ -273,6 +283,14 @@ Preparation Tasks:
 
 ---
 
+## NEXT AI ASSISTANT PRIORITIES - SYSTEMATIC IMPROVEMENTS
+
+### **ESTABLISHED BASELINE STATUS**
+**Current State**: Clean working baseline (commit acf94db) with rigorous test framework
+**Rigorous Compliance**: **82%** (46/56 challenging tests passing)  
+**Assessment**: Moderate compliance with **10 specific gaps identified**
+**Foundation**: Solid architecture - all fixes are simple enhancements to existing code
+
 ## NEXT AI ASSISTANT PRIORITIES - APPLY THE PATTERN
 
 ### **CRITICAL DEVELOPMENT APPROACH - PATTERN PROVEN WITH CAUTION** 
@@ -290,12 +308,20 @@ Preparation Tasks:
 3. **Small Fixes**: 13-60 line modifications deliver major functionality
 4. **Immediate Value**: Each fix provides professional-grade user experience improvement
 
-### **Development Focus** (Next Sessions)
-1. **Core Shell Systematic Testing**: High probability of discovering many simple fixes
-2. **Additional Completion Contexts**: Git, builtin commands using proven completion pattern  
-3. **Performance Simple Fixes**: Targeted optimizations through profiling and simple improvements
-4. **Cross-Platform Simple Fixes**: Platform-specific compatibility improvements
-5. **Syntax Highlighting Refinements**: Careful approach avoiding display corruption complexity
+### **Development Focus** (Next Sessions) 
+**Target: 90%+ Rigorous Compliance Through Simple Fixes**
+
+**Priority 1 - High Impact Simple Fixes:**
+1. **Here Document Quoting** - Fix quoted delimiter variable expansion (simple parser fix)
+2. **IFS Field Splitting** - Implement multiple delimiter handling (likely tokenizer enhancement)
+3. **Function Variable Scoping** - Add local vs global variable distinction (scope management)
+
+**Priority 2 - Moderate Impact Fixes:**
+4. **Complex Quote Handling** - Nested quotes, backslash/dollar escaping (parser refinements)
+5. **Error Handling Edge Cases** - Division by zero, stderr redirection (simple error checks)
+6. **Advanced Shell Features** - Set -u behavior, syntax error recovery (builtin enhancements)
+
+**Pattern**: Each fix targets 1-2 specific test failures, builds on existing solid infrastructure
 
 ### **Progressive Development** (Weeks 2-4)
 1. **Iterative Testing**: Systematic testing with simple fixes for discovered issues
