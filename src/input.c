@@ -795,24 +795,8 @@ char *get_unified_input(FILE *in) {
         // Interactive mode - use readline-based input with multiline support
         return ln_gets();
     } else {
-        // Non-interactive mode - read line by line and let parser handle syntax errors
-        if (!in) in = stdin;
-        
-        char *line = NULL;
-        size_t len = 0;
-        ssize_t read = getline(&line, &len, in);
-        
-        if (read == -1) {
-            if (line) free(line);
-            return NULL;
-        }
-        
-        // Remove trailing newline
-        if (read > 0 && line[read - 1] == '\n') {
-            line[read - 1] = '\0';
-        }
-        
-        return line;
+        // Non-interactive mode - use file input with multiline support for here documents
+        return get_input_complete(in);
     }
 }
 
