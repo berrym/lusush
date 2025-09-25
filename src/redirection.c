@@ -52,42 +52,10 @@ int setup_redirections(executor_t *executor, node_t *command) {
         return 0; // No redirections to setup
     }
 
-    // First pass: Process stderr redirections (2>, 2>>, 2>&1) to set up error
-    // suppression
+    // POSIX compliant: Process redirections left-to-right in order they appear
     node_t *child = command->first_child;
-    int child_count = 0;
     while (child) {
-        child_count++;
-
-        if (child->type == NODE_REDIR_ERR ||
-            child->type == NODE_REDIR_ERR_APPEND ||
-            (child->type == NODE_REDIR_FD && child->val.str &&
-             strstr(child->val.str, "2>"))) {
-
-            int result = handle_redirection_node(executor, child);
-            if (result != 0) {
-                return result;
-            }
-        }
-        child = child->next_sibling;
-    }
-
-    // Second pass: Process all other redirections
-    child = command->first_child;
-    child_count = 0;
-    while (child) {
-        child_count++;
-
         if (child->type >= NODE_REDIR_IN && child->type <= NODE_REDIR_CLOBBER) {
-            // Skip stderr redirections (already processed in first pass)
-            if (child->type == NODE_REDIR_ERR ||
-                child->type == NODE_REDIR_ERR_APPEND ||
-                (child->type == NODE_REDIR_FD && child->val.str &&
-                 strstr(child->val.str, "2>"))) {
-                child = child->next_sibling;
-                continue;
-            }
-
             int result = handle_redirection_node(executor, child);
             if (result != 0) {
                 return result;
