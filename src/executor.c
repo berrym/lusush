@@ -434,6 +434,9 @@ static int execute_command_list(executor_t *executor, node_t *list) {
 
         last_result = execute_node(executor, current);
 
+        // Flush stdout to prevent pipeline from picking up residual output
+        fflush(stdout);
+
         // Update exit status after each command in the sequence
         set_exit_status(last_result);
 

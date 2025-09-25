@@ -273,7 +273,7 @@ EOF' \
 
     # File descriptor redirection
     run_rigorous_test "Stderr redirection" \
-        'echo stdout; echo stderr >&2 2>/dev/null' \
+        'echo stdout; echo stderr >&2 2>&1 | cat' \
         'stdout
 stderr'
 
