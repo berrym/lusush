@@ -333,10 +333,12 @@ int executor_execute_command_line(executor_t *executor, const char *input) {
 
 
 // Core node execution dispatcher
-static int execute_node(executor_t *executor, node_t *node) {
+int execute_node(executor_t *executor, node_t *node) {
     if (!node) {
         return 0;
     }
+
+
 
     // Enhanced debug tracing
     if (executor->debug) {

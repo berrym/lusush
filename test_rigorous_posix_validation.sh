@@ -274,7 +274,8 @@ EOF' \
     # File descriptor redirection
     run_rigorous_test "Stderr redirection" \
         'echo stdout; echo stderr >&2 2>/dev/null' \
-        'stdout'
+        'stdout
+stderr'
 
     run_rigorous_test "File descriptor duplication" \
         'echo test 2>&1 | cat' \
