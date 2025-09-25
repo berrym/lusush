@@ -771,6 +771,13 @@ char *get_input_complete(FILE *in) {
             break;
         }
     }
+    
+    // If we reach EOF while waiting for continuation (e.g., unterminated quotes),
+    // return what we have so the parser can handle it as a syntax error
+    if (accumulated != NULL && needs_continuation(&state)) {
+        // We have partial input that needs continuation but hit EOF
+        // Let the parser handle this as a syntax error
+    }
 
     free(line);
     return accumulated;
@@ -781,8 +788,24 @@ char *get_unified_input(FILE *in) {
         // Interactive mode - use readline-based input with multiline support
         return ln_gets();
     } else {
-        // Non-interactive mode - use file input
-        return get_input_complete(in);
+        // Non-interactive mode - read line by line and let parser handle syntax errors
+        if (!in) in = stdin;
+        
+        char *line = NULL;
+        size_t len = 0;
+        ssize_t read = getline(&line, &len, in);
+        
+        if (read == -1) {
+            if (line) free(line);
+            return NULL;
+        }
+        
+        // Remove trailing newline
+        if (read > 0 && line[read - 1] == '\n') {
+            line[read - 1] = '\0';
+        }
+        
+        return line;
     }
 }
 
