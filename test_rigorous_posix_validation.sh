@@ -142,7 +142,7 @@ test_rigorous_quoting() {
 
     # IFS and field splitting edge cases
     run_rigorous_test "IFS with multiple delimiters" \
-        'OLD_IFS="$IFS"; IFS=":"; set -- a:b:c; echo $2; IFS="$OLD_IFS"' \
+        'OLD_IFS="$IFS"; IFS=":"; var="a:b:c"; set -- $var; echo $2; IFS="$OLD_IFS"' \
         "b"
 
     run_rigorous_test "Empty IFS behavior" \
