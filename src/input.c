@@ -771,12 +771,19 @@ char *get_input_complete(FILE *in) {
             break;
         }
     }
-    
+
     // If we reach EOF while waiting for continuation (e.g., unterminated quotes),
     // return what we have so the parser can handle it as a syntax error
+    // This prevents hanging on malformed input while preserving multiline support
     if (accumulated != NULL && needs_continuation(&state)) {
         // We have partial input that needs continuation but hit EOF
-        // Let the parser handle this as a syntax error
+        // For here documents, this is expected - continue processing
+        // For unterminated quotes/syntax errors, let parser handle the error
+        if (!state.in_here_doc) {
+            // Not a here document - likely syntax error, return for parser to handle
+            free(line);
+            return accumulated;
+        }
     }
 
     free(line);
