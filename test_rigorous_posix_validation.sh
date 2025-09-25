@@ -138,7 +138,7 @@ test_rigorous_quoting() {
 
     run_rigorous_test "Dollar sign escaping" \
         'echo "Price: \$5.99"' \
-        "Price: $5.99"
+        'Price: $5.99'
 
     # IFS and field splitting edge cases
     run_rigorous_test "IFS with multiple delimiters" \
