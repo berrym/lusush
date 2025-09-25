@@ -80,6 +80,7 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
 
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg);
+static char **ifs_field_split(const char *text, const char *ifs, int *count);
 static int execute_external_command_with_setup(executor_t *executor,
                                                char **argv,
                                                bool redirect_stderr,
@@ -1334,6 +1335,80 @@ static int add_to_argv_list(char ***argv_list, int *argv_count,
     return 1;
 }
 
+// Simple field splitting implementation for IFS
+static char **ifs_field_split(const char *text, const char *ifs, int *count) {
+    if (!text || !count) {
+        *count = 0;
+        return NULL;
+    }
+
+    // Default IFS if not provided
+    if (!ifs) {
+        ifs = " \t\n";
+    }
+
+    *count = 0;
+    char **result = NULL;
+    int capacity = 0;
+
+    const char *start = text;
+    const char *end = text;
+
+    while (*end) {
+        // Skip leading delimiters
+        while (*start && strchr(ifs, *start)) {
+            start++;
+        }
+        
+        if (!*start) break;
+        
+        // Find end of current field
+        end = start;
+        while (*end && !strchr(ifs, *end)) {
+            end++;
+        }
+        
+        // Extract field
+        size_t field_len = end - start;
+        if (field_len > 0) {
+            // Expand result array if needed
+            if (*count >= capacity) {
+                capacity = capacity ? capacity * 2 : 4;
+                char **new_result = realloc(result, capacity * sizeof(char *));
+                if (!new_result) {
+                    // Cleanup on failure
+                    for (int i = 0; i < *count; i++) {
+                        free(result[i]);
+                    }
+                    free(result);
+                    *count = 0;
+                    return NULL;
+                }
+                result = new_result;
+            }
+            
+            result[*count] = malloc(field_len + 1);
+            if (!result[*count]) {
+                // Cleanup on failure
+                for (int i = 0; i < *count; i++) {
+                    free(result[i]);
+                }
+                free(result);
+                *count = 0;
+                return NULL;
+            }
+            
+            strncpy(result[*count], start, field_len);
+            result[*count][field_len] = '\0';
+            (*count)++;
+        }
+        
+        start = end;
+    }
+
+    return result;
+}
+
 // Build argv from AST
 static char **build_argv_from_ast(executor_t *executor, node_t *command,
                                   int *argc) {
@@ -1575,14 +1650,71 @@ static char **build_argv_from_ast(executor_t *executor, node_t *command,
                         free(
                             expanded_arg); // We copied the strings or used them
                     } else {
-                        // No expansion needed
-                        if (!add_to_argv_list(&argv_list, &argv_count,
-                                              &argv_capacity, expanded_arg)) {
-                            free(expanded_arg);
-                            goto cleanup_and_fail;
+                        // Check if this needs field splitting (only for variable expansions)
+                        if (child->val.str && child->val.str[0] == '$' && 
+                            child->type != NODE_STRING_LITERAL && 
+                            child->type != NODE_STRING_EXPANDABLE) {
+                            
+                            // Get IFS for field splitting
+                            const char *ifs = symtable_get(executor->symtable, "IFS");
+                            if (!ifs) {
+                                ifs = " \t\n"; // Default IFS
+                            }
+                            
+                            // Check if expanded_arg contains any IFS characters
+                            bool needs_splitting = false;
+                            for (const char *p = ifs; *p; p++) {
+                                if (strchr(expanded_arg, *p)) {
+                                    needs_splitting = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (needs_splitting) {
+                                int field_count = 0;
+                                char **fields = ifs_field_split(expanded_arg, ifs, &field_count);
+                                
+                                if (fields && field_count > 0) {
+                                    // Add each field as separate argument
+                                    for (int i = 0; i < field_count; i++) {
+                                        if (!add_to_argv_list(&argv_list, &argv_count,
+                                                              &argv_capacity, fields[i])) {
+                                            // Cleanup remaining fields on failure
+                                            for (int j = i; j < field_count; j++) {
+                                                free(fields[j]);
+                                            }
+                                            free(fields);
+                                            free(expanded_arg);
+                                            goto cleanup_and_fail;
+                                        }
+                                        // Ownership transferred, don't free fields[i]
+                                    }
+                                    free(fields);
+                                    free(expanded_arg);
+                                } else {
+                                    // Field splitting failed, use original
+                                    if (!add_to_argv_list(&argv_list, &argv_count,
+                                                          &argv_capacity, expanded_arg)) {
+                                        free(expanded_arg);
+                                        goto cleanup_and_fail;
+                                    }
+                                }
+                            } else {
+                                // No field splitting needed
+                                if (!add_to_argv_list(&argv_list, &argv_count,
+                                                      &argv_capacity, expanded_arg)) {
+                                    free(expanded_arg);
+                                    goto cleanup_and_fail;
+                                }
+                            }
+                        } else {
+                            // No field splitting for non-variables
+                            if (!add_to_argv_list(&argv_list, &argv_count,
+                                                  &argv_capacity, expanded_arg)) {
+                                free(expanded_arg);
+                                goto cleanup_and_fail;
+                            }
                         }
-                        // expanded_arg ownership transferred to argv_list,
-                        // don't free
                     }
                 }
             }
