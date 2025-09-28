@@ -5149,6 +5149,27 @@ int executor_execute_background(executor_t *executor, node_t *command) {
         return 1;
     }
 
+    // Check if job control is enabled (set -m)
+    if (!shell_opts.job_control) {
+        // When job control is disabled, execute in background without job tracking
+        pid_t pid = fork();
+        if (pid == -1) {
+            fprintf(stderr, "Failed to fork for background process\n");
+            return 1;
+        }
+        
+        if (pid == 0) {
+            // Child process - execute the command
+            int result = execute_node(executor, command->first_child);
+            exit(result);
+        } else {
+            // Parent process - store background PID but no job tracking
+            extern pid_t last_background_pid;
+            last_background_pid = pid;
+            return 0;
+        }
+    }
+
     // Build command line for display
     char *command_line = NULL;
     if (command->first_child && command->first_child->type == NODE_COMMAND) {
@@ -5189,6 +5210,12 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 int executor_builtin_jobs(executor_t *executor, char **argv) {
     if (!executor) {
         return 1;
+    }
+
+    // Check if job control is enabled
+    if (!shell_opts.job_control) {
+        // When job control is disabled, there are no tracked jobs
+        return 0;
     }
 
     // Update job statuses first
