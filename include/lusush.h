@@ -121,6 +121,7 @@ typedef struct shell_options {
     bool hash_commands;   // -h flag: command hashing
     bool job_control;     // -m flag: enable job control
     bool allexport;       // -a flag: automatically export all variables
+    bool noclobber;       // -C flag: prevent output redirection from overwriting files
 } shell_options_t;
 
 // Global shell options
@@ -140,6 +141,7 @@ bool should_error_unset_vars(void);
 bool is_verbose_mode(void);
 bool is_globbing_disabled(void);
 bool should_auto_export(void);
+bool is_noclobber_enabled(void);
 void print_command_trace(const char *command);
 int builtin_set(char **args);
 

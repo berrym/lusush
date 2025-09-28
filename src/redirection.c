@@ -14,6 +14,7 @@
 #include "../include/redirection.h"
 
 #include "../include/executor.h"
+#include "../include/lusush.h"
 #include "../include/node.h"
 #include "../include/symtable.h"
 
@@ -132,6 +133,17 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     switch (redir_node->type) {
     case NODE_REDIR_OUT: {
         // Standard output redirection: command > file
+        // Check for noclobber: prevent overwriting existing files
+        if (is_noclobber_enabled()) {
+            struct stat st;
+            if (stat(target, &st) == 0) {
+                // File exists and noclobber is enabled
+                fprintf(stderr, "lusush: %s: cannot overwrite existing file (noclobber)\n", target);
+                result = 1;
+                break;
+            }
+        }
+        
         int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd == -1) {
             perror(target);
@@ -140,9 +152,7 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
         }
         if (dup2(fd, STDOUT_FILENO) == -1) {
             perror("dup2");
-            close(fd);
             result = 1;
-            break;
         }
         close(fd);
         break;
@@ -253,6 +263,23 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     case NODE_REDIR_HERESTRING: {
         // Here string: command <<< string
         result = setup_here_string(executor, target);
+        break;
+    }
+
+    case NODE_REDIR_CLOBBER: {
+        // Force output redirection: command >| file
+        // Override noclobber setting - always allow overwriting
+        int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1) {
+            perror(target);
+            result = 1;
+            break;
+        }
+        if (dup2(fd, STDOUT_FILENO) == -1) {
+            perror("dup2");
+            result = 1;
+        }
+        close(fd);
         break;
     }
 
