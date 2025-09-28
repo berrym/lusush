@@ -1903,6 +1903,26 @@ static int execute_external_command_with_redirection(executor_t *executor,
         // Parent process
         set_current_child_pid(pid);
 
+        // Print trace for external command if -x is enabled
+        if (should_trace_execution()) {
+            // Build command string from argv for tracing
+            size_t cmd_len = 1; // for null terminator
+            for (int j = 0; argv[j]; j++) {
+                cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
+            }
+            
+            char *cmd_str = malloc(cmd_len);
+            if (cmd_str) {
+                strcpy(cmd_str, argv[0]);
+                for (int j = 1; argv[j]; j++) {
+                    strcat(cmd_str, " ");
+                    strcat(cmd_str, argv[j]);
+                }
+                print_command_trace(cmd_str);
+                free(cmd_str);
+            }
+        }
+
         // Enhanced debug tracing for external commands
         DEBUG_TRACE_COMMAND(argv[0], argv, 0);
         DEBUG_PROFILE_ENTER(argv[0]);
@@ -2279,6 +2299,26 @@ static int execute_external_command_with_setup(executor_t *executor,
         // Parent process
         set_current_child_pid(pid);
 
+        // Print trace for external command if -x is enabled
+        if (should_trace_execution()) {
+            // Build command string from argv for tracing
+            size_t cmd_len = 1; // for null terminator
+            for (int j = 0; argv[j]; j++) {
+                cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
+            }
+            
+            char *cmd_str = malloc(cmd_len);
+            if (cmd_str) {
+                strcpy(cmd_str, argv[0]);
+                for (int j = 1; argv[j]; j++) {
+                    strcat(cmd_str, " ");
+                    strcat(cmd_str, argv[j]);
+                }
+                print_command_trace(cmd_str);
+                free(cmd_str);
+            }
+        }
+
         // Enhanced debug tracing for external commands with setup
         DEBUG_TRACE_COMMAND(argv[0], argv, 0);
         DEBUG_PROFILE_ENTER(argv[0]);
@@ -2307,6 +2347,26 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
     // Find the builtin function in the builtin table
     for (size_t i = 0; i < builtins_count; i++) {
         if (strcmp(argv[0], builtins[i].name) == 0) {
+            // Print trace for builtin command if -x is enabled
+            if (should_trace_execution()) {
+                // Build command string from argv for tracing
+                size_t cmd_len = 1; // for null terminator
+                for (int j = 0; argv[j]; j++) {
+                    cmd_len += strlen(argv[j]) + (j > 0 ? 1 : 0); // +1 for space
+                }
+                
+                char *cmd_str = malloc(cmd_len);
+                if (cmd_str) {
+                    strcpy(cmd_str, argv[0]);
+                    for (int j = 1; argv[j]; j++) {
+                        strcat(cmd_str, " ");
+                        strcat(cmd_str, argv[j]);
+                    }
+                    print_command_trace(cmd_str);
+                    free(cmd_str);
+                }
+            }
+            
             // Count arguments
             int argc = 0;
             while (argv[argc]) {
