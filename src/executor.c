@@ -24,6 +24,8 @@
 #include "../include/signals.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
+#include "../include/builtins.h"
+#include "../include/libhashtable/ht.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -1866,6 +1868,22 @@ static int execute_external_command_with_redirection(executor_t *executor,
         return 1;
     }
 
+    // If hashall is enabled, remember this command's location before forking
+    if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
+        extern char *find_command_in_path(const char *command);
+        extern ht_strstr_t *command_hash;
+        extern void init_command_hash(void);
+        
+        char *full_path = find_command_in_path(argv[0]);
+        if (full_path) {
+            init_command_hash();
+            if (command_hash) {
+                ht_strstr_insert(command_hash, argv[0], full_path);
+            }
+            free(full_path);
+        }
+    }
+
     // Reset terminal state before forking for external commands
     // This ensures git and other commands get proper TTY behavior
     if (is_interactive_shell()) {
@@ -1889,6 +1907,8 @@ static int execute_external_command_with_redirection(executor_t *executor,
                 close(null_fd);
             }
         }
+
+
 
         execvp(argv[0], argv);
         // Check errno to determine appropriate exit code
@@ -2257,6 +2277,22 @@ static int execute_external_command_with_setup(executor_t *executor,
         return 1;
     }
 
+    // If hashall is enabled, remember this command's location before forking
+    if (shell_opts.hash_commands && !strchr(argv[0], '/')) {
+        extern char *find_command_in_path(const char *command);
+        extern ht_strstr_t *command_hash;
+        extern void init_command_hash(void);
+        
+        char *full_path = find_command_in_path(argv[0]);
+        if (full_path) {
+            init_command_hash();
+            if (command_hash) {
+                ht_strstr_insert(command_hash, argv[0], full_path);
+            }
+            free(full_path);
+        }
+    }
+
     // Reset terminal state before forking for external commands
     // This ensures git and other commands get proper TTY behavior
     if (is_interactive_shell()) {
@@ -2285,6 +2321,8 @@ static int execute_external_command_with_setup(executor_t *executor,
                 close(null_fd);
             }
         }
+
+
 
         execvp(argv[0], argv);
         // Check errno to determine appropriate exit code

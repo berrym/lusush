@@ -547,7 +547,7 @@ static int parse_opts(int argc, char **argv) {
 
             switch (opt) {
             case 'h':
-                usage(EXIT_SUCCESS);
+                shell_opts.hash_commands = true;
                 break;
             case 'V':
                 printf("%s %s\n", LUSUSH_NAME, LUSUSH_VERSION_STRING);
@@ -630,7 +630,7 @@ static void usage(int err) {
     printf("Usage: %s [OPTIONS] [SCRIPT]\n", LUSUSH_NAME);
     printf("A POSIX-compliant shell with modern features\n\n");
     printf("Options:\n");
-    printf("  -h, --help       Show this help message and exit\n");
+    printf("      --help       Show this help message and exit\n");
     printf("  -V, --version    Show version information and exit\n");
     printf("  -c command       Execute command string and exit\n");
     printf("  -s               Read commands from standard input\n");
@@ -643,6 +643,7 @@ static void usage(int err) {
     printf("  -u               Treat unset variables as error (set -u)\n");
     printf("  -v               Verbose mode - print input lines (set -v)\n");
     printf("  -f               Disable pathname expansion (set -f)\n");
+    printf("  -h               Enable command path hashing (set -o hashall)\n");
     printf("  -m               Enable job control (set -m)\n");
     printf("  --enhanced-display Enable enhanced display features\n");
     printf("  --layered-display  Enable full layered display controller\n");
