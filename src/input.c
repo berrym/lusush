@@ -645,6 +645,13 @@ char *ln_gets(void) {
         
         // Get line using readline
         line = lusush_readline_with_prompt(prompt);
+        
+        // Print verbose output if -v is enabled and we got a line
+        if (line && shell_opts.verbose) {
+            fprintf(stderr, "%s\n", line);
+            fflush(stderr);
+        }
+        
         if (!line) {
             // EOF or error
             if (accumulated_input && *accumulated_input) {
@@ -738,6 +745,12 @@ char *get_input_complete(FILE *in) {
         if (read > 0 && line[read - 1] == '\n') {
             line[read - 1] = '\0';
             read--;
+        }
+        
+        // Print verbose output if -v is enabled
+        if (shell_opts.verbose) {
+            fprintf(stderr, "%s\n", line);
+            fflush(stderr);
         }
         
         // Analyze this line to update state
