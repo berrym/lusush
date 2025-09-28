@@ -829,8 +829,10 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 return token_new(TOK_NOT_EQUAL, "!=", 2, start_line,
                                  start_column, start_pos);
             }
-            // Just a plain ! - treat as word character for now
-            break;
+            // Standalone ! character (for test negation)
+            tokenizer->position++;
+            tokenizer->column++;
+            return token_new(TOK_WORD, "!", 1, start_line, start_column, start_pos);
 
         case '+':
             // Let + be handled as part of words (e.g., date +%Y)
