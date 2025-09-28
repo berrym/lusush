@@ -338,7 +338,10 @@ int execute_node(executor_t *executor, node_t *node) {
         return 0;
     }
 
-
+    // Check syntax check mode (set -n) - don't execute any nodes
+    if (shell_opts.syntax_check) {
+        return 0; // Syntax check mode - don't execute
+    }
 
     // Enhanced debug tracing
     if (executor->debug) {
