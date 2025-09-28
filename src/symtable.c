@@ -452,6 +452,12 @@ int symtable_export_var(symtable_manager_t *manager, const char *name) {
 
     // Reset with export flag
     int result = symtable_set_var(manager, name, value, SYMVAR_EXPORTED);
+    
+    // Actually export to system environment
+    if (result == 0) {
+        setenv(name, value, 1);
+    }
+    
     free(value);
 
     return result;

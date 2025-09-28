@@ -26,6 +26,7 @@ void init_posix_options(void) {
     shell_opts.no_globbing = false;
     shell_opts.hash_commands = true; // Default enabled for performance
     shell_opts.job_control = false;
+    shell_opts.allexport = false;
 }
 
 // Check if a specific POSIX option is set
@@ -55,6 +56,8 @@ bool is_posix_option_set(char option) {
         return shell_opts.hash_commands;
     case 'm':
         return shell_opts.job_control;
+    case 'a':
+        return shell_opts.allexport;
     default:
         return false;
     }
@@ -72,6 +75,8 @@ bool should_error_unset_vars(void) { return shell_opts.unset_error; }
 bool is_verbose_mode(void) { return shell_opts.verbose; }
 
 bool is_globbing_disabled(void) { return shell_opts.no_globbing; }
+
+bool should_auto_export(void) { return shell_opts.allexport; }
 
 // Print command trace for -x option
 void print_command_trace(const char *command) {
@@ -98,6 +103,7 @@ static option_mapping_t option_map[] = {
     { "noglob",     &shell_opts.no_globbing, 'f'},
     {"hashall",   &shell_opts.hash_commands, 'h'},
     {"monitor",     &shell_opts.job_control, 'm'},
+    {"allexport",     &shell_opts.allexport, 'a'},
     {     NULL,                        NULL,   0}
 };
 
@@ -143,6 +149,8 @@ int builtin_set(char **args) {
                shell_opts.hash_commands ? "on" : "off");
         printf("  monitor (job control): %s\n",
                shell_opts.job_control ? "on" : "off");
+        printf("  allexport (auto export variables): %s\n",
+               shell_opts.allexport ? "on" : "off");
         return 0;
     }
 

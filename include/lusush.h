@@ -120,6 +120,7 @@ typedef struct shell_options {
     bool no_globbing;     // -f flag: disable pathname expansion
     bool hash_commands;   // -h flag: command hashing
     bool job_control;     // -m flag: enable job control
+    bool allexport;       // -a flag: automatically export all variables
 } shell_options_t;
 
 // Global shell options
@@ -138,6 +139,7 @@ bool is_syntax_check_mode(void);
 bool should_error_unset_vars(void);
 bool is_verbose_mode(void);
 bool is_globbing_disabled(void);
+bool should_auto_export(void);
 void print_command_trace(const char *command);
 int builtin_set(char **args);
 

@@ -2604,6 +2604,11 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
         // Global scope - use global variable
         result = symtable_set_global_var(executor->symtable, var_name,
                                          value ? value : "");
+        
+        // POSIX -a (allexport): automatically export assigned variables
+        if (result == 0 && should_auto_export()) {
+            symtable_export_global(var_name);
+        }
     }
 
     if (executor->debug) {
