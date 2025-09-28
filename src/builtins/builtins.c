@@ -1024,9 +1024,14 @@ int bin_source(int argc, char **argv) {
     return result;
 }
 
+// Forward declarations for logical operator support
+static int evaluate_test_expression(char **argv, int start, int end);
+static int evaluate_single_test(char **argv, int start, int end);
+
 /**
  * bin_test:
- *      Test expressions (basic implementation).
+ *      Enhanced POSIX-compliant test expressions with logical operators.
+ *      Supports negation (!), logical AND (-a), and logical OR (-o).
  */
 int bin_test(int argc, char **argv) {
     if (argc == 1) {
@@ -1042,103 +1047,146 @@ int bin_test(int argc, char **argv) {
         argc--; // Remove the closing bracket
     }
 
-    // Simple test implementations
-    if (argc == 2) {
-        // test STRING - true if string is non-empty
-        return (strlen(argv[1]) > 0) ? 0 : 1;
+    // Use enhanced evaluation with logical operators
+    return evaluate_test_expression(argv, 1, argc);
+}
+
+// Recursive evaluation of test expressions with logical operators
+static int evaluate_test_expression(char **argv, int start, int end) {
+    if (start >= end) {
+        return 1; // Empty expression is false
     }
 
-    if (argc == 3) {
-        if (strcmp(argv[1], "-z") == 0) {
-            // test -z STRING - true if string is empty
-            return (strlen(argv[2]) == 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-n") == 0) {
-            // test -n STRING - true if string is non-empty
-            return (strlen(argv[2]) > 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-f") == 0) {
-            // test -f FILE - true if file exists and is regular
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISREG(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-d") == 0) {
-            // test -d DIR - true if directory exists
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-e") == 0) {
-            // test -e PATH - true if path exists
-            struct stat st;
-            return (stat(argv[2], &st) == 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-c") == 0) {
-            // test -c FILE - true if file is character device
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISCHR(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-b") == 0) {
-            // test -b FILE - true if file is block device
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISBLK(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-L") == 0 || strcmp(argv[1], "-h") == 0) {
-            // test -L FILE or -h FILE - true if file is symbolic link
-            struct stat st;
-            return (lstat(argv[2], &st) == 0 && S_ISLNK(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-p") == 0) {
-            // test -p FILE - true if file is named pipe (FIFO)
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISFIFO(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-S") == 0) {
-            // test -S FILE - true if file is socket
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && S_ISSOCK(st.st_mode)) ? 0 : 1;
-        } else if (strcmp(argv[1], "-r") == 0) {
-            // test -r FILE - true if file is readable
-            return (access(argv[2], R_OK) == 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-w") == 0) {
-            // test -w FILE - true if file is writable
-            return (access(argv[2], W_OK) == 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-x") == 0) {
-            // test -x FILE - true if file is executable
-            return (access(argv[2], X_OK) == 0) ? 0 : 1;
-        } else if (strcmp(argv[1], "-s") == 0) {
-            // test -s FILE - true if file exists and is not empty
-            struct stat st;
-            return (stat(argv[2], &st) == 0 && st.st_size > 0) ? 0 : 1;
+    // Handle negation operator
+    if (start < end && strcmp(argv[start], "!") == 0) {
+        int result = evaluate_test_expression(argv, start + 1, end);
+        return (result == 0) ? 1 : 0; // Flip the result
+    }
+
+    // Find logical operators (-o has lower precedence than -a)
+    // First pass: look for -o (OR)
+    for (int i = start + 1; i < end - 1; i++) {
+        if (strcmp(argv[i], "-o") == 0) {
+            int left = evaluate_test_expression(argv, start, i);
+            int right = evaluate_test_expression(argv, i + 1, end);
+            return (left == 0 || right == 0) ? 0 : 1;
         }
     }
 
-    if (argc == 4) {
-        if (strcmp(argv[2], "=") == 0) {
+    // Second pass: look for -a (AND)
+    for (int i = start + 1; i < end - 1; i++) {
+        if (strcmp(argv[i], "-a") == 0) {
+            int left = evaluate_test_expression(argv, start, i);
+            int right = evaluate_test_expression(argv, i + 1, end);
+            return (left == 0 && right == 0) ? 0 : 1;
+        }
+    }
+
+    // No logical operators found, evaluate as single test
+    return evaluate_single_test(argv, start, end);
+}
+
+// Evaluate a single test condition (unary or binary operators)
+static int evaluate_single_test(char **argv, int start, int end) {
+    int argc = end - start;
+
+    // Simple test implementations
+    if (argc == 1) {
+        // test STRING - true if string is non-empty
+        return (strlen(argv[start]) > 0) ? 0 : 1;
+    }
+
+    if (argc == 2) {
+        if (strcmp(argv[start], "-z") == 0) {
+            // test -z STRING - true if string is empty
+            return (strlen(argv[start + 1]) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-n") == 0) {
+            // test -n STRING - true if string is non-empty
+            return (strlen(argv[start + 1]) > 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-f") == 0) {
+            // test -f FILE - true if file exists and is regular
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISREG(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-d") == 0) {
+            // test -d DIR - true if directory exists
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-e") == 0) {
+            // test -e PATH - true if path exists
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-c") == 0) {
+            // test -c FILE - true if file is character device
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISCHR(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-b") == 0) {
+            // test -b FILE - true if file is block device
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISBLK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-L") == 0 || strcmp(argv[start], "-h") == 0) {
+            // test -L FILE or -h FILE - true if file is symbolic link
+            struct stat st;
+            return (lstat(argv[start + 1], &st) == 0 && S_ISLNK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-p") == 0) {
+            // test -p FILE - true if file is named pipe (FIFO)
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISFIFO(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-S") == 0) {
+            // test -S FILE - true if file is socket
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && S_ISSOCK(st.st_mode)) ? 0 : 1;
+        } else if (strcmp(argv[start], "-r") == 0) {
+            // test -r FILE - true if file is readable
+            return (access(argv[start + 1], R_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-w") == 0) {
+            // test -w FILE - true if file is writable
+            return (access(argv[start + 1], W_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-x") == 0) {
+            // test -x FILE - true if file is executable
+            return (access(argv[start + 1], X_OK) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start], "-s") == 0) {
+            // test -s FILE - true if file exists and is not empty
+            struct stat st;
+            return (stat(argv[start + 1], &st) == 0 && st.st_size > 0) ? 0 : 1;
+        }
+    }
+
+    if (argc == 3) {
+        if (strcmp(argv[start + 1], "=") == 0) {
             // test STRING1 = STRING2
-            return (strcmp(argv[1], argv[3]) == 0) ? 0 : 1;
-        } else if (strcmp(argv[2], "!=") == 0) {
+            return (strcmp(argv[start], argv[start + 2]) == 0) ? 0 : 1;
+        } else if (strcmp(argv[start + 1], "!=") == 0) {
             // test STRING1 != STRING2
-            return (strcmp(argv[1], argv[3]) != 0) ? 0 : 1;
-        } else if (strcmp(argv[2], "-eq") == 0) {
+            return (strcmp(argv[start], argv[start + 2]) != 0) ? 0 : 1;
+        } else if (strcmp(argv[start + 1], "-eq") == 0) {
             // test NUM1 -eq NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 == n2) ? 0 : 1;
-        } else if (strcmp(argv[2], "-ne") == 0) {
+        } else if (strcmp(argv[start + 1], "-ne") == 0) {
             // test NUM1 -ne NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 != n2) ? 0 : 1;
-        } else if (strcmp(argv[2], "-lt") == 0) {
+        } else if (strcmp(argv[start + 1], "-lt") == 0) {
             // test NUM1 -lt NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 < n2) ? 0 : 1;
-        } else if (strcmp(argv[2], "-le") == 0) {
+        } else if (strcmp(argv[start + 1], "-le") == 0) {
             // test NUM1 -le NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 <= n2) ? 0 : 1;
-        } else if (strcmp(argv[2], "-gt") == 0) {
+        } else if (strcmp(argv[start + 1], "-gt") == 0) {
             // test NUM1 -gt NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 > n2) ? 0 : 1;
-        } else if (strcmp(argv[2], "-ge") == 0) {
+        } else if (strcmp(argv[start + 1], "-ge") == 0) {
             // test NUM1 -ge NUM2
-            int n1 = atoi(argv[1]);
-            int n2 = atoi(argv[3]);
+            int n1 = atoi(argv[start]);
+            int n2 = atoi(argv[start + 2]);
             return (n1 >= n2) ? 0 : 1;
         }
     }
