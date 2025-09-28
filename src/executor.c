@@ -3926,6 +3926,20 @@ static char *parse_parameter_expansion(executor_t *executor,
 
     // Fall back to symbol table lookup for regular variables
     char *value = symtable_get_var(executor->symtable, expansion);
+    
+    // Check for unset variable error (set -u) for ${var} syntax
+    if (!value && shell_opts.unset_error) {
+        // Don't error on special variables that have default behavior
+        if (strlen(expansion) != 1 ||
+            (expansion[0] != '?' && expansion[0] != '$' && expansion[0] != '#' &&
+             expansion[0] != '0' && expansion[0] != '@' && expansion[0] != '*')) {
+            // Set expansion error instead of exiting to allow || constructs
+            executor->expansion_error = true;
+            executor->expansion_exit_status = 1;
+            return strdup(""); // Return empty string for unbound variable
+        }
+    }
+    
     return value ? strdup(value) : strdup("");
 }
 
