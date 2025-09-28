@@ -406,35 +406,81 @@ int bin_unset(int argc __attribute__((unused)),
  *      Display the type of a command (builtin, function, file, alias, etc.)
  */
 int bin_type(int argc, char **argv) {
-    if (argc < 2) {
-        error_message("usage: type name [name ...]");
+    bool type_only = false;   // -t flag: output only the type
+    bool path_only = false;   // -p flag: output only the path
+    bool show_all = false;    // -a flag: show all locations
+    int name_start = 1;
+    
+    // Parse options
+    for (int i = 1; i < argc && argv[i][0] == '-'; i++) {
+        if (strcmp(argv[i], "-t") == 0) {
+            type_only = true;
+            name_start = i + 1;
+        } else if (strcmp(argv[i], "-p") == 0) {
+            path_only = true;
+            name_start = i + 1;
+        } else if (strcmp(argv[i], "-a") == 0) {
+            show_all = true;
+            name_start = i + 1;
+        } else if (strcmp(argv[i], "--") == 0) {
+            name_start = i + 1;
+            break;
+        } else {
+            error_message("type: invalid option: %s", argv[i]);
+            return 1;
+        }
+    }
+    
+    if (name_start >= argc) {
+        error_message("usage: type [-t] [-p] [-a] name [name ...]");
         return 1;
     }
 
     int result = 0;
-    for (int i = 1; i < argc; i++) {
+    for (int i = name_start; i < argc; i++) {
         const char *name = argv[i];
 
+        bool found_any = false;
+        
         // Check if it's a builtin command
         if (is_builtin(name)) {
-            printf("%s is a shell builtin\n", name);
-            continue;
+            found_any = true;
+            if (type_only) {
+                printf("builtin\n");
+            } else if (path_only) {
+                // -p flag: builtins have no path, so output nothing
+            } else {
+                printf("%s is a shell builtin\n", name);
+            }
+            if (!show_all) continue;
         }
 
-        // Check if it's an alias
+        // Check if it's an alias (simplified - would need full alias parsing)
         char *alias_value = symtable_get_global("alias");
         if (alias_value) {
-            // Simple alias check - in a full implementation this would parse
-            // the aliases
-            printf("%s is aliased\n", name);
-            continue;
+            found_any = true;
+            if (type_only) {
+                printf("alias\n");
+            } else if (path_only) {
+                // -p flag: aliases have no path, so output nothing
+            } else {
+                printf("%s is aliased\n", name);
+            }
+            if (!show_all) continue;
         }
 
         // Check if it's a function (stored in symbol table)
         char *func_value = symtable_get_global(name);
         if (func_value && strstr(func_value, "function")) {
-            printf("%s is a function\n", name);
-            continue;
+            found_any = true;
+            if (type_only) {
+                printf("function\n");
+            } else if (path_only) {
+                // -p flag: functions have no path, so output nothing
+            } else {
+                printf("%s is a function\n", name);
+            }
+            if (!show_all) continue;
         }
 
         // Check if it's an executable file in PATH
@@ -442,29 +488,44 @@ int bin_type(int argc, char **argv) {
         if (path_env) {
             char *path_copy = strdup(path_env);
             char *dir = strtok(path_copy, ":");
-            bool found = false;
+            bool found_in_path = false;
 
             while (dir != NULL) {
                 char full_path[1024];
                 snprintf(full_path, sizeof(full_path), "%s/%s", dir, name);
 
                 if (access(full_path, X_OK) == 0) {
-                    printf("%s is %s\n", name, full_path);
-                    found = true;
-                    break;
+                    found_any = true;
+                    found_in_path = true;
+                    
+                    if (type_only) {
+                        printf("file\n");
+                    } else if (path_only) {
+                        printf("%s\n", full_path);
+                    } else {
+                        printf("%s is %s\n", name, full_path);
+                    }
+                    
+                    if (!show_all) break;
                 }
                 dir = strtok(NULL, ":");
             }
 
             free(path_copy);
-            if (found) {
+            if (found_in_path && !show_all) {
                 continue;
             }
         }
 
-        // Not found
-        printf("%s: not found\n", name);
-        result = 1;
+        // Not found anywhere
+        if (!found_any) {
+            if (type_only || path_only) {
+                // For -t and -p, output nothing for not found commands
+            } else {
+                printf("%s: not found\n", name);
+            }
+            result = 1;
+        }
     }
 
     return result;
