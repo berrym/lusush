@@ -39,6 +39,7 @@ typedef enum {
     TOK_REDIRECT_BOTH, // &>
     TOK_APPEND_ERR,    // 2>>
     TOK_REDIRECT_FD,   // &1, &2, etc.
+    TOK_REDIRECT_CLOBBER, // >|
     TOK_ASSIGN,        // =
     TOK_NOT_EQUAL,     // !=
     TOK_PLUS,          // +

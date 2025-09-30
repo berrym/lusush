@@ -494,7 +494,8 @@ static node_t *parse_simple_command(parser_t *parser) {
             arg_token->type == TOK_REDIRECT_ERR ||
             arg_token->type == TOK_REDIRECT_BOTH ||
             arg_token->type == TOK_APPEND_ERR ||
-            arg_token->type == TOK_REDIRECT_FD) {
+            arg_token->type == TOK_REDIRECT_FD ||
+            arg_token->type == TOK_REDIRECT_CLOBBER) {
 
             node_t *redir_node = parse_redirection(parser);
             if (!redir_node) {
@@ -773,7 +774,9 @@ static node_t *parse_redirection(parser_t *parser) {
         break;
     case TOK_REDIRECT_FD:
         node_type = NODE_REDIR_FD;
-
+        break;
+    case TOK_REDIRECT_CLOBBER:
+        node_type = NODE_REDIR_CLOBBER;
         break;
     default:
         set_parser_error(parser, "Unknown redirection token");

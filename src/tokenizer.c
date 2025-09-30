@@ -171,6 +171,8 @@ const char *token_type_name(token_type_t type) {
         return "APPEND_ERR";
     case TOK_REDIRECT_FD:
         return "REDIRECT_FD";
+    case TOK_REDIRECT_CLOBBER:
+        return "REDIRECT_CLOBBER";
     case TOK_ASSIGN:
         return "ASSIGN";
     case TOK_NOT_EQUAL:
@@ -255,7 +257,7 @@ bool token_is_keyword(token_type_t type) {
 
 // Check if token is an operator
 bool token_is_operator(token_type_t type) {
-    return (type >= TOK_SEMICOLON && type <= TOK_REDIRECT_FD) ||
+    return (type >= TOK_SEMICOLON && type <= TOK_REDIRECT_CLOBBER) ||
            (type >= TOK_ASSIGN && type <= TOK_BACKQUOTE);
 }
 
@@ -798,6 +800,12 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
                 tokenizer->position += 2;
                 tokenizer->column += 2;
                 return token_new(TOK_APPEND, ">>", 2, start_line, start_column,
+                                 start_pos);
+            } else if (tokenizer->position + 1 < tokenizer->input_length &&
+                       tokenizer->input[tokenizer->position + 1] == '|') {
+                tokenizer->position += 2;
+                tokenizer->column += 2;
+                return token_new(TOK_REDIRECT_CLOBBER, ">|", 2, start_line, start_column,
                                  start_pos);
             } else if (tokenizer->position + 1 < tokenizer->input_length &&
                        tokenizer->input[tokenizer->position + 1] == '&' &&
