@@ -705,7 +705,18 @@ int bin_printf(int argc, char **argv) {
             }
 
             // Parse width
-            if (isdigit(format[i])) {
+            if (format[i] == '*') {
+                // Dynamic width from argument
+                if (arg_index < argc) {
+                    width = atoi(argv[arg_index]);
+                    if (width < 0) {
+                        left_align = true;
+                        width = -width;
+                    }
+                    arg_index++;
+                }
+                i++;
+            } else if (isdigit(format[i])) {
                 while (isdigit(format[i])) {
                     width = width * 10 + (format[i] - '0');
                     i++;
@@ -715,21 +726,31 @@ int bin_printf(int argc, char **argv) {
             // Parse precision
             if (format[i] == '.') {
                 i++;
-                precision = 0;
-                while (isdigit(format[i])) {
-                    precision = precision * 10 + (format[i] - '0');
+                if (format[i] == '*') {
+                    // Dynamic precision from argument
+                    if (arg_index < argc) {
+                        precision = atoi(argv[arg_index]);
+                        arg_index++;
+                    }
                     i++;
+                } else {
+                    precision = 0;
+                    while (isdigit(format[i])) {
+                        precision = precision * 10 + (format[i] - '0');
+                        i++;
+                    }
                 }
             }
 
             // Handle conversion specifier
             char specifier = format[i];
-            const char *arg = (arg_index < argc) ? argv[arg_index] : "";
+            // Get the argument for the format specifier (after width/precision parsing)
+            const char *format_arg = (arg_index < argc) ? argv[arg_index] : "";
 
             switch (specifier) {
             case 's': {
                 // String format
-                int len = strlen(arg);
+                int len = strlen(format_arg);
                 int padding = (width > len) ? width - len : 0;
 
                 if (!left_align && padding > 0) {
@@ -743,10 +764,10 @@ int bin_printf(int argc, char **argv) {
                 // Print the string (truncated if precision specified)
                 if (precision >= 0 && precision < len) {
                     for (int j = 0; j < precision; j++) {
-                        putchar(arg[j]);
+                        putchar(format_arg[j]);
                     }
                 } else {
-                    fputs(arg, stdout);
+                    fputs(format_arg, stdout);
                 }
 
                 if (left_align && padding > 0) {
@@ -764,8 +785,9 @@ int bin_printf(int argc, char **argv) {
             case 'd':
             case 'i': {
                 // Integer format
-                int value = (arg_index < argc) ? atoi(arg) : 0;
-                printf("%*d", width, value);
+                int value = (arg_index < argc) ? atoi(format_arg) : 0;
+                int effective_width = left_align ? -width : width;
+                printf("%*d", effective_width, value);
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -773,8 +795,24 @@ int bin_printf(int argc, char **argv) {
             }
             case 'c': {
                 // Character format
-                int value = (arg_index < argc && strlen(arg) > 0) ? arg[0] : 0;
+                int value = (arg_index < argc) ? atoi(format_arg) : 0;
+                
+                if (!left_align && width > 1) {
+                    // Right-align with padding
+                    for (int p = 1; p < width; p++) {
+                        putchar(' ');
+                    }
+                }
+                
                 putchar(value);
+                
+                if (left_align && width > 1) {
+                    // Left-align with padding
+                    for (int p = 1; p < width; p++) {
+                        putchar(' ');
+                    }
+                }
+                
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -784,9 +822,10 @@ int bin_printf(int argc, char **argv) {
             case 'X': {
                 // Hexadecimal format
                 unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
                                          : 0;
-                printf(specifier == 'x' ? "%*x" : "%*X", width, value);
+                int effective_width = left_align ? -width : width;
+                printf(specifier == 'x' ? "%*x" : "%*X", effective_width, value);
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -795,9 +834,10 @@ int bin_printf(int argc, char **argv) {
             case 'o': {
                 // Octal format
                 unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
                                          : 0;
-                printf("%*o", width, value);
+                int effective_width = left_align ? -width : width;
+                printf("%*o", effective_width, value);
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -806,9 +846,10 @@ int bin_printf(int argc, char **argv) {
             case 'u': {
                 // Unsigned integer format
                 unsigned int value = (arg_index < argc)
-                                         ? (unsigned int)strtoul(arg, NULL, 10)
+                                         ? (unsigned int)strtoul(format_arg, NULL, 10)
                                          : 0;
-                printf("%*u", width, value);
+                int effective_width = left_align ? -width : width;
+                printf("%*u", effective_width, value);
                 if (arg_index < argc) {
                     arg_index++;
                 }
@@ -817,11 +858,12 @@ int bin_printf(int argc, char **argv) {
             case 'f':
             case 'F': {
                 // Float format
-                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
-                    printf("%*.*f", width, precision, value);
+                    printf("%*.*f", effective_width, precision, value);
                 } else {
-                    printf("%*f", width, value);
+                    printf("%*f", effective_width, value);
                 }
                 if (arg_index < argc) {
                     arg_index++;
@@ -831,12 +873,13 @@ int bin_printf(int argc, char **argv) {
             case 'g':
             case 'G': {
                 // General float format
-                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
-                    printf(specifier == 'g' ? "%*.*g" : "%*.*G", width,
+                    printf(specifier == 'g' ? "%*.*g" : "%*.*G", effective_width,
                            precision, value);
                 } else {
-                    printf(specifier == 'g' ? "%*g" : "%*G", width, value);
+                    printf(specifier == 'g' ? "%*g" : "%*G", effective_width, value);
                 }
                 if (arg_index < argc) {
                     arg_index++;
@@ -846,12 +889,13 @@ int bin_printf(int argc, char **argv) {
             case 'e':
             case 'E': {
                 // Scientific notation
-                double value = (arg_index < argc) ? strtod(arg, NULL) : 0.0;
+                double value = (arg_index < argc) ? strtod(format_arg, NULL) : 0.0;
+                int effective_width = left_align ? -width : width;
                 if (precision >= 0) {
-                    printf(specifier == 'e' ? "%*.*e" : "%*.*E", width,
+                    printf(specifier == 'e' ? "%*.*e" : "%*.*E", effective_width,
                            precision, value);
                 } else {
-                    printf(specifier == 'e' ? "%*e" : "%*E", width, value);
+                    printf(specifier == 'e' ? "%*e" : "%*E", effective_width, value);
                 }
                 if (arg_index < argc) {
                     arg_index++;
