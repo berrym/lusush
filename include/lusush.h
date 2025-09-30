@@ -124,6 +124,7 @@ typedef struct shell_options {
     bool noclobber;       // -C flag: prevent output redirection from overwriting files
     bool onecmd;          // -t flag: exit after one command
     bool notify;          // -b flag: asynchronous background job notification
+    bool ignoreeof;       // ignoreeof: prevent exit on EOF (Ctrl+D)
 } shell_options_t;
 
 // Global shell options

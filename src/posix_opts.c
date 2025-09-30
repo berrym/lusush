@@ -30,6 +30,7 @@ void init_posix_options(void) {
     shell_opts.noclobber = false;
     shell_opts.onecmd = false;
     shell_opts.notify = false;
+    shell_opts.ignoreeof = false;
 }
 
 // Check if a specific POSIX option is set
@@ -89,6 +90,8 @@ bool should_auto_export(void) { return shell_opts.allexport; }
 
 bool is_noclobber_enabled(void) { return shell_opts.noclobber; }
 
+bool is_ignoreeof_enabled(void) { return shell_opts.ignoreeof; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -118,6 +121,7 @@ static option_mapping_t option_map[] = {
     {"noclobber",     &shell_opts.noclobber, 'C'},
     { "onecmd",         &shell_opts.onecmd, 't'},
     { "notify",         &shell_opts.notify, 'b'},
+    {"ignoreeof",     &shell_opts.ignoreeof,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -171,6 +175,8 @@ int builtin_set(char **args) {
                shell_opts.onecmd ? "on" : "off");
         printf("  notify (async background job notification): %s\n",
                shell_opts.notify ? "on" : "off");
+        printf("  ignoreeof (prevent exit on EOF): %s\n",
+               shell_opts.ignoreeof ? "on" : "off");
         return 0;
     }
 

@@ -458,6 +458,14 @@ char *lusush_readline_with_prompt(const char *prompt) {
     // Get input from readline
     char *line = readline(actual_prompt);
     
+    // Handle EOF with ignoreeof option
+    if (!line && shell_opts.ignoreeof && is_interactive_shell()) {
+        printf("Use \"exit\" to leave the shell.\n");
+        fflush(stdout);
+        clearerr(stdin); // Clear EOF condition so readline can continue
+        return strdup(""); // Return empty string to continue shell loop
+    }
+    
     // Debug: Track what commands are being entered in interactive mode
 
     
