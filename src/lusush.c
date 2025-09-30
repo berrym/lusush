@@ -96,6 +96,11 @@ int main(int argc, char **argv) {
         last_exit_status = exit_status;
         set_exit_status(exit_status);
 
+        // Check onecmd option (-t): exit after executing one command
+        if (shell_opts.onecmd) {
+            exit_flag = true;
+        }
+
         if (is_interactive_shell()) {
             free(line);
         } else {

@@ -28,6 +28,7 @@ void init_posix_options(void) {
     shell_opts.job_control = false;
     shell_opts.allexport = false;
     shell_opts.noclobber = false;
+    shell_opts.onecmd = false;
 }
 
 // Check if a specific POSIX option is set
@@ -61,6 +62,8 @@ bool is_posix_option_set(char option) {
         return shell_opts.allexport;
     case 'C':
         return shell_opts.noclobber;
+    case 't':
+        return shell_opts.onecmd;
     default:
         return false;
     }
@@ -110,6 +113,7 @@ static option_mapping_t option_map[] = {
     {"monitor",     &shell_opts.job_control, 'm'},
     {"allexport",     &shell_opts.allexport, 'a'},
     {"noclobber",     &shell_opts.noclobber, 'C'},
+    { "onecmd",         &shell_opts.onecmd, 't'},
     {     NULL,                        NULL,   0}
 };
 
@@ -159,6 +163,8 @@ int builtin_set(char **args) {
                shell_opts.allexport ? "on" : "off");
         printf("  noclobber (prevent file overwrite): %s\n",
                shell_opts.noclobber ? "on" : "off");
+        printf("  onecmd (exit after one command): %s\n",
+               shell_opts.onecmd ? "on" : "off");
         return 0;
     }
 

@@ -122,6 +122,7 @@ typedef struct shell_options {
     bool job_control;     // -m flag: enable job control
     bool allexport;       // -a flag: automatically export all variables
     bool noclobber;       // -C flag: prevent output redirection from overwriting files
+    bool onecmd;          // -t flag: exit after one command
 } shell_options_t;
 
 // Global shell options
