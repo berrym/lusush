@@ -36,6 +36,7 @@
 
 // Forward declarations
 extern posix_history_manager_t *global_posix_history;
+void executor_update_job_status(executor_t *executor);
 
 // Global executor for persistent function definitions across commands
 static executor_t *global_executor = NULL;
@@ -95,6 +96,11 @@ int main(int argc, char **argv) {
         int exit_status = parse_and_execute(line);
         last_exit_status = exit_status;
         set_exit_status(exit_status);
+
+        // Check notify option (-b): asynchronous background job notification
+        if (shell_opts.notify && global_executor) {
+            executor_update_job_status(global_executor);
+        }
 
         // Check onecmd option (-t): exit after executing one command
         if (shell_opts.onecmd) {

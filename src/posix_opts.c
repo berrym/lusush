@@ -29,6 +29,7 @@ void init_posix_options(void) {
     shell_opts.allexport = false;
     shell_opts.noclobber = false;
     shell_opts.onecmd = false;
+    shell_opts.notify = false;
 }
 
 // Check if a specific POSIX option is set
@@ -64,6 +65,8 @@ bool is_posix_option_set(char option) {
         return shell_opts.noclobber;
     case 't':
         return shell_opts.onecmd;
+    case 'b':
+        return shell_opts.notify;
     default:
         return false;
     }
@@ -114,6 +117,7 @@ static option_mapping_t option_map[] = {
     {"allexport",     &shell_opts.allexport, 'a'},
     {"noclobber",     &shell_opts.noclobber, 'C'},
     { "onecmd",         &shell_opts.onecmd, 't'},
+    { "notify",         &shell_opts.notify, 'b'},
     {     NULL,                        NULL,   0}
 };
 
@@ -165,6 +169,8 @@ int builtin_set(char **args) {
                shell_opts.noclobber ? "on" : "off");
         printf("  onecmd (exit after one command): %s\n",
                shell_opts.onecmd ? "on" : "off");
+        printf("  notify (async background job notification): %s\n",
+               shell_opts.notify ? "on" : "off");
         return 0;
     }
 

@@ -612,6 +612,9 @@ static int parse_opts(int argc, char **argv) {
             case 'm':
                 shell_opts.job_control = true;
                 break;
+            case 'b':
+                shell_opts.notify = true;
+                break;
             case 't':
                 shell_opts.onecmd = true;
                 break;
@@ -648,6 +651,7 @@ static void usage(int err) {
     printf("  -f               Disable pathname expansion (set -f)\n");
     printf("  -h               Enable command path hashing (set -o hashall)\n");
     printf("  -m               Enable job control (set -m)\n");
+    printf("  -b               Notify asynchronously of background job completion (set -o notify)\n");
     printf("  -t               Exit after executing one command (set -o onecmd)\n");
     printf("  --enhanced-display Enable enhanced display features\n");
     printf("  --layered-display  Enable full layered display controller\n");
@@ -657,7 +661,7 @@ static void usage(int err) {
     printf(
         "  Use 'set -o option' or 'set +o option' to control shell behavior\n");
     printf("  Available options: errexit, xtrace, noexec, nounset, verbose,\n");
-    printf("                     noglob, hashall, monitor, onecmd\n");
+    printf("                     noglob, hashall, monitor, notify, onecmd\n");
     printf("\nFor more information, see the manual or documentation.\n");
     exit(err);
 }
