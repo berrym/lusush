@@ -1191,6 +1191,21 @@ int config_parse_option(const char *key, const char *value) {
         config_option_t *opt = &config_options[i];
 
         if (strcmp(opt->name, key) == 0) {
+            // Handle shell options specially - they use integration functions
+            if (strncmp(key, "shell.", 6) == 0) {
+                if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0 || 
+                    strcmp(value, "yes") == 0 || strcmp(value, "on") == 0) {
+                    config_set_shell_option(key, true);
+                } else if (strcmp(value, "false") == 0 || strcmp(value, "0") == 0 || 
+                           strcmp(value, "off") == 0 || strcmp(value, "no") == 0) {
+                    config_set_shell_option(key, false);
+                } else {
+                    config_error("Invalid boolean value '%s' for shell option '%s'", value, key);
+                    return -1;
+                }
+                return 0;
+            }
+
             // Validate value if validator exists
             if (opt->validator && !opt->validator(value)) {
                 config_error("Invalid value '%s' for option '%s'", value, key);
