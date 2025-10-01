@@ -1,6 +1,7 @@
 #include "../include/errors.h"
 #include "../include/lusush.h"
 #include "../include/symtable.h"
+#include "../include/readline_integration.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -32,6 +33,7 @@ void init_posix_options(void) {
     shell_opts.notify = false;
     shell_opts.ignoreeof = false;
     shell_opts.nolog = false;
+    shell_opts.emacs_mode = true;  // Default to emacs mode
 }
 
 // Check if a specific POSIX option is set
@@ -95,6 +97,8 @@ bool is_ignoreeof_enabled(void) { return shell_opts.ignoreeof; }
 
 bool is_nolog_enabled(void) { return shell_opts.nolog; }
 
+bool is_emacs_mode_enabled(void) { return shell_opts.emacs_mode; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -126,6 +130,7 @@ static option_mapping_t option_map[] = {
     { "notify",         &shell_opts.notify, 'b'},
     {"ignoreeof",     &shell_opts.ignoreeof,   0},
     {  "nolog",         &shell_opts.nolog,   0},
+    { "emacs",       &shell_opts.emacs_mode,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -183,6 +188,8 @@ int builtin_set(char **args) {
                shell_opts.ignoreeof ? "on" : "off");
         printf("  nolog (prevent function definitions from entering history): %s\n",
                shell_opts.nolog ? "on" : "off");
+        printf("  emacs (emacs-style command line editing): %s\n",
+               shell_opts.emacs_mode ? "on" : "off");
         return 0;
     }
 
@@ -197,6 +204,10 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_name(args[i]);
                 if (opt) {
                     *(opt->flag) = true;
+                    // Update readline editing mode if emacs option changed
+                    if (strcmp(args[i], "emacs") == 0) {
+                        lusush_update_editing_mode();
+                    }
                 } else {
                     error_message("set: invalid option name: %s", args[i]);
                     return 1;
@@ -217,6 +228,10 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_name(args[i]);
                 if (opt) {
                     *(opt->flag) = false;
+                    // Update readline editing mode if emacs option changed
+                    if (strcmp(args[i], "emacs") == 0) {
+                        lusush_update_editing_mode();
+                    }
                 } else {
                     error_message("set: invalid option name: %s", args[i]);
                     return 1;

@@ -126,6 +126,7 @@ typedef struct shell_options {
     bool notify;          // -b flag: asynchronous background job notification
     bool ignoreeof;       // ignoreeof: prevent exit on EOF (Ctrl+D)
     bool nolog;           // nolog: prevent function definitions from entering command history
+    bool emacs_mode;      // emacs: enable emacs-style command line editing (default true)
 } shell_options_t;
 
 // Global shell options

@@ -216,6 +216,11 @@ void lusush_prompt_set_callback(lusush_prompt_callback_t callback);
 void lusush_keybindings_setup(void);
 
 /**
+ * Update readline editing mode based on current emacs option setting
+ */
+void lusush_update_editing_mode(void);
+
+/**
  * Bind a key to a readline function
  * @param key key code to bind
  * @param function readline function to execute

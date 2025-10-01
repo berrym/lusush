@@ -54,6 +54,10 @@
 #include "../include/init.h"
 #include "../include/input.h"
 
+// Forward declarations
+bool is_emacs_mode_enabled(void);
+static void update_readline_editing_mode(void);
+
 // Global state
 static bool initialized = false;
 static char *current_prompt = NULL;
@@ -2199,16 +2203,28 @@ static void setup_key_bindings(void) {
     rl_bind_keyseq("\\e[C", lusush_accept_suggestion_key);    // Right arrow: accept full suggestion
     rl_bind_keyseq("\\e[1;5C", lusush_accept_suggestion_word_key); // Ctrl+Right arrow: accept word
     
-    // Enable vi or emacs mode based on config
-    if (false) { // vi_mode not implemented yet
+    // Set initial editing mode
+    update_readline_editing_mode();
+}
+
+void lusush_keybindings_setup(void) {
+    setup_key_bindings();
+}
+
+// Update readline editing mode based on emacs option
+static void update_readline_editing_mode(void) {
+    if (!is_emacs_mode_enabled()) {
         rl_editing_mode = 0; // vi mode
     } else {
         rl_editing_mode = 1; // emacs mode (default)
     }
 }
 
-void lusush_keybindings_setup(void) {
-    setup_key_bindings();
+// Public function to update editing mode when option changes
+void lusush_update_editing_mode(void) {
+    if (initialized) {
+        update_readline_editing_mode();
+    }
 }
 
 int lusush_keybinding_add(int key, rl_command_func_t *function) {
