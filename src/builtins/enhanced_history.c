@@ -2,6 +2,7 @@
 #include "../../include/errors.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
+#include "../../include/lusush.h"
 
 #include <getopt.h>
 #include <stdio.h>
@@ -38,6 +39,9 @@
 // ============================================================================
 
 extern posix_history_manager_t *global_posix_history;
+
+// Forward declarations for POSIX compliance
+bool is_posix_mode_enabled(void);
 
 // ============================================================================
 // Enhanced History Implementation
@@ -222,16 +226,20 @@ static int parse_delete_offset(const char *arg) {
  */
 static char *get_default_history_filename(void) {
     const char *home = symtable_get_global_default("HOME", "");
+    
+    // Use POSIX-compliant history file in posix mode
+    const char *history_file = is_posix_mode_enabled() ? ".sh_history" : POSIX_HISTORY_DEFAULT_FILE;
+    
     if (!home || !*home) {
-        return strdup(POSIX_HISTORY_DEFAULT_FILE);
+        return strdup(history_file);
     }
 
-    char *filename = malloc(strlen(home) + strlen(POSIX_HISTORY_DEFAULT_FILE) + 2);
+    char *filename = malloc(strlen(home) + strlen(history_file) + 2);
     if (!filename) {
         return NULL;
     }
 
-    sprintf(filename, "%s/%s", home, POSIX_HISTORY_DEFAULT_FILE);
+    sprintf(filename, "%s/%s", home, history_file);
     return filename;
 }
 

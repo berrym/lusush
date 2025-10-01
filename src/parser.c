@@ -10,10 +10,12 @@
 #include "../include/node.h"
 #include "../include/tokenizer.h"
 #include "../include/executor.h"
+#include "../include/lusush.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 // Forward declarations
 static node_t *parse_command_list(parser_t *parser);
@@ -31,6 +33,9 @@ static node_t *parse_function_definition(parser_t *parser);
 static bool is_function_definition(parser_t *parser);
 static node_t *parse_logical_expression(parser_t *parser);
 static node_t *parse_redirection(parser_t *parser);
+
+// Forward declarations for POSIX compliance
+bool is_posix_mode_enabled(void);
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                                      bool strip_tabs, bool expand_variables);
 static void set_parser_error(parser_t *parser, const char *message);
@@ -1730,6 +1735,27 @@ static bool is_function_definition(parser_t *parser) {
     return true;
 }
 
+// Validate function name for POSIX compliance
+static bool is_valid_posix_function_name(const char *name) {
+    if (!name || !*name) {
+        return false;
+    }
+    
+    // First character must be letter or underscore
+    if (!isalpha(*name) && *name != '_') {
+        return false;
+    }
+    
+    // Remaining characters must be alphanumeric or underscore
+    for (const char *p = name + 1; *p; p++) {
+        if (!isalnum(*p) && *p != '_') {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 // Parse function definition: name() { commands; } or function name() {
 // commands; }
 static node_t *parse_function_definition(parser_t *parser) {
@@ -1755,6 +1781,13 @@ static node_t *parse_function_definition(parser_t *parser) {
     // Store function name
     function_node->val.str = strdup(current->text);
     if (!function_node->val.str) {
+        free_node_tree(function_node);
+        return NULL;
+    }
+    
+    // POSIX compliance: validate function name in posix mode
+    if (is_posix_mode_enabled() && !is_valid_posix_function_name(current->text)) {
+        set_parser_error(parser, "Invalid function name in POSIX mode: function names must contain only letters, digits, and underscores, and cannot start with a digit");
         free_node_tree(function_node);
         return NULL;
     }
