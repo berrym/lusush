@@ -56,6 +56,7 @@
 
 // Forward declarations
 bool is_emacs_mode_enabled(void);
+bool is_vi_mode_enabled(void);
 static void update_readline_editing_mode(void);
 
 // Global state
@@ -2211,9 +2212,9 @@ void lusush_keybindings_setup(void) {
     setup_key_bindings();
 }
 
-// Update readline editing mode based on emacs option
+// Update readline editing mode based on vi/emacs options
 static void update_readline_editing_mode(void) {
-    if (!is_emacs_mode_enabled()) {
+    if (is_vi_mode_enabled()) {
         rl_editing_mode = 0; // vi mode
     } else {
         rl_editing_mode = 1; // emacs mode (default)

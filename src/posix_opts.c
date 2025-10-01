@@ -34,6 +34,7 @@ void init_posix_options(void) {
     shell_opts.ignoreeof = false;
     shell_opts.nolog = false;
     shell_opts.emacs_mode = true;  // Default to emacs mode
+    shell_opts.vi_mode = false;    // Default to emacs mode, not vi
 }
 
 // Check if a specific POSIX option is set
@@ -99,6 +100,8 @@ bool is_nolog_enabled(void) { return shell_opts.nolog; }
 
 bool is_emacs_mode_enabled(void) { return shell_opts.emacs_mode; }
 
+bool is_vi_mode_enabled(void) { return shell_opts.vi_mode; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -131,6 +134,7 @@ static option_mapping_t option_map[] = {
     {"ignoreeof",     &shell_opts.ignoreeof,   0},
     {  "nolog",         &shell_opts.nolog,   0},
     { "emacs",       &shell_opts.emacs_mode,   0},
+    {    "vi",         &shell_opts.vi_mode,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -190,6 +194,8 @@ int builtin_set(char **args) {
                shell_opts.nolog ? "on" : "off");
         printf("  emacs (emacs-style command line editing): %s\n",
                shell_opts.emacs_mode ? "on" : "off");
+        printf("  vi (vi-style command line editing): %s\n",
+               shell_opts.vi_mode ? "on" : "off");
         return 0;
     }
 
@@ -204,8 +210,12 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_name(args[i]);
                 if (opt) {
                     *(opt->flag) = true;
-                    // Update readline editing mode if emacs option changed
+                    // Handle mutually exclusive editing modes
                     if (strcmp(args[i], "emacs") == 0) {
+                        shell_opts.vi_mode = false;  // Disable vi when enabling emacs
+                        lusush_update_editing_mode();
+                    } else if (strcmp(args[i], "vi") == 0) {
+                        shell_opts.emacs_mode = false;  // Disable emacs when enabling vi
                         lusush_update_editing_mode();
                     }
                 } else {
@@ -228,8 +238,12 @@ int builtin_set(char **args) {
                 option_mapping_t *opt = find_option_by_name(args[i]);
                 if (opt) {
                     *(opt->flag) = false;
-                    // Update readline editing mode if emacs option changed
+                    // Handle mutually exclusive editing modes
                     if (strcmp(args[i], "emacs") == 0) {
+                        shell_opts.vi_mode = true;   // Enable vi when disabling emacs
+                        lusush_update_editing_mode();
+                    } else if (strcmp(args[i], "vi") == 0) {
+                        shell_opts.emacs_mode = true;  // Enable emacs when disabling vi
                         lusush_update_editing_mode();
                     }
                 } else {
