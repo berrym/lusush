@@ -130,4 +130,7 @@ void executor_clear_script_context(executor_t *executor);
 const char *executor_get_current_script_file(executor_t *executor);
 int executor_get_current_script_line(executor_t *executor);
 
+// Privileged mode security functions
+bool is_privileged_redirection_allowed(const char *target);
+
 #endif // EXECUTOR_H

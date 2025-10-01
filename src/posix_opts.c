@@ -42,6 +42,7 @@ void init_posix_options(void) {
     shell_opts.interactive_comments_mode = true; // Default to interactive comments enabled
     shell_opts.braceexpand_mode = true; // Default to brace expansion enabled
     shell_opts.physical_mode = false; // Default to logical directory paths
+    shell_opts.privileged_mode = false; // Default to unrestricted mode
 }
 
 // Check if a specific POSIX option is set
@@ -161,6 +162,7 @@ static option_mapping_t option_map[] = {
     {"interactive-comments", &shell_opts.interactive_comments_mode, 0},
     {"braceexpand", &shell_opts.braceexpand_mode, 0},
     {"physical",    &shell_opts.physical_mode,    0},
+    {"privileged",  &shell_opts.privileged_mode,  0},
     {     NULL,                        NULL,   0}
 };
 
@@ -186,6 +188,12 @@ static option_mapping_t *find_option_by_short(char opt) {
 
 // Implementation of the `set` builtin command
 int builtin_set(char **args) {
+    // Privileged mode security check - block all set operations  
+    if (shell_opts.privileged_mode && args[1]) {
+        fprintf(stderr, "set: cannot modify shell options in privileged mode\n");
+        return 1;
+    }
+
     if (!args[1]) {
         // No arguments - display all variables (traditional behavior)
         // For now, just show that set is implemented
@@ -289,7 +297,7 @@ int builtin_set(char **args) {
                     return 1;
                 }
             } else {
-                // No argument - show all options
+                // No argument - show all options in +o format (read-only operation, always allowed)
                 printf("Current shell options:\n");
                 for (int j = 0; option_map[j].name; j++) {
                     printf("set %co %s\n", *(option_map[j].flag) ? '-' : '+',
@@ -356,7 +364,7 @@ int builtin_set(char **args) {
             symtable_set_global("#", argc_str);
 
             break; // Process no more arguments after --
-        } else if (arg[0] == '-' && arg[1] != '\0') {
+        } else if (arg[0] == '-' && arg[1] != '-') {
             // Handle short options like -e, -x, etc.
             for (int j = 1; arg[j]; j++) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
@@ -367,8 +375,8 @@ int builtin_set(char **args) {
                     return 1;
                 }
             }
-        } else if (arg[0] == '+' && arg[1] != '\0') {
-            // Handle disabling short options like +e, +x, etc.
+        } else if (arg[0] == '+' && arg[1] != '+') {
+            // Handle short options like +e, +x, etc.
             for (int j = 1; arg[j]; j++) {
                 option_mapping_t *opt = find_option_by_short(arg[j]);
                 if (opt) {

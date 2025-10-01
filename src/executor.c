@@ -114,6 +114,72 @@ static bool is_assignment(const char *text);
 static int execute_assignment(executor_t *executor, const char *assignment);
 static bool match_pattern(const char *str, const char *pattern);
 
+/**
+ * is_privileged_command_allowed:
+ *      Check if command is allowed in privileged mode
+ */
+static bool is_privileged_command_allowed(const char *command) {
+    if (!shell_opts.privileged_mode || !command) {
+        return true;  // Allow if not in privileged mode
+    }
+
+    // Block commands containing '/' (absolute/relative paths)
+    if (strchr(command, '/') != NULL) {
+        return false;
+    }
+
+    // Block dangerous built-in commands in privileged mode
+    if (strcmp(command, "exec") == 0 || 
+        strcmp(command, "cd") == 0 ||
+        strcmp(command, "set") == 0) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * is_privileged_redirection_allowed:
+ *      Check if redirection target is allowed in privileged mode
+ */
+bool is_privileged_redirection_allowed(const char *target) {
+    if (!shell_opts.privileged_mode || !target) {
+        return true;  // Allow if not in privileged mode
+    }
+
+    // Block absolute path redirections
+    if (target[0] == '/') {
+        return false;
+    }
+
+    // Block redirection to parent directories
+    if (strstr(target, "../") != NULL || strcmp(target, "..") == 0) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * is_privileged_path_modification_allowed:
+ *      Check if PATH-related environment variable modification is allowed
+ */
+static bool is_privileged_path_modification_allowed(const char *var_name) {
+    if (!shell_opts.privileged_mode || !var_name) {
+        return true;  // Allow if not in privileged mode
+    }
+
+    // Block PATH modifications
+    if (strcmp(var_name, "PATH") == 0 ||
+        strcmp(var_name, "IFS") == 0 ||
+        strcmp(var_name, "ENV") == 0 ||
+        strcmp(var_name, "SHELL") == 0) {
+        return false;
+    }
+
+    return true;
+}
+
 // Create new executor with global symtable
 executor_t *executor_new(void) {
     executor_t *executor = malloc(sizeof(executor_t));
@@ -514,6 +580,16 @@ static int execute_command(executor_t *executor, node_t *command) {
     int argc;
     char **argv = build_argv_from_ast(executor, command, &argc);
     if (!argv || argc == 0) {
+        return 1;
+    }
+
+    // Privileged mode security check
+    if (argc > 0 && !is_privileged_command_allowed(argv[0])) {
+        fprintf(stderr, "lusush: %s: restricted command in privileged mode\n", argv[0]);
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+        free(argv);
         return 1;
     }
 
@@ -2596,6 +2672,13 @@ static int execute_assignment(executor_t *executor, const char *assignment) {
 
     strncpy(var_name, assignment, var_len);
     var_name[var_len] = '\0';
+
+    // Privileged mode security check for environment variable modifications
+    if (!is_privileged_path_modification_allowed(var_name)) {
+        fprintf(stderr, "lusush: %s: cannot modify restricted variable in privileged mode\n", var_name);
+        free(var_name);
+        return 1;
+    }
 
     // Validate variable name
     if (!var_name[0] || (!isalpha(var_name[0]) && var_name[0] != '_')) {

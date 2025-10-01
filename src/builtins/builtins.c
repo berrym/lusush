@@ -232,6 +232,12 @@ int bin_cd(int argc __attribute__((unused)),
     char *current_dir = NULL;
     char *target_dir = NULL;
 
+    // Privileged mode security check
+    if (shell_opts.privileged_mode) {
+        fprintf(stderr, "cd: restricted command in privileged mode\n");
+        return 1;
+    }
+
     // Get current directory before changing
     current_dir = getcwd(NULL, 0);
     if (!current_dir && errno != ENOENT) {
@@ -2008,6 +2014,12 @@ int bin_trap(int argc, char **argv) {
    *      Replace shell process with command or modify file descriptors
    */
 int bin_exec(int argc, char **argv) {
+    // Privileged mode security check
+    if (shell_opts.privileged_mode) {
+        fprintf(stderr, "exec: restricted command in privileged mode\n");
+        return 1;
+    }
+
     // If no arguments, exec does nothing and returns success
     if (argc == 1) {
         return 0;

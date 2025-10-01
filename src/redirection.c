@@ -33,6 +33,9 @@
 static int handle_redirection_node(executor_t *executor, node_t *redir_node);
 static int setup_here_document(const char *delimiter, bool strip_tabs);
 static int setup_here_document_with_content(const char *content);
+
+// External function from executor.c
+extern bool is_privileged_redirection_allowed(const char *target);
 static int setup_here_document_with_processing(executor_t *executor,
                                                const char *content,
                                                bool strip_tabs,
@@ -125,6 +128,13 @@ static int handle_redirection_node(executor_t *executor, node_t *redir_node) {
     // Expand variables in the target
     char *target = expand_redirection_target(executor, target_node->val.str);
     if (!target) {
+        return 1;
+    }
+
+    // Privileged mode security check for redirection target
+    if (!is_privileged_redirection_allowed(target)) {
+        fprintf(stderr, "lusush: %s: restricted redirection target in privileged mode\n", target);
+        free(target);
         return 1;
     }
 
