@@ -40,6 +40,10 @@ int bin_theme(int argc, char **argv);
 int bin_display(int argc, char **argv);
 int bin_network(int argc, char **argv);
 int bin_debug(int argc, char **argv);
+
+// Forward declarations for POSIX compliance
+bool is_posix_mode_enabled(void);
+
 #include <ctype.h>
 #include <errno.h>
 #include <sys/resource.h>
@@ -1710,6 +1714,12 @@ int bin_continue(int argc, char **argv) {
  *      Set a string return value for the current function
  */
 int bin_return_value(int argc, char **argv) {
+    // POSIX compliance: return_value is not available in strict POSIX mode
+    if (is_posix_mode_enabled()) {
+        fprintf(stderr, "return_value: not available in POSIX mode\n");
+        return 1;
+    }
+    
     if (argc < 2) {
         fprintf(stderr, "return_value: missing value argument\n");
         return 1;

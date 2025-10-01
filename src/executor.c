@@ -83,6 +83,9 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
 static int add_to_argv_list(char ***argv_list, int *argv_count,
                             int *argv_capacity, char *arg);
 static char **ifs_field_split(const char *text, const char *ifs, int *count);
+
+// Forward declarations for POSIX compliance
+bool is_posix_mode_enabled(void);
 static int execute_external_command_with_setup(executor_t *executor,
                                                char **argv,
                                                bool redirect_stderr,
@@ -2706,8 +2709,9 @@ static int execute_function_definition(executor_t *executor, node_t *node) {
     char *actual_function_name = function_name;
     
     // Check if function name contains parameter encoding
+    // POSIX compliance: disable advanced parameter syntax in strict POSIX mode
     char *param_separator = strchr(function_name, '|');
-    if (param_separator) {
+    if (param_separator && !is_posix_mode_enabled()) {
         // Extract actual function name
         size_t name_len = param_separator - function_name;
         actual_function_name = malloc(name_len + 1);
@@ -2929,6 +2933,11 @@ void free_function_params(function_param_t *params) {
 static int validate_function_parameters(function_def_t *func, char **argv, int argc) {
     if (!func) {
         return 1;
+    }
+    
+    // POSIX compliance: disable parameter validation in strict POSIX mode
+    if (is_posix_mode_enabled()) {
+        return 0;
     }
     
     // If no parameters defined, allow any arguments (backward compatibility)
