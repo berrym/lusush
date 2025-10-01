@@ -1,7 +1,7 @@
 # Lusush Installation Guide
 
 **Version**: v1.3.0-dev  
-**Last Updated**: January 17, 2025  
+**Last Updated**: October 1, 2025
 **Platforms**: Linux, macOS, BSD
 
 This guide provides comprehensive installation instructions for Lusush - the world's first Shell Development Environment with integrated interactive debugging.
