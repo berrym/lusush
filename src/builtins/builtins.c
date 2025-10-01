@@ -163,6 +163,66 @@ int bin_help(int argc __attribute__((unused)),
 }
 
 /**
+ * canonicalize_logical_path:
+ *      Canonicalize a path by resolving . and .. components logically
+ *      (without following symlinks). Returns a malloc'd string or NULL on error.
+ */
+static char *canonicalize_logical_path(const char *path) {
+    if (!path) return NULL;
+    
+    size_t path_len = strlen(path);
+    char *result = malloc(path_len + 1);
+    if (!result) return NULL;
+    
+    strcpy(result, path);
+    
+    // Simple canonicalization: remove /./  and resolve /../
+    char *src = result;
+    char *dst = result;
+    
+    while (*src) {
+        if (*src == '/') {
+            // Skip multiple slashes
+            while (*src == '/') src++;
+            if (dst > result || dst == result) *dst++ = '/';
+            
+            // Check for . and ..
+            if (*src == '.') {
+                if (src[1] == '/' || src[1] == '\0') {
+                    // Skip ./
+                    src++;
+                    continue;
+                } else if (src[1] == '.' && (src[2] == '/' || src[2] == '\0')) {
+                    // Handle ../
+                    src += 2;
+                    // Remove last component from dst
+                    if (dst > result + 1) {
+                        dst--; // Back up from the /
+                        while (dst > result && dst[-1] != '/') dst--;
+                    }
+                    continue;
+                }
+            }
+        }
+        *dst++ = *src++;
+    }
+    
+    // Remove trailing slash unless it's root
+    if (dst > result + 1 && dst[-1] == '/') {
+        dst--;
+    }
+    
+    *dst = '\0';
+    
+    // Handle empty path
+    if (dst == result) {
+        strcpy(result, "/");
+    }
+    
+    return result;
+}
+
+/**
  * bin_cd:
  *      Change working directory.
  */
@@ -220,16 +280,101 @@ int bin_cd(int argc __attribute__((unused)),
     }
     previous_dir = current_dir;
 
-    // Set OLDPWD environment variable for compatibility
+    // Set OLDPWD variable according to current mode
     if (previous_dir) {
-        setenv("OLDPWD", previous_dir, 1);
+        if (shell_opts.physical_mode) {
+            // In physical mode, resolve OLDPWD to physical path
+            char *resolved_prev = realpath(previous_dir, NULL);
+            if (resolved_prev) {
+                symtable_set_global("OLDPWD", resolved_prev);
+                free(resolved_prev);
+            } else {
+                symtable_set_global("OLDPWD", previous_dir);
+            }
+        } else {
+            // In logical mode, use logical path
+            symtable_set_global("OLDPWD", previous_dir);
+        }
     }
 
-    // Set PWD environment variable
-    char *new_dir = getcwd(NULL, 0);
-    if (new_dir) {
-        setenv("PWD", new_dir, 1);
-        free(new_dir);
+    // Set PWD variable according to current mode
+    if (shell_opts.physical_mode) {
+        // In physical mode, resolve PWD to physical path
+        char *resolved_dir = realpath(".", NULL);
+        if (resolved_dir) {
+            symtable_set_global("PWD", resolved_dir);
+            free(resolved_dir);
+        }
+    } else {
+        // In logical mode, preserve the logical path taken
+        if (argc == 2 && strcmp(argv[1], "-") == 0) {
+            // cd - case: PWD becomes old OLDPWD (already handled above in cd - logic)
+            char *new_dir = getcwd(NULL, 0);
+            if (new_dir) {
+                symtable_set_global("PWD", new_dir);
+                free(new_dir);
+            }
+        } else if (target_dir && target_dir[0] == '/') {
+            // Absolute path - canonicalize it in logical mode
+            char *canonical_path = canonicalize_logical_path(target_dir);
+            if (canonical_path) {
+                symtable_set_global("PWD", canonical_path);
+                free(canonical_path);
+            } else {
+                symtable_set_global("PWD", target_dir);
+            }
+        } else if (target_dir) {
+            // Relative path - build logical path from current PWD
+            char *current_pwd = symtable_get_global("PWD");
+            if (current_pwd && strlen(current_pwd) > 0) {
+                size_t pwd_len = strlen(current_pwd);
+                size_t target_len = strlen(target_dir);
+                char *logical_path = malloc(pwd_len + target_len + 2);
+                if (logical_path) {
+                    strcpy(logical_path, current_pwd);
+                    if (logical_path[pwd_len - 1] != '/') {
+                        strcat(logical_path, "/");
+                    }
+                    strcat(logical_path, target_dir);
+                    
+                    // Canonicalize the logical path to handle . and ..
+                    char *canonical_path = canonicalize_logical_path(logical_path);
+                    if (canonical_path) {
+                        symtable_set_global("PWD", canonical_path);
+                        free(canonical_path);
+                    } else {
+                        symtable_set_global("PWD", logical_path);
+                    }
+                    free(logical_path);
+                } else {
+                    // Fallback to getcwd if malloc fails
+                    char *new_dir = getcwd(NULL, 0);
+                    if (new_dir) {
+                        symtable_set_global("PWD", new_dir);
+                        free(new_dir);
+                    }
+                }
+            } else {
+                // No current PWD - fallback to getcwd
+                char *new_dir = getcwd(NULL, 0);
+                if (new_dir) {
+                    symtable_set_global("PWD", new_dir);
+                    free(new_dir);
+                }
+            }
+        } else {
+            // cd with no arguments - go to HOME
+            char *home = getenv("HOME");
+            if (home) {
+                symtable_set_global("PWD", home);
+            } else {
+                char *new_dir = getcwd(NULL, 0);
+                if (new_dir) {
+                    symtable_set_global("PWD", new_dir);
+                    free(new_dir);
+                }
+            }
+        }
     }
 
     return 0;
@@ -241,8 +386,27 @@ int bin_cd(int argc __attribute__((unused)),
  */
 int bin_pwd(int argc __attribute__((unused)),
             char **argv __attribute__((unused))) {
-    char cwd[MAXLINE] = {'\0'};
+    if (shell_opts.physical_mode) {
+        // In physical mode, resolve symlinks and show physical path
+        char *physical_path = realpath(".", NULL);
+        if (physical_path) {
+            printf("%s\n", physical_path);
+            free(physical_path);
+            return 0;
+        }
+        // Fall through to error handling if realpath fails
+    } else {
+        // In logical mode, use PWD from symbol table if available
+        char *pwd_value = symtable_get_global("PWD");
+        if (pwd_value) {
+            printf("%s\n", pwd_value);
+            return 0;
+        }
+        // Fall through to getcwd if PWD not available
+    }
 
+    // Fallback - use getcwd
+    char cwd[MAXLINE] = {'\0'};
     if (getcwd(cwd, MAXLINE) == NULL) {
         error_return("pwd");
         return 1;

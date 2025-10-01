@@ -134,6 +134,7 @@ typedef struct shell_options {
     bool history_mode;    // history: enable command history recording
     bool interactive_comments_mode; // interactive-comments: enable # comments in interactive mode
     bool braceexpand_mode; // braceexpand: enable brace expansion {a,b,c}
+    bool physical_mode;    // physical: use physical directory paths (resolve symlinks)
 } shell_options_t;
 
 // Global shell options

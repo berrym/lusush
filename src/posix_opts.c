@@ -41,6 +41,7 @@ void init_posix_options(void) {
     shell_opts.history_mode = true; // Default to command history recording enabled
     shell_opts.interactive_comments_mode = true; // Default to interactive comments enabled
     shell_opts.braceexpand_mode = true; // Default to brace expansion enabled
+    shell_opts.physical_mode = false; // Default to logical directory paths
 }
 
 // Check if a specific POSIX option is set
@@ -159,6 +160,7 @@ static option_mapping_t option_map[] = {
     { "history",    &shell_opts.history_mode,   0},
     {"interactive-comments", &shell_opts.interactive_comments_mode, 0},
     {"braceexpand", &shell_opts.braceexpand_mode, 0},
+    {"physical",    &shell_opts.physical_mode,    0},
     {     NULL,                        NULL,   0}
 };
 
