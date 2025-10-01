@@ -130,6 +130,7 @@ typedef struct shell_options {
     bool vi_mode;         // vi: enable vi-style command line editing
     bool posix_mode;      // posix: enable strict POSIX compliance mode
     bool pipefail_mode;   // pipefail: make pipelines fail if any command fails
+    bool histexpand_mode; // histexpand: enable history expansion (!! !n !string)
 } shell_options_t;
 
 // Global shell options
