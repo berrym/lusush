@@ -129,6 +129,7 @@ typedef struct shell_options {
     bool emacs_mode;      // emacs: enable emacs-style command line editing (default true)
     bool vi_mode;         // vi: enable vi-style command line editing
     bool posix_mode;      // posix: enable strict POSIX compliance mode
+    bool pipefail_mode;   // pipefail: make pipelines fail if any command fails
 } shell_options_t;
 
 // Global shell options

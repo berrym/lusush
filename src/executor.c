@@ -86,6 +86,7 @@ static char **ifs_field_split(const char *text, const char *ifs, int *count);
 
 // Forward declarations for POSIX compliance
 bool is_posix_mode_enabled(void);
+bool is_pipefail_enabled(void);
 static int execute_external_command_with_setup(executor_t *executor,
                                                char **argv,
                                                bool redirect_stderr,
@@ -937,8 +938,23 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     waitpid(left_pid, &left_status, 0);
     waitpid(right_pid, &right_status, 0);
 
-    // Return exit status of right (last) command
-    return WEXITSTATUS(right_status);
+    // Extract exit codes
+    int left_exit = WEXITSTATUS(left_status);
+    int right_exit = WEXITSTATUS(right_status);
+
+    // Pipefail behavior: return failure if ANY command in pipeline fails
+    if (is_pipefail_enabled()) {
+        if (left_exit != 0) {
+            return left_exit;
+        }
+        if (right_exit != 0) {
+            return right_exit;
+        }
+        return 0;
+    }
+
+    // Standard behavior: return exit status of right (last) command
+    return right_exit;
 }
 
 // Execute a chain of commands connected by next_sibling
