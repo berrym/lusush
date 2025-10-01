@@ -87,9 +87,13 @@ set -o ignoreeof     # Prevent accidental exits
 # Smart error correction
 ehco "hello"                    # Suggests: "echo"
 
-# Git-aware themes
-# Automatically shows branch, status, and changes in prompt
+# Professional theme system with 6 built-in themes
+theme list                      # Show all available themes
+theme set dark                  # Switch to dark theme
+theme set corporate            # Professional business theme
+theme preview minimal          # Preview theme before applying
 
+# Git-aware themes automatically show branch, status, and changes
 # Context-aware completion
 cd /usr/b<TAB>                 # Completes directories only
 config set <TAB>               # Shows available options
@@ -184,11 +188,13 @@ echo 'Traditional POSIX syntax'
 - **Professional printf** with dynamic field width (%*s)
 - **Security features** including privileged and restricted modes
 
-### Professional User Experience  
-- **Six professional themes** with git integration
+### Professional Theme System
+- **Six professionally designed themes** - corporate, dark, light, colorful, minimal, classic
+- **Git-aware prompts** - Automatic branch, status, and change indicators
+- **Instant theme switching** - `theme set <name>` changes immediately
+- **Theme preview** - Preview before applying with `theme preview <name>`
 - **Smart autocorrection** with "Did you mean..." suggestions
 - **Context-aware tab completion** for commands, files, and git
-- **Real-time git status** in themed prompts
 - **Cross-platform compatibility** on Linux, macOS, BSD systems
 
 ---
@@ -214,6 +220,71 @@ echo 'Traditional POSIX syntax'
 ### Reference
 - **[Changelog](docs/CHANGELOG.md)** - Version history and changes
 - **[Documentation Index](docs/DOCUMENTATION_INDEX.md)** - Complete documentation map
+
+---
+
+## Theme System
+
+Lusush includes a comprehensive theme system with 6 professionally designed themes for different environments and preferences.
+
+### Available Themes
+
+```bash
+# List all themes by category
+theme list
+
+# Professional themes
+theme set corporate         # Business-appropriate colors and styling
+theme set classic          # Traditional shell appearance
+
+# Developer themes  
+theme set dark             # Modern dark theme with bright accents
+theme set light            # Clean light theme with excellent readability
+
+# Specialized themes
+theme set colorful         # Vibrant colors for creative workflows
+theme set minimal          # Ultra-minimal for distraction-free work
+```
+
+### Theme Commands
+
+```bash
+# Basic theme operations
+theme                      # Show current theme and available themes
+theme set <name>           # Switch to specified theme immediately
+theme info [name]          # Show detailed information about theme
+theme preview [name]       # Preview theme without applying
+
+# Advanced theme features
+theme colors               # Display color palette of active theme
+theme stats                # Show theme system performance statistics
+theme help                 # Complete theme command reference
+```
+
+### Git Integration
+
+All themes include intelligent git integration that automatically displays:
+
+```bash
+# Git-aware prompts show contextual information
+[user@host] ~/project (main ✓) $           # Clean repository
+[user@host] ~/project (feature +2 ~1) $     # Changes staged
+[user@host] ~/project (main ↑2 ↓1) $        # Ahead/behind tracking
+```
+
+### Theme Configuration
+
+Themes work seamlessly with the config system:
+
+```bash
+# Configure via modern config interface
+config set prompt.theme dark            # Set theme via config
+config set prompt.git_enabled true      # Enable git integration
+config get prompt.theme                 # Check current theme
+
+# Theme settings persist across sessions with config save
+config save                             # Save theme preference
+```
 
 ---
 
@@ -413,12 +484,27 @@ GNU General Public License v3.0 or later. See [LICENSE](LICENSE) for complete te
 **Unique Value Proposition:**
 - **Only shell with integrated debugging** - No external tools required
 - **Modern configuration interface** - Discoverable options with full POSIX compatibility  
-- **Professional user experience** - Smart features without sacrificing compatibility
+- **Professional theme system** - 6 themes with git integration and instant switching
 - **Enterprise-ready** - Security, compliance, and management features
 
 Whether you're debugging complex deployment scripts, managing enterprise shell environments, or teaching shell scripting concepts, Lusush provides capabilities that simply don't exist in any other shell.
 
 **Ready for production use** with comprehensive documentation, extensive testing, and professional support resources.
+
+---
+
+## Advanced Display System
+
+Lusush includes an advanced layered display controller for enhanced visual capabilities:
+
+```bash
+# Display system interface (architecture exists, integration planned)
+display status              # Show display system status
+display config              # Show layered display configuration
+display help                # Complete display system reference
+```
+
+**Note**: The `display` command provides an interface to Lusush's revolutionary layered display architecture. The underlying display controller exists but full integration is planned for a future release. Currently operates in standard display mode.
 
 ---
 

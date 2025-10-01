@@ -663,31 +663,59 @@ config help
 ---
 
 ### `theme`
-**Theme management**
+**Professional Theme System**
 
 ```bash
-# List available themes
+# Show current theme and list all available themes
+theme
+
+# List all themes organized by category
 theme list
 
-# Show current theme
-theme show
+# Set active theme (changes immediately)
+theme set corporate        # Professional business theme
+theme set dark            # Modern dark theme with bright accents
+theme set light           # Clean light theme with excellent readability
+theme set colorful        # Vibrant theme for creative workflows
+theme set minimal         # Ultra-minimal for distraction-free work
+theme set classic         # Traditional shell appearance
 
-# Set theme
-theme set dark
-theme set modern
-theme set light
+# Preview theme without applying
+theme preview dark
 
-# Theme help
+# Show detailed information about a theme
+theme info corporate
+
+# Display color palette of active theme
+theme colors
+
+# Show theme system statistics
+theme stats
+
+# Complete help
 theme help
 ```
 
-**Available Themes:**
-- `modern`: Clean, contemporary design
-- `dark`: Dark theme for extended use
-- `light`: High contrast light theme
-- `minimal`: Distraction-free interface
-- `classic`: Traditional shell appearance
-- `corporate`: Professional enterprise look
+**Available Themes by Category:**
+
+**Professional:**
+- `corporate`: Business-appropriate colors and professional styling
+
+**Developer:**
+- `dark`: Modern dark theme with bright accent colors for extended coding
+
+**Minimal:**
+- `light`: Clean light theme with excellent readability
+- `minimal`: Ultra-minimal theme for distraction-free work
+
+**Creative:**
+- `colorful`: Vibrant colorful theme for creative workflows
+
+**Classic:**
+- `classic`: Traditional shell appearance with basic colors
+
+**Git Integration:**
+All themes include intelligent git-aware prompts that automatically display branch status, changes, and tracking information.
 
 ---
 
@@ -908,6 +936,50 @@ fi
 
 ---
 
+---
+
+## display
+**Layered Display System Interface**
+
+### Usage
+```bash
+display status              # Show display system status  
+display enable              # Enable layered display system
+display disable             # Disable layered display system
+display config              # Show detailed configuration
+display stats               # Show performance statistics
+display diagnostics         # Show comprehensive diagnostics
+display help                # Show complete command reference
+```
+
+### Description
+The `display` command provides an interface to Lusush's revolutionary layered display architecture. This system enables coordinated display management with universal prompt compatibility, real-time syntax highlighting, and intelligent layer combination.
+
+**Note**: The underlying layered display controller architecture exists but full integration is planned for a future release. Currently operates in standard display mode.
+
+### Environment Variables
+- `LUSUSH_LAYERED_DISPLAY=1|0` - Enable/disable at startup
+- `LUSUSH_DISPLAY_DEBUG=1|0` - Enable debug output  
+- `LUSUSH_DISPLAY_OPTIMIZATION=0-4` - Set optimization level (0=disabled, 4=maximum)
+
+### Examples
+```bash
+# Check system status
+display status
+
+# Show current configuration
+display config
+
+# Enable layered display system (when integration is complete)
+display enable
+
+# Performance diagnostics
+display stats
+display diagnostics
+```
+
+---
+
 ## Conclusion
 
 Lusush provides a comprehensive set of built-in commands that combine POSIX compliance with modern enhancements. The unique `debug` command sets Lusush apart from all other shells, providing capabilities that simply aren't available anywhere else.
@@ -915,7 +987,7 @@ Lusush provides a comprehensive set of built-in commands that combine POSIX comp
 Key advantages:
 - **Complete POSIX compliance**: All standard commands work as expected
 - **Modern enhancements**: Improved usability without breaking compatibility
-- **Unique capabilities**: Integrated debugger, configuration system, themes
+- **Unique capabilities**: Integrated debugger, configuration system, themes, layered display architecture
 - **Professional quality**: Suitable for development, production, and education
 
 Whether you're using Lusush for daily shell work, script development, or learning, these built-in commands provide everything needed for professional shell scripting and system administration.
