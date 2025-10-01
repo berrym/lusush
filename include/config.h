@@ -206,6 +206,10 @@ void config_show_option(const char *key);
 void config_get_value(const char *key);
 void config_set_value(const char *key, const char *value);
 
+// Configuration save functions
+int config_save_user(void);
+int config_save_file(const char *path);
+
 // Built-in command integration
 void builtin_config(int argc, char **argv);
 
