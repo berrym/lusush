@@ -551,8 +551,34 @@ void lusush_history_add(const char *line) {
     while (*trimmed && isspace(*trimmed)) trimmed++;
     if (!*trimmed) return;
     
-    // Check for duplicates if hist_no_dups is enabled
-    if (config.history_no_dups) {
+    // Check nolog option: prevent function definitions from entering history
+    bool skip_history = false;
+    if (shell_opts.nolog) {
+        // Simple detection for function definitions: look for pattern "name()" or "name ()"
+        const char *paren_pos = strstr(trimmed, "()");
+        if (paren_pos) {
+            // Check if there's a valid function name before the parentheses
+            const char *name_start = trimmed;
+            const char *name_end = paren_pos;
+            
+            // Skip backward past any whitespace before ()
+            while (name_end > name_start && isspace(*(name_end - 1))) {
+                name_end--;
+            }
+            
+            // Check if we have a valid identifier before the ()
+            if (name_end > name_start) {
+                const char *p = name_end - 1;
+                // Check if the character before () is part of a valid identifier
+                if (isalnum(*p) || *p == '_') {
+                    skip_history = true; // Skip adding function definitions to history
+                }
+            }
+        }
+    }
+    
+    // Check for duplicates if hist_no_dups is enabled (skip for function definitions when nolog is enabled)
+    if (config.history_no_dups && !skip_history) {
         // Check recent history (last 50 entries) and remove old duplicates
         for (int i = 1; i <= 50 && i <= history_length; i++) {
             HIST_ENTRY *entry = history_get(history_length - i + 1);
@@ -569,8 +595,10 @@ void lusush_history_add(const char *line) {
         }
     }
     
-    // Add to readline history
-    add_history(line);
+    // Add to readline history (skip for function definitions when nolog is enabled)
+    if (!skip_history) {
+        add_history(line);
+    }
     
     // Limit history size
     if (config.history_size > 0 && history_length > config.history_size) {

@@ -125,6 +125,7 @@ typedef struct shell_options {
     bool onecmd;          // -t flag: exit after one command
     bool notify;          // -b flag: asynchronous background job notification
     bool ignoreeof;       // ignoreeof: prevent exit on EOF (Ctrl+D)
+    bool nolog;           // nolog: prevent function definitions from entering command history
 } shell_options_t;
 
 // Global shell options

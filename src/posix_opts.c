@@ -31,6 +31,7 @@ void init_posix_options(void) {
     shell_opts.onecmd = false;
     shell_opts.notify = false;
     shell_opts.ignoreeof = false;
+    shell_opts.nolog = false;
 }
 
 // Check if a specific POSIX option is set
@@ -92,6 +93,8 @@ bool is_noclobber_enabled(void) { return shell_opts.noclobber; }
 
 bool is_ignoreeof_enabled(void) { return shell_opts.ignoreeof; }
 
+bool is_nolog_enabled(void) { return shell_opts.nolog; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -122,6 +125,7 @@ static option_mapping_t option_map[] = {
     { "onecmd",         &shell_opts.onecmd, 't'},
     { "notify",         &shell_opts.notify, 'b'},
     {"ignoreeof",     &shell_opts.ignoreeof,   0},
+    {  "nolog",         &shell_opts.nolog,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -177,6 +181,8 @@ int builtin_set(char **args) {
                shell_opts.notify ? "on" : "off");
         printf("  ignoreeof (prevent exit on EOF): %s\n",
                shell_opts.ignoreeof ? "on" : "off");
+        printf("  nolog (prevent function definitions from entering history): %s\n",
+               shell_opts.nolog ? "on" : "off");
         return 0;
     }
 
