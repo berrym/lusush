@@ -132,6 +132,7 @@ typedef struct shell_options {
     bool pipefail_mode;   // pipefail: make pipelines fail if any command fails
     bool histexpand_mode; // histexpand: enable history expansion (!! !n !string)
     bool history_mode;    // history: enable command history recording
+    bool interactive_comments_mode; // interactive-comments: enable # comments in interactive mode
 } shell_options_t;
 
 // Global shell options
