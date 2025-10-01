@@ -38,6 +38,7 @@ void init_posix_options(void) {
     shell_opts.posix_mode = false; // Default to non-strict mode for compatibility
     shell_opts.pipefail_mode = false; // Default to standard pipeline behavior
     shell_opts.histexpand_mode = true; // Default to history expansion enabled
+    shell_opts.history_mode = true; // Default to command history recording enabled
 }
 
 // Check if a specific POSIX option is set
@@ -111,6 +112,8 @@ bool is_pipefail_enabled(void) { return shell_opts.pipefail_mode; }
 
 bool is_histexpand_enabled(void) { return shell_opts.histexpand_mode; }
 
+bool is_history_enabled(void) { return shell_opts.history_mode; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -147,6 +150,7 @@ static option_mapping_t option_map[] = {
     { "posix",       &shell_opts.posix_mode,   0},
     {"pipefail",   &shell_opts.pipefail_mode,   0},
     {"histexpand", &shell_opts.histexpand_mode,   0},
+    { "history",    &shell_opts.history_mode,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -212,9 +216,11 @@ int builtin_set(char **args) {
                shell_opts.posix_mode ? "on" : "off");
         printf("  pipefail (make pipelines fail if any command fails): %s\n",
                shell_opts.pipefail_mode ? "on" : "off");
-        printf("  histexpand (enable history expansion !! !n !string): %s\n",
-               shell_opts.histexpand_mode ? "on" : "off");
-        return 0;
+       printf("  histexpand (enable history expansion !! !n !string): %s\n",
+              shell_opts.histexpand_mode ? "on" : "off");
+       printf("  history (enable command history recording): %s\n",
+              shell_opts.history_mode ? "on" : "off");
+       return 0;
     }
 
     for (int i = 1; args[i]; i++) {

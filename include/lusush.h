@@ -131,6 +131,7 @@ typedef struct shell_options {
     bool posix_mode;      // posix: enable strict POSIX compliance mode
     bool pipefail_mode;   // pipefail: make pipelines fail if any command fails
     bool histexpand_mode; // histexpand: enable history expansion (!! !n !string)
+    bool history_mode;    // history: enable command history recording
 } shell_options_t;
 
 // Global shell options
