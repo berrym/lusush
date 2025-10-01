@@ -368,39 +368,62 @@ config set <TAB> # Shows available config options
 
 ### Configuration System
 
+Lusush features a modern configuration system with **dual interfaces** - traditional POSIX and modern config syntax:
+
 ```bash
 # View all configuration
-config list
+config show                           # Show all sections
+config show shell                     # Show all 24 shell options
+config show completion                # Show completion settings
 
-# Set options
-config set autocorrect.enabled true
-config set autosuggestions.enabled true
-config set theme.name dark
+# Modern shell options interface (NEW in v1.3.0)
+config set shell.errexit true        # Modern syntax for set -e
+config set shell.xtrace on           # Modern syntax for set -x
+config set shell.posix true          # Enable strict POSIX mode
+config set shell.privileged true     # Security restrictions
 
-# Get specific setting
-config get theme.name
+# Traditional POSIX still works perfectly
+set -e                               # Same as shell.errexit true
+set -o xtrace                        # Same as shell.xtrace true
 
-# Reset to defaults
-config reset
+# Other configuration areas
+config set completion.enabled true   # Enable tab completion
+config set prompt.theme dark         # Set theme
+config set behavior.spell_correction true  # Smart corrections
+
+# Get specific settings
+config get shell.errexit            # Check current state
+config get prompt.theme             # Get current theme
+
+# Both interfaces stay synchronized
+config set shell.verbose true       # Set via modern interface
+set -o | grep verbose               # Shows as enabled in traditional interface
 ```
 
 ### Shell Behavior
 
+Lusush provides two equivalent ways to configure shell behavior:
+
 ```bash
-# Professional script settings
-set -eu                    # Strict error handling
-set -o pipefail           # Pipeline failure detection
+# Modern discoverable syntax (recommended for new development)
+config set shell.errexit true        # Exit on command failure
+config set shell.nounset true        # Error on unset variables  
+config set shell.pipefail true       # Pipeline failure detection
+config set shell.xtrace true         # Trace command execution
+config set shell.verbose true        # Show input lines
 
-# Development settings
-set -xv                   # Trace and verbose mode
+# Traditional POSIX syntax (works identically)
+set -eu                              # Strict error handling
+set -o pipefail                      # Pipeline failure detection
+set -xv                              # Trace and verbose mode
 
-# Interactive settings
-set -o emacs              # Emacs-style editing
-# or
-set -o vi                 # Vi-style editing
+# Editing preferences
+config set shell.emacs true          # Emacs-style editing
+config set shell.vi true             # Vi-style editing (mutually exclusive)
 
-# Check all settings
-set -o
+# Check all settings - both ways show the same information
+config show shell                    # Modern interface with descriptions
+set -o                              # Traditional interface
 ```
 
 ### Creating Your Profile
@@ -410,13 +433,15 @@ set -o
 cat > ~/.lusushrc << 'EOF'
 # Lusush startup configuration
 
-# Enable helpful options
-set -h                    # Hash commands for speed
-config set autocorrect.enabled true
-config set autosuggestions.enabled true
+# Modern shell options (discoverable and self-documenting)
+config set shell.hashall true        # Hash commands for speed
+config set shell.errexit true        # Exit on errors (safer scripts)
+config set shell.emacs true          # Emacs-style editing
 
-# Set preferred theme
-theme set modern
+# Enhanced features
+config set completion.enabled true   # Tab completion
+config set behavior.spell_correction true  # Smart corrections
+config set prompt.theme modern       # Modern theme
 
 # Custom aliases
 alias ll='ls -la'
@@ -514,17 +539,23 @@ debug profile report
 ### Explore POSIX Compliance
 
 ```bash
-# Learn all 24 shell options
-set -o                    # See current settings
+# Discover all 24 shell options with modern interface
+config show shell                    # Lists all options with descriptions
 
-# Try strict POSIX mode
-set -o posix
+# Traditional interface still works
+set -o                              # See current settings
 
-# Security features
-set -o privileged        # Restricted shell mode
+# Try modern syntax
+config set shell.posix true         # Strict POSIX mode
+config set shell.privileged true    # Security restrictions
+config set shell.pipefail true      # Pipeline failure detection
+
+# Both interfaces work together seamlessly
+set -e                              # Traditional
+config get shell.errexit           # Returns: true (synchronized)
 
 # See the complete reference
-# Read: docs/SHELL_OPTIONS.md
+# Read: docs/SHELL_OPTIONS.md and docs/CONFIG_SYSTEM.md
 ```
 
 ### Customize Your Environment
@@ -535,8 +566,9 @@ theme list
 theme set <theme_name>
 
 # Configure advanced features
-config list              # See all options
-config set key value     # Customize behavior
+config show              # See all configuration sections
+config show shell        # See all 24 shell options
+config set shell.errexit true  # Modern shell option syntax
 
 # Create custom functions
 my_debug() {
@@ -554,7 +586,7 @@ my_debug ./myscript.sh
 - **[Debugger Guide](DEBUGGER_GUIDE.md)** - Complete debugging reference
 - **[Shell Options](SHELL_OPTIONS.md)** - All 24 POSIX options explained
 - **[Built-in Commands](BUILTIN_COMMANDS.md)** - Command reference
-- **[Configuration Guide](CONFIGURATION.md)** - Advanced customization
+- **[Configuration System](CONFIG_SYSTEM.md)** - Modern config with shell options integration
 - **[Security Features](SECURITY.md)** - Enterprise security options
 
 ---
@@ -585,7 +617,8 @@ my_debug ./myscript.sh
 ```bash
 help              # General help
 debug help        # Debugger help
-config help       # Configuration help
+config             # Configuration help (shows usage)
+config show        # Show all available options
 theme help        # Theme help
 ```
 

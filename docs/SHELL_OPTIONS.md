@@ -32,8 +32,15 @@ set +e                    # Disable errexit
 set -o errexit            # Enable errexit
 set +o errexit            # Disable errexit
 
+# Modern config interface (NEW in v1.3.0)
+config set shell.errexit true    # Enable errexit
+config set shell.errexit false   # Disable errexit
+config get shell.errexit         # Check current state
+config show shell                # Show all 24 options
+
 # Check current status
-set -o                    # Show all option states
+set -o                    # Show all option states (traditional)
+config show shell         # Show all options with descriptions (modern)
 ```
 
 ---
@@ -44,14 +51,16 @@ set -o                    # Show all option states
 **Automatically export all variables**
 
 ```bash
-# Enable automatic export
-set -a
+# Traditional POSIX syntax
+set -a                   # Enable automatic export
 VAR="hello"              # Automatically exported
 env | grep VAR           # Shows: VAR=hello
+set +a                   # Disable automatic export
 
-# Disable automatic export
-set +a
-VAR2="world"             # Not exported
+# Modern config syntax
+config set shell.allexport true    # Enable automatic export
+VAR="hello"              # Automatically exported
+config set shell.allexport false   # Disable automatic export
 ```
 
 **Use Cases:**
@@ -65,13 +74,15 @@ VAR2="world"             # Not exported
 **Asynchronous background job notification**
 
 ```bash
-# Enable background job notification
-set -b
+# Traditional POSIX syntax
+set -b                   # Enable background job notification
 sleep 10 &               # Job runs in background
-# Notification when job completes
+set +b                   # Disable notification
 
-# Disable notification
-set +b
+# Modern config syntax
+config set shell.notify true       # Enable background job notification
+sleep 10 &               # Job runs in background
+config set shell.notify false      # Disable notification
 ```
 
 **Use Cases:**
@@ -85,16 +96,20 @@ set +b
 **File overwrite protection**
 
 ```bash
-# Enable file protection
-set -C
+# Traditional POSIX syntax
+set -C                   # Enable file protection
 echo "content" > file.txt
-echo "new" > file.txt     # Error: cannot overwrite
+echo "new" > file.txt    # Error: cannot overwrite
+set +C                   # Disable protection
 
-# Override protection when needed
-echo "override" >| file.txt   # Force overwrite
+# Modern config syntax
+config set shell.noclobber true    # Enable file protection
+echo "content" > file.txt
+echo "new" > file.txt    # Error: cannot overwrite
+config set shell.noclobber false   # Disable protection
 
-# Disable protection
-set +C
+# Override protection when needed (both syntaxes)
+echo "override" >| file.txt   # Force overwrite with >|
 ```
 
 **Use Cases:**
@@ -108,15 +123,21 @@ set +C
 **Exit immediately on command failure**
 
 ```bash
-# Enable strict error handling
-set -e
+# Traditional POSIX syntax
+set -e                   # Enable strict error handling
 false                    # Script exits here
 echo "Never reached"     # Not executed
+set +e                   # Disable for conditional operations
 
-# Disable for conditional operations
-set +e
-false                    # Script continues
-echo "This runs"         # Executed
+# Modern config syntax
+config set shell.errexit true      # Enable strict error handling
+false                    # Script exits here
+echo "Never reached"     # Not executed
+config set shell.errexit false     # Disable for conditional operations
+
+# Check current state
+config get shell.errexit           # Returns: true/false
+set -o | grep errexit               # Shows current state
 ```
 
 **Use Cases:**
@@ -700,14 +721,88 @@ set -o privileged    # Security mode
 
 ---
 
+## Modern Configuration System Integration
+
+### Dual Interface Support
+
+Lusush uniquely provides **two equivalent interfaces** for shell options:
+
+```bash
+# Traditional POSIX (unchanged compatibility)
+set -e                           # Enable errexit
+set -o errexit                   # Enable errexit (long form)
+set +o errexit                   # Disable errexit
+set -o                          # Show all option states
+
+# Modern config system (NEW in v1.3.0)
+config set shell.errexit true   # Enable errexit
+config set shell.errexit false  # Disable errexit  
+config get shell.errexit        # Check current state
+config show shell               # Show all 24 options with descriptions
+```
+
+### Perfect Bidirectional Synchronization
+
+Both interfaces stay perfectly synchronized:
+
+```bash
+# Set via config system
+config set shell.xtrace true
+set -o | grep xtrace            # Shows: set -o xtrace
+
+# Set via POSIX  
+set -o verbose
+config get shell.verbose       # Returns: true
+
+# Mixed usage works seamlessly
+config set shell.errexit true  # Modern interface
+set +e                         # Traditional interface
+config get shell.errexit      # Returns: false
+```
+
+### Discoverability Advantage
+
+The modern config interface provides superior discoverability:
+
+```bash
+config show shell               # Lists all 24 options with descriptions
+# Output shows:
+#   shell.errexit = false  # Exit on command failure (set -e)
+#   shell.xtrace = false   # Trace command execution (set -x)
+#   shell.nounset = false  # Error on unset variables (set -u)
+#   ... all 24 options with helpful descriptions
+```
+
+### Migration-Friendly
+
+Perfect for gradual adoption:
+
+```bash
+#!/usr/bin/env lusush
+# Existing scripts work unchanged
+set -euo pipefail
+
+# New development can use modern syntax
+config set shell.errexit true
+config set shell.nounset true  
+config set shell.pipefail true
+
+# Or mix both approaches as needed
+set -x                         # Traditional
+config set shell.verbose true  # Modern
+```
+
 ## Conclusion
 
-Lusush's comprehensive implementation of all 24 POSIX shell options provides complete compatibility with professional shell scripting requirements while maintaining the flexibility to use advanced features like the integrated debugger.
+Lusush's comprehensive implementation of all 24 POSIX shell options provides complete compatibility with professional shell scripting requirements while offering a modern configuration interface that doesn't exist in any other shell.
 
-The combination of traditional POSIX compliance with modern enhancements makes Lusush suitable for:
-- **Production environments** requiring POSIX compliance
-- **Development workflows** benefiting from enhanced debugging
-- **Educational use** with comprehensive feature coverage
-- **Enterprise deployment** with security and reliability features
+The **unique dual interface approach** makes Lusush suitable for:
+- **Existing workflows** - All traditional POSIX syntax works unchanged
+- **Modern development** - Discoverable config system with descriptive help
+- **Mixed environments** - Both interfaces work together seamlessly
+- **Educational use** - `config show shell` reveals all available options
+- **Enterprise deployment** - Centralized config management capabilities
 
-All options work seamlessly together and integrate perfectly with Lusush's unique debugging capabilities, making it the most complete and professional shell environment available.
+The combination of traditional POSIX compliance, modern configuration management, and advanced features like the integrated debugger makes Lusush the most complete and professional shell environment available.
+
+**For comprehensive configuration documentation, see [CONFIG_SYSTEM.md](CONFIG_SYSTEM.md)**

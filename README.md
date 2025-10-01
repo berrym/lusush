@@ -128,14 +128,39 @@ theme list                    # Show available themes
 ```
 Six professional themes with git integration for branch and status display.
 
-### Configuration System
+### Modern Configuration System
 ```bash
-config set autocorrect.enabled true    # Enable smart corrections
-config set autosuggestions.enabled true # Enable suggestions
-config list                             # Show all settings
+# Modern shell options interface - all 24 POSIX options discoverable
+config show shell                       # List all shell options with descriptions
+config set shell.errexit true          # Modern syntax for set -e
+config set shell.xtrace on             # Modern syntax for set -x
+config get shell.posix                 # Check current state
+
+# Traditional POSIX still works perfectly (100% compatible)
+set -e                                 # Same as config set shell.errexit true
+set -o xtrace                          # Same as config set shell.xtrace true
+
+# Other configuration areas
+config set completion.enabled true     # Enable tab completion
+config set prompt.theme dark           # Switch themes instantly
+config show                            # Show all configuration sections
+```
+
+### Modern Shell Options Interface
+```bash
+# Discoverable shell options (unique to Lusush)
+config show shell                      # See all 24 POSIX options
+config set shell.pipefail true        # Enable pipeline failure detection
+config set shell.privileged true      # Security restrictions mode
+config set shell.posix true           # Strict POSIX compliance
+
+# Perfect compatibility - both interfaces work together
+set -euo pipefail                      # Traditional (still works)
+config get shell.errexit              # Returns: true (synchronized)
 ```
 
 ### Interactive Features
+- **Dual shell interface**: Modern config system + full POSIX compatibility
 - **Autocorrection**: "Did you mean..." suggestions for mistyped commands
 - **Autosuggestions**: History-based command completion
 - **Context-aware tab completion**: Git subcommands, directory navigation
@@ -222,7 +247,7 @@ chmod +x debug_example.sh
 - **[Debugger Guide](docs/DEBUGGER_GUIDE.md)** - Comprehensive debugging documentation
 - **[POSIX Options Reference](docs/SHELL_OPTIONS.md)** - All 24 options with examples
 - **[Built-in Commands](docs/BUILTIN_COMMANDS.md)** - Complete command reference
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Customization and themes
+- **[Configuration System](docs/CONFIG_SYSTEM.md)** - Modern config with shell options integration
 - **[Security Features](docs/SECURITY.md)** - Privileged mode and restrictions
 
 ---
@@ -240,9 +265,10 @@ chmod +x debug_example.sh
 - **Infrastructure Management**: Professional shell for production environments
 
 ### For System Administrators
-- **System Scripts**: Enhanced reliability with strict error handling
-- **Security**: Privileged mode for restricted environments
-- **Troubleshooting**: Debug existing scripts to find issues
+- **Modern Configuration**: `config set shell.privileged true` for secure environments
+- **Enhanced Discoverability**: `config show shell` reveals all 24 shell options
+- **Backward Compatibility**: All existing scripts work unchanged
+- **Centralized Management**: Enterprise-ready configuration system
 
 ### For Educators
 - **Teaching Tool**: Show students exactly how shell commands work

@@ -355,18 +355,35 @@ sys<TAB>           # Shows system commands: systemctl, systemd, etc.
 ## ⚙️ **Configuration System**
 
 ### **Basic Configuration**
+
+Lusush features a modern configuration system with **dual interfaces** for maximum flexibility:
+
 ```bash
-# Show all configuration options
-config show
+# Show all configuration sections
+config show                           # All sections
+config show shell                     # All 24 POSIX shell options
+config show completion                # Tab completion settings
+config show prompt                    # Prompt and theme settings
 
-# Set configuration values
-config set theme dark
-config set debug.level 2
-config set display.syntax true
+# Modern shell options interface (NEW in v1.3.0)
+config set shell.errexit true        # Exit on command failure (set -e)
+config set shell.xtrace on           # Trace execution (set -x) 
+config set shell.posix true          # Strict POSIX compliance
+config set shell.privileged true     # Security restrictions
 
-# Get specific configuration
-config get theme
-config get debug.enabled
+# Traditional POSIX syntax still works perfectly
+set -e                               # Same as shell.errexit true
+set -o xtrace                        # Same as shell.xtrace true
+
+# Other configuration areas
+config set completion.enabled true   # Enable tab completion
+config set prompt.theme dark         # Set theme
+config set behavior.spell_correction true  # Smart corrections
+
+# Get specific configuration values
+config get shell.errexit            # Check shell option state
+config get prompt.theme             # Get current theme
+config get completion.enabled       # Check completion status
 ```
 
 ### **Configuration Files**
@@ -392,17 +409,24 @@ Lusush uses a hierarchical configuration system:
 ~/.config/lusush/init.lsh
 
 # Example init.lsh content:
-# Set preferred theme
-theme set dark
+# Modern shell configuration
+config set shell.errexit true       # Safe scripting
+config set shell.hashall true       # Performance
+config set shell.emacs true         # Editing preference
+
+# Enhanced features  
+config set completion.enabled true  # Tab completion
+config set prompt.theme dark        # Preferred theme
+config set behavior.spell_correction true # Smart corrections
+
+# Traditional POSIX also works
+set -o pipefail                     # Pipeline failure detection
 
 # Enable debugging by default
 debug on
 
 # Configure git integration
-display git on
-
-# Set custom prompt
-PS1='[\u@\h \W]\$ '
+config set prompt.git_prompt_enabled true
 ```
 
 ### **Debug Configuration**
@@ -679,9 +703,9 @@ theme set modern    # Themes with git support
 config show | grep enabled
 
 # Disable expensive features
-display syntax off
-display suggestions off
-debug off
+config set behavior.enhanced_display_mode false
+config set completion.hints false
+config set behavior.debug_mode false
 
 # Profile startup time
 time lusush -c exit

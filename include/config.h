@@ -21,7 +21,8 @@ typedef enum {
     CONFIG_SECTION_ALIASES,
     CONFIG_SECTION_KEYS,
     CONFIG_SECTION_NETWORK,
-    CONFIG_SECTION_SCRIPTS
+    CONFIG_SECTION_SCRIPTS,
+    CONFIG_SECTION_SHELL
 } config_section_t;
 
 // Configuration option types
@@ -148,6 +149,11 @@ void config_cleanup(void);
 int config_parse_line(const char *line, int line_num, const char *filename);
 int config_parse_section(const char *section_name);
 int config_parse_option(const char *key, const char *value);
+
+// Shell option integration functions
+bool config_validate_shell_option(const char *value);
+void config_set_shell_option(const char *option_name, bool value);
+bool config_get_shell_option(const char *option_name);
 config_section_t config_get_current_section(void);
 
 // Configuration validation functions

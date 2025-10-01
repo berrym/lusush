@@ -10,7 +10,7 @@
 - **[README](../README.md)** - Main project overview and quick start guide
 - **[User Manual](user/USER_MANUAL.md)** - Complete user documentation
 - **[Installation Guide](user/INSTALLATION.md)** - Installation and setup instructions
-- **[Configuration Guide](SHELL_SCRIPT_CONFIGURATION.md)** - Configuration system documentation
+- **[Configuration System](CONFIG_SYSTEM.md)** - Modern configuration with shell options integration
 
 ### New Features (v1.0.0)
 - **[Hints System](HINTS_SYSTEM.md)** - Real-time input suggestions documentation
@@ -22,7 +22,7 @@
 ### User Documentation
 - **[User Manual](user/USER_MANUAL.md)** - Complete user guide and reference
 - **[Installation Guide](user/INSTALLATION.md)** - Installation and setup
-- **[Configuration Guide](SHELL_SCRIPT_CONFIGURATION.md)** - Configuration system
+- **[Configuration System](CONFIG_SYSTEM.md)** - Modern configuration with shell options integration
 
 ### Feature Documentation
 - **[Hints System](HINTS_SYSTEM.md)** - Real-time input suggestions
@@ -42,7 +42,7 @@
 - **[Built-in Commands](achievements/FUNCTION_IMPLEMENTATION_COMPLETE.md)** - Command implementation details
 
 ### Architecture
-- **[Configuration System](SHELL_SCRIPT_CONFIGURATION.md)** - Modern configuration architecture
+- **[Configuration System](CONFIG_SYSTEM.md)** - Modern configuration architecture with shell options integration
 - **[Completion Architecture](COMPLETION_SYSTEM.md)** - Completion system design
 - **[Theme System](../tests/debug/README_DEMONSTRATIONS.md)** - Theme architecture
 
