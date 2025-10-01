@@ -35,6 +35,7 @@ void init_posix_options(void) {
     shell_opts.nolog = false;
     shell_opts.emacs_mode = true;  // Default to emacs mode
     shell_opts.vi_mode = false;    // Default to emacs mode, not vi
+    shell_opts.posix_mode = false; // Default to non-strict mode for compatibility
 }
 
 // Check if a specific POSIX option is set
@@ -102,6 +103,8 @@ bool is_emacs_mode_enabled(void) { return shell_opts.emacs_mode; }
 
 bool is_vi_mode_enabled(void) { return shell_opts.vi_mode; }
 
+bool is_posix_mode_enabled(void) { return shell_opts.posix_mode; }
+
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -135,6 +138,7 @@ static option_mapping_t option_map[] = {
     {  "nolog",         &shell_opts.nolog,   0},
     { "emacs",       &shell_opts.emacs_mode,   0},
     {    "vi",         &shell_opts.vi_mode,   0},
+    { "posix",       &shell_opts.posix_mode,   0},
     {     NULL,                        NULL,   0}
 };
 
@@ -196,6 +200,8 @@ int builtin_set(char **args) {
                shell_opts.emacs_mode ? "on" : "off");
         printf("  vi (vi-style command line editing): %s\n",
                shell_opts.vi_mode ? "on" : "off");
+        printf("  posix (strict POSIX compliance mode): %s\n",
+               shell_opts.posix_mode ? "on" : "off");
         return 0;
     }
 
