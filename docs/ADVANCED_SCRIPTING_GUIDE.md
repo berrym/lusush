@@ -528,10 +528,9 @@ function string_contains(haystack, needle) {
 }
 
 function string_trim(input_string) {
-    # Remove leading whitespace
-    local trimmed="${input_string#"${input_string%%[![:space:]]*}"}"
-    # Remove trailing whitespace
-    trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+    # Simple trim using sed (POSIX compliant)
+    local trimmed
+    trimmed=$(echo "$input_string" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     return_value "$trimmed"
 }
 

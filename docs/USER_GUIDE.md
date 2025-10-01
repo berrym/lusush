@@ -930,6 +930,29 @@ Lusush is under active development with regular updates and new features.
 - **Zsh Extensions**: Advanced glob patterns, parameter expansion modifiers
 - **Advanced Parameter Expansion**: Most non-POSIX parameter expansions
 
+### **⚠️ Critical Limitation: Variable Scope in For Loops**
+Variables modified inside `for` loops do not persist outside the loop due to subshell execution:
+
+```bash
+# ❌ This will NOT work as expected
+result=0
+for i in 1 2 3; do
+    result=$((result + i))  # Updates inside loop only
+done
+echo $result  # Will still be 0!
+
+# ✅ Use while loops for variable persistence
+result=0
+i=1
+while [ $i -le 3 ]; do
+    result=$((result + i))  # Updates persist
+    i=$((i + 1))
+done
+echo $result  # Will be 6 as expected
+```
+
+**Recommendation**: Use `while` loops when you need variables to persist across iterations.
+
 ### **When to Choose Lusush vs Others**
 - **Choose Lusush**: When you need to debug POSIX shell scripts or develop new POSIX-compliant scripts
 - **Choose Bash**: For system administration, existing Bash scripts, or need Bash-specific features

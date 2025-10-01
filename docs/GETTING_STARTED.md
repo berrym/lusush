@@ -200,6 +200,30 @@ set +x
 set -o | grep -E "(errexit|nounset|xtrace)"
 ```
 
+### ⚠️ Important Limitation: Variable Scope
+
+**Critical**: Variables modified inside `for` loops do not persist outside the loop:
+
+```bash
+# ❌ This will NOT work as expected
+result=0
+for i in 1 2 3; do
+    result=$((result + i))  # Updates inside loop only
+done
+echo $result  # Will still be 0!
+
+# ✅ Use while loops for variable persistence
+result=0
+i=1
+while [ $i -le 3 ]; do
+    result=$((result + i))  # Updates persist
+    i=$((i + 1))
+done
+echo $result  # Will be 6 as expected
+```
+
+**Recommendation**: Use `while` loops when you need variables to persist across iterations.
+
 ---
 
 ## Your First Debugging Session

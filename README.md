@@ -41,7 +41,7 @@ debug continue                  # Continue to next breakpoint
 
 # Debug complex shell constructs
 debug on
-for i in {1..3}; do
+for i in 1 2 3; do
     echo "Processing: $i"       # Step through each iteration
     debug print i               # Inspect loop variable
 done
@@ -124,10 +124,12 @@ cat > debug_example.sh << 'EOF'
 debug on
 echo "Starting calculation"
 result=0
-for i in 1 2 3 4 5; do
-    result=$((result + i))
+i=1
+while [ $i -le 5 ]; do
+    result=$(($result + $i))
     debug print result
     echo "Current total: $result"
+    i=$(($i + 1))
 done
 echo "Final result: $result"
 EOF
@@ -281,6 +283,33 @@ done
 - Sub-millisecond command execution
 - Enterprise-scale reliability and error handling
 - Cross-platform compatibility and testing
+
+---
+
+## Important Limitations
+
+### Variable Scope in For Loops
+**Critical**: Variables modified inside `for` loops do not persist outside the loop due to subshell execution.
+
+```bash
+# ❌ This will NOT work as expected
+result=0
+for i in 1 2 3; do
+    result=$((result + i))  # Updates inside loop
+done
+echo $result  # Will still be 0!
+
+# ✅ Use while loops instead for variable persistence
+result=0
+i=1
+while [ $i -le 3 ]; do
+    result=$((result + i))  # Updates persist
+    i=$((i + 1))
+done
+echo $result  # Will be 6 as expected
+```
+
+**Recommendation**: Use `while` loops when you need variables to persist across iterations.
 
 ---
 
