@@ -355,34 +355,73 @@ void display_integration_redisplay(void) {
     
     in_display_redisplay = true;
     integration_stats.total_display_calls++;
-
-    // Enable enhanced features when enhanced_display_mode is set
-    if (integration_initialized && (layered_display_enabled || config.enhanced_display_mode)) {
-        integration_stats.layered_display_calls++;
+    integration_fallback_reason_t fallback_reason;
+    
+    // Professional safety check - can we attempt layered display?
+    if (!safe_layered_display_attempt("redisplay", &fallback_reason)) {
+        integration_stats.fallback_calls++;
+        log_fallback_event("redisplay", fallback_reason);
         
-        if (current_config.debug_mode) {
-            static int debug_count = 0;
-            debug_count++;
-            if (debug_count <= 3) {  // Limit debug spam
-                fprintf(stderr, "Enhanced display redisplay #%d\n", debug_count);
-            }
-        }
+        // Graceful fallback to existing system
+        rl_redisplay();
+        in_display_redisplay = false;
+        return;
+    }
+    
+    // Attempt sophisticated layered display operation
+    if (layered_display_enabled && global_display_controller) {
+        char output_buffer[4096];  // Buffer for full display output
+        char *current_prompt = lusush_generate_prompt();
+        char *current_command = rl_line_buffer ? rl_line_buffer : "";
         
-        // Enhanced redisplay for enhanced mode
-        if (config.enhanced_display_mode) {
-            // Enhanced mode gets more responsive redisplay
-            rl_forced_update_display();
+        // Use display controller for sophisticated rendering
+        display_controller_error_t error = display_controller_display(
+            global_display_controller,
+            current_prompt,
+            current_command,
+            output_buffer,
+            sizeof(output_buffer)
+        );
+        
+        if (error == DISPLAY_CONTROLLER_SUCCESS) {
+            integration_stats.layered_display_calls++;
+            
+            // Output the sophisticated layered display result
+            printf("%s", output_buffer);
+            fflush(stdout);
             
             if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Enhanced redisplay used\n");
+                static int debug_count = 0;
+                debug_count++;
+                if (debug_count <= 3) {  // Limit debug spam
+                    fprintf(stderr, "display_integration: Layered redisplay #%d successful\n", debug_count);
+                }
             }
+            
+            if (current_prompt) {
+                free(current_prompt);
+            }
+            in_display_redisplay = false;
+            return;
         } else {
-            // Standard safe redisplay
-            rl_redisplay();
+            // Layered display failed - log and fallback
+            integration_stats.fallback_calls++;
+            log_controller_error("redisplay", error);
+            
+            if (current_prompt) {
+                free(current_prompt);
+            }
+        }
+    }
+    
+    // Fallback to existing system - enhanced mode or standard
+    if (config.enhanced_display_mode) {
+        rl_forced_update_display();
+        
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Enhanced redisplay fallback used\n");
         }
     } else {
-        integration_stats.fallback_calls++;
-        // Use standard redisplay
         rl_redisplay();
     }
     
