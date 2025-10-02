@@ -132,6 +132,16 @@ bool display_integration_init(const display_integration_config_t *config) {
             return false;
         }
         
+        // Initialize the event system (critical - required for subscriptions to work)
+        layer_events_error_t event_init_error = layer_events_init(event_system);
+        if (event_init_error != LAYER_EVENTS_SUCCESS) {
+            fprintf(stderr, "display_integration: Failed to initialize event system: %d\n", event_init_error);
+            layer_events_destroy(event_system);
+            display_controller_destroy(global_display_controller);
+            global_display_controller = NULL;
+            return false;
+        }
+        
         display_controller_error_t error = display_controller_init(global_display_controller, &controller_config, event_system);
         if (error != DISPLAY_CONTROLLER_SUCCESS) {
             fprintf(stderr, "display_integration: Failed to initialize display controller: %d\n", error);

@@ -1,0 +1,7 @@
+# Lusush Shell Build Options
+# Professional build configuration for enterprise deployment
+
+option('enable_debug',
+       type : 'boolean',
+       value : false,
+       description : 'Enable debug output and debugging symbols')

@@ -42,6 +42,8 @@
 
 #include "display/display_controller.h"
 #include "display/base_terminal.h"
+#include "display/prompt_layer.h"
+#include "display/command_layer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -486,6 +488,11 @@ display_controller_error_t display_controller_display(
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
     
+    DC_DEBUG("display_controller_display called");
+    DC_DEBUG("Controller: %p, is_initialized: %d", (void*)controller, controller->is_initialized);
+    DC_DEBUG("Prompt text: %s", prompt_text ? prompt_text : "(null)");
+    DC_DEBUG("Command text: %s", command_text ? command_text : "(null)");
+    
     DC_DEBUG("Starting display operation (seq: %u)", controller->operation_sequence_number++);
     
     // Generate state hash for caching
@@ -515,7 +522,11 @@ display_controller_error_t display_controller_display(
     }
     
     // Initialize layers if needed
-    if (!composition_engine_is_initialized(controller->compositor)) {
+    bool compositor_initialized = composition_engine_is_initialized(controller->compositor);
+    DC_DEBUG("Composition engine initialized check: %s", compositor_initialized ? "true" : "false");
+    DC_DEBUG("Compositor pointer: %p", (void*)controller->compositor);
+    
+    if (!compositor_initialized) {
         // Create and initialize prompt and command layers
         prompt_layer_t *prompt_layer = prompt_layer_create();
         command_layer_t *command_layer = command_layer_create();
@@ -526,14 +537,105 @@ display_controller_error_t display_controller_display(
             if (command_layer) command_layer_destroy(command_layer);
             return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
         }
+
+        // Initialize individual layers with event system
+        DC_DEBUG("About to initialize prompt layer");
+        DC_DEBUG("Prompt layer pointer: %p", (void*)prompt_layer);
+        DC_DEBUG("Event system pointer: %p", (void*)controller->event_system);
         
+        prompt_layer_error_t prompt_init_result = prompt_layer_init(prompt_layer, controller->event_system);
+        
+        DC_DEBUG("Prompt layer init returned: %d", prompt_init_result);
+        
+        if (prompt_init_result != PROMPT_LAYER_SUCCESS) {
+            DC_ERROR("Failed to initialize prompt layer: error %d", prompt_init_result);
+            
+            // Detailed error analysis for prompt layer
+            switch (prompt_init_result) {
+                case PROMPT_LAYER_ERROR_INVALID_PARAM:
+                    DC_ERROR("Prompt error cause: Invalid parameter");
+                    break;
+                case PROMPT_LAYER_ERROR_EVENT_SYSTEM_FAILURE:
+                    DC_ERROR("Prompt error cause: Event system failure");
+                    break;
+                case PROMPT_LAYER_ERROR_MEMORY_ALLOCATION:
+                    DC_ERROR("Prompt error cause: Memory allocation failure");
+                    break;
+                default:
+                    DC_ERROR("Prompt error cause: Unknown error code %d", prompt_init_result);
+                    break;
+            }
+            
+            prompt_layer_destroy(prompt_layer);
+            command_layer_destroy(command_layer);
+            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+        }
+        
+        DC_DEBUG("Prompt layer initialized successfully");
+
+        DC_DEBUG("About to initialize command layer");
+        DC_DEBUG("Command layer pointer: %p", (void*)command_layer);
+        DC_DEBUG("Event system pointer: %p", (void*)controller->event_system);
+        
+        command_layer_error_t command_init_result = command_layer_init(command_layer, controller->event_system);
+        
+        DC_DEBUG("Command layer init returned: %d", command_init_result);
+        
+        if (command_init_result != COMMAND_LAYER_SUCCESS) {
+            DC_ERROR("Failed to initialize command layer: error %d", command_init_result);
+            
+            prompt_layer_cleanup(prompt_layer);
+            prompt_layer_destroy(prompt_layer);
+            command_layer_destroy(command_layer);
+            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+        }
+        
+        DC_DEBUG("Command layer initialized successfully");
+
+        // ============================================================================
+        // CRITICAL FIX: Populate layers with provided content before composition engine init
+        // ============================================================================
+        
+        // Set prompt content if provided
+        if (prompt_text && *prompt_text) {
+            prompt_layer_error_t prompt_content_result = prompt_layer_set_content(prompt_layer, prompt_text);
+            if (prompt_content_result != PROMPT_LAYER_SUCCESS) {
+                DC_ERROR("Failed to set prompt content: error %d", prompt_content_result);
+                prompt_layer_cleanup(prompt_layer);
+                prompt_layer_destroy(prompt_layer);
+                command_layer_cleanup(command_layer);
+                command_layer_destroy(command_layer);
+                return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+            }
+            DC_DEBUG("Set prompt content: %zu characters", strlen(prompt_text));
+        }
+        
+        // Set command content if provided (cursor position 0 for now)
+        if (command_text && *command_text) {
+            command_layer_error_t command_content_result = command_layer_set_command(command_layer, command_text, 0);
+            if (command_content_result != COMMAND_LAYER_SUCCESS) {
+                DC_ERROR("Failed to set command content: error %d", command_content_result);
+                prompt_layer_cleanup(prompt_layer);
+                prompt_layer_destroy(prompt_layer);
+                command_layer_cleanup(command_layer);
+                command_layer_destroy(command_layer);
+                return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+            }
+            DC_DEBUG("Set command content: %zu characters", strlen(command_text));
+        }
+        
+        DC_DEBUG("Layer content populated successfully");
+        
+        // Initialize composition engine with populated layers
         composition_engine_error_t comp_result = composition_engine_init(
             controller->compositor, prompt_layer, command_layer, controller->event_system);
         
         if (comp_result != COMPOSITION_ENGINE_SUCCESS) {
             DC_ERROR("Failed to initialize composition engine: %s", 
                      composition_engine_error_string(comp_result));
+            prompt_layer_cleanup(prompt_layer);
             prompt_layer_destroy(prompt_layer);
+            command_layer_cleanup(command_layer);
             command_layer_destroy(command_layer);
             return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
         }

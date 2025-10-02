@@ -7,6 +7,15 @@ project('lusush',
         version: '1.2.2',
         license: 'GPL-3.0+')
 
+# Debug build configuration
+debug_option = get_option('enable_debug')
+if debug_option
+    add_global_arguments('-DDEBUG', language : 'c')
+    message('Debug build enabled - DEBUG macro active')
+else
+    message('Production build - DEBUG macro disabled')
+endif
+
 inc = include_directories('include',
                           'include/libhashtable',
                           'include/display',

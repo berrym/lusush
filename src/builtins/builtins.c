@@ -4163,6 +4163,22 @@ int bin_display(int argc, char **argv) {
         display_integration_print_diagnostics();
         return 0;
 
+    } else if (strcmp(subcmd, "test") == 0) {
+        // Test layered display with actual content
+        printf("Testing layered display system with actual content...\n");
+        
+        if (!display_integration_is_layered_active()) {
+            printf("Error: Layered display system is not active. Run 'display enable' first.\n");
+            return 1;
+        }
+        
+        // Force a redisplay with current content
+        printf("Triggering display_integration_redisplay()...\n");
+        display_integration_redisplay();
+        printf("Display test completed.\n");
+        
+        return 0;
+        
     } else if (strcmp(subcmd, "help") == 0) {
         // Show help
         printf("Display Integration System - Week 8 Layered Display Architecture\n");
@@ -4176,8 +4192,10 @@ int bin_display(int argc, char **argv) {
         printf("  display enable           - Enable layered display system\n");
         printf("  display disable          - Disable layered display system\n");
         printf("  display config           - Show detailed configuration\n");
-        printf("  display stats            - Show performance statistics\n");
-        printf("  display diagnostics      - Show comprehensive diagnostics\n");
+        printf("  display stats            - Show usage statistics\n");
+        printf("  display diagnostics      - Show system diagnostics\n");
+        printf("  display test             - Test layered display with actual content\n");
+        printf("  display help             - Show this help message\n");
         printf("\nConfiguration:\n");
         printf("  Environment variables can be used to control behavior:\n");
         printf("  - LUSUSH_LAYERED_DISPLAY=1|0     Enable/disable at startup\n");

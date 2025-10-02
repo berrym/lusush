@@ -119,10 +119,14 @@ config set <TAB>               # Shows available options
 # Install dependencies (Ubuntu/Debian)
 sudo apt-get install build-essential meson ninja-build libreadline-dev
 
-# Build Lusush
+# Build Lusush (Production)
 git clone https://github.com/lusush/lusush.git
 cd lusush
 meson setup builddir
+ninja -C builddir
+
+# Build Lusush (Debug - with detailed logging)
+meson setup builddir --wipe -Denable_debug=true
 ninja -C builddir
 
 # Test the build
