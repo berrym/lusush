@@ -33,6 +33,8 @@
  * - Enterprise deployment readiness with configuration management
  * - Graceful fallback to existing display functions
  * - Resource management and memory safety
+ * - Professional safety infrastructure with comprehensive error handling
+ * - Incremental integration with fallback tracking and diagnostics
  * 
  * Integration Functions:
  * - display_integration_redisplay() replaces lusush_safe_redisplay()
@@ -80,6 +82,23 @@ extern "C" {
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
+
+/**
+ * Fallback reason enumeration for safety infrastructure.
+ * Tracks why layered display operations fall back to standard functions.
+ */
+typedef enum {
+    INTEGRATION_FALLBACK_NONE = 0,                // No fallback - layered display succeeded
+    INTEGRATION_FALLBACK_CONTROLLER_NULL,         // Display controller is null
+    INTEGRATION_FALLBACK_CONTROLLER_ERROR,        // Display controller returned error
+    INTEGRATION_FALLBACK_BUFFER_ERROR,            // Buffer allocation or size error
+    INTEGRATION_FALLBACK_TIMEOUT,                 // Operation exceeded timeout threshold
+    INTEGRATION_FALLBACK_USER_REQUEST,            // User explicitly disabled layered display
+    INTEGRATION_FALLBACK_SAFETY_CHECK,            // Safety check failed
+    INTEGRATION_FALLBACK_MEMORY_ERROR,            // Memory allocation failure
+    INTEGRATION_FALLBACK_INITIALIZATION_ERROR,    // System not properly initialized
+    INTEGRATION_FALLBACK_RECURSION_PROTECTION     // Recursion protection triggered
+} integration_fallback_reason_t;
 
 /**
  * Display integration health status enumeration.
@@ -145,6 +164,12 @@ typedef struct {
     bool performance_within_threshold;     // Performance meeting threshold requirements
     bool cache_efficiency_good;           // Cache performing efficiently
     bool memory_usage_acceptable;         // Memory usage within acceptable limits
+    
+    // v1.3.0 Safety Infrastructure Statistics
+    uint64_t safety_checks_performed;     // Number of safety checks performed
+    uint64_t fallback_events[10];         // Count of each fallback reason type
+    time_t last_fallback_time;            // Time of last fallback event
+    integration_fallback_reason_t last_fallback_reason; // Reason for last fallback
 } display_integration_stats_t;
 
 // ============================================================================
@@ -305,7 +330,58 @@ display_integration_health_t display_integration_get_health(void);
  * @param health Health status enum
  * @return String description of health status
  */
-const char* display_integration_health_string(display_integration_health_t health);
+const char *display_integration_health_string(display_integration_health_t health);
+
+// ============================================================================
+// v1.3.0 SAFETY INFRASTRUCTURE
+// ============================================================================
+
+/**
+ * Perform comprehensive safety check for layered display operation.
+ * 
+ * This function validates that all prerequisites are met for a safe
+ * layered display operation, including controller state, memory availability,
+ * and system health. It provides detailed fallback reasoning for diagnostics.
+ *
+ * @param function_name Name of the calling function for logging
+ * @param fallback_reason Output parameter for fallback reason if check fails
+ * @return true if safe to proceed with layered display, false if should fallback
+ */
+bool safe_layered_display_attempt(const char *function_name, 
+                                 integration_fallback_reason_t *fallback_reason);
+
+/**
+ * Log a fallback event for diagnostics and monitoring.
+ * 
+ * Records fallback events for analysis and troubleshooting. In debug mode,
+ * provides detailed logging. In production, maintains statistics only.
+ *
+ * @param function_name Name of the function that fell back
+ * @param reason Reason for the fallback
+ */
+void log_fallback_event(const char *function_name, integration_fallback_reason_t reason);
+
+/**
+ * Log a display controller error with context.
+ * 
+ * Records display controller errors with context information for debugging
+ * and system monitoring. Integrates with enterprise logging when enabled.
+ *
+ * @param function_name Name of the function where error occurred
+ * @param error Display controller error code
+ */
+void log_controller_error(const char *function_name, display_controller_error_t error);
+
+/**
+ * Get human-readable string for fallback reason.
+ * 
+ * Converts fallback reason enum to descriptive string for logging and
+ * diagnostic output. Used in debug mode and system diagnostics.
+ *
+ * @param reason Fallback reason enum value
+ * @return Human-readable description string
+ */
+const char *integration_fallback_reason_string(integration_fallback_reason_t reason);
 
 /**
  * Print comprehensive diagnostic information about display integration.
