@@ -1,13 +1,23 @@
 # Lusush - Modern Shell with Integrated Debugging
 
-**Last Updated**: October 1, 2025  
+**Last Updated**: January 17, 2025  
 **Version**: 1.3.0-dev  
-**Status**: Production Ready Core with Advanced Features
+**Status**: Production Ready Core with v1.3.0 Layered Display Integration in Progress
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/lusush/lusush)
 [![POSIX Compliance](https://img.shields.io/badge/POSIX-24_options-green)](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 [![Version](https://img.shields.io/badge/version-v1.3.0--dev-blue)](https://github.com/lusush/lusush/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0+-blue)](LICENSE)
+
+---
+
+## v1.3.0 Development Notice
+
+**ACTIVE DEVELOPMENT**: v1.3.0 is implementing revolutionary **Layered Display Architecture** integration. This advanced display system (~8,000 lines) provides universal terminal compatibility with sophisticated prompt rendering and real-time syntax highlighting. Development follows professional safety-first implementation with graceful fallback mechanisms.
+
+**Development Branch**: `feature/v1.3.0-layered-display-integration`  
+**Integration Status**: Safety infrastructure and incremental function replacement in progress  
+**Quality Standards**: Enterprise-grade, zero regression policy
 
 ---
 
