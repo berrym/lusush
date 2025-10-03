@@ -641,6 +641,69 @@ display_controller_error_t display_controller_display(
         }
     }
     
+    // CRITICAL FIX: Always recreate layers with current content
+    // The caching system was preventing layer updates between calls
+    if (composition_engine_is_initialized(controller->compositor)) {
+        // Clean up existing composition to force fresh layer creation
+        composition_engine_cleanup(controller->compositor);
+    }
+    
+    // Force fresh layer initialization with current content
+    prompt_layer_t *fresh_prompt_layer = prompt_layer_create();
+    command_layer_t *fresh_command_layer = command_layer_create();
+    
+    if (!fresh_prompt_layer || !fresh_command_layer) {
+        DC_ERROR("Failed to create fresh display layers");
+        if (fresh_prompt_layer) prompt_layer_destroy(fresh_prompt_layer);
+        if (fresh_command_layer) command_layer_destroy(fresh_command_layer);
+        return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Initialize layers with event system
+    prompt_layer_error_t fresh_prompt_init = prompt_layer_init(fresh_prompt_layer, controller->event_system);
+    command_layer_error_t fresh_command_init = command_layer_init(fresh_command_layer, controller->event_system);
+    
+    if (fresh_prompt_init != PROMPT_LAYER_SUCCESS || fresh_command_init != COMMAND_LAYER_SUCCESS) {
+        DC_ERROR("Failed to initialize fresh layers: prompt=%d, command=%d", 
+                 fresh_prompt_init, fresh_command_init);
+        prompt_layer_destroy(fresh_prompt_layer);
+        command_layer_destroy(fresh_command_layer);
+        return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+    }
+    
+    // Set current content in fresh layers
+    if (prompt_text && *prompt_text) {
+        prompt_layer_error_t prompt_content_result = prompt_layer_set_content(fresh_prompt_layer, prompt_text);
+        if (prompt_content_result != PROMPT_LAYER_SUCCESS) {
+            DC_ERROR("Failed to set fresh prompt content: error %d", prompt_content_result);
+        }
+    }
+    
+    if (command_text && *command_text) {
+        command_layer_error_t command_content_result = command_layer_set_command(fresh_command_layer, command_text, 0);
+        if (command_content_result != COMMAND_LAYER_SUCCESS) {
+            DC_ERROR("Failed to set fresh command content: error %d", command_content_result);
+        }
+    }
+    
+    // Re-initialize composition engine with fresh layers
+    composition_engine_error_t comp_init_result = composition_engine_init(
+        controller->compositor, fresh_prompt_layer, fresh_command_layer, controller->event_system);
+    
+    if (comp_init_result != COMPOSITION_ENGINE_SUCCESS) {
+        DC_ERROR("Failed to re-initialize composition engine: %s", 
+                 composition_engine_error_string(comp_init_result));
+        prompt_layer_cleanup(fresh_prompt_layer);
+        prompt_layer_destroy(fresh_prompt_layer);
+        command_layer_cleanup(fresh_command_layer);
+        command_layer_destroy(fresh_command_layer);
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    DC_DEBUG("Fresh layers created with current content - prompt: %zu chars, command: %zu chars", 
+             prompt_text ? strlen(prompt_text) : 0,
+             command_text ? strlen(command_text) : 0);
+    
     // Perform composition
     composition_engine_error_t comp_result = composition_engine_compose(controller->compositor);
     if (comp_result != COMPOSITION_ENGINE_SUCCESS) {

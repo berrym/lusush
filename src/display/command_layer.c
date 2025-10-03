@@ -535,10 +535,23 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
     bool is_first_token = true;
     
     // Parse and highlight tokens
+    size_t last_token_end = 0;  // Track position after last token
+    
     while ((token_type = get_next_token(&parser, &token_start, &token_length)) != COMMAND_TOKEN_NONE) {
         // Skip if we've exceeded region limit
         if (layer->region_count >= COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS) {
             break;
+        }
+        
+        // Add any whitespace between previous token and this token
+        if (!is_first_token && last_token_end < token_start) {
+            size_t whitespace_len = token_start - last_token_end;
+            if (output_pos + whitespace_len < sizeof(layer->highlighted_text) - 1) {
+                strncpy(layer->highlighted_text + output_pos,
+                       layer->command_text + last_token_end, whitespace_len);
+                output_pos += whitespace_len;
+                layer->highlighted_text[output_pos] = '\0';
+            }
         }
         
         // Classify the token if it's not already classified
@@ -590,12 +603,28 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
             layer->region_count++;
         }
         
+        // Update tracking for next iteration
+        last_token_end = token_start + token_length;
         is_first_token = false;
         g_highlighting_stats.tokens_parsed++;
     }
     
+    // Add any remaining text after the last token
+    size_t command_len = strlen(layer->command_text);
+    if (last_token_end < command_len) {
+        size_t remaining_len = command_len - last_token_end;
+        if (output_pos + remaining_len < sizeof(layer->highlighted_text) - 1) {
+            strncpy(layer->highlighted_text + output_pos,
+                   layer->command_text + last_token_end, remaining_len);
+            output_pos += remaining_len;
+            layer->highlighted_text[output_pos] = '\0';
+        }
+    }
+    
     // Ensure null termination
     layer->highlighted_text[sizeof(layer->highlighted_text) - 1] = '\0';
+
+
     
     uint64_t highlighting_time = get_current_time_ns() - start_time;
     g_highlighting_stats.highlighting_time_ns += highlighting_time;

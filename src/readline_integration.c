@@ -2463,9 +2463,35 @@ static void try_layered_display_prompt(const char *prompt) {
                 prompt, strlen(prompt) > 50 ? "..." : "");
     }
     
+    // Fix: Save and clear readline buffer to prevent showing stale command content
+    // When displaying a fresh prompt, we don't want the previous command to appear
+    char *saved_line_buffer = NULL;
+    int saved_point = 0;
+    int saved_end = 0;
+    
+    if (rl_line_buffer && rl_end > 0) {
+        // Save current buffer state
+        saved_line_buffer = strdup(rl_line_buffer);
+        saved_point = rl_point;
+        saved_end = rl_end;
+        
+        // Clear buffer for clean prompt display
+        rl_replace_line("", 0);
+        rl_point = 0;
+        rl_end = 0;
+    }
+    
     // This is the key integration: every prompt now goes through layered display
     // This will populate the display integration statistics and use the layered system
     display_integration_redisplay();
+    
+    // Restore readline buffer state after display
+    if (saved_line_buffer) {
+        rl_replace_line(saved_line_buffer, 0);
+        rl_point = saved_point;
+        rl_end = saved_end;
+        free(saved_line_buffer);
+    }
     
     if (debug_enabled) {
         fprintf(stderr, "[READLINE_DEBUG] Layered display redisplay completed\n");

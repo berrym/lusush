@@ -387,7 +387,12 @@ void display_integration_redisplay(void) {
     if (layered_display_enabled && global_display_controller) {
         char output_buffer[4096];  // Buffer for full display output
         char *current_prompt = lusush_generate_prompt();
-        char *current_command = rl_line_buffer ? rl_line_buffer : "";
+        
+        // Phase 2 Implementation: Modern Syntax Highlighting
+        // Use command content during real-time typing, but not during prompt display
+        // This enables syntax highlighting while preventing stale command display
+        bool is_real_time_input = (rl_line_buffer && rl_end > 0 && rl_point >= 0);
+        char *current_command = is_real_time_input ? rl_line_buffer : "";
         
         // Use display controller for sophisticated rendering
         display_controller_error_t error = display_controller_display(
@@ -401,21 +406,25 @@ void display_integration_redisplay(void) {
         if (error == DISPLAY_CONTROLLER_SUCCESS) {
             integration_stats.layered_display_calls++;
             
-            // CRITICAL FIX: Never bypass readline during interactive input
-            // The layered display system must work WITH readline, not around it
-            // For now, use readline fallback to prevent display corruption
-            integration_stats.fallback_calls++;
+
             
-            if (current_config.debug_mode) {
-                static int debug_count = 0;
-                debug_count++;
-                if (debug_count <= 3) {  // Limit debug spam
-                    fprintf(stderr, "display_integration: Using readline fallback to prevent corruption\n");
-                }
+            // Phase 2 Implementation: Modern Syntax Highlighting
+            // Always use layered display when system is enabled and output is available
+            if (output_buffer[0] != '\0') {
+                // Use readline's display mechanism to show our composed output
+                // This maintains compatibility with readline's input handling
+                rl_clear_visible_line();
+                rl_on_new_line();
+                printf("%s", output_buffer);
+                fflush(stdout);
+                
+                // Note: current_prompt is managed by readline system, don't free here
+                in_display_redisplay = false;
+                return;  // Success - skip fallback
+            } else {
+                // Empty output - use standard readline
+                integration_stats.fallback_calls++;
             }
-            
-            // Note: current_prompt is managed by readline system, don't free here
-            // Fall through to readline fallback below
         } else {
             // Layered display failed - log and fallback
             integration_stats.fallback_calls++;

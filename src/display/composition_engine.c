@@ -548,6 +548,8 @@ static composition_engine_error_t compose_layers(
         }
         engine->composed_output_size = COMPOSITION_ENGINE_MAX_OUTPUT_SIZE;
     }
+
+
     
     // Apply composition strategy
     switch (strategy) {
