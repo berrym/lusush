@@ -43,6 +43,7 @@
 #include "../include/display_integration.h"
 #include "../include/display/display_controller.h"
 #include "../include/display/layer_events.h"
+#include "../include/display/autosuggestions_layer.h"
 #include "../include/readline_integration.h"
 #include "../include/prompt.h"
 #include "../include/themes.h"
@@ -79,6 +80,10 @@ static display_controller_t *global_display_controller = NULL;
 static bool layered_display_enabled = false;
 static bool integration_initialized = false;
 static display_integration_config_t current_config = {0};
+
+// Autosuggestions layer integration
+static autosuggestions_layer_t *global_autosuggestions_layer = NULL;
+static bool autosuggestions_layer_initialized = false;
 
 // Performance tracking
 static display_integration_stats_t integration_stats = {0};
@@ -184,9 +189,20 @@ bool display_integration_init(const display_integration_config_t *config) {
     integration_stats.layered_display_calls = 0;
     integration_stats.fallback_calls = 0;
 
+    // Initialize autosuggestions layer if layered display is enabled
+    if (layered_display_enabled) {
+        if (!display_integration_init_autosuggestions()) {
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Warning - autosuggestions layer initialization failed\n");
+            }
+            // Don't fail the whole initialization - autosuggestions are optional
+        }
+    }
+
     if (current_config.debug_mode) {
-        printf("display_integration: Initialized successfully (layered_display=%s)\n",
-               layered_display_enabled ? "enabled" : "disabled");
+        printf("display_integration: Initialized successfully (layered_display=%s, autosuggestions=%s)\n",
+               layered_display_enabled ? "enabled" : "disabled",
+               autosuggestions_layer_initialized ? "enabled" : "disabled");
     }
 
     return true;
@@ -200,6 +216,9 @@ void display_integration_cleanup(void) {
     if (!integration_initialized) {
         return;
     }
+
+    // Cleanup autosuggestions layer first
+    display_integration_cleanup_autosuggestions();
 
     if (global_display_controller) {
         display_controller_destroy(global_display_controller);
@@ -924,4 +943,83 @@ const char *integration_fallback_reason_string(integration_fallback_reason_t rea
         default:
             return "unknown reason";
     }
+}
+
+// ============================================================================
+// AUTOSUGGESTIONS LAYER INTEGRATION
+// ============================================================================
+
+/**
+ * Initialize autosuggestions layer integration.
+ */
+bool display_integration_init_autosuggestions(void) {
+    if (autosuggestions_layer_initialized) {
+        return true; // Already initialized
+    }
+    
+    if (!integration_initialized) {
+        return false; // Display integration not ready
+    }
+    
+    // For now, create a stub implementation that marks initialization as complete
+    // The actual autosuggestions will be handled through the existing system
+    // TODO: Integrate with display controller's terminal control and event system
+    autosuggestions_layer_initialized = true;
+    
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Autosuggestions layer initialized in stub mode\n");
+    }
+    
+    return true;
+}
+
+/**
+ * Cleanup autosuggestions layer integration.
+ */
+void display_integration_cleanup_autosuggestions(void) {
+    if (global_autosuggestions_layer) {
+        autosuggestions_layer_destroy(&global_autosuggestions_layer);
+        autosuggestions_layer_initialized = false;
+    }
+}
+
+/**
+ * Update autosuggestions using layered display system.
+ */
+bool display_integration_update_autosuggestions(const char *line_buffer, 
+                                                int cursor_pos, 
+                                                int line_end) {
+    if (!autosuggestions_layer_initialized) {
+        return false;
+    }
+    
+    if (!line_buffer || cursor_pos != line_end || line_end < 2) {
+        return display_integration_clear_autosuggestions();
+    }
+    
+    // Stub implementation: For now, return false to indicate layered system not ready
+    // This will cause the caller to fall back to the existing autosuggestions system
+    // TODO: Implement full layered display integration
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Autosuggestions update requested (stub mode)\n");
+    }
+    
+    return false; // Force fallback to existing system for now
+}
+
+/**
+ * Clear autosuggestions display using layered system.
+ */
+bool display_integration_clear_autosuggestions(void) {
+    if (!autosuggestions_layer_initialized) {
+        return false;
+    }
+    
+    // Stub implementation: For now, just return true to indicate clearing is handled
+    // TODO: Implement actual layered display clearing
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Autosuggestions clear requested (stub mode)\n");
+    }
+    
+    return true;
 }

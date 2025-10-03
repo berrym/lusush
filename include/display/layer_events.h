@@ -167,6 +167,7 @@ typedef enum {
     LAYER_ID_COMMAND_LAYER = 4,
     LAYER_ID_COMPOSITION_ENGINE = 5,
     LAYER_ID_DISPLAY_CONTROLLER = 6,
+    LAYER_ID_AUTOSUGGESTIONS = 7,               // Fish-like autosuggestions layer
     LAYER_ID_EXTERNAL = 100                     // External components
 } layer_id_t;
 
