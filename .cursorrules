@@ -253,16 +253,29 @@ time echo -e 'ls /usr/bin/g<TAB>' | ./builddir/lusush
 9. **Zero display corruption** - Professional appearance across all features
 
 ### 🎯 v1.3.0 COMPLETION PRIORITIES
-1. **Advanced completion enhancements** - Expand context-aware completion system
-2. **Theme system expansion** - Additional professional themes and customization
-3. **Performance optimization** - Further optimize autosuggestions and display systems
-4. **Documentation completion** - Comprehensive user and developer documentation
-5. **Testing and validation** - Extensive testing for enterprise deployment readiness
+
+#### **PRIMARY PRIORITY (Must Complete First):**
+1. **Autosuggestions perfection** - Achieve legacy display quality with zero display corruption
+   - Eliminate terminal control sequence conflicts with readline
+   - Perfect visual consistency and professional appearance
+   - Sub-millisecond performance with intelligent caching
+   - Flawless Fish-like user experience
+   - Enterprise-grade reliability and edge case handling
+
+#### **SECONDARY PRIORITIES (After Autosuggestions Perfection):**
+2. **Advanced completion enhancements** - Expand context-aware completion system
+3. **Theme system expansion** - Additional professional themes and customization
+4. **Performance optimization** - Further optimize display systems and caching
+5. **Documentation completion** - Comprehensive user and developer documentation
+6. **Testing and validation** - Extensive testing for enterprise deployment readiness
 
 ### 🚀 FUTURE DEVELOPMENT (v2.0+)
 1. **Custom line editor** - Purpose-built line editor for advanced features like syntax highlighting
 2. **Advanced visual features** - Real-time syntax highlighting, advanced display capabilities
 3. **Extended shell features** - Advanced scripting, debugging, profiling capabilities
+
+### 📋 DEVELOPMENT WORKFLOW
+**CRITICAL**: Secondary enhancements (completion, themes, performance) are **BLOCKED** until autosuggestions achieve legacy display quality standards. No work on secondary features until autosuggestions perfection is complete and validated.
 
 ## Quick Reference: Key Files
 - `src/readline_integration.c` - Complete readline integration + syntax highlighting framework
@@ -274,14 +287,15 @@ time echo -e 'ls /usr/bin/g<TAB>' | ./builddir/lusush
 - `meson.build` - Build configuration with all dependencies
 
 ## Development Workflow
-1. **v1.3.0 Priority** - Layered display integration achieved major operational success
-2. **Safety First** - Professional implementation with comprehensive fallback mechanisms ACHIEVED
-3. **Preserve working functionality** - NEVER break multiline input, git integration, themes
-4. **Implement incrementally** - Function-by-function integration with thorough testing
-5. **Test religiously** - Verify no regressions after every change
-6. **Maintain enterprise quality** - Professional stability and appearance
-7. **Zero merge conflicts** - Keep feature branch continuously mergeable to master
-8. **Professional Git Standards** - NO emojis ever in commits, consult before all changes
+1. **v1.3.0 Primary Priority** - Autosuggestions perfection to legacy display quality standards
+2. **Blocked Secondary Work** - No completion/theme enhancements until autosuggestions are perfect
+3. **Safety First** - Professional implementation with comprehensive fallback mechanisms
+4. **Preserve working functionality** - NEVER break multiline input, git integration, themes
+5. **Implement incrementally** - Function-by-function integration with thorough testing
+6. **Test religiously** - Verify no regressions after every change
+7. **Maintain enterprise quality** - Professional stability and appearance
+8. **Zero merge conflicts** - Keep feature branch continuously mergeable to master
+9. **Professional Git Standards** - NO emojis ever in commits, consult before all changes
 
 ## Success Criteria for Syntax Highlighting
 - **Preserves ALL current functionality** - Multiline input, git integration, themes must continue working
