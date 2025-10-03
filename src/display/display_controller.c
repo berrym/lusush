@@ -1383,11 +1383,33 @@ display_controller_error_t display_controller_generate_diagnostic_report(
 
 display_controller_error_t display_controller_create_default_config(
     display_controller_config_t *config) {
-    
+
     if (!config) {
         return DISPLAY_CONTROLLER_ERROR_INVALID_PARAM;
     }
-    
+
     dc_init_default_config(config);
     return DISPLAY_CONTROLLER_SUCCESS;
+}
+
+/**
+ * Get terminal control instance from display controller.
+ */
+terminal_control_t* display_controller_get_terminal_control(const display_controller_t *controller) {
+    if (!controller || !controller->is_initialized) {
+        return NULL;
+    }
+    
+    return controller->terminal_ctrl;
+}
+
+/**
+ * Get event system instance from display controller.
+ */
+layer_event_system_t* display_controller_get_event_system(const display_controller_t *controller) {
+    if (!controller || !controller->is_initialized) {
+        return NULL;
+    }
+    
+    return controller->event_system;
 }

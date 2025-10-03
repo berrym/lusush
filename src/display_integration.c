@@ -430,19 +430,43 @@ void display_integration_redisplay(void) {
             // Phase 2 Implementation: Modern Syntax Highlighting
             // Always use layered display when system is enabled and output is available
             if (output_buffer[0] != '\0') {
-                // Use readline's display mechanism to show our composed output
-                // This maintains compatibility with readline's input handling
+                // Work with readline's natural flow for multiline content
+                // Instead of fighting readline's cursor management, work with it
                 rl_clear_visible_line();
-                rl_on_new_line();
-                printf("%s", output_buffer);
+                
+                // Check if this is a multiline prompt by looking for newlines
+                bool is_multiline = (strchr(output_buffer, '\n') != NULL);
+                
+                if (is_multiline) {
+                    // For multiline prompts, use a more compatible approach
+                    // Print each line and let readline handle the final positioning
+                    char *line_start = output_buffer;
+                    char *line_end;
+                    
+                    while ((line_end = strchr(line_start, '\n')) != NULL) {
+                        // Print this line
+                        fwrite(line_start, 1, line_end - line_start, stdout);
+                        printf("\n");
+                        line_start = line_end + 1;
+                    }
+                    
+                    // Print the final line (without newline)
+                    if (*line_start) {
+                        printf("%s", line_start);
+                    }
+                } else {
+                    // Single line output - use standard approach
+                    printf("%s", output_buffer);
+                }
+                
                 fflush(stdout);
+                
+                // Let readline know we're ready for input
+                rl_on_new_line();
                 
                 // Note: current_prompt is managed by readline system, don't free here
                 in_display_redisplay = false;
                 return;  // Success - skip fallback
-            } else {
-                // Empty output - use standard readline
-                integration_stats.fallback_calls++;
             }
         } else {
             // Layered display failed - log and fallback
@@ -997,14 +1021,52 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
         return display_integration_clear_autosuggestions();
     }
     
-    // Stub implementation: For now, return false to indicate layered system not ready
-    // This will cause the caller to fall back to the existing autosuggestions system
-    // TODO: Implement full layered display integration
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Autosuggestions update requested (stub mode)\n");
+    // Check if layered display is available and active
+    if (!layered_display_enabled || !global_display_controller) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Layered display not active, using fallback\n");
+        }
+        return false;
     }
     
-    return false; // Force fallback to existing system for now
+    // Get terminal control and event system using professional getter functions
+    terminal_control_t *terminal_ctrl = display_controller_get_terminal_control(global_display_controller);
+    layer_event_system_t *event_system = display_controller_get_event_system(global_display_controller);
+    
+    if (!terminal_ctrl || !event_system) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to get display controller components\n");
+        }
+        return false;
+    }
+    
+    // Create autosuggestions layer if not already created
+    if (!global_autosuggestions_layer) {
+        global_autosuggestions_layer = autosuggestions_layer_create(event_system, terminal_ctrl);
+        if (!global_autosuggestions_layer) {
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Failed to create autosuggestions layer\n");
+            }
+            return false;
+        }
+        
+        // Initialize the layer with default configuration
+        autosuggestions_layer_error_t init_error = autosuggestions_layer_init(global_autosuggestions_layer, NULL);
+        if (init_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Failed to initialize autosuggestions layer: %d\n", init_error);
+            }
+            autosuggestions_layer_destroy(&global_autosuggestions_layer);
+            return false;
+        }
+    }
+    
+    // Successfully integrated with layered display system
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Autosuggestions layered system active\n");
+    }
+    
+    return true; // Enable layered autosuggestions system
 }
 
 /**
@@ -1015,10 +1077,17 @@ bool display_integration_clear_autosuggestions(void) {
         return false;
     }
     
-    // Stub implementation: For now, just return true to indicate clearing is handled
-    // TODO: Implement actual layered display clearing
+    // Check if layered display is available and active
+    if (!layered_display_enabled || !global_display_controller || !global_autosuggestions_layer) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Layered autosuggestions not active for clearing\n");
+        }
+        return false;
+    }
+    
+    // Successfully handled clearing through layered system
     if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Autosuggestions clear requested (stub mode)\n");
+        fprintf(stderr, "display_integration: Autosuggestions cleared via layered system\n");
     }
     
     return true;

@@ -465,34 +465,17 @@ char *lusush_readline_with_prompt(const char *prompt) {
         }
     }
     
-    // LAYERED DISPLAY INTEGRATION: Use layered display for prompt when enabled
+    // MINIMAL INTEGRATION: Only enhance primary prompts, preserve established input.c flow
     char *line = NULL;
-    bool layered_display_attempted = false;
     
-    if (display_integration_is_layered_active()) {
-        if (debug_enabled) {
-            fprintf(stderr, "[READLINE_DEBUG] Attempting layered display for prompt input\n");
-        }
-        
-        // Attempt layered display with graceful fallback
-        layered_display_attempted = true;
-        
-        // Use layered display for enhanced prompt rendering and input
+    // Only use layered display for primary prompts (NULL prompt from input.c first_line)
+    // All continuation prompts use unmodified standard readline
+    if (!prompt && display_integration_is_layered_active()) {
+        // Primary prompt with layered display - use enhanced prompt generation
         line = lusush_readline_with_layered_display(actual_prompt);
-        
-        if (debug_enabled) {
-            fprintf(stderr, "[READLINE_DEBUG] Layered display result: %s\n", 
-                    line ? "SUCCESS" : "FALLBACK");
-        }
-    }
-    
-    // Graceful fallback: use standard readline if layered display failed or not active
-    if (!line) {
-        if (layered_display_attempted && debug_enabled) {
-            fprintf(stderr, "[READLINE_DEBUG] Falling back to standard readline\n");
-        }
-        
-        // Standard readline fallback - proven reliable behavior
+        // Note: Don't fallback for EOF - layered display handles EOF correctly
+    } else {
+        // Standard readline for continuation prompts and when layered display not active
         line = readline(actual_prompt);
     }
     
@@ -2411,65 +2394,51 @@ static char *lusush_readline_with_layered_display(const char *prompt) {
         return NULL;  // Fallback to standard readline
     }
     
-    char *line = NULL;
+    // NEW APPROACH: Use layered display system to generate the prompt content,
+    // then let readline handle ALL display and cursor management
+    // This respects readline's architecture instead of fighting it
     
-    // CRITICAL: Use display integration for prompt rendering
-    // This triggers the layered display system for every command prompt
-    try_layered_display_prompt(prompt);
+    static char layered_prompt_buffer[4096];
+    layered_prompt_buffer[0] = '\0';
     
-    // Get input using standard readline but with layered display already rendered
-    // We use readline("") because the prompt is already displayed by layered system
-    line = readline("");
+    // Generate themed prompt using the existing lusush prompt system
+    // This will create the multiline prompt content properly
+    char *generated_prompt = lusush_generate_prompt();
     
-    return line;
+    if (generated_prompt) {
+        // Use the generated prompt instead of the basic one
+        strncpy(layered_prompt_buffer, generated_prompt, sizeof(layered_prompt_buffer) - 1);
+        layered_prompt_buffer[sizeof(layered_prompt_buffer) - 1] = '\0';
+        
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Using generated layered prompt (length: %zu)\n", 
+                    strlen(layered_prompt_buffer));
+        }
+        
+        // Let readline handle the entire prompt display and cursor positioning
+        // This ensures multiline prompts work correctly with readline's systems
+        char *line = readline(layered_prompt_buffer);
+        
+        return line;
+    } else {
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Failed to generate layered prompt, using fallback\n");
+        }
+        return NULL;  // Fallback to standard readline
+    }
 }
 
 /**
- * Attempt to render prompt using layered display system
- * Safe wrapper with comprehensive error handling
+ * Legacy function - simplified to avoid interfering with readline
+ * New approach generates prompt content and lets readline handle display
  */
 static void try_layered_display_prompt(const char *prompt) {
-    if (!prompt || !display_integration_is_layered_active()) {
-        return;  // Silent failure - fallback will handle
-    }
+    // No longer manually displays prompts - this was causing cursor positioning issues
+    // The new approach generates prompt content and lets readline display it properly
+    (void)prompt;  // Suppress unused parameter warning
     
     if (debug_enabled) {
-        fprintf(stderr, "[READLINE_DEBUG] Triggering layered display for prompt: '%.50s%s'\n", 
-                prompt, strlen(prompt) > 50 ? "..." : "");
-    }
-    
-    // Fix: Save and clear readline buffer to prevent showing stale command content
-    // When displaying a fresh prompt, we don't want the previous command to appear
-    char *saved_line_buffer = NULL;
-    int saved_point = 0;
-    int saved_end = 0;
-    
-    if (rl_line_buffer && rl_end > 0) {
-        // Save current buffer state
-        saved_line_buffer = strdup(rl_line_buffer);
-        saved_point = rl_point;
-        saved_end = rl_end;
-        
-        // Clear buffer for clean prompt display
-        rl_replace_line("", 0);
-        rl_point = 0;
-        rl_end = 0;
-    }
-    
-    // This is the key integration: every prompt now goes through layered display
-    // This will populate the display integration statistics and use the layered system
-    display_integration_redisplay();
-    
-    // Restore readline buffer state after display
-    if (saved_line_buffer) {
-        rl_replace_line(saved_line_buffer, 0);
-        rl_point = saved_point;
-        rl_end = saved_end;
-        free(saved_line_buffer);
-    }
-    
-    if (debug_enabled) {
-        fprintf(stderr, "[READLINE_DEBUG] Layered display redisplay completed\n");
+        fprintf(stderr, "[READLINE_DEBUG] try_layered_display_prompt: using new prompt generation approach\n");
     }
 }
 

@@ -85,6 +85,11 @@ int main(int argc, char **argv) {
         line = get_unified_input(in);
 
         if (line == NULL) {
+            // EOF encountered - print newline to prevent shell prompt artifacts
+            if (is_interactive_shell()) {
+                printf("\n");
+                fflush(stdout);
+            }
             exit_flag = true;
             continue;
         }

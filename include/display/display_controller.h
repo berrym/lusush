@@ -667,6 +667,34 @@ display_controller_error_t display_controller_create_default_config(
     display_controller_config_t *config
 );
 
+/**
+ * Get terminal control instance from display controller.
+ * 
+ * Provides access to the terminal control layer managed by the display controller.
+ * This is used by other layers that need direct terminal interaction capabilities.
+ * 
+ * @param controller The display controller instance
+ * @return Pointer to terminal control instance, or NULL if not available/initialized
+ * 
+ * @note The returned pointer is owned by the display controller and should not be freed
+ * @note Returns NULL if controller is NULL or not properly initialized
+ */
+terminal_control_t* display_controller_get_terminal_control(const display_controller_t *controller);
+
+/**
+ * Get event system instance from display controller.
+ * 
+ * Provides access to the layer event system managed by the display controller.
+ * This is used by layers that need to participate in the event-driven architecture.
+ * 
+ * @param controller The display controller instance
+ * @return Pointer to event system instance, or NULL if not available/initialized
+ * 
+ * @note The returned pointer is owned by the display controller and should not be freed
+ * @note Returns NULL if controller is NULL or not properly initialized
+ */
+layer_event_system_t* display_controller_get_event_system(const display_controller_t *controller);
+
 #ifdef __cplusplus
 }
 #endif
