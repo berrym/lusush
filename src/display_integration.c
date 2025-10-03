@@ -425,16 +425,8 @@ void display_integration_redisplay(void) {
         }
     }
     
-    // Fallback to existing system - enhanced mode or standard (only if layered display not active)  
-    if (config.enhanced_display_mode && !layered_display_enabled) {
-        rl_forced_update_display();
-        
-        if (current_config.debug_mode) {
-            fprintf(stderr, "display_integration: Enhanced redisplay fallback used\n");
-        }
-    } else {
-        rl_redisplay();
-    }
+    // Fallback to standard readline display
+    rl_redisplay();
     
     in_display_redisplay = false;
 }
@@ -454,21 +446,9 @@ void display_integration_prompt_update(void) {
     in_prompt_update = true;
     integration_stats.total_display_calls++;
 
-    // Prioritize layered display over legacy enhanced display to prevent conflicts
+    // Only use layered display integration when enabled
     if (integration_initialized && layered_display_enabled) {
         integration_stats.layered_display_calls++;
-    } else if (integration_initialized && config.enhanced_display_mode) {
-        integration_stats.layered_display_calls++;
-        
-        if (current_config.debug_mode) {
-            static int debug_count = 0;
-            debug_count++;
-            if (debug_count <= 2) {  // Limit debug spam
-                fprintf(stderr, "Enhanced display prompt update #%d\n", debug_count);
-            }
-        }
-    } else {
-        integration_stats.fallback_calls++;
     }
 
     // Safe prompt update without recursion
@@ -707,8 +687,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false; // Enhanced display not available
     }
     
-    if (!layered_display_enabled && !config.enhanced_display_mode) {
-        return false; // No enhanced display mode active
+    if (!layered_display_enabled) {
+        return false; // No layered display mode active
     }
 
     // Generate enhanced prompt with layered display
@@ -721,44 +701,31 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false;
     }
 
-    // Use enhanced theme system for enhanced display mode (only when layered display not active)
-    if (config.enhanced_display_mode && !layered_display_enabled) {
-        // Legacy enhanced mode gets theme integration
-        if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
-            // Enhanced fallback with user info
-            char *current_dir = getcwd(NULL, 0);
-            const char *user = getenv("USER");
-            const char *hostname = getenv("HOSTNAME");
-            if (!hostname) hostname = "localhost";
-            
-            int written = snprintf(prompt_buffer, prompt_size,
-                "[%s@%s] %s $ ",
-                user ? user : "user",
-                hostname,
-                current_dir ? basename(current_dir) : "~"
-            );
-            
-            if (current_dir) free(current_dir);
-            
-            if (written < 0 || (size_t)written >= prompt_size) {
-                strncpy(prompt_buffer, "$ ", prompt_size - 1);
-                prompt_buffer[prompt_size - 1] = '\0';
-            }
-        }
+    // Use theme system for layered display
+    if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
+        // Fallback with user info
+        char *current_dir = getcwd(NULL, 0);
+        const char *user = getenv("USER");
+        const char *hostname = getenv("HOSTNAME");
+        if (!hostname) hostname = "localhost";
         
-        if (current_config.debug_mode) {
-            fprintf(stderr, "display_integration: Using enhanced theme prompt\n");
-        }
-    } else {
-        // Standard mode uses basic theme system
-        if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
+        int written = snprintf(prompt_buffer, prompt_size,
+            "[%s@%s] %s $ ",
+            user ? user : "user",
+            hostname,
+            current_dir ? basename(current_dir) : "~"
+        );
+        
+        if (written >= (int)prompt_size) {
             strncpy(prompt_buffer, "$ ", prompt_size - 1);
             prompt_buffer[prompt_size - 1] = '\0';
         }
         
-        if (current_config.debug_mode) {
-            fprintf(stderr, "display_integration: Using standard theme prompt\n");
-        }
+        if (current_dir) free(current_dir);
+    }
+    
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Using layered display theme prompt\n");
     }
 
     *enhanced_prompt = prompt_buffer;

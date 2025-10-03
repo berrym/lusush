@@ -22,7 +22,8 @@ typedef enum {
     CONFIG_SECTION_KEYS,
     CONFIG_SECTION_NETWORK,
     CONFIG_SECTION_SCRIPTS,
-    CONFIG_SECTION_SHELL
+    CONFIG_SECTION_SHELL,
+    CONFIG_SECTION_DISPLAY
 } config_section_t;
 
 // Configuration option types
@@ -117,7 +118,15 @@ typedef struct {
     bool verbose_errors;
     bool debug_mode;
     
-    // Display settings
+    // Display system settings
+    char *display_system_mode;           // "standard", "enhanced", "layered"
+    bool display_syntax_highlighting;    // Enable syntax highlighting
+    bool display_autosuggestions;        // Enable autosuggestions
+    bool display_layered_display;        // Enable layered display controller
+    bool display_performance_monitoring; // Enable performance monitoring
+    int display_optimization_level;      // Optimization level (0-4)
+    
+    // Legacy display setting (deprecated)
     bool enhanced_display_mode;
 
     // Network settings
@@ -162,6 +171,11 @@ bool config_validate_int(const char *value);
 bool config_validate_string(const char *value);
 bool config_validate_color(const char *value);
 bool config_validate_prompt_style(const char *value);
+bool config_validate_float(const char *value);
+bool config_validate_path(const char *value);
+bool config_validate_shell_option(const char *value);
+bool config_validate_display_mode(const char *value);
+bool config_validate_optimization_level(const char *value);
 bool config_validate_color_scheme(const char *value);
 
 // Configuration value setters and getters

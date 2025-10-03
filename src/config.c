@@ -197,9 +197,29 @@ static config_option_t config_options[] = {
      &config.max_completion_hosts,           "Maximum hosts to show in completion",
      config_validate_int                                                                                       },
 
-    // Display settings
+    // Display system settings
+    {    "display.system_mode",              CONFIG_TYPE_STRING, CONFIG_SECTION_DISPLAY,
+     &config.display_system_mode,            "Display system mode: standard, enhanced, layered",
+     config_validate_display_mode                                                                              },
+    {    "display.syntax_highlighting",      CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
+     &config.display_syntax_highlighting,    "Enable syntax highlighting",
+     config_validate_bool                                                                                      },
+    {    "display.autosuggestions",          CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
+     &config.display_autosuggestions,        "Enable autosuggestions",
+     config_validate_bool                                                                                      },
+    {    "display.layered_display",          CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
+     &config.display_layered_display,        "Enable modern layered display controller",
+     config_validate_bool                                                                                      },
+    {    "display.performance_monitoring",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
+     &config.display_performance_monitoring, "Enable display performance monitoring",
+     config_validate_bool                                                                                      },
+    {    "display.optimization_level",       CONFIG_TYPE_INT,    CONFIG_SECTION_DISPLAY,
+     &config.display_optimization_level,     "Display optimization level (0-4)",
+     config_validate_optimization_level                                                                        },
+
+    // Legacy display setting (deprecated)
     {    "behavior.enhanced_display_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
-     &config.enhanced_display_mode,           "Enable enhanced display features",
+     &config.enhanced_display_mode,           "DEPRECATED: Use display.system_mode instead",
      config_validate_bool                                                                                      },
 
     // Script execution control
@@ -322,6 +342,12 @@ static legacy_option_mapping_t legacy_mappings[] = {
     {"verbose_errors", "behavior.verbose_errors"},
     {"debug_mode", "behavior.debug_mode"},
     {"enhanced_display_mode", "behavior.enhanced_display_mode"},
+    {"display_system", "display.system_mode"},
+    {"syntax_highlighting", "display.syntax_highlighting"},
+    {"autosuggestions", "display.autosuggestions"},
+    {"layered_display", "display.layered_display"},
+    {"display_performance", "display.performance_monitoring"},
+    {"display_optimization", "display.optimization_level"},
     
     // Network options
     {"ssh_completion_enabled", "network.ssh_completion"},
@@ -1355,6 +1381,30 @@ bool config_validate_prompt_style(const char *value) {
 bool config_validate_color_scheme(const char *value) {
     return (strcmp(value, "default") == 0 || strcmp(value, "dark") == 0 ||
             strcmp(value, "light") == 0 || strcmp(value, "solarized") == 0);
+}
+
+bool config_validate_float(const char *value) {
+    char *endptr;
+    strtod(value, &endptr);
+    return (*endptr == '\0');
+}
+
+bool config_validate_path(const char *value) {
+    return config_validate_string(value);
+}
+
+
+
+bool config_validate_display_mode(const char *value) {
+    return (strcmp(value, "standard") == 0 || 
+            strcmp(value, "enhanced") == 0 || 
+            strcmp(value, "layered") == 0);
+}
+
+bool config_validate_optimization_level(const char *value) {
+    char *endptr;
+    long level = strtol(value, &endptr, 10);
+    return (*endptr == '\0' && level >= 0 && level <= 4);
 }
 
 /**
