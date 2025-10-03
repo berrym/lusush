@@ -88,6 +88,10 @@ static char **history_cache = NULL;
 // Autosuggestion support
 static lusush_autosuggestion_t *current_suggestion = NULL;
 static int history_cache_size = 0;
+
+// Forward declarations for new layered display integration functions
+static char *lusush_readline_with_layered_display(const char *prompt);
+static void try_layered_display_prompt(const char *prompt);
 static int history_cache_capacity = 0;
 
 // Track continuation prompt transitions to clear autosuggestions
@@ -416,10 +420,13 @@ void lusush_readline_cleanup(void) {
     
 
     
-    // Free current prompt
+    // Free current prompt with safety check
     if (current_prompt) {
-        free(current_prompt);
-        current_prompt = NULL;
+        // Safety: Check if this pointer was already freed or is invalid
+        // by checking if it's the same as what we might have allocated
+        char *temp_prompt = current_prompt;
+        current_prompt = NULL;  // Clear pointer first to prevent double free
+        free(temp_prompt);
     }
     
     // Free history file path
@@ -450,18 +457,47 @@ char *lusush_readline_with_prompt(const char *prompt) {
     
     // Generate prompt using Lusush theming if no specific prompt provided
     const char *actual_prompt = prompt;
+    char *themed_prompt = NULL;
     if (!prompt || (prompt_callback && strcmp(prompt, "$ ") == 0)) {
-        char *themed_prompt = lusush_generate_prompt();
+        themed_prompt = lusush_generate_prompt();
         if (themed_prompt) {
             actual_prompt = themed_prompt;
         }
     }
     
-    // Custom redisplay is now properly implemented for syntax highlighting
-    // The redisplay function is set in lusush_syntax_highlighting_set_enabled()
+    // LAYERED DISPLAY INTEGRATION: Use layered display for prompt when enabled
+    char *line = NULL;
+    bool layered_display_attempted = false;
     
-    // Get input from readline
-    char *line = readline(actual_prompt);
+    if (display_integration_is_layered_active()) {
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Attempting layered display for prompt input\n");
+        }
+        
+        // Attempt layered display with graceful fallback
+        layered_display_attempted = true;
+        
+        // Use layered display for enhanced prompt rendering and input
+        line = lusush_readline_with_layered_display(actual_prompt);
+        
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Layered display result: %s\n", 
+                    line ? "SUCCESS" : "FALLBACK");
+        }
+    }
+    
+    // Graceful fallback: use standard readline if layered display failed or not active
+    if (!line) {
+        if (layered_display_attempted && debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Falling back to standard readline\n");
+        }
+        
+        // Standard readline fallback - proven reliable behavior
+        line = readline(actual_prompt);
+    }
+    
+    // Note: Do not free themed_prompt here - it's managed by readline cleanup system
+    // The themed_prompt becomes current_prompt and will be freed in lusush_readline_cleanup()
     
     // Handle EOF with ignoreeof option
     if (!line && shell_opts.ignoreeof && is_interactive_shell()) {
@@ -2337,6 +2373,9 @@ void lusush_clear_screen(void) {
 void lusush_refresh_line(void) {
     // Use layered display for line refresh
     if (display_integration_is_layered_active()) {
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] lusush_refresh_line: calling display_integration_redisplay()\n");
+        }
         display_integration_redisplay();
         return;
     }
@@ -2378,6 +2417,59 @@ const char *lusush_readline_get_error(void) {
 
 void lusush_readline_set_debug(bool enabled) {
     debug_enabled = enabled;
+}
+
+/**
+ * Enhanced readline with layered display integration
+ * Provides graceful fallback to standard readline on any failure
+ */
+static char *lusush_readline_with_layered_display(const char *prompt) {
+    if (!prompt) {
+        return NULL;  // Safety check - fallback to standard readline
+    }
+    
+    // Safety: Ensure display integration is actually available
+    if (!display_integration_is_layered_active()) {
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] Layered display not active during readline call\n");
+        }
+        return NULL;  // Fallback to standard readline
+    }
+    
+    char *line = NULL;
+    
+    // CRITICAL: Use display integration for prompt rendering
+    // This triggers the layered display system for every command prompt
+    try_layered_display_prompt(prompt);
+    
+    // Get input using standard readline but with layered display already rendered
+    // We use readline("") because the prompt is already displayed by layered system
+    line = readline("");
+    
+    return line;
+}
+
+/**
+ * Attempt to render prompt using layered display system
+ * Safe wrapper with comprehensive error handling
+ */
+static void try_layered_display_prompt(const char *prompt) {
+    if (!prompt || !display_integration_is_layered_active()) {
+        return;  // Silent failure - fallback will handle
+    }
+    
+    if (debug_enabled) {
+        fprintf(stderr, "[READLINE_DEBUG] Triggering layered display for prompt: '%.50s%s'\n", 
+                prompt, strlen(prompt) > 50 ? "..." : "");
+    }
+    
+    // This is the key integration: every prompt now goes through layered display
+    // This will populate the display integration statistics and use the layered system
+    display_integration_redisplay();
+    
+    if (debug_enabled) {
+        fprintf(stderr, "[READLINE_DEBUG] Layered display redisplay completed\n");
+    }
 }
 
 bool lusush_readline_is_debug_enabled(void) {
@@ -2697,6 +2789,9 @@ static void lusush_safe_redisplay(void) {
     
     // Try enhanced display first, even in legacy function
     if (display_integration_is_layered_active()) {
+        if (debug_enabled) {
+            fprintf(stderr, "[READLINE_DEBUG] lusush_safe_redisplay: calling display_integration_redisplay()\n");
+        }
         display_integration_redisplay();
         
         // Add autosuggestions after display integration

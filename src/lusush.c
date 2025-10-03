@@ -123,13 +123,8 @@ int main(int argc, char **argv) {
         config_execute_logout_scripts();
     }
 
-    // Save history before exit (handled by readline cleanup)
-    if (is_interactive_shell()) {
-        lusush_readline_cleanup();
-        
-        // Cleanup display integration system
-        display_integration_cleanup();
-    }
+    // Cleanup is handled by atexit() handlers registered in init.c
+    // This prevents double cleanup when exit() command is used
 
     // Cleanup global executor before exit
     if (global_executor) {

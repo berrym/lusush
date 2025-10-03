@@ -379,16 +379,23 @@ int init(int argc, char **argv, FILE **in) {
             }
         }
         
-        // Initialize display integration
-        if (!display_integration_init(&display_config)) {
-            if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
-                fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+        // Initialize display integration ONLY in interactive mode
+        if (IS_INTERACTIVE_SHELL) {
+            if (!display_integration_init(&display_config)) {
+                if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
+                    fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+                }
+                // Continue with standard display - no fatal error
+            } else {
+                // Announce activation with visual impact
+                if (display_config.debug_mode) {
+                    printf("Display integration initialized (layered_display=disabled)\n");
+                }
             }
-            // Continue with standard display - no fatal error
         } else {
-            // Announce activation with visual impact
-            if (display_config.debug_mode) {
-                printf("Display integration initialized (layered_display=disabled)\n");
+            // Non-interactive mode: no display integration needed
+            if (getenv("LUSUSH_DISPLAY_DEBUG")) {
+                fprintf(stderr, "Display integration skipped (non-interactive mode)\n");
             }
         }
         
@@ -494,6 +501,7 @@ int init(int argc, char **argv, FILE **in) {
     // Register cleanup for readline integration
     if (IS_INTERACTIVE_SHELL) {
         atexit(lusush_readline_cleanup);
+        atexit(display_integration_cleanup);
     }
 
     return 0;

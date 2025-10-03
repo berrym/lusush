@@ -154,7 +154,6 @@ bool display_integration_init(const display_integration_config_t *config) {
         error = display_controller_prepare_shell_integration(global_display_controller, &current_config);
         if (error != DISPLAY_CONTROLLER_SUCCESS) {
             fprintf(stderr, "display_integration: Failed to prepare shell integration: %d\n", error);
-            display_controller_cleanup(global_display_controller);
             display_controller_destroy(global_display_controller);
             global_display_controller = NULL;
             return false;
@@ -171,7 +170,6 @@ bool display_integration_init(const display_integration_config_t *config) {
         error = display_controller_set_config(global_display_controller, &controller_config2);
         if (error != DISPLAY_CONTROLLER_SUCCESS) {
             fprintf(stderr, "display_integration: Failed to configure display controller: %d\n", error);
-            display_controller_cleanup(global_display_controller);
             display_controller_destroy(global_display_controller);
             global_display_controller = NULL;
             return false;
@@ -204,7 +202,6 @@ void display_integration_cleanup(void) {
     }
 
     if (global_display_controller) {
-        display_controller_cleanup(global_display_controller);
         display_controller_destroy(global_display_controller);
         global_display_controller = NULL;
     }
@@ -214,9 +211,8 @@ void display_integration_cleanup(void) {
     memset(&current_config, 0, sizeof(current_config));
     memset(&integration_stats, 0, sizeof(integration_stats));
 
-    if (current_config.debug_mode) {
-        printf("display_integration: Cleanup completed\n");
-    }
+    // Note: current_config was zeroed above, so we can't check debug_mode here
+    // Debug output would need to be checked before memset() if needed
 }
 
 // ============================================================================
@@ -286,7 +282,6 @@ bool display_integration_set_config(const display_integration_config_t *config) 
                 }
                 
                 if (!layered_display_enabled) {
-                    display_controller_cleanup(global_display_controller);
                     display_controller_destroy(global_display_controller);
                     global_display_controller = NULL;
                     current_config = old_config; // Restore old config
@@ -297,7 +292,6 @@ bool display_integration_set_config(const display_integration_config_t *config) 
     } else if (!config->enable_layered_display && layered_was_enabled) {
         // Disable layered display
         if (global_display_controller) {
-            display_controller_cleanup(global_display_controller);
             display_controller_destroy(global_display_controller);
             global_display_controller = NULL;
         }
@@ -573,6 +567,16 @@ bool display_integration_get_stats(display_integration_stats_t *stats) {
             stats->memory_usage_bytes = controller_perf.cache_memory_usage_bytes;
         }
     }
+
+    // Calculate health indicators
+    stats->performance_within_threshold = 
+        (stats->avg_layered_display_time_ns < (current_config.performance_threshold_ms * 1000000));
+    
+    stats->cache_efficiency_good = 
+        (stats->cache_hit_rate >= current_config.cache_hit_rate_threshold);
+    
+    // Memory usage acceptable if under 10MB (reasonable threshold for display system)
+    stats->memory_usage_acceptable = (stats->memory_usage_bytes < 10 * 1024 * 1024);
 
     return true;
 }

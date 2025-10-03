@@ -387,8 +387,11 @@ int base_terminal_data_available(base_terminal_t *terminal, int timeout_ms) {
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_usec = (timeout_ms % 1000) * 1000;
     
+    // timeout_ms = 0: non-blocking (immediate return)
+    // timeout_ms > 0: wait for specified time
+    // timeout_ms < 0: block indefinitely
     int result = select(terminal->input_fd + 1, &readfds, NULL, NULL, 
-                       timeout_ms > 0 ? &timeout : NULL);
+                       timeout_ms < 0 ? NULL : &timeout);
     
     if (result == -1) {
         terminal->last_error = BASE_TERMINAL_ERROR_SELECT_FAILED;
