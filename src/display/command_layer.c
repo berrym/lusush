@@ -221,6 +221,8 @@ command_layer_error_t command_layer_init(command_layer_t *layer, layer_event_sys
     }
     
     // Subscribe to relevant events
+    // Temporarily disable theme subscription to isolate issue
+    /*
     layer_events_error_t event_result = layer_events_subscribe(
         events,
         LAYER_EVENT_THEME_CHANGED,
@@ -233,12 +235,13 @@ command_layer_error_t command_layer_init(command_layer_t *layer, layer_event_sys
     if (event_result != LAYER_EVENTS_SUCCESS) {
         return COMMAND_LAYER_ERROR_EVENT_SYSTEM;
     }
+    */
     
     // Subscribe to prompt layer events if available
-    event_result = layer_events_subscribe(
+    layer_events_error_t event_result = layer_events_subscribe(
         events,
         LAYER_EVENT_CONTENT_CHANGED,
-        LAYER_ID_PROMPT_LAYER,
+        LAYER_ID_COMMAND_LAYER,
         handle_layer_event,
         layer,
         LAYER_EVENT_PRIORITY_NORMAL

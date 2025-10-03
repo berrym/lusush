@@ -228,7 +228,7 @@ void display_integration_create_default_config(display_integration_config_t *con
     if (!config) return;
 
     memset(config, 0, sizeof(display_integration_config_t));
-    config->enable_layered_display = true;
+    config->enable_layered_display = false;
     config->enable_caching = true;
     config->enable_performance_monitoring = true;
     config->optimization_level = DISPLAY_OPTIMIZATION_STANDARD;
@@ -267,6 +267,17 @@ bool display_integration_set_config(const display_integration_config_t *config) 
                 // Create layer event system for controller
                 layer_event_system_t *event_system = layer_events_create(NULL);
                 if (!event_system) {
+                    display_controller_destroy(global_display_controller);
+                    global_display_controller = NULL;
+                    current_config = old_config;
+                    return false;
+                }
+                
+                // Initialize the event system (critical - required for subscriptions to work)
+                layer_events_error_t event_init_error = layer_events_init(event_system);
+                if (event_init_error != LAYER_EVENTS_SUCCESS) {
+                    fprintf(stderr, "display_integration: Failed to initialize event system: %d\n", event_init_error);
+                    layer_events_destroy(event_system);
                     display_controller_destroy(global_display_controller);
                     global_display_controller = NULL;
                     current_config = old_config;
@@ -390,36 +401,32 @@ void display_integration_redisplay(void) {
         if (error == DISPLAY_CONTROLLER_SUCCESS) {
             integration_stats.layered_display_calls++;
             
-            // Output the sophisticated layered display result
-            printf("%s", output_buffer);
-            fflush(stdout);
+            // CRITICAL FIX: Never bypass readline during interactive input
+            // The layered display system must work WITH readline, not around it
+            // For now, use readline fallback to prevent display corruption
+            integration_stats.fallback_calls++;
             
             if (current_config.debug_mode) {
                 static int debug_count = 0;
                 debug_count++;
                 if (debug_count <= 3) {  // Limit debug spam
-                    fprintf(stderr, "display_integration: Layered redisplay #%d successful\n", debug_count);
+                    fprintf(stderr, "display_integration: Using readline fallback to prevent corruption\n");
                 }
             }
             
-            if (current_prompt) {
-                free(current_prompt);
-            }
-            in_display_redisplay = false;
-            return;
+            // Note: current_prompt is managed by readline system, don't free here
+            // Fall through to readline fallback below
         } else {
             // Layered display failed - log and fallback
             integration_stats.fallback_calls++;
             log_controller_error("redisplay", error);
             
-            if (current_prompt) {
-                free(current_prompt);
-            }
+            // Note: current_prompt is managed by readline system, don't free here
         }
     }
     
-    // Fallback to existing system - enhanced mode or standard
-    if (config.enhanced_display_mode) {
+    // Fallback to existing system - enhanced mode or standard (only if layered display not active)  
+    if (config.enhanced_display_mode && !layered_display_enabled) {
         rl_forced_update_display();
         
         if (current_config.debug_mode) {
@@ -447,7 +454,10 @@ void display_integration_prompt_update(void) {
     in_prompt_update = true;
     integration_stats.total_display_calls++;
 
-    if (integration_initialized && (layered_display_enabled || config.enhanced_display_mode)) {
+    // Prioritize layered display over legacy enhanced display to prevent conflicts
+    if (integration_initialized && layered_display_enabled) {
+        integration_stats.layered_display_calls++;
+    } else if (integration_initialized && config.enhanced_display_mode) {
         integration_stats.layered_display_calls++;
         
         if (current_config.debug_mode) {
@@ -516,18 +526,18 @@ void display_integration_clear_screen(void) {
         if (error == DISPLAY_CONTROLLER_SUCCESS) {
             integration_stats.layered_display_calls++;
             
-            // Clear screen with ANSI sequence and display controller output
-            printf("\033[2J\033[H%s", output_buffer);
-            fflush(stdout);
+            // CRITICAL FIX: Use readline's clear screen function
+            // Never bypass readline terminal management
+            rl_clear_screen(0, 0);
             
             if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Layered clear screen successful\n");
+                fprintf(stderr, "display_integration: Using readline clear screen\n");
             }
             
             in_clear_screen = false;
             return;
         } else {
-            // Layered display failed - log and fallback
+            // Clear screen failed - log and fallback
             integration_stats.fallback_calls++;
             log_controller_error("clear_screen", error);
         }
@@ -692,8 +702,13 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
 
     *enhanced_prompt = NULL;
 
-    if (!integration_initialized || (!layered_display_enabled && !config.enhanced_display_mode) || !global_display_controller) {
+    // Prioritize layered display over legacy enhanced display
+    if (!integration_initialized || !global_display_controller) {
         return false; // Enhanced display not available
+    }
+    
+    if (!layered_display_enabled && !config.enhanced_display_mode) {
+        return false; // No enhanced display mode active
     }
 
     // Generate enhanced prompt with layered display
@@ -706,9 +721,9 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false;
     }
 
-    // Use enhanced theme system for enhanced display mode
-    if (config.enhanced_display_mode) {
-        // Enhanced mode gets better theme integration
+    // Use enhanced theme system for enhanced display mode (only when layered display not active)
+    if (config.enhanced_display_mode && !layered_display_enabled) {
+        // Legacy enhanced mode gets theme integration
         if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
             // Enhanced fallback with user info
             char *current_dir = getcwd(NULL, 0);

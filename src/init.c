@@ -381,15 +381,25 @@ int init(int argc, char **argv, FILE **in) {
         
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
-            if (!display_integration_init(&display_config)) {
-                if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
-                    fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+            // Check for layered display environment variable or enhanced display mode
+            if (getenv("LUSUSH_LAYERED_DISPLAY") || config.enhanced_display_mode) {
+                if (getenv("LUSUSH_LAYERED_DISPLAY")) {
+                    display_config.enable_layered_display = true;
+                    config.enhanced_display_mode = false;  // Ensure mutual exclusion
                 }
-                // Continue with standard display - no fatal error
-            } else {
-                // Announce activation with visual impact
-                if (display_config.debug_mode) {
-                    printf("Display integration initialized (layered_display=disabled)\n");
+                
+                if (!display_integration_init(&display_config)) {
+                    if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
+                        fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
+                    }
+                    // Continue with standard display - no fatal error
+                } else {
+                    // Announce activation with visual impact
+                    if (display_config.debug_mode) {
+                        const char *mode = display_config.enable_layered_display ? "layered_display=enabled" : 
+                                          config.enhanced_display_mode ? "enhanced_display=enabled" : "standard_display";
+                        printf("Display integration initialized (%s)\n", mode);
+                    }
                 }
             }
         } else {
@@ -539,8 +549,19 @@ static int parse_opts(int argc, char **argv) {
                 printf("%s\n", LUSUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
-            } else if (strcmp(arg, "--enhanced-display") == 0 || strcmp(arg, "--layered-display") == 0) {
-                config.enhanced_display_mode = true;
+            } else if (strcmp(arg, "--enhanced-display") == 0) {
+                // Legacy enhanced display - mutually exclusive with layered display
+                if (getenv("LUSUSH_LAYERED_DISPLAY")) {
+                    fprintf(stderr, "Warning: --enhanced-display ignored (layered display takes priority)\n");
+                } else {
+                    config.enhanced_display_mode = true;
+                    printf("Using legacy enhanced display mode\n");
+                }
+            } else if (strcmp(arg, "--layered-display") == 0) {
+                // Modern layered display - mutually exclusive with enhanced display
+                config.enhanced_display_mode = false;  // Disable legacy system
+                setenv("LUSUSH_LAYERED_DISPLAY", "1", 1);  // Enable layered display
+                printf("Using modern layered display controller (enhanced display disabled)\n");
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -661,8 +682,8 @@ static void usage(int err) {
     printf("  -m               Enable job control (set -m)\n");
     printf("  -b               Notify asynchronously of background job completion (set -o notify)\n");
     printf("  -t               Exit after executing one command (set -o onecmd)\n");
-    printf("  --enhanced-display Enable enhanced display features\n");
-    printf("  --layered-display  Enable full layered display controller\n");
+    printf("  --enhanced-display Enable legacy enhanced display (mutually exclusive with --layered-display)\n");
+    printf("  --layered-display  Enable modern layered display controller (disables --enhanced-display)\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");

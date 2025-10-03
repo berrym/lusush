@@ -337,10 +337,9 @@ static void update_performance_stats(prompt_layer_t *layer, uint64_t render_time
 /**
  * Event callback handler for theme changes
  */
-/*
-static void handle_theme_change_event(layer_event_t *event, void *user_data) {
+static layer_events_error_t handle_theme_change_event(const layer_event_t *event, void *user_data) {
     prompt_layer_t *layer = (prompt_layer_t *)user_data;
-    if (!layer || !validate_layer_memory(layer)) return;
+    if (!layer || !validate_layer_memory(layer)) return LAYER_EVENTS_ERROR_INVALID_PARAM;
     
     DEBUG_PRINT("Theme change event received");
     
@@ -351,16 +350,16 @@ static void handle_theme_change_event(layer_event_t *event, void *user_data) {
     
     layer->events_context.events_received++;
     layer->performance.theme_switches++;
+    
+    return LAYER_EVENTS_SUCCESS;
 }
-*/
 
 /**
  * Event callback handler for content refresh requests
  */
-/*
-static void handle_content_refresh_event(layer_event_t *event, void *user_data) {
+static layer_events_error_t handle_content_refresh_event(const layer_event_t *event, void *user_data) {
     prompt_layer_t *layer = (prompt_layer_t *)user_data;
-    if (!layer || !validate_layer_memory(layer)) return;
+    if (!layer || !validate_layer_memory(layer)) return LAYER_EVENTS_ERROR_INVALID_PARAM;
     
     DEBUG_PRINT("Content refresh event received");
     
@@ -368,8 +367,9 @@ static void handle_content_refresh_event(layer_event_t *event, void *user_data) 
     layer->metrics_dirty = true;
     
     layer->events_context.events_received++;
+    
+    return LAYER_EVENTS_SUCCESS;
 }
-*/
 
 /**
  * Render prompt content with current theme
@@ -512,7 +512,6 @@ prompt_layer_error_t prompt_layer_init(prompt_layer_t *layer, layer_event_system
     
     // Subscribe to relevant events
     // TODO: Event subscription will be implemented when event handlers are ready
-    /*
     layer_events_error_t event_result;
     
     // Subscribe to theme change events
@@ -544,7 +543,6 @@ prompt_layer_error_t prompt_layer_init(prompt_layer_t *layer, layer_event_system
         layer->events_context.subscription_count++;
         DEBUG_PRINT("Subscribed to content refresh events");
     }
-    */
     
     // Initialize theme context
     layer->theme_context.theme_available = (theme_get_active() != NULL);
