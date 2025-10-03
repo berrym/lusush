@@ -12,11 +12,27 @@
 #include "../include/themes.h"
 
 #include "../include/config.h"
+#include "../include/display_integration.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
 #include "../include/termcap.h"
+
+#include <sys/time.h>
+
+// Intelligent Theme Rendering Cache
+typedef struct {
+    char cached_output[1024];
+    char theme_name[64];
+    char input_context[256];
+    time_t cache_time;
+    bool is_valid;
+} theme_cache_entry_t;
+
+static theme_cache_entry_t theme_cache = {0};
+static bool theme_cache_initialized = false;
+static const int THEME_CACHE_VALIDITY_SECONDS = 30;
 
 #include <ctype.h>
 #include <dirent.h>
@@ -800,6 +816,10 @@ bool theme_set_active(const char *name) {
         return false;
     }
 
+    // Enhanced Performance Monitoring: Start timing for theme change
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+
     theme_definition_t *theme = theme_load(name);
     if (!theme) {
         return false;
@@ -815,6 +835,18 @@ bool theme_set_active(const char *name) {
     if (debug_enabled) {
         printf("Set active theme: %s\n", name);
     }
+
+    // Invalidate theme cache when switching themes
+    theme_cache.is_valid = false;
+    if (!theme_cache_initialized) {
+        theme_cache_initialized = true;
+    }
+
+    // Enhanced Performance Monitoring: Record theme change timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
 
     return true;
 }
@@ -1412,6 +1444,26 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         return true;
     }
 
+    // Simplified Theme Caching: Quick check for repeated operations
+    static time_t last_theme_time = 0;
+    static char last_theme_output[1024] = {0};
+    static char last_theme_name[64] = {0};
+    
+    time_t now = time(NULL);
+    if (now - last_theme_time <= 2 && // 2 second cache
+        strcmp(theme->name, last_theme_name) == 0 &&
+        strlen(last_theme_output) > 0) {
+        
+        // Quick cache hit for rapid theme operations
+        strncpy(output, last_theme_output, output_size - 1);
+        output[output_size - 1] = '\0';
+        display_integration_record_cache_operation(true);
+        return true;
+    }
+    
+    // Cache miss - record it
+    display_integration_record_cache_operation(false);
+
     // Get terminal capabilities for responsive template rendering
     const terminal_info_t *term_info = termcap_get_info();
     bool has_terminal = term_info && term_info->is_tty;
@@ -1506,6 +1558,15 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
                                              output, output_size,
                                              terminal_width, use_colors);
 
+    // Cache the generated output for quick reuse
+    if (success && strlen(output) > 0) {
+        strncpy(last_theme_output, output, sizeof(last_theme_output) - 1);
+        last_theme_output[sizeof(last_theme_output) - 1] = '\0';
+        strncpy(last_theme_name, theme->name, sizeof(last_theme_name) - 1);
+        last_theme_name[sizeof(last_theme_name) - 1] = '\0';
+        last_theme_time = time(NULL);
+    }
+
     template_free_context(ctx);
     return success;
 }
@@ -1571,6 +1632,10 @@ bool theme_set_branding(const branding_config_t *branding) {
     branding_configured = true;
     return true;
 }
+
+// ============================================================================
+// SIMPLIFIED THEME CACHING SYSTEM
+// ============================================================================
 
 /**
  * Get current branding configuration

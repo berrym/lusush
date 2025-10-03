@@ -44,6 +44,7 @@
 #include "display/base_terminal.h"
 #include "display/prompt_layer.h"
 #include "display/command_layer.h"
+#include "display_integration.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -514,10 +515,17 @@ display_controller_error_t display_controller_display(
             uint64_t operation_time = dc_time_diff_ns(&start_time, &end_time);
             dc_update_performance_history(controller, operation_time);
             
+            // Phase 2B Performance Monitoring: Record cache hit and timing
+            display_integration_record_cache_operation(true);
+            display_integration_record_display_timing(operation_time);
+            
             DC_DEBUG("Cache hit for state hash: %s", state_hash);
             return DISPLAY_CONTROLLER_SUCCESS;
         } else {
             controller->performance.cache_misses++;
+            
+            // Phase 2B Performance Monitoring: Record cache miss
+            display_integration_record_cache_operation(false);
         }
     }
     
@@ -745,6 +753,9 @@ display_controller_error_t display_controller_display(
     // Update performance metrics
     gettimeofday(&end_time, NULL);
     uint64_t operation_time = dc_time_diff_ns(&start_time, &end_time);
+    
+    // Phase 2B Performance Monitoring: Record display timing for new compositions
+    display_integration_record_display_timing(operation_time);
     
     controller->performance.total_display_operations++;
     if (controller->performance.total_display_operations == 1) {

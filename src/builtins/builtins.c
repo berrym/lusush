@@ -4179,6 +4179,142 @@ int bin_display(int argc, char **argv) {
         
         return 0;
         
+    } else if (strcmp(subcmd, "performance") == 0) {
+        // Performance monitoring commands
+        if (argc < 3) {
+            printf("Performance Monitoring Commands:\n");
+            printf("  display performance init          - Initialize performance monitoring\n");
+            printf("  display performance report        - Show performance report\n");
+            printf("  display performance report detail - Show detailed performance report\n");
+            printf("  display performance baseline      - Establish performance baseline\n");
+            printf("  display performance reset         - Reset performance metrics\n");
+            printf("  display performance targets       - Check if targets are being met\n");
+            printf("  display performance monitoring on - Enable real-time monitoring\n");
+            printf("  display performance monitoring off - Disable real-time monitoring\n");
+            printf("  display performance debug         - Show debug information\n");
+            return 0;
+        }
+        
+        const char *perf_cmd = argv[2];
+        
+        if (strcmp(perf_cmd, "init") == 0) {
+            if (display_integration_init_phase_2b_monitoring()) {
+                printf("Performance monitoring initialized\n");
+                printf("Targets: Cache hit rate >75%%, Display timing <50ms\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display: Failed to initialize performance monitoring\n");
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "report") == 0) {
+            bool detailed = (argc > 3 && strcmp(argv[3], "detail") == 0);
+            if (display_integration_generate_phase_2b_report(detailed)) {
+                return 0;
+            } else {
+                fprintf(stderr, "display: Failed to generate performance report\n");
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "baseline") == 0) {
+            if (display_integration_establish_baseline()) {
+                printf("Performance baseline established\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display: Failed to establish baseline (need more measurements)\n");
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "reset") == 0) {
+            if (display_integration_reset_phase_2b_metrics()) {
+                printf("Performance metrics reset\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display: Failed to reset performance metrics\n");
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "targets") == 0) {
+            bool cache_met, timing_met;
+            if (display_integration_check_phase_2b_targets(&cache_met, &timing_met)) {
+                printf("Performance Target Status:\n");
+                printf("  Cache Hit Rate: %s\n", cache_met ? "✓ MET" : "✗ NOT MET");
+                printf("  Display Timing: %s\n", timing_met ? "✓ MET" : "✗ NOT MET");
+                printf("  Overall: %s\n", (cache_met && timing_met) ? "✓ ALL TARGETS MET" : "⚠ NEEDS OPTIMIZATION");
+                return 0;
+            } else {
+                fprintf(stderr, "display: Failed to check performance targets\n");
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "monitoring") == 0) {
+            if (argc < 4) {
+                fprintf(stderr, "display: 'monitoring' requires 'on' or 'off'\n");
+                return 1;
+            }
+            
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                if (display_integration_set_phase_2b_monitoring(true, 10)) {
+                    printf("Real-time performance monitoring enabled (10Hz)\n");
+                    return 0;
+                } else {
+                    fprintf(stderr, "display: Failed to enable performance monitoring\n");
+                    return 1;
+                }
+            } else if (strcmp(state, "off") == 0) {
+                if (display_integration_set_phase_2b_monitoring(false, 0)) {
+                    printf("Real-time performance monitoring disabled\n");
+                    return 0;
+                } else {
+                    fprintf(stderr, "display: Failed to disable performance monitoring\n");
+                    return 1;
+                }
+            } else {
+                fprintf(stderr, "display: Invalid monitoring state '%s' (use 'on' or 'off')\n", state);
+                return 1;
+            }
+            
+        } else if (strcmp(perf_cmd, "debug") == 0) {
+            // Debug command to troubleshoot data collection
+            printf("Performance Monitoring Debug Information:\n");
+            
+            // Check initialization status
+            phase_2b_performance_metrics_t metrics;
+            if (display_integration_get_phase_2b_metrics(&metrics)) {
+                printf("  Monitoring initialized: YES\n");
+                printf("  Cache operations recorded: %lu\n", metrics.cache_operations_total);
+                printf("  Display operations recorded: %lu\n", metrics.display_operations_measured);
+                printf("  Monitoring active: %s\n", metrics.monitoring_active ? "YES" : "NO");
+                printf("  Last measurement time: %ld\n", metrics.last_measurement_time);
+            } else {
+                printf("  Monitoring initialized: NO\n");
+            }
+            
+            // Check integration stats
+            display_integration_stats_t stats;
+            if (display_integration_get_stats(&stats)) {
+                printf("  Total display calls: %lu\n", stats.total_display_calls);
+                printf("  Layered display calls: %lu\n", stats.layered_display_calls);
+                printf("  Fallback calls: %lu\n", stats.fallback_calls);
+                printf("  Integration active: %s\n", display_integration_is_layered_active() ? "YES" : "NO");
+            }
+            
+            // Force a measurement test
+            printf("Triggering test measurements...\n");
+            display_integration_record_display_timing(5000000); // 5ms test
+            display_integration_record_cache_operation(true);   // Test cache hit
+            display_integration_record_cache_operation(false);  // Test cache miss
+            printf("Test measurements recorded.\n");
+            
+            return 0;
+            
+        } else {
+            fprintf(stderr, "display: Unknown performance command '%s'\n", perf_cmd);
+            fprintf(stderr, "display: Use 'display performance' for available commands\n");
+            return 1;
+        }
+        
     } else if (strcmp(subcmd, "help") == 0) {
         // Show help
         printf("Display Integration System - Week 8 Layered Display Architecture\n");
@@ -4194,6 +4330,7 @@ int bin_display(int argc, char **argv) {
         printf("  display config           - Show detailed configuration\n");
         printf("  display stats            - Show usage statistics\n");
         printf("  display diagnostics      - Show system diagnostics\n");
+        printf("  display performance      - Performance monitoring commands\n");
         printf("  display test             - Test layered display with actual content\n");
         printf("  display help             - Show this help message\n");
         printf("\nConfiguration:\n");

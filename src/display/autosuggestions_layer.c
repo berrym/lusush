@@ -36,6 +36,7 @@
  */
 
 #include "../include/display/autosuggestions_layer.h"
+#include "../include/display_integration.h"
 #include "../include/autosuggestions.h"
 #include "../include/config.h"
 #include <stdio.h>
@@ -132,11 +133,18 @@ static autosuggestions_cache_entry_t* find_cache_entry(autosuggestions_layer_t *
             layer->cache[i].use_count++;
             layer->metrics.cache_hits++;
             
+            // Enhanced Performance Monitoring: Record cache hit
+            display_integration_record_cache_operation(true);
+            
             return &layer->cache[i];
         }
     }
     
     layer->metrics.cache_misses++;
+    
+    // Enhanced Performance Monitoring: Record cache miss
+    display_integration_record_cache_operation(false);
+    
     return NULL;
 }
 

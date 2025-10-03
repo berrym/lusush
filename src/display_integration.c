@@ -391,6 +391,10 @@ void display_integration_redisplay(void) {
     integration_stats.total_display_calls++;
     integration_fallback_reason_t fallback_reason;
     
+    // Enhanced Performance Monitoring: Start timing
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+    
     // Professional safety check - can we attempt layered display?
     if (!safe_layered_display_attempt("redisplay", &fallback_reason)) {
         integration_stats.fallback_calls++;
@@ -480,6 +484,12 @@ void display_integration_redisplay(void) {
     // Fallback to standard readline display
     rl_redisplay();
     
+    // Enhanced Performance Monitoring: Record timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
+    
     in_display_redisplay = false;
 }
 
@@ -498,6 +508,10 @@ void display_integration_prompt_update(void) {
     in_prompt_update = true;
     integration_stats.total_display_calls++;
 
+    // Enhanced Performance Monitoring: Start timing
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+
     // Only use layered display integration when enabled
     if (integration_initialized && layered_display_enabled) {
         integration_stats.layered_display_calls++;
@@ -512,6 +526,12 @@ void display_integration_prompt_update(void) {
         rebuild_prompt();
         lusush_generate_prompt();
     }
+    
+    // Enhanced Performance Monitoring: Record timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
     
     in_prompt_update = false;
 }
@@ -1088,6 +1108,296 @@ bool display_integration_clear_autosuggestions(void) {
     // Successfully handled clearing through layered system
     if (current_config.debug_mode) {
         fprintf(stderr, "display_integration: Autosuggestions cleared via layered system\n");
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// ENHANCED PERFORMANCE MONITORING IMPLEMENTATION
+// ============================================================================
+
+// Global enhanced performance metrics
+static phase_2b_performance_metrics_t enhanced_perf_metrics = {0};
+static bool enhanced_perf_monitoring_initialized = false;
+
+/**
+ * Initialize enhanced performance monitoring system.
+ */
+bool display_integration_init_phase_2b_monitoring(void) {
+    if (enhanced_perf_monitoring_initialized) {
+        return true; // Already initialized
+    }
+    
+    // Initialize metrics structure
+    memset(&enhanced_perf_metrics, 0, sizeof(phase_2b_performance_metrics_t));
+    
+    // Set performance targets
+    enhanced_perf_metrics.cache_hit_rate_target = 75.0; // Development phase minimum
+    enhanced_perf_metrics.display_time_target_ms = 50.0; // Release standard
+    enhanced_perf_metrics.measurement_frequency_hz = 10; // Default 10Hz monitoring
+    enhanced_perf_metrics.monitoring_active = true;
+    
+    // Initialize timing arrays
+    for (int i = 0; i < 60; i++) {
+        enhanced_perf_metrics.measurements_window[i] = 0;
+    }
+    
+    enhanced_perf_monitoring_initialized = true;
+    
+    if (current_config.debug_mode) {
+        printf("Enhanced Performance Monitoring: Initialized (targets: cache >%.1f%%, timing <%.1fms)\n",
+               enhanced_perf_metrics.cache_hit_rate_target, enhanced_perf_metrics.display_time_target_ms);
+    }
+    
+    return true;
+}
+
+/**
+ * Get current enhanced performance metrics.
+ */
+bool display_integration_get_phase_2b_metrics(phase_2b_performance_metrics_t *metrics) {
+    if (!metrics || !enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    *metrics = enhanced_perf_metrics;
+    return true;
+}
+
+/**
+ * Record a display operation for enhanced timing analysis.
+ */
+bool display_integration_record_display_timing(uint64_t operation_time_ns) {
+    if (!enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    // Update measurement count
+    enhanced_perf_metrics.display_operations_measured++;
+    enhanced_perf_metrics.display_time_total_ns += operation_time_ns;
+    
+    // Update min/max timing
+    if (enhanced_perf_metrics.display_operations_measured == 1) {
+        enhanced_perf_metrics.display_time_min_ns = operation_time_ns;
+        enhanced_perf_metrics.display_time_max_ns = operation_time_ns;
+    } else {
+        if (operation_time_ns < enhanced_perf_metrics.display_time_min_ns) {
+            enhanced_perf_metrics.display_time_min_ns = operation_time_ns;
+        }
+        if (operation_time_ns > enhanced_perf_metrics.display_time_max_ns) {
+            enhanced_perf_metrics.display_time_max_ns = operation_time_ns;
+        }
+    }
+    
+    // Calculate average in milliseconds
+    enhanced_perf_metrics.display_time_avg_ms = 
+        (double)enhanced_perf_metrics.display_time_total_ns / 1000000.0 / enhanced_perf_metrics.display_operations_measured;
+    
+    // Check if timing target is achieved
+    enhanced_perf_metrics.display_timing_target_achieved = 
+        enhanced_perf_metrics.display_time_avg_ms <= enhanced_perf_metrics.display_time_target_ms;
+    
+    // Update rolling window for trend analysis
+    enhanced_perf_metrics.measurements_window[enhanced_perf_metrics.measurements_index] = operation_time_ns;
+    enhanced_perf_metrics.measurements_index = (enhanced_perf_metrics.measurements_index + 1) % 60;
+    
+    enhanced_perf_metrics.last_measurement_time = time(NULL);
+    
+    return true;
+}
+
+/**
+ * Record cache operation for enhanced cache efficiency analysis.
+ */
+bool display_integration_record_cache_operation(bool was_hit) {
+    if (!enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    // Update cache operation counts
+    enhanced_perf_metrics.cache_operations_total++;
+    
+    if (was_hit) {
+        enhanced_perf_metrics.cache_hits_global++;
+    } else {
+        enhanced_perf_metrics.cache_misses_global++;
+    }
+    
+    // Calculate current cache hit rate
+    if (enhanced_perf_metrics.cache_operations_total > 0) {
+        enhanced_perf_metrics.cache_hit_rate_current = 
+            (100.0 * enhanced_perf_metrics.cache_hits_global) / enhanced_perf_metrics.cache_operations_total;
+        
+        // Check if cache target is achieved
+        enhanced_perf_metrics.cache_target_achieved = 
+            enhanced_perf_metrics.cache_hit_rate_current >= enhanced_perf_metrics.cache_hit_rate_target;
+    }
+    
+    return true;
+}
+
+/**
+ * Establish performance baseline for enhanced monitoring.
+ */
+bool display_integration_establish_baseline(void) {
+    if (!enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    // Require minimum measurements for valid baseline
+    if (enhanced_perf_metrics.display_operations_measured < 10 || 
+        enhanced_perf_metrics.cache_operations_total < 20) {
+        if (current_config.debug_mode) {
+            printf("Performance Baseline: Insufficient data (display ops: %lu, cache ops: %lu)\n",
+                   enhanced_perf_metrics.display_operations_measured, enhanced_perf_metrics.cache_operations_total);
+        }
+        return false;
+    }
+    
+    // Establish baseline values
+    enhanced_perf_metrics.baseline_cache_hit_rate = enhanced_perf_metrics.cache_hit_rate_current;
+    enhanced_perf_metrics.baseline_display_time_ms = enhanced_perf_metrics.display_time_avg_ms;
+    enhanced_perf_metrics.baseline_establishment_time = time(NULL);
+    enhanced_perf_metrics.baseline_established = true;
+    
+    if (current_config.debug_mode) {
+        printf("Performance Baseline: Established (cache: %.1f%%, timing: %.2fms)\n",
+               enhanced_perf_metrics.baseline_cache_hit_rate, enhanced_perf_metrics.baseline_display_time_ms);
+    }
+    
+    return true;
+}
+
+/**
+ * Check if enhanced performance targets are being met.
+ */
+bool display_integration_check_phase_2b_targets(bool *cache_target_met, bool *timing_target_met) {
+    if (!cache_target_met || !timing_target_met || !enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    *cache_target_met = enhanced_perf_metrics.cache_target_achieved;
+    *timing_target_met = enhanced_perf_metrics.display_timing_target_achieved;
+    
+    return true;
+}
+
+/**
+ * Generate enhanced performance report.
+ */
+bool display_integration_generate_phase_2b_report(bool detailed) {
+    if (!enhanced_perf_monitoring_initialized) {
+        printf("Enhanced Performance Monitoring: Not initialized\n");
+        return false;
+    }
+    
+    printf("\n=== Enhanced Performance Report ===\n");
+    
+    // Cache Performance Analysis
+    printf("Cache Performance:\n");
+    printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+           enhanced_perf_metrics.cache_operations_total,
+           enhanced_perf_metrics.cache_hits_global,
+           enhanced_perf_metrics.cache_misses_global);
+    printf("  Hit Rate: %.1f%% (Target: >%.1f%%) %s\n",
+           enhanced_perf_metrics.cache_hit_rate_current,
+           enhanced_perf_metrics.cache_hit_rate_target,
+           enhanced_perf_metrics.cache_target_achieved ? "✓" : "✗");
+    
+    // Display Timing Analysis
+    printf("Display Timing:\n");
+    printf("  Operations: %lu measured\n", enhanced_perf_metrics.display_operations_measured);
+    printf("  Average: %.2fms (Target: <%.1fms) %s\n",
+           enhanced_perf_metrics.display_time_avg_ms,
+           enhanced_perf_metrics.display_time_target_ms,
+           enhanced_perf_metrics.display_timing_target_achieved ? "✓" : "✗");
+    
+    if (detailed && enhanced_perf_metrics.display_operations_measured > 0) {
+        printf("  Range: %.2fms - %.2fms\n",
+               enhanced_perf_metrics.display_time_min_ns / 1000000.0,
+               enhanced_perf_metrics.display_time_max_ns / 1000000.0);
+    }
+    
+    // Baseline Comparison
+    if (enhanced_perf_metrics.baseline_established) {
+        printf("Baseline Comparison:\n");
+        printf("  Cache Rate: %.1f%% -> %.1f%% (%+.1f%%)\n",
+               enhanced_perf_metrics.baseline_cache_hit_rate,
+               enhanced_perf_metrics.cache_hit_rate_current,
+               enhanced_perf_metrics.cache_hit_rate_current - enhanced_perf_metrics.baseline_cache_hit_rate);
+        printf("  Display Time: %.2fms -> %.2fms (%+.2fms)\n",
+               enhanced_perf_metrics.baseline_display_time_ms,
+               enhanced_perf_metrics.display_time_avg_ms,
+               enhanced_perf_metrics.display_time_avg_ms - enhanced_perf_metrics.baseline_display_time_ms);
+    } else {
+        printf("Baseline: Not established (need more measurements)\n");
+    }
+    
+    // Overall Performance Status
+    printf("Performance Status: ");
+    if (enhanced_perf_metrics.cache_target_achieved && enhanced_perf_metrics.display_timing_target_achieved) {
+        printf("TARGETS MET ✓\n");
+    } else if (enhanced_perf_metrics.cache_target_achieved || enhanced_perf_metrics.display_timing_target_achieved) {
+        printf("PARTIAL ⚠\n");
+    } else {
+        printf("NEEDS OPTIMIZATION ✗\n");
+    }
+    
+    printf("=====================================\n\n");
+    
+    return true;
+}
+
+/**
+ * Reset enhanced performance metrics.
+ */
+bool display_integration_reset_phase_2b_metrics(void) {
+    if (!enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    // Preserve configuration settings
+    double cache_target = enhanced_perf_metrics.cache_hit_rate_target;
+    double timing_target = enhanced_perf_metrics.display_time_target_ms;
+    uint32_t frequency = enhanced_perf_metrics.measurement_frequency_hz;
+    bool monitoring = enhanced_perf_metrics.monitoring_active;
+    
+    // Reset metrics
+    memset(&enhanced_perf_metrics, 0, sizeof(phase_2b_performance_metrics_t));
+    
+    // Restore configuration
+    enhanced_perf_metrics.cache_hit_rate_target = cache_target;
+    enhanced_perf_metrics.display_time_target_ms = timing_target;
+    enhanced_perf_metrics.measurement_frequency_hz = frequency;
+    enhanced_perf_metrics.monitoring_active = monitoring;
+    
+    if (current_config.debug_mode) {
+        printf("Enhanced Performance Metrics: Reset\n");
+    }
+    
+    return true;
+}
+
+/**
+ * Enable/disable real-time enhanced performance monitoring.
+ */
+bool display_integration_set_phase_2b_monitoring(bool enable, uint32_t frequency_hz) {
+    if (!enhanced_perf_monitoring_initialized) {
+        return false;
+    }
+    
+    // Validate frequency range
+    if (frequency_hz < 1 || frequency_hz > 60) {
+        return false;
+    }
+    
+    enhanced_perf_metrics.monitoring_active = enable;
+    enhanced_perf_metrics.measurement_frequency_hz = frequency_hz;
+    
+    if (current_config.debug_mode) {
+        printf("Enhanced Performance Monitoring: %s (frequency: %uHz)\n",
+               enable ? "enabled" : "disabled", frequency_hz);
     }
     
     return true;

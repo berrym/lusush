@@ -20,6 +20,15 @@
 #include <time.h>
 #include <unistd.h>
 
+// Simplified Prompt Caching System
+static char cached_prompt[512] = {0};
+static char cached_working_dir[256] = {0};
+static char cached_theme_name[32] = {0};
+static time_t cache_time = 0;
+static bool cache_valid = false;
+static const int CACHE_VALIDITY_SECONDS = 5;  // Cache valid for 5 seconds
+static const int GIT_CACHE_SECONDS = 10;      // Git status cached for 10 seconds
+
 // Prompt styles
 typedef enum {
     NORMAL_PROMPT,
@@ -163,7 +172,7 @@ typedef struct {
 
 static git_info_t git_info = {0};
 static time_t last_git_check = 0;
-static const int GIT_CACHE_SECONDS = 5; // Cache git status for 5 seconds
+
 
 // Legacy setprompt functions removed - use theme system instead
 
@@ -339,6 +348,49 @@ void format_git_prompt(char *git_prompt, size_t size) {
 void build_prompt(void) {
     char prompt[(MAXLINE * 2) + 1] = {'\0'}; // prompt string
 
+    // Enhanced Performance Monitoring: Start timing for prompt generation
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+
+    // Initialize cache system if needed (simplified)
+    static bool cache_initialized = false;
+    if (!cache_initialized) {
+        prompt_cache_init();
+        cache_initialized = true;
+    }
+
+    // Simplified Prompt Caching: Check if cache is valid
+    time_t now = time(NULL);
+    char current_dir[256];
+    bool cache_hit = false;
+    
+    if (cache_valid && (now - cache_time <= CACHE_VALIDITY_SECONDS)) {
+        if (getcwd(current_dir, sizeof(current_dir)) != NULL &&
+            strcmp(current_dir, cached_working_dir) == 0) {
+            
+            // Check theme hasn't changed
+            if ((!config.theme_name && cached_theme_name[0] == '\0') ||
+                (config.theme_name && strcmp(config.theme_name, cached_theme_name) == 0)) {
+                
+                // Cache hit! Use cached prompt
+                symtable_set_global("PS1", cached_prompt);
+                display_integration_record_cache_operation(true);
+                cache_hit = true;
+                
+                // Enhanced Performance Monitoring: Record timing for cache hit
+                gettimeofday(&end_time, NULL);
+                uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                             ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+                display_integration_record_display_timing(operation_time_ns);
+                return;
+            }
+        }
+    }
+    
+    // Cache miss - record and continue with generation
+    if (!cache_hit) {
+        display_integration_record_cache_operation(false);
+    }
     // Get terminal capabilities for prompt optimization
     const terminal_info_t *term_info = termcap_get_info();
     bool has_color_support = term_info && term_info->is_tty;
@@ -459,8 +511,87 @@ void build_prompt(void) {
         free(colors);
     }
     colors = NULL;
+    
+    // Cache the generated prompt for future use
+    strncpy(cached_prompt, prompt, sizeof(cached_prompt) - 1);
+    cached_prompt[sizeof(cached_prompt) - 1] = '\0';
+    
+    if (getcwd(cached_working_dir, sizeof(cached_working_dir)) != NULL) {
+        if (config.theme_name) {
+            strncpy(cached_theme_name, config.theme_name, sizeof(cached_theme_name) - 1);
+            cached_theme_name[sizeof(cached_theme_name) - 1] = '\0';
+        } else {
+            cached_theme_name[0] = '\0';
+        }
+        cache_time = time(NULL);
+        cache_valid = true;
+    }
+    
+    // Enhanced Performance Monitoring: Record prompt generation timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
 }
 
 void rebuild_prompt(void) {
+    // Invalidate cache when explicitly rebuilding
+    cache_valid = false;
     build_prompt();
+}
+
+// ============================================================================
+// INTELLIGENT PROMPT CACHING SYSTEM
+// ============================================================================
+
+/**
+ * Initialize the prompt caching system.
+ */
+bool prompt_cache_init(void) {
+    cache_valid = false;
+    cache_time = 0;
+    cached_prompt[0] = '\0';
+    cached_working_dir[0] = '\0';
+    cached_theme_name[0] = '\0';
+    return true;
+}
+
+/**
+ * Cleanup the prompt caching system.
+ */
+void prompt_cache_cleanup(void) {
+    cache_valid = false;
+    cache_time = 0;
+    cached_prompt[0] = '\0';
+    cached_working_dir[0] = '\0';
+    cached_theme_name[0] = '\0';
+}
+
+/**
+ * Check if current cache is valid for current context.
+ */
+bool prompt_cache_is_valid_for_context(void) {
+    return cache_valid;
+}
+
+/**
+ * Get cached prompt if valid.
+ */
+bool prompt_cache_get(lusush_prompt_cache_t *entry) {
+    // Simplified: not needed with direct cache check in build_prompt
+    return false;
+}
+
+/**
+ * Cache a prompt with current context.
+ */
+void prompt_cache_set(const lusush_prompt_cache_t *entry) {
+    // Simplified: caching handled directly in build_prompt
+}
+
+/**
+ * Invalidate the prompt cache.
+ */
+void prompt_cache_invalidate(void) {
+    cache_valid = false;
 }

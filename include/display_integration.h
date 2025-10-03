@@ -172,6 +172,45 @@ typedef struct {
     integration_fallback_reason_t last_fallback_reason; // Reason for last fallback
 } display_integration_stats_t;
 
+/**
+ * Phase 2B Enhanced Performance Monitoring.
+ * Provides detailed metrics for cache efficiency and display timing validation.
+ */
+typedef struct {
+    // Phase 2B Cache Performance Targets
+    uint64_t cache_operations_total;      // Total cache operations performed
+    uint64_t cache_hits_global;           // Global cache hits across all systems
+    uint64_t cache_misses_global;         // Global cache misses across all systems
+    double cache_hit_rate_current;        // Current cache hit rate percentage
+    double cache_hit_rate_target;         // Target cache hit rate (>75% dev, >90% release)
+    bool cache_target_achieved;           // Whether cache target is being met
+    
+    // Phase 2B Display Timing Targets
+    uint64_t display_operations_measured; // Number of display operations measured
+    uint64_t display_time_total_ns;       // Total display time in nanoseconds
+    uint64_t display_time_min_ns;         // Minimum display time recorded
+    uint64_t display_time_max_ns;         // Maximum display time recorded
+    double display_time_avg_ms;           // Average display time in milliseconds
+    double display_time_target_ms;        // Target display time (<50ms release)
+    bool display_timing_target_achieved;  // Whether timing target is being met
+    
+    // Performance Trend Analysis
+    uint64_t measurements_window[60];     // Rolling window of last 60 measurements (ns)
+    uint32_t measurements_index;          // Current index in measurements window
+    double performance_trend;             // Performance trend indicator
+    
+    // Real-time Monitoring
+    time_t last_measurement_time;         // Time of last performance measurement
+    bool monitoring_active;               // Whether real-time monitoring is active
+    uint32_t measurement_frequency_hz;    // Measurement frequency for monitoring
+    
+    // Baseline Establishment
+    bool baseline_established;            // Whether performance baseline is set
+    double baseline_cache_hit_rate;       // Baseline cache hit rate
+    double baseline_display_time_ms;      // Baseline display time
+    time_t baseline_establishment_time;   // When baseline was established
+} phase_2b_performance_metrics_t;
+
 // ============================================================================
 // INITIALIZATION AND CLEANUP
 // ============================================================================
@@ -461,7 +500,83 @@ bool display_integration_init_autosuggestions(void);
 void display_integration_cleanup_autosuggestions(void);
 
 // ============================================================================
-// UTILITY MACROS AND CONVENIENCE FUNCTIONS
+// PHASE 2B PERFORMANCE MONITORING
+// ============================================================================
+
+/**
+ * Initialize Phase 2B performance monitoring system.
+ * Sets up enhanced metrics collection for cache efficiency and display timing.
+ *
+ * @return true on success, false on failure
+ */
+bool display_integration_init_phase_2b_monitoring(void);
+
+/**
+ * Get current Phase 2B performance metrics.
+ *
+ * @param metrics Metrics structure to fill
+ * @return true on success, false on failure
+ */
+bool display_integration_get_phase_2b_metrics(phase_2b_performance_metrics_t *metrics);
+
+/**
+ * Record a display operation for Phase 2B timing analysis.
+ *
+ * @param operation_time_ns Operation time in nanoseconds
+ * @return true on success, false on failure
+ */
+bool display_integration_record_display_timing(uint64_t operation_time_ns);
+
+/**
+ * Record cache operation for Phase 2B cache efficiency analysis.
+ *
+ * @param was_hit true if cache hit, false if cache miss
+ * @return true on success, false on failure
+ */
+bool display_integration_record_cache_operation(bool was_hit);
+
+/**
+ * Establish performance baseline for Phase 2B monitoring.
+ *
+ * @return true on success, false on failure
+ */
+bool display_integration_establish_baseline(void);
+
+/**
+ * Check if Phase 2B performance targets are being met.
+ *
+ * @param cache_target_met Output: whether cache hit rate target is met
+ * @param timing_target_met Output: whether display timing target is met
+ * @return true on success, false on failure
+ */
+bool display_integration_check_phase_2b_targets(bool *cache_target_met, bool *timing_target_met);
+
+/**
+ * Generate Phase 2B performance report.
+ *
+ * @param detailed true for detailed report, false for summary
+ * @return true on success, false on failure
+ */
+bool display_integration_generate_phase_2b_report(bool detailed);
+
+/**
+ * Reset Phase 2B performance metrics.
+ *
+ * @return true on success, false on failure
+ */
+bool display_integration_reset_phase_2b_metrics(void);
+
+/**
+ * Enable/disable real-time Phase 2B performance monitoring.
+ *
+ * @param enable true to enable, false to disable
+ * @param frequency_hz Monitoring frequency in Hz (1-60)
+ * @return true on success, false on failure
+ */
+bool display_integration_set_phase_2b_monitoring(bool enable, uint32_t frequency_hz);
+
+// ============================================================================
+// DISPLAY INTEGRATION MACROS
 // ============================================================================
 
 /**

@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <time.h>
 #include <ctype.h>
 #include <readline/readline.h>
@@ -450,6 +451,10 @@ char *lusush_readline_with_prompt(const char *prompt) {
         lusush_readline_init();
     }
     
+    // Enhanced Performance Monitoring: Start timing for readline operation
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+    
     // Call pre-input hook
     if (pre_input_hook) {
         pre_input_hook();
@@ -508,6 +513,12 @@ char *lusush_readline_with_prompt(const char *prompt) {
     if (line && *line && is_interactive_shell()) {
         lusush_history_add(line);
     }
+    
+    // Enhanced Performance Monitoring: Record readline operation timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
     
     // Ensure output is visible before returning
     fflush(stdout);
@@ -1907,6 +1918,10 @@ void lusush_redisplay_with_suggestions(void) {
     }
     was_in_continuation_prompt = is_continuation;
     
+    // Enhanced Performance Monitoring: Start timing for redisplay with suggestions
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+    
     // Always do standard redisplay first for stability
     rl_redisplay();
     
@@ -1968,6 +1983,12 @@ void lusush_redisplay_with_suggestions(void) {
             current_suggestion = NULL;
         }
     }
+    
+    // Enhanced Performance Monitoring: Record redisplay timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
 }
 
 
@@ -2018,12 +2039,22 @@ static int lusush_abort_line(int count, int key) {
 static int lusush_clear_screen_and_redisplay(int count, int key) {
     (void)count; (void)key;
     
+    // Enhanced Performance Monitoring: Start timing for clear screen operation
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+    
     // Clear screen with ANSI codes like clear command
     printf("\033[2J\033[H");  // Clear screen and home cursor
     fflush(stdout);
     
     // Tell readline to redraw prompt and current line
     rl_forced_update_display();
+    
+    // Enhanced Performance Monitoring: Record clear screen timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
     
     return 0;
 }
