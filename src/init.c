@@ -381,25 +381,24 @@ int init(int argc, char **argv, FILE **in) {
         
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
-            // Check for layered display environment variable or enhanced display mode
-            if (getenv("LUSUSH_LAYERED_DISPLAY") || config.enhanced_display_mode) {
-                if (getenv("LUSUSH_LAYERED_DISPLAY")) {
-                    display_config.enable_layered_display = true;
-                    config.enhanced_display_mode = false;  // Ensure mutual exclusion
+            // Configure display options based on environment and command line
+            if (getenv("LUSUSH_LAYERED_DISPLAY")) {
+                display_config.enable_layered_display = true;
+                config.enhanced_display_mode = false;  // Ensure mutual exclusion
+            }
+            
+            // Always initialize display integration to support runtime display enable
+            if (!display_integration_init(&display_config)) {
+                if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
+                    fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
                 }
-                
-                if (!display_integration_init(&display_config)) {
-                    if (display_config.debug_mode || getenv("LUSUSH_DISPLAY_DEBUG")) {
-                        fprintf(stderr, "Warning: Failed to initialize display integration, using standard display\n");
-                    }
-                    // Continue with standard display - no fatal error
-                } else {
-                    // Announce activation with visual impact
-                    if (display_config.debug_mode) {
-                        const char *mode = display_config.enable_layered_display ? "layered_display=enabled" : 
-                                          config.enhanced_display_mode ? "enhanced_display=enabled" : "standard_display";
-                        printf("Display integration initialized (%s)\n", mode);
-                    }
+                // Continue with standard display - no fatal error
+            } else {
+                // Announce activation with visual impact (only when debug mode enabled)
+                if (display_config.debug_mode) {
+                    const char *mode = display_config.enable_layered_display ? "layered_display=enabled" : 
+                                      config.enhanced_display_mode ? "enhanced_display=enabled" : "standard_display";
+                    printf("Display integration initialized (%s)\n", mode);
                 }
             }
         } else {
