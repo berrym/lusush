@@ -189,10 +189,15 @@ void lusush_set_autosuggestions_enabled(bool enabled);
 
 /**
  * Check if autosuggestions are currently enabled
- * 
  * @return true if enabled, false otherwise
  */
 bool lusush_are_autosuggestions_enabled(void);
+
+/**
+ * Bridge function to sync main config system with autosuggestions internal config
+ * This connects config.display_autosuggestions with autosugg_config.enabled
+ */
+void lusush_autosuggestions_sync_config(void);
 
 // ============================================================================
 // DISPLAY INTEGRATION

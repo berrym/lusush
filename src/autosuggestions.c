@@ -126,7 +126,13 @@ static void copy_suggestion(lusush_autosuggestion_t *dest, const lusush_autosugg
  * Check if input is suitable for suggestions
  */
 static bool should_suggest(const char *input, size_t cursor_pos) {
+    extern bool lusush_readline_is_debug_enabled(void);
+    
     if (!autosugg_config.enabled || !input) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] should_suggest: enabled=%d, input=%s\n", 
+                   autosugg_config.enabled, input ? "valid" : "NULL");
+        }
         return false;
     }
     
@@ -134,22 +140,39 @@ static bool should_suggest(const char *input, size_t cursor_pos) {
     
     // Must meet minimum length requirement
     if (len < autosugg_config.min_input_length) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] should_suggest: len=%zu < min_len=%d\n", 
+                   len, autosugg_config.min_input_length);
+        }
         return false;
     }
     
     // Don't suggest if cursor is not at end (user is editing middle)
     if (cursor_pos != len) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] should_suggest: cursor_pos=%zu != len=%zu\n", cursor_pos, len);
+        }
         return false;
     }
     
     // Don't suggest if input ends with space (command is complete)
     if (len > 0 && input[len - 1] == ' ') {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] should_suggest: input ends with space\n");
+        }
         return false;
     }
     
     // Don't suggest for very long inputs (performance)
     if (len > 200) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] should_suggest: input too long: %zu\n", len);
+        }
         return false;
+    }
+    
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] should_suggest: passed all checks, returning true\n");
     }
     
     return true;
@@ -166,25 +189,42 @@ static int calculate_similarity_score(const char *input, const char *candidate) 
     size_t input_len = strlen(input);
     size_t candidate_len = strlen(candidate);
     
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] Comparing: input='%s'(%zu) vs candidate='%s'(%zu)\n", 
+               input, input_len, candidate, candidate_len);
+    }
+    
     // Must be a prefix match for autosuggestions
     if (strncmp(input, candidate, input_len) != 0) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] No prefix match: strncmp failed\n");
+        }
         return 0;
     }
     
     // Perfect prefix match
     if (input_len == candidate_len) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] Perfect match, score=100\n");
+        }
         return 100;
     }
     
     // Score based on how much additional content we're suggesting
     size_t suggestion_len = candidate_len - input_len;
     
+    int score;
     // Prefer shorter completions
-    if (suggestion_len <= 10) return 90;
-    if (suggestion_len <= 20) return 80;
-    if (suggestion_len <= 40) return 70;
+    if (suggestion_len <= 10) score = 90;
+    else if (suggestion_len <= 20) score = 80;
+    else if (suggestion_len <= 40) score = 70;
+    else score = 60;
     
-    return 60;
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] Prefix match found! suggestion_len=%zu, score=%d\n", suggestion_len, score);
+    }
+    
+    return score;
 }
 
 // ============================================================================
@@ -192,16 +232,100 @@ static int calculate_similarity_score(const char *input, const char *candidate) 
 // ============================================================================
 
 /**
+ * Extract partial input for autosuggestions by removing trailing quotes or incomplete tokens
+ * This enables proper Fish-like prefix matching
+ */
+static char* extract_partial_input(const char *full_input) {
+    if (!full_input || !*full_input) {
+        return NULL;
+    }
+    
+    size_t len = strlen(full_input);
+    char *partial = strdup(full_input);
+    if (!partial) return NULL;
+    
+    // Remove trailing whitespace
+    while (len > 0 && isspace(partial[len-1])) {
+        partial[--len] = '\0';
+    }
+    
+    if (len == 0) {
+        free(partial);
+        return NULL;
+    }
+    
+    // Check if we're inside quotes and should remove the closing quote for prefix matching
+    bool in_single_quotes = false;
+    bool in_double_quotes = false;
+    size_t quote_start = 0;
+    
+    for (size_t i = 0; i < len; i++) {
+        if (partial[i] == '\'' && !in_double_quotes) {
+            if (!in_single_quotes) {
+                in_single_quotes = true;
+                quote_start = i;
+            } else {
+                in_single_quotes = false;
+            }
+        } else if (partial[i] == '"' && !in_single_quotes) {
+            if (!in_double_quotes) {
+                in_double_quotes = true;
+                quote_start = i;
+            } else {
+                in_double_quotes = false;
+            }
+        }
+    }
+    
+    // If we end with a closing quote and there's content after the opening quote,
+    // remove the closing quote to enable prefix matching
+    if (len > 1 && ((partial[len-1] == '\'' && !in_single_quotes) || 
+                    (partial[len-1] == '"' && !in_double_quotes))) {
+        // Only remove if there's actual content between quotes
+        if (len > quote_start + 2) {
+            partial[len-1] = '\0';
+            if (lusush_readline_is_debug_enabled()) {
+                fprintf(stderr, "[DEBUG] Removed closing quote for prefix matching: '%s'\n", partial);
+            }
+        }
+    }
+    
+    return partial;
+}
+
+/**
  * Generate suggestion from command history
  */
 static lusush_autosuggestion_t* generate_history_suggestion(const char *input) {
     if (!autosugg_config.history_enabled || !input) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] generate_history_suggestion: history_enabled=%d, input=%s\n", 
+                   autosugg_config.history_enabled, input ? "valid" : "NULL");
+        }
         return NULL;
+    }
+    
+    // Extract partial input for proper prefix matching
+    char *partial_input = extract_partial_input(input);
+    if (!partial_input) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] No partial input extracted from: '%s'\n", input);
+        }
+        return NULL;
+    }
+    
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] Extracted partial input: '%s' from full input: '%s'\n", partial_input, input);
     }
     
     // Use existing history system from readline integration
     int history_len = lusush_history_length();
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] generate_history_suggestion: history_len=%d\n", history_len);
+    }
+    
     if (history_len == 0) {
+        free(partial_input);
         return NULL;
     }
     
@@ -214,17 +338,39 @@ static lusush_autosuggestion_t* generate_history_suggestion(const char *input) {
         const char *hist_entry = lusush_history_get(i);
         if (!hist_entry) continue;
         
-        int score = calculate_similarity_score(input, hist_entry);
+        if (lusush_readline_is_debug_enabled() && i >= history_len - 5) {
+            fprintf(stderr, "[DEBUG] Checking history[%d]: '%s'\n", i, hist_entry);
+        }
+        
+        int score = calculate_similarity_score(partial_input, hist_entry);
+        
+        if (lusush_readline_is_debug_enabled() && score > 0) {
+            fprintf(stderr, "[DEBUG] Match found! score=%d, entry='%s'\n", score, hist_entry);
+        }
+        
         if (score > best_score) {
             best_score = score;
             best_match = hist_entry;
+            
+            if (lusush_readline_is_debug_enabled()) {
+                fprintf(stderr, "[DEBUG] New best match! score=%d, entry='%s'\n", score, hist_entry);
+            }
         }
         
         // Stop if we found a perfect match
         if (score >= 90) break;
     }
     
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] History search complete: best_score=%d, best_match=%s\n", 
+               best_score, best_match ? "found" : "NULL");
+    }
+    
     if (!best_match || best_score < 60) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] No suitable match found (score=%d, threshold=60)\n", best_score);
+        }
+        free(partial_input);
         return NULL;
     }
     
@@ -234,22 +380,74 @@ static lusush_autosuggestion_t* generate_history_suggestion(const char *input) {
     suggestion->suggestion = strdup(best_match);
     suggestion->source_type = SUGGESTION_HISTORY;
     suggestion->confidence_score = best_score;
-    suggestion->suggestion_start = strlen(input);
+    suggestion->suggestion_start = strlen(partial_input);
     suggestion->is_valid = true;
     
-    // Create display text (may be truncated)
-    size_t remaining_len = strlen(best_match) - strlen(input);
-    if (remaining_len <= autosugg_config.max_suggestion_length) {
-        suggestion->display_text = strdup(best_match + strlen(input));
+    // Create display text (may be truncated) - show what comes after the partial input
+    const char *completion_start = best_match + strlen(partial_input);
+    size_t remaining_len = strlen(completion_start);
+    
+    // If there's no remaining content, this is a perfect match - no suggestion needed
+    if (remaining_len == 0) {
+        free(partial_input);
+        free(suggestion->suggestion);
+        free(suggestion);
+        return NULL;
+    }
+    
+    // Handle quote completion properly - if the original input had an open quote,
+    // don't include the closing quote in the display text as it will be added automatically
+    char *display_completion = NULL;
+    
+    // Check if completion starts with content after a quote
+    if (completion_start[0] == '\'' || completion_start[0] == '"') {
+        // Skip the opening quote in display since cursor is already after it
+        display_completion = strdup(completion_start + 1);
+    } else {
+        display_completion = strdup(completion_start);
+    }
+    
+    if (!display_completion) {
+        // Memory allocation failed
+        free(partial_input);
+        free(suggestion->suggestion);
+        free(suggestion);
+        return NULL;
+    }
+    
+    // Remove any trailing quotes from display text for cleaner appearance
+    size_t display_len = strlen(display_completion);
+    if (display_len > 0 && (display_completion[display_len-1] == '\'' || display_completion[display_len-1] == '"')) {
+        display_completion[display_len-1] = '\0';
+        display_len--;
+    }
+    
+    // If after processing we have no content to display, return null
+    if (display_len == 0) {
+        free(display_completion);
+        free(partial_input);
+        free(suggestion->suggestion);
+        free(suggestion);
+        return NULL;
+    }
+    
+    // Apply truncation if needed
+    if (display_len <= autosugg_config.max_suggestion_length) {
+        suggestion->display_text = display_completion;
     } else {
         char *truncated = malloc(autosugg_config.max_suggestion_length + 4);
         if (truncated) {
-            strncpy(truncated, best_match + strlen(input), autosugg_config.max_suggestion_length - 3);
+            strncpy(truncated, display_completion, autosugg_config.max_suggestion_length - 3);
             strcpy(truncated + autosugg_config.max_suggestion_length - 3, "...");
+            free(display_completion);
             suggestion->display_text = truncated;
+        } else {
+            // Fallback to original if truncation fails
+            suggestion->display_text = display_completion;
         }
     }
     
+    free(partial_input);
     return suggestion;
 }
 
@@ -344,14 +542,34 @@ static lusush_autosuggestion_t* generate_alias_suggestion(const char *input) {
  * Generate the best suggestion for current input
  */
 lusush_autosuggestion_t* lusush_get_suggestion(const char *current_line, size_t cursor_pos) {
+    extern bool lusush_readline_is_debug_enabled(void);
+    
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] lusush_get_suggestion called: initialized=%d, enabled=%d\n", 
+               initialized, autosugg_config.enabled);
+    }
+    
     if (!initialized || !should_suggest(current_line, cursor_pos)) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] Suggestion rejected: initialized=%d, should_suggest=%d\n", 
+                   initialized, should_suggest(current_line, cursor_pos));
+        }
         return NULL;
+    }
+    
+    if (lusush_readline_is_debug_enabled()) {
+        fprintf(stderr, "[DEBUG] Generating history suggestion for: '%s'\n", current_line);
     }
     
     // Start with simple history-based suggestions
     lusush_autosuggestion_t *suggestion = generate_history_suggestion(current_line);
     
     if (suggestion) {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] History suggestion generated: '%s'\n", 
+                   suggestion->display_text ? suggestion->display_text : "NULL");
+        }
+        
         // Update statistics
         stats.suggestions_generated++;
         
@@ -362,6 +580,10 @@ lusush_autosuggestion_t* lusush_get_suggestion(const char *current_line, size_t 
         cache.last_input = strdup(current_line);
         cache.cache_valid = true;
         cache.cache_time = time(NULL);
+    } else {
+        if (lusush_readline_is_debug_enabled()) {
+            fprintf(stderr, "[DEBUG] No history suggestion generated\n");
+        }
     }
     
     return suggestion;
@@ -494,6 +716,18 @@ void lusush_configure_autosuggestions(const autosuggestion_config_t *new_config)
     }
     
     autosugg_config.show_source_info = new_config->show_source_info;
+    // Invalidate cache when config changes
+    cache.cache_valid = false;
+}
+
+/**
+ * Bridge function to sync main config system with autosuggestions internal config
+ * This connects config.display_autosuggestions with autosugg_config.enabled
+ */
+void lusush_autosuggestions_sync_config(void) {
+    extern config_values_t config;  // Access main config system
+    autosugg_config.enabled = config.display_autosuggestions;
+    
     // Invalidate cache when config changes
     cache.cache_valid = false;
 }

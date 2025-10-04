@@ -948,6 +948,14 @@ void config_set_defaults(void) {
     config.auto_detect_cloud = true;
     config.max_completion_hosts = 50;
 
+    // Display defaults
+    config.display_autosuggestions = true;
+    config.display_system_mode = strdup("standard");
+    config.display_syntax_highlighting = false;
+    config.display_layered_display = false;
+    config.display_performance_monitoring = false;
+    config.display_optimization_level = 0;
+
     // Script execution defaults
     config.script_execution = true;
 }
@@ -1329,6 +1337,11 @@ void config_apply_settings(void) {
 
     // Update readline debug mode
     lusush_readline_set_debug(config.debug_mode);
+
+    // Sync autosuggestions configuration bridge
+    // This connects config.display_autosuggestions with autosugg_config.enabled
+    extern void lusush_autosuggestions_sync_config(void);
+    lusush_autosuggestions_sync_config();
 }
 
 /**
@@ -1457,6 +1470,8 @@ void builtin_config(int argc, char **argv) {
                 section = CONFIG_SECTION_PROMPT;
             } else if (strcmp(argv[2], "behavior") == 0) {
                 section = CONFIG_SECTION_BEHAVIOR;
+            } else if (strcmp(argv[2], "display") == 0) {
+                section = CONFIG_SECTION_DISPLAY;
             } else if (strcmp(argv[2], "network") == 0) {
                 section = CONFIG_SECTION_NETWORK;
             } else if (strcmp(argv[2], "scripts") == 0) {
@@ -1652,6 +1667,9 @@ void config_show_all(void) {
 
     printf("\n[behavior]\n");
     config_show_section(CONFIG_SECTION_BEHAVIOR);
+
+    printf("\n[display]\n");
+    config_show_section(CONFIG_SECTION_DISPLAY);
 
     printf("\n[network]\n");
     config_show_section(CONFIG_SECTION_NETWORK);

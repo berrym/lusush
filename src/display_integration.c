@@ -111,8 +111,9 @@ bool display_integration_init(const display_integration_config_t *config) {
     if (config) {
         current_config = *config;
     } else {
-        // Use default configuration
+        // Use default configuration with layered display enabled for professional autosuggestions
         display_integration_create_default_config(&current_config);
+        current_config.enable_layered_display = true;
     }
 
     // Create display controller if layered display is enabled
@@ -190,13 +191,12 @@ bool display_integration_init(const display_integration_config_t *config) {
     integration_stats.fallback_calls = 0;
 
     // Initialize autosuggestions layer if layered display is enabled
-    if (layered_display_enabled) {
-        if (!display_integration_init_autosuggestions()) {
-            if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Warning - autosuggestions layer initialization failed\n");
-            }
-            // Don't fail the whole initialization - autosuggestions are optional
+    // Always initialize professional autosuggestions for seamless user experience
+    if (!display_integration_init_autosuggestions()) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Warning - autosuggestions layer initialization failed\n");
         }
+        // Don't fail the whole initialization - autosuggestions are optional
     }
 
     if (current_config.debug_mode) {
@@ -317,10 +317,19 @@ bool display_integration_set_config(const display_integration_config_t *config) 
                     current_config = old_config; // Restore old config
                     return false;
                 }
+                
+                // Initialize autosuggestions layer now that layered display is enabled
+                if (!display_integration_init_autosuggestions()) {
+                    if (current_config.debug_mode) {
+                        fprintf(stderr, "display_integration: Warning - autosuggestions layer initialization failed during enable\n");
+                    }
+                    // Don't fail the whole operation - autosuggestions are optional
+                }
             }
         }
     } else if (!config->enable_layered_display && layered_was_enabled) {
         // Disable layered display
+        display_integration_cleanup_autosuggestions();
         if (global_display_controller) {
             display_controller_destroy(global_display_controller);
             global_display_controller = NULL;
@@ -395,16 +404,15 @@ void display_integration_redisplay(void) {
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
     
-    // Professional safety check - can we attempt layered display?
-    if (!safe_layered_display_attempt("redisplay", &fallback_reason)) {
-        integration_stats.fallback_calls++;
-        log_fallback_event("redisplay", fallback_reason);
-        
-        // Graceful fallback to existing system
-        rl_redisplay();
-        in_display_redisplay = false;
-        return;
-    }
+    // CRITICAL SAFETY: Always use fallback until layered system is properly implemented
+    // This prevents display corruption and interference with readline
+    integration_stats.fallback_calls++;
+    log_fallback_event("redisplay", INTEGRATION_FALLBACK_USER_REQUEST);
+    
+    // Use safe readline redisplay only
+    rl_redisplay();
+    in_display_redisplay = false;
+    return;
     
     // Attempt sophisticated layered display operation
     if (layered_display_enabled && global_display_controller) {
@@ -872,11 +880,10 @@ bool safe_layered_display_attempt(const char *function_name,
         return false;
     }
     
-    // Check 2: Layered display enabled
-    if (!layered_display_enabled) {
-        *fallback_reason = INTEGRATION_FALLBACK_USER_REQUEST;
-        return false;
-    }
+    // Check 2: FORCE FALLBACK - Layered display disabled for stability
+    // Always return false until layered system is properly implemented
+    *fallback_reason = INTEGRATION_FALLBACK_USER_REQUEST;
+    return false;
     
     // Check 3: Display controller availability
     if (!global_display_controller) {
@@ -1002,16 +1009,90 @@ bool display_integration_init_autosuggestions(void) {
     }
     
     if (!integration_initialized) {
-        return false; // Display integration not ready
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Display integration not ready for autosuggestions\n");
+        }
+        return false;
     }
     
-    // For now, create a stub implementation that marks initialization as complete
-    // The actual autosuggestions will be handled through the existing system
-    // TODO: Integrate with display controller's terminal control and event system
+    // Create layered display system directly if needed for autosuggestions
+    if (!layered_display_enabled || !global_display_controller) {
+        // Initialize layered display components directly to avoid recursion
+        if (!global_display_controller) {
+            global_display_controller = display_controller_create();
+            if (global_display_controller) {
+                display_controller_config_t controller_config;
+                display_controller_create_default_config(&controller_config);
+                
+                layer_event_system_t *event_system = layer_events_create(NULL);
+                if (!event_system) {
+                    display_controller_destroy(global_display_controller);
+                    global_display_controller = NULL;
+                    return false;
+                }
+                
+                layer_events_error_t event_init_error = layer_events_init(event_system);
+                if (event_init_error != LAYER_EVENTS_SUCCESS) {
+                    layer_events_destroy(event_system);
+                    display_controller_destroy(global_display_controller);
+                    global_display_controller = NULL;
+                    return false;
+                }
+                
+                display_controller_error_t error = display_controller_init(global_display_controller, &controller_config, event_system);
+                if (error == DISPLAY_CONTROLLER_SUCCESS) {
+                    error = display_controller_prepare_shell_integration(global_display_controller, &current_config);
+                    if (error == DISPLAY_CONTROLLER_SUCCESS) {
+                        layered_display_enabled = true;
+                        if (current_config.debug_mode) {
+                            fprintf(stderr, "display_integration: Auto-enabled layered display for professional autosuggestions\n");
+                        }
+                    }
+                }
+                
+                if (!layered_display_enabled) {
+                    display_controller_destroy(global_display_controller);
+                    global_display_controller = NULL;
+                    return false;
+                }
+            }
+        }
+    }
+    
+    // Get terminal control and event system from display controller
+    terminal_control_t *terminal_ctrl = display_controller_get_terminal_control(global_display_controller);
+    layer_event_system_t *event_system = display_controller_get_event_system(global_display_controller);
+    
+    if (!terminal_ctrl || !event_system) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to get display controller components for autosuggestions\n");
+        }
+        return false;
+    }
+    
+    // Create the autosuggestions layer
+    global_autosuggestions_layer = autosuggestions_layer_create(event_system, terminal_ctrl);
+    if (!global_autosuggestions_layer) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to create autosuggestions layer\n");
+        }
+        return false;
+    }
+    
+    // Initialize with default configuration
+    autosuggestions_layer_error_t init_error = autosuggestions_layer_init(global_autosuggestions_layer, NULL);
+    if (init_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to initialize autosuggestions layer: %d\n", init_error);
+        }
+        autosuggestions_layer_destroy(&global_autosuggestions_layer);
+        return false;
+    }
+    
     autosuggestions_layer_initialized = true;
     
     if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Autosuggestions layer initialized in stub mode\n");
+        fprintf(stderr, "display_integration: Professional layered autosuggestions system initialized\n");
     }
     
     return true;
@@ -1041,11 +1122,7 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
         return display_integration_clear_autosuggestions();
     }
     
-    // Check if layered display is available and active
     if (!layered_display_enabled || !global_display_controller) {
-        if (current_config.debug_mode) {
-            fprintf(stderr, "display_integration: Layered display not active, using fallback\n");
-        }
         return false;
     }
     
@@ -1060,33 +1137,46 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
         return false;
     }
     
-    // Create autosuggestions layer if not already created
-    if (!global_autosuggestions_layer) {
-        global_autosuggestions_layer = autosuggestions_layer_create(event_system, terminal_ctrl);
-        if (!global_autosuggestions_layer) {
-            if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Failed to create autosuggestions layer\n");
-            }
-            return false;
-        }
-        
-        // Initialize the layer with default configuration
-        autosuggestions_layer_error_t init_error = autosuggestions_layer_init(global_autosuggestions_layer, NULL);
-        if (init_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
-            if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Failed to initialize autosuggestions layer: %d\n", init_error);
-            }
-            autosuggestions_layer_destroy(&global_autosuggestions_layer);
-            return false;
-        }
-    }
-    
-    // Successfully integrated with layered display system
     if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Autosuggestions layered system active\n");
+        fprintf(stderr, "display_integration: Attempting layered autosuggestions update\n");
+    }
+
+    // Create context from readline parameters
+    autosuggestions_context_t context;
+    autosuggestions_layer_error_t context_error = autosuggestions_layer_create_context_from_readline(
+        &context, line_buffer, cursor_pos, line_end);
+    
+    if (context_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to create autosuggestions context: %d\n", context_error);
+        }
+        return false;
     }
     
-    return true; // Enable layered autosuggestions system
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Context created successfully\n");
+    }
+    
+    // Generate and display suggestion using professional layered system
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Calling autosuggestions_layer_update\n");
+    }
+    
+    autosuggestions_layer_error_t update_error = autosuggestions_layer_update(global_autosuggestions_layer, &context);
+    
+    if (update_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to update layered autosuggestions: %d\n", update_error);
+        }
+        return false;
+    }
+    
+    // Successfully generated and displayed suggestion via layered system
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Professional layered autosuggestions displayed successfully\n");
+    }
+    
+    return true; // Professional layered autosuggestions system active
 }
 
 /**
@@ -1105,9 +1195,19 @@ bool display_integration_clear_autosuggestions(void) {
         return false;
     }
     
-    // Successfully handled clearing through layered system
+    // Clear suggestion using professional layered system
+    autosuggestions_layer_error_t clear_error = autosuggestions_layer_clear(global_autosuggestions_layer);
+    
+    if (clear_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Failed to clear layered suggestion: %d\n", clear_error);
+        }
+        return false;
+    }
+    
+    // Successfully cleared suggestion via layered system
     if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Autosuggestions cleared via layered system\n");
+        fprintf(stderr, "display_integration: Professional layered autosuggestions cleared successfully\n");
     }
     
     return true;

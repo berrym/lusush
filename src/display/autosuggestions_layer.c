@@ -97,6 +97,11 @@ static void set_layer_error(autosuggestions_layer_t *layer,
 /**
  * Validate layer pointer and initialization
  */
+static bool validate_layer_for_init(const autosuggestions_layer_t *layer) {
+    // During initialization, don't check initialized flag to avoid circular dependency
+    return layer && layer->event_system && layer->terminal_control;
+}
+
 static bool validate_layer(const autosuggestions_layer_t *layer) {
     return layer && layer->initialized;
 }
@@ -394,11 +399,18 @@ autosuggestions_layer_error_t autosuggestions_layer_init(autosuggestions_layer_t
     // Get terminal capabilities
     layer->terminal_caps = terminal_control_get_capabilities(layer->terminal_control);
     
-    // Check terminal support
-    if (!terminal_control_has_capability(layer->terminal_control, TERMINAL_CAP_CURSOR_POSITIONING)) {
+    // Check terminal support - be more practical about requirements
+    // Most modern terminals support basic escape sequences even if capability detection fails
+    // Only require very basic terminal functionality for autosuggestions
+    if (!isatty(STDOUT_FILENO)) {
+        // Non-interactive terminals definitely can't support autosuggestions
         set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL);
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }
+    
+    // For interactive terminals, assume basic capability support
+    // This is more practical than strict capability checking which can fail
+    // even on capable terminals due to detection issues
     
     // Subscribe to layer events
     autosuggestions_layer_error_t error = autosuggestions_layer_subscribe_events(layer);
@@ -692,7 +704,7 @@ autosuggestions_layer_error_t autosuggestions_layer_publish_change(autosuggestio
 }
 
 autosuggestions_layer_error_t autosuggestions_layer_subscribe_events(autosuggestions_layer_t *layer) {
-    if (!validate_layer(layer) || !layer->event_system) {
+    if (!validate_layer_for_init(layer)) {
         return AUTOSUGGESTIONS_LAYER_ERROR_NOT_INITIALIZED;
     }
     
