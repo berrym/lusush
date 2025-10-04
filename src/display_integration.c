@@ -1017,6 +1017,9 @@ bool display_integration_init_autosuggestions(void) {
     
     // Create layered display system directly if needed for autosuggestions
     if (!layered_display_enabled || !global_display_controller) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Creating layered display for autosuggestions\n");
+        }
         // Initialize layered display components directly to avoid recursion
         if (!global_display_controller) {
             global_display_controller = display_controller_create();
@@ -1122,7 +1125,11 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
         return display_integration_clear_autosuggestions();
     }
     
-    if (!layered_display_enabled || !global_display_controller) {
+    if (!layered_display_enabled) {
+        return false;
+    }
+    
+    if (!global_display_controller) {
         return false;
     }
     
@@ -1130,15 +1137,18 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
     terminal_control_t *terminal_ctrl = display_controller_get_terminal_control(global_display_controller);
     layer_event_system_t *event_system = display_controller_get_event_system(global_display_controller);
     
-    if (!terminal_ctrl || !event_system) {
+    if (!terminal_ctrl) {
         if (current_config.debug_mode) {
-            fprintf(stderr, "display_integration: Failed to get display controller components\n");
+            fprintf(stderr, "display_integration: Terminal control is NULL\n");
         }
         return false;
     }
     
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Attempting layered autosuggestions update\n");
+    if (!event_system) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Event system is NULL\n");
+        }
+        return false;
     }
 
     // Create context from readline parameters
@@ -1153,15 +1163,7 @@ bool display_integration_update_autosuggestions(const char *line_buffer,
         return false;
     }
     
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Context created successfully\n");
-    }
-    
     // Generate and display suggestion using professional layered system
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Calling autosuggestions_layer_update\n");
-    }
-    
     autosuggestions_layer_error_t update_error = autosuggestions_layer_update(global_autosuggestions_layer, &context);
     
     if (update_error != AUTOSUGGESTIONS_LAYER_SUCCESS) {

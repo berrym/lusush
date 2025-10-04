@@ -39,6 +39,7 @@
 #include "../include/display_integration.h"
 #include "../include/autosuggestions.h"
 #include "../include/config.h"
+#include "../include/termcap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -399,18 +400,23 @@ autosuggestions_layer_error_t autosuggestions_layer_init(autosuggestions_layer_t
     // Get terminal capabilities
     layer->terminal_caps = terminal_control_get_capabilities(layer->terminal_control);
     
-    // Check terminal support - be more practical about requirements
-    // Most modern terminals support basic escape sequences even if capability detection fails
-    // Only require very basic terminal functionality for autosuggestions
-    if (!isatty(STDOUT_FILENO)) {
-        // Non-interactive terminals definitely can't support autosuggestions
+    // Use enhanced termcap system for comprehensive terminal capability detection
+    termcap_init();
+    termcap_detect_capabilities();
+    const terminal_info_t *term_info = termcap_get_info();
+    
+    // For autosuggestions, we need stdout to be a TTY for display, not necessarily stdin
+    if (!term_info || !isatty(STDOUT_FILENO)) {
         set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL);
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }
     
-    // For interactive terminals, assume basic capability support
-    // This is more practical than strict capability checking which can fail
-    // even on capable terminals due to detection issues
+    // Check if terminal has basic capabilities needed for autosuggestions
+    // We need colors and unicode support for professional display
+    if (!term_info->caps.colors || !term_info->caps.unicode) {
+        set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL);
+        return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
+    }
     
     // Subscribe to layer events
     autosuggestions_layer_error_t error = autosuggestions_layer_subscribe_events(layer);
