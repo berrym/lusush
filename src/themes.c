@@ -34,6 +34,39 @@ static theme_cache_entry_t theme_cache = {0};
 static bool theme_cache_initialized = false;
 static const int THEME_CACHE_VALIDITY_SECONDS = 30;
 
+// Theme-specific cache with symbol compatibility tracking
+static char last_theme_output[1024];
+static char last_theme_name[64];
+static int last_symbol_mode = -1;
+static time_t last_theme_time;
+
+// =============================================================================
+// SYMBOL COMPATIBILITY SYSTEM
+// =============================================================================
+
+// Symbol mapping table for universal terminal compatibility
+static const symbol_mapping_t symbol_mappings[] = {
+    {"┌─", "+-", "Top-left corner"},
+    {"└─", "\\-", "Bottom-left corner"},
+    {"├─", "|-", "Left T-junction"},
+    {"─", "-", "Horizontal line"},
+    {"│", "|", "Vertical line"},
+    {"➜", "->", "Right arrow"},
+    {"▶", ">", "Right triangle"},
+    {"●", "*", "Bullet point"},
+    {"◆", "+", "Diamond shape"},
+    {"✓", "OK", "Checkmark"},
+    {"✗", "X", "X mark"},
+    {"⚠", "!", "Warning"},
+    {"⏰", "T", "Clock/Time"},
+    {NULL, NULL, NULL} // Terminator
+};
+
+// Symbol compatibility global state
+static symbol_compatibility_t current_symbol_mode = SYMBOL_MODE_AUTO;
+static bool symbol_system_initialized = false;
+static bool terminal_supports_unicode = false;
+
 #include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
@@ -66,6 +99,8 @@ static bool debug_enabled = false;
 
 // Forward declarations
 static bool theme_register(theme_definition_t *theme);
+static bool detect_terminal_unicode_support(void);
+static bool convert_symbols_in_string(const char *input, char *output, size_t output_size);
 
 // =============================================================================
 // BUILT-IN THEME DEFINITIONS
@@ -222,7 +257,7 @@ static theme_definition_t *create_dark_theme(void) {
     strncpy(theme->colors.path_normal, "\001\033[38;5;255m\002",
             COLOR_CODE_MAX - 1); // White
 
-    // Dark theme templates
+    // Dark theme templates - will be processed for symbol compatibility
     strncpy(theme->templates.primary_template,
             "%{primary}┌─[%{text}%u%{text_dim}@%{text}%h%{primary}]─[%{path_"
             "normal}%d%{primary}]%{git_branch}%g\n"
@@ -393,6 +428,7 @@ static theme_definition_t *create_colorful_theme(void) {
             COLOR_CODE_MAX - 1); // Sky blue
 
     // Colorful templates with Unicode symbols
+    // Colorful theme templates - will be processed for symbol compatibility
     strncpy(theme->templates.primary_template,
             "%{primary}● %{text}%u%{text_dim}@%{secondary}%h "
             "%{path_normal}%d%{git_branch}%g %{highlight}➜ %{text}",
@@ -553,9 +589,16 @@ static theme_definition_t *create_classic_theme(void) {
 // =============================================================================
 
 /**
- * Initialize the theme system
+ * Initialize theme system
  */
 bool theme_init(void) {
+    // Initialize symbol compatibility first
+    if (!symbol_compatibility_init()) {
+        if (debug_enabled) {
+            printf("DEBUG: Failed to initialize symbol compatibility\n");
+        }
+        return false;
+    }
     if (theme_system_initialized) {
         return true;
     }
@@ -713,6 +756,211 @@ int theme_register_builtin_themes(void) {
     }
 
     return count;
+}
+
+// =============================================================================
+// SYMBOL COMPATIBILITY SYSTEM IMPLEMENTATION
+// =============================================================================
+
+/**
+ * Initialize symbol compatibility system
+ */
+bool symbol_compatibility_init(void) {
+    if (symbol_system_initialized) {
+        return true;
+    }
+    
+    // Auto-detect terminal capability
+    terminal_supports_unicode = detect_terminal_unicode_support();
+    
+    // Set default mode based on detection
+    if (current_symbol_mode == SYMBOL_MODE_AUTO) {
+        current_symbol_mode = terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
+    }
+    
+    symbol_system_initialized = true;
+    
+    if (debug_enabled) {
+        printf("DEBUG: Symbol compatibility initialized - Mode: %s, Unicode support: %s\n",
+               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode" :
+               current_symbol_mode == SYMBOL_MODE_ASCII ? "ASCII" : "Auto",
+               terminal_supports_unicode ? "Yes" : "No");
+    }
+    
+    return true;
+}
+
+/**
+ * Detect if terminal supports Unicode symbols
+ */
+static bool detect_terminal_unicode_support(void) {
+    // Check environment variables for terminal capability
+    const char *term = getenv("TERM");
+    const char *lang = getenv("LANG");
+    const char *lc_all = getenv("LC_ALL");
+    
+    // Basic heuristics for Unicode support detection
+    if (term) {
+        // Most modern terminals support Unicode
+        if (strstr(term, "xterm") || strstr(term, "screen") || 
+            strstr(term, "tmux") || strstr(term, "alacritty") ||
+            strstr(term, "kitty") || strstr(term, "iterm")) {
+            return true;
+        }
+    }
+    
+    // Check locale settings
+    if ((lang && strstr(lang, "UTF-8")) || (lc_all && strstr(lc_all, "UTF-8"))) {
+        return true;
+    }
+    
+    // Conservative default - assume ASCII only for unknown terminals
+    return false;
+}
+
+/**
+ * Auto-detect terminal symbol capability
+ */
+symbol_compatibility_t symbol_detect_terminal_capability(void) {
+    if (!symbol_system_initialized) {
+        symbol_compatibility_init();
+    }
+    
+    return terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
+}
+
+/**
+ * Set global symbol compatibility mode
+ */
+bool symbol_set_compatibility_mode(symbol_compatibility_t mode) {
+    if (mode < SYMBOL_MODE_UNICODE || mode > SYMBOL_MODE_AUTO) {
+        return false;
+    }
+    
+    current_symbol_mode = mode;
+    
+    // Re-evaluate if set to auto
+    if (mode == SYMBOL_MODE_AUTO) {
+        current_symbol_mode = terminal_supports_unicode ? SYMBOL_MODE_UNICODE : SYMBOL_MODE_ASCII;
+    }
+    
+    if (debug_enabled) {
+        printf("DEBUG: Symbol mode set to: %s\n",
+               current_symbol_mode == SYMBOL_MODE_UNICODE ? "Unicode" : "ASCII");
+    }
+    
+    return true;
+}
+
+/**
+ * Get current symbol compatibility mode
+ */
+symbol_compatibility_t symbol_get_compatibility_mode(void) {
+    if (!symbol_system_initialized) {
+        symbol_compatibility_init();
+    }
+    
+    return current_symbol_mode;
+}
+
+/**
+ * Convert symbols in a string based on compatibility mode
+ */
+static bool convert_symbols_in_string(const char *input, char *output, size_t output_size) {
+    if (!input || !output || output_size == 0) {
+        return false;
+    }
+    
+    const char *src = input;
+    char *dest = output;
+    size_t remaining = output_size - 1; // Leave space for null terminator
+    
+    while (*src && remaining > 0) {
+        bool found_symbol = false;
+        
+        // Check for Unicode symbols to replace
+        for (int i = 0; symbol_mappings[i].unicode_symbol != NULL; i++) {
+            const char *unicode_sym = symbol_mappings[i].unicode_symbol;
+            size_t sym_len = strlen(unicode_sym);
+            
+            if (strncmp(src, unicode_sym, sym_len) == 0) {
+                // Found a symbol to replace
+                const char *replacement = (current_symbol_mode == SYMBOL_MODE_ASCII) ?
+                                        symbol_mappings[i].ascii_fallback : unicode_sym;
+                size_t repl_len = strlen(replacement);
+                
+                if (repl_len <= remaining) {
+                    strcpy(dest, replacement);
+                    dest += repl_len;
+                    remaining -= repl_len;
+                    src += sym_len;
+                    found_symbol = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!found_symbol) {
+            // Copy regular character
+            *dest++ = *src++;
+            remaining--;
+        }
+    }
+    
+    *dest = '\0';
+    return true;
+}
+
+/**
+ * Convert Unicode symbols to ASCII fallbacks in text
+ */
+bool symbol_convert_to_ascii(const char *input, char *output, size_t output_size) {
+    if (!input || !output || output_size == 0) {
+        return false;
+    }
+    
+    // Temporarily set mode to ASCII for conversion
+    symbol_compatibility_t original_mode = current_symbol_mode;
+    current_symbol_mode = SYMBOL_MODE_ASCII;
+    
+    bool result = convert_symbols_in_string(input, output, output_size);
+    
+    // Restore original mode
+    current_symbol_mode = original_mode;
+    
+    return result;
+}
+
+/**
+ * Process template with symbol compatibility
+ */
+bool symbol_process_template(const char *template_str, char *output, size_t output_size, bool force_ascii) {
+    if (!template_str || !output || output_size == 0) {
+        return false;
+    }
+    
+    if (!symbol_system_initialized) {
+        symbol_compatibility_init();
+    }
+    
+    // Use ASCII mode if forced or if current mode is ASCII
+    bool use_ascii = force_ascii || (current_symbol_mode == SYMBOL_MODE_ASCII);
+    
+    if (use_ascii) {
+        return convert_symbols_in_string(template_str, output, output_size);
+    } else {
+        // Unicode mode - copy as-is
+        strncpy(output, template_str, output_size - 1);
+        output[output_size - 1] = '\0';
+        return true;
+    }
+}
+
+/**
+ * Get symbol mapping table
+ */
+const symbol_mapping_t* symbol_get_mapping_table(void) {
+    return symbol_mappings;
 }
 
 /**
@@ -1444,21 +1692,32 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         return true;
     }
 
-    // Simplified Theme Caching: Quick check for repeated operations
-    static time_t last_theme_time = 0;
-    static char last_theme_output[1024] = {0};
-    static char last_theme_name[64] = {0};
-    
+    // Enhanced Theme Caching: Check for repeated operations with symbol compatibility
     time_t now = time(NULL);
+    int current_symbol_mode = (int)symbol_get_compatibility_mode();
+    
     if (now - last_theme_time <= 2 && // 2 second cache
         strcmp(theme->name, last_theme_name) == 0 &&
+        current_symbol_mode == last_symbol_mode &&
         strlen(last_theme_output) > 0) {
         
-        // Quick cache hit for rapid theme operations
-        strncpy(output, last_theme_output, output_size - 1);
-        output[output_size - 1] = '\0';
-        display_integration_record_cache_operation(true);
-        return true;
+        // Validate cached output doesn't have malformed escapes
+        bool cache_has_malformed = false;
+        for (size_t i = 0; i < strlen(last_theme_output) - 1; i++) {
+            if ((unsigned char)last_theme_output[i] == 0x01 && 
+                (unsigned char)last_theme_output[i+1] == 0x02) {
+                cache_has_malformed = true;
+                break;
+            }
+        }
+        
+        if (!cache_has_malformed) {
+            // Quick cache hit for rapid theme operations
+            strncpy(output, last_theme_output, output_size - 1);
+            output[output_size - 1] = '\0';
+            display_integration_record_cache_operation(true);
+            return true;
+        }
     }
     
     // Cache miss - record it
@@ -1553,17 +1812,62 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         }
     }
 
-    // Process template with responsive layout
+    // Process template with responsive layout and symbol compatibility
+    char temp_output[1024];
     bool success = template_process_responsive(theme->templates.primary_template, ctx,
-                                             output, output_size,
+                                             temp_output, sizeof(temp_output),
                                              terminal_width, use_colors);
+    
+    // Check for malformed escape sequences that cause display truncation
+    bool has_malformed_escapes = false;
+    if (success && strlen(temp_output) > 0) {
+        for (size_t i = 0; i < strlen(temp_output) - 1; i++) {
+            // Detect \x01\x02 pattern (empty escape sequence)
+            if ((unsigned char)temp_output[i] == 0x01 && (unsigned char)temp_output[i+1] == 0x02) {
+                has_malformed_escapes = true;
+                break;
+            }
+        }
+    }
+    
+    // Only activate fallback for actual failures, not working prompts
+    if (!success || has_malformed_escapes) {
+        // Create simple fallback prompt without color codes  
+        snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ",
+                username, hostname, directory, git_info);
+        success = true;
+        has_malformed_escapes = false;
+    }
+    
+    // Apply symbol compatibility processing
+    if (success) {
+        success = symbol_process_template(temp_output, output, output_size, false);
+    }
+    
+    // Final validation - ensure no remaining malformed escape sequences
+    if (success && strlen(output) > 0) {
+        bool final_check_failed = false;
+        for (size_t i = 0; i < strlen(output) - 1; i++) {
+            if ((unsigned char)output[i] == 0x01 && (unsigned char)output[i+1] == 0x02) {
+                final_check_failed = true;
+                break;
+            }
+        }
+        
+        // Last resort fallback only if symbol processing introduced issues
+        if (final_check_failed) {
+            snprintf(output, output_size, "[%s@%s] %s%s $ ", 
+                    username, hostname, directory, git_info);
+        }
+    }
 
-    // Cache the generated output for quick reuse
+    // Cache the generated output for quick reuse with symbol mode tracking
     if (success && strlen(output) > 0) {
         strncpy(last_theme_output, output, sizeof(last_theme_output) - 1);
         last_theme_output[sizeof(last_theme_output) - 1] = '\0';
         strncpy(last_theme_name, theme->name, sizeof(last_theme_name) - 1);
         last_theme_name[sizeof(last_theme_name) - 1] = '\0';
+        last_symbol_mode = (int)symbol_get_compatibility_mode();
         last_theme_time = time(NULL);
     }
 
@@ -1604,10 +1908,16 @@ bool theme_generate_secondary_prompt(char *output, size_t output_size) {
     // Update dynamic variables with current state
     theme_update_dynamic_variables(ctx);
 
-    // Process template with responsive layout
+    // Process template with responsive layout and symbol compatibility
+    char temp_output[1024];
     bool success = template_process_responsive(theme->templates.secondary_template, ctx,
-                                             output, output_size,
+                                             temp_output, sizeof(temp_output),
                                              terminal_width, use_colors);
+    
+    // Apply symbol compatibility processing
+    if (success) {
+        success = symbol_process_template(temp_output, output, output_size, false);
+    }
 
     template_free_context(ctx);
     return success;

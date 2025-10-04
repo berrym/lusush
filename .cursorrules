@@ -1,352 +1,155 @@
-# Lusush Shell Development Rules for AI Assistants
+# Lusush Shell Professional Development Standards
 
 ## Project Overview
-This repository contains Lusush, a production-ready professional shell with complete GNU Readline integration, git integration, multiple themes, advanced tab completion, and enterprise-grade functionality.
+Lusush is an enterprise-grade professional shell with complete GNU Readline integration, git integration, multiple themes, advanced tab completion, and layered display architecture. This project maintains the highest standards of professional software development.
 
-## v1.3.0 ACTIVE DEVELOPMENT: LAYERED DISPLAY INTEGRATION - PHASE 2B PERFORMANCE OPTIMIZATION COMPLETE
-**PERFORMANCE MONITORING AND CACHE OPTIMIZATION COMPLETED**: Enhanced performance monitoring system implemented with comprehensive real-time data collection. Intelligent cache optimization system deployed achieving 46.9% cache hit rate and 0.02ms average display timing (2,500x better than 50ms target). Zero regression policy maintained with all existing functionality preserved. Feature branch: feature/v1.3.0-layered-display-integration
+## MANDATORY PROFESSIONAL STANDARDS
 
-## CURRENT STATUS: ENTERPRISE-READY PROFESSIONAL SHELL - PHASE 2B PRIORITY 1 COMPLETE
-- **CORE FUNCTIONALITY**: ✅ **EXCELLENT** - All shell operations working flawlessly
-- **MULTILINE INPUT**: ✅ **PERFECT** - For loops, if statements, all constructs with proper cursor positioning
-- **GIT INTEGRATION**: ✅ **WORKING** - Real-time git branch and status in themed prompts
-- **TAB COMPLETION**: ✅ **ADVANCED** - Context-aware completion for git, directories, files
-- **PROFESSIONAL THEMES**: ✅ **COMPLETE** - Multiline themes with correct cursor placement
-- **EOF HANDLING**: ✅ **FIXED** - Single Ctrl+D exit with clean display behavior
-- **PERFORMANCE**: ✅ **OPTIMIZED** - Sub-millisecond response, enterprise-scale ready
-- **AUTOSUGGESTIONS**: ✅ **COMPLETE** - Fish-like autosuggestions working perfectly with readline
-- **Language**: C99 with strict standards
-- **Architecture**: Enterprise-ready shell with advanced interactive features
+### Git Commit Requirements (STRICTLY ENFORCED)
+- **NO EMOJIS EVER** in commit messages, tags, or any git history
+- Professional language only in all commits
+- Enterprise-grade formatting required for all git logs
+- All commits must be suitable for corporate code review standards
+- Commit messages must be descriptive and professional
 
-## File Structure
+#### Professional Commit Format:
+```
+<type>: <description>
+
+<detailed explanation if needed>
+```
+
+Examples of ACCEPTABLE commits:
+- "Fix template processing truncation in theme system"
+- "Implement symbol compatibility for universal terminal support"
+- "Add comprehensive fallback mechanism for prompt generation"
+
+Examples of REJECTED commits:
+- "🎉 Fix awesome feature"
+- "✨ Add cool stuff"
+- Any commit containing emojis or unprofessional language
+
+### Development Protocols (MANDATORY)
+- **CONSULT BEFORE ALL CHANGES**: No modifications without prior discussion and approval
+- **Zero Tolerance Policy**: Unprofessional elements will be immediately rejected
+- **Enterprise Code Quality**: All code must meet corporate standards
+- **Professional Documentation**: All documentation must be business-appropriate
+- **Meaningful Naming**: Use descriptive names, never generic terms like "phase2b"
+
+### Code Quality Standards
+- C99 standard compliance with strict compiler warnings
+- Comprehensive error handling and graceful failure modes
+- Memory safety with proper resource management
+- Zero tolerance for memory leaks (valgrind clean)
+- Enterprise-appropriate comments and documentation
+
+### Architecture Principles
+- **Zero Regression Policy**: Preserve all working functionality
+- **Layered Design**: Maintain clean separation of concerns
+- **Performance Excellence**: Sub-millisecond response times
+- **Cross-platform Compatibility**: Linux, macOS, BSD support
+- **Universal Terminal Support**: ASCII/Unicode compatibility
+
+## CURRENT DEVELOPMENT STATUS
+
+### Phase 2B: Visual Consistency & Performance Optimization - IN PROGRESS
+**Branch**: feature/v1.3.0-layered-display-integration
+**Status**: Symbol compatibility COMPLETE, Template processing FIXED
+
+#### Completed Achievements:
+- **Symbol Compatibility System**: Universal terminal support with intelligent ASCII/Unicode fallbacks
+- **Template Processing**: Fixed truncation issues with robust fallback mechanisms
+- **Performance Monitoring**: Comprehensive real-time measurement system operational
+- **Cache Optimization**: Intelligent caching achieving >40% hit rate, targeting >75%
+- **Professional Themes**: 6 enterprise-grade themes with symbol compatibility
+- **Zero Regression**: All existing functionality preserved and enhanced
+
+#### Critical Priorities (IMMEDIATE):
+1. **AUTOSUGGESTIONS RESTORATION**: Critical priority - autosuggestions must be functional
+2. **Eliminate Truncated Prompts**: Any `<h`, `<sh`, `<*` display artifacts are unacceptable
+3. **Theme-Specific Cache Optimization**: Achieve >75% cache hit rate target
+4. **Visual Consistency**: Perfect professional appearance across all themes
+5. **Configuration Integration**: Enhanced user control over display and performance
+
+### Architecture Overview
 ```
 lusush/
 ├── src/
-│   ├── builtins/            # Built-in command implementations
-│   ├── debug/               # Debug and profiling system
-│   ├── libhashtable/        # Hash table library
-│   ├── readline_integration.c # Complete readline wrapper
-│   ├── input.c              # Unified input system
-│   ├── lusush.c             # Main shell
-│   ├── completion.c         # Tab completion system
-│   ├── themes.c             # Theme management
-│   ├── prompt.c             # Prompt generation
-│   └── *.c                  # Other core components
+│   ├── builtins/              # Built-in command implementations
+│   ├── debug/                 # Debug and profiling system
+│   ├── display/               # Layered display architecture
+│   │   ├── autosuggestions_layer.c  # Fish-like autosuggestions
+│   │   ├── display_controller.c     # Display coordination
+│   │   ├── prompt_layer.c           # Prompt rendering
+│   │   └── composition_engine.c     # Layer composition
+│   ├── libhashtable/          # Hash table library
+│   ├── readline_integration.c # GNU Readline wrapper
+│   ├── themes.c               # Professional theme system
+│   ├── prompt.c               # Prompt generation with caching
+│   ├── display_integration.c  # Performance monitoring system
+│   └── lusush.c               # Main shell core
 ├── include/
-│   ├── readline_integration.h # Readline API
-│   ├── completion.h         # Completion system
-│   ├── themes.h             # Theme system
-│   └── *.h                  # Other headers
-├── builddir/
-│   └── lusush               # Compiled binary
-└── meson.build              # Build configuration
+│   ├── display/               # Display system headers
+│   ├── themes.h               # Theme system API
+│   └── *.h                    # Core component headers
+└── builddir/
+    └── lusush                 # Compiled binary
 ```
-
-### ✅ COMPLETED FEATURES
-
-### Core Functionality - EXCELLENT
-- **Perfect command execution** - All shell operations with proper output formatting
-- **Complete multiline support** - For loops, if statements, complex constructs with perfect cursor positioning
-- **Advanced tab completion** - Context-aware completion for git, directories, files
-- **Git integration** - Real-time branch and status display in themed prompts
-- **Professional multiline prompts** - Correct cursor positioning after themed prompts
-- **Clean EOF handling** - Single Ctrl+D exit without display artifacts
-- **Professional themes** - 6 enterprise-grade themes working beautifully
-- **Navigation excellence** - Arrow keys, Ctrl+R search, Ctrl+L clear all functional
-- **Fish-like autosuggestions** - Real-time intelligent command suggestions working perfectly
-- **Zero regressions** - All original functionality preserved and enhanced
-
-### Enterprise Features
-- **Production-ready stability** - Rock-solid reliability for critical professional work
-- **Performance optimization** - Sub-millisecond response times for all operations
-- **Cross-platform compatibility** - Verified working on Linux, macOS, BSD
-- **Memory safety** - Proper resource management with no leaks
-- **Professional appearance** - Enterprise-appropriate themes and git integration
-- **POSIX compliance** - Full compatibility with standard shell operations
-
-### Advanced Capabilities
-- **Real-time git awareness** - Branch names, modification status, upstream tracking
-- **Context-aware completion** - Git subcommands, directory-only for cd, SSH hosts
-- **Multiple theme support** - Instant switching between professional visual designs
-- **Intelligent caching** - Optimized performance for large datasets and operations
-- **Safety mechanisms** - Comprehensive error handling and graceful failure modes
-
-### Autosuggestions Excellence - FULLY OPERATIONAL
-- **Real-time intelligent suggestions** - Fish-like autosuggestions working perfectly with readline
-- **Command history integration** - Smart suggestions based on command history
-- **Context-aware suggestions** - Intelligent completion based on current context
-- **Performance optimized** - Sub-millisecond suggestion generation
-- **Zero display corruption** - Clean integration with readline display management
-- **Professional appearance** - Subtle, non-intrusive suggestion display
-- **Memory efficient** - Optimized suggestion caching and cleanup
-- **Cross-platform compatibility** - Works reliably across all Unix-like systems
-
-## Code Standards
-```c
-// Function naming: descriptive and clear
-bool lusush_readline_init(void);
-void lusush_history_add(const char *line);
-char *lusush_generate_prompt(void);
-
-// Structure naming: component_t pattern
-typedef struct {
-    char *buffer;
-    size_t length;
-    size_t capacity;
-} lusush_completions_t;
-
-// Error handling: always return bool for success/failure
-bool lusush_function(args) {
-    if (!args) return false;
-    // implementation
-    return true;
-}
-
-// Documentation: comprehensive function docs
-/**
- * Initialize the readline system for lusush.
- * Sets up completion, history, key bindings, and syntax highlighting.
- *
- * @return true on success, false on failure
- */
-bool lusush_readline_init(void);
-```
-
-## Build Commands
-```bash
-# Setup build directory
-meson setup builddir
-
-# Build the shell
-ninja -C builddir
-
-# Test core functionality
-echo 'for i in 1 2 3; do echo "Number: $i"; done' | ./builddir/lusush -i
-
-# Test interactive features
-./builddir/lusush -i
-# Then test: theme set dark, git integration, tab completion
-
-# Clean rebuild if needed
-meson setup builddir --wipe
-```
-
-## Key Design Principles
-1. **Enterprise-Grade Stability**: Rock-solid reliability for professional environments
-2. **Modern User Experience**: Advanced features that enhance developer productivity
-3. **Performance Excellence**: Sub-millisecond response times for all operations
-4. **Professional Appearance**: Enterprise-appropriate themes and visual design
-5. **POSIX Compliance**: Full compatibility while providing modern enhancements
-6. **Memory Safety**: Comprehensive resource management and error handling
-7. **Cross-platform Consistency**: Reliable behavior across all Unix-like systems
-8. **Zero Regression Policy**: Preserve all working functionality during enhancements
-
-## Testing Requirements
-Every change MUST include:
-- **Core functionality test**: Multiline constructs (for loops, if statements) must work
-- **Git integration test**: Themed prompts must show git information correctly
-- **Tab completion test**: Context-aware completion must continue working
-- **Theme system test**: All 6 themes must continue working beautifully
-- **Navigation test**: Arrow keys, Ctrl+R, Ctrl+L must remain functional
-- **Output formatting test**: Commands must execute with proper newlines
-- **Performance test**: Response times must remain sub-millisecond
-- **Memory test**: No leaks with valgrind verification
-- **Regression test**: Zero functionality loss during development
-
-### Common Development Patterns
-
-### Readline Integration
-```c
-// Initialize readline system
-if (!lusush_readline_init()) {
-    fprintf(stderr, "Failed to initialize readline\n");
-    return false;
-}
-
-// Get input with themed prompt
-char *line = lusush_readline_with_prompt(NULL);
-
-// Add to history with deduplication
-if (line && *line) {
-    lusush_history_add(line);
-}
-```
-
-### Completion Integration
-```c
-// Setup completion
-lusush_completion_setup();
-
-// Add completions
-lusush_completions_t completions = {0, NULL};
-lusush_add_completion(&completions, "example");
-lusush_free_completions(&completions);
-```
-
-### Theme Integration
-```c
-// Generate themed prompt
-char *prompt = lusush_generate_prompt();
-
-// Update prompt when theme changes
-lusush_prompt_update();
-```
-
-## Integration Points with Lusush Core
-- **Readline Integration**: `src/readline_integration.c` - Complete GNU Readline wrapper
-- **Multiline Input**: `src/input.c` - Complex shell construct processing (CRITICAL - DO NOT BREAK)
-- **Git Integration**: `src/prompt.c` - Real-time git branch and status display
-- **Theme System**: `src/themes.c` - 6 professional themes with git integration
-- **Tab Completion**: Advanced context-aware completion system
-- **Main Shell**: `src/lusush.c` - Enterprise-ready shell core
-
-## Performance Requirements (ALL EXCEEDED)
-- Character insertion: < 1ms ✅ (Achieved: 0.02ms average)
-- Tab completion: < 50ms ✅ (Significantly under target)
-- Git status display: < 10ms ✅ (Cached optimization active)
-- Theme switching: < 5ms ✅ (Cache-optimized)
-- Startup time: < 100ms ✅
-- Memory usage: < 5MB total ✅
-- Multiline construct execution: < 50ms ✅ (0.02ms average achieved)
-- **NEW**: Display operations: < 50ms ✅ (0.02ms average - 2,500x better than target)
-- **NEW**: Cache hit rate: >75% (Target) - Currently 46.9% (substantial improvement, targeting 75%+)
-
-## Common Development Tasks
-
-### Adding New Features
-1. **Design**: Plan integration with existing readline system
-2. **Implement**: Add to appropriate module (completion, themes, etc.)
-3. **Test**: Ensure compatibility with readline integration
-4. **Document**: Add comprehensive documentation
-5. **Verify**: Test in both interactive and non-interactive modes
-
-### Debugging
-```bash
-# Enable debug output
-export LUSUSH_DEBUG=1
-./builddir/lusush
-
-# Check readline integration
-echo 'set show-all-if-ambiguous on' > ~/.inputrc
-./builddir/lusush
-
-# Memory debugging
-valgrind --leak-check=full ./builddir/lusush
-```
-
-### Performance Profiling
-```bash
-# Profile with perf
-perf record ./builddir/lusush -c 'for i in {1..1000}; do echo $i; done'
-perf report
-
-# Benchmark completion
-time echo -e 'ls /usr/bin/g<TAB>' | ./builddir/lusush
-```
-
-## Current Development Status
-
-### ✅ PRODUCTION-READY FEATURES
-1. **Perfect core functionality** - All shell operations working flawlessly
-2. **Complete multiline support** - For loops, if statements, complex constructs
-3. **Git integration** - Real-time branch and status in themed prompts
-4. **Advanced tab completion** - Context-aware completion for git, directories, files
-5. **Professional themes** - 6 enterprise-grade themes working beautifully
-6. **Fish-like autosuggestions** - Real-time intelligent command suggestions
-7. **Performance optimization** - Sub-millisecond response for all operations
-8. **Navigation excellence** - Arrow keys, Ctrl+R, Ctrl+L all functional
-9. **Zero display corruption** - Professional appearance across all features
-
-### ✅ v1.3.0 PHASE 2B PRIORITY 1 COMPLETE
-
-#### **COMPLETED CRITICAL FIXES:**
-1. ✅ **Multiline prompt cursor positioning** - Fixed cursor placement after themed multiline prompts
-2. ✅ **EOF handling correction** - Single Ctrl+D exit working correctly
-3. ✅ **Clean exit behavior** - No shell prompt artifacts on exit
-4. ✅ **Multiline construct preservation** - For loops, if statements working flawlessly
-5. ✅ **Configuration system fixes** - Resolved xtrace/errexit defaults in dual config system
-6. ✅ **Zero regression policy maintained** - All established functionality preserved
-
-#### **COMPLETED PHASE 2B ACHIEVEMENTS:**
-1. **Enhanced Performance Monitoring System** - Comprehensive real-time measurement of all display operations
-2. **Intelligent Cache Optimization** - Achieved 46.9% cache hit rate with sub-millisecond display timing (0.02ms average)
-3. **Baseline Performance Establishment** - Professional performance tracking with trend analysis and comparison metrics
-4. **Zero Regression Implementation** - All optimizations maintain perfect existing functionality compatibility
-
-#### **REMAINING PHASE 2B PRIORITIES:**
-1. **Visual consistency refinements** - Final polish for professional appearance
-2. **Advanced configuration integration** - Enhanced user control options
-3. **Final performance optimization** - Leverage comprehensive measurement data to achieve >75% cache hit rate target
-4. **Documentation completion** - Comprehensive user and developer documentation
-5. **Testing and validation** - Extensive testing for enterprise deployment readiness
-
-### 🚀 FUTURE DEVELOPMENT (v2.0+)
-1. **Custom line editor** - Purpose-built line editor for advanced features like syntax highlighting
-2. **Advanced visual features** - Real-time syntax highlighting, advanced display capabilities
-3. **Extended shell features** - Advanced scripting, debugging, profiling capabilities
-
-### 📋 DEVELOPMENT WORKFLOW
-**PHASE 2B PERFORMANCE FOUNDATION COMPLETE**: Enhanced performance monitoring and cache optimization systems operational. Ready to proceed with remaining Phase 2B priorities: visual consistency refinements, configuration integration, and final performance optimization targeting >75% cache hit rate.
-
-## Quick Reference: Key Files
-- `src/readline_integration.c` - Complete readline integration + syntax highlighting framework
-- `src/input.c` - Multiline input processing (CRITICAL - DO NOT BREAK)
-- `src/prompt.c` - Git integration and prompt generation
-- `src/themes.c` - 6 professional themes with git integration
-- `src/completion.c` - Advanced context-aware tab completion
-- `include/readline_integration.h` - API definitions
-- `meson.build` - Build configuration with all dependencies
 
 ## Development Workflow
-1. **v1.3.0 Primary Priority** - Autosuggestions perfection to legacy display quality standards
-2. **Blocked Secondary Work** - No completion/theme enhancements until autosuggestions are perfect
-3. **Safety First** - Professional implementation with comprehensive fallback mechanisms
-4. **Preserve working functionality** - NEVER break multiline input, git integration, themes
-5. **Implement incrementally** - Function-by-function integration with thorough testing
-6. **Test religiously** - Verify no regressions after every change
-7. **Maintain enterprise quality** - Professional stability and appearance
-8. **Zero merge conflicts** - Keep feature branch continuously mergeable to master
-9. **Professional Git Standards** - NO emojis ever in commits, consult before all changes
+1. **Read Documentation**: Always read AI_ASSISTANT_HANDOFF_DOCUMENT.md completely
+2. **Consult Before Changes**: Discuss all modifications before implementation
+3. **Professional Standards**: Maintain enterprise-grade code quality
+4. **Zero Regression Testing**: Validate all existing functionality after changes
+5. **Performance Monitoring**: Use integrated performance measurement tools
+6. **Professional Git Practices**: Clean, descriptive commit messages
 
-## Success Criteria for Syntax Highlighting
-- **Preserves ALL current functionality** - Multiline input, git integration, themes must continue working
-- **Visual enhancement only** - Real-time colors without affecting command execution
-- **Zero performance impact** - Maintains sub-millisecond response times
-- **Professional appearance** - Colors suitable for enterprise environments
-- **Safety first** - Comprehensive protection for special readline modes
-- **Cross-platform compatibility** - Consistent behavior on all Unix-like systems
-- **Enterprise quality** - Production-ready implementation with proper error handling
+## Key Features (ALL WORKING)
+- **Perfect Core Functionality**: All shell operations with proper output formatting
+- **Complete Multiline Support**: For loops, if statements, complex constructs
+- **Advanced Tab Completion**: Context-aware completion for git, directories, files
+- **Git Integration**: Real-time branch and status display in themed prompts
+- **Professional Themes**: 6 enterprise-grade themes with symbol compatibility
+- **Symbol Compatibility**: Universal terminal support (ASCII/Unicode)
+- **Performance Excellence**: Sub-millisecond response times with comprehensive monitoring
+- **Cross-platform Compatibility**: Verified working on Linux, macOS, BSD
 
-## Final Notes
+## Build and Test Commands
+```bash
+# Standard build
+ninja -C builddir
 
-Lusush is now a **complete, enterprise-ready, professional shell** with:
-- Perfect core functionality (multiline input, command execution, output formatting)
-- Real-time git integration (branch names, status indicators in themed prompts)
-- Advanced tab completion (context-aware for git, directories, files)
-- Fish-like autosuggestions (intelligent real-time command suggestions)
-- 6 professional themes (enterprise-appropriate visual designs)
-- Excellent performance (sub-millisecond response times)
-- Rock-solid stability (zero corruption, proper error handling)
-- Cross-platform compatibility (Linux, macOS, BSD)
-- **Revolutionary layered display architecture integration operational**
+# Performance test
+echo -e "display enable\ndisplay performance init\ntheme set dark\ndisplay performance report\nexit" | ./builddir/lusush -i
 
-The codebase is **production-ready** and suitable for immediate enterprise deployment.
+# Symbol compatibility test
+echo -e "theme symbols ascii\ntheme set dark\ntheme symbols unicode\nexit" | ./builddir/lusush -i
 
-**Latest Achievement**: **PHASE 2B PRIORITY 1 COMPLETE** - All critical usability issues resolved with professional fixes. Multiline prompt cursor positioning, EOF handling, clean exit behavior, and multiline construct support all working flawlessly. Enterprise-grade user experience achieved with zero regression policy maintained throughout.
+# Theme system test
+echo -e "theme list\ntheme set corporate\ntheme set colorful\nexit" | ./builddir/lusush -i
+```
 
-**Development Status**: v1.3.0 has successfully completed Phase 2B performance monitoring and cache optimization implementation. The enhanced measurement system provides comprehensive real-time performance tracking while intelligent cache optimization achieves 46.9% cache hit rate with 0.02ms average display timing. Foundation established for remaining Phase 2B priorities: visual consistency refinements, configuration integration, and final performance optimization targeting >75% cache efficiency.
+## Testing Requirements (MANDATORY)
+Every change MUST include comprehensive testing:
+- **Core Functionality**: Multiline constructs, command execution
+- **Theme System**: All 6 themes must work with symbol compatibility
+- **Git Integration**: Themed prompts must show git information
+- **Tab Completion**: Context-aware completion must continue working
+- **Performance**: Response times must remain sub-millisecond
+- **Memory**: Zero leaks with valgrind verification
+- **Regression**: Zero functionality loss during development
 
-## PROFESSIONAL DEVELOPMENT STANDARDS (MANDATORY)
+## Quality Assurance
+- **Enterprise Deployment Ready**: All features suitable for business environments
+- **Professional Appearance**: Clean, business-appropriate visual design
+- **Comprehensive Error Handling**: Graceful failure modes with user-friendly messages
+- **Performance Monitoring**: Real-time measurement and optimization capabilities
+- **Documentation Excellence**: Complete user and developer documentation
 
-**GIT COMMIT REQUIREMENTS**:
-- NO emojis ever in commit messages, tags, or any git history
-- Professional language only in all commits
-- Enterprise-grade formatting required for all git logs
-- All changes require consultation before implementation
-- Feature branches must maintain professional standards suitable for master merge
+## Contact Policy
+- **Pre-approval Required**: All changes must be discussed and approved
+- **Professional Communication**: Business-appropriate language in all interactions
+- **Quality Focus**: Emphasis on enterprise-grade reliability and performance
+- **Collaboration**: Work together to maintain the highest development standards
 
-**DEVELOPMENT PROTOCOLS**:
-- Consult with project owner before making any changes
-- Maintain professional code quality at all times
-- Zero tolerance for unprofessional elements in codebase
-- All work must meet enterprise code review standards
+This project represents the pinnacle of professional shell development. Every contribution must meet these exacting standards to maintain Lusush's reputation for excellence.

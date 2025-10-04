@@ -495,16 +495,16 @@ int bin_termcap(int argc, char **argv) {
                 
                 if (termcap_supports_colors()) {
                     termcap_print_colored(TERMCAP_GREEN, TERMCAP_DEFAULT, "Color support: ");
-                    printf("✓ Active\n");
+                    printf("OK Active\n");
                     
                     if (termcap_supports_256_colors()) {
                         termcap_print_colored(TERMCAP_CYAN, TERMCAP_DEFAULT, "256-color mode: ");
-                        printf("✓ Available\n");
+                        printf("OK Available\n");
                     }
                     
                     if (termcap_supports_truecolor()) {
                         termcap_print_colored(TERMCAP_MAGENTA, TERMCAP_DEFAULT, "True color mode: ");
-                        printf("✓ Available\n");
+                        printf("OK Available\n");
                     }
                 } else {
                     warning_message("Color support not available");
@@ -3462,6 +3462,61 @@ int bin_theme(int argc, char **argv) {
             return 0;
         }
 
+        if (strcmp(argv[1], "symbols") == 0) {
+            // Symbol compatibility controls
+            if (argc == 2) {
+                // Show current symbol mode
+                symbol_compatibility_t mode = symbol_get_compatibility_mode();
+                printf("Symbol compatibility mode: %s\n",
+                       mode == SYMBOL_MODE_UNICODE ? "unicode" :
+                       mode == SYMBOL_MODE_ASCII ? "ascii" : "auto");
+                
+                // Show terminal detection
+                symbol_compatibility_t detected = symbol_detect_terminal_capability();
+                printf("Terminal detected capability: %s\n",
+                       detected == SYMBOL_MODE_UNICODE ? "unicode" : "ascii");
+                
+                // Show symbol mappings
+                printf("\nSymbol mappings:\n");
+                const symbol_mapping_t* mappings = symbol_get_mapping_table();
+                for (int i = 0; mappings[i].unicode_symbol != NULL; i++) {
+                    printf("  %s -> %s  (%s)\n", 
+                           mappings[i].unicode_symbol, 
+                           mappings[i].ascii_fallback,
+                           mappings[i].description);
+                }
+                return 0;
+            } else if (argc == 3) {
+                // Set symbol mode
+                const char* mode_str = argv[2];
+                symbol_compatibility_t new_mode;
+                
+                if (strcmp(mode_str, "unicode") == 0) {
+                    new_mode = SYMBOL_MODE_UNICODE;
+                } else if (strcmp(mode_str, "ascii") == 0) {
+                    new_mode = SYMBOL_MODE_ASCII;
+                } else if (strcmp(mode_str, "auto") == 0) {
+                    new_mode = SYMBOL_MODE_AUTO;
+                } else {
+                    error_message("theme symbols: invalid mode '%s' (use unicode|ascii|auto)", mode_str);
+                    return 1;
+                }
+                
+                if (symbol_set_compatibility_mode(new_mode)) {
+                    printf("Symbol compatibility mode set to: %s\n", mode_str);
+                    // Rebuild prompt to apply new symbol settings
+                    rebuild_prompt();
+                    return 0;
+                } else {
+                    error_message("theme symbols: failed to set mode");
+                    return 1;
+                }
+            } else {
+                error_message("theme symbols: usage: theme symbols [unicode|ascii|auto]");
+                return 1;
+            }
+        }
+
         if (strcmp(argv[1], "help") == 0) {
             printf("Theme command usage:\n");
             printf("  theme              - Show current theme and list "
@@ -3473,6 +3528,7 @@ int bin_theme(int argc, char **argv) {
                 "  theme colors       - Show color palette of active theme\n");
             printf("  theme preview [name] - Preview theme prompts\n");
             printf("  theme stats        - Show theme system statistics\n");
+            printf("  theme symbols [mode] - Show/set symbol compatibility (unicode|ascii|auto)\n");
             printf("  theme help         - Show this help message\n");
             printf("\nAvailable built-in themes:\n");
             printf("  corporate  - Professional theme for business "
@@ -4238,9 +4294,9 @@ int bin_display(int argc, char **argv) {
             bool cache_met, timing_met;
             if (display_integration_check_phase_2b_targets(&cache_met, &timing_met)) {
                 printf("Performance Target Status:\n");
-                printf("  Cache Hit Rate: %s\n", cache_met ? "✓ MET" : "✗ NOT MET");
-                printf("  Display Timing: %s\n", timing_met ? "✓ MET" : "✗ NOT MET");
-                printf("  Overall: %s\n", (cache_met && timing_met) ? "✓ ALL TARGETS MET" : "⚠ NEEDS OPTIMIZATION");
+                printf("  Cache Hit Rate: %s\n", cache_met ? "OK MET" : "X NOT MET");
+                printf("  Display Timing: %s\n", timing_met ? "OK MET" : "X NOT MET");
+                printf("  Overall: %s\n", (cache_met && timing_met) ? "OK ALL TARGETS MET" : "! NEEDS OPTIMIZATION");
                 return 0;
             } else {
                 fprintf(stderr, "display: Failed to check performance targets\n");

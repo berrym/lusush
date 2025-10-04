@@ -24,6 +24,7 @@
 static char cached_prompt[512] = {0};
 static char cached_working_dir[256] = {0};
 static char cached_theme_name[32] = {0};
+static int cached_symbol_mode = -1;
 static time_t cache_time = 0;
 static bool cache_valid = false;
 static const int CACHE_VALIDITY_SECONDS = 5;  // Cache valid for 5 seconds
@@ -372,6 +373,10 @@ void build_prompt(void) {
             if ((!config.theme_name && cached_theme_name[0] == '\0') ||
                 (config.theme_name && strcmp(config.theme_name, cached_theme_name) == 0)) {
                 
+                // Check symbol mode hasn't changed
+                int current_symbol_mode = (int)symbol_get_compatibility_mode();
+                if (cached_symbol_mode == current_symbol_mode) {
+                
                 // Cache hit! Use cached prompt
                 symtable_set_global("PS1", cached_prompt);
                 display_integration_record_cache_operation(true);
@@ -383,6 +388,7 @@ void build_prompt(void) {
                                              ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
                 display_integration_record_display_timing(operation_time_ns);
                 return;
+                }
             }
         }
     }
@@ -523,7 +529,8 @@ void build_prompt(void) {
         } else {
             cached_theme_name[0] = '\0';
         }
-        cache_time = time(NULL);
+        cached_symbol_mode = (int)symbol_get_compatibility_mode();
+        cache_time = now;
         cache_valid = true;
     }
     
@@ -553,6 +560,7 @@ bool prompt_cache_init(void) {
     cached_prompt[0] = '\0';
     cached_working_dir[0] = '\0';
     cached_theme_name[0] = '\0';
+    cached_symbol_mode = -1;
     return true;
 }
 
@@ -565,6 +573,7 @@ void prompt_cache_cleanup(void) {
     cached_prompt[0] = '\0';
     cached_working_dir[0] = '\0';
     cached_theme_name[0] = '\0';
+    cached_symbol_mode = -1;
 }
 
 /**

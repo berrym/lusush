@@ -33,6 +33,55 @@ typedef enum {
     THEME_CATEGORY_CUSTOM        // User-defined themes
 } theme_category_t;
 
+// Symbol compatibility modes for universal terminal support
+typedef enum {
+    SYMBOL_MODE_UNICODE,    // Use Unicode symbols (best appearance)
+    SYMBOL_MODE_ASCII,      // Use ASCII fallbacks (universal compatibility)
+    SYMBOL_MODE_AUTO        // Auto-detect terminal capability (progressive default)
+} symbol_compatibility_t;
+
+// Prompt layout modes for user flexibility
+typedef enum {
+    LAYOUT_MODE_SINGLE_LINE,  // Traditional single-line prompt
+    LAYOUT_MODE_MULTILINE,    // Multi-line prompt with enhanced information
+    LAYOUT_MODE_COMPACT,      // Minimal space usage
+    LAYOUT_MODE_CUSTOM        // User-defined layout template
+} prompt_layout_mode_t;
+
+// Cache strategy options for theme-specific optimization
+typedef enum {
+    CACHE_STRATEGY_THEME_SPECIFIC,  // Separate cache per theme
+    CACHE_STRATEGY_GLOBAL,          // Single global cache
+    CACHE_STRATEGY_DISABLED         // No caching
+} cache_strategy_t;
+
+// Symbol mapping for universal compatibility
+typedef struct {
+    const char* unicode_symbol;
+    const char* ascii_fallback;
+    const char* description;
+} symbol_mapping_t;
+
+// Enhanced theme user configuration
+typedef struct {
+    // Layout options
+    prompt_layout_mode_t layout_mode;
+    bool enable_git_integration;
+    bool enable_right_prompt;
+    bool enable_timestamps;
+    bool enable_symbols;
+    
+    // Symbol compatibility
+    symbol_compatibility_t symbol_mode;
+    
+    // Performance optimization
+    cache_strategy_t cache_strategy;
+    int cache_timeout_seconds;
+    
+    // User customization
+    char custom_template[TEMPLATE_MAX];
+} theme_user_config_t;
+
 // Semantic color definitions for consistent theming
 typedef struct {
     char primary[COLOR_CODE_MAX];     // Main brand/accent color
@@ -491,6 +540,85 @@ void theme_set_debug_mode(bool enabled);
  * @return version string
  */
 const char *theme_get_version(void);
+
+// =============================================================================
+// SYMBOL COMPATIBILITY SYSTEM
+// =============================================================================
+
+/**
+ * Initialize symbol compatibility system
+ * @return true on success, false on failure
+ */
+bool symbol_compatibility_init(void);
+
+/**
+ * Auto-detect terminal symbol capability
+ * @return detected symbol compatibility mode
+ */
+symbol_compatibility_t symbol_detect_terminal_capability(void);
+
+/**
+ * Set global symbol compatibility mode
+ * @param mode Symbol mode to use
+ * @return true on success, false on failure
+ */
+bool symbol_set_compatibility_mode(symbol_compatibility_t mode);
+
+/**
+ * Get current symbol compatibility mode
+ * @return current symbol mode
+ */
+symbol_compatibility_t symbol_get_compatibility_mode(void);
+
+/**
+ * Convert Unicode symbols to ASCII fallbacks in text
+ * @param input Input text with potential Unicode symbols
+ * @param output Output buffer for converted text
+ * @param output_size Size of output buffer
+ * @return true on success, false on failure
+ */
+bool symbol_convert_to_ascii(const char *input, char *output, size_t output_size);
+
+/**
+ * Process template with symbol compatibility
+ * @param template_str Template string with symbols
+ * @param output Output buffer
+ * @param output_size Output buffer size
+ * @param force_ascii Force ASCII mode regardless of settings
+ * @return true on success, false on failure
+ */
+bool symbol_process_template(const char *template_str, char *output, size_t output_size, bool force_ascii);
+
+/**
+ * Get symbol mapping table
+ * @return array of symbol mappings, NULL-terminated
+ */
+const symbol_mapping_t* symbol_get_mapping_table(void);
+
+// =============================================================================
+// ENHANCED THEME CONFIGURATION
+// =============================================================================
+
+/**
+ * Initialize theme user configuration with defaults
+ * @param config Configuration structure to initialize
+ * @return true on success, false on failure
+ */
+bool theme_config_init_defaults(theme_user_config_t *config);
+
+/**
+ * Apply user configuration to active theme
+ * @param config User configuration to apply
+ * @return true on success, false on failure
+ */
+bool theme_apply_user_config(const theme_user_config_t *config);
+
+/**
+ * Get current theme user configuration
+ * @param config Buffer to store current configuration
+ * @return true on success, false on failure
+ */
+bool theme_get_user_config(theme_user_config_t *config);
 
 #ifdef __cplusplus
 }
