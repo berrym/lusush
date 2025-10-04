@@ -364,6 +364,9 @@ bool lusush_readline_init(void) {
     // Initialize autosuggestions system
     if (!lusush_autosuggestions_init()) {
         fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
+    } else {
+        // Sync main config system with autosuggestions internal config
+        lusush_autosuggestions_sync_config();
     }
     
     // Initialize rich completion system
@@ -473,16 +476,10 @@ char *lusush_readline_with_prompt(const char *prompt) {
     // MINIMAL INTEGRATION: Only enhance primary prompts, preserve established input.c flow
     char *line = NULL;
     
-    // Only use layered display for primary prompts (NULL prompt from input.c first_line)
-    // All continuation prompts use unmodified standard readline
-    if (!prompt && display_integration_is_layered_active()) {
-        // Primary prompt with layered display - use enhanced prompt generation
-        line = lusush_readline_with_layered_display(actual_prompt);
-        // Note: Don't fallback for EOF - layered display handles EOF correctly
-    } else {
-        // Standard readline for continuation prompts and when layered display not active
-        line = readline(actual_prompt);
-    }
+    // CRITICAL FIX: Always use standard readline to prevent history corruption
+    // Layered display deviation was causing history access isolation
+    // Keep single unified readline path for consistent history behavior
+    line = readline(actual_prompt);
     
     // Note: Do not free themed_prompt here - it's managed by readline cleanup system
     // The themed_prompt becomes current_prompt and will be freed in lusush_readline_cleanup()
@@ -1944,6 +1941,9 @@ void lusush_redisplay_with_suggestions(void) {
         // Clear any existing suggestion display using layered system
         display_integration_clear_autosuggestions();
         if (current_suggestion) {
+            // Clear the visual suggestion from screen
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
             lusush_free_autosuggestion(current_suggestion);
             current_suggestion = NULL;
         }
@@ -1953,6 +1953,15 @@ void lusush_redisplay_with_suggestions(void) {
     
     // SAFETY: Skip if line is too long to prevent display issues
     if (rl_end > 80) {
+        // Clear any existing suggestion display
+        display_integration_clear_autosuggestions();
+        if (current_suggestion) {
+            // Clear the visual suggestion from screen
+            printf("\033[K");  // Clear to end of line
+            fflush(stdout);
+            lusush_free_autosuggestion(current_suggestion);
+            current_suggestion = NULL;
+        }
         if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping - line too long (%d chars)\n", rl_end);
         return;
     }
@@ -1967,20 +1976,66 @@ void lusush_redisplay_with_suggestions(void) {
         
         // Fallback to legacy system only if layered system fails
         lusush_autosuggestion_t *suggestion = lusush_get_suggestion(rl_line_buffer, rl_point);
+        if (debug_enabled) {
+            if (suggestion) {
+                fprintf(stderr, "[DEBUG] Got suggestion from lusush_get_suggestion: '%s'\n", 
+                       suggestion->display_text ? suggestion->display_text : "NULL");
+            } else {
+                fprintf(stderr, "[DEBUG] lusush_get_suggestion returned NULL\n");
+            }
+        }
+        
         if (suggestion && suggestion->display_text && *suggestion->display_text) {
             size_t sugg_len = strlen(suggestion->display_text);
+            if (debug_enabled) fprintf(stderr, "[DEBUG] Suggestion length: %zu\n", sugg_len);
+            
             if (sugg_len > 0 && sugg_len < 50 && !strchr(suggestion->display_text, '\n')) {
-                // Store for keypress handling only - no display since layered system failed
+                // SAFETY: Check terminal width to prevent line wrap corruption
+                int terminal_width = 80; // Safe default
+                int terminal_height = 24;
+                rl_get_screen_size(&terminal_height, &terminal_width);
+                if (terminal_width <= 0) terminal_width = 80;
+                
+                int current_line_length = rl_end + sugg_len;
+                
+                // Only display if suggestion won't cause line wrapping (5 char safety margin)
+                if (current_line_length < terminal_width - 5) {
+                    if (debug_enabled) fprintf(stderr, "[DEBUG] Displaying suggestion (safe width)\n");
+
+                    // Save terminal state
+                    printf("\033[s");
+
+                    // Display suggestion in visible gray after cursor (Fish-like style)
+                    printf("\033[90m%s\033[0m", suggestion->display_text);
+
+                    // Restore terminal state
+                    printf("\033[u");
+                    fflush(stdout);
+                } else {
+                    if (debug_enabled) fprintf(stderr, "[DEBUG] Skipping suggestion - would cause line wrap (%d + %zu >= %d)\n", 
+                                             rl_end, sugg_len, terminal_width);
+                    // Don't display but still store for key acceptance
+                }
+
+                // Store for keypress handling
                 if (current_suggestion && current_suggestion != suggestion) {
                     lusush_free_autosuggestion(current_suggestion);
                 }
                 current_suggestion = suggestion;
             } else {
+                if (debug_enabled) fprintf(stderr, "[DEBUG] Suggestion rejected: len=%zu, has_newline=%s\n", 
+                                         sugg_len, strchr(suggestion->display_text, '\n') ? "yes" : "no");
                 lusush_free_autosuggestion(suggestion);
             }
-        } else if (current_suggestion) {
-            lusush_free_autosuggestion(current_suggestion);
-            current_suggestion = NULL;
+        } else {
+            if (debug_enabled) fprintf(stderr, "[DEBUG] No valid suggestion found\n");
+            if (current_suggestion) {
+                // Clear old suggestion display and free memory
+                printf("\033[K");  // Clear to end of line
+                fflush(stdout);
+                lusush_free_autosuggestion(current_suggestion);
+                current_suggestion = NULL;
+            }
         }
     }
     
