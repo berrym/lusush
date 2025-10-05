@@ -361,21 +361,16 @@ bool lusush_readline_init(void) {
     // Initialize completion system
     lusush_completion_setup();
     
-    // Initialize autosuggestions system
-    if (!lusush_autosuggestions_init()) {
-        fprintf(stderr, "Warning: Failed to initialize autosuggestions\n");
-    } else {
-        // Sync main config system with autosuggestions internal config
-        lusush_autosuggestions_sync_config();
-    }
+    // v1.3.0: Autosuggestions disabled for stability
+    // lusush_autosuggestions_init() call removed
     
     // Initialize rich completion system
     if (!lusush_rich_completion_init()) {
         fprintf(stderr, "Warning: Failed to initialize rich completions\n");
     }
     
-    // Enable syntax highlighting when enhanced display mode is set
-    lusush_syntax_highlighting_set_enabled(config.enhanced_display_mode);
+    // v1.3.0: Syntax highlighting disabled for stability
+    // lusush_syntax_highlighting_set_enabled() call removed
     
     // Phase 3: Initialize change detection and performance monitoring
     init_change_detector();
@@ -417,7 +412,8 @@ void lusush_readline_cleanup(void) {
         lusush_free_autosuggestion(current_suggestion);
         current_suggestion = NULL;
     }
-    lusush_autosuggestions_cleanup();
+    // v1.3.0: Autosuggestions disabled for stability
+    // lusush_autosuggestions_cleanup() call removed
     
     // Cleanup rich completion system
     lusush_rich_completion_cleanup();
@@ -1357,14 +1353,14 @@ void lusush_syntax_highlighting_set_enabled(bool enabled) {
             return;
         }
         
-        // Use hybrid redisplay that supports both syntax highlighting and autosuggestions
-        rl_redisplay_function = lusush_redisplay_with_suggestions;
+        // Use standard readline redisplay function for v1.3.0 stability
+        rl_redisplay_function = rl_redisplay;
 
     } else {
         // Disable: clean up and use standard functions
         syntax_highlighting_enabled = false;
         cleanup_highlight_buffer();
-        rl_redisplay_function = lusush_redisplay_with_suggestions;
+        rl_redisplay_function = rl_redisplay;
         rl_getc_function = lusush_getc_with_autosuggestions;
         rl_pre_input_hook = NULL;
     }
@@ -2345,9 +2341,9 @@ static void setup_readline_config(void) {
     rl_catch_signals = 0; // Let shell handle signals for child processes like git
     rl_catch_sigwinch = 1; // Handle window resize only
     
-    // Enable robust syntax highlighting with proper wrapping support
-    // Use hybrid redisplay function for both syntax highlighting and autosuggestions
-    rl_redisplay_function = lusush_redisplay_with_suggestions;
+    // Use standard readline redisplay function for v1.3.0 stability
+    // Direct assignment to rl_redisplay ensures proper line wrapping
+    rl_redisplay_function = rl_redisplay;
     
     // CRITICAL VARIABLES: Enable TAB completion, protect arrow keys
     rl_variable_bind("disable-completion", "off");      // MASTER SWITCH: Enable completion for TAB
@@ -2923,10 +2919,10 @@ static int lusush_getc(FILE *stream) {
         }
     }
     
-    // Real-time enhanced syntax highlighting - triggered on word boundaries
-    if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
-        lusush_highlight_previous_word();
-    }
+    // v1.3.0: Syntax highlighting disabled for stability
+    // if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
+    //     lusush_highlight_previous_word();
+    // }
     
     // Update typing state
     typing_state.last_char = c;
@@ -2950,10 +2946,10 @@ static int lusush_getc_with_autosuggestions(FILE *stream) {
         }
     }
     
-    // Real-time enhanced syntax highlighting - triggered on word boundaries
-    if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
-        lusush_highlight_previous_word();
-    }
+    // v1.3.0: Syntax highlighting disabled for stability  
+    // if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
+    //     lusush_highlight_previous_word();
+    // }
     
     // Update typing state
     typing_state.last_char = c;
