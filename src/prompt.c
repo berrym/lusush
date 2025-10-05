@@ -274,7 +274,8 @@ static void get_git_status(git_info_t *info) {
     }
 
     // Check ahead/behind status - only if upstream exists
-    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name @{upstream}", NULL, 0) == 0) {
+    // Suppress stderr to prevent "fatal: no upstream configured" warnings
+    if (run_command("git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null", NULL, 0) == 0) {
         if (run_command("git rev-list --count --left-right @{upstream}...HEAD",
                         output, sizeof(output)) == 0) {
             sscanf(output, "%d\t%d", &info->behind, &info->ahead);
