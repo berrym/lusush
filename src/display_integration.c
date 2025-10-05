@@ -666,6 +666,99 @@ void display_integration_clear_screen(void) {
     in_clear_screen = false;
 }
 
+/**
+ * Update display after command execution completion.
+ * Called from main shell loop after each command execution to ensure
+ * layered display system handles post-command prompt rendering and caching.
+ */
+void display_integration_post_command_update(void) {
+    static bool in_post_command_update = false;
+    
+    // Prevent recursion
+    if (in_post_command_update) {
+        return;
+    }
+    
+    // Only proceed if layered display is active
+    if (!display_integration_is_layered_active()) {
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Post-command update skipped - layered display not active\n");
+        }
+        return;
+    }
+    
+    if (current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Post-command update starting\n");
+    }
+    
+    in_post_command_update = true;
+    integration_stats.total_display_calls++;
+    
+    // Enhanced Performance Monitoring: Start timing for post-command operation
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+    
+    integration_fallback_reason_t fallback_reason;
+    
+    // Professional safety check - can we attempt layered display?
+    if (!safe_layered_display_attempt("post_command_update", &fallback_reason)) {
+        integration_stats.fallback_calls++;
+        log_fallback_event("post_command_update", fallback_reason);
+        in_post_command_update = false;
+        return;
+    }
+    
+    // Use layered display controller for post-command rendering
+    if (layered_display_enabled && global_display_controller) {
+        integration_stats.layered_display_calls++;
+        
+        // Get current prompt for post-command display
+        char *current_prompt = lusush_generate_prompt();
+        char *current_command = ""; // Post-command state has no active command
+        
+        // Use display controller for post-command prompt rendering
+        char display_output[4096];
+        display_controller_error_t result = display_controller_display(
+            global_display_controller,
+            current_prompt ? current_prompt : "$ ",
+            current_command,
+            display_output,
+            sizeof(display_output)
+        );
+        
+        if (result == DISPLAY_CONTROLLER_SUCCESS) {
+            // Track successful layered display operation
+            // Note: Cache hits are tracked by display controller internally
+            
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Post-command update successful - display controller returned SUCCESS\n");
+            }
+        } else {
+            // Display controller failed - track miss and continue
+            integration_stats.layered_display_errors++;
+            integration_stats.fallback_calls++;
+            log_controller_error("post_command_update", result);
+            
+            if (current_config.debug_mode) {
+                fprintf(stderr, "display_integration: Post-command update failed - display controller error\n");
+            }
+        }
+        
+        // Clean up prompt memory
+        if (current_prompt) {
+            free(current_prompt);
+        }
+    }
+    
+    // Enhanced Performance Monitoring: Record timing
+    gettimeofday(&end_time, NULL);
+    uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                 ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+    display_integration_record_display_timing(operation_time_ns);
+    
+    in_post_command_update = false;
+}
+
 // ============================================================================
 // PERFORMANCE MONITORING AND DIAGNOSTICS
 // ============================================================================
@@ -938,10 +1031,12 @@ bool safe_layered_display_attempt(const char *function_name,
         return false;
     }
     
-    // Check 2: FORCE FALLBACK - Layered display disabled for stability
-    // Always return false until layered system is properly implemented
-    *fallback_reason = INTEGRATION_FALLBACK_USER_REQUEST;
-    return false;
+    // Check 2: Layered display enablement
+    // The layered display architecture is complete and ready for integration
+    if (!layered_display_enabled) {
+        *fallback_reason = INTEGRATION_FALLBACK_USER_REQUEST;
+        return false;
+    }
     
     // Check 3: Display controller availability
     if (!global_display_controller) {

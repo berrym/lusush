@@ -102,6 +102,11 @@ int main(int argc, char **argv) {
         last_exit_status = exit_status;
         set_exit_status(exit_status);
 
+        // Phase 1: Post-command display integration for layered display caching
+        // This enables the layered display system to handle post-command prompt
+        // rendering and achieve >75% cache hit rate targets
+        display_integration_post_command_update();
+
         // Check notify option (-b): asynchronous background job notification
         if (shell_opts.notify && global_executor) {
             executor_update_job_status(global_executor);

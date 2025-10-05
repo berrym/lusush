@@ -325,6 +325,18 @@ void display_integration_clear_screen(void);
  */
 bool display_integration_get_enhanced_prompt(char **enhanced_prompt);
 
+/**
+ * Update display after command execution completion.
+ * This function is called from the main shell loop after each command
+ * execution to ensure the layered display system handles post-command
+ * prompt rendering and caching optimization.
+ * 
+ * Usage: Call after parse_and_execute() in main shell loop.
+ * Behavior: Uses layered display for post-command rendering when enabled,
+ *          no-op when disabled.
+ */
+void display_integration_post_command_update(void);
+
 // ============================================================================
 // PERFORMANCE MONITORING AND DIAGNOSTICS
 // ============================================================================
