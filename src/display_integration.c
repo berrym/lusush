@@ -674,8 +674,8 @@ void display_integration_clear_screen(void) {
 void display_integration_post_command_update(const char *executed_command) {
     static bool in_post_command_update = false;
     
-    // Temporary debug override for testing
-    bool debug_enabled = current_config.debug_mode || getenv("LUSUSH_DEBUG");
+    // Use standard debug mode configuration
+    bool debug_enabled = current_config.debug_mode;
     
     // Prevent recursion
     if (in_post_command_update) {

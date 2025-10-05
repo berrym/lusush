@@ -275,6 +275,58 @@ static config_option_t config_options[] = {
 static const int num_config_options =
     sizeof(config_options) / sizeof(config_option_t);
 
+/**
+ * Handle legacy configuration keys that were removed or renamed.
+ * This prevents warnings for deprecated configuration options in existing .lusushrc files.
+ *
+ * @param key   The legacy configuration key
+ * @param value The value being set
+ * @return true if key was handled, false if unknown
+ */
+static bool config_handle_legacy_key(const char *key, const char *value __attribute__((unused))) {
+    if (!key) {
+        return false;
+    }
+
+    // Legacy display configuration keys (removed for v1.3.0 stability)
+    if (strcmp(key, "display.syntax_highlighting") == 0) {
+        // Legacy key - syntax highlighting requires LLE for safe implementation
+        // Silently ignore to maintain compatibility with existing .lusushrc files
+        return true;
+    }
+    
+    if (strcmp(key, "display.autosuggestions") == 0) {
+        // Legacy key - autosuggestions require LLE for safe implementation
+        // Silently ignore to maintain compatibility with existing .lusushrc files
+        return true;
+    }
+    
+    if (strcmp(key, "behavior.enhanced_display_mode") == 0) {
+        // Legacy key - replaced by layered display system
+        // Silently ignore to maintain compatibility with existing .lusushrc files
+        return true;
+    }
+    
+    // Handle other potential legacy keys
+    if (strncmp(key, "display.", 8) == 0) {
+        // Unknown display.* keys - likely legacy, handle gracefully
+        const char* display_key = key + 8;  // Skip "display." prefix
+        
+        if (strcmp(display_key, "layered_display") == 0 ||
+            strcmp(display_key, "performance_monitoring") == 0 ||
+            strcmp(display_key, "optimization_level") == 0) {
+            // These are valid current keys that should be handled by config system
+            // Return false to let normal processing handle them
+            return false;
+        }
+        
+        // Other display.* keys are likely legacy - handle gracefully
+        return true;
+    }
+
+    return false;
+}
+
 // Legacy option name mapping for backward compatibility
 typedef struct {
     const char *old_name;
@@ -1265,6 +1317,11 @@ int config_parse_option(const char *key, const char *value) {
 
             return 0;
         }
+    }
+
+    // Handle legacy configuration keys gracefully to eliminate warnings
+    if (config_handle_legacy_key(key, value)) {
+        return 0;
     }
 
     config_warning("Unknown configuration option: %s", key);
