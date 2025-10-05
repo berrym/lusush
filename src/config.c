@@ -201,12 +201,8 @@ static config_option_t config_options[] = {
     {    "display.system_mode",              CONFIG_TYPE_STRING, CONFIG_SECTION_DISPLAY,
      &config.display_system_mode,            "Display system mode: standard, enhanced, layered",
      config_validate_display_mode                                                                              },
-    {    "display.syntax_highlighting",      CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
-     &config.display_syntax_highlighting,    "Enable syntax highlighting",
-     config_validate_bool                                                                                      },
-    {    "display.autosuggestions",          CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
-     &config.display_autosuggestions,        "Enable autosuggestions",
-     config_validate_bool                                                                                      },
+    // v1.3.0: Syntax highlighting and autosuggestions disabled for stability
+    // display.syntax_highlighting and display.autosuggestions options removed
     {    "display.layered_display",          CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
      &config.display_layered_display,        "Enable modern layered display controller",
      config_validate_bool                                                                                      },
@@ -217,10 +213,8 @@ static config_option_t config_options[] = {
      &config.display_optimization_level,     "Display optimization level (0-4)",
      config_validate_optimization_level                                                                        },
 
-    // Legacy display setting (deprecated)
-    {    "behavior.enhanced_display_mode",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_BEHAVIOR,
-     &config.enhanced_display_mode,           "DEPRECATED: Use display.system_mode instead",
-     config_validate_bool                                                                                      },
+    // v1.3.0: Legacy enhanced display mode option removed
+    // behavior.enhanced_display_mode option removed
 
     // Script execution control
     {               "scripts.execution",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SCRIPTS,
@@ -341,10 +335,7 @@ static legacy_option_mapping_t legacy_mappings[] = {
     {"colors_enabled", "behavior.colors_enabled"},
     {"verbose_errors", "behavior.verbose_errors"},
     {"debug_mode", "behavior.debug_mode"},
-    {"enhanced_display_mode", "behavior.enhanced_display_mode"},
     {"display_system", "display.system_mode"},
-    {"syntax_highlighting", "display.syntax_highlighting"},
-    {"autosuggestions", "display.autosuggestions"},
     {"layered_display", "display.layered_display"},
     {"display_performance", "display.performance_monitoring"},
     {"display_optimization", "display.optimization_level"},
@@ -949,9 +940,8 @@ void config_set_defaults(void) {
     config.max_completion_hosts = 50;
 
     // Display defaults
-    config.display_autosuggestions = true;
+    // v1.3.0: display_autosuggestions and display_syntax_highlighting removed
     config.display_system_mode = strdup("standard");
-    config.display_syntax_highlighting = false;
     config.display_layered_display = false;
     config.display_performance_monitoring = false;
     config.display_optimization_level = 0;
@@ -1338,10 +1328,8 @@ void config_apply_settings(void) {
     // Update readline debug mode
     lusush_readline_set_debug(config.debug_mode);
 
-    // Sync autosuggestions configuration bridge
-    // This connects config.display_autosuggestions with autosugg_config.enabled
-    extern void lusush_autosuggestions_sync_config(void);
-    lusush_autosuggestions_sync_config();
+    // v1.3.0: Autosuggestions disabled for stability
+    // lusush_autosuggestions_sync_config() call removed
 }
 
 /**

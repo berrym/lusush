@@ -4123,6 +4123,9 @@ int bin_display(int argc, char **argv) {
         
         config.enable_layered_display = true;
         if (display_integration_set_config(&config)) {
+            // Sync with main config system
+            extern config_values_t config;
+            config.display_layered_display = true;
             printf("Layered display system enabled\n");
             return 0;
         } else {
@@ -4140,6 +4143,9 @@ int bin_display(int argc, char **argv) {
         
         config.enable_layered_display = false;
         if (display_integration_set_config(&config)) {
+            // Sync with main config system
+            extern config_values_t config;
+            config.display_layered_display = false;
             printf("Layered display system disabled\n");
             return 0;
         } else {

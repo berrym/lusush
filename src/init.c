@@ -548,11 +548,6 @@ static int parse_opts(int argc, char **argv) {
                 printf("%s\n", LUSUSH_DESCRIPTION);
                 printf("Copyright (C) 2021-2025 Michael Berry. Licensed under GPL-3.0+.\n");
                 exit(EXIT_SUCCESS);
-            } else if (strcmp(arg, "--enhanced-display") == 0 || strcmp(arg, "--layered-display") == 0) {
-                // Both options enable the modern layered display controller
-                config.enhanced_display_mode = false;  // Disable legacy system completely
-                setenv("LUSUSH_LAYERED_DISPLAY", "1", 1);  // Enable layered display
-                printf("Using modern layered display controller\n");
             } else {
                 fprintf(stderr, "%s: invalid option -- '%s'\n", argv[0], arg);
                 usage(EXIT_FAILURE);
@@ -673,8 +668,6 @@ static void usage(int err) {
     printf("  -m               Enable job control (set -m)\n");
     printf("  -b               Notify asynchronously of background job completion (set -o notify)\n");
     printf("  -t               Exit after executing one command (set -o onecmd)\n");
-    printf("  --enhanced-display Enable modern layered display controller (same as --layered-display)\n");
-    printf("  --layered-display  Enable modern layered display controller (recommended)\n");
     printf("\nArguments:\n");
     printf("  SCRIPT           Execute commands from script file\n");
     printf("\nShell Options:\n");
