@@ -556,7 +556,7 @@ static display_controller_error_t dc_add_cache_entry(display_controller_t *contr
 // ============================================================================
 
 display_controller_t *display_controller_create(void) {
-    display_controller_t *controller = lusush_pool_alloc(sizeof(display_controller_t));
+    display_controller_t *controller = malloc(sizeof(display_controller_t));
     if (!controller) {
         DC_ERROR("Failed to allocate memory for display controller");
         return NULL;
@@ -621,7 +621,7 @@ display_controller_error_t display_controller_init(
     // Initialize caching system
     if (controller->config.enable_caching) {
         controller->cache_capacity = controller->config.max_cache_entries;
-        controller->cache_entries = lusush_pool_alloc(controller->cache_capacity * sizeof(display_cache_entry_t));
+        controller->cache_entries = malloc(controller->cache_capacity * sizeof(display_cache_entry_t));
         if (!controller->cache_entries) {
             DC_ERROR("Failed to allocate cache entries");
             composition_engine_destroy(controller->compositor);
@@ -640,10 +640,10 @@ display_controller_error_t display_controller_init(
     // Initialize state tracking
     controller->last_display_state = NULL;
     controller->last_display_length = 0;
-    controller->current_state_hash = lusush_pool_alloc(DC_MAX_STATE_HASH_LENGTH);
+    controller->current_state_hash = malloc(DC_MAX_STATE_HASH_LENGTH);
     if (!controller->current_state_hash) {
         DC_ERROR("Failed to allocate state hash buffer");
-        if (controller->cache_entries) lusush_pool_free(controller->cache_entries);
+        if (controller->cache_entries) free(controller->cache_entries);
         composition_engine_destroy(controller->compositor);
         terminal_control_destroy(controller->terminal_ctrl);
         return DISPLAY_CONTROLLER_ERROR_MEMORY_ALLOCATION;
@@ -955,9 +955,9 @@ display_controller_error_t display_controller_display(
     
     // Update last display state
     if (controller->last_display_state) {
-        lusush_pool_free(controller->last_display_state);
+        free(controller->last_display_state);
     }
-    controller->last_display_state = lusush_pool_alloc(output_length + 1);
+    controller->last_display_state = malloc(output_length + 1);
     if (controller->last_display_state) {
         memcpy(controller->last_display_state, output, output_length + 1);
         controller->last_display_length = output_length;
@@ -1097,18 +1097,18 @@ display_controller_error_t display_controller_cleanup(display_controller_t *cont
                 lusush_pool_free(controller->cache_entries[i].state_hash);
             }
         }
-        lusush_pool_free(controller->cache_entries);
+        free(controller->cache_entries);
         controller->cache_entries = NULL;
     }
     
     // Clean up state tracking
     if (controller->last_display_state) {
-        lusush_pool_free(controller->last_display_state);
+        free(controller->last_display_state);
         controller->last_display_state = NULL;
     }
 
     if (controller->current_state_hash) {
-        lusush_pool_free(controller->current_state_hash);
+        free(controller->current_state_hash);
         controller->current_state_hash = NULL;
     }
     
@@ -1124,7 +1124,7 @@ void display_controller_destroy(display_controller_t *controller) {
     DC_DEBUG("Destroying display controller");
     
     display_controller_cleanup(controller);
-    lusush_pool_free(controller);
+    free(controller);
 }
 
 // ============================================================================
@@ -1242,11 +1242,11 @@ display_controller_error_t display_controller_clear_cache(
     
     for (size_t i = 0; i < controller->cache_count; i++) {
         if (controller->cache_entries[i].display_content) {
-            free(controller->cache_entries[i].display_content);
+            lusush_pool_free(controller->cache_entries[i].display_content);
             controller->cache_entries[i].display_content = NULL;
         }
         if (controller->cache_entries[i].state_hash) {
-            free(controller->cache_entries[i].state_hash);
+            lusush_pool_free(controller->cache_entries[i].state_hash);
             controller->cache_entries[i].state_hash = NULL;
         }
         controller->cache_entries[i].is_valid = false;
