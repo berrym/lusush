@@ -922,45 +922,84 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         return false; // No layered display mode active
     }
 
-    // Generate enhanced prompt with layered display
+    // Phase 2: Full Display Controller Integration for Prompt Generation
     integration_stats.layered_display_calls++;
+    
+    // Enhanced Performance Monitoring: Start timing for prompt generation
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
 
-    // Create enhanced prompt buffer
-    size_t prompt_size = 512;
-    char *prompt_buffer = malloc(prompt_size);
-    if (!prompt_buffer) {
+    // Generate base prompt using theme system
+    size_t base_prompt_size = 512;
+    char *base_prompt = malloc(base_prompt_size);
+    if (!base_prompt) {
         return false;
     }
 
-    // Use theme system for layered display
-    if (!theme_generate_primary_prompt(prompt_buffer, prompt_size)) {
-        // Fallback with user info
+    // Use theme system to generate the base prompt content
+    if (!theme_generate_primary_prompt(base_prompt, base_prompt_size)) {
+        // Fallback prompt generation
         char *current_dir = getcwd(NULL, 0);
         const char *user = getenv("USER");
         const char *hostname = getenv("HOSTNAME");
         if (!hostname) hostname = "localhost";
         
-        int written = snprintf(prompt_buffer, prompt_size,
+        int written = snprintf(base_prompt, base_prompt_size,
             "[%s@%s] %s $ ",
             user ? user : "user",
             hostname,
             current_dir ? basename(current_dir) : "~"
         );
         
-        if (written >= (int)prompt_size) {
-            strncpy(prompt_buffer, "$ ", prompt_size - 1);
-            prompt_buffer[prompt_size - 1] = '\0';
+        if (written >= (int)base_prompt_size) {
+            strncpy(base_prompt, "$ ", base_prompt_size - 1);
+            base_prompt[base_prompt_size - 1] = '\0';
         }
         
         if (current_dir) free(current_dir);
     }
-    
-    if (current_config.debug_mode) {
-        fprintf(stderr, "display_integration: Using layered display theme prompt\n");
-    }
 
-    *enhanced_prompt = prompt_buffer;
-    return true;
+    // Phase 2: Use display controller for sophisticated prompt caching and optimization
+    char display_output[4096];
+    char *current_command = ""; // Prompt generation has no active command
+
+    display_controller_error_t result = display_controller_display(
+        global_display_controller,
+        base_prompt,
+        current_command,
+        display_output,
+        sizeof(display_output)
+    );
+
+    if (result == DISPLAY_CONTROLLER_SUCCESS) {
+        // Display controller succeeded - use optimized output
+        *enhanced_prompt = strdup(display_output);
+        free(base_prompt);
+        
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Enhanced prompt generation using display controller cache\n");
+        }
+        
+        // Enhanced Performance Monitoring: Record timing
+        gettimeofday(&end_time, NULL);
+        uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +
+                                     ((uint64_t)(end_time.tv_usec - start_time.tv_usec)) * 1000ULL;
+        display_integration_record_display_timing(operation_time_ns);
+        
+        return (*enhanced_prompt != NULL);
+    } else {
+        // Display controller failed - use base prompt as fallback
+        integration_stats.layered_display_errors++;
+        integration_stats.fallback_calls++;
+        log_controller_error("enhanced_prompt_generation", result);
+        
+        if (current_config.debug_mode) {
+            fprintf(stderr, "display_integration: Enhanced prompt fallback to theme system\n");
+        }
+        
+        *enhanced_prompt = base_prompt;
+        return true;
+    }
 }
 
 /**
