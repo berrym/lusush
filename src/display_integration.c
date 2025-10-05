@@ -88,6 +88,20 @@ static bool autosuggestions_layer_initialized = false;
 // Performance tracking
 static display_integration_stats_t integration_stats = {0};
 
+// Layer-specific performance tracking
+static struct {
+    uint64_t display_controller_hits;
+    uint64_t display_controller_misses;
+    uint64_t composition_engine_hits;
+    uint64_t composition_engine_misses;
+    uint64_t command_layer_hits;
+    uint64_t command_layer_misses;
+    uint64_t autosuggestions_hits;
+    uint64_t autosuggestions_misses;
+    uint64_t prompt_layer_hits;
+    uint64_t prompt_layer_misses;
+} layer_cache_stats = {0};
+
 // Buffer for display output
 static char display_output_buffer[DISPLAY_INTEGRATION_MAX_OUTPUT_SIZE];
 
@@ -404,15 +418,41 @@ void display_integration_redisplay(void) {
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
     
-    // CRITICAL SAFETY: Always use fallback until layered system is properly implemented
-    // This prevents display corruption and interference with readline
-    integration_stats.fallback_calls++;
-    log_fallback_event("redisplay", INTEGRATION_FALLBACK_USER_REQUEST);
+    // Use layered display controller when available
+    if (integration_initialized && layered_display_enabled && global_display_controller) {
+        integration_stats.layered_display_calls++;
+        
+        // Get current prompt and command for display controller
+        char *current_prompt = lusush_generate_prompt();
+        char *current_command = rl_line_buffer ? rl_line_buffer : "";
+        
+        // Use display controller for coordinated display
+        char display_output[4096];
+        display_controller_error_t result = display_controller_display(
+            global_display_controller,
+            current_prompt,
+            current_command,
+            display_output,
+            sizeof(display_output)
+        );
+        
+        if (result == DISPLAY_CONTROLLER_SUCCESS) {
+            // Display controller succeeded - output result
+            printf("%s", display_output);
+            fflush(stdout);
+            if (current_prompt) free(current_prompt);
+            in_display_redisplay = false;
+            return;
+        }
+        
+        // Clean up prompt
+        if (current_prompt) free(current_prompt);
+    }
     
-    // Use safe readline redisplay only
+    // Fallback to standard display
+    integration_stats.fallback_calls++;
+    log_fallback_event("redisplay", INTEGRATION_FALLBACK_CONTROLLER_NULL);
     rl_redisplay();
-    in_display_redisplay = false;
-    return;
     
     // Attempt sophisticated layered display operation
     if (layered_display_enabled && global_display_controller) {
@@ -520,20 +560,38 @@ void display_integration_prompt_update(void) {
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
 
-    // Only use layered display integration when enabled
-    if (integration_initialized && layered_display_enabled) {
+    // Use layered display controller for prompt updates when available
+    if (integration_initialized && layered_display_enabled && global_display_controller) {
         integration_stats.layered_display_calls++;
+        
+        // Get current prompt and command for display controller
+        char *current_prompt = lusush_generate_prompt();
+        char *current_command = rl_line_buffer ? rl_line_buffer : "";
+        
+        // Use display controller for coordinated prompt update
+        char display_output[4096];
+        display_controller_error_t result = display_controller_display(
+            global_display_controller,
+            current_prompt,
+            current_command,
+            display_output,
+            sizeof(display_output)
+        );
+        
+        if (result == DISPLAY_CONTROLLER_SUCCESS) {
+            // Display controller succeeded
+            if (current_prompt) free(current_prompt);
+            in_prompt_update = false;
+            return;
+        }
+        
+        // Clean up prompt
+        if (current_prompt) free(current_prompt);
     }
-
-    // Safe prompt update without recursion
-    if (integration_initialized && layered_display_enabled) {
-        // Just rebuild prompt without calling lusush_generate_prompt to avoid loops
-        rebuild_prompt();
-    } else {
-        // Fallback: call original functions safely
-        rebuild_prompt();
-        lusush_generate_prompt();
-    }
+    
+    // Fallback: call original functions safely
+    rebuild_prompt();
+    lusush_generate_prompt();
     
     // Enhanced Performance Monitoring: Record timing
     gettimeofday(&end_time, NULL);
@@ -1383,6 +1441,114 @@ bool display_integration_check_phase_2b_targets(bool *cache_target_met, bool *ti
     *timing_target_met = enhanced_perf_metrics.display_timing_target_achieved;
     
     return true;
+}
+
+/**
+ * Record cache operation for specific layer.
+ */
+void display_integration_record_layer_cache_operation(const char *layer_name, bool hit) {
+    if (!layer_name) return;
+    
+    if (strcmp(layer_name, "display_controller") == 0) {
+        if (hit) layer_cache_stats.display_controller_hits++;
+        else layer_cache_stats.display_controller_misses++;
+    } else if (strcmp(layer_name, "composition_engine") == 0) {
+        if (hit) layer_cache_stats.composition_engine_hits++;
+        else layer_cache_stats.composition_engine_misses++;
+    } else if (strcmp(layer_name, "command_layer") == 0) {
+        if (hit) layer_cache_stats.command_layer_hits++;
+        else layer_cache_stats.command_layer_misses++;
+    } else if (strcmp(layer_name, "autosuggestions") == 0) {
+        if (hit) layer_cache_stats.autosuggestions_hits++;
+        else layer_cache_stats.autosuggestions_misses++;
+    } else if (strcmp(layer_name, "prompt_layer") == 0) {
+        if (hit) layer_cache_stats.prompt_layer_hits++;
+        else layer_cache_stats.prompt_layer_misses++;
+    }
+    
+    // Also record in global stats for backward compatibility
+    display_integration_record_cache_operation(hit);
+}
+
+/**
+ * Print detailed layer-specific cache performance report.
+ */
+void display_integration_print_layer_cache_report(void) {
+    printf("\n=== Layer-Specific Cache Performance Report ===\n");
+    
+    // Display Controller Cache
+    uint64_t dc_total = layer_cache_stats.display_controller_hits + layer_cache_stats.display_controller_misses;
+    if (dc_total > 0) {
+        double dc_hit_rate = (100.0 * layer_cache_stats.display_controller_hits) / dc_total;
+        printf("Display Controller Cache:\n");
+        printf("  Operations: %lu total (%lu hits, %lu misses)\n", 
+               dc_total, layer_cache_stats.display_controller_hits, layer_cache_stats.display_controller_misses);
+        printf("  Hit Rate: %.1f%% %s\n", dc_hit_rate, 
+               dc_hit_rate >= 75.0 ? "✓" : "✗");
+    } else {
+        printf("Display Controller Cache: No operations recorded\n");
+    }
+    
+    // Composition Engine Cache
+    uint64_t ce_total = layer_cache_stats.composition_engine_hits + layer_cache_stats.composition_engine_misses;
+    if (ce_total > 0) {
+        double ce_hit_rate = (100.0 * layer_cache_stats.composition_engine_hits) / ce_total;
+        printf("Composition Engine Cache:\n");
+        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+               ce_total, layer_cache_stats.composition_engine_hits, layer_cache_stats.composition_engine_misses);
+        printf("  Hit Rate: %.1f%% %s\n", ce_hit_rate,
+               ce_hit_rate >= 75.0 ? "✓" : "✗");
+    } else {
+        printf("Composition Engine Cache: No operations recorded\n");
+    }
+    
+    // Command Layer Cache
+    uint64_t cl_total = layer_cache_stats.command_layer_hits + layer_cache_stats.command_layer_misses;
+    if (cl_total > 0) {
+        double cl_hit_rate = (100.0 * layer_cache_stats.command_layer_hits) / cl_total;
+        printf("Command Layer Cache:\n");
+        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+               cl_total, layer_cache_stats.command_layer_hits, layer_cache_stats.command_layer_misses);
+        printf("  Hit Rate: %.1f%% %s\n", cl_hit_rate,
+               cl_hit_rate >= 80.0 ? "✓" : "✗");  // Command layer has 80% target
+    } else {
+        printf("Command Layer Cache: No operations recorded\n");
+    }
+    
+    // Autosuggestions Cache
+    uint64_t as_total = layer_cache_stats.autosuggestions_hits + layer_cache_stats.autosuggestions_misses;
+    if (as_total > 0) {
+        double as_hit_rate = (100.0 * layer_cache_stats.autosuggestions_hits) / as_total;
+        printf("Autosuggestions Cache:\n");
+        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+               as_total, layer_cache_stats.autosuggestions_hits, layer_cache_stats.autosuggestions_misses);
+        printf("  Hit Rate: %.1f%% %s\n", as_hit_rate,
+               as_hit_rate >= 70.0 ? "✓" : "✗");  // Autosuggestions has 70% target
+    } else {
+        printf("Autosuggestions Cache: No operations recorded\n");
+    }
+    
+    // Prompt Layer Cache
+    uint64_t pl_total = layer_cache_stats.prompt_layer_hits + layer_cache_stats.prompt_layer_misses;
+    if (pl_total > 0) {
+        double pl_hit_rate = (100.0 * layer_cache_stats.prompt_layer_hits) / pl_total;
+        printf("Prompt Layer Cache:\n");
+        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+               pl_total, layer_cache_stats.prompt_layer_hits, layer_cache_stats.prompt_layer_misses);
+        printf("  Hit Rate: %.1f%% %s\n", pl_hit_rate,
+               pl_hit_rate >= 75.0 ? "✓" : "✗");
+    } else {
+        printf("Prompt Layer Cache: No operations recorded\n");
+    }
+    
+    printf("=====================================\n");
+}
+
+/**
+ * Reset layer-specific cache statistics.
+ */
+void display_integration_reset_layer_cache_stats(void) {
+    memset(&layer_cache_stats, 0, sizeof(layer_cache_stats));
 }
 
 /**

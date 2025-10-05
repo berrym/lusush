@@ -4248,6 +4248,7 @@ int bin_display(int argc, char **argv) {
             printf("  display performance init          - Initialize performance monitoring\n");
             printf("  display performance report        - Show performance report\n");
             printf("  display performance report detail - Show detailed performance report\n");
+            printf("  display performance layers        - Show layer-specific cache performance\n");
             printf("  display performance baseline      - Establish performance baseline\n");
             printf("  display performance reset         - Reset performance metrics\n");
             printf("  display performance targets       - Check if targets are being met\n");
@@ -4277,6 +4278,10 @@ int bin_display(int argc, char **argv) {
                 fprintf(stderr, "display: Failed to generate performance report\n");
                 return 1;
             }
+            
+        } else if (strcmp(perf_cmd, "layers") == 0) {
+            display_integration_print_layer_cache_report();
+            return 0;
             
         } else if (strcmp(perf_cmd, "baseline") == 0) {
             if (display_integration_establish_baseline()) {

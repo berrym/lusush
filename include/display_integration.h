@@ -560,6 +560,24 @@ bool display_integration_check_phase_2b_targets(bool *cache_target_met, bool *ti
 bool display_integration_generate_phase_2b_report(bool detailed);
 
 /**
+ * Record cache operation for specific layer (for detailed analysis).
+ * 
+ * @param layer_name Layer name ("display_controller", "composition_engine", etc.)
+ * @param hit Whether the cache operation was a hit (true) or miss (false)
+ */
+void display_integration_record_layer_cache_operation(const char *layer_name, bool hit);
+
+/**
+ * Print detailed layer-specific cache performance report.
+ */
+void display_integration_print_layer_cache_report(void);
+
+/**
+ * Reset layer-specific cache statistics.
+ */
+void display_integration_reset_layer_cache_stats(void);
+
+/**
  * Reset Phase 2B performance metrics.
  *
  * @return true on success, false on failure

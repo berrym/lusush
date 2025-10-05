@@ -81,7 +81,7 @@ extern "C" {
 #define PROMPT_LAYER_CACHE_EXPIRY_MS 100
 
 // Cache configuration
-#define PROMPT_LAYER_CACHE_SIZE 8
+#define PROMPT_LAYER_CACHE_SIZE 32
 #define PROMPT_LAYER_METRICS_HISTORY_SIZE 16
 
 // ============================================================================

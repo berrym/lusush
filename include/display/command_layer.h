@@ -84,7 +84,7 @@ extern "C" {
 #define COMMAND_LAYER_CACHE_EXPIRY_MS 50
 
 // Cache configuration
-#define COMMAND_LAYER_CACHE_SIZE 16
+#define COMMAND_LAYER_CACHE_SIZE 64
 #define COMMAND_LAYER_METRICS_HISTORY_SIZE 32
 
 // Syntax highlighting configuration

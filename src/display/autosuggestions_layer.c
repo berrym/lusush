@@ -140,7 +140,7 @@ static autosuggestions_cache_entry_t* find_cache_entry(autosuggestions_layer_t *
             layer->metrics.cache_hits++;
             
             // Enhanced Performance Monitoring: Record cache hit
-            display_integration_record_cache_operation(true);
+            display_integration_record_layer_cache_operation("autosuggestions", true);
             
             return &layer->cache[i];
         }
@@ -149,7 +149,7 @@ static autosuggestions_cache_entry_t* find_cache_entry(autosuggestions_layer_t *
     layer->metrics.cache_misses++;
     
     // Enhanced Performance Monitoring: Record cache miss
-    display_integration_record_cache_operation(false);
+    display_integration_record_layer_cache_operation("autosuggestions", false);
     
     return NULL;
 }

@@ -1167,10 +1167,8 @@ char *lusush_generate_prompt(void) {
     in_prompt_generation = true;
     
     // STABILITY FIX: Disable enhanced prompt in enhanced display mode to prevent corruption
-    // The display corruption is caused by interaction between enhanced prompts and enhanced display
-    // Use standard prompt generation for all modes to ensure stability
-    /*
-    // Use enhanced prompt when available
+    // Phase 1: Enable layered display integration for prompt generation
+    // Use enhanced prompt when layered display is available
     if (display_integration_is_layered_active()) {
         char *enhanced_prompt = NULL;
         if (display_integration_get_enhanced_prompt(&enhanced_prompt)) {
@@ -1180,7 +1178,6 @@ char *lusush_generate_prompt(void) {
             }
         }
     }
-    */
     
     // Fallback to standard prompt generation
     if (prompt_callback) {
@@ -1204,13 +1201,12 @@ char *lusush_generate_prompt(void) {
 void lusush_prompt_update(void) {
     // STABILITY FIX: Use standard prompt updates to prevent display corruption
     // Enhanced display mode should not interfere with prompt generation
-    /*
+    // Phase 2: Enable layered display integration for prompt updates
     // Use layered display for prompt updates
     if (display_integration_is_layered_active()) {
         display_integration_prompt_update();
         return;
     }
-    */
     
     // Use stable fallback for all modes
     rebuild_prompt();

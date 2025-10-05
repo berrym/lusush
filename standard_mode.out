@@ -1,0 +1,1692 @@
+desc: --massif-out-file=standard_mode.out
+cmd: ./builddir/lusush -i
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=1012955
+mem_heap_B=5
+mem_heap_extra_B=19
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=2
+#-----------
+time=1142830
+mem_heap_B=5892
+mem_heap_extra_B=1228
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=1384382
+mem_heap_B=9304
+mem_heap_extra_B=3504
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=1587119
+mem_heap_B=11624
+mem_heap_extra_B=5328
+mem_stacks_B=0
+heap_tree=detailed
+n8: 11624 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 2864 0x48DB40A: _nl_intern_locale_data (loadlocale.c:156)
+  n1: 2864 0x48DB1B3: _nl_load_locale_from_archive (loadarchive.c:477)
+   n1: 2864 0x48DA458: _nl_find_locale (findlocale.c:152)
+    n1: 2864 0x48DD382: setlocale (setlocale.c:337)
+     n1: 2864 0x4381C1: init (init.c:88)
+      n0: 2864 0x4010A4: main (lusush.c:55)
+ n4: 2610 0x4955AAE: strdup (strdup.c:42)
+  n1: 1530 0x43BBC1: __ht_add_to_bucket (ht.c:135)
+   n1: 1530 0x43BBC1: ht_insert (ht.c:329)
+    n1: 1530 0x452354: symtable_set_var (symtable.c:364)
+     n1: 1530 0x452FBF: symtable_export_var (symtable.c:454)
+      n1: 1530 0x452FBF: symtable_export_global (symtable.c:586)
+       n1: 1530 0x438227: init (init.c:114)
+        n0: 1530 0x4010A4: main (lusush.c:55)
+  n1: 611 0x43BCB6: __ht_add_to_bucket (ht.c:155)
+   n1: 611 0x43BCB6: ht_insert (ht.c:329)
+    n1: 611 0x452ACC: symtable_set_var (symtable.c:364)
+     n1: 611 0x452ACC: symtable_set_global_var (symtable.c:392)
+      n1: 611 0x452ACC: symtable_set_global (symtable.c:530)
+       n1: 611 0x43821F: init (init.c:113)
+        n0: 611 0x4010A4: main (lusush.c:55)
+  n0: 246 in 9 places, all below massif's threshold (1.00%)
+  n1: 223 0x43BCFC: __ht_add_to_bucket (ht.c:112)
+   n1: 223 0x43BCFC: ht_insert (ht.c:329)
+    n1: 223 0x452ACC: symtable_set_var (symtable.c:364)
+     n1: 223 0x452ACC: symtable_set_global_var (symtable.c:392)
+      n1: 223 0x452ACC: symtable_set_global (symtable.c:530)
+       n1: 223 0x43821F: init (init.c:113)
+        n0: 223 0x4010A4: main (lusush.c:55)
+ n1: 1975 0x48EC22D: __add_to_environ (setenv.c:251)
+  n1: 1975 0x452FEF: symtable_export_var (symtable.c:458)
+   n1: 1975 0x452FEF: symtable_export_global (symtable.c:586)
+    n1: 1975 0x438227: init (init.c:114)
+     n0: 1975 0x4010A4: main (lusush.c:55)
+ n1: 1488 0x49C0164: __tsearch (tsearch.c:337)
+  n1: 1488 0x49C0164: tsearch (tsearch.c:290)
+   n1: 1488 0x48EC29A: __add_to_environ (setenv.c:274)
+    n1: 1488 0x452FEF: symtable_export_var (symtable.c:458)
+     n1: 1488 0x452FEF: symtable_export_global (symtable.c:586)
+      n1: 1488 0x438227: init (init.c:114)
+       n0: 1488 0x4010A4: main (lusush.c:55)
+ n1: 1152 0x43BCA0: __ht_add_to_bucket (ht.c:148)
+  n1: 1152 0x43BCA0: ht_insert (ht.c:329)
+   n1: 1152 0x452ACC: symtable_set_var (symtable.c:364)
+    n1: 1152 0x452ACC: symtable_set_global_var (symtable.c:392)
+     n1: 1152 0x452ACC: symtable_set_global (symtable.c:530)
+      n1: 1152 0x43821F: init (init.c:113)
+       n0: 1152 0x4010A4: main (lusush.c:55)
+ n1: 792 0x48DB4FC: _nl_intern_locale_data (loadlocale.c:156)
+  n1: 792 0x48DB1B3: _nl_load_locale_from_archive (loadarchive.c:477)
+   n1: 792 0x48DA458: _nl_find_locale (findlocale.c:152)
+    n1: 792 0x48DD382: setlocale (setlocale.c:337)
+     n1: 792 0x4381C1: init (init.c:88)
+      n0: 792 0x4010A4: main (lusush.c:55)
+ n1: 384 0x43B896: ht_create (ht.c:264)
+  n1: 384 0x43C494: ht_strstr_create (ht_strstr.c:30)
+   n1: 384 0x452027: symtable_manager_new (symtable.c:183)
+    n1: 384 0x453478: init_symtable (symtable.c:659)
+     n1: 384 0x4381CB: init (init.c:94)
+      n0: 384 0x4010A4: main (lusush.c:55)
+ n0: 359 in 11 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=5
+#-----------
+time=1738280
+mem_heap_B=14099
+mem_heap_extra_B=6373
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=6
+#-----------
+time=1959196
+mem_heap_B=15281
+mem_heap_extra_B=6863
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=2214434
+mem_heap_B=695159
+mem_heap_extra_B=13553
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=2444078
+mem_heap_B=707126
+mem_heap_extra_B=22786
+mem_stacks_B=0
+heap_tree=detailed
+n4: 707126 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n3: 51282 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n0: 11058 in 3 places, all below massif's threshold (1.00%)
+  n1: 8208 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 8208 0x4897ABD: add_history (history.c:329)
+    n1: 8208 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 8208 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 8208 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 8208 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 8208 0x438B7D: init (init.c:348)
+         n0: 8208 0x4010A4: main (lusush.c:55)
+ n0: 47804 in 32 places, all below massif's threshold (1.00%)
+ n1: 20040 0x48A30AB: read_history_range (histfile.c:329)
+  n1: 20040 0x43F16F: lusush_history_load (readline_integration.c:703)
+   n1: 20040 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+    n1: 20040 0x43F238: lusush_readline_init (readline_integration.c:320)
+     n1: 20040 0x438B7D: init (init.c:348)
+      n0: 20040 0x4010A4: main (lusush.c:55)
+#-----------
+snapshot=9
+#-----------
+time=2596868
+mem_heap_B=716273
+mem_heap_extra_B=28367
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=2768512
+mem_heap_B=725839
+mem_heap_extra_B=34809
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=2878037
+mem_heap_B=731930
+mem_heap_extra_B=38982
+mem_stacks_B=0
+heap_tree=detailed
+n4: 731930 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n5: 76086 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 18397 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 18397 0x4897ABD: add_history (history.c:329)
+    n1: 18397 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 18397 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 18397 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 18397 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 18397 0x438B7D: init (init.c:348)
+         n0: 18397 0x4010A4: main (lusush.c:55)
+  n1: 17088 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 17088 0x4897ABD: add_history (history.c:329)
+    n1: 17088 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 17088 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 17088 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 17088 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 17088 0x438B7D: init (init.c:348)
+         n0: 17088 0x4010A4: main (lusush.c:55)
+  n1: 8556 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 8556 0x4897A96: add_history (history.c:329)
+    n1: 8556 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 8556 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 8556 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 8556 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 8556 0x438B7D: init (init.c:348)
+         n0: 8556 0x4010A4: main (lusush.c:55)
+  n0: 29 in 1 place, below massif's threshold (1.00%)
+ n0: 47804 in 32 places, all below massif's threshold (1.00%)
+ n1: 20040 0x48A30AB: read_history_range (histfile.c:329)
+  n1: 20040 0x43F16F: lusush_history_load (readline_integration.c:703)
+   n1: 20040 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+    n1: 20040 0x43F238: lusush_readline_init (readline_integration.c:320)
+     n1: 20040 0x438B7D: init (init.c:348)
+      n0: 20040 0x4010A4: main (lusush.c:55)
+#-----------
+snapshot=12
+#-----------
+time=3038986
+mem_heap_B=750418
+mem_heap_extra_B=43406
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=3234181
+mem_heap_B=783873
+mem_heap_extra_B=47103
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=3369867
+mem_heap_B=790858
+mem_heap_extra_B=52662
+mem_stacks_B=0
+heap_tree=detailed
+n4: 790858 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n6: 108353 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 24000 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 24000 0x4897ABD: add_history (history.c:329)
+    n2: 24000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 19392 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 19392 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 19392 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 19392 0x438B7D: init (init.c:348)
+         n0: 19392 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 23860 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 23860 0x4897ABD: add_history (history.c:329)
+    n2: 23860 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 20039 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 20039 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 20039 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 20039 0x438B7D: init (init.c:348)
+         n0: 20039 0x4010A4: main (lusush.c:55)
+     n0: 3821 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n1: 12000 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 12000 0x4897A96: add_history (history.c:329)
+    n2: 12000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 9696 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 9696 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 9696 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 9696 0x438B7D: init (init.c:348)
+         n0: 9696 0x4010A4: main (lusush.c:55)
+     n0: 2304 in 1 place, below massif's threshold (1.00%)
+  n0: 29 in 2 places, all below massif's threshold (1.00%)
+ n0: 74465 in 54 places, all below massif's threshold (1.00%)
+ n2: 20040 0x48A30AB: read_history_range (histfile.c:329)
+  n1: 20040 0x43E977: lusush_history_load (readline_integration.c:703)
+   n1: 20040 0x40AB6D: init_history (history.c:56)
+    n1: 20040 0x438D1E: init (init.c:454)
+     n0: 20040 0x4010A4: main (lusush.c:55)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=15
+#-----------
+time=3550299
+mem_heap_B=790924
+mem_heap_extra_B=52740
+mem_stacks_B=0
+heap_tree=detailed
+n4: 790924 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n6: 108419 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 23976 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 23976 0x4897ABD: add_history (history.c:329)
+    n2: 23976 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 17232 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 17232 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 17232 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 17232 0x438B7D: init (init.c:348)
+         n0: 17232 0x4010A4: main (lusush.c:55)
+     n0: 6744 in 1 place, below massif's threshold (1.00%)
+  n1: 23950 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 23950 0x4897ABD: add_history (history.c:329)
+    n2: 23950 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 18463 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 18463 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 18463 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 18463 0x438B7D: init (init.c:348)
+         n0: 18463 0x4010A4: main (lusush.c:55)
+     n0: 5487 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n1: 12000 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 12000 0x4897A96: add_history (history.c:329)
+    n2: 12000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 8616 0x43F16F: lusush_history_load (readline_integration.c:703)
+      n1: 8616 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+       n1: 8616 0x43F238: lusush_readline_init (readline_integration.c:320)
+        n1: 8616 0x438B7D: init (init.c:348)
+         n0: 8616 0x4010A4: main (lusush.c:55)
+     n0: 3384 in 1 place, below massif's threshold (1.00%)
+  n0: 29 in 2 places, all below massif's threshold (1.00%)
+ n0: 74465 in 54 places, all below massif's threshold (1.00%)
+ n2: 20040 0x48A30AB: read_history_range (histfile.c:329)
+  n1: 20040 0x43E977: lusush_history_load (readline_integration.c:703)
+   n1: 20040 0x40AB6D: init_history (history.c:56)
+    n1: 20040 0x438D1E: init (init.c:454)
+     n0: 20040 0x4010A4: main (lusush.c:55)
+  n0: 0 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=16
+#-----------
+time=3812889
+mem_heap_B=791030
+mem_heap_extra_B=52666
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=4019434
+mem_heap_B=793382
+mem_heap_extra_B=52570
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=4158201
+mem_heap_B=793577
+mem_heap_extra_B=52439
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=19
+#-----------
+time=4329448
+mem_heap_B=792403
+mem_heap_extra_B=52733
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=4468493
+mem_heap_B=792250
+mem_heap_extra_B=52758
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=21
+#-----------
+time=4604416
+mem_heap_B=791510
+mem_heap_extra_B=52842
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=4809912
+mem_heap_B=771079
+mem_heap_extra_B=52673
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=4918623
+mem_heap_B=770944
+mem_heap_extra_B=52568
+mem_stacks_B=0
+heap_tree=detailed
+n3: 770944 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n6: 108479 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 24183 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 24183 0x4897ABD: add_history (history.c:329)
+    n2: 24183 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 19810 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 19810 0x40AB6D: init_history (history.c:56)
+       n1: 19810 0x438D1E: init (init.c:454)
+        n0: 19810 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 23832 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 23832 0x4897ABD: add_history (history.c:329)
+    n2: 23832 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 19224 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 19224 0x40AB6D: init_history (history.c:56)
+       n1: 19224 0x438D1E: init (init.c:454)
+        n0: 19224 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n1: 12000 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 12000 0x4897A96: add_history (history.c:329)
+    n2: 12000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 9696 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 9696 0x40AB6D: init_history (history.c:56)
+       n1: 9696 0x438D1E: init (init.c:454)
+        n0: 9696 0x4010A4: main (lusush.c:55)
+     n0: 2304 in 1 place, below massif's threshold (1.00%)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n0: 74465 in 55 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=24
+#-----------
+time=5102216
+mem_heap_B=770721
+mem_heap_extra_B=52407
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=5245468
+mem_heap_B=770536
+mem_heap_extra_B=52288
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=5381149
+mem_heap_B=770289
+mem_heap_extra_B=52151
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=27
+#-----------
+time=5522267
+mem_heap_B=770094
+mem_heap_extra_B=52010
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=5657602
+mem_heap_B=769921
+mem_heap_extra_B=51879
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=5794205
+mem_heap_B=769729
+mem_heap_extra_B=51735
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=5931251
+mem_heap_B=769529
+mem_heap_extra_B=51599
+mem_stacks_B=0
+heap_tree=detailed
+n3: 769529 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n6: 107064 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 23464 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 23464 0x4897ABD: add_history (history.c:329)
+    n2: 23464 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 19091 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 19091 0x40AB6D: init_history (history.c:56)
+       n1: 19091 0x438D1E: init (init.c:454)
+        n0: 19091 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 23136 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 23136 0x4897ABD: add_history (history.c:329)
+    n2: 23136 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 18528 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 18528 0x40AB6D: init_history (history.c:56)
+       n1: 18528 0x438D1E: init (init.c:454)
+        n0: 18528 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n1: 12000 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 12000 0x4897A96: add_history (history.c:329)
+    n2: 12000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 9696 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 9696 0x40AB6D: init_history (history.c:56)
+       n1: 9696 0x438D1E: init (init.c:454)
+        n0: 9696 0x4010A4: main (lusush.c:55)
+     n0: 2304 in 1 place, below massif's threshold (1.00%)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n0: 74465 in 55 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=31
+#-----------
+time=6062167
+mem_heap_B=769379
+mem_heap_extra_B=51477
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=32
+#-----------
+time=6321900
+mem_heap_B=768907
+mem_heap_extra_B=51229
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=6517323
+mem_heap_B=768650
+mem_heap_extra_B=51038
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=6648391
+mem_heap_B=768452
+mem_heap_extra_B=50900
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=6808031
+mem_heap_B=768219
+mem_heap_extra_B=50733
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=6991584
+mem_heap_B=767929
+mem_heap_extra_B=50559
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=7173054
+mem_heap_B=767581
+mem_heap_extra_B=50395
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=38
+#-----------
+time=7355872
+mem_heap_B=767241
+mem_heap_extra_B=50207
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=7515159
+mem_heap_B=766986
+mem_heap_extra_B=50062
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=40
+#-----------
+time=7690185
+mem_heap_B=766574
+mem_heap_extra_B=49866
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=7862811
+mem_heap_B=766140
+mem_heap_extra_B=49676
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=8045369
+mem_heap_B=765908
+mem_heap_extra_B=49492
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=8212424
+mem_heap_B=765690
+mem_heap_extra_B=49310
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=8375717
+mem_heap_B=765494
+mem_heap_extra_B=49122
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=8617989
+mem_heap_B=765161
+mem_heap_extra_B=48831
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=8779084
+mem_heap_B=764907
+mem_heap_extra_B=48637
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=8935200
+mem_heap_B=764648
+mem_heap_extra_B=48432
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=9170808
+mem_heap_B=764191
+mem_heap_extra_B=48137
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=49
+#-----------
+time=9336828
+mem_heap_B=763911
+mem_heap_extra_B=47937
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=9457844
+mem_heap_B=763724
+mem_heap_extra_B=47756
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=9576648
+mem_heap_B=763579
+mem_heap_extra_B=47581
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=52
+#-----------
+time=9696599
+mem_heap_B=763383
+mem_heap_extra_B=47425
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=9817365
+mem_heap_B=763111
+mem_heap_extra_B=47265
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=54
+#-----------
+time=9947233
+mem_heap_B=762966
+mem_heap_extra_B=47090
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=10058837
+mem_heap_B=762732
+mem_heap_extra_B=46940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=10172305
+mem_heap_B=762328
+mem_heap_extra_B=46640
+mem_stacks_B=0
+heap_tree=detailed
+n3: 762328 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n6: 99863 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 20007 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 20007 0x4897ABD: add_history (history.c:329)
+    n2: 20007 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15634 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15634 0x40AB6D: init_history (history.c:56)
+       n1: 15634 0x438D1E: init (init.c:454)
+        n0: 15634 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19392 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19392 0x4897ABD: add_history (history.c:329)
+    n2: 19392 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14784 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14784 0x40AB6D: init_history (history.c:56)
+       n1: 14784 0x438D1E: init (init.c:454)
+        n0: 14784 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n1: 12000 0x4897A96: UnknownInlinedFun (history.c:270)
+   n1: 12000 0x4897A96: add_history (history.c:329)
+    n2: 12000 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 9696 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 9696 0x40AB6D: init_history (history.c:56)
+       n1: 9696 0x438D1E: init (init.c:454)
+        n0: 9696 0x4010A4: main (lusush.c:55)
+     n0: 2304 in 1 place, below massif's threshold (1.00%)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n0: 74465 in 55 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=57
+#-----------
+time=16837055
+mem_heap_B=757915
+mem_heap_extra_B=46349
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=16838203
+mem_heap_B=1158056
+mem_heap_extra_B=46464
+mem_stacks_B=0
+heap_tree=detailed
+n4: 1158056 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 99547 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n0: 12000 in 3 places, all below massif's threshold (1.00%)
+ n0: 70509 in 56 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=59
+#-----------
+time=16928283
+mem_heap_B=1166367
+mem_heap_extra_B=50233
+mem_stacks_B=0
+heap_tree=detailed
+n4: 1166367 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 99547 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n0: 12000 in 3 places, all below massif's threshold (1.00%)
+ n0: 78820 in 57 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=60
+#-----------
+time=17037052
+mem_heap_B=1171127
+mem_heap_extra_B=54353
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=17060589
+mem_heap_B=1173734
+mem_heap_extra_B=55082
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1173734 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 99547 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 12336 0x43DD04: setup_key_bindings (readline_integration.c:2288)
+     n1: 12336 0x43F04A: lusush_readline_init.part.0 (readline_integration.c:359)
+      n1: 12336 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 12336 0x438B7D: init (init.c:348)
+        n0: 12336 0x4010A4: main (lusush.c:55)
+    n0: 4112 in 1 place, below massif's threshold (1.00%)
+  n0: 12000 in 3 places, all below massif's threshold (1.00%)
+ n0: 70818 in 56 places, all below massif's threshold (1.00%)
+ n1: 15369 0x4955AAE: strdup (strdup.c:42)
+  n0: 15369 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=62
+#-----------
+time=17169323
+mem_heap_B=1179995
+mem_heap_extra_B=58589
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=17200117
+mem_heap_B=1181580
+mem_heap_extra_B=59532
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1181580 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 99547 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n1: 16448 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n1: 16448 0x4878E5F: rl_generic_bind (bind.c:454)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n0: 12000 in 3 places, all below massif's threshold (1.00%)
+ n0: 70818 in 56 places, all below massif's threshold (1.00%)
+ n2: 23215 0x4955AAE: strdup (strdup.c:42)
+  n1: 18951 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 18951 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 18951 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 18951 0x439300: init (init.c:466)
+      n0: 18951 0x4010A4: main (lusush.c:55)
+  n0: 4264 in 29 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=64
+#-----------
+time=19290521
+mem_heap_B=1180258
+mem_heap_extra_B=60942
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=19340313
+mem_heap_B=1193298
+mem_heap_extra_B=62214
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1193298 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 111495 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 24672 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n1: 24672 0x4878E5F: rl_generic_bind (bind.c:454)
+    n0: 24672 in 3 places, all below massif's threshold (1.00%)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 15724 in 17 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=66
+#-----------
+time=19369793
+mem_heap_B=1209746
+mem_heap_extra_B=62246
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1209746 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 127943 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 41120 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 41120 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 24672 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 24672 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 24672 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 24672 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 24672 0x4884D86: readline (readline.c:379)
+         n1: 24672 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 24672 0x43A494: ln_gets (input.c:647)
+           n0: 24672 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 15724 in 17 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=67
+#-----------
+time=19398515
+mem_heap_B=1225244
+mem_heap_extra_B=62252
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1225244 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 143441 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 57568 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n2: 57568 0x4878E5F: rl_generic_bind (bind.c:454)
+    n0: 28784 in 3 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=68
+#-----------
+time=19416334
+mem_heap_B=1249916
+mem_heap_extra_B=62300
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1249916 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 168113 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 82240 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 82240 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 37008 0x4884825: UnknownInlinedFun (bind.c:340)
+     n1: 37008 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n0: 37008 in 5 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=69
+#-----------
+time=19424405
+mem_heap_B=1266364
+mem_heap_extra_B=62332
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1266364 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 184561 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 98688 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 98688 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 53456 0x4884825: UnknownInlinedFun (bind.c:340)
+     n2: 53456 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n0: 32896 in 4 places, all below massif's threshold (1.00%)
+      n1: 20560 0x48849F0: bind_arrow_keys_internal (readline.c:1398)
+       n0: 20560 in 2 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=70
+#-----------
+time=19442501
+mem_heap_B=1291036
+mem_heap_extra_B=62380
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1291036 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 209233 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 123360 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 123360 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 78128 0x4884825: UnknownInlinedFun (bind.c:340)
+     n4: 78128 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n1: 24672 0x48849CA: bind_arrow_keys_internal (readline.c:1396)
+       n0: 24672 in 2 places, all below massif's threshold (1.00%)
+      n1: 20560 0x48849F0: bind_arrow_keys_internal (readline.c:1398)
+       n0: 20560 in 2 places, all below massif's threshold (1.00%)
+      n0: 16448 in 2 places, all below massif's threshold (1.00%)
+      n1: 16448 0x48848E6: bind_arrow_keys_internal (readline.c:1381)
+       n0: 16448 in 2 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=71
+#-----------
+time=19450572
+mem_heap_B=1307484
+mem_heap_extra_B=62412
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1307484 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 225681 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 139808 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 139808 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 94576 0x4884825: UnknownInlinedFun (bind.c:340)
+     n4: 94576 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n1: 32896 0x48849F0: bind_arrow_keys_internal (readline.c:1398)
+       n0: 32896 in 3 places, all below massif's threshold (1.00%)
+      n1: 24672 0x48849CA: bind_arrow_keys_internal (readline.c:1396)
+       n0: 24672 in 2 places, all below massif's threshold (1.00%)
+      n0: 20560 in 2 places, all below massif's threshold (1.00%)
+      n1: 16448 0x48848E6: bind_arrow_keys_internal (readline.c:1381)
+       n0: 16448 in 2 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=72
+#-----------
+time=19459996
+mem_heap_B=1328044
+mem_heap_extra_B=62452
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1328044 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 246241 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 160368 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 160368 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 115136 0x4884825: UnknownInlinedFun (bind.c:340)
+     n4: 115136 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n0: 41120 in 4 places, all below massif's threshold (1.00%)
+      n1: 32896 0x48849F0: bind_arrow_keys_internal (readline.c:1398)
+       n0: 32896 in 3 places, all below massif's threshold (1.00%)
+      n1: 24672 0x48849CA: bind_arrow_keys_internal (readline.c:1396)
+       n0: 24672 in 2 places, all below massif's threshold (1.00%)
+      n1: 16448 0x48848E6: bind_arrow_keys_internal (readline.c:1381)
+       n0: 16448 in 2 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 14774 in 18 places, all below massif's threshold (1.00%)
+ n0: 69202 in 61 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=73
+#-----------
+time=19558804
+mem_heap_B=1345487
+mem_heap_extra_B=62561
+mem_stacks_B=0
+heap_tree=peak
+n5: 1345487 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 588000 0x44AA8D: create_ssh_host_cache (network.c:502)
+  n1: 588000 0x44AA8D: network_init (network.c:48)
+   n1: 588000 0x4382A1: init (init.c:147)
+    n0: 588000 0x4010A4: main (lusush.c:55)
+ n1: 400000 0x40C8F1: posix_history_create (posix_history.c:162)
+  n1: 400000 0x438D33: init (init.c:458)
+   n0: 400000 0x4010A4: main (lusush.c:55)
+ n5: 250356 0x489EA3C: xmalloc (xmalloc.c:59)
+  n1: 160368 0x4877FF1: rl_make_bare_keymap (keymaps.c:62)
+   n3: 160368 0x4878E5F: rl_generic_bind (bind.c:454)
+    n1: 115136 0x4884825: UnknownInlinedFun (bind.c:340)
+     n4: 115136 0x4884825: rl_bind_keyseq_if_unbound_in_map (bind.c:317)
+      n0: 41120 in 4 places, all below massif's threshold (1.00%)
+      n1: 32896 0x48849F0: bind_arrow_keys_internal (readline.c:1398)
+       n0: 32896 in 3 places, all below massif's threshold (1.00%)
+      n1: 24672 0x48849CA: bind_arrow_keys_internal (readline.c:1396)
+       n0: 24672 in 2 places, all below massif's threshold (1.00%)
+      n1: 16448 0x48848E6: bind_arrow_keys_internal (readline.c:1381)
+       n0: 16448 in 2 places, all below massif's threshold (1.00%)
+    n1: 28784 0x488A425: rl_parse_and_bind (bind.c:1824)
+     n1: 28784 0x488A6A3: _rl_read_init_file (bind.c:1131)
+      n1: 28784 0x4884ADA: UnknownInlinedFun (readline.c:1308)
+       n1: 28784 0x4884ADA: rl_initialize (readline.c:1196)
+        n1: 28784 0x4884D86: readline (readline.c:379)
+         n1: 28784 0x43F35F: lusush_readline_with_prompt (readline_integration.c:482)
+          n1: 28784 0x43A494: ln_gets (input.c:647)
+           n0: 28784 0x401119: main (lusush.c:85)
+    n0: 16448 in 2 places, all below massif's threshold (1.00%)
+  n1: 32016 0x4897B29: add_history (history.c:314)
+   n1: 32016 0x48A34F5: read_history_range (histfile.c:422)
+    n1: 32016 0x43F16F: lusush_history_load (readline_integration.c:703)
+     n1: 32016 0x43F16F: lusush_readline_init.part.0 (readline_integration.c:353)
+      n1: 32016 0x43F238: lusush_readline_init (readline_integration.c:320)
+       n1: 32016 0x438B7D: init (init.c:348)
+        n0: 32016 0x4010A4: main (lusush.c:55)
+  n1: 19907 0x4894CEB: alloc_history_entry (history.c:233)
+   n1: 19907 0x4897ABD: add_history (history.c:329)
+    n2: 19907 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 15534 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 15534 0x40AB6D: init_history (history.c:56)
+       n1: 15534 0x438D1E: init (init.c:454)
+        n0: 15534 0x4010A4: main (lusush.c:55)
+     n0: 4373 in 1 place, below massif's threshold (1.00%)
+  n1: 19176 0x4894CCE: alloc_history_entry (history.c:231)
+   n1: 19176 0x4897ABD: add_history (history.c:329)
+    n2: 19176 0x48A34F5: read_history_range (histfile.c:422)
+     n1: 14568 0x43E977: lusush_history_load (readline_integration.c:703)
+      n1: 14568 0x40AB6D: init_history (history.c:56)
+       n1: 14568 0x438D1E: init (init.c:454)
+        n0: 14568 0x4010A4: main (lusush.c:55)
+     n0: 4608 in 1 place, below massif's threshold (1.00%)
+  n0: 18889 in 23 places, all below massif's threshold (1.00%)
+ n0: 82530 in 63 places, all below massif's threshold (1.00%)
+ n2: 24601 0x4955AAE: strdup (strdup.c:42)
+  n1: 20039 0x40CAA5: posix_history_entry_create (posix_history.c:97)
+   n1: 20039 0x40CAA5: posix_history_add (posix_history.c:252)
+    n1: 20039 0x40D340: posix_history_load (posix_history.c:502)
+     n1: 20039 0x439300: init (init.c:466)
+      n0: 20039 0x4010A4: main (lusush.c:55)
+  n0: 4562 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=74
+#-----------
+time=19781674
+mem_heap_B=1326004
+mem_heap_extra_B=66652
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=75
+#-----------
+time=19904353
+mem_heap_B=1326024
+mem_heap_extra_B=66648
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=76
+#-----------
+time=20323169
+mem_heap_B=1327821
+mem_heap_extra_B=66867
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=77
+#-----------
+time=20436650
+mem_heap_B=1277685
+mem_heap_extra_B=30931
+mem_stacks_B=0
+heap_tree=empty

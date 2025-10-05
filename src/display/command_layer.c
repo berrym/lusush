@@ -48,6 +48,7 @@
  */
 
 #include "display/command_layer.h"
+#include "display_integration.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
 
@@ -303,6 +304,9 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
         cached = find_cache_entry(layer, command_text);
         layer->performance.cache_hits += (cached != NULL) ? 1 : 0;
         layer->performance.cache_misses += (cached == NULL) ? 1 : 0;
+        
+        // Record layer-specific cache operation
+        display_integration_record_layer_cache_operation("command_layer", (cached != NULL));
     }
     
     if (cached && cached->is_valid) {

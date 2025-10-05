@@ -85,7 +85,7 @@ extern "C" {
 #define COMPOSITION_ENGINE_CACHE_EXPIRY_MS 50
 
 // Cache configuration
-#define COMPOSITION_ENGINE_CACHE_SIZE 8
+#define COMPOSITION_ENGINE_CACHE_SIZE 32
 #define COMPOSITION_ENGINE_METRICS_HISTORY_SIZE 32
 
 // Composition algorithm configuration

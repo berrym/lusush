@@ -646,7 +646,7 @@ layer_events_error_t composition_engine_handle_content_changed(
     }
     
     // Enhanced Performance Monitoring: Record cache miss
-    display_integration_record_cache_operation(false);
+    display_integration_record_layer_cache_operation("composition_engine", false);
     
     return LAYER_EVENTS_SUCCESS;
 }
@@ -831,7 +831,7 @@ composition_engine_error_t composition_engine_compose(composition_engine_t *engi
         }
         
         // Enhanced Performance Monitoring: Record cache hit
-        display_integration_record_cache_operation(true);
+        display_integration_record_layer_cache_operation("composition_engine", true);
         
         return COMPOSITION_ENGINE_SUCCESS;
     }
@@ -842,7 +842,7 @@ composition_engine_error_t composition_engine_compose(composition_engine_t *engi
     }
     
     // Enhanced Performance Monitoring: Record cache miss
-    display_integration_record_cache_operation(false);
+    display_integration_record_layer_cache_operation("composition_engine", false);
     
     // Analyze prompt structure
     uint64_t analysis_start = get_timestamp_ns();
