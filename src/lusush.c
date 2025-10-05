@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
         // Phase 1: Post-command display integration for layered display caching
         // This enables the layered display system to handle post-command prompt
         // rendering and achieve >75% cache hit rate targets
-        display_integration_post_command_update();
+        display_integration_post_command_update(line);
 
         // Check notify option (-b): asynchronous background job notification
         if (shell_opts.notify && global_executor) {

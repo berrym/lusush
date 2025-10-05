@@ -331,11 +331,13 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt);
  * execution to ensure the layered display system handles post-command
  * prompt rendering and caching optimization.
  * 
+ * @param executed_command The command that was just executed (for cache analysis)
+ * 
  * Usage: Call after parse_and_execute() in main shell loop.
  * Behavior: Uses layered display for post-command rendering when enabled,
- *          no-op when disabled.
+ *          no-op when disabled. Analyzes command for cache optimization.
  */
-void display_integration_post_command_update(void);
+void display_integration_post_command_update(const char *executed_command);
 
 // ============================================================================
 // PERFORMANCE MONITORING AND DIAGNOSTICS
