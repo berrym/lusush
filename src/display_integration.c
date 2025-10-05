@@ -49,6 +49,7 @@
 #include "../include/themes.h"
 #include "../include/lusush.h"
 #include "../include/config.h"
+#include "../include/lusush_memory_pool.h"
 #include <libgen.h>
 
 #include <stdio.h>
@@ -440,13 +441,13 @@ void display_integration_redisplay(void) {
             // Display controller succeeded - output result
             printf("%s", display_output);
             fflush(stdout);
-            if (current_prompt) free(current_prompt);
+            if (current_prompt) lusush_pool_free(current_prompt);
             in_display_redisplay = false;
             return;
         }
         
         // Clean up prompt
-        if (current_prompt) free(current_prompt);
+        if (current_prompt) lusush_pool_free(current_prompt);
     }
     
     // Fallback to standard display
@@ -580,13 +581,13 @@ void display_integration_prompt_update(void) {
         
         if (result == DISPLAY_CONTROLLER_SUCCESS) {
             // Display controller succeeded
-            if (current_prompt) free(current_prompt);
+            if (current_prompt) lusush_pool_free(current_prompt);
             in_prompt_update = false;
             return;
         }
         
         // Clean up prompt
-        if (current_prompt) free(current_prompt);
+        if (current_prompt) lusush_pool_free(current_prompt);
     }
     
     // Fallback: call original functions safely
@@ -813,7 +814,7 @@ void display_integration_post_command_update(const char *executed_command) {
         
         // Clean up prompt memory
         if (current_prompt) {
-            free(current_prompt);
+            lusush_pool_free(current_prompt);
         }
     }
     
@@ -996,9 +997,9 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
 
-    // Generate base prompt using theme system
+    // Generate base prompt using memory pool system
     size_t base_prompt_size = 512;
-    char *base_prompt = malloc(base_prompt_size);
+    char *base_prompt = lusush_pool_alloc(base_prompt_size);
     if (!base_prompt) {
         return false;
     }
@@ -1023,7 +1024,7 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
             base_prompt[base_prompt_size - 1] = '\0';
         }
         
-        if (current_dir) free(current_dir);
+        if (current_dir) lusush_pool_free(current_dir);
     }
 
     // Phase 2: Use display controller for sophisticated prompt caching and optimization
@@ -1040,8 +1041,8 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
 
     if (result == DISPLAY_CONTROLLER_SUCCESS) {
         // Display controller succeeded - use optimized output
-        *enhanced_prompt = strdup(display_output);
-        free(base_prompt);
+        *enhanced_prompt = lusush_pool_strdup(display_output);
+        lusush_pool_free(base_prompt);
         
         if (current_config.debug_mode) {
             fprintf(stderr, "display_integration: Enhanced prompt generation using display controller cache\n");
@@ -1829,6 +1830,31 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
         printf("Baseline: Not established (need more measurements)\n");
     }
     
+    // Memory Pool Performance (if available)
+    if (global_memory_pool && global_memory_pool->initialized) {
+        lusush_pool_stats_t pool_stats = lusush_pool_get_stats();
+        printf("Memory Pool Performance:\n");
+        printf("  Pool allocations: %lu (%.1f%% hit rate)\n", 
+               pool_stats.pool_hits, pool_stats.pool_hit_rate);
+        printf("  Malloc fallbacks: %lu\n", pool_stats.malloc_fallbacks);
+        printf("  Active allocations: %u\n", pool_stats.active_allocations);
+        printf("  Pool memory usage: %lu bytes (peak: %lu bytes)\n",
+               pool_stats.current_pool_usage, pool_stats.peak_pool_usage);
+        if (pool_stats.avg_allocation_time_ns > 0) {
+            printf("  Avg allocation time: %lu ns\n", pool_stats.avg_allocation_time_ns);
+        }
+        
+        // Memory pool efficiency assessment
+        printf("  Pool efficiency: ");
+        if (pool_stats.pool_hit_rate > 80.0) {
+            printf("EXCELLENT ✓\n");
+        } else if (pool_stats.pool_hit_rate > 60.0) {
+            printf("GOOD ⚠\n");
+        } else {
+            printf("NEEDS OPTIMIZATION ✗\n");
+        }
+    }
+    
     // Overall Performance Status
     printf("Performance Status: ");
     if (enhanced_perf_metrics.cache_target_achieved && enhanced_perf_metrics.display_timing_target_achieved) {
@@ -1842,6 +1868,19 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
     printf("=====================================\n\n");
     
     return true;
+}
+
+/**
+ * Invalidate display controller cache to force regeneration.
+ * Used when themes change or other prompt-affecting changes occur.
+ */
+bool display_integration_invalidate_cache(void) {
+    if (!integration_initialized || !global_display_controller) {
+        return false;
+    }
+    
+    display_controller_error_t result = display_controller_clear_cache(global_display_controller);
+    return (result == DISPLAY_CONTROLLER_SUCCESS);
 }
 
 /**

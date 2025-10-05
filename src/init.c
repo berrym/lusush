@@ -20,6 +20,7 @@
 #include "../include/themes.h"
 #include "../include/version.h"
 #include "../include/display_integration.h"
+#include "../include/lusush_memory_pool.h"
 
 #include <getopt.h>
 #include <locale.h>
@@ -379,6 +380,21 @@ int init(int argc, char **argv, FILE **in) {
             }
         }
         
+        // Initialize memory pool system for display operations
+        lusush_pool_config_t pool_config = lusush_pool_get_display_optimized_config();
+        pool_config.enable_debugging = (getenv("LUSUSH_MEMORY_DEBUG") != NULL);
+        
+        lusush_pool_error_t pool_result = lusush_pool_init(&pool_config);
+        if (pool_result != LUSUSH_POOL_SUCCESS) {
+            if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
+                fprintf(stderr, "Warning: Failed to initialize memory pool system: %s\n", 
+                        lusush_pool_error_string(pool_result));
+                fprintf(stderr, "Continuing with standard malloc/free operations\n");
+            }
+        } else if (display_config.debug_mode || getenv("LUSUSH_MEMORY_DEBUG")) {
+            fprintf(stderr, "Memory pool system initialized successfully\n");
+        }
+
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
             // Configure display options based on environment and command line
@@ -507,6 +523,9 @@ int init(int argc, char **argv, FILE **in) {
         process_shebang(*in);
     }
 
+    // Register memory pool cleanup first (for all shell modes) - runs LAST
+    atexit(lusush_pool_shutdown);
+    
     // Register cleanup for readline integration
     if (IS_INTERACTIVE_SHELL) {
         atexit(lusush_readline_cleanup);

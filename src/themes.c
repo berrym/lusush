@@ -10,9 +10,10 @@
 #define _GNU_SOURCE
 
 #include "../include/themes.h"
+#include "../include/display_integration.h"
+#include "../include/display/display_controller.h"
 
 #include "../include/config.h"
-#include "../include/display_integration.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/strings.h"
@@ -1088,6 +1089,13 @@ bool theme_set_active(const char *name) {
     theme_cache.is_valid = false;
     if (!theme_cache_initialized) {
         theme_cache_initialized = true;
+    }
+
+    // Invalidate display controller cache to force prompt regeneration with new theme
+    if (display_integration_invalidate_cache()) {
+        if (debug_enabled) {
+            printf("Display controller cache cleared for theme change\n");
+        }
     }
 
     // Enhanced Performance Monitoring: Record theme change timing
