@@ -239,14 +239,41 @@ rl_getc_function = lusush_getc;                // ✅ Clean custom getc (essenti
 - **Impact**: Unacceptable for enterprise deployment
 - **Root Cause**: Architectural integration gap between theme and layered display systems
 
-#### 🎯 REQUIRED INTEGRATION WORK (Release Blocking):
-1. **Theme System Analysis**: Document current theme architecture and integration points
-2. **Layered Display Analysis**: Map prompt processing pipeline and identify theme loss points  
-3. **Integration Gap Analysis**: Systematic comparison of theme-aware vs theme-unaware flows
-4. **Architecture Design**: First-class theme integration design for layered display system
-5. **Implementation Plan**: Systematic fix approach with zero regression guarantees
-6. **Integration Implementation**: Professional theme-layered display integration
-7. **Comprehensive Testing**: Validate theme functionality across all display modes
+#### ✅ SYSTEMATIC ANALYSIS COMPLETED - CRITICAL BUG ROOT CAUSE IDENTIFIED:
+
+**Root Cause**: Theme-aware state hashing missing from layered display cache system
+- **Theme System**: Working correctly - generates different prompt text for different themes
+- **Display Integration**: Working correctly - passes themed prompt text to layered display
+- **Critical Gap**: `dc_generate_state_hash()` only uses prompt+command text, ignores theme context
+- **Result**: Theme changes produce different prompts but identical cache keys = cache hits with wrong theme
+
+#### 🎯 MULTI-PHASE IMPLEMENTATION PLAN (Approved for Implementation):
+
+**Phase 1: Theme Context Integration in Display Controller** ⏳ IN PROGRESS
+1. Add theme context fields to `display_controller_t` structure
+2. Modify `dc_generate_state_hash()` to include theme name and symbol mode
+3. Add `display_controller_set_theme_context()` management function
+4. Update all state hash generation calls to pass theme information
+
+**Phase 2: Theme Change Notification System**
+1. Add display controller notification to `theme_set_active()` function
+2. Implement intelligent cache invalidation for theme changes
+3. Update display integration to pass current theme context
+4. Add theme context validation and error handling
+
+**Phase 3: Integration Testing and Validation**
+1. Test theme changes with layered display enabled across all 6 themes
+2. Verify cache performance maintained (>75% hit rate after theme stabilizes)  
+3. Confirm zero regression in non-layered display mode
+4. Validate symbol compatibility integration with theme changes
+5. Performance testing with theme switching under load
+
+**Success Criteria**:
+- Theme changes immediately visible with layered display enabled
+- Cache invalidation works correctly without performance degradation
+- All 6 enterprise themes functional in layered display mode
+- Zero regression in existing theme and display functionality
+- Professional commit standards maintained throughout implementation
 
 #### ✅ COMPLETED OPTIMIZATIONS (Blocked for Release):
 1. **✅ Memory Pool System**: Enterprise-grade memory management (91.2% efficiency)

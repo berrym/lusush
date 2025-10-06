@@ -62,6 +62,7 @@
 #include "layer_events.h"
 #include "composition_engine.h"
 #include "terminal_control.h"
+#include "../themes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -155,6 +156,7 @@ typedef struct {
     // Caching performance
     uint64_t cache_hits;                        // Display cache hits
     uint64_t cache_misses;                      // Display cache misses
+    uint64_t cache_invalidations;               // Cache invalidation operations
     double cache_hit_rate;                      // Cache hit rate percentage
     size_t cache_memory_usage_bytes;            // Cache memory usage
     
@@ -262,6 +264,11 @@ typedef struct {
     bool integration_mode_active;               // Shell integration mode
     struct timeval initialization_time;        // Initialization timestamp
     uint32_t operation_sequence_number;        // Operation sequence counter
+    
+    // Theme context integration
+    char current_theme_name[THEME_NAME_MAX];    // Current active theme name
+    symbol_compatibility_t current_symbol_mode; // Current symbol compatibility mode
+    bool theme_context_initialized;             // Theme context initialization state
 } display_controller_t;
 
 // ============================================================================
@@ -568,6 +575,24 @@ display_controller_error_t display_controller_set_integration_mode(
  * @return True if initialized, false otherwise
  */
 bool display_controller_is_initialized(const display_controller_t *controller);
+
+/**
+ * Set theme context for the display controller.
+ * 
+ * Updates the display controller's theme context including theme name and symbol
+ * compatibility mode. This ensures theme-aware cache key generation and proper
+ * cache invalidation when themes change.
+ * 
+ * @param controller The display controller instance
+ * @param theme_name The name of the currently active theme
+ * @param symbol_mode The current symbol compatibility mode
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t display_controller_set_theme_context(
+    display_controller_t *controller,
+    const char *theme_name,
+    symbol_compatibility_t symbol_mode
+);
 
 /**
  * Get controller version information.

@@ -273,7 +273,8 @@ static uint32_t dc_hash_command_semantic(const char *command) {
  * Generate intelligent state hash for caching and comparison.
  * Balanced approach for optimal cache hit rates with necessary differentiation.
  */
-static void dc_generate_state_hash(const char *prompt, const char *command, 
+static void dc_generate_state_hash(const char *prompt, const char *command,
+                                   const char *theme_name, symbol_compatibility_t symbol_mode,
                                    char *hash_buffer, size_t buffer_size) {
     if (!hash_buffer || buffer_size < DC_MAX_STATE_HASH_LENGTH) return;
     
@@ -281,8 +282,12 @@ static void dc_generate_state_hash(const char *prompt, const char *command,
     uint32_t prompt_semantic = dc_hash_prompt_semantic(prompt);
     uint32_t command_semantic = dc_hash_command_semantic(command);
     
-    // Create primary hash from semantic components
-    uint32_t primary_hash = prompt_semantic ^ (command_semantic << 1);
+    // Add theme context to hash calculation
+    uint32_t theme_hash = dc_hash_string(theme_name ? theme_name : "default");
+    uint32_t symbol_hash = (uint32_t)symbol_mode;
+    
+    // Create primary hash from semantic components including theme context
+    uint32_t primary_hash = prompt_semantic ^ (command_semantic << 1) ^ (theme_hash << 2) ^ (symbol_hash << 3);
     
     // For identical repeated commands, ensure exact cache hits
     uint32_t exact_prompt = dc_hash_string(prompt ? prompt : "");
@@ -292,11 +297,11 @@ static void dc_generate_state_hash(const char *prompt, const char *command,
     // Use semantic hash as primary, exact hash for differentiation
     uint32_t secondary_hash = (exact_prompt & 0xFFFF) ^ ((exact_command & 0xFFFF) << 16);
     
-    // Final combined hash: semantic-driven but with exact differentiation
+    // Final combined hash: semantic-driven but with exact differentiation and theme context
     uint32_t combined_hash = primary_hash ^ secondary_hash;
     
-    snprintf(hash_buffer, buffer_size, "s%08x_e%08x_c%08x", 
-             primary_hash, secondary_hash, combined_hash);
+    snprintf(hash_buffer, buffer_size, "s%08x_e%08x_c%08x_t%08x_m%x", 
+             primary_hash, secondary_hash, combined_hash, theme_hash, symbol_hash);
 }
 
 /**
@@ -681,7 +686,8 @@ display_controller_error_t display_controller_init(
                  i < 16; i++) { // Expanded preheating for better coverage
                 
                 char state_hash[DC_MAX_STATE_HASH_LENGTH];
-                dc_generate_state_hash(current_prompt, common_commands[i], 
+                dc_generate_state_hash(current_prompt, common_commands[i],
+                                     "default", SYMBOL_MODE_AUTO,
                                      state_hash, sizeof(state_hash));
                 
                 // Create optimized cache entry for common patterns
@@ -703,7 +709,8 @@ display_controller_error_t display_controller_init(
             const char* repeated_commands[] = {"ls", "pwd", "echo", "git status"};
             for (size_t i = 0; i < sizeof(repeated_commands)/sizeof(repeated_commands[0]); i++) {
                 char state_hash[DC_MAX_STATE_HASH_LENGTH];
-                dc_generate_state_hash(current_prompt, repeated_commands[i], 
+                dc_generate_state_hash(current_prompt, repeated_commands[i],
+                                     "default", SYMBOL_MODE_AUTO,
                                      state_hash, sizeof(state_hash));
                 
                 // Find existing entry and boost its access count
@@ -721,6 +728,11 @@ display_controller_error_t display_controller_init(
     controller->is_initialized = true;
     controller->integration_mode_active = controller->config.enable_integration_mode;
     controller->operation_sequence_number = 0;
+    
+    // Initialize theme context
+    memset(controller->current_theme_name, 0, sizeof(controller->current_theme_name));
+    controller->current_symbol_mode = SYMBOL_MODE_AUTO;
+    controller->theme_context_initialized = false;
     
     gettimeofday(&controller->initialization_time, NULL);
     gettimeofday(&controller->last_performance_update, NULL);
@@ -759,9 +771,11 @@ display_controller_error_t display_controller_display(
     
     DC_DEBUG("Starting display operation (seq: %u)", controller->operation_sequence_number++);
     
-    // Generate state hash for caching
+    // Generate state hash for caching including theme context
     char state_hash[DC_MAX_STATE_HASH_LENGTH];
-    dc_generate_state_hash(prompt_text, command_text, state_hash, sizeof(state_hash));
+    dc_generate_state_hash(prompt_text, command_text, 
+                          controller->current_theme_name, controller->current_symbol_mode,
+                          state_hash, sizeof(state_hash));
     
     // Check cache if enabled
     if (controller->config.enable_caching) {
@@ -1636,6 +1650,82 @@ layer_event_system_t* display_controller_get_event_system(const display_controll
     if (!controller || !controller->is_initialized) {
         return NULL;
     }
-    
+
     return controller->event_system;
+}
+
+// ============================================================================
+// THEME CONTEXT MANAGEMENT
+// ============================================================================
+
+/**
+ * Set theme context for the display controller.
+ * 
+ * Updates the display controller's theme context including theme name and symbol
+ * compatibility mode. This ensures theme-aware cache key generation and proper
+ * cache invalidation when themes change.
+ */
+display_controller_error_t display_controller_set_theme_context(
+    display_controller_t *controller,
+    const char *theme_name,
+    symbol_compatibility_t symbol_mode) {
+    
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+    
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+    
+    // Check for theme change to invalidate relevant cache entries
+    bool theme_changed = false;
+    bool symbol_mode_changed = false;
+    
+    if (controller->theme_context_initialized) {
+        theme_changed = (theme_name && strcmp(controller->current_theme_name, theme_name) != 0);
+        symbol_mode_changed = (controller->current_symbol_mode != symbol_mode);
+    }
+    
+    // Update theme context
+    if (theme_name) {
+        strncpy(controller->current_theme_name, theme_name, THEME_NAME_MAX - 1);
+        controller->current_theme_name[THEME_NAME_MAX - 1] = '\0';
+    } else {
+        strncpy(controller->current_theme_name, "default", THEME_NAME_MAX - 1);
+    }
+    
+    controller->current_symbol_mode = symbol_mode;
+    controller->theme_context_initialized = true;
+    
+    // Invalidate cache entries if theme changed
+    if ((theme_changed || symbol_mode_changed) && controller->config.enable_caching) {
+        // Clear all cache entries since theme affects all prompts
+        for (size_t i = 0; i < controller->cache_count; i++) {
+            if (controller->cache_entries[i].is_valid) {
+                if (controller->cache_entries[i].display_content) {
+                    lusush_pool_free(controller->cache_entries[i].display_content);
+                    controller->cache_entries[i].display_content = NULL;
+                }
+                if (controller->cache_entries[i].state_hash) {
+                    lusush_pool_free(controller->cache_entries[i].state_hash);
+                    controller->cache_entries[i].state_hash = NULL;
+                }
+                controller->cache_entries[i].is_valid = false;
+            }
+        }
+        controller->cache_count = 0;
+        controller->display_cache_valid = false;
+        
+        // Update performance metrics
+        controller->performance.cache_invalidations++;
+        
+        DC_DEBUG("Theme context changed - cache invalidated (theme: %s, symbol_mode: %d)", 
+                 controller->current_theme_name, symbol_mode);
+    }
+    
+    DC_DEBUG("Theme context updated: theme=%s, symbol_mode=%d", 
+             controller->current_theme_name, symbol_mode);
+    
+    return DISPLAY_CONTROLLER_SUCCESS;
 }

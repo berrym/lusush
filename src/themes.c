@@ -1091,13 +1091,6 @@ bool theme_set_active(const char *name) {
         theme_cache_initialized = true;
     }
 
-    // Invalidate display controller cache to force prompt regeneration with new theme
-    if (display_integration_invalidate_cache()) {
-        if (debug_enabled) {
-            printf("Display controller cache cleared for theme change\n");
-        }
-    }
-
     // Enhanced Performance Monitoring: Record theme change timing
     gettimeofday(&end_time, NULL);
     uint64_t operation_time_ns = ((uint64_t)(end_time.tv_sec - start_time.tv_sec)) * 1000000000ULL +

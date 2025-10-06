@@ -574,12 +574,6 @@ bool display_integration_check_phase_2b_targets(bool *cache_target_met, bool *ti
 bool display_integration_generate_phase_2b_report(bool detailed);
 
 /**
- * Invalidate display controller cache to force regeneration.
- * Used when themes change or other prompt-affecting changes occur.
- */
-bool display_integration_invalidate_cache(void);
-
-/**
  * Record cache operation for specific layer (for detailed analysis).
  * 
  * @param layer_name Layer name ("display_controller", "composition_engine", etc.)

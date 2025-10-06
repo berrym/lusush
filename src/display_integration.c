@@ -59,6 +59,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <sys/time.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -427,6 +428,13 @@ void display_integration_redisplay(void) {
         char *current_prompt = lusush_generate_prompt();
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
         
+        // Update theme context before display controller operations
+        theme_definition_t *active_theme = theme_get_active();
+        const char *theme_name = active_theme ? active_theme->name : "default";
+        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        
+        display_controller_set_theme_context(global_display_controller, theme_name, symbol_mode);
+        
         // Use display controller for coordinated display
         char display_output[4096];
         display_controller_error_t result = display_controller_display(
@@ -459,6 +467,13 @@ void display_integration_redisplay(void) {
     if (layered_display_enabled && global_display_controller) {
         char output_buffer[4096];  // Buffer for full display output
         char *current_prompt = lusush_generate_prompt();
+        
+        // Update theme context before display controller operations
+        theme_definition_t *active_theme = theme_get_active();
+        const char *theme_name = active_theme ? active_theme->name : "default";
+        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        
+        display_controller_set_theme_context(global_display_controller, theme_name, symbol_mode);
         
         // Phase 2 Implementation: Modern Syntax Highlighting
         // Use command content during real-time typing, but not during prompt display
@@ -568,6 +583,13 @@ void display_integration_prompt_update(void) {
         // Get current prompt and command for display controller
         char *current_prompt = lusush_generate_prompt();
         char *current_command = rl_line_buffer ? rl_line_buffer : "";
+        
+        // Update theme context before display controller operations
+        theme_definition_t *active_theme = theme_get_active();
+        const char *theme_name = active_theme ? active_theme->name : "default";
+        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        
+        display_controller_set_theme_context(global_display_controller, theme_name, symbol_mode);
         
         // Use display controller for coordinated prompt update
         char display_output[4096];
@@ -719,6 +741,13 @@ void display_integration_post_command_update(const char *executed_command) {
         // Get current prompt for post-command display
         char *current_prompt = lusush_generate_prompt();
         char *current_command = ""; // Post-command state has no active command
+        
+        // Update theme context before display controller operations
+        theme_definition_t *active_theme = theme_get_active();
+        const char *theme_name = active_theme ? active_theme->name : "default";
+        symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+        
+        display_controller_set_theme_context(global_display_controller, theme_name, symbol_mode);
         
         // Phase 2.1: Command Layer Cache Integration for Post-Command Analysis
         // Analyze the executed command for caching without affecting readline display
@@ -1027,6 +1056,22 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         if (current_dir) lusush_pool_free(current_dir);
     }
 
+    // Phase 2: Update theme context before display controller operations
+    theme_definition_t *active_theme = theme_get_active();
+    const char *theme_name = active_theme ? active_theme->name : "default";
+    symbol_compatibility_t symbol_mode = symbol_get_compatibility_mode();
+    
+    // Set theme context in display controller for theme-aware caching
+    display_controller_error_t theme_result = display_controller_set_theme_context(
+        global_display_controller,
+        theme_name,
+        symbol_mode
+    );
+    
+    if (theme_result != DISPLAY_CONTROLLER_SUCCESS && current_config.debug_mode) {
+        fprintf(stderr, "display_integration: Warning - failed to set theme context: %d\n", theme_result);
+    }
+    
     // Phase 2: Use display controller for sophisticated prompt caching and optimization
     char display_output[4096];
     char *current_command = ""; // Prompt generation has no active command
@@ -1870,18 +1915,7 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
     return true;
 }
 
-/**
- * Invalidate display controller cache to force regeneration.
- * Used when themes change or other prompt-affecting changes occur.
- */
-bool display_integration_invalidate_cache(void) {
-    if (!integration_initialized || !global_display_controller) {
-        return false;
-    }
-    
-    display_controller_error_t result = display_controller_clear_cache(global_display_controller);
-    return (result == DISPLAY_CONTROLLER_SUCCESS);
-}
+
 
 /**
  * Reset enhanced performance metrics.
