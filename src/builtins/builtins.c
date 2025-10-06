@@ -4028,7 +4028,7 @@ int bin_debug(int argc __attribute__((unused)), char **argv) {
  */
 int bin_display(int argc, char **argv) {
     if (argc < 2) {
-        printf("Display Integration System (Week 8 - Layered Display Architecture)\n");
+        printf("Display Integration System\n");
         printf("Usage: display <command> [options]\n");
         printf("\nCommands:\n");
         printf("  status      - Show display integration status\n");
@@ -4335,7 +4335,7 @@ int bin_display(int argc, char **argv) {
         
     } else if (strcmp(subcmd, "help") == 0) {
         // Show help
-        printf("Display Integration System - Week 8 Layered Display Architecture\n");
+        printf("Display Integration System\n");
         printf("\nThe display integration system provides coordinated display\n");
         printf("management using the revolutionary layered display architecture.\n");
         printf("It enables universal prompt compatibility, real-time syntax\n");

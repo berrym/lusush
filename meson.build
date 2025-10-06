@@ -4,7 +4,7 @@ project('lusush',
                           'optimization=3',
                           'warning_level=2'
                          ],
-        version: '1.2.2',
+        version: '1.3.0',
         license: 'GPL-3.0+')
 
 # Debug build configuration

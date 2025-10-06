@@ -351,7 +351,7 @@ int init(int argc, char **argv, FILE **in) {
         }
         lusush_multiline_set_enabled(config.multiline_mode);
         
-        // Initialize display integration system (Week 8 - Layered Display Architecture)
+        // Initialize display integration system
         display_integration_config_t display_config;
         display_integration_create_default_config(&display_config);
         
