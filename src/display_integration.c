@@ -1034,15 +1034,10 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     }
 
     // Use theme system to generate the base prompt content
-    fprintf(stderr, "DEBUG: About to call theme_generate_primary_prompt with size %zu\n", base_prompt_size);
-    
     // Get current theme info for debugging
     theme_definition_t *active_theme = theme_get_active();
-    fprintf(stderr, "DEBUG: Active theme: %s\n", active_theme ? active_theme->name : "NULL");
     
     bool theme_result = theme_generate_primary_prompt(base_prompt, base_prompt_size);
-    fprintf(stderr, "DEBUG: theme_generate_primary_prompt returned: %s\n", theme_result ? "SUCCESS" : "FAILURE");
-    fprintf(stderr, "DEBUG: Generated base_prompt: '%s'\n", base_prompt);
     
     if (!theme_result) {
         // Fallback prompt generation
@@ -1085,8 +1080,6 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
     char display_output[4096];
     char *current_command = ""; // Prompt generation has no active command
 
-    fprintf(stderr, "DEBUG: About to call display_controller_display with base_prompt: '%s'\n", base_prompt);
-    
     display_controller_error_t result = display_controller_display(
         global_display_controller,
         base_prompt,
@@ -1094,16 +1087,11 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         display_output,
         sizeof(display_output)
     );
-    
-    fprintf(stderr, "DEBUG: display_controller_display returned: %d\n", result);
-    fprintf(stderr, "DEBUG: Display output: '%s'\n", display_output);
 
     if (result == DISPLAY_CONTROLLER_SUCCESS) {
         // Display controller succeeded - use optimized output
         *enhanced_prompt = lusush_pool_strdup(display_output);
         lusush_pool_free(base_prompt);
-        
-        fprintf(stderr, "DEBUG: Display controller SUCCESS - final enhanced_prompt: '%s'\n", *enhanced_prompt);
         
         if (current_config.debug_mode) {
             fprintf(stderr, "display_integration: Enhanced prompt generation using display controller cache\n");
@@ -1121,8 +1109,6 @@ bool display_integration_get_enhanced_prompt(char **enhanced_prompt) {
         integration_stats.layered_display_errors++;
         integration_stats.fallback_calls++;
         log_controller_error("enhanced_prompt_generation", result);
-        
-        fprintf(stderr, "DEBUG: Display controller FAILED - using base_prompt fallback: '%s'\n", base_prompt);
         
         if (current_config.debug_mode) {
             fprintf(stderr, "display_integration: Enhanced prompt fallback to theme system\n");

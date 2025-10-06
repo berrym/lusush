@@ -1816,52 +1816,47 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
 
     // Process template with responsive layout and symbol compatibility
     char temp_output[1024];
-    fprintf(stderr, "THEME_DEBUG: Processing template for theme '%s': '%s'\n", 
-            theme->name, theme->templates.primary_template);
+
     bool success = template_process_responsive(theme->templates.primary_template, ctx,
                                              temp_output, sizeof(temp_output),
                                              terminal_width, use_colors);
-    fprintf(stderr, "THEME_DEBUG: Template processing result: success=%s, output='%s'\n",
-            success ? "true" : "false", success ? temp_output : "(failed)");
+
     
     // Check for malformed escape sequences that cause display truncation
     bool has_malformed_escapes = false;
     if (success && strlen(temp_output) > 0) {
-        fprintf(stderr, "THEME_DEBUG: Checking for malformed escapes in output of length %zu\n", strlen(temp_output));
+
         for (size_t i = 0; i < strlen(temp_output) - 1; i++) {
             // Detect \x01\x02 pattern (empty escape sequence)
             if ((unsigned char)temp_output[i] == 0x01 && (unsigned char)temp_output[i+1] == 0x02) {
-                fprintf(stderr, "THEME_DEBUG: Found malformed escape at position %zu: \\x01\\x02\n", i);
+
                 has_malformed_escapes = true;
                 break;
             }
             // Debug: Show any control characters
-            if ((unsigned char)temp_output[i] < 32 && temp_output[i] != '\n' && temp_output[i] != '\t') {
-                fprintf(stderr, "THEME_DEBUG: Control character at position %zu: \\x%02x\n", i, (unsigned char)temp_output[i]);
-            }
+
         }
-        fprintf(stderr, "THEME_DEBUG: Malformed escape check result: %s\n", has_malformed_escapes ? "FOUND" : "NONE");
+
     }
     
     // Temporarily disable malformed escape detection to test theme fix
     // Only activate fallback for actual failures, not working prompts
     if (!success) { // Removed has_malformed_escapes check
-        fprintf(stderr, "THEME_DEBUG: Using fallback prompt due to template processing failure\n");
+
         
         // Create simple fallback prompt without color codes  
         snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ",
                 username, hostname, directory, git_info);
         success = true;
         has_malformed_escapes = false;
-        fprintf(stderr, "THEME_DEBUG: Fallback output: '%s'\n", temp_output);
+
     }
     
     // Apply symbol compatibility processing
     if (success) {
-        fprintf(stderr, "THEME_DEBUG: Before symbol processing: '%s'\n", temp_output);
+
         success = symbol_process_template(temp_output, output, output_size, false);
-        fprintf(stderr, "THEME_DEBUG: After symbol processing: success=%s, output='%s'\n",
-                success ? "true" : "false", success ? output : "(failed)");
+
     }
     
     // Final validation - ensure no remaining malformed escape sequences
