@@ -40,7 +40,6 @@ void init_posix_options(void) {
     shell_opts.histexpand_mode = true; // Default to history expansion enabled
     shell_opts.history_mode = true; // Default to command history recording enabled
     shell_opts.interactive_comments_mode = true; // Default to interactive comments enabled
-    shell_opts.braceexpand_mode = true; // Default to brace expansion enabled
     shell_opts.physical_mode = false; // Default to logical directory paths
     shell_opts.privileged_mode = false; // Default to unrestricted mode
 }
@@ -120,8 +119,6 @@ bool is_history_enabled(void) { return shell_opts.history_mode; }
 
 bool is_interactive_comments_enabled(void) { return shell_opts.interactive_comments_mode; }
 
-bool is_braceexpand_enabled(void) { return shell_opts.braceexpand_mode; }
-
 // Print command trace for -x option
 void print_command_trace(const char *command) {
     if (should_trace_execution()) {
@@ -160,7 +157,6 @@ static option_mapping_t option_map[] = {
     {"histexpand", &shell_opts.histexpand_mode,   0},
     { "history",    &shell_opts.history_mode,   0},
     {"interactive-comments", &shell_opts.interactive_comments_mode, 0},
-    {"braceexpand", &shell_opts.braceexpand_mode, 0},
     {"physical",    &shell_opts.physical_mode,    0},
     {"privileged",  &shell_opts.privileged_mode,  0},
     {     NULL,                        NULL,   0}
@@ -240,8 +236,8 @@ int builtin_set(char **args) {
               shell_opts.history_mode ? "on" : "off");
        printf("  interactive-comments (enable # comments in interactive mode): %s\n",
               shell_opts.interactive_comments_mode ? "on" : "off");
-       printf("  braceexpand (enable brace expansion {a,b,c}): %s\n",
-              shell_opts.braceexpand_mode ? "on" : "off");
+       printf("  physical (use physical directory paths): %s\n",
+              shell_opts.physical_mode ? "on" : "off");
        return 0;
     }
 

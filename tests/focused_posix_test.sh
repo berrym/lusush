@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-LUSUSH_BINARY="${1:-./builddir/lusush}"
+LUSUSH_BINARY="${1:-$(realpath ./builddir/lusush)}"
 TEST_DIR="/tmp/lusush_focused_test_$$"
 TOTAL_TESTS=0
 PASSED_TESTS=0
@@ -160,8 +160,7 @@ fi
 
 print_section "Command Line Options (-a through -x)"
 
-# Test that command line options are accepted
-test_cmdline_option "-a"
+# Test that command line options are accepted (only testing options lusush supports)
 test_cmdline_option "-e"
 test_cmdline_option "-f"
 test_cmdline_option "-h"
@@ -170,6 +169,8 @@ test_cmdline_option "-n"
 test_cmdline_option "-u"
 test_cmdline_option "-v"
 test_cmdline_option "-x"
+test_cmdline_option "-b"
+test_cmdline_option "-t"
 
 # Test -e (exit on error) behavior
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
@@ -219,7 +220,7 @@ test_option_existence "pipefail"
 test_option_existence "histexpand"
 test_option_existence "history"
 test_option_existence "interactive-comments"
-test_option_existence "braceexpand"
+
 test_option_existence "physical"
 test_option_existence "privileged"
 

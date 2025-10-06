@@ -264,8 +264,6 @@ static config_option_t config_options[] = {
      NULL,                                   "Command history recording (set -o history)", config_validate_shell_option },
     {            "shell.interactive-comments",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SHELL,
      NULL,                                   "Interactive comments (set -o interactive-comments)", config_validate_shell_option },
-    {            "shell.braceexpand",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SHELL,
-     NULL,                                   "Brace expansion (set -o braceexpand)", config_validate_shell_option },
     {            "shell.physical",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SHELL,
      NULL,                                   "Physical directory paths (set -o physical)", config_validate_shell_option },
     {            "shell.privileged",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SHELL,
@@ -495,8 +493,6 @@ void config_set_shell_option(const char *option_name, bool value) {
         shell_opts.history_mode = value;
     } else if (strcmp(opt_name, "interactive-comments") == 0) {
         shell_opts.interactive_comments_mode = value;
-    } else if (strcmp(opt_name, "braceexpand") == 0) {
-        shell_opts.braceexpand_mode = value;
     } else if (strcmp(opt_name, "physical") == 0) {
         shell_opts.physical_mode = value;
     } else if (strcmp(opt_name, "privileged") == 0) {
@@ -557,8 +553,6 @@ bool config_get_shell_option(const char *option_name) {
         return shell_opts.history_mode;
     } else if (strcmp(opt_name, "interactive-comments") == 0) {
         return shell_opts.interactive_comments_mode;
-    } else if (strcmp(opt_name, "braceexpand") == 0) {
-        return shell_opts.braceexpand_mode;
     } else if (strcmp(opt_name, "physical") == 0) {
         return shell_opts.physical_mode;
     } else if (strcmp(opt_name, "privileged") == 0) {

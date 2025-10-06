@@ -133,7 +133,6 @@ typedef struct shell_options {
     bool histexpand_mode; // histexpand: enable history expansion (!! !n !string)
     bool history_mode;    // history: enable command history recording
     bool interactive_comments_mode; // interactive-comments: enable # comments in interactive mode
-    bool braceexpand_mode; // braceexpand: enable brace expansion {a,b,c}
     bool physical_mode;    // physical: use physical directory paths (resolve symlinks)
     bool privileged_mode;  // privileged: restricted shell security mode
 } shell_options_t;
