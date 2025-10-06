@@ -158,6 +158,9 @@ lusush_pool_stats_t lusush_pool_get_stats(void);
 // Reset statistics counters
 void lusush_pool_reset_stats(void);
 
+// Analyze malloc fallback patterns for optimization
+void lusush_pool_analyze_fallback_patterns(void);
+
 // Get pool system status and health information
 bool lusush_pool_is_healthy(void);
 

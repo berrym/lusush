@@ -37,6 +37,10 @@ static pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool debug_mode = false;
 static lusush_pool_error_t last_error = LUSUSH_POOL_SUCCESS;
 
+// Fallback size tracking for analysis
+static size_t fallback_sizes[100];
+static int fallback_count = 0;
+
 // Pool size definitions (optimized for display operations)
 static const size_t POOL_SIZES[LUSUSH_POOL_COUNT] = {
     128,    // SMALL: state hashes, cache keys
@@ -47,10 +51,10 @@ static const size_t POOL_SIZES[LUSUSH_POOL_COUNT] = {
 
 // Default pool block counts (optimized for typical usage)
 static const size_t DEFAULT_BLOCK_COUNTS[LUSUSH_POOL_COUNT] = {
-    64,     // SMALL: High frequency allocations
-    32,     // MEDIUM: Moderate frequency
-    16,     // LARGE: Lower frequency, larger impact
-    8       // XLARGE: Infrequent but critical
+    512,    // SMALL: High frequency allocations (4x increase - analysis shows 100% fallbacks here)
+    64,     // MEDIUM: Moderate frequency (doubled from 32)
+    32,     // LARGE: Lower frequency, larger impact (doubled from 16)
+    16      // XLARGE: Infrequent but critical (doubled from 8)
 };
 
 // Performance monitoring macros
@@ -426,7 +430,13 @@ void *lusush_pool_alloc(size_t size) {
     // Fallback to malloc if pool allocation failed or size too large
     if (!result && global_memory_pool->enable_malloc_fallback) {
         result = malloc(size);
-        POOL_DEBUG("Malloc fallback: size=%zu", size);
+        
+        // Track fallback sizes for optimization analysis
+        if (fallback_count < 100) {
+            fallback_sizes[fallback_count++] = size;
+        }
+        
+        POOL_DEBUG("Malloc fallback: size=%zu (total fallbacks: %d)", size, fallback_count);
     }
 
     // Update statistics
@@ -583,6 +593,52 @@ lusush_pool_size_t lusush_pool_get_recommended_size(size_t size) {
     return find_pool_for_size(size);
 }
 
+void lusush_pool_analyze_fallback_patterns(void) {
+    if (fallback_count == 0) {
+        printf("No malloc fallbacks recorded\n");
+        return;
+    }
+    
+    printf("=== Memory Pool Fallback Analysis ===\n");
+    printf("Total fallbacks: %d\n", fallback_count);
+    
+    // Count fallbacks by size ranges
+    int small_misses = 0, medium_misses = 0, large_misses = 0, xlarge_misses = 0, oversized = 0;
+    
+    for (int i = 0; i < fallback_count; i++) {
+        size_t size = fallback_sizes[i];
+        if (size <= 128) small_misses++;
+        else if (size <= 512) medium_misses++;
+        else if (size <= 4096) large_misses++;
+        else if (size <= 16384) xlarge_misses++;
+        else oversized++;
+    }
+    
+    printf("Fallback breakdown:\n");
+    printf("  ≤ 128B (SMALL pool):  %d fallbacks\n", small_misses);
+    printf("  ≤ 512B (MEDIUM pool): %d fallbacks\n", medium_misses);
+    printf("  ≤ 4KB (LARGE pool):   %d fallbacks\n", large_misses);
+    printf("  ≤ 16KB (XLARGE pool): %d fallbacks\n", xlarge_misses);
+    printf("  > 16KB (oversized):   %d fallbacks\n", oversized);
+    
+    // Show pool status
+    if (global_memory_pool && global_memory_pool->initialized) {
+        printf("Pool Status:\n");
+        for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
+            lusush_pool_t *pool = &global_memory_pool->pools[i];
+            printf("  Pool %d (%zuB): %zu/%zu blocks free\n", 
+                   i, POOL_SIZES[i], pool->free_blocks, pool->current_blocks);
+        }
+    }
+    
+    // Show actual sizes for first 20 fallbacks
+    printf("First %d fallback sizes: ", (fallback_count < 20) ? fallback_count : 20);
+    for (int i = 0; i < fallback_count && i < 20; i++) {
+        printf("%zu ", fallback_sizes[i]);
+    }
+    printf("\n=====================================\n");
+}
+
 bool lusush_pool_is_pool_pointer(const void *ptr) {
     if (!ptr || !global_memory_pool) {
         return false;
@@ -656,8 +712,8 @@ lusush_pool_config_t lusush_pool_get_default_config(void) {
 lusush_pool_config_t lusush_pool_get_display_optimized_config(void) {
     lusush_pool_config_t config = lusush_pool_get_default_config();
     
-    // Optimize for display operations - more medium and large blocks
-    config.small_pool_blocks = 32;   // Fewer small blocks
+    // Optimize for display operations based on fallback analysis
+    config.small_pool_blocks = 512;  // Analysis shows 100% fallbacks are small allocations
     config.medium_pool_blocks = 64;  // More medium blocks for prompts
     config.large_pool_blocks = 32;   // More large blocks for compositions
     config.xlarge_pool_blocks = 16;  // More XL blocks for complex outputs
