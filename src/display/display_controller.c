@@ -894,34 +894,6 @@ display_controller_error_t display_controller_display(
         // CRITICAL FIX: Populate layers with provided content before composition engine init
         // ============================================================================
         
-        // Set prompt content if provided
-        if (prompt_text && *prompt_text) {
-            prompt_layer_error_t prompt_content_result = prompt_layer_set_content(prompt_layer, prompt_text);
-            if (prompt_content_result != PROMPT_LAYER_SUCCESS) {
-                DC_ERROR("Failed to set prompt content: error %d", prompt_content_result);
-                prompt_layer_cleanup(prompt_layer);
-                prompt_layer_destroy(prompt_layer);
-                command_layer_cleanup(command_layer);
-                command_layer_destroy(command_layer);
-                return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
-            }
-            DC_DEBUG("Set prompt content: %zu characters", strlen(prompt_text));
-        }
-        
-        // Set command content if provided (cursor position 0 for now)
-        if (command_text && *command_text) {
-            command_layer_error_t command_content_result = command_layer_set_command(command_layer, command_text, 0);
-            if (command_content_result != COMMAND_LAYER_SUCCESS) {
-                DC_ERROR("Failed to set command content: error %d", command_content_result);
-                prompt_layer_cleanup(prompt_layer);
-                prompt_layer_destroy(prompt_layer);
-                command_layer_cleanup(command_layer);
-                command_layer_destroy(command_layer);
-                return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
-            }
-            DC_DEBUG("Set command content: %zu characters", strlen(command_text));
-        }
-        
         DC_DEBUG("Layer content populated successfully");
         
         // Initialize composition engine with populated layers
@@ -939,16 +911,48 @@ display_controller_error_t display_controller_display(
         }
     }
     
-    // CACHE OPTIMIZATION: Remove forced composition cleanup to enable caching benefits
-    // The composition engine uses content hashing to detect changes and can handle
-    // layer content updates without destroying the cache on every call
-    if (composition_engine_is_initialized(controller->compositor)) {
-        DC_DEBUG("Composition engine already initialized - preserving cache for optimization");
-        // Let the composition engine handle content changes via its existing hash-based system
-        // This enables cache hits when identical content is processed
+    // ============================================================================
+    // CRITICAL BUG FIX: Always update layer content with new input
+    // ============================================================================
+    
+    // Get layers from compositor (they are public fields)
+    prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
+    command_layer_t *command_layer = controller->compositor->command_layer;
+    
+    fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Getting layers - prompt_layer=%p, command_layer=%p\n", 
+            (void*)prompt_layer, (void*)command_layer);
+    
+    if (!prompt_layer || !command_layer) {
+        fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Compositor layers not available\n");
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
     }
     
-    DC_DEBUG("Fresh layers created with current content - prompt: %zu chars, command: %zu chars", 
+    // Always update layer content with new input (this was the missing piece!)
+    fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: About to update prompt content - prompt_text=%p, *prompt_text='%c', prompt_layer=%p\n", 
+            (void*)prompt_text, prompt_text && *prompt_text ? *prompt_text : '?', (void*)prompt_layer);
+    
+    if (prompt_text && *prompt_text && prompt_layer) {
+        fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Updating prompt layer with content: '%.50s...'\n", prompt_text);
+        prompt_layer_error_t prompt_content_result = prompt_layer_set_content(prompt_layer, prompt_text);
+        if (prompt_content_result != PROMPT_LAYER_SUCCESS) {
+            fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Failed to update prompt content: error %d\n", prompt_content_result);
+            return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+        }
+        fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Successfully updated prompt content: %zu characters\n", strlen(prompt_text));
+    }
+    
+    // Always update command content with new input
+    if (command_text && *command_text && command_layer) {
+        fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Updating command layer with content: '%.50s...'\n", command_text);
+        command_layer_error_t command_content_result = command_layer_set_command(command_layer, command_text, 0);
+        if (command_content_result != COMMAND_LAYER_SUCCESS) {
+            fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Failed to update command content: error %d\n", command_content_result);
+            return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+        }
+        fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Successfully updated command content: %zu characters\n", strlen(command_text));
+    }
+    
+    fprintf(stderr, "DISPLAY_CONTROLLER_DEBUG: Layer content updated - prompt: %zu chars, command: %zu chars\n", 
              prompt_text ? strlen(prompt_text) : 0,
              command_text ? strlen(command_text) : 0);
     

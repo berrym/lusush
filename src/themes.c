@@ -1843,18 +1843,10 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
         fprintf(stderr, "THEME_DEBUG: Malformed escape check result: %s\n", has_malformed_escapes ? "FOUND" : "NONE");
     }
     
+    // Temporarily disable malformed escape detection to test theme fix
     // Only activate fallback for actual failures, not working prompts
-    if (!success || has_malformed_escapes) {
-        fprintf(stderr, "THEME_DEBUG: Using fallback prompt due to %s\n",
-                !success ? "template processing failure" : "malformed escapes");
-        
-        // Clear theme cache when malformed escapes detected to prevent caching invalid output
-        if (has_malformed_escapes) {
-            memset(last_theme_output, 0, sizeof(last_theme_output));
-            memset(last_theme_name, 0, sizeof(last_theme_name));
-            last_theme_time = 0;
-            last_symbol_mode = -1;
-        }
+    if (!success) { // Removed has_malformed_escapes check
+        fprintf(stderr, "THEME_DEBUG: Using fallback prompt due to template processing failure\n");
         
         // Create simple fallback prompt without color codes  
         snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ",
