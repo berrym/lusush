@@ -640,12 +640,12 @@ config list
 
 # Get specific setting
 config get theme.name
-config get autocorrect.enabled
+config get display.performance_monitoring
 
 # Set configuration
 config set theme.name dark
-config set autocorrect.enabled true
-config set autosuggestions.enabled true
+config set display.performance_monitoring true
+config set display.optimization_level 2
 
 # Reset to defaults
 config reset
@@ -657,7 +657,7 @@ config help
 **Common Configuration Options:**
 - `theme.name`: Current theme (modern, dark, light, etc.)
 - `autocorrect.enabled`: Enable "Did you mean" suggestions
-- `autosuggestions.enabled`: Enable command suggestions
+- `display.performance_monitoring`: Enable performance monitoring
 - `completion.enhanced`: Enhanced tab completion
 
 ---

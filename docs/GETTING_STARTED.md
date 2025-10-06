@@ -25,7 +25,7 @@ Lusush is a modern, POSIX-compliant shell that adds something no other shell off
 ### 🔍 **Unique Features**
 - **Integrated Debugger**: Debug scripts interactively without external tools
 - **Complete POSIX Compliance**: All 24 major shell options implemented
-- **Modern User Experience**: Themes, autosuggestions, and smart corrections
+- **Modern User Experience**: Professional themes and smart corrections
 - **Enterprise Security**: Privileged mode and advanced security features
 
 ### 👥 **Who Should Use Lusush**
@@ -338,12 +338,12 @@ theme set dark
 theme show
 ```
 
-### Autosuggestions and Corrections
+### Smart Corrections and Configuration
 
 ```bash
 # Enable smart features
 config set autocorrect.enabled true
-config set autosuggestions.enabled true
+config set display.performance_monitoring true
 
 # Try typing a wrong command - Lusush will suggest corrections
 ehco "hello"    # Suggests: "echo"
@@ -535,7 +535,7 @@ setopt() {
 
 ```bash
 # Fish users will appreciate Lusush's modern features
-# Similar autosuggestions and syntax highlighting
+# Professional themes and performance optimization
 # Plus the unique debugging capabilities
 ```
 
