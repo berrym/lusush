@@ -44,8 +44,9 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 
 | Feature | Lusush | Bash | Zsh | Fish | PowerShell | Dash |
 |---------|--------|------|-----|------|------------|------|
-| **Syntax Highlighting** | 🟡 *In Development* | ❌ | ⚠️ Plugin Required | ✅ Built-in | ✅ Built-in | ❌ |
-| **Autosuggestions** | 🟡 *In Development* | ❌ | ⚠️ Plugin Required | ✅ Built-in | ✅ Built-in | ❌ |
+| **Interactive Debugger** | ✅ **UNIQUE - GDB-like** | ❌ | ❌ | ❌ | ✅ Limited | ❌ |
+| **Breakpoints & Step Debugging** | ✅ **Full Featured** | ❌ | ❌ | ❌ | ✅ Basic | ❌ |
+| **Variable Inspection** | ✅ **Built-in** | ❌ | ❌ | ❌ | ✅ Basic | ❌ |
 | **Git Integration** | ✅ **Built-in** | ⚠️ Manual Setup | ⚠️ Plugin Required | ⚠️ Plugin Required | ⚠️ Plugin Required | ❌ |
 | **Tab Completion** | ✅ Enhanced | ✅ Basic | ✅ Advanced | ✅ Advanced | ✅ Advanced | ✅ Basic |
 | **Themes** | ✅ **6 Professional** | ❌ | ⚠️ Complex Setup | ⚠️ Limited | ⚠️ Limited | ❌ |
@@ -112,9 +113,9 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 **Fish Advantages:**
 - **User Experience**: Polished interactive experience vs. developing UI
 - **Simplicity**: Simple configuration vs. enterprise complexity
-- **Mature Features**: Established autosuggestions vs. developing features
+- **Unique Debugging**: No other shell offers interactive debugging capabilities
 
-**Best Use Case for Lusush**: Professional script development, debugging workflows
+**Best Use Case for Lusush**: Professional script development, interactive debugging workflows
 **Best Use Case for Fish**: Interactive daily use, simple personal scripts
 
 ### **Lusush vs. PowerShell**
@@ -294,7 +295,7 @@ While other shells focus on interactive use or scripting efficiency, Lusush tran
 - Enhanced debugging features (remote debugging, IDE integration)
 - Advanced development tools (profiling, analysis)
 - Enterprise integration (LDAP, SSO, audit trails)
-- Modern UI improvements (better syntax highlighting, autosuggestions)
+- Advanced debugging capabilities (unique in shell ecosystem)
 
 **Industry Trends:**
 - **Lusush**: Leading development environment features

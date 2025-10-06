@@ -13,13 +13,15 @@
 
 ## Overview
 
-Lusush is a production-ready professional shell designed for enterprise environments. Built with advanced interactive features, complete GNU Readline integration, and a revolutionary layered display architecture, Lusush delivers exceptional performance and user experience.
+Lusush is the **world's only shell with integrated interactive debugging** - a production-ready professional shell that uniquely combines complete POSIX compliance with GDB-like debugging capabilities built directly into the shell itself.
 
-### Key Features
+### Unique Features
 
+- **🔍 Integrated Interactive Debugger**: The only shell with built-in GDB-like debugging - set breakpoints, step through code, inspect variables, and debug shell scripts interactively without external tools
 - **🚀 Layered Display Architecture**: Revolutionary display system with enterprise-grade performance optimization
+- **🤖 Smart Autosuggestions**: Fish-like autosuggestions with context-aware suggestions
 - **⚡ Exceptional Performance**: Sub-millisecond response times with intelligent caching
-- **🎨 Professional Themes**: 6 enterprise themes with symbol compatibility (ASCII/Unicode)
+- **🎨 Professional Themes**: 6 enterprise themes with symbol compatibility and git integration
 - **💻 Complete POSIX Compliance**: 100% test pass rate for all standard shell features
 - **🔧 Advanced Tab Completion**: Context-aware completion for git, directories, files
 - **📊 Performance Monitoring**: Real-time metrics and optimization tracking
@@ -59,14 +61,33 @@ sudo ninja -C builddir install
 # Run lusush interactively
 ./builddir/lusush
 
-# Or with options
-./builddir/lusush -i  # Force interactive mode
-./builddir/lusush -c "echo 'Hello, World!'"  # Execute command
+# Start with debugging enabled
+./builddir/lusush -c "debug on"
+
+# Execute command with debugging
+./builddir/lusush -c "echo 'Hello, World!'"
+
+# Force interactive mode
+./builddir/lusush -i
 ```
 
 ## Features
 
-### Professional Shell Experience
+### 🔍 Integrated Interactive Debugger (Unique Feature)
+
+**The only shell in existence with built-in interactive debugging capabilities:**
+
+```bash
+# Enable debugging and set breakpoints
+debug on
+debug break add script.sh 15    # Set breakpoint at line 15
+debug break add script.sh 25    # Set another breakpoint
+
+# Run script - it will pause at breakpoints
+source script.sh
+
+# When breakpoint hits, use GDB-like commands:
+# (lusush-debugProfessional Shell Experience
 
 Lusush provides a complete interactive shell experience with:
 
@@ -159,6 +180,36 @@ display config
 
 # Show system diagnostics
 display diagnostics
+```
+
+### Interactive Debugging Commands
+
+```bash
+# Debug system control
+debug on              # Enable debugging
+debug off             # Disable debugging
+debug level 2         # Set debug verbosity (0-4)
+
+# Breakpoint management
+debug break add script.sh 15    # Set breakpoint at line 15
+debug break list                # List all breakpoints
+debug break remove 1            # Remove breakpoint by ID
+debug break clear               # Remove all breakpoints
+
+# Execution control (when paused at breakpoint)
+debug step            # Step into next statement
+debug next            # Step over function calls
+debug continue        # Continue execution
+
+# Variable inspection
+debug vars            # Show all variables
+debug print variable  # Print specific variable value
+debug stack           # Show call stack
+
+# Advanced features
+debug profile on      # Enable performance profiling
+debug profile report  # Show profiling results
+debug analyze script.sh  # Static analysis of script
 ```
 
 ### Performance Monitoring
@@ -274,7 +325,8 @@ See `.cursorrules` for complete development guidelines.
 
 ### Documentation
 
-- **User Guide**: Core shell usage and features
+- **User Guide**: Core shell usage and debugging features
+- **Debugger Guide**: Complete interactive debugging reference
 - **Developer Documentation**: Architecture and API reference
 - **LLE Specification**: Future development plans
 
@@ -297,9 +349,10 @@ See [LICENSE](LICENSE) for full license text.
 Lusush builds upon the excellent work of:
 
 - **GNU Readline**: Terminal input handling
+- **GDB Design**: Interactive debugging concepts
 - **POSIX Standards**: Shell compatibility
 - **Modern C**: Language standards and best practices
 
 ---
 
-**Lusush** - Advanced Interactive Shell for Professional Environments
+**Lusush** - The Only Shell with Integrated Interactive Debugging
