@@ -1424,7 +1424,7 @@ static bool lusush_is_shell_builtin(const char *word, size_t length) {
         "type", "which", "command", "builtin", "enable",
         "help", "let", "local", "readonly", "declare",
         "typeset", "fc", "theme", "config", "debug",
-        "display", "network", "clear", "termcap", "dump",
+        "display", "network", "clear", "termcap",
         "true", "false", "break", "continue", "return_value",
         "times", "getopts", "hash", ":"
     };

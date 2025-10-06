@@ -73,7 +73,7 @@ builtin builtins[] = {
 
     {    "type",             "display command type",     bin_type},
     {   "unset",           "unset a shell variable",    bin_unset},
-    {    "dump",                "dump symbol table",     bin_dump},
+
     {    "echo",              "echo text to stdout",     bin_echo},
     {  "printf",                 "formatted output",   bin_printf},
     {  "export",           "export shell variables",   bin_export},
@@ -706,15 +706,7 @@ int bin_type(int argc, char **argv) {
     return result;
 }
 
-/**
- * bin_dump:
- *      Print a local symbol table.
- */
-int bin_dump(int argc __attribute__((unused)),
-             char **argv __attribute__((unused))) {
-    symtable_debug_dump_all_scopes();
-    return 0;
-}
+
 
 /**
  * process_escape_sequences:

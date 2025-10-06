@@ -24,7 +24,6 @@ int bin_clear(int, char **);
 int bin_termcap(int, char **);
 int bin_type(int, char **);
 int bin_unset(int, char **);
-int bin_dump(int, char **);
 int bin_echo(int, char **);
 int bin_printf(int, char **);
 int bin_export(int, char **);
