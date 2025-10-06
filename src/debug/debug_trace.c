@@ -351,6 +351,38 @@ void debug_inspect_variable(debug_context_t *ctx, const char *name) {
     }
 }
 
+// Structure for passing callback data
+typedef struct {
+    debug_context_t *ctx;
+    bool found_any;
+} debug_var_callback_data_t;
+
+// Static callback function for variable enumeration
+static void debug_var_enum_callback(const char *key, const char *value, void *userdata) {
+    debug_var_callback_data_t *data = (debug_var_callback_data_t *)userdata;
+    
+    if (!key || !value) {
+        return;
+    }
+    
+    data->found_any = true;
+    
+    // Parse the serialized value to extract just the actual value
+    // Format: value|type|flags|scope_level
+    char *clean_value = strdup(value);
+    if (clean_value) {
+        char *separator = strstr(clean_value, "|");
+        if (separator) {
+            *separator = '\0'; // Terminate at first separator to get clean value
+        }
+        
+        debug_printf(data->ctx, "  %-12s = '%s'\n", key, clean_value);
+        free(clean_value);
+    } else {
+        debug_printf(data->ctx, "  %-12s = '%s'\n", key, value);
+    }
+}
+
 // Inspect all variables
 void debug_inspect_all_variables(debug_context_t *ctx) {
     if (!ctx || !ctx->enabled) {
@@ -374,34 +406,42 @@ void debug_inspect_all_variables(debug_context_t *ctx) {
     // Show local function variables if in function context
     if (ctx->current_frame && ctx->current_frame->local_vars) {
         debug_printf(ctx, "Local Variables:\n");
-        symtable_t *locals = ctx->current_frame->local_vars;
         // TODO: Implement symtable iteration to show local variables
         debug_printf(ctx, "  (local variables inspection needs symtable iteration)\n");
         debug_printf(ctx, "\n");
     }
 
-    // Show shell variables using symtable manager
-    if (current_executor->symtable) {
-        debug_printf(ctx, "Shell Variables:\n");
-        
-        // Show commonly accessed variables
-        const char *common_vars[] = {"PWD", "HOME", "PATH", "USER", "SHELL", 
-                                     "?", "$", "OLDPWD", "PS1", "PS2", NULL};
-        bool found_any = false;
-
-        for (int i = 0; common_vars[i]; i++) {
-            const char *value = symtable_get_global(common_vars[i]);
-            if (value) {
-                debug_printf(ctx, "  %-8s = '%s'\n", common_vars[i], value);
-                found_any = true;
-            }
-        }
-
-        if (!found_any) {
-            debug_printf(ctx, "  (no standard shell variables found)\n");
-        }
-        debug_printf(ctx, "\n");
+    // Enumerate shell variables using callback-based approach
+    debug_printf(ctx, "Shell Variables (from symbol table):\n");
+    
+    debug_var_callback_data_t callback_data = {ctx, false};
+    
+    // Enumerate global variables
+    symtable_debug_enumerate_global_vars(debug_var_enum_callback, &callback_data);
+    
+    if (!callback_data.found_any) {
+        debug_printf(ctx, "  (no user-defined shell variables found)\n");
     }
+    debug_printf(ctx, "\n");
+    
+    // Also show commonly accessed system variables for completeness
+    debug_printf(ctx, "System Variables:\n");
+    const char *common_vars[] = {"PWD", "HOME", "PATH", "USER", "SHELL", 
+                                 "?", "$", "OLDPWD", "PS1", "PS2", NULL};
+    bool found_any = false;
+
+    for (int i = 0; common_vars[i]; i++) {
+        const char *value = symtable_get_global(common_vars[i]);
+        if (value) {
+            debug_printf(ctx, "  %-12s = '%s'\n", common_vars[i], value);
+            found_any = true;
+        }
+    }
+
+    if (!found_any) {
+        debug_printf(ctx, "  (no system variables found)\n");
+    }
+    debug_printf(ctx, "\n");
 
     debug_printf(ctx, "Environment Variables (first 10):\n");
     // Show a few key environment variables
