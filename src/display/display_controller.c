@@ -777,13 +777,23 @@ display_controller_error_t display_controller_display(
                           controller->current_theme_name, controller->current_symbol_mode,
                           state_hash, sizeof(state_hash));
     
+    fprintf(stderr, "CACHE_DEBUG: Generated state hash: %s\n", state_hash);
+    fprintf(stderr, "CACHE_DEBUG: Theme context: name='%s', symbol_mode=%d\n", 
+            controller->current_theme_name, controller->current_symbol_mode);
+    fprintf(stderr, "CACHE_DEBUG: Input prompt: '%s'\n", prompt_text ? prompt_text : "(null)");
+    
     // Check cache if enabled
     if (controller->config.enable_caching) {
         display_cache_entry_t *cached_entry = dc_find_cache_entry(controller, state_hash);
+        fprintf(stderr, "CACHE_DEBUG: Cache lookup result: %s\n", cached_entry ? "HIT" : "MISS");
+        if (cached_entry) {
+            fprintf(stderr, "CACHE_DEBUG: Cached content: '%s'\n", cached_entry->display_content);
+        }
         if (cached_entry && cached_entry->content_length < output_size) {
             // Cache hit - return cached content immediately
             memcpy(output, cached_entry->display_content, cached_entry->content_length);
             output[cached_entry->content_length] = '\0';
+            fprintf(stderr, "CACHE_DEBUG: Returning cached output: '%s'\n", output);
             
             controller->performance.cache_hits++;
             controller->performance.total_display_operations++;
@@ -805,6 +815,7 @@ display_controller_error_t display_controller_display(
             // Phase 2B Performance Monitoring: Record cache miss
             display_integration_record_layer_cache_operation("display_controller", false);
             DC_DEBUG("Cache miss for state hash: %s", state_hash);
+            fprintf(stderr, "CACHE_DEBUG: Cache miss - will process new content\n");
         }
     }
     
