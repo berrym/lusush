@@ -799,6 +799,21 @@ static int execute_command(executor_t *executor, node_t *command) {
     }
 
     int result;
+    
+    // Get debug context for profiling and frame management
+    extern debug_context_t *g_debug_context;
+    const char *command_name = filtered_argv[0];
+    
+    // Push debug frame and start profiling for this command
+    if (g_debug_context && g_debug_context->enabled) {
+        debug_push_frame(g_debug_context, command_name, NULL, 0);
+        
+        if (g_debug_context->profile_enabled) {
+            g_debug_context->total_commands++;
+            debug_profile_function_enter(g_debug_context, command_name);
+        }
+    }
+    
     if (is_function_defined(executor, filtered_argv[0])) {
         result = execute_function_call(executor, filtered_argv[0],
                                        filtered_argv, filtered_argc);
@@ -935,6 +950,14 @@ static int execute_command(executor_t *executor, node_t *command) {
             free(filtered_argv[i]);
         }
         free(filtered_argv);
+    }
+
+    // End profiling and pop debug frame for this command
+    if (g_debug_context && g_debug_context->enabled) {
+        if (g_debug_context->profile_enabled) {
+            debug_profile_function_exit(g_debug_context, command_name);
+        }
+        debug_pop_frame(g_debug_context);
     }
 
     // Update exit status for $? variable
