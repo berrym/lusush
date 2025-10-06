@@ -358,11 +358,8 @@ int init(int argc, char **argv, FILE **in) {
         // Configure based on environment and user preferences
         const char *layered_display_env = getenv("LUSUSH_LAYERED_DISPLAY");
         if (layered_display_env) {
-            if (strcmp(layered_display_env, "0") == 0 || strcmp(layered_display_env, "false") == 0) {
-                display_config.enable_layered_display = false;
-            } else if (strcmp(layered_display_env, "1") == 0 || strcmp(layered_display_env, "true") == 0) {
-                display_config.enable_layered_display = true;
-            }
+            // v1.3.0: Layered display is now exclusive - environment variable ignored
+            // Layered display is always enabled
         }
         
         // Enable debug mode if requested
@@ -398,10 +395,8 @@ int init(int argc, char **argv, FILE **in) {
         // Initialize display integration ONLY in interactive mode
         if (IS_INTERACTIVE_SHELL) {
             // Configure display options based on environment and command line
-            if (getenv("LUSUSH_LAYERED_DISPLAY")) {
-                display_config.enable_layered_display = true;
-                config.enhanced_display_mode = false;  // Ensure mutual exclusion
-            }
+            // v1.3.0: Layered display is now exclusive - always enabled
+            // No configuration needed
             
             // Always initialize display integration to support runtime display enable
             if (!display_integration_init(&display_config)) {
@@ -412,9 +407,7 @@ int init(int argc, char **argv, FILE **in) {
             } else {
                 // Announce activation with visual impact (only when debug mode enabled)
                 if (display_config.debug_mode) {
-                    const char *mode = display_config.enable_layered_display ? "layered_display=enabled" : 
-                                      config.enhanced_display_mode ? "enhanced_display=enabled" : "standard_display";
-                    printf("Display integration initialized (%s)\n", mode);
+                    printf("Display integration initialized (layered_display=exclusive)\n");
                 }
             }
         } else {

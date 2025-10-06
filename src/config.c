@@ -198,14 +198,8 @@ static config_option_t config_options[] = {
      config_validate_int                                                                                       },
 
     // Display system settings
-    {    "display.system_mode",              CONFIG_TYPE_STRING, CONFIG_SECTION_DISPLAY,
-     &config.display_system_mode,            "Display system mode: standard, enhanced, layered",
-     config_validate_display_mode                                                                              },
-    // v1.3.0: Syntax highlighting and autosuggestions disabled for stability
-    // display.syntax_highlighting and display.autosuggestions options removed
-    {    "display.layered_display",          CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
-     &config.display_layered_display,        "Enable modern layered display controller",
-     config_validate_bool                                                                                      },
+    // v1.3.0: Layered display is now the exclusive system - no configuration needed
+    // display.system_mode and display.layered_display options removed
     {    "display.performance_monitoring",   CONFIG_TYPE_BOOL,   CONFIG_SECTION_DISPLAY,
      &config.display_performance_monitoring, "Enable display performance monitoring",
      config_validate_bool                                                                                      },
@@ -305,13 +299,19 @@ static bool config_handle_legacy_key(const char *key, const char *value __attrib
         return true;
     }
     
-    // Handle other potential legacy keys
+    // Handle legacy display.* configuration keys
     if (strncmp(key, "display.", 8) == 0) {
         // Unknown display.* keys - likely legacy, handle gracefully
         const char* display_key = key + 8;  // Skip "display." prefix
         
-        if (strcmp(display_key, "layered_display") == 0 ||
-            strcmp(display_key, "performance_monitoring") == 0 ||
+        if (strcmp(display_key, "system_mode") == 0 ||
+            strcmp(display_key, "layered_display") == 0) {
+            // Legacy display mode options - layered display is now exclusive
+            // Silently ignore to maintain compatibility with existing .lusushrc files
+            return true;
+        }
+        
+        if (strcmp(display_key, "performance_monitoring") == 0 ||
             strcmp(display_key, "optimization_level") == 0) {
             // These are valid current keys that should be handled by config system
             // Return false to let normal processing handle them
@@ -385,8 +385,6 @@ static legacy_option_mapping_t legacy_mappings[] = {
     {"colors_enabled", "behavior.colors_enabled"},
     {"verbose_errors", "behavior.verbose_errors"},
     {"debug_mode", "behavior.debug_mode"},
-    {"display_system", "display.system_mode"},
-    {"layered_display", "display.layered_display"},
     {"display_performance", "display.performance_monitoring"},
     {"display_optimization", "display.optimization_level"},
     
@@ -986,9 +984,7 @@ void config_set_defaults(void) {
     config.max_completion_hosts = 50;
 
     // Display defaults
-    // v1.3.0: display_autosuggestions and display_syntax_highlighting removed
-    config.display_system_mode = strdup("standard");
-    config.display_layered_display = false;
+    // v1.3.0: Layered display is now the exclusive system - no configuration needed
     config.display_performance_monitoring = false;
     config.display_optimization_level = 0;
 
@@ -1447,11 +1443,7 @@ bool config_validate_path(const char *value) {
 
 
 
-bool config_validate_display_mode(const char *value) {
-    return (strcmp(value, "standard") == 0 || 
-            strcmp(value, "enhanced") == 0 || 
-            strcmp(value, "layered") == 0);
-}
+
 
 bool config_validate_optimization_level(const char *value) {
     char *endptr;

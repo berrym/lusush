@@ -4040,15 +4040,12 @@ int bin_display(int argc, char **argv) {
         printf("Usage: display <command> [options]\n");
         printf("\nCommands:\n");
         printf("  status      - Show display integration status\n");
-        printf("  enable      - Enable layered display system\n");
-        printf("  disable     - Disable layered display system\n");
         printf("  config      - Show current configuration\n");
         printf("  stats       - Show performance statistics\n");
         printf("  diagnostics - Show detailed diagnostic information\n");
         printf("  help        - Show this help message\n");
         printf("\nEnvironment Variables:\n");
-        printf("  LUSUSH_LAYERED_DISPLAY=1|0     - Enable/disable layered display\n");
-        printf("  LUSUSH_DISPLAY_DEBUG=1|0       - Enable/disable debug output\n");
+        printf("  LUSUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug output\n");
         printf("  LUSUSH_DISPLAY_OPTIMIZATION=0-4 - Set optimization level\n");
         return 0;
     }
@@ -4095,64 +4092,20 @@ int bin_display(int argc, char **argv) {
 
     if (strcmp(subcmd, "status") == 0) {
         // Show display integration status
-        if (display_integration_is_layered_active()) {
-            printf("Display Integration: ACTIVE (Layered display enabled)\n");
-            display_integration_health_t health = display_integration_get_health();
-            printf("Health Status: %s\n", display_integration_health_string(health));
-        } else {
-            printf("Display Integration: INACTIVE (Using standard display)\n");
-        }
+        printf("Display Integration: ACTIVE (Layered display exclusive)\n");
+        display_integration_health_t health = display_integration_get_health();
+        printf("Health Status: %s\n", display_integration_health_string(health));
         
         display_integration_config_t config;
         if (display_integration_get_config(&config)) {
             printf("Configuration:\n");
-            printf("  Layered display: %s\n", config.enable_layered_display ? "enabled" : "disabled");
+            printf("  Layered display: enabled (exclusive system)\n");
             printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
             printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
             printf("  Optimization level: %d\n", config.optimization_level);
             printf("  Debug mode: %s\n", config.debug_mode ? "enabled" : "disabled");
         }
         return 0;
-
-    } else if (strcmp(subcmd, "enable") == 0) {
-        // Enable layered display
-        display_integration_config_t config;
-        if (!display_integration_get_config(&config)) {
-            fprintf(stderr, "display: Failed to get current configuration\n");
-            return 1;
-        }
-        
-        config.enable_layered_display = true;
-        if (display_integration_set_config(&config)) {
-            // Sync with main config system
-            extern config_values_t config;
-            config.display_layered_display = true;
-            printf("Layered display system enabled\n");
-            return 0;
-        } else {
-            fprintf(stderr, "display: Failed to enable layered display system\n");
-            return 1;
-        }
-
-    } else if (strcmp(subcmd, "disable") == 0) {
-        // Disable layered display
-        display_integration_config_t config;
-        if (!display_integration_get_config(&config)) {
-            fprintf(stderr, "display: Failed to get current configuration\n");
-            return 1;
-        }
-        
-        config.enable_layered_display = false;
-        if (display_integration_set_config(&config)) {
-            // Sync with main config system
-            extern config_values_t config;
-            config.display_layered_display = false;
-            printf("Layered display system disabled\n");
-            return 0;
-        } else {
-            fprintf(stderr, "display: Failed to disable layered display system\n");
-            return 1;
-        }
 
     } else if (strcmp(subcmd, "config") == 0) {
         // Show detailed configuration
@@ -4164,7 +4117,7 @@ int bin_display(int argc, char **argv) {
         
         printf("=== Display Integration Configuration ===\n");
         printf("Core Features:\n");
-        printf("  Layered display: %s\n", config.enable_layered_display ? "enabled" : "disabled");
+        printf("  Layered display: enabled (exclusive system)\n");
         printf("  Caching: %s\n", config.enable_caching ? "enabled" : "disabled");
         printf("  Performance monitoring: %s\n", config.enable_performance_monitoring ? "enabled" : "disabled");
         printf("\nOptimization:\n");
@@ -4398,8 +4351,7 @@ int bin_display(int argc, char **argv) {
         printf("grade performance optimization.\n");
         printf("\nCommands:\n");
         printf("  display status           - Show system status and health\n");
-        printf("  display enable           - Enable layered display system\n");
-        printf("  display disable          - Disable layered display system\n");
+
         printf("  display config           - Show detailed configuration\n");
         printf("  display stats            - Show usage statistics\n");
         printf("  display diagnostics      - Show system diagnostics\n");

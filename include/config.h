@@ -118,11 +118,9 @@ typedef struct {
     bool verbose_errors;
     bool debug_mode;
     
-    // Display system settings
-    char *display_system_mode;           // "standard", "enhanced", "layered"
+    // Display system settings - v1.3.0: Layered display is now exclusive
     bool display_syntax_highlighting;    // Enable syntax highlighting
     bool display_autosuggestions;        // Enable autosuggestions
-    bool display_layered_display;        // Enable layered display controller
     bool display_performance_monitoring; // Enable performance monitoring
     int display_optimization_level;      // Optimization level (0-4)
     

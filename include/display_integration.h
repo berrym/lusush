@@ -117,8 +117,7 @@ typedef enum {
  * Controls all aspects of layered display integration behavior.
  */
 typedef struct {
-    // Core feature enables
-    bool enable_layered_display;           // Enable/disable layered display controller
+    // Core feature enables - v1.3.0: Layered display is now exclusive system
     bool enable_caching;                   // Enable display caching for performance
     bool enable_performance_monitoring;    // Enable performance tracking and metrics
     

@@ -127,13 +127,12 @@ bool display_integration_init(const display_integration_config_t *config) {
     if (config) {
         current_config = *config;
     } else {
-        // Use default configuration with layered display enabled for professional autosuggestions
+        // Use default configuration with layered display (always enabled)
         display_integration_create_default_config(&current_config);
-        current_config.enable_layered_display = true;
     }
 
-    // Create display controller if layered display is enabled
-    if (current_config.enable_layered_display) {
+    // Create display controller (layered display is exclusive system)
+    {
         global_display_controller = display_controller_create();
         if (!global_display_controller) {
             fprintf(stderr, "display_integration: Failed to create display controller\n");
@@ -263,7 +262,7 @@ void display_integration_create_default_config(display_integration_config_t *con
     if (!config) return;
 
     memset(config, 0, sizeof(display_integration_config_t));
-    config->enable_layered_display = false;
+    // v1.3.0: Layered display is now the exclusive system - no enable/disable needed
     config->enable_caching = true;
     config->enable_performance_monitoring = true;
     config->optimization_level = DISPLAY_OPTIMIZATION_STANDARD;
@@ -285,12 +284,12 @@ bool display_integration_set_config(const display_integration_config_t *config) 
         return false;
     }
 
-    bool layered_was_enabled = layered_display_enabled;
     display_integration_config_t old_config = current_config;
     current_config = *config;
 
-    // Handle layered display enable/disable
-    if (config->enable_layered_display && !layered_was_enabled) {
+    // v1.3.0: Layered display is exclusive - configuration updates affect performance and caching settings only
+    // Display controller is always available, just update its configuration
+    if (global_display_controller) {
         // Enable layered display
         if (!global_display_controller) {
             global_display_controller = display_controller_create();
@@ -343,14 +342,7 @@ bool display_integration_set_config(const display_integration_config_t *config) 
                 }
             }
         }
-    } else if (!config->enable_layered_display && layered_was_enabled) {
-        // Disable layered display
-        display_integration_cleanup_autosuggestions();
-        if (global_display_controller) {
-            display_controller_destroy(global_display_controller);
-            global_display_controller = NULL;
-        }
-        layered_display_enabled = false;
+    // v1.3.0: No disable logic needed - layered display is exclusive
     }
 
     // Update display controller configuration if active
@@ -1153,7 +1145,7 @@ void display_integration_print_diagnostics(void) {
     }
 
     printf("Configuration:\n");
-    printf("  Layered display: %s\n", current_config.enable_layered_display ? "enabled" : "disabled");
+    printf("  Layered display: enabled (exclusive system)\n");
     printf("  Caching: %s\n", current_config.enable_caching ? "enabled" : "disabled");
     printf("  Performance monitoring: %s\n", current_config.enable_performance_monitoring ? "enabled" : "disabled");
     printf("  Optimization level: %d\n", current_config.optimization_level);
@@ -1210,11 +1202,8 @@ bool safe_layered_display_attempt(const char *function_name,
     
     // Check 5: Configuration safety
     if (current_config.strict_compatibility_mode) {
-        // In strict compatibility mode, use fallback unless explicitly enabled
-        if (!current_config.enable_layered_display) {
-            *fallback_reason = INTEGRATION_FALLBACK_SAFETY_CHECK;
-            return false;
-        }
+        // v1.3.0: Layered display is exclusive - strict mode affects other settings
+        // No fallback needed since layered display is the only system
     }
     
     // All safety checks passed
