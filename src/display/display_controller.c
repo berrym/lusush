@@ -1103,16 +1103,22 @@ display_controller_error_t display_controller_cleanup(display_controller_t *cont
     
     // Clean up cache
     if (controller->cache_entries) {
-        for (size_t i = 0; i < controller->cache_capacity; i++) {
+        // Only iterate over valid entries to prevent accessing uninitialized memory
+        for (size_t i = 0; i < controller->cache_count; i++) {
             if (controller->cache_entries[i].display_content) {
                 lusush_pool_free(controller->cache_entries[i].display_content);
+                controller->cache_entries[i].display_content = NULL;
             }
             if (controller->cache_entries[i].state_hash) {
                 lusush_pool_free(controller->cache_entries[i].state_hash);
+                controller->cache_entries[i].state_hash = NULL;
             }
+            controller->cache_entries[i].is_valid = false;
         }
         free(controller->cache_entries);
         controller->cache_entries = NULL;
+        controller->cache_count = 0;
+        controller->cache_capacity = 0;
     }
     
     // Clean up state tracking
