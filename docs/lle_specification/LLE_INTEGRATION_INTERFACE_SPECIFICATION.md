@@ -673,28 +673,7 @@ lle_result_t lle_event_request_buffer_insert_impl(lle_event_system_t *event_syst
     return lle_buffer_notify_change(buffer_system, event_system, &change);
 }
 
-lle_result_t lle_buffer_notify_change_impl(lle_buffer_system_t *buffer_system,
-                                          lle_event_system_t *event_system,
-                                          const lle_buffer_change_t *change) {
-    if (!buffer_system || !event_system || !change) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    // Create buffer change event
-    lle_event_t change_event = {
-        .type = LLE_EVENT_TYPE_BUFFER_CHANGE,
-        .priority = LLE_EVENT_PRIORITY_HIGH,
-        .timestamp = change->timestamp,
-        .source_component = "buffer_system",
-        .data_size = sizeof(lle_buffer_change_t)
-    };
-    
-    // Copy change data to event
-    memcpy(change_event.data, change, sizeof(lle_buffer_change_t));
-    
-    // Submit event to event system
-    return lle_event_system_submit_event(event_system, &change_event);
-}
+
 
 lle_result_t lle_buffer_notify_cursor_move_impl(lle_buffer_system_t *buffer_system,
                                                lle_event_system_t *event_system,
