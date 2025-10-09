@@ -160,7 +160,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     integ->api_version = LLE_DISPLAY_API_VERSION;
     
     // Step 5: Initialize display bridge with comprehensive error checking
-    result = lle_display_bridge_init(&integ->display_bridge, editor, lusush_display, memory_pool);
+    result = lle_display_create_bridge(&integ->display_bridge, editor, lusush_display, memory_pool);
     if (result != LLE_SUCCESS) {
         pthread_rwlock_destroy(&integ->integration_lock);
         memory_pool_free(memory_pool, integ);
@@ -177,9 +177,9 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 7: Initialize display cache system for performance optimization
-    result = lle_display_cache_init(&integ->display_cache, memory_pool);
+    result = lle_display_init_cache(&integ->display_cache, memory_pool);
     if (result != LLE_SUCCESS) {
-        lle_render_controller_cleanup(integ->render_controller);
+        lle_display_cleanup_render_controller(integ->render_controller);
         lle_display_bridge_cleanup(integ->display_bridge);
         pthread_rwlock_destroy(&integ->integration_lock);
         memory_pool_free(memory_pool, integ);
@@ -198,7 +198,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 9: Initialize performance metrics system
-    result = lle_display_metrics_init(&integ->perf_metrics, memory_pool);
+    result = lle_display_init_metrics(&integ->perf_metrics, memory_pool);
     if (result != LLE_SUCCESS) {
         // Cleanup all previously initialized components in reverse order
         lle_composition_manager_cleanup(integ->comp_manager);
@@ -224,9 +224,9 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 11: Initialize terminal adapter for universal compatibility
-    result = lle_terminal_adapter_init(&integ->terminal_adapter, lusush_display, memory_pool);
+    result = lle_display_init_terminal_adapter(&integ->terminal_adapter, lusush_display, memory_pool);
     if (result != LLE_SUCCESS) {
-        lle_event_coordinator_cleanup(integ->event_coordinator);
+        lle_display_cleanup_event_coordinator(integ->event_coordinator);
         lle_display_metrics_cleanup(integ->perf_metrics);
         lle_composition_manager_cleanup(integ->comp_manager);
         lle_display_cache_cleanup(integ->display_cache);
@@ -253,7 +253,7 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 13: Initialize configuration system
-    result = lle_display_config_init(&integ->config, memory_pool);
+    result = lle_display_init_config(&integ->config, memory_pool);
     if (result != LLE_SUCCESS) {
         hash_table_destroy(integ->render_cache);
         lle_terminal_adapter_cleanup(integ->terminal_adapter);
@@ -269,9 +269,9 @@ lle_result_t lle_display_integration_init(lle_display_integration_t **integratio
     }
     
     // Step 14: Initialize current state tracking
-    result = lle_display_state_init(&integ->current_state, memory_pool);
+    result = lle_display_init_state(&integ->current_state, memory_pool);
     if (result != LLE_SUCCESS) {
-        lle_display_config_cleanup(integ->config);
+        lle_display_cleanup_config(integ->config);
         hash_table_destroy(integ->render_cache);
         lle_terminal_adapter_cleanup(integ->terminal_adapter);
         lle_event_coordinator_cleanup(integ->event_coordinator);
