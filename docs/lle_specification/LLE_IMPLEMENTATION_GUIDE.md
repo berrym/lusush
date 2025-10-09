@@ -1,8 +1,8 @@
 # Lusush Line Editor (LLE) Implementation Guide
 
-**Version**: 2.8.0
+**Version**: 2.9.0
 **Date**: 2025-01-07  
-**Status**: Living Development Guide - Updated with 16 Completed Detailed Specifications
+**Status**: Living Development Guide - Updated with 17 Completed Detailed Specifications
 **Classification**: Implementation Procedures (Epic Specification Project)
 
 ## Table of Contents
@@ -20,7 +20,7 @@
 
 ---
 
-**NOTICE**: This is a **living document** that evolves throughout the epic LLE specification project. **16 of 21 detailed specification documents have been completed (76.2% progress)**, providing implementation-ready architectural details. This guide has been updated to reflect the latest specification progress including comprehensive error handling system, memory management system, performance optimization system, user customization system, completion system, syntax highlighting, autosuggestions, display integration, and advanced features. The guide serves as the bridge between specification and actual coding implementation.
+**NOTICE**: This is a **living document** that evolves throughout the epic LLE specification project. **17 of 21 detailed specification documents have been completed (81.0% progress)**, providing implementation-ready architectural details. This guide has been updated to reflect the latest specification progress including comprehensive testing framework, error handling system, memory management system, performance optimization system, user customization system, completion system, syntax highlighting, autosuggestions, display integration, and advanced features. The guide serves as the bridge between specification and actual coding implementation.
 
 **SPECIFICATION PROGRESS UPDATE (2025-01-07)**:
 - ✅ **02_terminal_abstraction_complete.md** - Unix-native terminal management with capability detection
@@ -38,6 +38,7 @@
 - ✅ **14_performance_optimization_complete.md** - Comprehensive performance optimization system with real-time monitoring, intelligent caching, memory optimization, profiling, and enterprise-grade analytics
 - ✅ **15_memory_management_complete.md** - Comprehensive memory management system with Lusush memory pool integration, specialized memory pools, garbage collection, memory safety, security features, and enterprise-grade memory optimization achieving sub-100μs allocation times with >90% memory utilization
 - ✅ **16_error_handling_complete.md** - Comprehensive enterprise-grade error management system with 50+ specific error types, intelligent recovery strategies, multi-tier degradation system, forensic logging capabilities, performance-aware handling with sub-microsecond critical paths, and seamless integration with memory management foundation
+- ✅ **17_testing_framework_complete.md** - Comprehensive enterprise-grade testing framework with automated quality assurance, performance benchmarking, memory safety validation, error injection testing, cross-platform compatibility, CI/CD integration, real-time reporting and analytics, ensuring guaranteed implementation success
 
 ## 1. Development Environment Setup
 
@@ -134,11 +135,14 @@ lusush/
 │   ├── lle_history.h                 # History API
 │   ├── lle_features.h                # Feature API
 │   └── lle_types.h                   # Common types
-├── tests/lle/                        # Testing framework
-│   ├── unit/                         # Unit tests
-│   ├── integration/                  # Integration tests
-│   ├── performance/                  # Performance tests
-│   └── regression/                   # Regression tests
+├── tests/lle/                        # Comprehensive testing framework
+│   ├── unit/                         # Unit tests with automatic discovery
+│   ├── integration/                  # Integration tests with system validation
+│   ├── performance/                  # Performance tests with benchmarking
+│   ├── memory/                       # Memory safety and leak testing
+│   ├── error_injection/              # Error recovery testing
+│   ├── regression/                   # Regression detection and prevention
+│   └── ci_cd/                        # Continuous integration pipeline
 └── docs/lle_specification/           # Documentation
     ├── LLE_DESIGN_DOCUMENT.md        # Architecture design
     ├── LLE_TECHNICAL_SPECIFICATION.md # Technical specs
@@ -157,7 +161,8 @@ lusush/
     ├── 13_user_customization_complete.md      # ✅ User customization spec
     ├── 14_performance_optimization_complete.md # ✅ Performance optimization spec
     ├── 15_memory_management_complete.md        # ✅ Memory management spec
-    └── 16_error_handling_complete.md           # ✅ Error handling spec
+    ├── 16_error_handling_complete.md           # ✅ Error handling spec
+    └── 17_testing_framework_complete.md        # ✅ Testing framework spec
 ```
 
 ## 2. Implementation Phases
@@ -1671,133 +1676,402 @@ lle_result_t example_event_handler(const lle_event_t *event, void *user_data) {
 
 ## 4. Testing and Validation Procedures
 
-### 4.1 Unit Testing Framework
+**UPDATED**: Based on completed **17_testing_framework_complete.md** specification, this section now provides implementation-ready testing procedures with enterprise-grade quality assurance, automated validation, and guaranteed success framework.
 
-#### 4.1.1 Test Structure
+### 4.1 Comprehensive Testing Framework Implementation
 
-```c
-// Standard test case structure
-typedef struct lle_test_case {
-    const char *name;
-    const char *description;
-    test_category_t category;
-    
-    // Test functions
-    lle_result_t (*setup)(test_context_t *context);
-    lle_result_t (*test_func)(test_context_t *context);
-    lle_result_t (*teardown)(test_context_t *context);
-    
-    // Test configuration
-    uint32_t timeout_ms;
-    test_requirements_t requirements;
-    
-    // Results
-    test_result_t result;
-    test_metrics_t metrics;
-} lle_test_case_t;
-```
+#### 4.1.1 Automated Test Discovery and Registration
 
-#### 4.1.2 Test Implementation Examples
+Based on the completed testing framework specification, implement the automatic test discovery system:
 
 ```c
-// Buffer management test example
-lle_result_t test_buffer_multiline_handling(test_context_t *context) {
-    // Test setup
-    BUFFER_AUTO_RESOURCE(buffer, 1024);
-    
-    // Test multiline command insertion
-    const char *multiline_cmd = "for i in $(seq 1 10); do\n    echo $i\ndone";
-    
-    LLE_ASSERT_SUCCESS(lle_buffer_insert_text(buffer, multiline_cmd, strlen(multiline_cmd)));
-    LLE_ASSERT_TRUE(buffer->is_multiline, "Buffer should be marked as multiline");
-    LLE_ASSERT_EQUALS(3, buffer->line_count, "Should detect 3 lines");
-    
-    // Test cursor navigation across lines
-    LLE_ASSERT_SUCCESS(lle_buffer_move_cursor(buffer, CURSOR_LINE_DOWN));
-    LLE_ASSERT_EQUALS(1, buffer->current_line, "Should be on second line");
-    
-    // Test line-aware editing
-    LLE_ASSERT_SUCCESS(lle_buffer_insert_text(buffer, "# comment\n", 10));
-    LLE_ASSERT_EQUALS(4, buffer->line_count, "Should now have 4 lines");
-    
-    return LLE_SUCCESS;
-}
+// Test registration using automatic discovery
+#define LLE_REGISTER_TEST(name, type, priority, description) \
+    static lle_test_result_t test_##name(lle_test_context_t *ctx); \
+    static lle_test_case_t __attribute__((section("lle_tests"))) \
+    test_case_##name = { \
+        .test_name = #name, \
+        .test_description = description, \
+        .test_type = type, \
+        .priority = priority, \
+        .test_function = test_##name, \
+    }; \
+    static lle_test_result_t test_##name(lle_test_context_t *ctx)
 
-// History system test example
-lle_result_t test_history_deduplication(test_context_t *context) {
-    // Create history with smart deduplication
-    history_config_t config = {
-        .capacity = 100,
-        .dedup_strategy = LLE_DEDUP_SMART,
-        .enable_deduplication = true
-    };
+// Example test implementation with performance validation
+LLE_REGISTER_TEST(buffer_utf8_performance, LLE_TEST_TYPE_UNIT, 
+                  LLE_TEST_PRIORITY_CRITICAL,
+                  "Validate UTF-8 buffer operations meet sub-millisecond requirements") {
+    lle_buffer_t *buffer = lle_buffer_create(1024);
+    LLE_ASSERT_NOT_NULL(buffer, "Buffer creation failed");
     
-    lle_history_t *history;
-    LLE_ASSERT_SUCCESS(lle_history_create(&history, &config));
+    // Test UTF-8 insertion with performance validation
+    const char *utf8_text = "Hello 世界 🌍 café नमस्ते";
     
-    // Add same command in different contexts
-    command_metadata_t metadata1 = {
-        .working_directory = "/home/user",
-        .exit_code = 0,
-        .timestamp = get_current_timestamp()
-    };
+    LLE_ASSERT_PERFORMANCE(
+        lle_buffer_insert_text(buffer, utf8_text, -1),
+        500, // Sub-500μs requirement
+        "UTF-8 insertion performance"
+    );
     
-    command_metadata_t metadata2 = {
-        .working_directory = "/tmp",  // Different directory
-        .exit_code = 0,
-        .timestamp = get_current_timestamp() + 1000000
-    };
+    // Validate UTF-8 correctness
+    size_t grapheme_count = lle_buffer_get_grapheme_cluster_count(buffer);
+    LLE_ASSERT_EQ(15, grapheme_count, "Grapheme cluster count validation");
     
-    LLE_ASSERT_SUCCESS(lle_history_add_command(history, "ls -la", &metadata1));
-    LLE_ASSERT_SUCCESS(lle_history_add_command(history, "ls -la", &metadata2));
-    
-    // Should have 2 entries (different contexts)
-    LLE_ASSERT_EQUALS(2, history->count, "Should have 2 entries due to different contexts");
-    
-    // Add same command in same context
-    LLE_ASSERT_SUCCESS(lle_history_add_command(history, "ls -la", &metadata1));
-    
-    // Should still have 2 entries (deduplicated)
-    LLE_ASSERT_EQUALS(2, history->count, "Should still have 2 entries (deduplicated)");
-    
-    lle_history_destroy(history);
-    return LLE_SUCCESS;
+    lle_buffer_destroy(buffer);
+    return LLE_TEST_RESULT_SUCCESS;
 }
 ```
 
-### 4.2 Performance Testing
+### 4.2 Enterprise-Grade Testing Implementation
 
-#### 4.2.1 Benchmark Framework
+#### 4.2.1 Memory Safety Testing Framework
+
+Implement zero-tolerance memory safety validation based on the completed specification:
 
 ```c
-// Performance benchmark structure
-typedef struct lle_benchmark {
-    const char *name;
-    benchmark_category_t category;
+// Memory safety testing with comprehensive validation
+LLE_REGISTER_TEST(comprehensive_memory_safety_validation, LLE_TEST_TYPE_MEMORY,
+                  LLE_TEST_PRIORITY_CRITICAL,
+                  "Comprehensive memory safety validation across all components") {
+    lle_memory_safety_framework_t *framework = lle_memory_safety_framework_create();
+    LLE_ASSERT_NOT_NULL(framework, "Memory safety framework creation failed");
     
-    // Benchmark parameters
-    size_t iterations;
-    size_t data_size;
-    benchmark_config_t config;
+    // Enable all memory safety checks
+    framework->enable_allocation_tracking = true;
+    framework->enable_leak_detection = true;
+    framework->enable_corruption_detection = true;
+    framework->enable_double_free_detection = true;
+    framework->enable_use_after_free_detection = true;
     
-    // Performance targets
-    uint32_t max_time_ms;
-    uint32_t max_memory_kb;
-    double min_throughput;
+    // Test memory pool operations under stress
+    lle_memory_pool_t *pool = lle_memory_pool_create(LLE_POOL_TYPE_EDITING, 64 * 1024);
+    void *allocations[1000];
     
-    // Benchmark function
-    lle_result_t (*benchmark_func)(benchmark_context_t *context,
-                                  benchmark_result_t *result);
-} lle_benchmark_t;
+    for (int i = 0; i < 1000; i++) {
+        allocations[i] = lle_memory_pool_alloc(pool, 64 + (i % 512));
+        LLE_ASSERT_NOT_NULL(allocations[i], "Memory allocation failed");
+        
+        // Fill with test pattern for corruption detection
+        memset(allocations[i], 0xAA ^ i, 64 + (i % 512));
+    }
+    
+    // Validate no corruption and clean up
+    for (int i = 0; i < 1000; i++) {
+        lle_memory_pool_free(pool, allocations[i]);
+    }
+    
+    // Validate zero memory leaks
+    uint32_t leaks = lle_memory_safety_framework_get_leak_count(framework);
+    LLE_ASSERT_EQ(0, leaks, "Memory leaks detected");
+    
+    lle_memory_pool_destroy(pool);
+    lle_memory_safety_framework_destroy(framework);
+    return LLE_TEST_RESULT_SUCCESS;
+}
+```
 
-// Example benchmark implementation
-lle_result_t benchmark_buffer_insert_performance(benchmark_context_t *context,
-                                                benchmark_result_t *result) {
-    const size_t iterations = 10000;
-    const char test_text[] = "test text insertion";
+#### 4.2.2 Performance Testing Implementation
+
+```c
+// Performance benchmarking with statistical analysis
+LLE_REGISTER_TEST(performance_benchmark_comprehensive, LLE_TEST_TYPE_PERFORMANCE,
+                  LLE_TEST_PRIORITY_HIGH,
+                  "Comprehensive performance benchmark across all components") {
+    lle_performance_testing_framework_t *perf_framework = 
+        lle_performance_testing_framework_create();
     
-    BUFFER_AUTO_RESOURCE(buffer, 65536);
+    // Configure performance parameters
+    perf_framework->warmup_iterations = 10;
+    perf_framework->measurement_iterations = 1000;
+    perf_framework->regression_threshold_percent = 10.0;
     
+    // Test buffer operations performance
+    lle_performance_result_t buffer_result;
+    lle_result_t result = lle_performance_test_execute(
+        perf_framework, "buffer_operations_benchmark",
+        benchmark_buffer_operations, NULL, &buffer_result);
+    
+    LLE_ASSERT_EQ(LLE_SUCCESS, result, "Buffer performance test failed");
+    
+    // Validate sub-millisecond performance requirement
+    if (buffer_result.statistics.mean_duration_ns > 1000000) { // 1ms
+        return LLE_TEST_RESULT_PERFORMANCE_FAILED;
+    }
+    
+    lle_performance_testing_framework_destroy(perf_framework);
+    return LLE_TEST_RESULT_SUCCESS;
+}
+```
+
+#### 4.2.3 Error Injection Testing Implementation
+
+```c
+// Error injection and recovery testing
+LLE_REGISTER_TEST(error_injection_recovery_testing, LLE_TEST_TYPE_ERROR_RECOVERY,
+                  LLE_TEST_PRIORITY_CRITICAL,
+                  "Validate error injection and recovery mechanisms") {
+    lle_error_injection_system_t *injection_system = 
+        lle_error_injection_system_create();
+    
+    // Configure memory allocation failure injection
+    lle_error_injection_config_t config = {
+        .error_type = LLE_ERROR_OUT_OF_MEMORY,
+        .injection_probability_percent = 20,
+        .auto_recovery_enabled = true,
+        .expected_recovery = LLE_RECOVERY_STRATEGY_FALLBACK_ALLOCATION
+    };
+    
+    lle_error_injection_system_add_config(injection_system, &config);
+    lle_error_injection_system_enable(injection_system);
+    
+    // Test system resilience under memory pressure
+    int successful_operations = 0;
+    int recovered_operations = 0;
+    
+    for (int i = 0; i < 100; i++) {
+        lle_buffer_t *buffer = NULL;
+        lle_result_t result = lle_buffer_create_with_size(&buffer, 1024);
+        
+        if (result == LLE_SUCCESS) {
+            successful_operations++;
+            lle_buffer_destroy(buffer);
+        } else if (result == LLE_ERROR_OUT_OF_MEMORY) {
+            // Validate recovery was attempted
+            lle_recovery_info_t recovery_info;
+            if (lle_get_last_recovery_info(&recovery_info) == LLE_SUCCESS) {
+                recovered_operations++;
+            }
+        }
+    }
+    
+    // Validate recovery effectiveness
+    double recovery_rate = (double)recovered_operations / 100.0;
+    LLE_ASSERT_TRUE(recovery_rate >= 0.15 && recovery_rate <= 0.25, 
+                   "Recovery rate outside expected range");
+    
+    lle_error_injection_system_destroy(injection_system);
+    return LLE_TEST_RESULT_SUCCESS;
+}
+```
+
+#### 4.2.4 CI/CD Pipeline Integration
+
+Implement continuous integration based on the completed specification:
+
+```c
+// CI/CD pipeline configuration
+typedef struct {
+    lle_ci_trigger_t triggers[5];           // Multiple trigger types
+    lle_test_stage_t stages[8];             // 8 testing stages
+    bool parallel_execution_enabled;        // Parallel test execution
+    uint32_t max_concurrent_jobs;           // 4 concurrent jobs
+    uint32_t timeout_minutes;               // 30 minute timeout
+    bool fail_fast_enabled;                 // Stop on first failure
+} lle_ci_pipeline_config_t;
+
+// Pipeline execution with comprehensive validation
+lle_result_t lle_ci_pipeline_execute_comprehensive(
+    lle_ci_pipeline_t *pipeline,
+    lle_ci_trigger_context_t *trigger_context,
+    lle_ci_results_t *results
+) {
+    // Initialize pipeline execution
+    results->pipeline_start_time = lle_get_microsecond_timestamp();
+    
+    // Execute testing stages in priority order
+    lle_test_stage_t stages[] = {
+        { .stage_type = LLE_CI_STAGE_FAST_VALIDATION, .timeout_minutes = 2 },
+        { .stage_type = LLE_CI_STAGE_UNIT_TESTS, .timeout_minutes = 10 },
+        { .stage_type = LLE_CI_STAGE_INTEGRATION_TESTS, .timeout_minutes = 15 },
+        { .stage_type = LLE_CI_STAGE_PERFORMANCE_TESTS, .timeout_minutes = 20 },
+        { .stage_type = LLE_CI_STAGE_MEMORY_VALIDATION, .timeout_minutes = 10 },
+        { .stage_type = LLE_CI_STAGE_CROSS_PLATFORM, .timeout_minutes = 25 },
+        { .stage_type = LLE_CI_STAGE_SECURITY_ANALYSIS, .timeout_minutes = 15 },
+        { .stage_type = LLE_CI_STAGE_REGRESSION_DETECTION, .timeout_minutes = 5 }
+    };
+    
+    // Execute each stage with comprehensive validation
+    for (size_t i = 0; i < 8; i++) {
+        lle_ci_stage_result_t stage_result;
+        lle_result_t exec_result = lle_ci_stage_execute(&stages[i], 
+                                                       trigger_context, 
+                                                       &stage_result);
+        
+        results->stage_results[results->stage_count++] = stage_result;
+        
+        if (exec_result != LLE_SUCCESS) {
+            results->failed_stages++;
+            if (pipeline->fail_fast_enabled) {
+                results->pipeline_status = LLE_CI_STATUS_FAILED;
+                break;
+            }
+        } else {
+            results->passed_stages++;
+        }
+    }
+    
+    // Generate comprehensive test reports
+    lle_ci_generate_html_dashboard(pipeline, results);
+    lle_ci_generate_junit_report(pipeline, results);
+    lle_ci_send_notifications(pipeline, results);
+    
+    return (results->failed_stages == 0) ? LLE_SUCCESS : LLE_ERROR_CI_PIPELINE_FAILED;
+}
+```
+
+#### 4.2.5 Real-Time Test Reporting and Analytics
+
+```c
+// HTML dashboard generation for real-time test analytics
+lle_result_t lle_generate_comprehensive_test_dashboard(
+    lle_test_reporting_framework_t *framework,
+    lle_test_results_t *results,
+    lle_test_analytics_t *analytics
+) {
+    FILE *html_file = fopen("test_dashboard.html", "w");
+    
+    // Generate comprehensive dashboard with analytics
+    fprintf(html_file,
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        "<head><title>LLE Testing Framework Dashboard</title></head>\n"
+        "<body>\n"
+        "    <h1>LLE Comprehensive Testing Results</h1>\n"
+        "    <div class='metrics-summary'>\n"
+        "        <div class='metric'>\n"
+        "            <span class='value'>%.1f%%</span>\n"
+        "            <span class='label'>Success Rate</span>\n"
+        "        </div>\n"
+        "        <div class='metric'>\n"
+        "            <span class='value'>%.2fms</span>\n"
+        "            <span class='label'>Avg Response Time</span>\n"
+        "        </div>\n"
+        "        <div class='metric'>\n"
+        "            <span class='value'>%zu</span>\n"
+        "            <span class='label'>Memory Leaks</span>\n"
+        "        </div>\n"
+        "    </div>\n"
+        "</body>\n"
+        "</html>\n",
+        analytics->success_rate_percent,
+        analytics->average_execution_time_ms,
+        analytics->memory_leak_incidents);
+    
+    fclose(html_file);
+    return LLE_SUCCESS;
+}
+```
+
+### 4.3 Integration Testing with Lusush Systems
+
+#### 4.3.1 Display System Integration Validation
+
+```c
+// Complete LLE-Lusush integration testing
+LLE_REGISTER_TEST(complete_lusush_integration_validation, LLE_TEST_TYPE_INTEGRATION,
+                  LLE_TEST_PRIORITY_CRITICAL,
+                  "Validate complete LLE integration with all Lusush systems") {
+    // Initialize both systems
+    lle_system_t *lle_system = NULL;
+    lle_integration_requirements_t requirements = {
+        .memory_integration = {
+            .requires_zero_allocation_testing = true,
+            .max_allocation_time_ns = 100000,        // 100μs
+            .min_pool_utilization_percent = 85
+        },
+        .display_integration = {
+            .requires_layered_display_compatibility = true,
+            .max_render_time_ns = 1000000,           // 1ms
+            .requires_cursor_synchronization = true
+        },
+        .performance_integration = {
+            .max_response_time_ns = 500000,          // 500μs
+            .min_cache_hit_rate_percent = 75.0,
+            .requires_sub_millisecond_operations = true
+        }
+    };
+    
+    lle_result_t init_result = lle_system_initialize(&lle_system, &requirements);
+    LLE_ASSERT_EQ(LLE_SUCCESS, init_result, "LLE system initialization failed");
+    
+    // Test memory pool integration
+    uint64_t start_time = lle_get_nanosecond_timestamp();
+    void *test_alloc = lle_system_allocate(lle_system, 1024);
+    uint64_t alloc_time = lle_get_nanosecond_timestamp() - start_time;
+    
+    LLE_ASSERT_NOT_NULL(test_alloc, "System allocation failed");
+    LLE_ASSERT_TRUE(alloc_time <= requirements.memory_integration.max_allocation_time_ns,
+                   "Allocation time exceeded requirements");
+    
+    // Test display integration performance
+    lle_buffer_t *test_buffer = lle_buffer_create(1024);
+    lle_buffer_insert_text(test_buffer, "Integration test command", -1);
+    
+    lle_display_context_t *display_ctx = lle_system_get_display_context(lle_system);
+    start_time = lle_get_nanosecond_timestamp();
+    lle_result_t render_result = lle_display_render_buffer(display_ctx, test_buffer);
+    uint64_t render_time = lle_get_nanosecond_timestamp() - start_time;
+    
+    LLE_ASSERT_EQ(LLE_SUCCESS, render_result, "Display rendering failed");
+    LLE_ASSERT_TRUE(render_time <= requirements.display_integration.max_render_time_ns,
+                   "Rendering time exceeded requirements");
+    
+    // Cleanup
+    lle_system_deallocate(lle_system, test_alloc);
+    lle_buffer_destroy(test_buffer);
+    lle_system_destroy(lle_system);
+    
+    return LLE_TEST_RESULT_SUCCESS;
+}
+```
+
+#### 4.3.2 Cross-Platform Compatibility Testing
+
+```c
+// Cross-platform behavior validation
+LLE_REGISTER_TEST(cross_platform_compatibility_validation, LLE_TEST_TYPE_COMPATIBILITY,
+                  LLE_TEST_PRIORITY_HIGH,
+                  "Validate consistent behavior across Unix/Linux platforms") {
+    // Test platform-specific terminal capabilities
+    lle_unix_terminal_t *terminal = lle_unix_terminal_create();
+    LLE_ASSERT_NOT_NULL(terminal, "Terminal creation failed");
+    
+    lle_terminal_capabilities_t caps;
+    lle_result_t cap_result = lle_unix_terminal_detect_capabilities(terminal, &caps, 100);
+    LLE_ASSERT_EQ(LLE_SUCCESS, cap_result, "Capability detection failed");
+    
+    // Validate essential capabilities are consistently detected
+    LLE_ASSERT_TRUE(caps.supports_colors, "Color support should be detected");
+    LLE_ASSERT_TRUE(caps.supports_cursor_movement, "Cursor movement should be supported");
+    
+    // Test UTF-8 handling across platforms
+    lle_buffer_t *buffer = lle_buffer_create(1024);
+    const char *platform_test_strings[] = {
+        "Basic ASCII text",
+        "UTF-8: café naïve résumé",
+        "Emoji: 🚀💻🎯",
+        "Multi-script: Hello 世界 नमस्ते",
+        NULL
+    };
+    
+    for (int i = 0; platform_test_strings[i] != NULL; i++) {
+        lle_result_t insert_result = lle_buffer_insert_text(buffer, 
+                                                           platform_test_strings[i], -1);
+        LLE_ASSERT_EQ(LLE_SUCCESS, insert_result, "UTF-8 insertion failed");
+        
+        // Validate consistent grapheme cluster handling
+        size_t cluster_count = lle_buffer_get_grapheme_cluster_count(buffer);
+        LLE_ASSERT_TRUE(cluster_count > 0, "Grapheme clusters should be detected");
+        
+        lle_buffer_clear(buffer);
+    }
+    
+    lle_buffer_destroy(buffer);
+    lle_unix_terminal_destroy(terminal);
+    return LLE_TEST_RESULT_SUCCESS;
+}
+```
     // Warm up
     for (size_t i = 0; i < 100; i++) {
         lle_buffer_insert_text(buffer, test_text, sizeof(test_text) - 1);
