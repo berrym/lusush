@@ -1,9 +1,9 @@
 # Autosuggestions Complete Specification
 
 **Document**: 10_autosuggestions_complete.md  
-**Version**: 1.0.0  
-**Date**: 2025-01-07  
-**Status**: Implementation-Ready Specification  
+**Version**: 2.0.0  
+**Date**: 2025-10-11  
+**Status**: Integration-Ready Specification (Phase 2 Integration Refactoring)
 **Classification**: Critical Core Component  
 
 ---
@@ -14,16 +14,17 @@
 2. [Architecture Overview](#2-architecture-overview)
 3. [Suggestion Core Engine](#3-suggestion-core-engine)
 4. [Intelligent Prediction System](#4-intelligent-prediction-system)
-5. [History Integration](#5-history-integration)
-6. [Context-Aware Suggestions](#6-context-aware-suggestions)
-7. [Display Integration](#7-display-integration)
-8. [Performance Optimization](#8-performance-optimization)
-9. [Memory Management Integration](#9-memory-management-integration)
-10. [Event System Coordination](#10-event-system-coordination)
-11. [Configuration Management](#11-configuration-management)
-12. [Error Handling and Recovery](#12-error-handling-and-recovery)
-13. [Testing and Validation](#13-testing-and-validation)
-14. [Implementation Roadmap](#14-implementation-roadmap)
+5. [History-Buffer Integration](#5-history-buffer-integration)
+6. [Completion Menu Coordination](#6-completion-menu-coordination)
+7. [Context-Aware Suggestions](#7-context-aware-suggestions)
+8. [Display Integration](#8-display-integration)
+9. [Performance Optimization](#9-performance-optimization)
+10. [Memory Management Integration](#10-memory-management-integration)
+11. [Event System Coordination](#11-event-system-coordination)
+12. [Configuration Management](#12-configuration-management)
+13. [Error Handling and Recovery](#13-error-handling-and-recovery)
+14. [Testing and Validation](#14-testing-and-validation)
+15. [Implementation Roadmap](#15-implementation-roadmap)
 
 ---
 
@@ -38,6 +39,8 @@ The LLE Autosuggestions System provides Fish-style intelligent command predictio
 - **Fish-Style Inline Suggestions**: Real-time command predictions displayed as ghost text during typing
 - **Intelligent Prediction Engine**: Advanced pattern matching with frequency analysis, context awareness, and semantic understanding
 - **Multi-Source Intelligence**: Suggestions from command history, filesystem completion, git integration, and custom databases
+- **History-Buffer Integration**: Enhanced suggestions using interactive history editing data and multiline command structures
+- **Completion Menu Coordination**: Intelligent coordination with completion menu to avoid conflicts and enhance user experience
 - **Context-Aware Filtering**: Dynamic suggestion refinement based on current directory, git status, and command context
 - **Performance Excellence**: Sub-millisecond suggestion generation with intelligent caching and prefetching
 - **Display System Integration**: Seamless integration with Lusush layered display for consistent visual presentation
@@ -60,6 +63,15 @@ The LLE Autosuggestions System provides Fish-style intelligent command predictio
 ### 2.1 Autosuggestions System Architecture
 
 ```c
+// NEW: Coordination modes for integration systems
+typedef enum {
+    LLE_SUGGEST_NORMAL_MODE,        // Normal suggestion generation
+    LLE_SUGGEST_HISTORY_MODE,       // History editing coordination mode
+    LLE_SUGGEST_COMPLETION_MODE,    // Completion menu coordination mode  
+    LLE_SUGGEST_SUPPRESSED_MODE,    // Suggestions suppressed during conflicts
+    LLE_SUGGEST_ENHANCED_MODE       // Enhanced mode with cross-system data
+} lle_coordination_mode_t;
+
 // Primary autosuggestions system with intelligent prediction capabilities
 typedef struct lle_autosuggestions_system {
     // Core suggestion engine
@@ -76,6 +88,8 @@ typedef struct lle_autosuggestions_system {
     
     // Data sources and integration
     lle_history_integration_t *history_integration;   // History system integration for suggestions
+    lle_history_buffer_integration_t *hist_buffer_integration; // NEW: History-buffer integration system
+    lle_interactive_completion_menu_t *completion_menu; // NEW: Completion menu coordination
     lle_filesystem_scanner_t *fs_scanner;             // Filesystem-aware completion suggestions
     lle_git_integration_t *git_integration;           // Git-aware command suggestions
     lle_plugin_manager_t *plugin_manager;             // Custom suggestion source plugins
@@ -95,12 +109,116 @@ typedef struct lle_autosuggestions_system {
     lle_suggestion_state_t *current_state;            // Current suggestion state
     lle_hash_table_t *suggestion_cache;               // Fast suggestion lookup hashtable
     
+    // NEW: Integration coordination state
+    lle_coordination_mode_t coordination_mode;        // Current coordination mode
+    bool history_editing_active;                      // History editing state
+    bool completion_menu_active;                      // Completion menu active state
+    uint64_t last_integration_update;                 // Last integration state update
+    
     // Thread safety and synchronization
     pthread_rwlock_t suggestions_lock;                // Thread-safe access control
+    pthread_rwlock_t integration_lock;                // Integration coordination lock
     bool system_active;                               // Autosuggestions system status
-    uint64_t suggestion_counter;                      // Suggestion generation counter
-    uint32_t api_version;                             // Autosuggestions API version
 } lle_autosuggestions_system_t;
+
+// NEW: Comprehensive system initialization with integration support
+lle_result_t lle_autosuggestions_system_init(
+    lle_autosuggestions_system_t **system,
+    memory_pool_t *memory_pool,
+    lle_display_controller_t *display_controller
+) {
+    if (!system || !memory_pool || !display_controller) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Allocate main system structure
+    *system = memory_pool_allocate(memory_pool, sizeof(lle_autosuggestions_system_t));
+    if (!*system) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Initialize core components
+    lle_result_t result = lle_suggestion_core_init(&(*system)->suggestion_core, memory_pool);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    result = lle_prediction_engine_init(&(*system)->prediction_engine, memory_pool);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Initialize integration coordination state
+    (*system)->coordination_mode = LLE_SUGGEST_NORMAL_MODE;
+    (*system)->history_editing_active = false;
+    (*system)->completion_menu_active = false;
+    (*system)->last_integration_update = 0;
+    (*system)->hist_buffer_integration = NULL;
+    (*system)->completion_menu = NULL;
+    
+    // Initialize thread safety
+    if (pthread_rwlock_init(&(*system)->suggestions_lock, NULL) != 0) {
+        return LLE_ERROR_THREAD_INIT;
+    }
+    
+    if (pthread_rwlock_init(&(*system)->integration_lock, NULL) != 0) {
+        pthread_rwlock_destroy(&(*system)->suggestions_lock);
+        return LLE_ERROR_THREAD_INIT;
+    }
+    
+    (*system)->system_active = true;
+    return LLE_SUCCESS;
+}
+
+// NEW: Initialize system with full integration support
+lle_result_t lle_autosuggestions_system_init_with_integrations(
+    lle_autosuggestions_system_t **system,
+    memory_pool_t *memory_pool,
+    lle_display_controller_t *display_controller,
+    lle_history_buffer_integration_t *hist_buffer_integration,
+    lle_interactive_completion_menu_t *completion_menu
+) {
+    // Initialize base system first
+    lle_result_t result = lle_autosuggestions_system_init(
+        system, 
+        memory_pool, 
+        display_controller
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Initialize history-buffer integration if provided
+    if (hist_buffer_integration) {
+        result = lle_autosuggestions_init_history_integration(
+            *system, 
+            hist_buffer_integration
+        );
+        
+        if (result != LLE_SUCCESS) {
+            lle_autosuggestions_system_destroy(*system);
+            *system = NULL;
+            return result;
+        }
+    }
+    
+    // Initialize completion menu coordination if provided
+    if (completion_menu) {
+        result = lle_autosuggestions_init_completion_coordination(
+            *system, 
+            completion_menu
+        );
+        
+        if (result != LLE_SUCCESS) {
+            lle_autosuggestions_system_destroy(*system);
+            *system = NULL;
+            return result;
+        }
+    }
+    
+    return LLE_SUCCESS;
+}
 ```
 
 ### 2.2 Suggestion Generation Pipeline
@@ -652,7 +770,466 @@ double lle_fuzzy_match_score(lle_fuzzy_matcher_t *fuzzy,
 
 ---
 
-## 5. History Integration
+## 5. History-Buffer Integration
+
+### 5.1 Enhanced History Integration System
+
+The autosuggestions system now integrates with the History-Buffer Integration system to provide enhanced suggestions based on interactive history editing data and multiline command structures.
+
+#### 5.1.1 History-Buffer Integration Architecture
+
+```c
+// NEW: History-buffer integration for enhanced suggestions
+typedef struct lle_autosuggestions_history_integration {
+    // Core integration
+    lle_history_buffer_integration_t *hist_buffer_system; // History-buffer integration reference
+    lle_multiline_suggestion_engine_t *multiline_engine; // Multiline suggestion engine
+    lle_edit_session_tracker_t *session_tracker;        // Track active edit sessions
+    
+    // Enhanced suggestion data
+    lle_edited_command_cache_t *edited_cache;           // Cache of user-edited commands
+    lle_multiline_pattern_db_t *multiline_patterns;     // Multiline command patterns
+    lle_structural_matcher_t *structure_matcher;       // Match shell construct patterns
+    
+    // Integration coordination
+    lle_suggestion_filter_t *history_filter;           // Filter suggestions during history editing
+    lle_coordination_state_t *coord_state;             // Coordination state management
+    
+    // Performance optimization
+    lle_history_suggestion_cache_t *suggestion_cache;  // Optimized suggestion caching
+    memory_pool_t *integration_memory_pool;            // Dedicated memory pool
+} lle_autosuggestions_history_integration_t;
+
+// NEW: Multiline suggestion engine for complex commands
+typedef struct lle_multiline_suggestion_engine {
+    // Structure analysis
+    lle_command_structure_analyzer_t *structure_analyzer; // Analyze command structures
+    lle_multiline_pattern_matcher_t *pattern_matcher;     // Match multiline patterns
+    lle_indentation_tracker_t *indent_tracker;            // Track indentation patterns
+    
+    // Suggestion generation
+    lle_structural_completion_t *struct_completion;      // Complete shell constructs
+    lle_template_engine_t *template_engine;              // Template-based suggestions
+    lle_context_preserving_cache_t *context_cache;       // Context-preserving cache
+    
+    // Performance metrics
+    lle_multiline_metrics_t *metrics;                    // Multiline suggestion metrics
+} lle_multiline_suggestion_engine_t;
+```
+
+#### 5.1.2 Integration Implementation Functions
+
+```c
+// NEW: Initialize history-buffer integration
+lle_result_t lle_autosuggestions_init_history_integration(
+    lle_autosuggestions_system_t *system,
+    lle_history_buffer_integration_t *hist_buffer_integration
+) {
+    if (!system || !hist_buffer_integration) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Allocate integration structure
+    system->hist_buffer_integration = memory_pool_allocate(
+        system->memory_pool,
+        sizeof(lle_autosuggestions_history_integration_t)
+    );
+    
+    if (!system->hist_buffer_integration) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Initialize multiline suggestion engine
+    lle_result_t result = lle_init_multiline_suggestion_engine(
+        &system->hist_buffer_integration->multiline_engine,
+        system->memory_pool
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Set up integration callbacks
+    lle_history_edit_callbacks_t callbacks = {
+        .on_edit_start = lle_autosuggestions_on_history_edit_start,
+        .on_edit_change = lle_autosuggestions_on_history_edit_change,
+        .on_edit_complete = lle_autosuggestions_on_history_edit_complete,
+        .context = system
+    };
+    
+    return lle_history_buffer_register_callbacks(
+        hist_buffer_integration,
+        &callbacks
+    );
+}
+
+// NEW: Generate suggestions enhanced with history-buffer data
+lle_result_t lle_autosuggestions_generate_with_history_integration(
+    lle_autosuggestions_system_t *system,
+    const char *partial_command,
+    lle_suggestion_result_t *result
+) {
+    if (!system || !partial_command || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Check if history editing is active
+    if (system->history_editing_active) {
+        // Generate suggestions coordinated with history editing
+        return lle_generate_history_editing_suggestions(
+            system,
+            partial_command,
+            result
+        );
+    }
+    
+    // Analyze command structure for multiline suggestions
+    lle_command_structure_t structure;
+    lle_result_t analyze_result = lle_analyze_partial_structure(
+        system->hist_buffer_integration->multiline_engine->structure_analyzer,
+        partial_command,
+        &structure
+    );
+    
+    if (analyze_result == LLE_SUCCESS && structure.is_multiline_candidate) {
+        // Generate multiline-aware suggestions
+        return lle_generate_multiline_suggestions(
+            system,
+            &structure,
+            result
+        );
+    }
+    
+    // Fall back to standard suggestion generation with history enhancement
+    return lle_generate_standard_suggestions_with_history(
+        system,
+        partial_command,
+        result
+    );
+}
+
+// NEW: Callback for history editing start
+lle_result_t lle_autosuggestions_on_history_edit_start(
+    lle_history_entry_t *entry,
+    void *context
+) {
+    lle_autosuggestions_system_t *system = (lle_autosuggestions_system_t*)context;
+    
+    // Set coordination mode to history editing
+    system->coordination_mode = LLE_SUGGEST_HISTORY_MODE;
+    system->history_editing_active = true;
+    
+    // Cache original multiline structure if available
+    if (entry->original_multiline) {
+        return lle_cache_multiline_editing_context(
+            system->hist_buffer_integration->edited_cache,
+            entry
+        );
+    }
+    
+    return LLE_SUCCESS;
+}
+
+// NEW: Callback for history editing changes
+lle_result_t lle_autosuggestions_on_history_edit_change(
+    lle_history_entry_t *entry,
+    const char *current_text,
+    void *context
+) {
+    lle_autosuggestions_system_t *system = (lle_autosuggestions_system_t*)context;
+    
+    // Update suggestions based on editing context
+    lle_suggestion_result_t updated_suggestions;
+    lle_result_t result = lle_generate_editing_context_suggestions(
+        system,
+        entry,
+        current_text,
+        &updated_suggestions
+    );
+    
+    if (result == LLE_SUCCESS) {
+        // Update display with context-aware suggestions
+        return lle_update_suggestions_display(
+            system->renderer,
+            &updated_suggestions
+        );
+    }
+    
+    return result;
+}
+
+// NEW: Callback for history editing completion
+lle_result_t lle_autosuggestions_on_history_edit_complete(
+    lle_history_entry_t *entry,
+    bool was_modified,
+    void *context
+) {
+    lle_autosuggestions_system_t *system = (lle_autosuggestions_system_t*)context;
+    
+    // Reset coordination mode
+    system->coordination_mode = LLE_SUGGEST_NORMAL_MODE;
+    system->history_editing_active = false;
+    
+    // If command was modified, update pattern database
+    if (was_modified && entry->original_multiline) {
+        lle_update_multiline_patterns(
+            system->hist_buffer_integration->multiline_patterns,
+            entry
+        );
+    }
+    
+    // NEW: Test integration-specific performance
+    lle_performance_test_result_t integration_result;
+    result = lle_test_integration_performance(
+        system,
+        &integration_result
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+// NEW: Integration-specific performance testing
+lle_result_t lle_test_integration_performance(
+    lle_autosuggestions_system_t *system,
+    lle_performance_test_result_t *result
+) {
+    if (!system || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Test history-buffer integration performance
+    lle_result_t hist_result = lle_test_history_buffer_integration_performance(
+        system,
+        result
+    );
+    
+    if (hist_result != LLE_SUCCESS) {
+        return hist_result;
+    }
+    
+    // Test completion coordination performance  
+    lle_result_t comp_result = lle_test_completion_coordination_performance(
+        system,
+        result
+    );
+    
+    return comp_result;
+}
+```
+
+### 15.3 Integration Testing
+### 7.4 Performance Requirements (Updated with Integration)
+
+- **History Integration Lookup**: <25μs for accessing history-buffer integration data
+- **Multiline Pattern Matching**: <50μs for complex shell construct analysis
+- **Coordination Mode Switching**: <5μs for mode transitions
+- **Enhanced Suggestion Generation**: <100μs total including history-buffer data
+
+---
+
+## 6. Completion Menu Coordination
+
+### 6.1 Intelligent Completion Menu Coordination
+
+The autosuggestions system coordinates with the Interactive Completion Menu to provide a seamless user experience without conflicts or visual interference.
+
+#### 6.1.1 Completion Menu Coordination Architecture
+
+```c
+// NEW: Completion menu coordination system
+typedef struct lle_autosuggestions_completion_coordination {
+    // Core coordination
+    lle_interactive_completion_menu_t *completion_menu; // Completion menu reference
+    lle_menu_state_tracker_t *state_tracker;           // Track menu state
+    lle_coordination_engine_t *coordination_engine;    // Coordination logic
+    
+    // Suggestion adaptation
+    lle_suggestion_suppressor_t *suppressor;           // Suppress conflicting suggestions
+    lle_suggestion_enhancer_t *enhancer;               // Enhance suggestions with completion data
+    lle_conflict_resolver_t *conflict_resolver;        // Resolve display conflicts
+    
+    // Visual coordination
+    lle_display_coordinator_t *display_coordinator;    // Coordinate visual elements
+    lle_layout_manager_t *layout_manager;              // Manage screen layout
+    lle_z_order_manager_t *z_order_manager;            // Manage display layering
+    
+    // Performance optimization
+    lle_coordination_cache_t *coordination_cache;      // Cache coordination decisions
+    memory_pool_t *coordination_memory_pool;           // Dedicated memory pool
+} lle_autosuggestions_completion_coordination_t;
+
+// NEW: Coordination state management
+typedef struct lle_coordination_state {
+    // Menu state
+    bool completion_menu_visible;                      // Menu visibility state
+    bool completion_menu_active;                       // Menu interaction state
+    size_t active_completion_count;                    // Number of active completions
+    lle_completion_category_t active_category;         // Currently active category
+    
+    // Suggestion state
+    bool suggestions_suppressed;                       // Suggestions suppression state
+    bool suggestions_enhanced;                         // Enhanced mode active
+    lle_suggestion_adaptation_mode_t adaptation_mode;  // Current adaptation mode
+    
+    // Timing coordination
+    uint64_t last_menu_activation;                     // Last menu activation timestamp
+    uint64_t suggestion_update_timestamp;              // Last suggestion update
+    uint32_t coordination_timeout_ms;                  // Coordination timeout
+} lle_coordination_state_t;
+
+// NEW: Suggestion adaptation modes
+typedef enum {
+    LLE_ADAPT_SUPPRESS_ALL,      // Suppress all suggestions when menu active
+    LLE_ADAPT_ENHANCE_RELEVANT,  // Enhance with relevant completion data
+    LLE_ADAPT_COMPLEMENT_MENU,   // Show complementary suggestions
+    LLE_ADAPT_INTELLIGENT_MERGE  // Intelligently merge with completion data
+} lle_suggestion_adaptation_mode_t;
+```
+
+#### 6.1.2 Coordination Implementation Functions
+
+```c
+// NEW: Initialize completion menu coordination
+lle_result_t lle_autosuggestions_init_completion_coordination(
+    lle_autosuggestions_system_t *system,
+    lle_interactive_completion_menu_t *completion_menu
+) {
+    if (!system || !completion_menu) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Allocate coordination structure
+    system->completion_menu = completion_menu;
+    
+    // Set up menu event callbacks
+    lle_completion_menu_callbacks_t callbacks = {
+        .on_menu_show = lle_autosuggestions_on_menu_show,
+        .on_menu_hide = lle_autosuggestions_on_menu_hide,
+        .on_menu_navigate = lle_autosuggestions_on_menu_navigate,
+        .on_menu_select = lle_autosuggestions_on_menu_select,
+        .context = system
+    };
+    
+    return lle_completion_menu_register_callbacks(
+        completion_menu,
+        &callbacks
+    );
+}
+
+// NEW: Coordinate suggestions with completion menu
+lle_result_t lle_autosuggestions_coordinate_with_completion(
+    lle_autosuggestions_system_t *system,
+    const char *partial_command,
+    lle_suggestion_result_t *result
+) {
+    if (!system || !partial_command || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Check completion menu state
+    if (system->completion_menu_active) {
+        // Apply coordination strategy based on current mode
+        switch (system->coordination_mode) {
+            case LLE_SUGGEST_COMPLETION_MODE:
+                return lle_generate_complementary_suggestions(
+                    system,
+                    partial_command,
+                    result
+                );
+                
+            case LLE_SUGGEST_SUPPRESSED_MODE:
+                // Clear suggestions when suppressed
+                result->suggestion_count = 0;
+                result->primary_suggestion = NULL;
+                return LLE_SUCCESS;
+                
+            default:
+                return lle_generate_enhanced_suggestions(
+                    system,
+                    partial_command,
+                    result
+                );
+        }
+    }
+    
+    // Normal suggestion generation when menu not active
+    return lle_autosuggestions_generate_with_history_integration(
+        system,
+        partial_command,
+        result
+    );
+}
+
+// NEW: Callback for completion menu show
+lle_result_t lle_autosuggestions_on_menu_show(
+    lle_completion_context_t *context,
+    void *user_context
+) {
+    lle_autosuggestions_system_t *system = (lle_autosuggestions_system_t*)user_context;
+    
+    // Set coordination mode
+    system->coordination_mode = LLE_SUGGEST_COMPLETION_MODE;
+    system->completion_menu_active = true;
+    
+    // Adapt suggestions based on completion context
+    return lle_adapt_suggestions_for_menu(system, context);
+}
+
+// NEW: Callback for completion menu hide
+lle_result_t lle_autosuggestions_on_menu_hide(
+    void *user_context
+) {
+    lle_autosuggestions_system_t *system = (lle_autosuggestions_system_t*)user_context;
+    
+    // Reset coordination mode
+    system->coordination_mode = LLE_SUGGEST_NORMAL_MODE;
+    system->completion_menu_active = false;
+    
+    // Resume normal suggestions
+    return lle_resume_normal_suggestions(system);
+}
+
+// NEW: Generate complementary suggestions during menu interaction
+lle_result_t lle_generate_complementary_suggestions(
+    lle_autosuggestions_system_t *system,
+    const char *partial_command,
+    lle_suggestion_result_t *result
+) {
+    // Get current completion menu context
+    lle_completion_context_t menu_context;
+    lle_result_t context_result = lle_completion_menu_get_context(
+        system->completion_menu,
+        &menu_context
+    );
+    
+    if (context_result != LLE_SUCCESS) {
+        return context_result;
+    }
+    
+    // Generate suggestions that complement the menu items
+    return lle_generate_suggestions_excluding_menu_items(
+        system,
+        partial_command,
+        &menu_context,
+        result
+    );
+}
+```
+
+#### 6.1.3 Coordination Performance Requirements
+
+- **Menu State Detection**: <5μs for detecting completion menu state changes
+- **Coordination Mode Switching**: <10μs for switching between coordination modes
+- **Complementary Suggestion Generation**: <150μs including menu context analysis
+- **Conflict Resolution**: <25μs for resolving display conflicts
+
+---
+
+## 7. Context-Aware Suggestions
 
 ### 5.1 History-Based Suggestion Source
 
@@ -930,7 +1507,7 @@ double lle_calculate_frequency_score(lle_frequency_analyzer_t *analyzer,
 
 ---
 
-## 6. Context-Aware Suggestions
+## 8. Context-Aware Suggestions
 
 ### 6.1 Context Analysis Engine
 
@@ -1259,7 +1836,7 @@ lle_git_context_t *lle_analyze_git_context(lle_git_context_detector_t *detector,
 
 ---
 
-## 7. Display Integration
+## 9. Display Integration
 
 ### 7.1 Suggestion Rendering System
 
@@ -1597,7 +2174,7 @@ lle_visual_style_t lle_calculate_suggestion_visual_style(lle_suggestion_renderer
 
 ---
 
-## 8. Performance Optimization
+## 10. Performance Optimization
 
 ### 8.1 Caching Strategy
 
@@ -1873,7 +2450,7 @@ void lle_trigger_suggestion_prefetch(lle_suggestion_prefetcher_t *prefetcher,
 
 ---
 
-## 9. Memory Management Integration
+## 11. Memory Management Integration
 
 ### 9.1 Memory Pool Integration
 
@@ -2025,7 +2602,7 @@ void lle_suggestion_memory_cleanup(lle_suggestion_memory_manager_t *memory_manag
 
 ---
 
-## 10. Event System Coordination
+## 12. Event System Coordination
 
 ### 10.1 Event Integration
 
@@ -2114,9 +2691,9 @@ lle_event_result_t lle_handle_suggestion_events(lle_suggestion_event_coordinator
 
 ---
 
-## 11. Configuration Management
+## 13. Configuration Management
 
-### 11.1 Comprehensive Configuration System
+### 13.1 Comprehensive Configuration System (Updated with Integration)
 
 ```c
 // Complete autosuggestions configuration management
@@ -2206,7 +2783,7 @@ lle_config_validation_result_t lle_validate_autosuggestions_config(lle_autosugge
 
 ---
 
-## 12. Error Handling and Recovery
+## 14. Error Handling and Recovery
 
 ### 12.1 Comprehensive Error Management
 
@@ -2367,7 +2944,7 @@ lle_suggestion_result_t lle_handle_suggestion_error(lle_suggestion_error_handler
 
 ---
 
-## 13. Testing and Validation
+## 15. Testing and Validation
 
 ### 13.1 Comprehensive Testing Framework
 
@@ -2451,9 +3028,72 @@ lle_validation_result_t lle_validate_suggestion_quality(lle_suggestion_validator
 
 ---
 
-## 14. Implementation Roadmap
+## 15. Implementation Roadmap
 
-### 14.1 Development Phases
+### 15.1 Integration-Enhanced Development Phases
+
+#### Phase 1: Integration Foundation (Weeks 1-2)
+**Priority**: Critical integration architecture setup
+
+**Week 1: History-Buffer Integration**
+1. **Integration Structure Implementation**
+   - Implement `lle_autosuggestions_history_integration_t`
+   - Create `lle_multiline_suggestion_engine_t`
+   - Set up callback registration system
+   - **Dependencies**: 22_history_buffer_integration_complete.md
+   - **Success Criteria**: History editing callbacks functional
+
+2. **Multiline Pattern System**
+   - Implement command structure analyzer
+   - Create multiline pattern database
+   - Build template-based suggestion engine
+   - **Testing**: Shell construct recognition accuracy >90%
+
+**Week 2: Completion Menu Coordination**
+1. **Coordination Architecture**
+   - Implement `lle_autosuggestions_completion_coordination_t`
+   - Create coordination state management
+   - Set up menu event callback system
+   - **Dependencies**: 23_interactive_completion_menu_complete.md
+   - **Success Criteria**: Menu state detection <5μs
+
+2. **Conflict Resolution System**
+   - Implement suggestion suppression logic
+   - Create complementary suggestion generation
+   - Build display conflict resolution
+   - **Testing**: Zero visual conflicts during menu interaction
+
+#### Phase 2: Enhanced Intelligence (Weeks 3-4)
+**Priority**: Advanced suggestion capabilities with integration
+
+**Week 3: Cross-System Context**
+1. **Unified Context Engine**
+   - Upgrade context analyzer with integration data
+   - Implement cross-system context sharing
+   - Create context consistency validation
+   - **Integration**: All systems share unified context state
+   - **Performance**: Context updates <25μs
+
+2. **Enhanced Suggestion Generation**
+   - Implement integration-aware suggestion algorithms
+   - Create multiline-aware suggestion logic
+   - Build completion-coordinated suggestions
+   - **Testing**: Integration suggestions >95% relevance
+
+**Week 4: Performance Integration**
+1. **Integration Performance Optimization**
+   - Optimize coordination overhead <10μs
+   - Implement integration-specific caching
+   - Create performance monitoring for integrations
+   - **Performance**: Total integration overhead <50μs
+
+2. **Integration Testing Framework**
+   - Build cross-system integration tests
+   - Create performance regression testing
+   - Implement integration validation suite
+   - **Success Criteria**: All integration tests pass
+
+### 15.2 Original Development Phases (Enhanced with Integration)
 
 ```c
 // Comprehensive implementation roadmap for autosuggestions system
