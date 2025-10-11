@@ -1,10 +1,10 @@
 # Syntax Highlighting Complete Specification
 
 **Document**: 11_syntax_highlighting_complete.md  
-**Version**: 1.0.0  
-**Date**: 2025-01-07  
-**Status**: Implementation-Ready Specification  
-**Classification**: Critical Core Component  
+**Version**: 2.0.0  
+**Date**: 2025-10-11  
+**Status**: Integration-Ready Specification (Phase 2 Integration Refactoring)
+**Classification**: Critical Core Component
 
 ---
 
@@ -12,18 +12,20 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Syntax Analysis Engine](#3-syntax-analysis-engine)
-4. [Real-Time Highlighting System](#4-real-time-highlighting-system)
-5. [Color Management](#5-color-management)
-6. [Shell Language Support](#6-shell-language-support)
-7. [Display Integration](#7-display-integration)
-8. [Performance Optimization](#8-performance-optimization)
-9. [Memory Management Integration](#9-memory-management-integration)
-10. [Event System Coordination](#10-event-system-coordination)
-11. [Configuration Management](#11-configuration-management)
-12. [Error Handling and Recovery](#12-error-handling-and-recovery)
-13. [Testing and Validation](#13-testing-and-validation)
-14. [Implementation Roadmap](#14-implementation-roadmap)
+3. [Widget Hook Integration](#3-widget-hook-integration)
+4. [Adaptive Terminal Integration](#4-adaptive-terminal-integration)
+5. [Syntax Analysis Engine](#5-syntax-analysis-engine)
+6. [Real-Time Highlighting System](#6-real-time-highlighting-system)
+7. [Color Management](#7-color-management)
+8. [Shell Language Support](#8-shell-language-support)
+9. [Display Integration](#9-display-integration)
+10. [Performance Optimization](#10-performance-optimization)
+11. [Memory Management Integration](#11-memory-management-integration)
+12. [Event System Coordination](#12-event-system-coordination)
+13. [Configuration Management](#13-configuration-management)
+14. [Error Handling and Recovery](#14-error-handling-and-recovery)
+15. [Testing and Validation](#15-testing-and-validation)
+16. [Implementation Roadmap](#16-implementation-roadmap)
 
 ---
 
@@ -36,6 +38,8 @@ The LLE Syntax Highlighting System provides real-time visual enhancement of shel
 ### 1.2 Key Features
 
 - **Real-Time Syntax Analysis**: Live lexical analysis and highlighting during command typing
+- **Widget Hook Integration**: Complete integration with advanced prompt widget hooks for bottom-prompt syntax highlighting
+- **Adaptive Terminal Integration**: Dynamic color capabilities with terminal-specific optimization and fallbacks
 - **Comprehensive Shell Language Support**: Complete support for bash, zsh, POSIX shell syntax patterns
 - **Intelligent Context Recognition**: Context-aware highlighting for strings, variables, operators, keywords
 - **Error Detection Integration**: Visual indication of syntax errors and potential issues
@@ -69,6 +73,10 @@ typedef struct lle_syntax_highlighting_system {
     lle_token_classifier_t *token_classifier;         // Token type classification engine
     lle_syntax_cache_t *syntax_cache;                 // Intelligent syntax analysis caching
     
+    // NEW: Integration systems
+    lle_widget_hook_integration_t *widget_integration; // Widget hook integration for bottom-prompt support
+    lle_adaptive_terminal_integration_t *terminal_integration; // Adaptive terminal color management
+    
     // Language support and rules
     lle_shell_grammar_t *shell_grammar;               // Comprehensive shell language grammar
     lle_keyword_database_t *keyword_db;               // Shell keywords and builtin commands
@@ -93,11 +101,22 @@ typedef struct lle_syntax_highlighting_system {
     lle_buffer_integration_t *buffer_integration;     // LLE buffer system integration
     memory_pool_t *memory_pool;                       // Lusush memory pool integration
     
+    // NEW: Integration coordination state
+    lle_widget_highlight_mode_t widget_mode;          // Current widget highlighting mode
+    bool bottom_prompt_active;                        // Bottom prompt highlighting state
+    bool adaptive_colors_active;                      // Adaptive terminal colors enabled
+    uint64_t last_widget_update;                      // Last widget state update timestamp
+    
     // Configuration and state
     lle_syntax_config_t *config;                      // Syntax highlighting configuration
     lle_highlight_state_t *current_state;             // Current highlighting state
     lle_hash_table_t *token_cache;                    // Fast token lookup hashtable
     lle_hash_table_t *keyword_cache;                  // Keyword classification cache
+    
+    // Thread safety for integration
+    pthread_rwlock_t widget_integration_lock;         // Widget integration synchronization
+    pthread_rwlock_t terminal_integration_lock;       // Terminal integration synchronization
+    bool system_active;                               // System active status
     
     // Thread safety and synchronization
     pthread_rwlock_t highlighting_lock;               // Thread-safe access control
@@ -301,7 +320,345 @@ typedef struct lle_incremental_parser {
 
 ---
 
-## 3. Syntax Analysis Engine
+## 3. Widget Hook Integration
+
+### 3.1 Widget Hook Integration Architecture
+
+The syntax highlighting system integrates with the Advanced Prompt Widget Hooks system to provide syntax highlighting support for bottom-prompt mode, prompt state changes, and historical prompt modifications.
+
+#### 3.1.1 Widget Integration System
+
+```c
+// NEW: Widget hook integration for syntax highlighting
+typedef struct lle_widget_hook_integration {
+    // Core integration
+    lle_advanced_prompt_widget_hooks_t *widget_hooks; // Widget hook system reference
+    lle_widget_highlight_engine_t *highlight_engine;  // Widget-specific highlighting
+    lle_prompt_state_tracker_t *state_tracker;        // Track prompt state changes
+    
+    // Bottom-prompt support
+    lle_bottom_prompt_highlighter_t *bottom_highlighter; // Bottom-prompt highlighting
+    lle_historical_prompt_tracker_t *history_tracker;    // Historical prompt modifications
+    lle_widget_context_manager_t *context_manager;       // Widget context management
+    
+    // Integration coordination
+    lle_widget_callback_registry_t *callback_registry; // Widget callback management
+    lle_highlight_state_sync_t *state_sync;           // State synchronization
+    
+    // Performance optimization
+    lle_widget_highlight_cache_t *widget_cache;       // Widget highlighting cache
+    memory_pool_t *widget_memory_pool;                // Widget-specific memory pool
+} lle_widget_hook_integration_t;
+
+// NEW: Widget-specific highlighting engine
+typedef struct lle_widget_highlight_engine {
+    // Bottom-prompt highlighting
+    lle_bottom_prompt_parser_t *bottom_parser;        // Parse bottom-prompt syntax
+    lle_historical_syntax_analyzer_t *history_analyzer; // Analyze historical commands
+    lle_widget_token_classifier_t *widget_classifier; // Widget-aware token classification
+    
+    // Prompt state handling
+    lle_prompt_transition_handler_t *transition_handler; // Handle prompt transitions
+    lle_state_preservation_engine_t *state_preserving;   // Preserve highlighting state
+    lle_context_restoration_t *context_restoration;      // Restore highlighting context
+    
+    // Performance metrics
+    lle_widget_highlight_metrics_t *metrics;          // Widget highlighting performance
+} lle_widget_highlight_engine_t;
+```
+
+#### 3.1.2 Widget Integration Implementation
+
+```c
+// NEW: Initialize widget hook integration
+lle_result_t lle_syntax_init_widget_integration(
+    lle_syntax_highlighting_system_t *system,
+    lle_advanced_prompt_widget_hooks_t *widget_hooks
+) {
+    if (!system || !widget_hooks) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Allocate widget integration structure
+    system->widget_integration = memory_pool_allocate(
+        system->memory_pool,
+        sizeof(lle_widget_hook_integration_t)
+    );
+    
+    if (!system->widget_integration) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    system->widget_integration->widget_hooks = widget_hooks;
+    
+    // Initialize widget highlighting engine
+    lle_result_t result = lle_init_widget_highlight_engine(
+        &system->widget_integration->highlight_engine,
+        system->memory_pool
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Register widget callbacks
+    lle_widget_hook_callbacks_t callbacks = {
+        .on_prompt_mode_change = lle_syntax_on_prompt_mode_change,
+        .on_bottom_prompt_activate = lle_syntax_on_bottom_prompt_activate,
+        .on_bottom_prompt_deactivate = lle_syntax_on_bottom_prompt_deactivate,
+        .on_historical_prompt_modify = lle_syntax_on_historical_prompt_modify,
+        .context = system
+    };
+    
+    return lle_widget_hooks_register_callbacks(
+        widget_hooks,
+        LLE_HOOK_CATEGORY_SYNTAX_HIGHLIGHTING,
+        &callbacks
+    );
+}
+
+// NEW: Handle prompt mode changes
+lle_result_t lle_syntax_on_prompt_mode_change(
+    lle_prompt_mode_t old_mode,
+    lle_prompt_mode_t new_mode,
+    void *context
+) {
+    lle_syntax_highlighting_system_t *system = (lle_syntax_highlighting_system_t*)context;
+    
+    // Update widget highlighting mode
+    if (new_mode == LLE_PROMPT_BOTTOM_MODE) {
+        system->widget_mode = LLE_WIDGET_HIGHLIGHT_BOTTOM;
+        system->bottom_prompt_active = true;
+        
+        // Switch to bottom-prompt highlighting
+        return lle_activate_bottom_prompt_highlighting(
+            system->widget_integration->highlight_engine
+        );
+    } else {
+        system->widget_mode = LLE_WIDGET_HIGHLIGHT_NORMAL;
+        system->bottom_prompt_active = false;
+        
+        // Return to normal highlighting
+        return lle_activate_normal_highlighting(
+            system->widget_integration->highlight_engine
+        );
+    }
+}
+
+// NEW: Handle bottom-prompt activation
+lle_result_t lle_syntax_on_bottom_prompt_activate(
+    lle_bottom_prompt_context_t *context,
+    void *user_context
+) {
+    lle_syntax_highlighting_system_t *system = (lle_syntax_highlighting_system_t*)user_context;
+    
+    // Configure highlighting for bottom-prompt context
+    lle_result_t result = lle_configure_bottom_prompt_highlighting(
+        system->widget_integration->highlight_engine->bottom_parser,
+        context
+    );
+    
+    if (result == LLE_SUCCESS) {
+        system->last_widget_update = lle_get_microsecond_timestamp();
+    }
+    
+    return result;
+}
+
+// NEW: Handle historical prompt modifications
+lle_result_t lle_syntax_on_historical_prompt_modify(
+    lle_history_entry_t *entry,
+    const char *modified_text,
+    void *context
+) {
+    lle_syntax_highlighting_system_t *system = (lle_syntax_highlighting_system_t*)context;
+    
+    // Switch to historical highlighting mode
+    system->widget_mode = LLE_WIDGET_HIGHLIGHT_HISTORICAL;
+    
+    // Apply highlighting to historical command
+    return lle_highlight_historical_command(
+        system->widget_integration->highlight_engine->history_analyzer,
+        entry,
+        modified_text
+    );
+}
+```
+
+#### 3.1.3 Widget Integration Performance Requirements
+
+- **Prompt Mode Switching**: <15μs for switching between normal and bottom-prompt modes
+- **Bottom-Prompt Highlighting**: <100μs for full bottom-prompt syntax analysis
+- **Historical Command Highlighting**: <50μs for historical command syntax highlighting
+- **Widget Callback Execution**: <25μs for all widget callback processing
+
+---
+
+## 4. Adaptive Terminal Integration
+
+### 4.1 Adaptive Terminal Integration Architecture
+
+The syntax highlighting system integrates with the Adaptive Terminal Integration system to provide dynamic color capabilities with terminal-specific optimization and graceful fallbacks.
+
+#### 4.1.1 Adaptive Terminal Integration System
+
+```c
+// NEW: Adaptive terminal integration for syntax highlighting
+typedef struct lle_adaptive_terminal_integration {
+    // Core integration
+    lle_adaptive_terminal_integration_t *terminal_system; // Terminal integration reference
+    lle_color_capability_detector_t *capability_detector; // Terminal color capabilities
+    lle_adaptive_color_manager_t *adaptive_color_manager; // Adaptive color management
+    
+    // Color adaptation
+    lle_terminal_color_mapper_t *color_mapper;         // Map colors to terminal capabilities
+    lle_fallback_color_engine_t *fallback_engine;     // Graceful color fallbacks
+    lle_color_optimization_t *color_optimizer;        // Terminal-specific optimizations
+    
+    // Capability management
+    lle_color_profile_manager_t *profile_manager;     // Terminal color profiles
+    lle_compatibility_matrix_t *compatibility_matrix; // Terminal compatibility data
+    lle_dynamic_adaptation_t *dynamic_adapter;        // Runtime color adaptation
+    
+    // Performance optimization
+    lle_terminal_color_cache_t *color_cache;          // Terminal-specific color cache
+    memory_pool_t *terminal_memory_pool;              // Terminal integration memory pool
+} lle_adaptive_terminal_integration_t;
+
+// NEW: Color adaptation modes for different terminal types
+typedef enum {
+    LLE_COLOR_ADAPT_FULL,        // Full color support (24-bit)
+    LLE_COLOR_ADAPT_256,         // 256-color support
+    LLE_COLOR_ADAPT_16,          // 16-color support  
+    LLE_COLOR_ADAPT_8,           // 8-color basic support
+    LLE_COLOR_ADAPT_MONOCHROME,  // Monochrome fallback
+    LLE_COLOR_ADAPT_NONE         // No color support
+} lle_color_adaptation_mode_t;
+```
+
+#### 4.1.2 Adaptive Terminal Implementation
+
+```c
+// NEW: Initialize adaptive terminal integration
+lle_result_t lle_syntax_init_adaptive_terminal(
+    lle_syntax_highlighting_system_t *system,
+    lle_adaptive_terminal_integration_t *terminal_integration
+) {
+    if (!system || !terminal_integration) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Allocate terminal integration structure
+    system->terminal_integration = memory_pool_allocate(
+        system->memory_pool,
+        sizeof(lle_adaptive_terminal_integration_t)
+    );
+    
+    if (!system->terminal_integration) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    system->terminal_integration->terminal_system = terminal_integration;
+    
+    // Initialize color capability detection
+    lle_result_t result = lle_detect_terminal_color_capabilities(
+        terminal_integration,
+        &system->terminal_integration->capability_detector
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Initialize adaptive color manager
+    result = lle_init_adaptive_color_manager(
+        &system->terminal_integration->adaptive_color_manager,
+        system->terminal_integration->capability_detector,
+        system->memory_pool
+    );
+    
+    if (result == LLE_SUCCESS) {
+        system->adaptive_colors_active = true;
+    }
+    
+    return result;
+}
+
+// NEW: Adapt syntax colors to terminal capabilities
+lle_result_t lle_syntax_adapt_colors_to_terminal(
+    lle_syntax_highlighting_system_t *system,
+    lle_syntax_color_scheme_t *color_scheme,
+    lle_adapted_color_scheme_t *adapted_scheme
+) {
+    if (!system || !color_scheme || !adapted_scheme || !system->adaptive_colors_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Detect current terminal color capabilities
+    lle_color_capability_t capabilities;
+    lle_result_t result = lle_get_current_color_capabilities(
+        system->terminal_integration->capability_detector,
+        &capabilities
+    );
+    
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Map colors based on terminal capabilities
+    return lle_map_colors_to_terminal_capabilities(
+        system->terminal_integration->color_mapper,
+        color_scheme,
+        &capabilities,
+        adapted_scheme
+    );
+}
+
+// NEW: Apply terminal-optimized syntax highlighting
+lle_result_t lle_syntax_highlight_with_terminal_optimization(
+    lle_syntax_highlighting_system_t *system,
+    const char *text,
+    size_t text_length,
+    lle_highlight_result_t *result
+) {
+    if (!system || !text || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Perform standard syntax analysis
+    lle_result_t analyze_result = lle_analyze_syntax_tokens(
+        system->syntax_analyzer,
+        text,
+        text_length,
+        result
+    );
+    
+    if (analyze_result != LLE_SUCCESS) {
+        return analyze_result;
+    }
+    
+    // Apply terminal-specific color adaptation if available
+    if (system->adaptive_colors_active) {
+        return lle_apply_adaptive_colors(
+            system->terminal_integration->adaptive_color_manager,
+            result
+        );
+    }
+    
+    return LLE_SUCCESS;
+}
+```
+
+#### 4.1.3 Terminal Integration Performance Requirements
+
+- **Color Capability Detection**: <50μs for terminal capability detection
+- **Color Mapping**: <25μs for mapping colors to terminal capabilities
+- **Adaptive Color Application**: <30μs for applying terminal-optimized colors
+- **Terminal-Specific Optimization**: <100μs total for complete terminal adaptation
+
+---
+
+## 5. Syntax Analysis Engine
 
 ### 3.1 Lexical Analysis Implementation
 
@@ -1923,9 +2280,72 @@ lle_result_t lle_test_syntax_highlighting_accuracy(lle_syntax_test_suite_t *test
 
 ---
 
-## 10. Implementation Roadmap
+## 16. Implementation Roadmap
 
-### 10.1 Development Phases
+### 16.1 Integration-Enhanced Development Phases
+
+#### Phase 1: Integration Foundation (Weeks 1-2)
+**Priority**: Critical integration architecture setup
+
+**Week 1: Widget Hook Integration**
+1. **Widget Integration Architecture**
+   - Implement `lle_widget_hook_integration_t` structure
+   - Create `lle_widget_highlight_engine_t` system
+   - Set up widget callback registration
+   - **Dependencies**: 24_advanced_prompt_widget_hooks_complete.md
+   - **Success Criteria**: Widget callbacks functional with <15μs mode switching
+
+2. **Bottom-Prompt Highlighting**
+   - Implement bottom-prompt syntax parser
+   - Create historical command syntax analyzer
+   - Build prompt state preservation system
+   - **Testing**: Bottom-prompt highlighting accuracy >95%
+
+**Week 2: Adaptive Terminal Integration**
+1. **Terminal Integration Architecture**
+   - Implement `lle_adaptive_terminal_integration_t` structure
+   - Create color capability detection system
+   - Set up adaptive color management
+   - **Dependencies**: 26_adaptive_terminal_integration_complete.md
+   - **Success Criteria**: Terminal detection <50μs
+
+2. **Color Adaptation System**
+   - Implement terminal-specific color mapping
+   - Create graceful fallback mechanisms
+   - Build color optimization engine
+   - **Testing**: Color adaptation works across all terminal types
+
+#### Phase 2: Enhanced Highlighting Intelligence (Weeks 3-4)
+**Priority**: Advanced highlighting capabilities with integration
+
+**Week 3: Cross-System Context**
+1. **Unified Context Engine**
+   - Upgrade syntax analyzer with widget context data
+   - Implement cross-system context sharing
+   - Create context consistency validation
+   - **Integration**: Share highlighting context with widget and terminal systems
+   - **Performance**: Context updates <30μs
+
+2. **Enhanced Color Management**
+   - Implement integration-aware color selection
+   - Create widget-specific color schemes
+   - Build terminal-optimized color algorithms
+   - **Testing**: Color consistency across all integration modes
+
+**Week 4: Performance Integration**
+1. **Integration Performance Optimization**
+   - Optimize widget callback overhead <25μs
+   - Implement integration-specific caching
+   - Create performance monitoring for integrations
+   - **Performance**: Total integration overhead <100μs
+
+2. **Integration Testing Framework**
+   - Build cross-system integration tests
+   - Create performance regression testing
+   - Implement integration validation suite
+   - **Success Criteria**: All integration tests pass
+
+### 16.2 Development Phases (Original + Integration Enhancements)
 
 **Phase 1: Core Syntax Analysis Engine (Weeks 1-2)**
 - Implement lexical tokenizer with comprehensive shell language support
