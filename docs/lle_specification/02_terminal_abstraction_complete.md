@@ -1,10 +1,6 @@
 # Terminal Abstraction Complete Specification
 
-**Document**: 02_terminal_abstraction_complete.md  
-**Version**: 1.0.0  
-**Date**: 2025-01-07  
-**Status**: Implementation-Ready Specification  
-**Classification**: Critical Foundation Component  
+**LLE Terminal State Abstraction Layer - Research-Validated Architecture**
 
 ---
 
@@ -12,16 +8,15 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [Architecture Overview](#2-architecture-overview)
-3. [Terminal Capability Detection System](#3-terminal-capability-detection-system)
-4. [Unix Terminal Management](#4-unix-terminal-management)
-5. [Input Event Processing](#5-input-event-processing)
-6. [Safe Terminal Querying](#6-safe-terminal-querying)
-7. [Key Sequence Management](#7-key-sequence-management)
-8. [Error Handling and Recovery](#8-error-handling-and-recovery)
-9. [State Machine Definitions](#9-state-machine-definitions)
-10. [Integration with Lusush Systems](#10-integration-with-lusush-systems)
-11. [Performance Requirements](#11-performance-requirements)
-12. [Testing and Validation](#12-testing-and-validation)
+3. [Internal State Authority Model](#3-internal-state-authority-model)
+4. [Terminal Capability Detection](#4-terminal-capability-detection)
+5. [Display Content Generation](#5-display-content-generation)
+6. [Lusush Display Layer Integration](#6-lusush-display-layer-integration)
+7. [Input Event Processing](#7-input-event-processing)
+8. [Unix Terminal Interface](#8-unix-terminal-interface)
+9. [Error Handling and Recovery](#9-error-handling-and-recovery)
+10. [Performance Requirements](#10-performance-requirements)
+11. [Testing and Validation](#11-testing-and-validation)
 
 ---
 
@@ -29,24 +24,23 @@
 
 ### 1.1 Purpose
 
-The Terminal Abstraction Layer provides intelligent, capability-based terminal management for the Lusush Line Editor (LLE), eliminating fragile VT100 dependencies through research-driven Unix-native implementation with dynamic capability detection and graceful degradation.
+This specification defines the LLE Terminal State Abstraction Layer based on research breakthrough findings that identified the fundamental architectural solution for reliable line editor implementation. The architecture follows proven patterns from JLine, ZSH ZLE, Fish, and Rustyline.
 
 ### 1.2 Key Features
 
-- **Intelligent Capability Detection**: Runtime terminal feature detection with timeout-based probing
-- **Unix-Native Implementation**: termios-based control with selective ANSI enhancement
-- **Event-Driven Input**: High-performance poll/select-based input processing
-- **Graceful Degradation**: Works from basic terminals to advanced modern terminals
-- **Terminal-Specific Optimization**: Known terminal types get optimized code paths
-- **Memory Safety**: Comprehensive bounds checking and resource management
+- **Internal State Authority**: LLE internal model is authoritative, never queries terminal state
+- **Display Layer Client**: Renders through Lusush display system, never directly controls terminal
+- **One-time Capability Detection**: Environment/terminfo-based capability detection at initialization only
+- **Atomic Display Updates**: Generates complete display content for Lusush rendering system
+- **Terminal Abstraction**: All terminal interaction abstracted through Lusush display layer
 
 ### 1.3 Critical Design Principles
 
-1. **No Universal Assumptions**: Every terminal is different, detect and adapt
-2. **Timeout-Based Safety**: All terminal queries have timeouts and fallbacks
-3. **Progressive Enhancement**: Start basic, add features based on capabilities
-4. **Platform Optimization**: Unix/Linux-specific implementation for maximum reliability
-5. **Zero Fragility**: System must never break on unknown terminals
+1. **NEVER query terminal state during operation** - Internal model is single source of truth
+2. **NEVER send direct escape sequences** - All terminal interaction through Lusush display
+3. **NEVER assume terminal cursor position** - Calculate from internal buffer state
+4. **NEVER track terminal state changes** - Generate complete display content each update
+5. **Internal buffer state is authoritative** - Command buffer is single source of editing state
 
 ---
 
@@ -55,647 +49,646 @@ The Terminal Abstraction Layer provides intelligent, capability-based terminal m
 ### 2.1 Component Structure
 
 ```c
-// Primary abstraction layer components
-typedef struct lle_terminal_system {
-    lle_unix_terminal_t *terminal;           // Unix terminal management
-    lle_terminal_capabilities_t *caps;       // Detected capabilities
-    lle_input_processor_t *input_processor;  // Input event processing
-    lle_key_sequence_manager_t *key_mgr;     // Key sequence management
-    lle_terminal_state_t *state;             // Current terminal state
-    lle_error_context_t *error_ctx;          // Error handling context
-    lle_performance_monitor_t *perf_monitor; // Performance monitoring
-} lle_terminal_system_t;
+typedef struct lle_terminal_abstraction {
+    // Internal State Authority Model - CORE COMPONENT
+    lle_internal_state_t *internal_state;
+    
+    // Display Content Generation System
+    lle_display_generator_t *display_generator;
+    
+    // Lusush Display Layer Integration
+    lle_lusush_display_client_t *display_client;
+    
+    // Terminal Capability Model (detected once at startup)
+    lle_terminal_capabilities_t *capabilities;
+    
+    // Input Processing System
+    lle_input_processor_t *input_processor;
+    
+    // Unix Terminal Interface (minimal, abstracted)
+    lle_unix_interface_t *unix_interface;
+    
+    // Error handling context
+    lle_error_context_t *error_ctx;
+    
+    // Performance monitoring
+    lle_performance_monitor_t *perf_monitor;
+    
+} lle_terminal_abstraction_t;
 ```
 
 ### 2.2 Initialization Flow
 
 ```c
-// Complete terminal system initialization
-lle_result_t lle_terminal_system_init(lle_terminal_system_t **system) {
+lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstraction,
+                                           lusush_display_context_t *lusush_display) {
+    lle_terminal_abstraction_t *abs = NULL;
     lle_result_t result = LLE_SUCCESS;
-    lle_terminal_system_t *sys = NULL;
     
-    // Step 1: Allocate system structure
-    sys = calloc(1, sizeof(lle_terminal_system_t));
-    if (!sys) {
+    // Step 1: Allocate main structure
+    abs = calloc(1, sizeof(lle_terminal_abstraction_t));
+    if (!abs) {
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
-    // Step 2: Initialize error handling context first
-    result = lle_error_context_init(&sys->error_ctx);
+    // Step 2: Initialize Unix interface for basic terminal access
+    result = lle_unix_interface_init(&abs->unix_interface);
     if (result != LLE_SUCCESS) {
-        free(sys);
+        free(abs);
         return result;
     }
     
-    // Step 3: Initialize performance monitoring
-    result = lle_performance_monitor_init(&sys->perf_monitor);
+    // Step 3: One-time capability detection (NO terminal queries)
+    result = lle_capabilities_detect_environment(&abs->capabilities, abs->unix_interface);
     if (result != LLE_SUCCESS) {
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 4: Initialize Unix terminal management
-    result = lle_unix_terminal_init(&sys->terminal);
+    // Step 4: Initialize internal state authority model
+    result = lle_internal_state_init(&abs->internal_state, abs->capabilities);
     if (result != LLE_SUCCESS) {
-        lle_performance_monitor_destroy(sys->perf_monitor);
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 5: Detect terminal capabilities
-    result = lle_terminal_capabilities_detect(&sys->caps, sys->terminal);
+    // Step 5: Initialize display content generation system
+    result = lle_display_generator_init(&abs->display_generator, 
+                                        abs->capabilities, 
+                                        abs->internal_state);
     if (result != LLE_SUCCESS) {
-        lle_unix_terminal_destroy(sys->terminal);
-        lle_performance_monitor_destroy(sys->perf_monitor);
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        lle_internal_state_destroy(abs->internal_state);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 6: Initialize input processor
-    result = lle_input_processor_init(&sys->input_processor, sys->caps);
+    // Step 6: Initialize as Lusush display layer client
+    result = lle_lusush_display_client_init(&abs->display_client,
+                                            lusush_display,
+                                            abs->capabilities);
     if (result != LLE_SUCCESS) {
-        lle_terminal_capabilities_destroy(sys->caps);
-        lle_unix_terminal_destroy(sys->terminal);
-        lle_performance_monitor_destroy(sys->perf_monitor);
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        lle_display_generator_destroy(abs->display_generator);
+        lle_internal_state_destroy(abs->internal_state);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 7: Initialize key sequence manager
-    result = lle_key_sequence_manager_init(&sys->key_mgr, sys->caps);
+    // Step 7: Initialize input processing system
+    result = lle_input_processor_init(&abs->input_processor,
+                                      abs->capabilities,
+                                      abs->unix_interface);
     if (result != LLE_SUCCESS) {
-        lle_input_processor_destroy(sys->input_processor);
-        lle_terminal_capabilities_destroy(sys->caps);
-        lle_unix_terminal_destroy(sys->terminal);
-        lle_performance_monitor_destroy(sys->perf_monitor);
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        lle_lusush_display_client_destroy(abs->display_client);
+        lle_display_generator_destroy(abs->display_generator);
+        lle_internal_state_destroy(abs->internal_state);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 8: Initialize terminal state
-    result = lle_terminal_state_init(&sys->state, sys->caps);
+    // Step 8: Initialize error handling and performance monitoring
+    result = lle_error_context_init(&abs->error_ctx);
     if (result != LLE_SUCCESS) {
-        lle_key_sequence_manager_destroy(sys->key_mgr);
-        lle_input_processor_destroy(sys->input_processor);
-        lle_terminal_capabilities_destroy(sys->caps);
-        lle_unix_terminal_destroy(sys->terminal);
-        lle_performance_monitor_destroy(sys->perf_monitor);
-        lle_error_context_destroy(sys->error_ctx);
-        free(sys);
+        // Cleanup all previous components
+        lle_input_processor_destroy(abs->input_processor);
+        lle_lusush_display_client_destroy(abs->display_client);
+        lle_display_generator_destroy(abs->display_generator);
+        lle_internal_state_destroy(abs->internal_state);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    // Step 9: Apply terminal-specific optimizations
-    result = lle_apply_terminal_optimizations(sys);
+    result = lle_performance_monitor_init(&abs->perf_monitor);
     if (result != LLE_SUCCESS) {
-        // Log warning but continue - optimizations are not critical
-        lle_error_context_log_warning(sys->error_ctx, 
-            "Terminal optimizations failed, continuing with defaults");
-    }
-    
-    // Step 10: Perform initialization validation
-    result = lle_terminal_system_validate(sys);
-    if (result != LLE_SUCCESS) {
-        lle_terminal_system_destroy(sys);
+        lle_error_context_destroy(abs->error_ctx);
+        lle_input_processor_destroy(abs->input_processor);
+        lle_lusush_display_client_destroy(abs->display_client);
+        lle_display_generator_destroy(abs->display_generator);
+        lle_internal_state_destroy(abs->internal_state);
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
         return result;
     }
     
-    *system = sys;
+    *abstraction = abs;
     return LLE_SUCCESS;
 }
 ```
 
 ---
 
-## 3. Terminal Capability Detection System
+## 3. Internal State Authority Model
 
-### 3.1 Capability Structure
+### 3.1 Internal State Structure - AUTHORITATIVE MODEL
 
 ```c
-typedef struct lle_terminal_capabilities {
-    // Basic identification
-    char terminal_name[64];           // Terminal name from DA1/DA2
-    char terminal_version[32];        // Version information
-    char term_env[64];                // $TERM environment variable
-    char colorterm_env[64];           // $COLORTERM environment variable
-    bool is_tty;                      // Is a TTY (not redirected)
+// CORE COMPONENT: Internal state is single source of truth
+typedef struct lle_internal_state {
+    // Command Buffer State - AUTHORITATIVE
+    lle_command_buffer_t *command_buffer;    // Command being edited
+    size_t cursor_position;                  // Cursor position in buffer (logical)
+    size_t selection_start;                  // Selection start (if any)
+    size_t selection_end;                    // Selection end (if any)
+    bool has_selection;                      // Selection active flag
     
-    // Color support capabilities
-    bool supports_ansi_colors;        // Basic 16 ANSI colors
-    bool supports_256_colors;         // 256-color palette
-    bool supports_truecolor;          // 24-bit RGB colors
-    uint8_t detected_color_depth;     // Detected color depth (4, 8, 24 bits)
+    // Display State Model - What we believe terminal contains
+    lle_display_line_t *display_lines;      // Current display content
+    size_t display_line_count;              // Number of display lines
+    size_t display_capacity;                 // Allocated display line capacity
     
-    // Text attribute support
-    bool supports_bold;               // Bold text
-    bool supports_italic;             // Italic text
-    bool supports_underline;          // Underline text
-    bool supports_strikethrough;      // Strikethrough text
-    bool supports_reverse;            // Reverse video
-    bool supports_dim;                // Dim/faint text
+    // Display Geometry State
+    size_t terminal_width;                   // Terminal columns
+    size_t terminal_height;                  // Terminal rows  
+    size_t prompt_width;                     // Prompt width in columns
+    size_t display_offset;                   // Horizontal scroll offset
+    size_t vertical_offset;                  // Vertical scroll offset
     
-    // Cursor and positioning
-    bool supports_cursor_position;    // Cursor position reporting
-    bool supports_cursor_style;       // Cursor style changes
-    bool supports_alternate_screen;   // Alternate screen buffer
-    bool supports_scrolling_region;   // Scrolling region control
+    // Edit State Tracking
+    bool buffer_modified;                    // Buffer changed since last display
+    uint64_t modification_count;             // Number of modifications
+    uint64_t last_update_time;              // Last update timestamp
     
-    // Input capabilities
-    bool supports_mouse_reporting;    // Mouse event reporting
-    bool supports_bracketed_paste;    // Bracketed paste mode
-    bool supports_focus_events;       // Focus in/out events
-    bool supports_modify_keys;        // Modified key reporting
-    bool supports_application_keypad; // Application keypad mode
+    // CRITICAL: NO terminal cursor position tracking
+    // Cursor position always calculated from buffer state + display geometry
     
-    // Modern protocol support
-    bool supports_kitty_keyboard;     // Kitty keyboard protocol
-    bool supports_synchronized_output; // Synchronized output
-    bool supports_osc52_clipboard;    // OSC 52 clipboard access
-    bool supports_unicode;            // Unicode support level
+} lle_internal_state_t;
+
+// Command buffer structure
+typedef struct lle_command_buffer {
+    char *data;                              // Buffer content (UTF-8)
+    size_t length;                           // Current content length
+    size_t capacity;                         // Allocated buffer size
+    size_t allocated_size;                   // Actual allocation size
     
-    // Key sequence capabilities
-    lle_key_sequence_map_t *key_sequences; // Detected key sequences
-    size_t key_sequence_count;        // Number of key sequences
-    bool function_keys_detected;      // F1-F12 key support
-    bool arrow_keys_detected;         // Arrow key support
-    bool home_end_detected;           // Home/End key support
-    bool page_keys_detected;          // Page Up/Down support
+    // Buffer change tracking for optimization
+    size_t last_change_offset;              // Last modification offset
+    size_t last_change_length;              // Last modification length
+    bool needs_full_refresh;                 // Requires complete display update
     
-    // Terminal-specific optimizations
-    lle_terminal_type_t terminal_type; // Detected terminal type
-    lle_optimization_flags_t optimizations; // Available optimizations
-    uint32_t performance_flags;       // Performance-related flags
+} lle_command_buffer_t;
+
+// Display line structure - what terminal contains
+typedef struct lle_display_line {
+    char *content;                           // Line content (UTF-8)
+    size_t length;                          // Content length
+    size_t capacity;                        // Allocated capacity
     
-    // Timing and performance characteristics
-    uint32_t response_time_ms;        // Average response time
-    uint32_t escape_timeout_ms;       // Escape sequence timeout
-    uint32_t query_timeout_ms;        // Query response timeout
-    bool supports_fast_updates;       // Fast screen update support
+    // Visual attributes for this line
+    lle_line_attributes_t attributes;        // Colors, styles, etc.
     
-    // Limitations and quirks
-    lle_terminal_quirks_t quirks;     // Known terminal quirks
-    lle_terminal_limits_t limits;     // Terminal limitations
-    char unsupported_sequences[256];  // Known unsupported sequences
+    // Cursor information if cursor is on this line
+    bool contains_cursor;                    // True if cursor on this line
+    size_t cursor_column;                    // Visual cursor column (if present)
     
-} lle_terminal_capabilities_t;
+} lle_display_line_t;
 ```
 
-### 3.2 Capability Detection Implementation
+### 3.2 Internal State Operations
 
 ```c
-lle_result_t lle_terminal_capabilities_detect(lle_terminal_capabilities_t **caps, 
-                                              lle_unix_terminal_t *terminal) {
-    lle_result_t result = LLE_SUCCESS;
-    lle_terminal_capabilities_t *detected_caps = NULL;
+// Initialize internal state with terminal capabilities
+lle_result_t lle_internal_state_init(lle_internal_state_t **state,
+                                     lle_terminal_capabilities_t *caps) {
+    lle_internal_state_t *internal_state = calloc(1, sizeof(lle_internal_state_t));
+    if (!internal_state) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
     
-    // Step 1: Allocate capabilities structure
-    detected_caps = calloc(1, sizeof(lle_terminal_capabilities_t));
+    // Initialize command buffer
+    lle_result_t result = lle_command_buffer_init(&internal_state->command_buffer, 1024);
+    if (result != LLE_SUCCESS) {
+        free(internal_state);
+        return result;
+    }
+    
+    // Initialize display lines array
+    internal_state->display_capacity = 10; // Initial capacity
+    internal_state->display_lines = calloc(internal_state->display_capacity, 
+                                          sizeof(lle_display_line_t));
+    if (!internal_state->display_lines) {
+        lle_command_buffer_destroy(internal_state->command_buffer);
+        free(internal_state);
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set initial terminal geometry from capabilities
+    internal_state->terminal_width = caps->terminal_width > 0 ? caps->terminal_width : 80;
+    internal_state->terminal_height = caps->terminal_height > 0 ? caps->terminal_height : 24;
+    
+    // Initialize state
+    internal_state->cursor_position = 0;
+    internal_state->display_line_count = 0;
+    internal_state->buffer_modified = false;
+    internal_state->modification_count = 0;
+    
+    *state = internal_state;
+    return LLE_SUCCESS;
+}
+
+// Update command buffer (authoritative operation)
+lle_result_t lle_internal_state_insert_text(lle_internal_state_t *state,
+                                            size_t position,
+                                            const char *text,
+                                            size_t text_length) {
+    if (!state || !text || text_length == 0) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Insert into command buffer
+    lle_result_t result = lle_command_buffer_insert(state->command_buffer,
+                                                   position, text, text_length);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Update cursor position
+    if (position <= state->cursor_position) {
+        state->cursor_position += text_length;
+    }
+    
+    // Mark buffer as modified
+    state->buffer_modified = true;
+    state->modification_count++;
+    state->last_update_time = lle_get_current_time_microseconds();
+    
+    return LLE_SUCCESS;
+}
+
+// Calculate cursor position from buffer state (NO terminal queries)
+lle_result_t lle_internal_state_calculate_cursor_display_position(
+                                    lle_internal_state_t *state,
+                                    size_t *display_line,
+                                    size_t *display_column) {
+    if (!state || !display_line || !display_column) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Calculate display position from buffer position and terminal geometry
+    size_t buffer_pos = state->cursor_position;
+    size_t line = 0;
+    size_t column = state->prompt_width; // Start after prompt
+    
+    // Walk through buffer calculating display position
+    for (size_t i = 0; i < buffer_pos && i < state->command_buffer->length; i++) {
+        char c = state->command_buffer->data[i];
+        
+        if (c == '\n') {
+            line++;
+            column = 0;
+        } else if (c == '\t') {
+            column += 8 - (column % 8); // Tab to next 8-column boundary
+        } else {
+            column++;
+        }
+        
+        // Handle line wrapping
+        if (column >= state->terminal_width) {
+            line++;
+            column = 0;
+        }
+    }
+    
+    *display_line = line;
+    *display_column = column;
+    
+    return LLE_SUCCESS;
+}
+```
+
+---
+
+## 4. Terminal Capability Detection
+
+### 4.1 Environment-Based Capability Detection (NO TERMINAL QUERIES)
+
+```c
+// Terminal capabilities detected from environment/terminfo ONLY
+typedef struct lle_terminal_capabilities {
+    // Basic terminal information
+    bool is_tty;                             // Running in TTY
+    char *terminal_type;                     // TERM environment variable
+    char *terminal_program;                  // Terminal program name
+    
+    // Display capabilities (from terminfo/environment)
+    bool supports_ansi_colors;              // Basic 8/16 color support
+    bool supports_256_colors;               // 256 color support  
+    bool supports_truecolor;                // 24-bit color support
+    uint8_t detected_color_depth;           // Color depth (4, 8, or 24)
+    
+    // Text attributes (from terminfo)
+    bool supports_bold;
+    bool supports_italic;
+    bool supports_underline;
+    bool supports_strikethrough;
+    bool supports_reverse;
+    bool supports_dim;
+    
+    // Advanced features (from environment/terminfo)
+    bool supports_mouse_reporting;
+    bool supports_bracketed_paste;
+    bool supports_focus_events;
+    bool supports_synchronized_output;
+    bool supports_unicode;
+    
+    // Terminal geometry
+    size_t terminal_width;                   // Columns
+    size_t terminal_height;                  // Rows
+    
+    // Performance characteristics
+    uint32_t estimated_latency_ms;           // Estimated terminal latency
+    bool supports_fast_updates;             // Can handle rapid updates
+    
+    // Terminal-specific optimizations  
+    lle_terminal_type_t terminal_type_enum;
+    lle_optimization_flags_t optimizations;
+    
+} lle_terminal_capabilities_t;
+
+// Capability detection using environment/terminfo (NO terminal queries)
+lle_result_t lle_capabilities_detect_environment(lle_terminal_capabilities_t **caps,
+                                                 lle_unix_interface_t *unix_iface) {
+    lle_terminal_capabilities_t *detected_caps = calloc(1, sizeof(lle_terminal_capabilities_t));
     if (!detected_caps) {
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
-    // Step 2: Check if we're running in a TTY
-    detected_caps->is_tty = isatty(terminal->stdin_fd);
+    // Step 1: Check TTY status
+    detected_caps->is_tty = isatty(STDIN_FILENO);
     if (!detected_caps->is_tty) {
-        // Set minimal capabilities for non-TTY operation
+        // Set minimal capabilities for non-TTY
         lle_set_minimal_capabilities(detected_caps);
         *caps = detected_caps;
         return LLE_SUCCESS;
     }
     
-    // Step 3: Analyze environment variables
-    result = lle_analyze_environment_variables(detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Warning only - continue with detection
-        lle_log_warning("Environment variable analysis failed");
+    // Step 2: Analyze TERM environment variable
+    const char *term = getenv("TERM");
+    if (term) {
+        detected_caps->terminal_type = strdup(term);
+        lle_analyze_term_variable(detected_caps, term);
+    } else {
+        detected_caps->terminal_type = strdup("unknown");
+        lle_set_conservative_capabilities(detected_caps);
     }
     
-    // Step 4: Enable raw mode for accurate detection
-    result = lle_unix_terminal_enter_raw_mode(terminal);
+    // Step 3: Analyze additional environment variables
+    lle_analyze_colorterm_variable(detected_caps);
+    lle_analyze_terminal_program_variables(detected_caps);
+    
+    // Step 4: Query terminfo database (NO terminal interaction)
+    lle_result_t result = lle_query_terminfo_capabilities(detected_caps);
     if (result != LLE_SUCCESS) {
-        free(detected_caps);
-        return result;
+        // Terminfo unavailable - use conservative defaults
+        lle_set_conservative_capabilities(detected_caps);
     }
     
-    // Step 5: Query terminal identification (DA1/DA2)
-    result = lle_query_terminal_identification(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Warning only - continue with other detection methods
-        lle_log_warning("Terminal identification query failed");
+    // Step 5: Get terminal size from system
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
+        detected_caps->terminal_width = ws.ws_col > 0 ? ws.ws_col : 80;
+        detected_caps->terminal_height = ws.ws_row > 0 ? ws.ws_row : 24;
+    } else {
+        detected_caps->terminal_width = 80;
+        detected_caps->terminal_height = 24;
     }
     
-    // Step 6: Detect color support progressively
-    result = lle_detect_color_capabilities(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Set safe color defaults
-        detected_caps->supports_ansi_colors = true; // Safe assumption
-        detected_caps->supports_256_colors = false;
-        detected_caps->supports_truecolor = false;
-    }
+    // Step 6: Apply terminal-specific optimizations
+    lle_apply_terminal_specific_optimizations(detected_caps);
     
-    // Step 7: Test cursor and positioning capabilities
-    result = lle_detect_cursor_capabilities(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Set conservative cursor defaults
-        detected_caps->supports_cursor_position = true; // Usually safe
-    }
-    
-    // Step 8: Detect input capabilities
-    result = lle_detect_input_capabilities(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Set basic input defaults
-        lle_set_basic_input_capabilities(detected_caps);
-    }
-    
-    // Step 9: Test modern protocol support
-    result = lle_detect_modern_protocols(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Modern protocols are optional - continue
-    }
-    
-    // Step 10: Build key sequence map
-    result = lle_build_key_sequence_map(terminal, detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Create basic key sequence map
-        result = lle_create_basic_key_sequence_map(detected_caps);
-        if (result != LLE_SUCCESS) {
-            lle_unix_terminal_exit_raw_mode(terminal);
-            free(detected_caps);
-            return result;
-        }
-    }
-    
-    // Step 11: Apply terminal-specific settings
-    result = lle_apply_terminal_specific_settings(detected_caps);
-    if (result != LLE_SUCCESS) {
-        // Warning only - terminal-specific settings are optional
-        lle_log_warning("Terminal-specific settings application failed");
-    }
-    
-    // Step 12: Set timing parameters based on terminal type
-    lle_set_terminal_timing_parameters(detected_caps);
-    
-    // Step 13: Detect and record terminal quirks and limitations
-    lle_detect_terminal_quirks(detected_caps);
-    
-    // Step 14: Exit raw mode
-    result = lle_unix_terminal_exit_raw_mode(terminal);
-    if (result != LLE_SUCCESS) {
-        // This is critical - we must restore terminal state
-        free(detected_caps);
-        return result;
-    }
-    
-    // Step 15: Validate detected capabilities
-    result = lle_validate_detected_capabilities(detected_caps);
-    if (result != LLE_SUCCESS) {
-        free(detected_caps);
-        return result;
-    }
+    // Step 7: Validate and finalize capabilities
+    lle_validate_capabilities(detected_caps);
     
     *caps = detected_caps;
     return LLE_SUCCESS;
 }
-```
 
-### 3.3 Safe Terminal Querying Implementation
+// Analyze TERM environment variable for capabilities
+static void lle_analyze_term_variable(lle_terminal_capabilities_t *caps, const char *term) {
+    // Color support detection from TERM
+    if (strstr(term, "256color") || strstr(term, "256")) {
+        caps->supports_256_colors = true;
+        caps->supports_ansi_colors = true;
+        caps->detected_color_depth = 8;
+    } else if (strstr(term, "color")) {
+        caps->supports_ansi_colors = true;
+        caps->detected_color_depth = 4;
+    }
+    
+    // Terminal type detection
+    if (strstr(term, "xterm")) {
+        caps->terminal_type_enum = LLE_TERMINAL_XTERM;
+        caps->supports_mouse_reporting = true;
+        caps->supports_bracketed_paste = true;
+    } else if (strstr(term, "screen")) {
+        caps->terminal_type_enum = LLE_TERMINAL_SCREEN;
+        caps->supports_256_colors = true; // Screen usually supports 256 colors
+    } else if (strstr(term, "tmux")) {
+        caps->terminal_type_enum = LLE_TERMINAL_TMUX;
+        caps->supports_256_colors = true;
+        caps->supports_truecolor = true; // Modern tmux supports truecolor
+    } else {
+        caps->terminal_type_enum = LLE_TERMINAL_GENERIC;
+    }
+}
 
-```c
-lle_result_t lle_safe_terminal_query(lle_unix_terminal_t *terminal,
-                                     const char *query_sequence,
-                                     const char *expected_response_prefix,
-                                     char *response_buffer,
-                                     size_t buffer_size,
-                                     uint32_t timeout_ms) {
-    if (!terminal || !query_sequence || !response_buffer || buffer_size == 0) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    // Step 1: Save current terminal state
-    struct termios saved_termios;
-    if (tcgetattr(terminal->stdin_fd, &saved_termios) != 0) {
-        return LLE_ERROR_TERMINAL_STATE;
-    }
-    
-    // Step 2: Clear any pending input
-    tcflush(terminal->stdin_fd, TCIFLUSH);
-    
-    // Step 3: Send query sequence with error checking
-    ssize_t query_len = strlen(query_sequence);
-    ssize_t written = write(terminal->stdout_fd, query_sequence, query_len);
-    if (written != query_len) {
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_WRITE_FAILED;
-    }
-    
-    // Step 4: Force output to terminal
-    if (fsync(terminal->stdout_fd) != 0) {
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_SYNC_FAILED;
-    }
-    
-    // Step 5: Poll for response with timeout
-    struct pollfd pfd = { 
-        .fd = terminal->stdin_fd, 
-        .events = POLLIN,
-        .revents = 0
-    };
-    
-    int poll_result = poll(&pfd, 1, timeout_ms);
-    if (poll_result < 0) {
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_POLL_FAILED;
-    }
-    
-    if (poll_result == 0) {
-        // Timeout - no response received
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_TIMEOUT;
-    }
-    
-    // Step 6: Read response with bounds checking
-    memset(response_buffer, 0, buffer_size);
-    ssize_t bytes_read = read(terminal->stdin_fd, response_buffer, buffer_size - 1);
-    if (bytes_read < 0) {
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_READ_FAILED;
-    }
-    
-    if (bytes_read == 0) {
-        tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-        return LLE_ERROR_NO_DATA;
-    }
-    
-    // Step 7: Null-terminate response
-    response_buffer[bytes_read] = '\0';
-    
-    // Step 8: Restore terminal state
-    tcsetattr(terminal->stdin_fd, TCSANOW, &saved_termios);
-    
-    // Step 9: Validate response if expected prefix provided
-    if (expected_response_prefix) {
-        if (strstr(response_buffer, expected_response_prefix) == NULL) {
-            return LLE_ERROR_UNEXPECTED_RESPONSE;
+// Analyze COLORTERM for truecolor support
+static void lle_analyze_colorterm_variable(lle_terminal_capabilities_t *caps) {
+    const char *colorterm = getenv("COLORTERM");
+    if (colorterm) {
+        if (strcmp(colorterm, "truecolor") == 0 || strcmp(colorterm, "24bit") == 0) {
+            caps->supports_truecolor = true;
+            caps->supports_256_colors = true;
+            caps->supports_ansi_colors = true;
+            caps->detected_color_depth = 24;
         }
     }
-    
-    return LLE_SUCCESS;
 }
 ```
 
 ---
 
-## 4. Unix Terminal Management
+## 5. Display Content Generation
 
-### 4.1 Unix Terminal Structure
-
-```c
-typedef struct lle_unix_terminal {
-    // File descriptors
-    int stdin_fd;                     // Standard input file descriptor
-    int stdout_fd;                    // Standard output file descriptor
-    int stderr_fd;                    // Standard error file descriptor
-    
-    // Terminal state management
-    struct termios original_termios;  // Original terminal settings
-    struct termios raw_termios;       // Raw mode settings
-    struct termios current_termios;   // Current terminal settings
-    bool raw_mode_active;             // Raw mode status flag
-    bool terminal_state_modified;     // State modification flag
-    
-    // Signal handling
-    struct sigaction original_sigint; // Original SIGINT handler
-    struct sigaction original_sigterm; // Original SIGTERM handler
-    struct sigaction original_sigwinch; // Original SIGWINCH handler
-    bool signal_handlers_installed;   // Signal handler status
-    
-    // Terminal characteristics
-    struct winsize window_size;       // Current window size
-    bool window_size_valid;           // Window size validity flag
-    uint32_t last_winch_time;         // Last window change time
-    
-    // Input processing
-    lle_input_parser_state_t parser_state; // Input parser state
-    char input_buffer[LLE_INPUT_BUFFER_SIZE]; // Input buffer
-    size_t input_buffer_len;          // Current input buffer length
-    size_t input_buffer_pos;          // Current input buffer position
-    
-    // Escape sequence processing
-    char escape_buffer[LLE_ESCAPE_BUFFER_SIZE]; // Escape sequence buffer
-    size_t escape_buffer_len;         // Current escape buffer length
-    uint64_t escape_start_time;       // Escape sequence start timestamp
-    bool escape_in_progress;          // Escape sequence processing flag
-    
-    // Performance optimization
-    struct pollfd poll_fds[3];        // Poll file descriptors array
-    int poll_timeout;                 // Current poll timeout value
-    uint64_t last_input_time;         // Last input timestamp
-    uint32_t input_rate;              // Input rate estimation
-    
-    // Error context
-    lle_error_context_t *error_ctx;   // Error handling context
-    uint32_t error_count;             // Error counter
-    uint32_t warning_count;           // Warning counter
-    
-} lle_unix_terminal_t;
-```
-
-### 4.2 Terminal Initialization
+### 5.1 Display Content Generation System
 
 ```c
-lle_result_t lle_unix_terminal_init(lle_unix_terminal_t **terminal) {
-    lle_unix_terminal_t *term = NULL;
-    lle_result_t result = LLE_SUCCESS;
+// Display content generator - converts internal state to display content
+typedef struct lle_display_generator {
+    lle_terminal_capabilities_t *capabilities;
+    lle_internal_state_t *internal_state;
     
-    // Step 1: Allocate terminal structure
-    term = calloc(1, sizeof(lle_unix_terminal_t));
-    if (!term) {
+    // Content generation state
+    lle_display_content_t *current_content;
+    lle_display_content_t *previous_content;
+    
+    // Generation parameters
+    lle_generation_params_t params;
+    
+} lle_display_generator_t;
+
+// Display content structure - what gets sent to Lusush display system
+typedef struct lle_display_content {
+    // Complete display lines
+    lle_display_line_t *lines;
+    size_t line_count;
+    
+    // Cursor position information
+    size_t cursor_line;
+    size_t cursor_column;
+    bool cursor_visible;
+    
+    // Display attributes
+    lle_display_attributes_t attributes;
+    
+    // Content metadata
+    uint64_t generation_time;
+    uint64_t sequence_number;
+    bool is_complete_refresh;
+    
+} lle_display_content_t;
+
+// Generate complete display content from internal state
+lle_result_t lle_display_generator_generate_content(lle_display_generator_t *generator,
+                                                   lle_display_content_t **content) {
+    if (!generator || !content) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    lle_display_content_t *new_content = calloc(1, sizeof(lle_display_content_t));
+    if (!new_content) {
         return LLE_ERROR_MEMORY_ALLOCATION;
     }
     
-    // Step 2: Initialize file descriptors
-    term->stdin_fd = STDIN_FILENO;
-    term->stdout_fd = STDOUT_FILENO;
-    term->stderr_fd = STDERR_FILENO;
+    lle_internal_state_t *state = generator->internal_state;
     
-    // Step 3: Verify file descriptors are valid TTYs
-    if (!isatty(term->stdin_fd) || !isatty(term->stdout_fd)) {
-        // Not a TTY - set up for non-interactive mode
-        term->raw_mode_active = false;
-        term->terminal_state_modified = false;
-    } else {
-        // Step 4: Get original terminal attributes
-        if (tcgetattr(term->stdin_fd, &term->original_termios) != 0) {
-            free(term);
-            return LLE_ERROR_TERMINAL_ATTR_GET;
+    // Step 1: Calculate display geometry from buffer
+    lle_result_t result = lle_calculate_display_geometry(generator, new_content);
+    if (result != LLE_SUCCESS) {
+        free(new_content);
+        return result;
+    }
+    
+    // Step 2: Generate display lines from command buffer
+    result = lle_generate_display_lines(generator, new_content);
+    if (result != LLE_SUCCESS) {
+        lle_display_content_destroy(new_content);
+        return result;
+    }
+    
+    // Step 3: Calculate cursor display position from buffer state
+    result = lle_internal_state_calculate_cursor_display_position(
+                state,
+                &new_content->cursor_line,
+                &new_content->cursor_column);
+    if (result != LLE_SUCCESS) {
+        lle_display_content_destroy(new_content);
+        return result;
+    }
+    
+    // Step 4: Apply display attributes based on capabilities
+    result = lle_apply_display_attributes(generator, new_content);
+    if (result != LLE_SUCCESS) {
+        lle_display_content_destroy(new_content);
+        return result;
+    }
+    
+    // Step 5: Set content metadata
+    new_content->generation_time = lle_get_current_time_microseconds();
+    new_content->sequence_number = generator->internal_state->modification_count;
+    new_content->is_complete_refresh = state->buffer_modified || 
+                                      (generator->previous_content == NULL);
+    new_content->cursor_visible = true;
+    
+    // Step 6: Store as current content
+    if (generator->previous_content) {
+        lle_display_content_destroy(generator->previous_content);
+    }
+    generator->previous_content = generator->current_content;
+    generator->current_content = new_content;
+    
+    *content = new_content;
+    return LLE_SUCCESS;
+}
+
+// Generate display lines from command buffer
+static lle_result_t lle_generate_display_lines(lle_display_generator_t *generator,
+                                               lle_display_content_t *content) {
+    lle_internal_state_t *state = generator->internal_state;
+    lle_command_buffer_t *buffer = state->command_buffer;
+    
+    // Calculate required lines for buffer content
+    size_t required_lines = lle_calculate_required_lines(buffer, 
+                                                        state->terminal_width,
+                                                        state->prompt_width);
+    
+    // Allocate display lines
+    content->lines = calloc(required_lines, sizeof(lle_display_line_t));
+    if (!content->lines) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    content->line_count = required_lines;
+    
+    // Generate each display line from buffer content
+    size_t buffer_pos = 0;
+    size_t current_line = 0;
+    size_t column = state->prompt_width; // Start after prompt
+    
+    // First line includes prompt
+    lle_result_t result = lle_initialize_first_line(&content->lines[0], 
+                                                   state->prompt_width);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Process buffer content into display lines
+    while (buffer_pos < buffer->length && current_line < required_lines) {
+        char c = buffer->data[buffer_pos];
+        
+        if (c == '\n') {
+            // Move to next line
+            current_line++;
+            if (current_line < required_lines) {
+                result = lle_initialize_display_line(&content->lines[current_line]);
+                if (result != LLE_SUCCESS) {
+                    return result;
+                }
+            }
+            column = 0;
+        } else {
+            // Add character to current line
+            result = lle_add_character_to_line(&content->lines[current_line], c);
+            if (result != LLE_SUCCESS) {
+                return result;
+            }
+            
+            column++;
+            
+            // Handle line wrapping
+            if (column >= state->terminal_width) {
+                current_line++;
+                if (current_line < required_lines) {
+                    result = lle_initialize_display_line(&content->lines[current_line]);
+                    if (result != LLE_SUCCESS) {
+                        return result;
+                    }
+                }
+                column = 0;
+            }
         }
         
-        // Step 5: Set up raw mode configuration
-        term->raw_termios = term->original_termios;
-        
-        // Disable canonical mode and echo
-        term->raw_termios.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL);
-        
-        // Disable signal generation for special characters
-        term->raw_termios.c_lflag &= ~(ISIG | IEXTEN);
-        
-        // Disable input processing
-        term->raw_termios.c_iflag &= ~(IXON | IXOFF | ICRNL | INLCR | IGNCR);
-        
-        // Disable output processing
-        term->raw_termios.c_oflag &= ~(OPOST);
-        
-        // Set minimum read parameters
-        term->raw_termios.c_cc[VMIN] = 1;   // Minimum characters to read
-        term->raw_termios.c_cc[VTIME] = 0;  // No timeout
-        
-        term->current_termios = term->original_termios;
-        term->raw_mode_active = false;
-        term->terminal_state_modified = false;
+        buffer_pos++;
     }
-    
-    // Step 6: Get initial window size
-    if (ioctl(term->stdout_fd, TIOCGWINSZ, &term->window_size) == 0) {
-        term->window_size_valid = true;
-    } else {
-        // Set safe defaults
-        term->window_size.ws_row = 24;
-        term->window_size.ws_col = 80;
-        term->window_size_valid = false;
-    }
-    
-    // Step 7: Initialize input parser state
-    result = lle_input_parser_state_init(&term->parser_state);
-    if (result != LLE_SUCCESS) {
-        free(term);
-        return result;
-    }
-    
-    // Step 8: Initialize input buffer
-    term->input_buffer_len = 0;
-    term->input_buffer_pos = 0;
-    memset(term->input_buffer, 0, sizeof(term->input_buffer));
-    
-    // Step 9: Initialize escape sequence processing
-    term->escape_buffer_len = 0;
-    term->escape_start_time = 0;
-    term->escape_in_progress = false;
-    memset(term->escape_buffer, 0, sizeof(term->escape_buffer));
-    
-    // Step 10: Set up polling configuration
-    term->poll_fds[0].fd = term->stdin_fd;
-    term->poll_fds[0].events = POLLIN;
-    term->poll_fds[0].revents = 0;
-    
-    term->poll_fds[1].fd = term->stdout_fd;
-    term->poll_fds[1].events = POLLOUT;
-    term->poll_fds[1].revents = 0;
-    
-    term->poll_fds[2].fd = term->stderr_fd;
-    term->poll_fds[2].events = POLLOUT;
-    term->poll_fds[2].revents = 0;
-    
-    term->poll_timeout = LLE_DEFAULT_POLL_TIMEOUT;
-    
-    // Step 11: Initialize performance tracking
-    term->last_input_time = lle_get_current_time_us();
-    term->input_rate = 0;
-    
-    // Step 12: Initialize error context
-    result = lle_error_context_init(&term->error_ctx);
-    if (result != LLE_SUCCESS) {
-        free(term);
-        return result;
-    }
-    
-    term->error_count = 0;
-    term->warning_count = 0;
-    term->signal_handlers_installed = false;
-    
-    *terminal = term;
-    return LLE_SUCCESS;
-}
-```
-
-### 4.3 Raw Mode Management
-
-```c
-lle_result_t lle_unix_terminal_enter_raw_mode(lle_unix_terminal_t *terminal) {
-    if (!terminal) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    if (terminal->raw_mode_active) {
-        return LLE_SUCCESS; // Already in raw mode
-    }
-    
-    if (!isatty(terminal->stdin_fd)) {
-        return LLE_ERROR_NOT_A_TTY;
-    }
-    
-    // Step 1: Apply raw mode terminal attributes
-    if (tcsetattr(terminal->stdin_fd, TCSANOW, &terminal->raw_termios) != 0) {
-        return LLE_ERROR_TERMINAL_ATTR_SET;
-    }
-    
-    // Step 2: Verify attributes were set correctly
-    struct termios verify_termios;
-    if (tcgetattr(terminal->stdin_fd, &verify_termios) != 0) {
-        // Try to restore original settings
-        tcsetattr(terminal->stdin_fd, TCSANOW, &terminal->original_termios);
-        return LLE_ERROR_TERMINAL_ATTR_VERIFY;
-    }
-    
-    // Step 3: Update terminal state
-    terminal->current_termios = verify_termios;
-    terminal->raw_mode_active = true;
-    terminal->terminal_state_modified = true;
-    
-    // Step 4: Clear any pending input/output
-    tcflush(terminal->stdin_fd, TCIOFLUSH);
-    
-    return LLE_SUCCESS;
-}
-
-lle_result_t lle_unix_terminal_exit_raw_mode(lle_unix_terminal_t *terminal) {
-    if (!terminal) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    if (!terminal->raw_mode_active) {
-        return LLE_SUCCESS; // Already in normal mode
-    }
-    
-    if (!isatty(terminal->stdin_fd)) {
-        return LLE_ERROR_NOT_A_TTY;
-    }
-    
-    // Step 1: Restore original terminal attributes
-    if (tcsetattr(terminal->stdin_fd, TCSANOW, &terminal->original_termios) != 0) {
-        return LLE_ERROR_TERMINAL_ATTR_RESTORE;
-    }
-    
-    // Step 2: Verify restoration
-    struct termios verify_termios;
-    if (tcgetattr(terminal->stdin_fd, &verify_termios) != 0) {
-        // Critical error - terminal state may be corrupted
-        return LLE_ERROR_TERMINAL_ATTR_VERIFY;
-    }
-    
-    // Step 3: Update terminal state
-    terminal->current_termios = verify_termios;
-    terminal->raw_mode_active = false;
-    terminal->terminal_state_modified = false;
-    
-    // Step 4: Flush any remaining output
-    fflush(stdout);
-    fflush(stderr);
     
     return LLE_SUCCESS;
 }
@@ -703,21 +696,155 @@ lle_result_t lle_unix_terminal_exit_raw_mode(lle_unix_terminal_t *terminal) {
 
 ---
 
-## 5. Input Event Processing
+## 6. Lusush Display Layer Integration
 
-### 5.1 Input Event Types
+### 6.1 Display Layer Client Architecture
+
+```c
+// LLE as Lusush Display Layer Client - NEVER direct terminal control
+typedef struct lle_lusush_display_client {
+    // Lusush display system integration
+    lusush_display_context_t *display_context;
+    lusush_display_layer_t *lle_display_layer;
+    
+    // LLE-specific layer configuration
+    lle_layer_config_t layer_config;
+    
+    // Terminal capabilities for display optimization
+    lle_terminal_capabilities_t *capabilities;
+    
+    // Display submission tracking
+    uint64_t last_submission_time;
+    uint64_t submission_count;
+    
+} lle_lusush_display_client_t;
+
+// Initialize as Lusush display layer client
+lle_result_t lle_lusush_display_client_init(lle_lusush_display_client_t **client,
+                                           lusush_display_context_t *display_context,
+                                           lle_terminal_capabilities_t *capabilities) {
+    if (!client || !display_context || !capabilities) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    lle_lusush_display_client_t *display_client = calloc(1, sizeof(lle_lusush_display_client_t));
+    if (!display_client) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Store references
+    display_client->display_context = display_context;
+    display_client->capabilities = capabilities;
+    
+    // Register as display layer with Lusush
+    lle_layer_config_t config = {
+        .layer_name = "lle_editing",
+        .layer_priority = LUSUSH_LAYER_PRIORITY_EDITING, // Above prompt, below debug
+        .supports_transparency = true,
+        .requires_full_refresh = false,
+        .color_capabilities = capabilities->detected_color_depth
+    };
+    
+    lusush_result_t result = lusush_display_register_layer(display_context,
+                                                          &config,
+                                                          &display_client->lle_display_layer);
+    if (result != LUSUSH_SUCCESS) {
+        free(display_client);
+        return lle_convert_lusush_error(result);
+    }
+    
+    display_client->layer_config = config;
+    
+    *client = display_client;
+    return LLE_SUCCESS;
+}
+
+// Submit display content to Lusush display system
+lle_result_t lle_lusush_display_client_submit_content(lle_lusush_display_client_t *client,
+                                                     lle_display_content_t *content) {
+    if (!client || !content) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Convert LLE display content to Lusush display format
+    lusush_layer_content_t *lusush_content = NULL;
+    lle_result_t result = lle_convert_to_lusush_content(content, 
+                                                       client->capabilities,
+                                                       &lusush_content);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Submit to Lusush display layer
+    lusush_result_t lusush_result = lusush_display_layer_update(client->lle_display_layer,
+                                                               lusush_content);
+    
+    // Update tracking
+    client->last_submission_time = lle_get_current_time_microseconds();
+    client->submission_count++;
+    
+    // Cleanup converted content
+    lusush_layer_content_destroy(lusush_content);
+    
+    if (lusush_result != LUSUSH_SUCCESS) {
+        return lle_convert_lusush_error(lusush_result);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+// Convert LLE display content to Lusush format
+static lle_result_t lle_convert_to_lusush_content(lle_display_content_t *lle_content,
+                                                  lle_terminal_capabilities_t *caps,
+                                                  lusush_layer_content_t **lusush_content) {
+    lusush_layer_content_t *content = calloc(1, sizeof(lusush_layer_content_t));
+    if (!content) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Convert display lines
+    content->line_count = lle_content->line_count;
+    content->lines = calloc(content->line_count, sizeof(lusush_display_line_t));
+    if (!content->lines) {
+        free(content);
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    for (size_t i = 0; i < lle_content->line_count; i++) {
+        // Convert each LLE display line to Lusush format
+        lle_result_t result = lle_convert_display_line(&lle_content->lines[i],
+                                                      caps,
+                                                      &content->lines[i]);
+        if (result != LLE_SUCCESS) {
+            lusush_layer_content_destroy(content);
+            return result;
+        }
+    }
+    
+    // Set cursor information
+    content->cursor_line = lle_content->cursor_line;
+    content->cursor_column = lle_content->cursor_column;
+    content->cursor_visible = lle_content->cursor_visible;
+    
+    // Set content metadata
+    content->generation_time = lle_content->generation_time;
+    content->is_complete = lle_content->is_complete_refresh;
+    
+    *lusush_content = content;
+    return LLE_SUCCESS;
+}
+```
+
+---
+
+## 7. Input Event Processing
+
+### 7.1 Input Event Types
 
 ```c
 typedef enum {
-    LLE_INPUT_TYPE_UNKNOWN = 0,       // Unknown input type
-    LLE_INPUT_TYPE_CHARACTER,         // Regular character input
-    LLE_INPUT_TYPE_SPECIAL_KEY,       // Special keys (F1, arrows, etc.)
-    LLE_INPUT_TYPE_FUNCTION_KEY,      // Function keys (F1-F12)
-    LLE_INPUT_TYPE_ARROW_KEY,         // Arrow keys
-    LLE_INPUT_TYPE_MODIFIER_KEY,      // Modifier key combinations
-    LLE_INPUT_TYPE_MOUSE_EVENT,       // Mouse events
-    LLE_INPUT_TYPE_PASTE_EVENT,       // Bracketed paste
-    LLE_INPUT_TYPE_FOCUS_EVENT,       // Focus in/out
+    LLE_INPUT_TYPE_CHARACTER = 0,     // Regular character input
+    LLE_INPUT_TYPE_SPECIAL_KEY,       // Special keys (arrows, function keys)
     LLE_INPUT_TYPE_WINDOW_RESIZE,     // Window size change
     LLE_INPUT_TYPE_SIGNAL,            // Signal received
     LLE_INPUT_TYPE_TIMEOUT,           // Input timeout
@@ -726,530 +853,336 @@ typedef enum {
 } lle_input_type_t;
 
 typedef struct lle_input_event {
-    lle_input_type_t type;            // Event type
-    uint64_t timestamp;               // Event timestamp (microseconds)
-    uint32_t sequence_number;         // Event sequence number
+    lle_input_type_t type;
+    uint64_t timestamp;
+    uint32_t sequence_number;
     
     union {
         // Character input
         struct {
-            uint32_t codepoint;       // Unicode codepoint
-            char utf8_bytes[8];       // UTF-8 representation
-            uint8_t byte_count;       // Number of UTF-8 bytes
+            uint32_t codepoint;           // Unicode codepoint
+            char utf8_bytes[8];           // UTF-8 representation
+            uint8_t byte_count;           // Number of UTF-8 bytes
         } character;
         
         // Special key input
         struct {
-            lle_special_key_t key;    // Special key identifier
-            uint32_t modifiers;       // Modifier flags
-            char raw_sequence[32];    // Raw escape sequence
-            uint8_t sequence_length;  // Sequence length
+            lle_special_key_t key;        // Special key identifier
+            uint32_t modifiers;           // Modifier flags
+            char raw_sequence[32];        // Raw escape sequence
+            uint8_t sequence_length;      // Sequence length
         } special_key;
         
-        // Mouse event
+        // Window resize event
         struct {
-            lle_mouse_event_type_t event_type; // Mouse event type
-            uint16_t x, y;            // Mouse coordinates
-            uint32_t buttons;         // Button state
-            uint32_t modifiers;       // Modifier keys
-        } mouse;
-        
-        // Paste event
-        struct {
-            char *data;               // Pasted data
-            size_t length;            // Data length
-            bool is_complete;         // Paste completion status
-        } paste;
-        
-        // Focus event
-        struct {
-            bool focused;             // Focus state
-        } focus;
-        
-        // Window resize
-        struct {
-            uint16_t rows, cols;      // New window size
+            uint16_t rows, cols;          // New window size
             uint16_t pixel_width, pixel_height; // Pixel dimensions
         } resize;
         
         // Signal event
         struct {
-            int signal_number;        // Signal number
-            const char *signal_name;  // Signal name
+            int signal_number;            // Signal number
+            const char *signal_name;      // Signal name
         } signal;
         
         // Timeout event
         struct {
-            uint32_t timeout_ms;      // Timeout duration
-            lle_timeout_type_t type;  // Timeout type
+            uint32_t timeout_ms;          // Timeout duration
         } timeout;
         
         // Error event
         struct {
-            lle_error_code_t error_code; // Error code
-            char error_message[256];  // Error description
-            const char *source_function; // Source function name
-            int source_line;          // Source line number
+            lle_error_code_t error_code;  // Error code
+            char error_message[256];      // Error description
         } error;
-        
     } data;
     
     // Event metadata
-    bool handled;                     // Event handling status
-    uint32_t handler_count;           // Number of handlers called
-    uint64_t processing_time_us;      // Processing time
+    bool handled;
+    uint64_t processing_time_us;
     
 } lle_input_event_t;
 ```
 
-### 5.2 Input Processing Implementation
+### 7.2 Input Processing Implementation
 
 ```c
-lle_result_t lle_unix_read_input_event(lle_unix_terminal_t *terminal, 
-                                       lle_input_event_t **event) {
-    if (!terminal || !event) {
+// Input processor - handles input events and updates internal state
+lle_result_t lle_input_processor_process_event(lle_input_processor_t *processor,
+                                               lle_input_event_t *event) {
+    if (!processor || !event) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    lle_input_event_t *input_event = NULL;
     lle_result_t result = LLE_SUCCESS;
     
-    // Step 1: Check for buffered data first
-    if (terminal->input_buffer_len > terminal->input_buffer_pos) {
-        result = lle_process_buffered_input(terminal, &input_event);
-        if (result == LLE_SUCCESS) {
-            *event = input_event;
-            return LLE_SUCCESS;
+    switch (event->type) {
+        case LLE_INPUT_TYPE_CHARACTER:
+            result = lle_handle_character_input(processor, &event->data.character);
+            break;
+            
+        case LLE_INPUT_TYPE_SPECIAL_KEY:
+            result = lle_handle_special_key_input(processor, &event->data.special_key);
+            break;
+            
+        case LLE_INPUT_TYPE_WINDOW_RESIZE:
+            result = lle_handle_window_resize(processor, &event->data.resize);
+            break;
+            
+        case LLE_INPUT_TYPE_SIGNAL:
+            result = lle_handle_signal_event(processor, &event->data.signal);
+            break;
+            
+        case LLE_INPUT_TYPE_TIMEOUT:
+            // Timeout events don't modify internal state
+            result = LLE_SUCCESS;
+            break;
+            
+        case LLE_INPUT_TYPE_ERROR:
+        case LLE_INPUT_TYPE_EOF:
+            result = lle_handle_error_input(processor, event);
+            break;
+    }
+    
+    // Mark event as handled
+    event->handled = (result == LLE_SUCCESS);
+    
+    return result;
+}
+
+// Handle character input - updates internal command buffer
+static lle_result_t lle_handle_character_input(lle_input_processor_t *processor,
+                                               lle_character_input_t *char_input) {
+    // Insert character at current cursor position
+    return lle_internal_state_insert_text(processor->internal_state,
+                                          processor->internal_state->cursor_position,
+                                          char_input->utf8_bytes,
+                                          char_input->byte_count);
+}
+
+// Handle special key input - cursor movement, editing operations
+static lle_result_t lle_handle_special_key_input(lle_input_processor_t *processor,
+                                                 lle_special_key_input_t *key_input) {
+    lle_internal_state_t *state = processor->internal_state;
+    
+    switch (key_input->key) {
+        case LLE_KEY_ARROW_LEFT:
+            if (state->cursor_position > 0) {
+                state->cursor_position--;
+                state->buffer_modified = true;
+            }
+            break;
+            
+        case LLE_KEY_ARROW_RIGHT:
+            if (state->cursor_position < state->command_buffer->length) {
+                state->cursor_position++;
+                state->buffer_modified = true;
+            }
+            break;
+            
+        case LLE_KEY_BACKSPACE:
+            if (state->cursor_position > 0) {
+                lle_result_t result = lle_command_buffer_delete(state->command_buffer,
+                                                               state->cursor_position - 1, 1);
+                if (result == LLE_SUCCESS) {
+                    state->cursor_position--;
+                    state->buffer_modified = true;
+                    state->modification_count++;
+                }
+                return result;
+            }
+            break;
+            
+        case LLE_KEY_DELETE:
+            if (state->cursor_position < state->command_buffer->length) {
+                lle_result_t result = lle_command_buffer_delete(state->command_buffer,
+                                                               state->cursor_position, 1);
+                if (result == LLE_SUCCESS) {
+                    state->buffer_modified = true;
+                    state->modification_count++;
+                }
+                return result;
+            }
+            break;
+            
+        case LLE_KEY_HOME:
+            state->cursor_position = 0;
+            state->buffer_modified = true;
+            break;
+            
+        case LLE_KEY_END:
+            state->cursor_position = state->command_buffer->length;
+            state->buffer_modified = true;
+            break;
+            
+        default:
+            // Unknown special key - ignore
+            break;
+    }
+    
+    return LLE_SUCCESS;
+}
+```
+
+---
+
+## 8. Unix Terminal Interface
+
+### 8.1 Minimal Unix Interface
+
+```c
+// Minimal Unix terminal interface - NO direct terminal control
+typedef struct lle_unix_interface {
+    // File descriptors for input only
+    int stdin_fd;
+    int stdout_fd;
+    int stderr_fd;
+    
+    // Terminal state management for input processing
+    struct termios original_termios;
+    struct termios raw_termios;
+    bool raw_mode_active;
+    
+    // Signal handling for window resize
+    struct sigaction original_sigwinch;
+    bool signal_handlers_installed;
+    
+    // Window size tracking
+    struct winsize current_window_size;
+    bool window_size_valid;
+    
+    // Input buffer for reading
+    char input_buffer[1024];
+    size_t input_buffer_length;
+    size_t input_buffer_position;
+    
+} lle_unix_interface_t;
+
+// Initialize minimal Unix interface
+lle_result_t lle_unix_interface_init(lle_unix_interface_t **interface) {
+    lle_unix_interface_t *unix_iface = calloc(1, sizeof(lle_unix_interface_t));
+    if (!unix_iface) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Initialize file descriptors
+    unix_iface->stdin_fd = STDIN_FILENO;
+    unix_iface->stdout_fd = STDOUT_FILENO;
+    unix_iface->stderr_fd = STDERR_FILENO;
+    
+    // Get original terminal state for input processing
+    if (isatty(unix_iface->stdin_fd)) {
+        if (tcgetattr(unix_iface->stdin_fd, &unix_iface->original_termios) == 0) {
+            // Set up raw mode for input processing
+            unix_iface->raw_termios = unix_iface->original_termios;
+            unix_iface->raw_termios.c_lflag &= ~(ICANON | ECHO);
+            unix_iface->raw_termios.c_cc[VMIN] = 1;
+            unix_iface->raw_termios.c_cc[VTIME] = 0;
         }
     }
     
-    // Step 2: Poll for new input with timeout
-    struct pollfd pfd = { 
-        .fd = terminal->stdin_fd, 
-        .events = POLLIN,
-        .revents = 0 
-    };
+    // Get initial window size
+    if (ioctl(unix_iface->stdout_fd, TIOCGWINSZ, &unix_iface->current_window_size) == 0) {
+        unix_iface->window_size_valid = true;
+    } else {
+        unix_iface->current_window_size.ws_row = 24;
+        unix_iface->current_window_size.ws_col = 80;
+        unix_iface->window_size_valid = false;
+    }
     
-    int poll_result = poll(&pfd, 1, terminal->poll_timeout);
+    *interface = unix_iface;
+    return LLE_SUCCESS;
+}
+
+// Read input event from Unix interface
+lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
+                                          lle_input_event_t **event) {
+    if (!interface || !event) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Poll for input with timeout
+    struct pollfd pfd = { .fd = interface->stdin_fd, .events = POLLIN };
+    int poll_result = poll(&pfd, 1, 100); // 100ms timeout
     
     if (poll_result < 0) {
         if (errno == EINTR) {
-            // Signal interrupted - create signal event
-            return lle_create_signal_event(terminal, event);
+            return lle_create_signal_event(event);
         }
         return LLE_ERROR_POLL_FAILED;
     }
     
     if (poll_result == 0) {
-        // Timeout occurred
-        return lle_create_timeout_event(terminal, event);
+        return lle_create_timeout_event(event);
     }
     
-    // Step 3: Data is available - read into buffer
-    char read_buffer[256];
-    ssize_t bytes_read = read(terminal->stdin_fd, read_buffer, sizeof(read_buffer) - 1);
+    // Read input data
+    ssize_t bytes_read = read(interface->stdin_fd, interface->input_buffer, 
+                             sizeof(interface->input_buffer) - 1);
     
-    if (bytes_read < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // No data actually available
-            return lle_create_timeout_event(terminal, event);
+    if (bytes_read <= 0) {
+        if (bytes_read == 0) {
+            return lle_create_eof_event(event);
         }
         return LLE_ERROR_READ_FAILED;
     }
     
-    if (bytes_read == 0) {
-        // End of file
-        return lle_create_eof_event(terminal, event);
-    }
+    interface->input_buffer_length = bytes_read;
+    interface->input_buffer_position = 0;
     
-    // Step 4: Add to input buffer with overflow protection
-    if (terminal->input_buffer_len + bytes_read >= sizeof(terminal->input_buffer)) {
-        // Buffer overflow - reset buffer and log error
-        terminal->input_buffer_len = 0;
-        terminal->input_buffer_pos = 0;
-        lle_error_context_log_error(terminal->error_ctx, 
-            "Input buffer overflow, resetting buffer");
-        return LLE_ERROR_BUFFER_OVERFLOW;
-    }
-    
-    memcpy(terminal->input_buffer + terminal->input_buffer_len, 
-           read_buffer, bytes_read);
-    terminal->input_buffer_len += bytes_read;
-    
-    // Step 5: Process the buffered input
-    result = lle_process_buffered_input(terminal, &input_event);
-    if (result != LLE_SUCCESS) {
-        return result;
-    }
-    
-    *event = input_event;
-    return LLE_SUCCESS;
+    // Process first character/sequence from buffer
+    return lle_parse_input_buffer(interface, event);
 }
+```
 
-lle_result_t lle_process_buffered_input(lle_unix_terminal_t *terminal,
-                                        lle_input_event_t **event) {
-    if (!terminal || !event) {
+---
+
+## 9. Error Handling and Recovery
+
+### 9.1 Error Recovery System
+
+```c
+typedef struct lle_error_context {
+    uint32_t error_count;
+    uint32_t warning_count;
+    uint64_t last_error_time;
+    char last_error_message[256];
+    lle_error_recovery_strategy_t recovery_strategy;
+} lle_error_context_t;
+
+lle_result_t lle_error_context_handle_error(lle_error_context_t *ctx,
+                                            lle_error_code_t error_code,
+                                            const char *error_message) {
+    if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Check if we have any data to process
-    if (terminal->input_buffer_pos >= terminal->input_buffer_len) {
-        return LLE_ERROR_NO_DATA;
+    ctx->error_count++;
+    ctx->last_error_time = lle_get_current_time_microseconds();
+    
+    if (error_message) {
+        strncpy(ctx->last_error_message, error_message, sizeof(ctx->last_error_message) - 1);
+        ctx->last_error_message[sizeof(ctx->last_error_message) - 1] = '\0';
     }
     
-    char *buffer = terminal->input_buffer + terminal->input_buffer_pos;
-    size_t remaining = terminal->input_buffer_len - terminal->input_buffer_pos;
-    
-    // Step 1: Check for escape sequences
-    if (buffer[0] == '\x1b' && remaining > 1) {
-        return lle_process_escape_sequence(terminal, event);
-    }
-    
-    // Step 2: Check for control characters
-    if (buffer[0] < 32) {
-        return lle_process_control_character(terminal, event);
-    }
-    
-    // Step 3: Process as regular character or UTF-8 sequence
-    return lle_process_character_input(terminal, event);
-}
-```
-
----
-
-## 6. Safe Terminal Querying
-
-### 6.1 Query Functions
-
-```c
-lle_result_t lle_query_terminal_identification(lle_unix_terminal_t *terminal,
-                                               lle_terminal_capabilities_t *caps) {
-    char response_buffer[256];
-    lle_result_t result;
-    
-    // Query DA1 (Device Attributes 1) - Terminal identification
-    result = lle_safe_terminal_query(terminal, "\x1b[c", "\x1b[?", 
-                                     response_buffer, sizeof(response_buffer), 200);
-    
-    if (result == LLE_SUCCESS) {
-        lle_parse_da1_response(response_buffer, caps);
-    }
-    
-    // Query DA2 (Device Attributes 2) - Terminal version
-    memset(response_buffer, 0, sizeof(response_buffer));
-    result = lle_safe_terminal_query(terminal, "\x1b[>c", "\x1b[>", 
-                                     response_buffer, sizeof(response_buffer), 200);
-    
-    if (result == LLE_SUCCESS) {
-        lle_parse_da2_response(response_buffer, caps);
-    }
-    
-    return LLE_SUCCESS; // Non-critical if queries fail
-}
-
-lle_result_t lle_detect_color_capabilities(lle_unix_terminal_t *terminal,
-                                           lle_terminal_capabilities_t *caps) {
-    char response_buffer[256];
-    lle_result_t result;
-    
-    // Test basic ANSI color support
-    caps->supports_ansi_colors = true; // Safe default assumption
-    
-    // Test 256-color support
-    result = lle_safe_terminal_query(terminal, "\x1b[38;5;196m\x1b[0m\x1b[6n", 
-                                     "\x1b[", response_buffer, sizeof(response_buffer), 100);
-    
-    if (result == LLE_SUCCESS) {
-        caps->supports_256_colors = true;
-        caps->detected_color_depth = 8;
-        
-        // Test truecolor (24-bit) support
-        memset(response_buffer, 0, sizeof(response_buffer));
-        result = lle_safe_terminal_query(terminal, "\x1b[38;2;255;0;0m\x1b[0m\x1b[6n", 
-                                         "\x1b[", response_buffer, sizeof(response_buffer), 100);
-        
-        if (result == LLE_SUCCESS) {
-            caps->supports_truecolor = true;
-            caps->detected_color_depth = 24;
-        }
-    } else {
-        caps->supports_256_colors = false;
-        caps->supports_truecolor = false;
-        caps->detected_color_depth = 4;
-    }
-    
-    return LLE_SUCCESS;
-}
-```
-
----
-
-## 7. Key Sequence Management
-
-### 7.1 Key Sequence Structure
-
-```c
-typedef struct lle_key_sequence {
-    char sequence[32];                // Escape sequence
-    uint8_t sequence_length;          // Sequence length
-    lle_special_key_t key;            // Mapped key
-    uint32_t modifiers;               // Modifier flags
-    lle_terminal_type_t terminal_type; // Specific terminal type
-    bool is_universal;                // Universal sequence
-} lle_key_sequence_t;
-
-typedef struct lle_key_sequence_map {
-    lle_key_sequence_t *sequences;    // Array of sequences
-    size_t count;                     // Number of sequences
-    size_t capacity;                  // Allocated capacity
-    lle_terminal_type_t terminal_type; // Target terminal type
-} lle_key_sequence_map_t;
-```
-
-### 7.2 Key Sequence Detection
-
-```c
-lle_result_t lle_build_key_sequence_map(lle_unix_terminal_t *terminal,
-                                        lle_terminal_capabilities_t *caps) {
-    lle_result_t result;
-    
-    // Allocate key sequence map
-    caps->key_sequences = calloc(1, sizeof(lle_key_sequence_map_t));
-    if (!caps->key_sequences) {
-        return LLE_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    // Initialize with basic capacity
-    caps->key_sequences->capacity = 64;
-    caps->key_sequences->sequences = calloc(caps->key_sequences->capacity, 
-                                            sizeof(lle_key_sequence_t));
-    if (!caps->key_sequences->sequences) {
-        free(caps->key_sequences);
-        return LLE_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    // Test common key sequences
-    result = lle_test_arrow_keys(terminal, caps->key_sequences);
-    if (result == LLE_SUCCESS) {
-        caps->arrow_keys_detected = true;
-    }
-    
-    result = lle_test_function_keys(terminal, caps->key_sequences);
-    if (result == LLE_SUCCESS) {
-        caps->function_keys_detected = true;
-    }
-    
-    result = lle_test_home_end_keys(terminal, caps->key_sequences);
-    if (result == LLE_SUCCESS) {
-        caps->home_end_detected = true;
-    }
-    
-    result = lle_test_page_keys(terminal, caps->key_sequences);
-    if (result == LLE_SUCCESS) {
-        caps->page_keys_detected = true;
-    }
-    
-    // Apply terminal-specific key mappings
-    lle_apply_terminal_specific_keys(caps);
-    
-    caps->key_sequence_count = caps->key_sequences->count;
-    
-    return LLE_SUCCESS;
-}
-```
-
----
-
-## 8. Error Handling and Recovery
-
-### 8.1 Error Recovery System
-
-```c
-typedef struct lle_error_recovery_context {
-    lle_unix_terminal_t *terminal;    // Terminal reference
-    struct termios saved_termios;     // Saved terminal state
-    bool terminal_state_saved;        // State save status
-    uint32_t recovery_attempt_count;  // Recovery attempts
-    uint64_t last_recovery_time;      // Last recovery timestamp
-    lle_error_recovery_strategy_t strategy; // Recovery strategy
-} lle_error_recovery_context_t;
-
-lle_result_t lle_handle_terminal_error(lle_unix_terminal_t *terminal, 
-                                       lle_error_code_t error_code,
-                                       const char *error_context) {
-    lle_error_recovery_context_t recovery_ctx;
-    lle_result_t result;
-    
-    // Initialize recovery context
-    recovery_ctx.terminal = terminal;
-    recovery_ctx.terminal_state_saved = false;
-    recovery_ctx.recovery_attempt_count = 0;
-    recovery_ctx.last_recovery_time = lle_get_current_time_us();
-    
-    // Save current terminal state if possible
-    if (tcgetattr(terminal->stdin_fd, &recovery_ctx.saved_termios) == 0) {
-        recovery_ctx.terminal_state_saved = true;
-    }
-    
-    // Determine recovery strategy based on error type
+    // Determine recovery strategy
     switch (error_code) {
-        case LLE_ERROR_TERMINAL_ATTR_SET:
-        case LLE_ERROR_TERMINAL_ATTR_GET:
-            recovery_ctx.strategy = LLE_RECOVERY_RESTORE_TERMINAL_STATE;
+        case LLE_ERROR_MEMORY_ALLOCATION:
+            ctx->recovery_strategy = LLE_RECOVERY_MEMORY_CLEANUP;
             break;
             
-        case LLE_ERROR_READ_FAILED:
-        case LLE_ERROR_WRITE_FAILED:
-            recovery_ctx.strategy = LLE_RECOVERY_RESET_IO;
+        case LLE_ERROR_TERMINAL_STATE:
+            ctx->recovery_strategy = LLE_RECOVERY_TERMINAL_RESET;
             break;
             
-        case LLE_ERROR_POLL_FAILED:
-            recovery_ctx.strategy = LLE_RECOVERY_RESET_POLLING;
+        case LLE_ERROR_DISPLAY_SUBMISSION:
+            ctx->recovery_strategy = LLE_RECOVERY_DISPLAY_REFRESH;
             break;
             
         default:
-            recovery_ctx.strategy = LLE_RECOVERY_FULL_RESET;
+            ctx->recovery_strategy = LLE_RECOVERY_GRACEFUL_CONTINUE;
             break;
     }
-    
-    // Execute recovery strategy
-    result = lle_execute_recovery_strategy(&recovery_ctx);
-    
-    // Log recovery attempt
-    lle_error_context_log_recovery(terminal->error_ctx, error_code, 
-                                   error_context, recovery_ctx.strategy, result);
-    
-    return result;
-}
-```
-
----
-
-## 9. State Machine Definitions
-
-### 9.1 Input Processing State Machine
-
-```c
-typedef enum {
-    LLE_INPUT_STATE_NORMAL = 0,       // Normal character input
-    LLE_INPUT_STATE_ESCAPE,           // Escape sequence start
-    LLE_INPUT_STATE_CSI,              // Control Sequence Introducer
-    LLE_INPUT_STATE_OSC,              // Operating System Command
-    LLE_INPUT_STATE_DCS,              // Device Control String
-    LLE_INPUT_STATE_MOUSE,            // Mouse sequence processing
-    LLE_INPUT_STATE_PASTE,            // Bracketed paste mode
-    LLE_INPUT_STATE_ERROR,            // Error recovery state
-} lle_input_state_t;
-
-typedef struct lle_input_state_machine {
-    lle_input_state_t current_state;  // Current state
-    lle_input_state_t previous_state; // Previous state
-    uint64_t state_enter_time;        // State entry time
-    uint32_t transition_count;        // State transitions
-    char sequence_buffer[64];         // Sequence accumulation
-    size_t sequence_length;           // Current sequence length
-    uint32_t timeout_ms;              // State timeout
-} lle_input_state_machine_t;
-
-lle_result_t lle_input_state_machine_process(lle_input_state_machine_t *sm,
-                                              char input_char,
-                                              lle_input_event_t **event) {
-    lle_result_t result = LLE_SUCCESS;
-    
-    // Check for state timeout
-    uint64_t current_time = lle_get_current_time_us();
-    if ((current_time - sm->state_enter_time) > (sm->timeout_ms * 1000)) {
-        // Timeout - reset to normal state
-        lle_input_state_machine_reset(sm);
-    }
-    
-    switch (sm->current_state) {
-        case LLE_INPUT_STATE_NORMAL:
-            result = lle_process_normal_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_ESCAPE:
-            result = lle_process_escape_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_CSI:
-            result = lle_process_csi_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_OSC:
-            result = lle_process_osc_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_MOUSE:
-            result = lle_process_mouse_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_PASTE:
-            result = lle_process_paste_state(sm, input_char, event);
-            break;
-            
-        case LLE_INPUT_STATE_ERROR:
-            result = lle_process_error_state(sm, input_char, event);
-            break;
-            
-        default:
-            lle_input_state_machine_reset(sm);
-            result = LLE_ERROR_INVALID_STATE;
-            break;
-    }
-    
-    return result;
-}
-```
-
----
-
-## 10. Integration with Lusush Systems
-
-### 10.1 Display System Integration
-
-```c
-typedef struct lle_lusush_integration {
-    // Display system references
-    lle_display_controller_t *display_controller;
-    lle_prompt_layer_t *prompt_layer;
-    lle_composition_engine_t *composition_engine;
-    
-    // Memory system integration
-    lusush_memory_pool_t *memory_pool;
-    
-    // Performance monitoring integration
-    lle_performance_monitor_t *perf_monitor;
-    
-    // Theme system integration
-    lusush_theme_t *current_theme;
-    
-} lle_lusush_integration_t;
-
-lle_result_t lle_integrate_with_lusush_display(lle_terminal_system_t *terminal_sys,
-                                               lle_lusush_integration_t *integration) {
-    // Register terminal capabilities with display system
-    lle_result_t result = lle_display_register_capabilities(
-        integration->display_controller,
-        terminal_sys->caps
-    );
-    
-    if (result != LLE_SUCCESS) {
-        return result;
-    }
-    
-    // Configure display layers based on terminal capabilities
-    if (terminal_sys->caps->supports_truecolor) {
-        lle_display_controller_enable_truecolor(integration->display_controller);
-    } else if (terminal_sys->caps->supports_256_colors) {
-        lle_display_controller_enable_256_colors(integration->display_controller);
-    }
-    
-    // Set up performance monitoring integration
-    lle_performance_monitor_register_terminal_metrics(
-        integration->perf_monitor,
-        terminal_sys->perf_monitor
-    );
     
     return LLE_SUCCESS;
 }
@@ -1257,73 +1190,87 @@ lle_result_t lle_integrate_with_lusush_display(lle_terminal_system_t *terminal_s
 
 ---
 
-## 11. Performance Requirements
+## 10. Performance Requirements
 
-### 11.1 Performance Specifications
+### 10.1 Performance Specifications
 
-- **Input Response Time**: < 1ms average, < 5ms maximum
-- **Capability Detection Time**: < 100ms total initialization
-- **Memory Usage**: < 64KB for terminal abstraction layer
-- **CPU Usage**: < 1% during idle, < 5% during active input processing
-- **Terminal Query Timeout**: 50-200ms per query with exponential backoff
+**RESEARCH-VALIDATED PERFORMANCE TARGETS**:
 
-### 11.2 Performance Monitoring Integration
+- **Internal State Updates**: < 100μs average (no terminal interaction)
+- **Display Content Generation**: < 500μs average (pure computation)
+- **Lusush Display Submission**: < 1ms average (display layer coordination)  
+- **Input Event Processing**: < 250μs average (buffer operations only)
+- **Memory Usage**: < 32KB for internal state model
+- **CPU Usage**: < 0.5% during idle, < 2% during active editing
+
+### 10.2 Performance Monitoring
 
 ```c
-typedef struct lle_terminal_performance_metrics {
-    uint64_t input_processing_time_total;
-    uint64_t input_processing_time_average;
+typedef struct lle_performance_monitor {
+    uint64_t state_updates_total;
+    uint64_t state_update_time_total;
+    uint64_t display_generations_total;
+    uint64_t display_generation_time_total;
+    uint64_t display_submissions_total;
+    uint64_t display_submission_time_total;
     uint32_t input_events_processed;
-    uint32_t escape_sequences_processed;
-    uint32_t capability_queries_sent;
-    uint32_t capability_queries_successful;
-    uint64_t terminal_state_changes;
-    uint32_t error_recovery_attempts;
-} lle_terminal_performance_metrics_t;
+    uint64_t input_processing_time_total;
+} lle_performance_monitor_t;
 ```
 
 ---
 
-## 12. Testing and Validation
+## 11. Testing and Validation
 
-### 12.1 Comprehensive Test Framework
+### 11.1 Research-Validated Test Framework
 
 ```c
-typedef struct lle_terminal_test_suite {
-    // Basic functionality tests
-    bool (*test_terminal_initialization)(void);
-    bool (*test_capability_detection)(void);
-    bool (*test_raw_mode_operations)(void);
-    bool (*test_input_processing)(void);
+typedef struct lle_test_suite {
+    // Internal State Authority Tests
+    bool (*test_internal_state_authority)(void);
+    bool (*test_no_terminal_queries)(void);
+    bool (*test_cursor_calculation_accuracy)(void);
     
-    // Error handling tests
-    bool (*test_error_recovery)(void);
-    bool (*test_timeout_handling)(void);
-    bool (*test_signal_handling)(void);
+    // Display Layer Client Tests  
+    bool (*test_lusush_display_integration)(void);
+    bool (*test_display_content_generation)(void);
+    bool (*test_no_direct_terminal_control)(void);
     
-    // Performance tests
-    bool (*test_response_times)(void);
-    bool (*test_memory_usage)(void);
-    bool (*test_cpu_usage)(void);
+    // Capability Detection Tests
+    bool (*test_environment_based_detection)(void);
+    bool (*test_no_runtime_queries)(void);
+    bool (*test_conservative_defaults)(void);
     
-    // Integration tests
-    bool (*test_lusush_integration)(void);
-    bool (*test_display_system_integration)(void);
+    // Performance Tests
+    bool (*test_sub_millisecond_response)(void);
+    bool (*test_memory_usage_limits)(void);
+    bool (*test_cpu_usage_efficiency)(void);
     
-} lle_terminal_test_suite_t;
+    // Integration Tests
+    bool (*test_complete_editing_workflow)(void);
+    bool (*test_error_recovery_mechanisms)(void);
+    bool (*test_cross_terminal_compatibility)(void);
+    
+} lle_test_suite_t;
 ```
 
-### 12.2 Validation Requirements
+### 11.2 Validation Requirements
 
-1. **Functional Validation**: All terminal operations must work correctly
-2. **Performance Validation**: Must meet specified performance requirements
-3. **Error Handling Validation**: Must gracefully handle all error conditions
-4. **Integration Validation**: Must integrate seamlessly with Lusush systems
-5. **Cross-Terminal Validation**: Must work across different terminal types
-6. **Memory Safety Validation**: No memory leaks or buffer overflows
-7. **Signal Safety Validation**: Proper signal handling and recovery
+**CRITICAL VALIDATION CRITERIA**:
+
+1. **NO Terminal State Queries**: Validate that no terminal queries occur during operation
+2. **Internal State Authority**: Validate that internal model is single source of truth  
+3. **Display Layer Client Only**: Validate that all terminal interaction goes through Lusush
+4. **Performance Compliance**: Validate sub-millisecond response times achieved
+5. **Memory Safety**: Validate no memory leaks or buffer overflows
+6. **Cross-Terminal Compatibility**: Validate works across different terminal types
+7. **Research Compliance**: Validate follows all research-validated architectural patterns
 
 ---
 
-**Implementation Status**: Complete specification ready for development  
-**Next Priority**: Buffer Management Complete Specification (03_buffer_management_complete.md)
+**REFACTORING COMPLETE**: This specification now aligns with the Terminal State Abstraction Layer research breakthrough, eliminating all architectural violations and following proven patterns from successful line editor implementations.
+
+**Document Version**: 2.0.0 (Research-Validated Architecture)  
+**Date**: 2025-10-10  
+**Status**: Implementation-Ready Specification  
+**Classification**: Critical Foundation Component - Research Validated
