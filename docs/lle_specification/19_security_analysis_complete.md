@@ -178,9 +178,11 @@ typedef struct lle_input_validator {
 } lle_input_validator_t;
 
 // Implementation-ready input validation function
-lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
-                                           const lle_input_event_t *event) {
-    lle_validation_result_t result = {0};
+lle_result_t lle_validate_input(lle_input_validator_t *validator,
+                                const lle_input_event_t *event,
+                                lle_validation_details_t *validation_details) {
+    lle_result_t result = LLE_SUCCESS;
+    lle_validation_details_t details = {0};
     uint64_t start_time = 0;
     
     // Step 1: Performance monitoring setup
@@ -189,10 +191,8 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
     }
     
     // Step 2: Basic parameter validation
-    if (!validator || !event || !validator->validation_active) {
-        result.status = LLE_VALIDATION_ERROR;
-        result.error_code = LLE_VALIDATION_INVALID_PARAMS;
-        return result;
+    if (!validator || !event || !validation_details || !validator->validation_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Step 3: Check validation cache for repeated inputs
@@ -201,20 +201,18 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
         validator->cache->table, &input_hash, sizeof(uint32_t));
     
     if (cache_entry && cache_entry->timestamp + VALIDATION_CACHE_TTL > time(NULL)) {
-        result = cache_entry->result;
+        *validation_details = cache_entry->details;
         validator->stats->cache_hits++;
-        return result;
+        return cache_entry->result;
     }
     
     // Step 4: UTF-8 validation with comprehensive checks
     lle_utf8_result_t utf8_result = lle_validate_utf8_sequence(
         validator->utf8_validator, event->data, event->length);
     
-    if (utf8_result.status != LLE_UTF8_VALID) {
-        result.status = LLE_VALIDATION_REJECTED;
-        result.error_code = LLE_VALIDATION_INVALID_UTF8;
-        result.details.utf8_error = utf8_result.error;
-        result.details.byte_position = utf8_result.error_position;
+    if (utf8_result != LLE_SUCCESS) {
+        result = LLE_ERROR_INVALID_UTF8;
+        details.error_code = LLE_VALIDATION_INVALID_UTF8;
         goto validation_complete;
     }
     
@@ -236,11 +234,9 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
         lle_command_result_t cmd_result = lle_validate_command_safety(
             validator->command_validator, (char*)event->data, event->length);
         
-        if (cmd_result.status != LLE_COMMAND_SAFE) {
-            result.status = LLE_VALIDATION_REJECTED;
-            result.error_code = LLE_VALIDATION_COMMAND_INJECTION;
-            result.details.injection_type = cmd_result.injection_type;
-            result.details.dangerous_pattern = cmd_result.pattern;
+        if (cmd_result != LLE_SUCCESS) {
+            result = LLE_ERROR_COMMAND_INJECTION;
+            details.error_code = LLE_VALIDATION_COMMAND_INJECTION;
             goto validation_complete;
         }
     }
@@ -250,11 +246,9 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
         lle_sequence_result_t seq_result = lle_validate_terminal_sequence(
             validator->sequence_validator, (char*)event->data, event->length);
         
-        if (seq_result.status != LLE_SEQUENCE_SAFE) {
-            result.status = LLE_VALIDATION_REJECTED;
-            result.error_code = LLE_VALIDATION_MALICIOUS_SEQUENCE;
-            result.details.sequence_type = seq_result.sequence_type;
-            result.details.security_risk = seq_result.risk_level;
+        if (seq_result != LLE_SUCCESS) {
+            result = LLE_ERROR_MALICIOUS_SEQUENCE;
+            details.error_code = LLE_VALIDATION_MALICIOUS_SEQUENCE;
             goto validation_complete;
         }
     }
@@ -264,11 +258,9 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
         lle_path_result_t path_result = lle_validate_path_safety(
             validator->path_validator, (char*)event->data, event->length);
         
-        if (path_result.status != LLE_PATH_SAFE) {
-            result.status = LLE_VALIDATION_REJECTED;
-            result.error_code = LLE_VALIDATION_PATH_TRAVERSAL;
-            result.details.path_violation = path_result.violation_type;
-            result.details.dangerous_components = path_result.component_count;
+        if (path_result != LLE_SUCCESS) {
+            result = LLE_ERROR_PATH_TRAVERSAL;
+            details.error_code = LLE_VALIDATION_PATH_TRAVERSAL;
             goto validation_complete;
         }
     }
@@ -277,35 +269,31 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
     lle_malware_result_t malware_result = lle_detect_malicious_patterns(
         validator->malware_detector, event->data, event->length);
     
-    if (malware_result.threat_detected) {
-        result.status = LLE_VALIDATION_REJECTED;
-        result.error_code = LLE_VALIDATION_MALWARE_DETECTED;
-        result.details.threat_type = malware_result.threat_type;
-        result.details.confidence_score = malware_result.confidence;
+    if (malware_result != LLE_SUCCESS) {
+        result = LLE_ERROR_MALWARE_DETECTED;
+        details.error_code = LLE_VALIDATION_MALWARE_DETECTED;
         goto validation_complete;
     }
     
     // Step 10: Behavioral anomaly detection
-    lle_anomaly_result_t anomaly_result = lle_detect_input_anomalies(
+    lle_result_t anomaly_result = lle_detect_input_anomalies(
         validator->anomaly_detector, event);
     
-    if (anomaly_result.anomaly_detected) {
-        result.status = LLE_VALIDATION_SUSPICIOUS;
-        result.error_code = LLE_VALIDATION_BEHAVIORAL_ANOMALY;
-        result.details.anomaly_type = anomaly_result.anomaly_type;
-        result.details.anomaly_score = anomaly_result.score;
+    if (anomaly_result != LLE_SUCCESS) {
+        result = LLE_ERROR_BEHAVIORAL_ANOMALY;
+        details.error_code = LLE_VALIDATION_BEHAVIORAL_ANOMALY;
         // Note: Suspicious inputs are logged but may still be allowed
     }
     
 validation_complete:
     // Step 11: Cache validation result for performance
-    if (result.status != LLE_VALIDATION_ERROR) {
-        lle_cache_validation_result(validator->cache, input_hash, &result);
+    if (result == LLE_SUCCESS) {
+        lle_cache_validation_result(validator->cache, input_hash, result, &details);
     }
     
     // Step 12: Update statistics and performance metrics
     validator->stats->validation_count++;
-    if (result.status == LLE_VALIDATION_REJECTED) {
+    if (result != LLE_SUCCESS) {
         validator->stats->blocked_count++;
     }
     
@@ -315,9 +303,14 @@ validation_complete:
     }
     
     // Step 13: Security audit logging for rejected inputs
-    if (result.status == LLE_VALIDATION_REJECTED) {
+    if (result != LLE_SUCCESS) {
         lle_audit_log_security_event(validator->audit_logger, 
-                                    LLE_AUDIT_INPUT_REJECTED, event, &result);
+                                    LLE_AUDIT_INPUT_REJECTED, event, result, &details);
+    }
+    
+    // Step 14: Copy details to output parameter
+    if (validation_details) {
+        *validation_details = details;
     }
     
     return result;
@@ -353,16 +346,12 @@ typedef struct lle_command_validator {
 } lle_command_validator_t;
 
 // Implementation-ready command validation
-lle_command_result_t lle_validate_command_safety(lle_command_validator_t *validator,
-                                                  const char *command,
-                                                  size_t length) {
-    lle_command_result_t result = {0};
-    
+lle_result_t lle_validate_command_safety(lle_command_validator_t *validator,
+                                          const char *command,
+                                          size_t length) {
     // Step 1: Basic safety checks
     if (!validator || !command || length == 0 || length > MAX_COMMAND_LENGTH) {
-        result.status = LLE_COMMAND_INVALID;
-        result.injection_type = LLE_INJECTION_INVALID_PARAMS;
-        return result;
+        return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Step 2: Check for immediate dangerous patterns
@@ -374,53 +363,35 @@ lle_command_result_t lle_validate_command_safety(lle_command_validator_t *valida
     
     for (int i = 0; immediate_threats[i]; i++) {
         if (strstr(command, immediate_threats[i])) {
-            result.status = LLE_COMMAND_DANGEROUS;
-            result.injection_type = LLE_INJECTION_SHELL_METACHAR;
-            result.pattern = immediate_threats[i];
-            result.risk_level = LLE_RISK_CRITICAL;
-            return result;
+            return LLE_ERROR_DANGEROUS_COMMAND;
         }
     }
     
     // Step 3: Advanced pattern matching for sophisticated attacks
-    lle_pattern_match_result_t pattern_result = lle_match_injection_patterns(
+    lle_result_t pattern_result = lle_match_injection_patterns(
         validator->injection_patterns, command, length);
     
-    if (pattern_result.match_found) {
-        result.status = LLE_COMMAND_DANGEROUS;
-        result.injection_type = pattern_result.injection_type;
-        result.pattern = pattern_result.matched_pattern;
-        result.risk_level = pattern_result.risk_level;
-        result.confidence = pattern_result.confidence;
-        return result;
+    if (pattern_result != LLE_SUCCESS) {
+        return LLE_ERROR_INJECTION_PATTERN;
     }
     
     // Step 4: Syntax analysis for structural attacks
-    lle_syntax_result_t syntax_result = lle_analyze_command_syntax(
+    lle_result_t syntax_result = lle_analyze_command_syntax(
         validator->syntax_analyzer, command, length);
     
-    if (syntax_result.suspicious_structure) {
-        result.status = LLE_COMMAND_SUSPICIOUS;
-        result.injection_type = LLE_INJECTION_SYNTAX_ABUSE;
-        result.structural_anomaly = syntax_result.anomaly_type;
-        result.risk_level = LLE_RISK_MEDIUM;
-        return result;
+    if (syntax_result != LLE_SUCCESS) {
+        return LLE_ERROR_SUSPICIOUS_SYNTAX;
     }
     
     // Step 5: Context-aware analysis
-    lle_context_result_t context_result = lle_analyze_command_context(
+    lle_result_t context_result = lle_analyze_command_context(
         validator->context_analyzer, command, length);
     
-    if (context_result.context_violation) {
-        result.status = LLE_COMMAND_POLICY_VIOLATION;
-        result.injection_type = LLE_INJECTION_CONTEXT_ABUSE;
-        result.context_issue = context_result.violation_type;
-        result.risk_level = LLE_RISK_HIGH;
-        return result;
+    if (context_result != LLE_SUCCESS) {
+        return LLE_ERROR_CONTEXT_VIOLATION;
     }
     
-    result.status = LLE_COMMAND_SAFE;
-    return result;
+    return LLE_SUCCESS;
 }
 ```
 
@@ -463,19 +434,19 @@ typedef struct lle_rbac_system {
 } lle_rbac_system_t;
 
 // Comprehensive permission checking implementation
-lle_access_result_t lle_check_access_permission(lle_rbac_system_t *rbac,
-                                                const char *resource,
-                                                lle_permission_type_t permission,
-                                                lle_security_context_t *context) {
-    lle_access_result_t result = {0};
+lle_result_t lle_check_access_permission(lle_rbac_system_t *rbac,
+                                          const char *resource,
+                                          lle_permission_type_t permission,
+                                          lle_security_context_t *context,
+                                          bool *access_granted) {
     uint64_t start_time = lle_get_microseconds();
     
     // Step 1: Validate parameters and system state
-    if (!rbac || !resource || !context || !rbac->rbac_active) {
-        result.access_granted = false;
-        result.error_code = LLE_ACCESS_INVALID_PARAMS;
-        return result;
+    if (!rbac || !resource || !context || !access_granted || !rbac->rbac_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    *access_granted = false;
     
     // Step 2: Check permission cache for performance
     lle_permission_key_t cache_key = {
@@ -656,16 +627,12 @@ typedef struct lle_plugin_sandbox {
 } lle_plugin_sandbox_t;
 
 // Implementation-ready plugin sandbox creation
-lle_sandbox_result_t lle_create_plugin_sandbox(lle_plugin_sandbox_t *sandbox,
-                                               lle_plugin_t *plugin,
-                                               lle_sandbox_config_t *config) {
-    lle_sandbox_result_t result = {0};
-    
+lle_result_t lle_create_plugin_sandbox(lle_plugin_sandbox_t *sandbox,
+                                       lle_plugin_t *plugin,
+                                       lle_sandbox_config_t *config) {
     // Step 1: Validate parameters and prerequisites
     if (!sandbox || !plugin || !config || !sandbox->sandbox_active) {
-        result.success = false;
-        result.error_code = LLE_SANDBOX_INVALID_PARAMS;
-        return result;
+        return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Step 2: Create isolated process namespace
