@@ -2683,6 +2683,320 @@ lle_result_t lle_config_manager_init(
 
     ---
 
+    ## 🎨 **THEME COMMAND INTEGRATION**
+
+    ### **Visual Control Interface**
+
+    The User Customization System provides complete visual control through the existing `theme` builtin command, enabling users to customize all visual aspects of LLE through the established theme system interface.
+
+    #### **Theme Command Extensions**
+
+    ```c
+    // Theme command LLE integration
+    typedef struct lle_theme_command_integration {
+        // Command handlers
+        lle_theme_command_handler_t     *command_handler;
+        lle_theme_help_provider_t       *help_provider;
+        lle_theme_completion_engine_t   *completion_engine;
+        
+        // Integration with existing theme system
+        theme_manager_t                 *lusush_theme_manager;
+        lle_customization_system_t      *customization_system;
+        
+        // Visual customization components
+        lle_color_scheme_manager_t      *color_scheme_manager;
+        lle_syntax_theme_manager_t      *syntax_theme_manager;
+        lle_visual_style_manager_t      *visual_style_manager;
+        
+    } lle_theme_command_integration_t;
+
+    // Theme command interface implementation
+    int lle_theme_command_handler(int argc, char **argv) {
+        // Handle: theme lle <command> [options...]
+        if (argc < 3) {
+            lle_theme_show_command_help();
+            return 1;
+        }
+        
+        const char *lle_command = argv[2];
+        
+        // Color management commands
+        if (strcmp(lle_command, "colors") == 0) {
+            return lle_handle_theme_colors_command(argc - 3, argv + 3);
+        } else if (strcmp(lle_command, "syntax") == 0) {
+            return lle_handle_theme_syntax_command(argc - 3, argv + 3);
+        }
+        
+        // Visual styling commands
+        else if (strcmp(lle_command, "autosuggestions") == 0) {
+            return lle_handle_theme_autosuggestions_command(argc - 3, argv + 3);
+        } else if (strcmp(lle_command, "cursor") == 0) {
+            return lle_handle_theme_cursor_command(argc - 3, argv + 3);
+        } else if (strcmp(lle_command, "selection") == 0) {
+            return lle_handle_theme_selection_command(argc - 3, argv + 3);
+        }
+        
+        // Theme integration commands
+        else if (strcmp(lle_command, "status") == 0) {
+            return lle_handle_theme_status_command(argc - 3, argv + 3);
+        } else if (strcmp(lle_command, "sync") == 0) {
+            return lle_handle_theme_sync_command(argc - 3, argv + 3);
+        }
+        
+        else {
+            fprintf(stderr, "theme lle: unknown command '%s'\n", lle_command);
+            lle_theme_show_command_help();
+            return 1;
+        }
+    }
+    ```
+
+    #### **Color Scheme Management Integration**
+
+    ```c
+    // LLE color scheme management through theme command
+    int lle_handle_theme_colors_command(int argc, char **argv) {
+        if (argc < 1) {
+            printf("LLE Color Commands:\n");
+            printf("  theme lle colors show [--format=table|json]    Show current colors\n");
+            printf("  theme lle colors list                         List available schemes\n");
+            printf("  theme lle colors set <scheme>                 Set color scheme\n");
+            printf("  theme lle colors reset                        Reset to theme defaults\n");
+            return 0;
+        }
+        
+        const char *colors_command = argv[0];
+        
+        if (strcmp(colors_command, "show") == 0) {
+            return lle_show_current_color_scheme(argc - 1, argv + 1);
+        } else if (strcmp(colors_command, "list") == 0) {
+            return lle_list_available_color_schemes();
+        } else if (strcmp(colors_command, "set") == 0) {
+            if (argc < 2) {
+                fprintf(stderr, "theme lle colors set: scheme name required\n");
+                return 1;
+            }
+            return lle_set_color_scheme(argv[1]);
+        } else if (strcmp(colors_command, "reset") == 0) {
+            return lle_reset_color_scheme_to_theme_defaults();
+        } else {
+            fprintf(stderr, "theme lle colors: unknown command '%s'\n", colors_command);
+            return 1;
+        }
+    }
+
+    // Show current LLE color scheme
+    int lle_show_current_color_scheme(int argc, char **argv) {
+        const char *format = "table";
+        bool verbose = false;
+        
+        // Parse options
+        for (int i = 0; i < argc; i++) {
+            if (strncmp(argv[i], "--format=", 9) == 0) {
+                format = argv[i] + 9;
+            } else if (strcmp(argv[i], "--verbose") == 0) {
+                verbose = true;
+            }
+        }
+        
+        lle_color_scheme_t *current_scheme = lle_get_current_color_scheme();
+        if (!current_scheme) {
+            fprintf(stderr, "theme lle colors show: no active color scheme\n");
+            return 1;
+        }
+        
+        printf("Current LLE Color Scheme: %s\n", current_scheme->name);
+        
+        // Get active theme information
+        theme_definition_t *active_theme = theme_get_active();
+        if (active_theme) {
+            printf("Based on theme: %s\n", active_theme->name);
+        }
+        
+        printf("Last updated: %s\n", lle_format_timestamp(current_scheme->last_modified));
+        
+        if (strcmp(format, "table") == 0) {
+            lle_display_color_table(current_scheme, verbose);
+        } else if (strcmp(format, "json") == 0) {
+            lle_export_color_scheme_json(current_scheme, stdout);
+        } else {
+            fprintf(stderr, "theme lle colors show: invalid format '%s'\n", format);
+            return 1;
+        }
+        
+        return 0;
+    }
+    ```
+
+    #### **Syntax Theme Customization Integration**
+
+    ```c
+    // Syntax highlighting theme management through theme command
+    int lle_handle_theme_syntax_command(int argc, char **argv) {
+        if (argc < 1) {
+            printf("LLE Syntax Theme Commands:\n");
+            printf("  theme lle syntax colors                       Show syntax colors\n");
+            printf("  theme lle syntax customize                    Customize syntax colors\n");
+            printf("  theme lle syntax preview [file]               Preview syntax highlighting\n");
+            printf("  theme lle syntax reset                        Reset to defaults\n");
+            return 0;
+        }
+        
+        const char *syntax_command = argv[0];
+        
+        if (strcmp(syntax_command, "colors") == 0) {
+            return lle_show_syntax_highlighting_colors();
+        } else if (strcmp(syntax_command, "customize") == 0) {
+            return lle_interactive_syntax_customization();
+        } else if (strcmp(syntax_command, "preview") == 0) {
+            const char *file = (argc > 1) ? argv[1] : NULL;
+            return lle_preview_syntax_highlighting(file);
+        } else if (strcmp(syntax_command, "reset") == 0) {
+            return lle_reset_syntax_theme_to_defaults();
+        } else {
+            fprintf(stderr, "theme lle syntax: unknown command '%s'\n", syntax_command);
+            return 1;
+        }
+    }
+
+    // Interactive syntax color customization
+    int lle_interactive_syntax_customization(void) {
+        printf("Interactive Syntax Color Customization\n");
+        printf("======================================\n\n");
+        
+        lle_color_scheme_t *current_scheme = lle_get_current_color_scheme();
+        if (!current_scheme) {
+            fprintf(stderr, "No active color scheme available\n");
+            return 1;
+        }
+        
+        printf("Current syntax theme based on: %s\n", current_scheme->name);
+        printf("Use Ctrl+C to exit at any time\n\n");
+        
+        // Interactive customization loop
+        lle_syntax_element_t elements[] = {
+            {"Command", &current_scheme->command_color},
+            {"Builtin", &current_scheme->builtin_color},
+            {"Keyword", &current_scheme->keyword_color},
+            {"String", &current_scheme->string_color},
+            {"Variable", &current_scheme->variable_color},
+            {"Comment", &current_scheme->comment_color},
+            {"Error", &current_scheme->error_color},
+            {NULL, NULL}
+        };
+        
+        for (int i = 0; elements[i].name; i++) {
+            printf("Customize %s color (current: ", elements[i].name);
+            lle_print_color_sample(elements[i].color, elements[i].name);
+            printf(")\n");
+            
+            char input[256];
+            printf("Enter new color (hex #RRGGBB, color name, or 'skip'): ");
+            if (fgets(input, sizeof(input), stdin)) {
+                input[strcspn(input, "\n")] = 0; // Remove newline
+                
+                if (strcmp(input, "skip") == 0) {
+                    continue;
+                }
+                
+                lle_color_t new_color;
+                if (lle_parse_color_specification(input, &new_color) == LLE_SUCCESS) {
+                    *elements[i].color = new_color;
+                    printf("Updated %s color: ", elements[i].name);
+                    lle_print_color_sample(&new_color, elements[i].name);
+                    printf("\n");
+                } else {
+                    printf("Invalid color specification: %s\n", input);
+                }
+            }
+            printf("\n");
+        }
+        
+        // Save customizations
+        lle_result_t result = lle_save_custom_color_scheme(current_scheme);
+        if (result == LLE_SUCCESS) {
+            printf("Syntax color customizations saved successfully\n");
+            printf("Use 'theme lle syntax preview' to see the results\n");
+        } else {
+            fprintf(stderr, "Failed to save customizations: %s\n", lle_result_get_message(result));
+            return 1;
+        }
+        
+        return 0;
+    }
+    ```
+
+    #### **Theme Command Help System**
+
+    ```c
+    // Theme command help integration
+    void lle_theme_show_command_help(void) {
+        printf("Lusush Line Editor (LLE) Theme Commands\n\n");
+        
+        printf("Color Management:\n");
+        printf("  theme lle colors show [--format=table|json]    Show current LLE colors\n");
+        printf("  theme lle colors list                         List available color schemes\n");
+        printf("  theme lle colors set <scheme>                 Set LLE color scheme\n");
+        printf("  theme lle colors reset                        Reset to theme defaults\n");
+        printf("  theme lle colors export <file>                Export custom colors\n");
+        printf("  theme lle colors import <file>                Import custom colors\n\n");
+        
+        printf("Syntax Highlighting:\n");
+        printf("  theme lle syntax colors                       Show syntax highlighting colors\n");
+        printf("  theme lle syntax customize                    Customize syntax colors interactively\n");
+        printf("  theme lle syntax preview [file]               Preview syntax highlighting\n");
+        printf("  theme lle syntax reset                        Reset syntax colors to defaults\n\n");
+        
+        printf("Visual Styling:\n");
+        printf("  theme lle autosuggestions style               Configure autosuggestion appearance\n");
+        printf("  theme lle cursor style                        Configure cursor styling\n");
+        printf("  theme lle selection style                     Configure selection highlighting\n");
+        printf("  theme lle completion style                    Configure completion menu styling\n\n");
+        
+        printf("Theme Integration:\n");
+        printf("  theme lle status                              Show LLE theme integration status\n");
+        printf("  theme lle sync                               Synchronize LLE with current theme\n");
+        printf("  theme lle preview                            Preview all LLE features with current theme\n\n");
+        
+        printf("Examples:\n");
+        printf("  theme set dark && theme lle sync              Apply dark theme to LLE\n");
+        printf("  theme lle colors set vibrant                  Use vibrant color scheme\n");
+        printf("  theme lle syntax customize                    Interactively customize syntax colors\n");
+        printf("  theme lle colors export my-colors.json        Export custom color scheme\n");
+        printf("  theme lle autosuggestions style               Configure suggestion appearance\n\n");
+        
+        printf("Note: LLE automatically inherits colors from the active theme.\n");
+        printf("      Use 'theme set <name>' to change the base theme for all components.\n");
+        printf("      LLE-specific customizations override theme defaults.\n");
+    }
+    ```
+
+    ### **Integration Architecture**
+
+    The theme command integration follows these design principles:
+
+    #### **Visual Domain Separation**
+    - Theme command handles all visual and styling aspects of LLE
+    - Integrates seamlessly with existing Lusush theme system
+    - Provides unified visual control for all LLE components
+    - Maintains automatic synchronization with theme changes
+
+    #### **Customization Hierarchy**
+    - Base theme provides default colors and styles
+    - LLE-specific customizations override theme defaults
+    - User customizations take highest priority
+    - Fallback mechanisms ensure visual consistency
+
+    #### **Professional Interface Design**
+    - Consistent with existing theme command patterns
+    - Interactive customization tools for complex configurations
+    - Export/import capabilities for sharing customizations
+    - Real-time preview and validation of changes
+
+    This integration ensures that LLE visual customization follows the established, professional interface patterns while providing comprehensive control over all visual aspects of the line editor experience.
+
+    ---
+
     **Document Status**: ✅ **INTEGRATION-READY** (Phase 2 Integration Complete)
     **Phase 2 Status**: ✅ **COMPLETE** - All 3 Phase 2 specifications successfully refactored  
     **Next Priority**: Phase 3 Enhancement Integration - Performance Optimization, Memory Management, Error Handling
