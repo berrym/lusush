@@ -21,10 +21,13 @@
 9. [Memory Management Integration](#9-memory-management-integration)
 10. [Event System Coordination](#10-event-system-coordination)
 11. [Security and Privacy](#11-security-and-privacy)
-12. [Error Handling and Recovery](#12-error-handling-and-recovery)
-13. [Configuration Management](#13-configuration-management)
-14. [Testing and Validation](#14-testing-and-validation)
-15. [Implementation Roadmap](#15-implementation-roadmap)
+12. [History-Buffer Integration](#12-history-buffer-integration)
+13. [Interactive History Editing](#13-interactive-history-editing)
+14. [Multiline Command Reconstruction](#14-multiline-command-reconstruction)
+15. [Error Handling and Recovery](#15-error-handling-and-recovery)
+16. [Configuration Management](#16-configuration-management)
+17. [Testing and Validation](#17-testing-and-validation)
+18. [Implementation Roadmap](#18-implementation-roadmap)
 
 ---
 
@@ -37,6 +40,9 @@ The LLE History System provides comprehensive command history management with fo
 ### 1.2 Key Features
 
 - **Forensic-Grade History Management**: Complete command lifecycle tracking with metadata forensics
+- **Interactive History Editing**: Complete implementation of `lle_history_edit_entry()` with callback-based editing system
+- **Multiline Command Support**: Full preservation and restoration of complex shell constructs with `original_multiline` field
+- **Buffer Integration**: Seamless loading of historical commands into editing buffer with complete structural restoration
 - **Intelligent Search and Retrieval**: Multi-modal search with fuzzy matching, context awareness, and scoring
 - **Seamless Lusush Integration**: Native integration with existing POSIX history and enhanced history systems  
 - **Real-time Synchronization**: Bidirectional sync between LLE history and Lusush history systems
@@ -68,6 +74,11 @@ typedef struct lle_history_system {
     lle_history_search_engine_t *search_engine;       // Advanced search and retrieval system
     lle_history_dedup_engine_t *dedup_engine;         // Intelligent deduplication system
     
+    // History-Buffer Integration
+    lle_history_buffer_integration_t *buffer_integration; // History-buffer integration system
+    lle_edit_session_manager_t *edit_session_manager; // Interactive editing session management
+    lle_multiline_reconstruction_t *multiline_engine; // Multiline command reconstruction
+    
     // Lusush system integration
     posix_history_manager_t *posix_history;           // Existing POSIX history system
     lle_history_bridge_t *lusush_bridge;              // Bridge to Lusush history systems
@@ -94,6 +105,39 @@ typedef struct lle_history_system {
     uint64_t operation_counter;                       // Operation tracking counter
     uint32_t api_version;                             // History API version
 } lle_history_system_t;
+
+// Enhanced history entry with multiline support
+typedef struct lle_history_entry {
+    // Core entry data
+    uint64_t entry_id;                                // Unique entry identifier
+    char *command;                                    // Normalized command text
+    char *original_multiline;                         // Original multiline formatting preserved
+    bool is_multiline;                                // Multiline structure flag
+    size_t command_length;                            // Command text length
+    size_t original_length;                           // Original multiline length
+    
+    // Structural information for reconstruction
+    lle_command_structure_t *structure_info;          // Shell construct structure
+    lle_indentation_info_t *indentation;             // Original indentation patterns
+    lle_line_mapping_t *line_mapping;                // Line boundary mapping
+    
+    // Execution context
+    uint64_t timestamp;                               // Command execution timestamp
+    uint32_t duration_ms;                             // Execution duration
+    int exit_code;                                    // Command exit status
+    char *working_directory;                          // Execution directory
+    session_id_t session_id;                          // Session identifier
+    
+    // Edit history tracking
+    uint32_t edit_count;                              // Number of times edited
+    uint64_t last_edited;                             // Last edit timestamp
+    lle_edit_metadata_t *edit_metadata;               // Edit session metadata
+    
+    // Forensic tracking
+    lle_forensic_metadata_t *forensic_data;           // Complete forensic information
+    struct lle_history_entry *next;                   // Linked list pointer
+    struct lle_history_entry *prev;                   // Bidirectional linkage
+} lle_history_entry_t;
 ```
 
 ### 2.2 History Core Engine
@@ -1753,7 +1797,296 @@ typedef struct lle_history_security {
 
 ---
 
-## 12. Error Handling and Recovery
+## 12. History-Buffer Integration
+
+### 12.1 Interactive History Editing System
+
+The History-Buffer Integration system provides seamless integration between history storage and interactive editing, enabling users to recall, edit, and re-execute historical commands with complete multiline structure preservation.
+
+```c
+// History-buffer integration system
+typedef struct lle_history_buffer_integration {
+    // Core components
+    lle_history_system_t *history_system;             // History system reference
+    lle_buffer_t *editing_buffer;                     // Buffer system reference
+    lle_reconstruction_engine_t *reconstruction;     // Command reconstruction engine
+    lle_edit_session_manager_t *session_manager;     // Edit session management
+    
+    // Multiline support
+    lle_multiline_parser_t *multiline_parser;        // Multiline structure parser
+    lle_structure_analyzer_t *structure_analyzer;    // Shell construct analyzer
+    lle_formatting_engine_t *formatter;              // Intelligent formatting engine
+    
+    // Callback system
+    lle_history_edit_callbacks_t *edit_callbacks;    // Edit event callbacks
+    lle_callback_registry_t *callback_registry;      // Callback management
+    
+    // Performance optimization
+    lle_edit_cache_t *edit_cache;                     // Edit operation caching
+    lle_memory_pool_t *memory_pool;                   // Memory pool integration
+    lle_performance_metrics_t *metrics;               // Performance monitoring
+    
+    // Configuration and state
+    lle_integration_config_t *config;                // Integration configuration
+    lle_integration_state_t *current_state;          // Current integration state
+    
+    // Synchronization
+    pthread_rwlock_t integration_lock;               // Thread-safe access
+    bool system_active;                              // Integration system status
+    uint64_t session_counter;                        // Edit session counter
+} lle_history_buffer_integration_t;
+
+// History editing callbacks
+typedef struct lle_history_edit_callbacks {
+    lle_history_edit_start_callback_t on_edit_start;     // Edit session start
+    lle_history_edit_complete_callback_t on_edit_complete; // Edit completion
+    lle_history_edit_cancel_callback_t on_edit_cancel;   // Edit cancellation
+    lle_history_edit_change_callback_t on_edit_change;   // Edit modification
+    void *callback_context;                              // Callback context data
+} lle_history_edit_callbacks_t;
+```
+
+### 12.2 Interactive History Editing API
+
+```c
+// Primary interactive history editing function
+lle_result_t lle_history_edit_entry(lle_history_system_t *history_system,
+                                   uint64_t entry_id,
+                                   lle_history_edit_callbacks_t *callbacks,
+                                   void *user_data) {
+    if (!history_system || !history_system->buffer_integration || !callbacks) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    lle_history_buffer_integration_t *integration = history_system->buffer_integration;
+    
+    pthread_rwlock_wrlock(&integration->integration_lock);
+    
+    // Step 1: Retrieve history entry
+    lle_history_entry_t *entry = lle_history_system_get_entry(history_system, entry_id);
+    if (!entry) {
+        pthread_rwlock_unlock(&integration->integration_lock);
+        return LLE_ERROR_ENTRY_NOT_FOUND;
+    }
+    
+    // Step 2: Create edit session
+    lle_edit_session_t *session = lle_edit_session_manager_create_session(
+        integration->session_manager,
+        entry,
+        integration->editing_buffer,
+        integration->memory_pool);
+    
+    if (!session) {
+        pthread_rwlock_unlock(&integration->integration_lock);
+        return LLE_ERROR_SESSION_CREATION_FAILED;
+    }
+    
+    // Step 3: Load command into buffer with structure preservation
+    lle_result_t result = lle_history_load_entry_to_buffer(
+        integration,
+        entry,
+        integration->editing_buffer);
+    
+    if (result != LLE_SUCCESS) {
+        if (callbacks->on_edit_cancel) {
+            callbacks->on_edit_cancel(entry, user_data);
+        }
+        lle_edit_session_manager_destroy_session(integration->session_manager, session);
+        pthread_rwlock_unlock(&integration->integration_lock);
+        return result;
+    }
+    
+    // Step 4: Set up edit monitoring and callbacks
+    session->callbacks = callbacks;
+    session->user_data = user_data;
+    session->buffer = integration->editing_buffer;
+    session->active = true;
+    
+    // Step 5: Register session for completion handling
+    integration->current_state->active_session = session;
+    
+    // Step 6: Invoke edit start callback
+    if (callbacks->on_edit_start) {
+        callbacks->on_edit_start(entry, user_data);
+    }
+    
+    pthread_rwlock_unlock(&integration->integration_lock);
+    
+    return LLE_SUCCESS;
+}
+```
+
+---
+
+## 13. Interactive History Editing
+
+### 13.1 Edit Session Management
+
+```c
+// Edit session lifecycle management
+typedef struct lle_edit_session {
+    uint64_t session_id;                              // Unique session identifier
+    lle_history_entry_t *original_entry;             // Original history entry
+    lle_buffer_t *editing_buffer;                     // Buffer being edited
+    lle_history_edit_callbacks_t *callbacks;         // Session callbacks
+    void *user_data;                                  // User context data
+    
+    // Session state
+    bool active;                                      // Session active flag
+    uint64_t start_time;                              // Session start timestamp
+    uint64_t last_activity;                           // Last edit activity
+    
+    // Edit tracking
+    lle_change_list_t *changes;                       // List of edits made
+    size_t change_count;                              // Number of changes
+    bool has_modifications;                           // Modification flag
+    
+    // Multiline reconstruction context
+    lle_multiline_context_t *multiline_context;      // Multiline editing context
+    lle_structure_preservation_t *structure_state;   // Structure preservation state
+    
+    // Memory management
+    lle_memory_pool_t *session_memory_pool;          // Session-specific memory pool
+} lle_edit_session_t;
+
+// Edit session completion
+lle_result_t lle_edit_session_complete(lle_history_buffer_integration_t *integration,
+                                       lle_edit_session_t *session,
+                                       bool save_changes) {
+    if (!integration || !session || !session->active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    pthread_rwlock_wrlock(&integration->integration_lock);
+    
+    lle_result_t result = LLE_SUCCESS;
+    
+    if (save_changes && session->has_modifications) {
+        // Extract modified content from buffer
+        char *modified_content = NULL;
+        size_t content_length = 0;
+        
+        result = lle_buffer_get_complete_content(
+            session->editing_buffer, &modified_content, &content_length);
+        
+        if (result == LLE_SUCCESS && modified_content) {
+            // Preserve multiline structure if needed
+            char *preserved_multiline = NULL;
+            if (lle_buffer_is_multiline(session->editing_buffer)) {
+                result = lle_multiline_parser_preserve_structure(
+                    integration->multiline_parser,
+                    session->editing_buffer,
+                    &preserved_multiline);
+            }
+            
+            // Update history entry
+            if (result == LLE_SUCCESS) {
+                lle_history_entry_t *updated_entry = lle_history_entry_create_modified(
+                    session->original_entry,
+                    modified_content,
+                    preserved_multiline,
+                    integration->memory_pool);
+                
+                if (updated_entry) {
+                    // Replace entry in history
+                    result = lle_history_system_replace_entry(
+                        integration->history_system,
+                        session->original_entry->entry_id,
+                        updated_entry);
+                    
+                    // Invoke completion callback
+                    if (result == LLE_SUCCESS && session->callbacks->on_edit_complete) {
+                        session->callbacks->on_edit_complete(updated_entry, session->user_data);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Clean up session
+    session->active = false;
+    integration->current_state->active_session = NULL;
+    
+    pthread_rwlock_unlock(&integration->integration_lock);
+    
+    return result;
+}
+```
+
+---
+
+## 14. Multiline Command Reconstruction
+
+### 14.1 Multiline Structure Preservation
+
+```c
+// Multiline command reconstruction engine
+typedef struct lle_multiline_reconstruction {
+    // Structure analysis
+    lle_command_structure_analyzer_t *analyzer;       // Command structure analyzer
+    lle_indentation_engine_t *indentation;           // Indentation preservation
+    lle_line_boundary_detector_t *line_detector;     // Line boundary detection
+    
+    // Formatting preservation
+    lle_whitespace_analyzer_t *whitespace;           // Whitespace pattern analysis
+    lle_comment_processor_t *comment_processor;     // Comment preservation
+    lle_quote_analyzer_t *quote_analyzer;           // Quote structure analysis
+    
+    // Reconstruction cache
+    lle_hash_table_t *reconstruction_cache;         // Cached reconstructions
+    lle_memory_pool_t *cache_memory_pool;           // Cache memory management
+    
+    // Performance monitoring
+    lle_performance_metrics_t *metrics;             // Reconstruction performance
+} lle_multiline_reconstruction_t;
+
+// Load history entry to buffer with structure preservation
+lle_result_t lle_history_load_entry_to_buffer(lle_history_buffer_integration_t *integration,
+                                              lle_history_entry_t *entry,
+                                              lle_buffer_t *buffer) {
+    if (!integration || !entry || !buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Step 1: Clear existing buffer content
+    lle_result_t result = lle_buffer_clear(buffer);
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Step 2: Determine content source (multiline vs normalized)
+    const char *content_to_load = NULL;
+    if (entry->is_multiline && entry->original_multiline) {
+        content_to_load = entry->original_multiline;
+    } else {
+        content_to_load = entry->command;
+    }
+    
+    // Step 3: Load content into buffer
+    result = lle_buffer_insert_text(buffer, 0, content_to_load, strlen(content_to_load));
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    // Step 4: Restore multiline structure if needed
+    if (entry->is_multiline && entry->structure_info) {
+        result = lle_multiline_reconstruction_restore_structure(
+            integration->multiline_engine,
+            buffer,
+            entry->structure_info,
+            entry->indentation);
+    }
+    
+    // Step 5: Set buffer position to end
+    lle_buffer_set_cursor_position(buffer, lle_buffer_get_length(buffer));
+    
+    return result;
+}
+```
+
+---
+
+## 15. Error Handling and Recovery
 
 ### 12.1 Comprehensive Error Management
 
@@ -1786,7 +2119,7 @@ typedef struct lle_history_error_handler {
 
 ---
 
-## 13. Configuration Management
+## 16. Configuration Management
 
 ### 13.1 History System Configuration
 
@@ -1828,7 +2161,7 @@ typedef struct lle_history_config {
 
 ---
 
-## 14. Testing and Validation
+## 17. Testing and Validation
 
 ### 14.1 Testing Framework Integration
 
@@ -1864,7 +2197,7 @@ bool benchmark_memory_usage(void);
 
 ---
 
-## 15. Implementation Roadmap
+## 18. Implementation Roadmap
 
 ### 15.1 Development Phases
 
