@@ -585,6 +585,19 @@ lle_result_t lle_syntax_init_adaptive_terminal(
 }
 
 // NEW: Adapt syntax colors to terminal capabilities
+// Adapt syntax highlighting color scheme to current terminal capabilities
+// 
+// @param system: Syntax highlighting system instance
+// @param color_scheme: Original color scheme to adapt
+// @param adapted_scheme: Output buffer for terminal-adapted color scheme
+//
+// @returns:
+//   - LLE_SUCCESS: Color adaptation completed successfully
+//   - LLE_ERROR_INVALID_PARAMETER: NULL pointer or adaptive colors not active
+//   - LLE_ERROR_TERMINAL_DETECTION_FAILED: Failed to detect terminal capabilities
+//   - LLE_ERROR_COLOR_MAPPING_FAILED: Failed to map colors to terminal capabilities
+//   - LLE_ERROR_MEMORY_ALLOCATION: Insufficient memory for color adaptation
+//   - LLE_ERROR_TERMINAL_UNSUPPORTED: Terminal doesn't support required color features
 lle_result_t lle_syntax_adapt_colors_to_terminal(
     lle_syntax_highlighting_system_t *system,
     lle_syntax_color_scheme_t *color_scheme,
