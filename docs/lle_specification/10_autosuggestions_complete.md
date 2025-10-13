@@ -1715,7 +1715,7 @@ typedef struct lle_git_context_detector {
 
 // Comprehensive git context analysis
 lle_git_context_t *lle_analyze_git_context(lle_git_context_detector_t *detector,
-                                          memory_pool_t *pool) {
+                                          memory_pool_t *memory_pool) {
     uint64_t analysis_start = lle_get_microsecond_timestamp();
     
     // Step 1: Check if we're in a git repository
@@ -1725,14 +1725,14 @@ lle_git_context_t *lle_analyze_git_context(lle_git_context_detector_t *detector,
     }
     
     // Step 2: Create git context structure
-    lle_git_context_t *git_context = lle_pool_allocate(pool, sizeof(lle_git_context_t));
+    lle_git_context_t *git_context = lle_pool_allocate(memory_pool, sizeof(lle_git_context_t));
     if (!git_context) {
         free(repo_root);
         return NULL;
     }
     memset(git_context, 0, sizeof(lle_git_context_t));
     
-    git_context->repository_root = lle_pool_strdup(pool, repo_root);
+    git_context->repository_root = lle_pool_strdup(memory_pool, repo_root);
     git_context->in_git_repository = true;
     
     // Step 3: Get cached git status or refresh if stale
