@@ -177,10 +177,40 @@ typedef struct lle_input_validator {
     bool validation_active;                     // Validation system status
 } lle_input_validator_t;
 
+// Validation details output structure
+typedef struct lle_validation_details {
+    lle_validation_status_t status;             // Validation result status
+    lle_validation_error_code_t error_code;     // Specific error code
+    
+    // Error-specific details
+    struct {
+        lle_utf8_error_t utf8_error;            // UTF-8 validation error
+        size_t byte_position;                   // Error byte position
+        lle_buffer_error_t buffer_error;        // Buffer bounds error
+        size_t overflow_bytes;                  // Buffer overflow size
+        lle_injection_type_t injection_type;    // Command injection type
+        const char *dangerous_pattern;          // Detected dangerous pattern
+        lle_sequence_type_t sequence_type;      // Terminal sequence type
+        lle_security_risk_level_t security_risk; // Risk level assessment
+        lle_path_violation_t path_violation;    // Path traversal violation
+        uint32_t dangerous_components;          // Path component count
+        lle_threat_type_t threat_type;          // Malware threat type
+        double confidence_score;                // Detection confidence
+        lle_anomaly_type_t anomaly_type;        // Behavioral anomaly type
+        double anomaly_score;                   // Anomaly confidence score
+    } details;
+    
+    // Performance metrics
+    uint64_t validation_time_us;                // Validation duration
+    bool cached_result;                         // Whether result was cached
+} lle_validation_details_t;
+
 // Implementation-ready input validation function
-lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
-                                           const lle_input_event_t *event) {
-    lle_validation_result_t result = {0};
+lle_result_t lle_validate_input(lle_input_validator_t *validator,
+                                const lle_input_event_t *event,
+                                lle_validation_details_t *validation_details) {
+    lle_validation_details_t details = {0};
+    lle_result_t result = LLE_SUCCESS;
     uint64_t start_time = 0;
     
     // Step 1: Performance monitoring setup
@@ -189,10 +219,8 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
     }
     
     // Step 2: Basic parameter validation
-    if (!validator || !event || !validator->validation_active) {
-        result.status = LLE_VALIDATION_ERROR;
-        result.error_code = LLE_VALIDATION_INVALID_PARAMS;
-        return result;
+    if (!validator || !event || !validation_details || !validator->validation_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Step 3: Check validation cache for repeated inputs
@@ -201,60 +229,58 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
         validator->cache->table, &input_hash, sizeof(uint32_t));
     
     if (cache_entry && cache_entry->timestamp + VALIDATION_CACHE_TTL > time(NULL)) {
-        result = cache_entry->result;
+        *validation_details = cache_entry->details;
         validator->stats->cache_hits++;
-        return result;
+        return cache_entry->result;
     }
     
     // Step 4: UTF-8 validation with comprehensive checks
-    lle_utf8_result_t utf8_result = lle_validate_utf8_sequence(
-        validator->utf8_validator, event->data, event->length);
+    lle_result_t utf8_result = lle_validate_utf8_sequence(
+        validator->utf8_validator, event->data, event->length, &details.details.utf8_error, &details.details.byte_position);
     
-    if (utf8_result.status != LLE_UTF8_VALID) {
-        result.status = LLE_VALIDATION_REJECTED;
-        result.error_code = LLE_VALIDATION_INVALID_UTF8;
-        result.details.utf8_error = utf8_result.error;
-        result.details.byte_position = utf8_result.error_position;
+    if (utf8_result != LLE_SUCCESS) {
+        result = LLE_ERROR_INVALID_UTF8;
+        details.status = LLE_VALIDATION_REJECTED;
+        details.error_code = LLE_VALIDATION_INVALID_UTF8;
         goto validation_complete;
     }
     
     // Step 5: Buffer bounds validation with overflow detection
-    lle_buffer_result_t buffer_result = lle_validate_buffer_bounds(
+    lle_result_t buffer_result = lle_validate_buffer_bounds(
         validator->buffer_validator, event->data, event->length, 
-        event->buffer_capacity);
+        event->buffer_capacity, &details.details.buffer_error, &details.details.overflow_bytes);
     
-    if (buffer_result.status != LLE_BUFFER_VALID) {
-        result.status = LLE_VALIDATION_REJECTED;
-        result.error_code = LLE_VALIDATION_BUFFER_VIOLATION;
-        result.details.buffer_error = buffer_result.error;
-        result.details.overflow_bytes = buffer_result.overflow_size;
+    if (buffer_result != LLE_SUCCESS) {
+        result = LLE_ERROR_BUFFER_VIOLATION;
+        details.status = LLE_VALIDATION_REJECTED;
+        details.error_code = LLE_VALIDATION_BUFFER_VIOLATION;
         goto validation_complete;
     }
     
     // Step 6: Command injection detection
     if (event->type == LLE_EVENT_COMMAND_INPUT) {
-        lle_command_result_t cmd_result = lle_validate_command_safety(
-            validator->command_validator, (char*)event->data, event->length);
+        lle_result_t cmd_result = lle_validate_command_safety(
+            validator->command_validator, (char*)event->data, event->length, 
+            &details.details.injection_type, &details.details.dangerous_pattern);
         
-        if (cmd_result.status != LLE_COMMAND_SAFE) {
-            result.status = LLE_VALIDATION_REJECTED;
-            result.error_code = LLE_VALIDATION_COMMAND_INJECTION;
-            result.details.injection_type = cmd_result.injection_type;
-            result.details.dangerous_pattern = cmd_result.pattern;
+        if (cmd_result != LLE_SUCCESS) {
+            result = LLE_ERROR_COMMAND_INJECTION;
+            details.status = LLE_VALIDATION_REJECTED;
+            details.error_code = LLE_VALIDATION_COMMAND_INJECTION;
             goto validation_complete;
         }
     }
     
     // Step 7: Terminal sequence validation for escape sequence attacks
     if (event->type == LLE_EVENT_TERMINAL_SEQUENCE) {
-        lle_sequence_result_t seq_result = lle_validate_terminal_sequence(
-            validator->sequence_validator, (char*)event->data, event->length);
+        lle_result_t seq_result = lle_validate_terminal_sequence(
+            validator->sequence_validator, (char*)event->data, event->length,
+            &details.details.sequence_type, &details.details.security_risk);
         
-        if (seq_result.status != LLE_SEQUENCE_SAFE) {
-            result.status = LLE_VALIDATION_REJECTED;
-            result.error_code = LLE_VALIDATION_MALICIOUS_SEQUENCE;
-            result.details.sequence_type = seq_result.sequence_type;
-            result.details.security_risk = seq_result.risk_level;
+        if (seq_result != LLE_SUCCESS) {
+            result = LLE_ERROR_MALICIOUS_SEQUENCE;
+            details.status = LLE_VALIDATION_REJECTED;
+            details.error_code = LLE_VALIDATION_MALICIOUS_SEQUENCE;
             goto validation_complete;
         }
     }
@@ -299,25 +325,31 @@ lle_validation_result_t lle_validate_input(lle_input_validator_t *validator,
     
 validation_complete:
     // Step 11: Cache validation result for performance
-    if (result.status != LLE_VALIDATION_ERROR) {
-        lle_cache_validation_result(validator->cache, input_hash, &result);
+    if (result == LLE_SUCCESS) {
+        lle_cache_validation_result(validator->cache, input_hash, result, &details);
     }
     
     // Step 12: Update statistics and performance metrics
     validator->stats->validation_count++;
-    if (result.status == LLE_VALIDATION_REJECTED) {
+    if (result != LLE_SUCCESS) {
         validator->stats->blocked_count++;
     }
     
     if (validator->stats->monitoring_enabled && start_time > 0) {
         uint64_t duration = lle_get_microseconds() - start_time;
+        details.validation_time_us = duration;
         lle_update_validation_performance(validator->stats, duration);
     }
     
     // Step 13: Security audit logging for rejected inputs
-    if (result.status == LLE_VALIDATION_REJECTED) {
+    if (result != LLE_SUCCESS) {
         lle_audit_log_security_event(validator->audit_logger, 
-                                    LLE_AUDIT_INPUT_REJECTED, event, &result);
+                                    LLE_AUDIT_INPUT_REJECTED, event, result, &details);
+    }
+    
+    // Step 14: Copy details to output parameter
+    if (validation_details) {
+        *validation_details = details;
     }
     
     return result;
@@ -352,17 +384,28 @@ typedef struct lle_command_validator {
     lle_performance_stats_t *perf_stats;          // Performance statistics
 } lle_command_validator_t;
 
+// Command validation details output structure
+typedef struct lle_command_validation_details {
+    lle_command_status_t status;                // Command safety status
+    lle_injection_type_t injection_type;        // Type of injection detected
+    const char *dangerous_pattern;             // Detected dangerous pattern
+    lle_security_risk_level_t risk_level;      // Risk assessment level
+    double confidence_score;                   // Detection confidence
+    lle_structural_anomaly_t structural_anomaly; // Syntax structure issues
+    lle_context_violation_t context_violation;  // Context policy violations
+    uint64_t validation_time_us;               // Validation duration
+} lle_command_validation_details_t;
+
 // Implementation-ready command validation
-lle_command_result_t lle_validate_command_safety(lle_command_validator_t *validator,
-                                                  const char *command,
-                                                  size_t length) {
-    lle_command_result_t result = {0};
+lle_result_t lle_validate_command_safety(lle_command_validator_t *validator,
+                                          const char *command,
+                                          size_t length,
+                                          lle_command_validation_details_t *validation_details) {
+    lle_command_validation_details_t details = {0};
     
     // Step 1: Basic safety checks
-    if (!validator || !command || length == 0 || length > MAX_COMMAND_LENGTH) {
-        result.status = LLE_COMMAND_INVALID;
-        result.injection_type = LLE_INJECTION_INVALID_PARAMS;
-        return result;
+    if (!validator || !command || length == 0 || length > MAX_COMMAND_LENGTH || !validation_details) {
+        return LLE_ERROR_INVALID_PARAMETER;
     }
     
     // Step 2: Check for immediate dangerous patterns
@@ -374,53 +417,55 @@ lle_command_result_t lle_validate_command_safety(lle_command_validator_t *valida
     
     for (int i = 0; immediate_threats[i]; i++) {
         if (strstr(command, immediate_threats[i])) {
-            result.status = LLE_COMMAND_DANGEROUS;
-            result.injection_type = LLE_INJECTION_SHELL_METACHAR;
-            result.pattern = immediate_threats[i];
-            result.risk_level = LLE_RISK_CRITICAL;
-            return result;
+            details.status = LLE_COMMAND_DANGEROUS;
+            details.injection_type = LLE_INJECTION_SHELL_METACHAR;
+            details.dangerous_pattern = immediate_threats[i];
+            details.risk_level = LLE_RISK_CRITICAL;
+            *validation_details = details;
+            return LLE_ERROR_DANGEROUS_COMMAND;
         }
     }
     
     // Step 3: Advanced pattern matching for sophisticated attacks
-    lle_pattern_match_result_t pattern_result = lle_match_injection_patterns(
-        validator->injection_patterns, command, length);
+    lle_result_t pattern_result = lle_match_injection_patterns(
+        validator->injection_patterns, command, length, 
+        &details.injection_type, &details.dangerous_pattern, &details.confidence_score);
     
-    if (pattern_result.match_found) {
-        result.status = LLE_COMMAND_DANGEROUS;
-        result.injection_type = pattern_result.injection_type;
-        result.pattern = pattern_result.matched_pattern;
-        result.risk_level = pattern_result.risk_level;
-        result.confidence = pattern_result.confidence;
-        return result;
+    if (pattern_result != LLE_SUCCESS) {
+        details.status = LLE_COMMAND_DANGEROUS;
+        details.risk_level = LLE_RISK_HIGH;
+        *validation_details = details;
+        return LLE_ERROR_INJECTION_PATTERN;
     }
     
     // Step 4: Syntax analysis for structural attacks
-    lle_syntax_result_t syntax_result = lle_analyze_command_syntax(
-        validator->syntax_analyzer, command, length);
+    lle_result_t syntax_result = lle_analyze_command_syntax(
+        validator->syntax_analyzer, command, length, &details.structural_anomaly);
     
-    if (syntax_result.suspicious_structure) {
-        result.status = LLE_COMMAND_SUSPICIOUS;
-        result.injection_type = LLE_INJECTION_SYNTAX_ABUSE;
-        result.structural_anomaly = syntax_result.anomaly_type;
-        result.risk_level = LLE_RISK_MEDIUM;
-        return result;
+    if (syntax_result != LLE_SUCCESS) {
+        details.status = LLE_COMMAND_SUSPICIOUS;
+        details.injection_type = LLE_INJECTION_SYNTAX_ABUSE;
+        details.risk_level = LLE_RISK_MEDIUM;
+        *validation_details = details;
+        return LLE_ERROR_SUSPICIOUS_SYNTAX;
     }
     
     // Step 5: Context-aware analysis
-    lle_context_result_t context_result = lle_analyze_command_context(
-        validator->context_analyzer, command, length);
+    lle_result_t context_result = lle_analyze_command_context(
+        validator->context_analyzer, command, length, &details.context_violation);
     
-    if (context_result.context_violation) {
-        result.status = LLE_COMMAND_POLICY_VIOLATION;
-        result.injection_type = LLE_INJECTION_CONTEXT_ABUSE;
-        result.context_issue = context_result.violation_type;
-        result.risk_level = LLE_RISK_HIGH;
-        return result;
+    if (context_result != LLE_SUCCESS) {
+        details.status = LLE_COMMAND_POLICY_VIOLATION;
+        details.injection_type = LLE_INJECTION_CONTEXT_ABUSE;
+        details.risk_level = LLE_RISK_HIGH;
+        *validation_details = details;
+        return LLE_ERROR_CONTEXT_VIOLATION;
     }
     
-    result.status = LLE_COMMAND_SAFE;
-    return result;
+    // Command is safe
+    details.status = LLE_COMMAND_SAFE;
+    *validation_details = details;
+    return LLE_SUCCESS;
 }
 ```
 
