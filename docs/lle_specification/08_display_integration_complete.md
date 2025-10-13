@@ -2222,7 +2222,64 @@ lle_result_t lle_on_theme_changed(void *context, theme_t *new_theme) {
     
     return result;
 }
-```
+
+// Color scheme display and export functions for user customization integration
+// Display color scheme as formatted table
+lle_result_t lle_display_color_table(lle_color_scheme_t *scheme, bool verbose) {
+    if (!scheme) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    printf("Current Color Scheme: %s\n", scheme->name ? scheme->name : "Default");
+    printf("┌─────────────────────┬──────────┬──────────────────────┐\n");
+    printf("│ Color Category      │ Value    │ Description          │\n");
+    printf("├─────────────────────┼──────────┼──────────────────────┤\n");
+    printf("│ Primary             │ %s      │ Main interface color │\n", scheme->primary_color);
+    printf("│ Secondary           │ %s      │ Secondary UI color   │\n", scheme->secondary_color);
+    printf("│ Background          │ %s      │ Background color     │\n", scheme->background_color);
+    printf("│ Text                │ %s      │ Primary text color   │\n", scheme->text_color);
+    printf("│ Highlight           │ %s      │ Selection highlight  │\n", scheme->highlight_color);
+    
+    if (verbose) {
+        printf("├─────────────────────┼──────────┼──────────────────────┤\n");
+        printf("│ Error               │ %s      │ Error text color     │\n", scheme->error_color);
+        printf("│ Warning             │ %s      │ Warning text color   │\n", scheme->warning_color);
+        printf("│ Success             │ %s      │ Success text color   │\n", scheme->success_color);
+        printf("│ Info                │ %s      │ Information color    │\n", scheme->info_color);
+    }
+    
+    printf("└─────────────────────┴──────────┴──────────────────────┘\n");
+    return LLE_SUCCESS;
+}
+
+// Export color scheme as JSON format
+lle_result_t lle_export_color_scheme_json(lle_color_scheme_t *scheme, FILE *output) {
+    if (!scheme || !output) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    fprintf(output, "{\n");
+    fprintf(output, "  \"name\": \"%s\",\n", scheme->name ? scheme->name : "Default");
+    fprintf(output, "  \"version\": \"1.0\",\n");
+    fprintf(output, "  \"colors\": {\n");
+    fprintf(output, "    \"primary\": \"%s\",\n", scheme->primary_color);
+    fprintf(output, "    \"secondary\": \"%s\",\n", scheme->secondary_color);
+    fprintf(output, "    \"background\": \"%s\",\n", scheme->background_color);
+    fprintf(output, "    \"text\": \"%s\",\n", scheme->text_color);
+    fprintf(output, "    \"highlight\": \"%s\",\n", scheme->highlight_color);
+    fprintf(output, "    \"error\": \"%s\",\n", scheme->error_color);
+    fprintf(output, "    \"warning\": \"%s\",\n", scheme->warning_color);
+    fprintf(output, "    \"success\": \"%s\",\n", scheme->success_color);
+    fprintf(output, "    \"info\": \"%s\"\n", scheme->info_color);
+    fprintf(output, "  },\n");
+    fprintf(output, "  \"metadata\": {\n");
+    fprintf(output, "    \"created\": \"%llu\",\n", (unsigned long long)time(NULL));
+    fprintf(output, "    \"format\": \"lle_color_scheme_v1\"\n");
+    fprintf(output, "  }\n");
+    fprintf(output, "}\n");
+    
+    return LLE_SUCCESS;
+}
 
 ---
 

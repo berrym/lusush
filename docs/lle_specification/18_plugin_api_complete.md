@@ -510,47 +510,104 @@ typedef lle_result_t (*lle_widget_hook_callback_t)(lle_hook_context_t *context,
                                                    void *user_data);
 
 // Widget hook context provided to callbacks
+//
+// This comprehensive context structure provides plugins with complete access to the
+// current LLE state when their hooks are triggered. The structure is designed to
+// minimize the need for additional API calls while providing type-safe access to
+// hook-specific data through a discriminated union.
+//
+// Usage Pattern:
+//   lle_result_t my_hook_callback(lle_hook_context_t *context, void *user_data) {
+//       // Access common context
+//       lle_buffer_t *buffer = context->buffer;
+//       
+//       // Access hook-specific data based on hook type
+//       switch(context->triggering_event->type) {
+//           case LLE_HOOK_BUFFER_MODIFIED:
+//               size_t new_pos = context->hook_data.buffer_modified.new_position;
+//               break;
+//           case LLE_HOOK_TERMINAL_RESIZE:
+//               int width = context->hook_data.terminal_resize.new_width;
+//               break;
+//       }
+//       return LLE_SUCCESS;
+//   }
 typedef struct lle_hook_context {
-    lle_plugin_t *plugin;          // Calling plugin
-    lle_editor_t *editor;          // LLE editor instance
-    lle_buffer_t *buffer;          // Current buffer
-    lle_display_controller_t *display; // Display controller
-    lle_event_t *triggering_event; // Event that triggered hook
+    // Core LLE system references - Available to all hooks
+    lle_plugin_t *plugin;          // Calling plugin instance for capability/permission checks
+    lle_editor_t *editor;          // LLE editor instance providing core functionality
+    lle_buffer_t *buffer;          // Current active buffer (may be NULL if no active buffer)
+    lle_display_controller_t *display; // Display controller for rendering operations
+    lle_event_t *triggering_event; // Event that triggered this hook (provides hook type context)
     
-    // Hook-specific data
+    // Hook-specific data union - Content depends on hook type
+    // Check triggering_event->type to determine which union member is valid
     union {
+        // LLE_HOOK_PROMPT_* hooks - Prompt display and interaction context
         struct {
-            lle_prompt_state_t *prompt_state;
-            lle_prompt_config_t *config;
+            lle_prompt_state_t *prompt_state;  // Current prompt rendering state
+            lle_prompt_config_t *config;       // Active prompt configuration
         } prompt;
         
+        // LLE_HOOK_BUFFER_MODIFIED - Buffer content change context
         struct {
-            size_t old_position;
-            size_t new_position;
-            const char *inserted_text;
-            size_t deleted_length;
+            size_t old_position;        // Cursor position before modification
+            size_t new_position;        // Cursor position after modification  
+            const char *inserted_text;  // Text that was inserted (NULL if deletion only)
+            size_t deleted_length;      // Number of characters deleted (0 if insertion only)
         } buffer_modified;
         
+        // LLE_HOOK_HISTORY_SEARCH - History search operation context
         struct {
-            const char *search_pattern;
-            lle_history_result_list_t *results;
+            const char *search_pattern;         // Search pattern used
+            lle_history_result_list_t *results; // Search results (may be empty)
         } history_search;
         
+        // LLE_HOOK_TERMINAL_RESIZE - Terminal dimension change context
         struct {
-            int old_width;
-            int old_height;
-            int new_width;
-            int new_height;
+            int old_width;   // Previous terminal width in columns
+            int old_height;  // Previous terminal height in rows
+            int new_width;   // New terminal width in columns
+            int new_height;  // New terminal height in rows
         } terminal_resize;
     } hook_data;
     
-    // Execution context
-    uint64_t execution_start_time;
-    uint64_t execution_limit;
-    lle_memory_pool_t *hook_memory_pool;
+    // Execution context and resource management
+    uint64_t execution_start_time;     // Hook execution start timestamp (microseconds)
+    uint64_t execution_limit;          // Maximum execution time allowed (microseconds)
+    lle_memory_pool_t *hook_memory_pool; // Dedicated memory pool for hook allocations
 } lle_hook_context_t;
 
 // Widget hook registration implementation
+//
+// Registers a plugin callback to be invoked when specific LLE events occur.
+// The callback receives a comprehensive context structure providing access to
+// all relevant LLE state for the triggered event.
+//
+// @param plugin: Plugin instance registering the hook (must have LLE_PLUGIN_CAP_WIDGET_HOOKS capability)
+// @param hook_type: Type of hook to register for (determines context data available)  
+// @param callback: Function to call when hook is triggered (must be non-NULL)
+// @param priority: Execution priority (higher values execute first)
+// @param user_data: Plugin-specific data passed to callback (may be NULL)
+//
+// @returns:
+//   - LLE_SUCCESS: Hook registered successfully
+//   - LLE_ERROR_INSUFFICIENT_PERMISSIONS: Plugin lacks widget hooks capability
+//   - LLE_ERROR_INVALID_HOOK_TYPE: Unsupported or invalid hook type specified
+//   - LLE_ERROR_INVALID_PARAMETER: NULL callback or invalid plugin
+//   - LLE_ERROR_MEMORY_ALLOCATION: Failed to allocate hook registration structure
+//   - LLE_ERROR_HOOK_REGISTRATION_FAILED: Internal registration system error
+//
+// Example usage:
+//   lle_result_t buffer_change_hook(lle_hook_context_t *ctx, void *data) {
+//       printf("Buffer changed: %zu -> %zu\n", 
+//              ctx->hook_data.buffer_modified.old_position,
+//              ctx->hook_data.buffer_modified.new_position);
+//       return LLE_SUCCESS;
+//   }
+//   
+//   lle_plugin_api_register_widget_hook(plugin, LLE_HOOK_BUFFER_MODIFIED,
+//                                       buffer_change_hook, LLE_PRIORITY_NORMAL, NULL);
 lle_result_t lle_plugin_api_register_widget_hook(lle_plugin_t *plugin,
                                                 lle_widget_hook_type_t hook_type,
                                                 lle_widget_hook_callback_t callback,

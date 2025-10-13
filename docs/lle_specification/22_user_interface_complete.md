@@ -882,17 +882,218 @@ lle_result_t lle_user_interface_initialize(void) {
 
 ```c
 // Command validation system
+// Configuration validation rule types
+typedef enum {
+    LLE_VALIDATION_TYPE_STRING,      // String value with min/max length
+    LLE_VALIDATION_TYPE_INTEGER,     // Integer with min/max range
+    LLE_VALIDATION_TYPE_BOOLEAN,     // Boolean true/false
+    LLE_VALIDATION_TYPE_ENUM,        // Enumerated values from allowed set
+    LLE_VALIDATION_TYPE_REGEX,       // String matching regex pattern
+    LLE_VALIDATION_TYPE_CUSTOM       // Custom validation function
+} lle_validation_type_t;
+
+// Configuration validation rule definition
+typedef struct lle_validation_rule {
+    const char *config_key;          // Configuration key this rule applies to
+    lle_validation_type_t type;      // Type of validation to perform
+    bool required;                   // Whether this configuration is required
+    
+    // Type-specific validation parameters
+    union {
+        struct {
+            size_t min_length;       // Minimum string length (0 = no limit)
+            size_t max_length;       // Maximum string length (0 = no limit)
+            bool allow_empty;        // Whether empty strings are valid
+        } string;
+        
+        struct {
+            long min_value;          // Minimum allowed value
+            long max_value;          // Maximum allowed value
+        } integer;
+        
+        struct {
+            const char **allowed_values;  // NULL-terminated array of valid values
+            size_t value_count;           // Number of allowed values
+        } enumeration;
+        
+        struct {
+            const char *pattern;     // Regex pattern to match against
+            int flags;              // Regex compilation flags
+        } regex;
+        
+        struct {
+            lle_result_t (*validator)(const char *value, void *context);
+            void *context;          // User context for custom validator
+        } custom;
+    } validation;
+    
+    // Error messages
+    const char *error_message;       // Custom error message for validation failure
+    const char *help_text;          // Help text explaining valid values
+} lle_validation_rule_t;
+
 typedef struct lle_command_validator {
     // Validation rules
     lle_validation_rule_t           *display_rules;
-    lle_validation_rule_t           *theme_rules;
+    lle_validation_rule_t           *theme_rules;  
     lle_validation_rule_t           *config_rules;
+    
+    // Rule counts
+    size_t display_rule_count;
+    size_t theme_rule_count;
+    size_t config_rule_count;
     
     // Error handling
     lle_error_handler_t             *error_handler;
     lle_error_formatter_t           *error_formatter;
     
 } lle_command_validator_t;
+
+// Comprehensive configuration validation rules
+static const lle_validation_rule_t lle_display_validation_rules[] = {
+    {
+        .config_key = "display.enabled",
+        .type = LLE_VALIDATION_TYPE_BOOLEAN,
+        .required = false,
+        .error_message = "display.enabled must be true or false",
+        .help_text = "Enable or disable LLE display system (default: false)"
+    },
+    {
+        .config_key = "display.theme",
+        .type = LLE_VALIDATION_TYPE_ENUM,
+        .required = false,
+        .validation.enumeration = {
+            .allowed_values = (const char*[]){"dark", "light", "colorful", "minimal", "corporate", "custom", NULL},
+            .value_count = 6
+        },
+        .error_message = "display.theme must be one of: dark, light, colorful, minimal, corporate, custom",
+        .help_text = "Visual theme for LLE display system"
+    },
+    {
+        .config_key = "display.prompt.format",
+        .type = LLE_VALIDATION_TYPE_STRING,
+        .required = false,
+        .validation.string = {
+            .min_length = 1,
+            .max_length = 256,
+            .allow_empty = false
+        },
+        .error_message = "display.prompt.format must be 1-256 characters",
+        .help_text = "Prompt format string with theme placeholders"
+    },
+    {
+        .config_key = "display.performance.monitoring",
+        .type = LLE_VALIDATION_TYPE_BOOLEAN,
+        .required = false,
+        .error_message = "display.performance.monitoring must be true or false",
+        .help_text = "Enable real-time performance monitoring (default: false)"
+    },
+    {
+        .config_key = "display.cache.size",
+        .type = LLE_VALIDATION_TYPE_INTEGER,
+        .required = false,
+        .validation.integer = {
+            .min_value = 1024,
+            .max_value = 1048576
+        },
+        .error_message = "display.cache.size must be between 1024 and 1048576 bytes",
+        .help_text = "Display system cache size in bytes (1KB - 1MB)"
+    }
+};
+
+static const lle_validation_rule_t lle_theme_validation_rules[] = {
+    {
+        .config_key = "theme.colors.primary",
+        .type = LLE_VALIDATION_TYPE_REGEX,
+        .required = false,
+        .validation.regex = {
+            .pattern = "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$|^rgb\\([0-9]{1,3},[0-9]{1,3},[0-9]{1,3}\\)$",
+            .flags = 0
+        },
+        .error_message = "theme.colors.primary must be hex (#RGB or #RRGGBB) or rgb(r,g,b) format",
+        .help_text = "Primary theme color in hex or RGB format"
+    },
+    {
+        .config_key = "theme.symbols.style",
+        .type = LLE_VALIDATION_TYPE_ENUM,
+        .required = false,
+        .validation.enumeration = {
+            .allowed_values = (const char*[]){"ascii", "unicode", "auto", NULL},
+            .value_count = 3
+        },
+        .error_message = "theme.symbols.style must be one of: ascii, unicode, auto",
+        .help_text = "Symbol style for theme display (auto detects terminal capabilities)"
+    },
+    {
+        .config_key = "theme.animation.enabled",
+        .type = LLE_VALIDATION_TYPE_BOOLEAN,
+        .required = false,
+        .error_message = "theme.animation.enabled must be true or false",
+        .help_text = "Enable theme transition animations (default: true)"
+    },
+    {
+        .config_key = "theme.custom.path",
+        .type = LLE_VALIDATION_TYPE_STRING,
+        .required = false,
+        .validation.string = {
+            .min_length = 1,
+            .max_length = 4096,
+            .allow_empty = false
+        },
+        .error_message = "theme.custom.path must be 1-4096 characters",
+        .help_text = "Path to custom theme configuration file"
+    }
+};
+
+static const lle_validation_rule_t lle_config_validation_rules[] = {
+    {
+        .config_key = "lle.timeout.command",
+        .type = LLE_VALIDATION_TYPE_INTEGER,
+        .required = false,
+        .validation.integer = {
+            .min_value = 100,
+            .max_value = 30000
+        },
+        .error_message = "lle.timeout.command must be between 100 and 30000 milliseconds",
+        .help_text = "Command execution timeout in milliseconds (100ms - 30s)"
+    },
+    {
+        .config_key = "lle.memory.pool.size",
+        .type = LLE_VALIDATION_TYPE_INTEGER,
+        .required = false,
+        .validation.integer = {
+            .min_value = 1024,
+            .max_value = 134217728
+        },
+        .error_message = "lle.memory.pool.size must be between 1024 and 134217728 bytes",
+        .help_text = "LLE memory pool size in bytes (1KB - 128MB)"
+    },
+    {
+        .config_key = "lle.debug.enabled",
+        .type = LLE_VALIDATION_TYPE_BOOLEAN,
+        .required = false,
+        .error_message = "lle.debug.enabled must be true or false", 
+        .help_text = "Enable LLE debug mode with verbose logging (default: false)"
+    },
+    {
+        .config_key = "lle.autostart",
+        .type = LLE_VALIDATION_TYPE_BOOLEAN,
+        .required = false,
+        .error_message = "lle.autostart must be true or false",
+        .help_text = "Automatically start LLE when lusush starts (default: false)"
+    },
+    {
+        .config_key = "lle.keybindings.style",
+        .type = LLE_VALIDATION_TYPE_ENUM,
+        .required = false,
+        .validation.enumeration = {
+            .allowed_values = (const char*[]){"emacs", "vi", "custom", NULL},
+            .value_count = 3
+        },
+        .error_message = "lle.keybindings.style must be one of: emacs, vi, custom",
+        .help_text = "Keybinding style for LLE input handling"
+    }
+};
 
 // Validation implementation
 lle_validation_result_t lle_validate_command(int argc, char **argv) {
