@@ -724,7 +724,7 @@ lle_result_t lle_cache_optimize_performance(lle_cache_manager_t *manager) {
     
     // Collect current performance metrics
     lle_cache_performance_metrics_t current_metrics;
-    lle_cache_collect_performance_metrics(manager, &current_metrics);
+    lle_cache_get_performance_metrics(manager, &current_metrics);
     
     bool optimization_needed = false;
     
@@ -1536,7 +1536,7 @@ lle_result_t lle_perf_monitor_targets(lle_performance_targets_t *targets,
     
     // Get current performance metrics
     lle_perf_current_metrics_t current_metrics;
-    lle_perf_get_current_metrics(monitor, &current_metrics);
+    lle_perf_get_performance_metrics(monitor, &current_metrics);
     
     // Check response time targets
     status->response_time_status = lle_perf_check_response_time_targets(targets, &current_metrics);
@@ -1665,7 +1665,7 @@ lle_result_t lle_perf_regression_test(lle_performance_baseline_t *baseline,
     
     // Collect current performance metrics
     lle_perf_current_metrics_t current_metrics;
-    lle_perf_get_current_metrics(monitor, &current_metrics);
+    lle_perf_get_performance_metrics(monitor, &current_metrics);
     
     // Compare against baseline
     results->response_time_regression = 

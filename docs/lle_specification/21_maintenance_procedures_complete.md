@@ -220,7 +220,7 @@ lle_maintenance_result_t lle_health_monitor_check(lle_health_monitor_t *monitor)
     
     // Step 1: Collect current health metrics
     lle_health_metrics_t current;
-    lle_maintenance_result_t result = lle_collect_health_metrics(&current);
+    lle_maintenance_result_t result = lle_health_get_performance_metrics(&current);
     if (result != LLE_MAINT_SUCCESS) {
         return result;
     }
@@ -1321,7 +1321,7 @@ lle_maintenance_result_t lle_generate_maintenance_analytics(
     
     // Step 1: Collect current maintenance metrics
     lle_maintenance_metrics_t current_metrics;
-    lle_maintenance_result_t result = lle_collect_maintenance_metrics(
+    lle_maintenance_result_t result = lle_maintenance_get_performance_metrics(
         analytics->collector, &current_metrics);
     if (result != LLE_MAINT_SUCCESS) {
         return result;

@@ -1933,7 +1933,7 @@ LLE_REGISTER_TEST(complete_system_integration_validation, LLE_TEST_TYPE_INTEGRAT
     
     // Validate performance requirements
     lle_performance_metrics_t perf_metrics;
-    lle_system_get_performance_metrics(lle_system, &perf_metrics);
+    lle_testing_get_performance_metrics(lle_system, &perf_metrics);
     
     if (perf_metrics.cache_hit_rate_percent < requirements.performance_integration.min_cache_hit_rate_percent) {
         lle_test_record_performance_failure(ctx, __FILE__, __LINE__,
@@ -2030,7 +2030,7 @@ typedef struct {
     lle_result_t (*initialize)(void *config);
     lle_result_t (*execute_test)(lle_test_case_t *test, lle_test_result_t *result);
     lle_result_t (*cleanup)(void);
-    lle_result_t (*get_metrics)(lle_test_metrics_t *metrics);
+    lle_result_t (*get_performance_metrics)(lle_test_metrics_t *metrics);
 } lle_test_runner_plugin_t;
 ```
 

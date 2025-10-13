@@ -1528,7 +1528,7 @@ lle_result_t lle_completion_monitor_performance(lle_completion_system_t *system,
     }
     
     // Update metrics from performance monitor
-    return lle_completion_performance_collect_metrics(
+    return lle_completion_get_performance_metrics(
         system->performance_monitor, metrics);
 }
 ```
