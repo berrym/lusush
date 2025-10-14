@@ -116,10 +116,9 @@ typedef struct lle_syntax_highlighting_system {
     // Thread safety for integration
     pthread_rwlock_t widget_integration_lock;         // Widget integration synchronization
     pthread_rwlock_t terminal_integration_lock;       // Terminal integration synchronization
-    bool system_active;                               // System active status
-    
-    // Thread safety and synchronization
     pthread_rwlock_t highlighting_lock;               // Thread-safe access control
+    
+    // System status and configuration
     bool system_active;                               // Syntax highlighting system status
     bool real_time_enabled;                           // Real-time highlighting status
 } lle_syntax_highlighting_system_t;
@@ -320,13 +319,185 @@ typedef struct lle_incremental_parser {
 
 ---
 
-## 3. Widget Hook Integration
+## 3. Thread Safety Implementation
 
-### 3.1 Widget Hook Integration Architecture
+### 3.1 Thread Safety Architecture
+
+The syntax highlighting system provides comprehensive thread safety through a multi-lock architecture designed for high-performance concurrent access while maintaining data consistency.
+
+```c
+/**
+ * Initialize thread safety for syntax highlighting system
+ */
+lle_result_t lle_syntax_highlighting_system_init(lle_syntax_highlighting_system_t *system,
+                                                lle_memory_pool_t *memory_pool) {
+    if (!system || !memory_pool) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Initialize all rwlocks for thread safety
+    int result = pthread_rwlock_init(&system->widget_integration_lock, NULL);
+    if (result != 0) {
+        return LLE_ERROR_THREAD_SAFETY_INIT_FAILED;
+    }
+    
+    result = pthread_rwlock_init(&system->terminal_integration_lock, NULL);
+    if (result != 0) {
+        pthread_rwlock_destroy(&system->widget_integration_lock);
+        return LLE_ERROR_THREAD_SAFETY_INIT_FAILED;
+    }
+    
+    result = pthread_rwlock_init(&system->highlighting_lock, NULL);
+    if (result != 0) {
+        pthread_rwlock_destroy(&system->widget_integration_lock);
+        pthread_rwlock_destroy(&system->terminal_integration_lock);
+        return LLE_ERROR_THREAD_SAFETY_INIT_FAILED;
+    }
+    
+    // Initialize system state
+    system->system_active = false;
+    system->real_time_enabled = false;
+    system->memory_pool = memory_pool;
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * Cleanup thread safety resources
+ */
+lle_result_t lle_syntax_highlighting_system_destroy(lle_syntax_highlighting_system_t *system) {
+    if (!system) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Destroy all rwlocks
+    int result1 = pthread_rwlock_destroy(&system->highlighting_lock);
+    int result2 = pthread_rwlock_destroy(&system->terminal_integration_lock);
+    int result3 = pthread_rwlock_destroy(&system->widget_integration_lock);
+    
+    if (result1 != 0 || result2 != 0 || result3 != 0) {
+        return LLE_ERROR_THREAD_SAFETY_CLEANUP_FAILED;
+    }
+    
+    return LLE_SUCCESS;
+}
+```
+
+### 3.2 Thread-Safe Highlighting Operations
+
+```c
+/**
+ * Thread-safe syntax highlighting with proper locking
+ */
+lle_result_t lle_syntax_highlight_buffer_threadsafe(lle_syntax_highlighting_system_t *system,
+                                                   lle_buffer_t *buffer,
+                                                   lle_highlight_result_t **result) {
+    if (!system || !buffer || !result) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Acquire highlighting read lock
+    int lock_result = pthread_rwlock_rdlock(&system->highlighting_lock);
+    if (lock_result != 0) {
+        return LLE_ERROR_LOCK_FAILED;
+    }
+    
+    lle_result_t highlight_result = LLE_SUCCESS;
+    
+    // Check system active status
+    if (!system->system_active) {
+        highlight_result = LLE_ERROR_SYSTEM_NOT_ACTIVE;
+        goto cleanup;
+    }
+    
+    // Perform highlighting operation
+    highlight_result = lle_syntax_highlight_buffer_internal(system, buffer, result);
+    
+cleanup:
+    pthread_rwlock_unlock(&system->highlighting_lock);
+    return highlight_result;
+}
+
+/**
+ * Thread-safe pipeline mutex operations
+ */
+lle_result_t lle_highlighting_pipeline_init(lle_highlighting_pipeline_t *pipeline) {
+    if (!pipeline) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    int result = pthread_mutex_init(&pipeline->pipeline_mutex, NULL);
+    if (result != 0) {
+        return LLE_ERROR_THREAD_SAFETY_INIT_FAILED;
+    }
+    
+    pipeline->pipeline_active = false;
+    return LLE_SUCCESS;
+}
+
+lle_result_t lle_highlighting_pipeline_destroy(lle_highlighting_pipeline_t *pipeline) {
+    if (!pipeline) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    int result = pthread_mutex_destroy(&pipeline->pipeline_mutex);
+    if (result != 0) {
+        return LLE_ERROR_THREAD_SAFETY_CLEANUP_FAILED;
+    }
+    
+    return LLE_SUCCESS;
+}
+```
+
+### 3.3 Lock Contention Monitoring
+
+```c
+/**
+ * Thread safety performance monitoring
+ */
+typedef struct lle_syntax_thread_stats {
+    uint64_t highlighting_lock_acquisitions;
+    uint64_t widget_lock_acquisitions;
+    uint64_t terminal_lock_acquisitions;
+    uint64_t lock_contentions;
+    uint64_t avg_lock_wait_time_us;
+    float contention_ratio;
+} lle_syntax_thread_stats_t;
+
+lle_result_t lle_syntax_get_thread_stats(lle_syntax_highlighting_system_t *system,
+                                        lle_syntax_thread_stats_t *stats) {
+    if (!system || !stats) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Simple read of atomic counters - no locking needed for stats
+    memset(stats, 0, sizeof(lle_syntax_thread_stats_t));
+    
+    // Note: In production, these would be atomic counters
+    // This is a simplified implementation for documentation
+    
+    return LLE_SUCCESS;
+}
+```
+
+### 3.4 Thread Safety Performance Characteristics
+
+- **Read Lock Overhead**: < 30ns per highlighting operation
+- **Write Lock Overhead**: < 80ns per system configuration change
+- **Pipeline Mutex Overhead**: < 20ns per pipeline operation
+- **Lock Contention Impact**: < 5% performance degradation under normal load
+- **Memory Overhead**: 192 bytes per syntax highlighting system (3 rwlocks + 1 mutex)
+- **Scalability**: Linear read performance scaling up to 16 concurrent highlighting operations
+
+---
+
+## 4. Widget Hook Integration
+
+### 4.1 Widget Hook Integration Architecture
 
 The syntax highlighting system integrates with the Advanced Prompt Widget Hooks system to provide syntax highlighting support for bottom-prompt mode, prompt state changes, and historical prompt modifications.
 
-#### 3.1.1 Widget Integration System
+#### 4.1.1 Widget Integration System
 
 ```c
 // NEW: Widget hook integration for syntax highlighting
@@ -367,7 +538,7 @@ typedef struct lle_widget_highlight_engine {
 } lle_widget_highlight_engine_t;
 ```
 
-#### 3.1.2 Widget Integration Implementation
+#### 4.1.2 Widget Integration Implementation
 
 ```c
 // NEW: Initialize widget hook integration
@@ -485,7 +656,7 @@ lle_result_t lle_syntax_on_historical_prompt_modify(
 }
 ```
 
-#### 3.1.3 Widget Integration Performance Requirements
+#### 4.1.3 Widget Integration Performance Requirements
 
 - **Prompt Mode Switching**: <15μs for switching between normal and bottom-prompt modes
 - **Bottom-Prompt Highlighting**: <100μs for full bottom-prompt syntax analysis
@@ -494,13 +665,13 @@ lle_result_t lle_syntax_on_historical_prompt_modify(
 
 ---
 
-## 4. Adaptive Terminal Integration
+## 5. Adaptive Terminal Integration
 
-### 4.1 Adaptive Terminal Integration Architecture
+### 5.1 Adaptive Terminal Integration Architecture
 
 The syntax highlighting system integrates with the Adaptive Terminal Integration system to provide dynamic color capabilities with terminal-specific optimization and graceful fallbacks.
 
-#### 4.1.1 Adaptive Terminal Integration System
+#### 5.1.1 Adaptive Terminal Integration System
 
 ```c
 // NEW: Adaptive terminal integration for syntax highlighting
@@ -536,7 +707,7 @@ typedef enum {
 } lle_color_adaptation_mode_t;
 ```
 
-#### 4.1.2 Adaptive Terminal Implementation
+#### 5.1.2 Adaptive Terminal Implementation
 
 ```c
 // NEW: Initialize adaptive terminal integration
@@ -662,7 +833,7 @@ lle_result_t lle_syntax_highlight_with_terminal_optimization(
 }
 ```
 
-#### 4.1.3 Terminal Integration Performance Requirements
+#### 5.1.3 Terminal Integration Performance Requirements
 
 - **Color Capability Detection**: <50μs for terminal capability detection
 - **Color Mapping**: <25μs for mapping colors to terminal capabilities
@@ -671,9 +842,9 @@ lle_result_t lle_syntax_highlight_with_terminal_optimization(
 
 ---
 
-## 5. Syntax Analysis Engine
+## 6. Syntax Analysis Engine
 
-### 3.1 Lexical Analysis Implementation
+### 6.1 Lexical Analysis Implementation
 
 ```c
 // Complete lexical analysis system with comprehensive shell language support
@@ -945,7 +1116,7 @@ lle_result_t lle_tokenize_string_literal(lle_tokenizer_state_t *state,
 }
 ```
 
-### 3.2 Token Classification System
+### 6.2 Token Classification System
 
 ```c
 // Comprehensive token classification with context-aware analysis
@@ -2049,7 +2220,7 @@ lle_result_t lle_syntax_metrics_record_analysis(lle_syntax_metrics_t *metrics,
 
 ---
 
-## 8. Error Handling and Recovery
+## 7. Error Handling and Recovery
 
 ### 8.1 Comprehensive Error Handling System
 
@@ -2185,7 +2356,7 @@ lle_result_t lle_activate_fallback_highlighting(lle_syntax_error_handler_t *hand
 
 ---
 
-## 9. Testing and Validation
+## 8. Testing and Validation
 
 ### 9.1 Comprehensive Testing Framework
 
@@ -2293,7 +2464,7 @@ lle_result_t lle_test_syntax_highlighting_accuracy(lle_syntax_test_suite_t *test
 
 ---
 
-## 16. Implementation Roadmap
+## 9. Implementation Roadmap
 
 ### 16.1 Integration-Enhanced Development Phases
 
