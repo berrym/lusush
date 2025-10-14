@@ -218,9 +218,18 @@ int lle_handle_enable_command(int argc, char **argv) {
         return 1;
     }
     
-    // Update configuration
-    config.lle_enabled = true;
-    config_save_settings();
+    // Update configuration using standardized interface
+    lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
+    if (customization_system && customization_system->config_manager) {
+        bool enabled = true;
+        lle_config_manager_set_value(
+            customization_system->config_manager,
+            "lle_enabled",
+            LLE_CONFIG_TYPE_BOOLEAN,
+            &enabled,
+            true  // immediate_save = true
+        );
+    }
     
     // Enable performance monitoring if requested
     if (enable_performance) {
@@ -608,27 +617,38 @@ int lle_config_show(const char *key) {
 
 // Set configuration implementation
 int lle_config_set(const char *key, const char *value) {
-    // Validate key and value
-    lle_config_validation_result_t validation = lle_validate_config_change(key, value);
-    if (validation.result != LLE_CONFIG_VALID) {
-        fprintf(stderr, "display lle config set: %s\n", validation.error_message);
+    // Get the user customization system config manager
+    lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
+    if (!customization_system || !customization_system->config_manager) {
+        fprintf(stderr, "display lle config set: customization system not initialized\n");
         return 1;
     }
     
-    // Apply configuration change
-    lle_result_t result = lle_apply_config_change(key, value);
-    if (result != LLE_SUCCESS) {
-        fprintf(stderr, "display lle config set: failed to set %s: %s\n", 
-                key, lle_result_get_message(result));
-        return 1;
+    // Parse value type from string - simplified approach for UI
+    lle_config_value_type_t type = LLE_CONFIG_TYPE_STRING;
+    void *value_data = (void *)value;
+    
+    // For boolean values, convert string to boolean
+    bool bool_value;
+    if (strcmp(value, "true") == 0 || strcmp(value, "false") == 0) {
+        type = LLE_CONFIG_TYPE_BOOLEAN;
+        bool_value = (strcmp(value, "true") == 0);
+        value_data = &bool_value;
     }
     
-    // Save configuration
-    result = lle_save_configuration();
+    // Use standardized configuration manager interface
+    lle_result_t result = lle_config_manager_set_value(
+        customization_system->config_manager,
+        key,
+        type,
+        value_data,
+        true  // immediate_save = true
+    );
+    
     if (result != LLE_SUCCESS) {
-        fprintf(stderr, "display lle config set: configuration saved but persistence failed: %s\n",
+        fprintf(stderr, "display lle config set: failed to update configuration: %s\n",
                 lle_result_get_message(result));
-        // Continue - the change was applied even if save failed
+        return 1;
     }
     
     printf("Configuration updated: %s = %s\n", key, value);
