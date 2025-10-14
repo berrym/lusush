@@ -218,17 +218,28 @@ int lle_handle_enable_command(int argc, char **argv) {
         return 1;
     }
     
-    // Update configuration using standardized interface
+    // Update configuration using standardized interface with synchronization
     lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
+    lle_config_sync_manager_t *sync_manager = lle_get_config_sync_manager();
+    
     if (customization_system && customization_system->config_manager) {
         bool enabled = true;
-        lle_config_manager_set_value(
+        lle_result_t result = lle_config_manager_set_value(
             customization_system->config_manager,
             "lle_enabled",
             LLE_CONFIG_TYPE_BOOLEAN,
             &enabled,
             true  // immediate_save = true
         );
+        
+        // Synchronize with Lusush central config
+        if (result == LLE_SUCCESS && sync_manager) {
+            lle_config_value_t enable_value = {
+                .type = LLE_CONFIG_TYPE_BOOLEAN,
+                .value.boolean_val = enabled
+            };
+            lle_config_sync_to_lusush(sync_manager, "lle_enabled", &enable_value);
+        }
     }
     
     // Enable performance monitoring if requested
@@ -533,6 +544,208 @@ typedef struct lle_config_sync_manager {
     char *config_file_path;                  // Path to LLE configuration file
     
 } lle_config_sync_manager_t;
+
+// Configuration synchronization implementation
+lle_result_t lle_config_sync_manager_init(lle_config_sync_manager_t **manager,
+                                         config_values_t *lusush_config,
+                                         lle_memory_pool_t *memory_pool) {
+    if (!manager || !lusush_config) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    lle_config_sync_manager_t *sync_mgr = lle_memory_pool_alloc(memory_pool, 
+                                                               sizeof(lle_config_sync_manager_t));
+    if (!sync_mgr) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    // Initialize synchronization manager
+    sync_mgr->lusush_config = lusush_config;
+    sync_mgr->sync_enabled = true;
+    sync_mgr->last_sync_timestamp = 0;
+    sync_mgr->pending_changes = 0;
+    
+    // Create configuration schema
+    lle_result_t result = lle_config_schema_create(&sync_mgr->config_schema, memory_pool);
+    if (result != LLE_SUCCESS) {
+        lle_memory_pool_free(memory_pool, sync_mgr);
+        return result;
+    }
+    
+    *manager = sync_mgr;
+    return LLE_SUCCESS;
+}
+
+// Synchronize LLE configuration with Lusush central config
+lle_result_t lle_config_sync_to_lusush(lle_config_sync_manager_t *manager,
+                                       const char *key,
+                                       const lle_config_value_t *lle_value) {
+    if (!manager || !key || !lle_value || !manager->sync_enabled) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Convert LLE config value to Lusush config format
+    lle_result_t result = LLE_SUCCESS;
+    
+    switch (lle_value->type) {
+        case LLE_CONFIG_TYPE_BOOLEAN:
+            result = config_set_boolean(manager->lusush_config, key, lle_value->value.boolean_val);
+            break;
+        case LLE_CONFIG_TYPE_INTEGER:
+            result = config_set_integer(manager->lusush_config, key, (int)lle_value->value.integer_val);
+            break;
+        case LLE_CONFIG_TYPE_STRING:
+            result = config_set_string(manager->lusush_config, key, lle_value->value.string_val);
+            break;
+        default:
+            return LLE_ERROR_INVALID_CONFIG_TYPE;
+    }
+    
+    if (result == LLE_SUCCESS) {
+        manager->last_sync_timestamp = lle_get_timestamp_us();
+        // Save Lusush configuration to persist changes
+        config_save(manager->lusush_config);
+    }
+    
+    return result;
+}
+
+// Synchronize Lusush config changes back to LLE
+lle_result_t lle_config_sync_from_lusush(lle_config_sync_manager_t *manager,
+                                        lle_user_customization_system_t *customization_system,
+                                        const char *key) {
+    if (!manager || !customization_system || !key || !manager->sync_enabled) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Get value from Lusush config
+    config_value_t *lusush_value = config_get(manager->lusush_config, key);
+    if (!lusush_value) {
+        return LLE_ERROR_CONFIG_KEY_NOT_FOUND;
+    }
+    
+    // Convert and set in LLE config manager
+    lle_result_t result = LLE_SUCCESS;
+    
+    switch (lusush_value->type) {
+        case CONFIG_TYPE_BOOLEAN:
+            result = lle_config_manager_set_value(
+                customization_system->config_manager,
+                key,
+                LLE_CONFIG_TYPE_BOOLEAN,
+                &lusush_value->value.boolean_val,
+                false  // Don't immediately save to avoid circular updates
+            );
+            break;
+        case CONFIG_TYPE_INTEGER:
+            {
+                int64_t int_val = (int64_t)lusush_value->value.integer_val;
+                result = lle_config_manager_set_value(
+                    customization_system->config_manager,
+                    key,
+                    LLE_CONFIG_TYPE_INTEGER,
+                    &int_val,
+                    false
+                );
+            }
+            break;
+        case CONFIG_TYPE_STRING:
+            result = lle_config_manager_set_value(
+                customization_system->config_manager,
+                key,
+                LLE_CONFIG_TYPE_STRING,
+                lusush_value->value.string_val,
+                false
+            );
+            break;
+        default:
+            return LLE_ERROR_INVALID_CONFIG_TYPE;
+    }
+    
+    if (result == LLE_SUCCESS) {
+        manager->last_sync_timestamp = lle_get_timestamp_us();
+    }
+    
+    return result;
+}
+
+// Theme change notification and config synchronization
+lle_result_t lle_config_on_theme_changed(lle_config_sync_manager_t *manager,
+                                        lle_user_customization_system_t *customization_system,
+                                        const char *new_theme_name) {
+    if (!manager || !customization_system || !new_theme_name) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Update LLE config with new theme
+    lle_result_t result = lle_config_manager_set_value(
+        customization_system->config_manager,
+        "theme_name",
+        LLE_CONFIG_TYPE_STRING,
+        new_theme_name,
+        true  // immediate_save = true
+    );
+    
+    if (result == LLE_SUCCESS) {
+        // Synchronize to Lusush central config
+        lle_config_value_t theme_value = {
+            .type = LLE_CONFIG_TYPE_STRING,
+            .value.string_val = (char*)new_theme_name
+        };
+        result = lle_config_sync_to_lusush(manager, "theme_name", &theme_value);
+    }
+    
+    return result;
+}
+
+// Display change notification and config synchronization
+lle_result_t lle_config_on_display_changed(lle_config_sync_manager_t *manager,
+                                          lle_user_customization_system_t *customization_system,
+                                          const char *config_key,
+                                          const char *new_value) {
+    if (!manager || !customization_system || !config_key || !new_value) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Determine value type (simplified for display settings)
+    lle_config_value_type_t type = LLE_CONFIG_TYPE_STRING;
+    void *value_data = (void*)new_value;
+    
+    // Handle boolean display settings
+    bool bool_value;
+    if (strcmp(new_value, "true") == 0 || strcmp(new_value, "false") == 0 ||
+        strcmp(new_value, "enabled") == 0 || strcmp(new_value, "disabled") == 0) {
+        type = LLE_CONFIG_TYPE_BOOLEAN;
+        bool_value = (strcmp(new_value, "true") == 0 || strcmp(new_value, "enabled") == 0);
+        value_data = &bool_value;
+    }
+    
+    // Update LLE config
+    lle_result_t result = lle_config_manager_set_value(
+        customization_system->config_manager,
+        config_key,
+        type,
+        value_data,
+        true  // immediate_save = true
+    );
+    
+    if (result == LLE_SUCCESS) {
+        // Synchronize to Lusush central config
+        lle_config_value_t display_value = {
+            .type = type
+        };
+        
+        if (type == LLE_CONFIG_TYPE_BOOLEAN) {
+            display_value.value.boolean_val = bool_value;
+        } else {
+            display_value.value.string_val = (char*)new_value;
+        }
+        
+        result = lle_config_sync_to_lusush(manager, config_key, &display_value);
+    }
+    
+    return result;
+}
 ```
 
 ### **Configuration Command Implementation**
@@ -615,12 +828,19 @@ int lle_config_show(const char *key) {
     return 0;
 }
 
-// Set configuration implementation
+// Set configuration implementation with unified synchronization
 int lle_config_set(const char *key, const char *value) {
     // Get the user customization system config manager
     lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
     if (!customization_system || !customization_system->config_manager) {
         fprintf(stderr, "display lle config set: customization system not initialized\n");
+        return 1;
+    }
+    
+    // Get config synchronization manager
+    lle_config_sync_manager_t *sync_manager = lle_get_config_sync_manager();
+    if (!sync_manager) {
+        fprintf(stderr, "display lle config set: config synchronization not initialized\n");
         return 1;
     }
     
@@ -649,6 +869,21 @@ int lle_config_set(const char *key, const char *value) {
         fprintf(stderr, "display lle config set: failed to update configuration: %s\n",
                 lle_result_get_message(result));
         return 1;
+    }
+    
+    // Synchronize with Lusush central config system
+    lle_config_value_t config_value = { .type = type };
+    if (type == LLE_CONFIG_TYPE_BOOLEAN) {
+        config_value.value.boolean_val = bool_value;
+    } else {
+        config_value.value.string_val = (char*)value;
+    }
+    
+    lle_result_t sync_result = lle_config_sync_to_lusush(sync_manager, key, &config_value);
+    if (sync_result != LLE_SUCCESS) {
+        fprintf(stderr, "display lle config set: warning - failed to synchronize with central config: %s\n",
+                lle_result_get_message(sync_result));
+        // Continue - LLE config was updated successfully
     }
     
     printf("Configuration updated: %s = %s\n", key, value);
