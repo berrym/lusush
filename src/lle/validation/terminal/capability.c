@@ -1,7 +1,5 @@
 // src/lle/validation/terminal/capability.c
 
-#define _POSIX_C_SOURCE 199309L
-
 #include "state.h"
 #include <sys/select.h>
 #include <unistd.h>
