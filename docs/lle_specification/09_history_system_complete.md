@@ -90,7 +90,7 @@ typedef struct lle_history_system {
     lle_hash_table_t *command_index;                  // Fast command lookup hashtable
     
     // Performance and coordination
-    lle_history_metrics_t *perf_metrics;              // History performance monitoring
+    lle_performance_monitor_t *perf_monitor;          // History performance monitoring
     lle_event_coordinator_t *event_coordinator;       // Event system coordination
     memory_pool_t *memory_pool;                       // Lusush memory pool integration
     
@@ -876,7 +876,7 @@ typedef struct lle_history_bridge {
     lle_sync_policy_t *sync_policy;                  // Synchronization policies
     
     // Performance and monitoring
-    lle_bridge_metrics_t *metrics;                   // Bridge performance metrics
+    lle_performance_monitor_t *perf_monitor;         // Bridge performance monitoring
     memory_pool_t *memory_pool;                      // Memory pool for allocations
 } lle_history_bridge_t;
 
@@ -943,9 +943,9 @@ lle_history_bridge_t* lle_history_bridge_create(lle_history_core_t *lle_history,
     bridge->config = lle_bridge_config_create_default(memory_pool);
     bridge->sync_policy = lle_sync_policy_create_default(memory_pool);
     
-    // Initialize metrics
-    bridge->metrics = lle_bridge_metrics_create(memory_pool);
-    if (!bridge->metrics) {
+    // Initialize performance monitoring
+    result = lle_performance_monitor_init(&bridge->perf_monitor, "history_bridge");
+    if (result != LLE_SUCCESS) {
         goto cleanup_on_error;
     }
     
@@ -958,7 +958,7 @@ cleanup_on_error:
     if (bridge->converter) lle_entry_converter_destroy(bridge->converter);
     if (bridge->config) lle_bridge_config_destroy(bridge->config);
     if (bridge->sync_policy) lle_sync_policy_destroy(bridge->sync_policy);
-    if (bridge->metrics) lle_bridge_metrics_destroy(bridge->metrics);
+    if (bridge->perf_monitor) lle_performance_monitor_destroy(bridge->perf_monitor);
     memory_pool_free(memory_pool, bridge);
     return NULL;
 }
@@ -985,7 +985,7 @@ bool lle_history_bridge_sync_to_posix(lle_history_bridge_t *bridge,
     posix_history_entry_t *posix_entry = lle_entry_converter_to_posix(
         bridge->converter, lle_entry);
     if (!posix_entry) {
-        lle_bridge_metrics_record_conversion_error(bridge->metrics);
+        lle_performance_monitor_record_error(bridge->perf_monitor, "conversion_error");
         return false;
     }
     
@@ -994,7 +994,7 @@ bool lle_history_bridge_sync_to_posix(lle_history_bridge_t *bridge,
                                         posix_entry->command,
                                         posix_entry->timestamp);
     if (posix_result < 0) {
-        lle_bridge_metrics_record_sync_error(bridge->metrics);
+        lle_performance_monitor_record_error(bridge->perf_monitor, "sync_error");
         lle_entry_converter_free_posix_entry(bridge->converter, posix_entry);
         return false;
     }
@@ -1029,8 +1029,9 @@ bool lle_history_bridge_sync_to_posix(lle_history_bridge_t *bridge,
     bridge->last_lle_entry = lle_entry->entry_id;
     bridge->last_sync = time(NULL);
     
-    // Update metrics
-    lle_bridge_metrics_record_successful_sync(bridge->metrics);
+    // Update performance metrics
+    uint64_t sync_time = lle_get_current_time_us() - sync_start_time;
+    lle_performance_monitor_record_operation(bridge->perf_monitor, "bridge_sync", sync_time);
     
     lle_entry_converter_free_posix_entry(bridge->converter, posix_entry);
     return true;
@@ -1424,51 +1425,18 @@ cleanup_on_error:
 
 ```c
 /**
- * History system performance metrics and optimization
+ * History system performance monitoring
+ * 
+ * Performance monitoring is handled through the standardized lle_performance_monitor_t
+ * system which provides unified metrics collection, analysis, and optimization
+ * recommendations across all LLE components.
+ * 
+ * Performance targets:
+ * - Add operations: 250μs target
+ * - Search operations: 500μs target  
+ * - Retrieval operations: 100μs target
+ * - Cache hit ratio: >75% target
  */
-typedef struct lle_history_metrics {
-    // Operation timing metrics
-    uint64_t total_add_operations;                    // Total add operations performed
-    uint64_t total_search_operations;                 // Total search operations performed
-    uint64_t total_retrieval_operations;              // Total retrieval operations performed
-    
-    // Timing statistics (in nanoseconds)
-    uint64_t add_operation_total_time;                // Total time for add operations
-    uint64_t search_operation_total_time;             // Total time for search operations
-    uint64_t retrieval_operation_total_time;          // Total time for retrieval operations
-    
-    // Cache performance
-    uint64_t cache_hits;                              // Number of cache hits
-    uint64_t cache_misses;                            // Number of cache misses
-    float cache_hit_ratio;                            // Current cache hit ratio
-    
-    // Storage performance
-    uint64_t storage_writes;                          // Number of storage write operations
-    uint64_t storage_reads;                           // Number of storage read operations
-    uint64_t storage_bytes_written;                   // Total bytes written to storage
-    uint64_t storage_bytes_read;                      // Total bytes read from storage
-    
-    // Memory usage
-    size_t current_memory_usage;                      // Current memory usage
-    size_t peak_memory_usage;                         // Peak memory usage
-    size_t memory_pool_utilization;                   // Memory pool utilization percentage
-    
-    // Error tracking
-    uint64_t serialization_errors;                    // Number of serialization errors
-    uint64_t io_errors;                               // Number of I/O errors
-    uint64_t index_errors;                            // Number of index errors
-    
-    // Performance targets
-    uint64_t target_add_time_ns;                      // Target time for add operations (250μs)
-    uint64_t target_search_time_ns;                   // Target time for search operations (500μs)
-    uint64_t target_retrieval_time_ns;                // Target time for retrieval operations (100μs)
-    
-    // Optimization triggers
-    time_t last_optimization;                         // Last optimization timestamp
-    bool optimization_needed;                         // Whether optimization is needed
-    
-    memory_pool_t *memory_pool;                       // Memory pool for allocations
-} lle_history_metrics_t;
 
 /**
  * Optimize history system performance based on usage patterns
@@ -1526,9 +1494,10 @@ bool lle_history_system_optimize(lle_history_system_t *history_system) {
         optimization_success = false;
     }
     
-    // Update optimization timestamp
-    history_system->perf_metrics->last_optimization = time(NULL);
-    history_system->perf_metrics->optimization_needed = false;
+    // Record optimization operation in performance monitor
+    uint64_t optimization_time = lle_get_current_time_us() - optimization_start;
+    lle_performance_monitor_record_operation(history_system->perf_monitor, 
+                                            "history_optimization", optimization_time);
     
     pthread_rwlock_unlock(&history_system->history_lock);
     
@@ -1541,8 +1510,8 @@ bool lle_history_system_optimize(lle_history_system_t *history_system) {
  * @param metrics Performance metrics
  * @return Whether optimization is recommended
  */
-bool lle_history_performance_monitor(lle_history_metrics_t *metrics) {
-    if (!metrics) {
+bool lle_history_performance_monitor(lle_performance_monitor_t *perf_monitor) {
+    if (!perf_monitor) {
         return false;
     }
     
@@ -1551,34 +1520,40 @@ bool lle_history_performance_monitor(lle_history_metrics_t *metrics) {
     bool search_performance_degraded = false;
     bool retrieval_performance_degraded = false;
     
-    if (metrics->total_add_operations > 0) {
-        uint64_t avg_add_time = metrics->add_operation_total_time / metrics->total_add_operations;
-        if (avg_add_time > metrics->target_add_time_ns) {
+    // Get performance statistics from unified monitor
+    lle_performance_stats_t stats;
+    if (lle_performance_monitor_get_stats(perf_monitor, &stats) != LLE_SUCCESS) {
+        return false;
+    }
+    
+    if (stats.total_operations > 0) {
+        uint64_t avg_add_time = stats.operation_total_time / stats.total_operations;
+        if (avg_add_time > LLE_HISTORY_TARGET_ADD_TIME_NS) {
             add_performance_degraded = true;
         }
     }
     
-    if (metrics->total_search_operations > 0) {
-        uint64_t avg_search_time = metrics->search_operation_total_time / metrics->total_search_operations;
-        if (avg_search_time > metrics->target_search_time_ns) {
+    if (stats.search_operations > 0) {
+        uint64_t avg_search_time = stats.search_total_time / stats.search_operations;
+        if (avg_search_time > LLE_HISTORY_TARGET_SEARCH_TIME_NS) {
             search_performance_degraded = true;
         }
     }
     
-    if (metrics->total_retrieval_operations > 0) {
-        uint64_t avg_retrieval_time = metrics->retrieval_operation_total_time / metrics->total_retrieval_operations;
-        if (avg_retrieval_time > metrics->target_retrieval_time_ns) {
+    if (stats.retrieval_operations > 0) {
+        uint64_t avg_retrieval_time = stats.retrieval_total_time / stats.retrieval_operations;
+        if (avg_retrieval_time > LLE_HISTORY_TARGET_RETRIEVAL_TIME_NS) {
             retrieval_performance_degraded = true;
         }
     }
     
     // Check cache performance
-    if (metrics->cache_hits + metrics->cache_misses > 0) {
-        metrics->cache_hit_ratio = (float)metrics->cache_hits / 
-                                  (float)(metrics->cache_hits + metrics->cache_misses);
+    if (stats.cache_hits + stats.cache_misses > 0) {
+        float cache_hit_ratio = (float)stats.cache_hits / 
+                               (float)(stats.cache_hits + stats.cache_misses);
         
-        if (metrics->cache_hit_ratio < LLE_HISTORY_TARGET_CACHE_HIT_RATIO) {
-            metrics->optimization_needed = true;
+        if (cache_hit_ratio < LLE_HISTORY_TARGET_CACHE_HIT_RATIO) {
+            return true; // Optimization needed
         }
     }
     
@@ -1824,7 +1799,7 @@ typedef struct lle_history_buffer_integration {
     // Performance optimization
     lle_edit_cache_t *edit_cache;                     // Edit operation caching
     lle_memory_pool_t *memory_pool;                   // Memory pool integration
-    lle_performance_metrics_t *metrics;               // Performance monitoring
+    lle_performance_monitor_t *perf_monitor;         // Performance monitoring
     
     // Configuration and state
     lle_integration_config_t *config;                // Integration configuration
@@ -2037,7 +2012,7 @@ typedef struct lle_multiline_reconstruction {
     lle_memory_pool_t *cache_memory_pool;           // Cache memory management
     
     // Performance monitoring
-    lle_performance_metrics_t *metrics;             // Reconstruction performance
+    lle_performance_monitor_t *perf_monitor;        // Reconstruction performance
 } lle_multiline_reconstruction_t;
 
 // Load history entry to buffer with structure preservation
