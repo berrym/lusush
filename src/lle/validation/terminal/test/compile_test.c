@@ -19,7 +19,7 @@ int main(void) {
     printf("  lle_terminal_caps_t: %zu bytes\n", _Alignof(lle_terminal_caps_t));
     printf("  lle_terminal_validation_t: %zu bytes\n", _Alignof(lle_terminal_validation_t));
     
-    printf("\n✅ Compilation successful - header guards correct, structures valid\n");
+    printf("\n[PASS] Compilation successful - header guards correct, structures valid\n");
     
     return 0;
 }
