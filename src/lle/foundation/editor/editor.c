@@ -465,6 +465,392 @@ void lle_editor_get_metrics(const lle_editor_t *editor,
     }
 }
 
+// Helper: Check if character is a word character
+static bool is_word_char(char ch) {
+    return (ch >= 'a' && ch <= 'z') ||
+           (ch >= 'A' && ch <= 'Z') ||
+           (ch >= '0' && ch <= '9') ||
+           (ch == '_');
+}
+
+// Helper: Find end of word at cursor (for deletion)
+// Returns position right after the word, NOT including trailing whitespace
+static lle_buffer_pos_t find_word_end(const lle_buffer_t *buffer,
+                                       lle_buffer_pos_t start) {
+    size_t size = lle_buffer_size(buffer);
+    if (start >= size) {
+        return size;
+    }
+    
+    lle_buffer_pos_t pos = start;
+    char ch;
+    
+    // Get current character
+    if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+        return start;
+    }
+    
+    // If on whitespace, don't move
+    if (ch == ' ' || ch == '\t' || ch == '\n') {
+        return start;
+    }
+    
+    // Determine if we're on a word or punctuation
+    bool on_word = is_word_char(ch);
+    
+    // Skip to end of current word/punctuation sequence
+    while (pos < size) {
+        if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+            break;
+        }
+        
+        // Stop at whitespace or different character type
+        if (ch == ' ' || ch == '\t' || ch == '\n') {
+            break;
+        }
+        
+        if (on_word && !is_word_char(ch)) {
+            break;
+        }
+        if (!on_word && is_word_char(ch)) {
+            break;
+        }
+        
+        pos++;
+    }
+    
+    return pos;
+}
+
+// Helper: Find next word boundary (forward)
+// Moves to the start of the next word (skips current word AND whitespace)
+static lle_buffer_pos_t find_next_word_boundary(const lle_buffer_t *buffer,
+                                                 lle_buffer_pos_t start) {
+    size_t size = lle_buffer_size(buffer);
+    if (start >= size) {
+        return size;
+    }
+    
+    lle_buffer_pos_t pos = start;
+    char ch;
+    
+    // Get current character type
+    if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+        return start;
+    }
+    
+    // If we're on a word character, skip to end of current word
+    if (is_word_char(ch)) {
+        while (pos < size) {
+            if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+                break;
+            }
+            if (!is_word_char(ch)) {
+                break;
+            }
+            pos++;
+        }
+    } else if (ch != ' ' && ch != '\t' && ch != '\n') {
+        // On punctuation - skip punctuation characters
+        while (pos < size) {
+            if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+                break;
+            }
+            // Stop at word char or whitespace
+            if (is_word_char(ch) || ch == ' ' || ch == '\t' || ch == '\n') {
+                break;
+            }
+            pos++;
+        }
+    }
+    
+    // Skip any whitespace to get to start of next word
+    while (pos < size) {
+        if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+            break;
+        }
+        if (ch != ' ' && ch != '\t') {
+            break;
+        }
+        pos++;
+    }
+    
+    return pos;
+}
+
+// Helper: Find previous word boundary (backward)
+static lle_buffer_pos_t find_prev_word_boundary(const lle_buffer_t *buffer,
+                                                 lle_buffer_pos_t start) {
+    if (start == 0) {
+        return 0;
+    }
+    
+    lle_buffer_pos_t pos = start - 1;
+    
+    // Skip trailing whitespace
+    char ch;
+    while (pos > 0) {
+        if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+            return 0;
+        }
+        if (ch != ' ' && ch != '\t') {
+            break;
+        }
+        if (pos == 0) break;
+        pos--;
+    }
+    
+    // Get character type at current position
+    if (lle_buffer_get_char(buffer, pos, &ch) != LLE_BUFFER_OK) {
+        return 0;
+    }
+    bool in_word = is_word_char(ch);
+    
+    // Skip characters of the same type
+    while (pos > 0) {
+        lle_buffer_pos_t prev = pos - 1;
+        if (lle_buffer_get_char(buffer, prev, &ch) != LLE_BUFFER_OK) {
+            break;
+        }
+        
+        bool ch_is_word = is_word_char(ch);
+        if (in_word != ch_is_word) {
+            break;
+        }
+        pos = prev;
+    }
+    
+    return pos;
+}
+
+// Advanced navigation: Move forward by word
+int lle_editor_move_word_forward(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t new_pos = find_next_word_boundary(&editor->buffer,
+                                                        editor->state.cursor_pos);
+    if (new_pos != editor->state.cursor_pos) {
+        editor->state.cursor_pos = new_pos;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced navigation: Move backward by word
+int lle_editor_move_word_backward(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t new_pos = find_prev_word_boundary(&editor->buffer,
+                                                        editor->state.cursor_pos);
+    if (new_pos != editor->state.cursor_pos) {
+        editor->state.cursor_pos = new_pos;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced navigation: Move to line start
+int lle_editor_move_to_line_start(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t line_start = lle_buffer_line_start(&editor->buffer,
+                                                         editor->state.cursor_pos);
+    if (line_start != editor->state.cursor_pos) {
+        editor->state.cursor_pos = line_start;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced navigation: Move to line end
+int lle_editor_move_to_line_end(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t line_end = lle_buffer_line_end(&editor->buffer,
+                                                     editor->state.cursor_pos);
+    if (line_end != editor->state.cursor_pos) {
+        editor->state.cursor_pos = line_end;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced editing: Delete word before cursor (Meta-Backspace)
+int lle_editor_delete_word_before_cursor(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (editor->state.cursor_pos == 0) {
+        return LLE_EDITOR_OK;  // Nothing to delete
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t word_start = find_prev_word_boundary(&editor->buffer,
+                                                           editor->state.cursor_pos);
+    
+    if (word_start < editor->state.cursor_pos) {
+        int result = lle_buffer_delete_range(&editor->buffer,
+                                            word_start,
+                                            editor->state.cursor_pos);
+        if (result != LLE_BUFFER_OK) {
+            return result;
+        }
+        
+        editor->state.cursor_pos = word_start;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced editing: Delete word at cursor (Meta-d)
+int lle_editor_delete_word_at_cursor(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    size_t size = lle_buffer_size(&editor->buffer);
+    if (editor->state.cursor_pos >= size) {
+        return LLE_EDITOR_OK;  // Nothing to delete
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    // Use find_word_end which doesn't skip trailing whitespace
+    lle_buffer_pos_t word_end = find_word_end(&editor->buffer,
+                                               editor->state.cursor_pos);
+    
+    if (word_end > editor->state.cursor_pos) {
+        int result = lle_buffer_delete_range(&editor->buffer,
+                                            editor->state.cursor_pos,
+                                            word_end);
+        if (result != LLE_BUFFER_OK) {
+            return result;
+        }
+        
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced editing: Kill line from cursor to end (Ctrl-k)
+int lle_editor_kill_line(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    size_t size = lle_buffer_size(&editor->buffer);
+    if (editor->state.cursor_pos >= size) {
+        return LLE_EDITOR_OK;  // Nothing to delete
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t line_end = lle_buffer_line_end(&editor->buffer,
+                                                     editor->state.cursor_pos);
+    
+    if (line_end > editor->state.cursor_pos) {
+        int result = lle_buffer_delete_range(&editor->buffer,
+                                            editor->state.cursor_pos,
+                                            line_end);
+        if (result != LLE_BUFFER_OK) {
+            return result;
+        }
+        
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Advanced editing: Kill whole line (Ctrl-u)
+int lle_editor_kill_whole_line(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    size_t size = lle_buffer_size(&editor->buffer);
+    if (size == 0) {
+        return LLE_EDITOR_OK;  // Nothing to delete
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    lle_buffer_pos_t line_start = lle_buffer_line_start(&editor->buffer,
+                                                         editor->state.cursor_pos);
+    lle_buffer_pos_t line_end = lle_buffer_line_end(&editor->buffer,
+                                                     editor->state.cursor_pos);
+    
+    if (line_end > line_start) {
+        int result = lle_buffer_delete_range(&editor->buffer,
+                                            line_start,
+                                            line_end);
+        if (result != LLE_BUFFER_OK) {
+            return result;
+        }
+        
+        editor->state.cursor_pos = line_start;
+        editor->state.needs_redraw = true;
+    }
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
 const char* lle_editor_error_string(int error_code) {
     switch (error_code) {
         case LLE_EDITOR_OK:

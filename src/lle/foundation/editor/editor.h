@@ -92,11 +92,23 @@ int lle_editor_move_cursor_right(lle_editor_t *editor);
 int lle_editor_move_cursor_to_start(lle_editor_t *editor);
 int lle_editor_move_cursor_to_end(lle_editor_t *editor);
 
+// Advanced navigation operations
+int lle_editor_move_word_forward(lle_editor_t *editor);
+int lle_editor_move_word_backward(lle_editor_t *editor);
+int lle_editor_move_to_line_start(lle_editor_t *editor);
+int lle_editor_move_to_line_end(lle_editor_t *editor);
+
 // Basic editing operations
 int lle_editor_insert_char(lle_editor_t *editor, char ch);
 int lle_editor_insert_string(lle_editor_t *editor, const char *str, size_t len);
 int lle_editor_delete_char_before_cursor(lle_editor_t *editor);  // Backspace
 int lle_editor_delete_char_at_cursor(lle_editor_t *editor);      // Delete
+
+// Advanced editing operations
+int lle_editor_delete_word_before_cursor(lle_editor_t *editor);  // Meta-Backspace
+int lle_editor_delete_word_at_cursor(lle_editor_t *editor);      // Meta-d
+int lle_editor_kill_line(lle_editor_t *editor);                  // Ctrl-k
+int lle_editor_kill_whole_line(lle_editor_t *editor);            // Ctrl-u (in some modes)
 
 // Get editor content
 int lle_editor_get_content(const lle_editor_t *editor, 

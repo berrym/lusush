@@ -20,7 +20,7 @@ EDITOR_OBJECTS = $(EDITOR_SOURCES:.c=.o)
 ALL_OBJECTS = $(TERMINAL_OBJECTS) $(DISPLAY_OBJECTS) $(BUFFER_OBJECTS) $(EDITOR_OBJECTS)
 
 # Test files
-TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c test/display_test.c test/buffer_test.c test/editor_test.c
+TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c test/display_test.c test/buffer_test.c test/editor_test.c test/editor_advanced_test.c
 TEST_BINARIES = $(TEST_SOURCES:.c=)
 
 # Targets
@@ -45,6 +45,10 @@ test/buffer_test: test/buffer_test.c $(BUFFER_OBJECTS)
 
 # Editor tests
 test/editor_test: test/editor_test.c $(ALL_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Editor advanced tests
+test/editor_advanced_test: test/editor_advanced_test.c $(ALL_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 # Object files
