@@ -138,6 +138,23 @@ typedef struct {
 
     // Script execution control
     bool script_execution;
+    
+    // LLE (Line Editor) settings
+    bool lle_enabled;                        // Enable LLE line editor
+    bool lle_syntax_highlighting;            // Enable syntax highlighting
+    bool lle_autosuggestions;                // Enable autosuggestions
+    bool lle_completion_menu;                // Enable interactive completion menu
+    bool lle_history_editing;                // Enable history editing
+    int lle_history_size;                    // LLE history size
+    bool lle_performance_monitoring;         // Enable performance monitoring
+    bool lle_thread_safety;                  // Enable thread safety features
+    char *lle_theme;                         // LLE theme name
+    char *lle_keybindings;                   // LLE keybinding mode (emacs/vi)
+    bool lle_widget_hooks;                   // Enable widget hooks
+    bool lle_plugin_system;                  // Enable plugin system
+    int lle_buffer_size;                     // Buffer size for LLE
+    bool lle_unicode_support;                // Enable Unicode support
+    bool lle_debug_mode;                     // Enable LLE debug mode
 } config_values_t;
 
 // Global configuration instance
