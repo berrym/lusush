@@ -14,10 +14,13 @@ DISPLAY_OBJECTS = $(DISPLAY_SOURCES:.c=.o)
 BUFFER_SOURCES = buffer/buffer.c buffer/buffer_util.c
 BUFFER_OBJECTS = $(BUFFER_SOURCES:.c=.o)
 
-ALL_OBJECTS = $(TERMINAL_OBJECTS) $(DISPLAY_OBJECTS) $(BUFFER_OBJECTS)
+EDITOR_SOURCES = editor/editor.c
+EDITOR_OBJECTS = $(EDITOR_SOURCES:.c=.o)
+
+ALL_OBJECTS = $(TERMINAL_OBJECTS) $(DISPLAY_OBJECTS) $(BUFFER_OBJECTS) $(EDITOR_OBJECTS)
 
 # Test files
-TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c test/display_test.c test/buffer_test.c
+TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c test/display_test.c test/buffer_test.c test/editor_test.c
 TEST_BINARIES = $(TEST_SOURCES:.c=)
 
 # Targets
@@ -40,6 +43,10 @@ test/display_test: test/display_test.c $(ALL_OBJECTS)
 test/buffer_test: test/buffer_test.c $(BUFFER_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
+# Editor tests
+test/editor_test: test/editor_test.c $(ALL_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^
+
 # Object files
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -55,7 +62,7 @@ test: all
 # Clean
 clean:
 	rm -f $(ALL_OBJECTS) $(TEST_BINARIES)
-	rm -f terminal/*.o display/*.o buffer/*.o test/*.o
+	rm -f terminal/*.o display/*.o buffer/*.o editor/*.o test/*.o
 
 # Dependencies
 terminal/terminal.o: terminal/terminal.h
