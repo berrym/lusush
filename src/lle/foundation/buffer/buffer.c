@@ -618,3 +618,41 @@ lle_buffer_pos_t lle_buffer_line_end(const lle_buffer_t *buffer,
     
     return end;
 }
+
+// Find string in buffer starting from position
+lle_buffer_pos_t lle_buffer_find_string(const lle_buffer_t *buffer,
+                                        lle_buffer_pos_t start,
+                                        const char *str,
+                                        size_t len) {
+    if (!buffer || !buffer->data || !str || len == 0) {
+        return (lle_buffer_pos_t)-1;
+    }
+    
+    size_t size = text_size(buffer);
+    if (start >= size) {
+        return (lle_buffer_pos_t)-1;
+    }
+    
+    // Search for string
+    for (lle_buffer_pos_t pos = start; pos <= size - len; pos++) {
+        // Check if string matches at this position
+        bool match = true;
+        for (size_t i = 0; i < len; i++) {
+            char ch;
+            if (lle_buffer_get_char(buffer, pos + i, &ch) != LLE_BUFFER_OK) {
+                match = false;
+                break;
+            }
+            if (ch != str[i]) {
+                match = false;
+                break;
+            }
+        }
+        
+        if (match) {
+            return pos;
+        }
+    }
+    
+    return (lle_buffer_pos_t)-1;  // Not found
+}

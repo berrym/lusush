@@ -1121,6 +1121,318 @@ int lle_editor_kill_region(lle_editor_t *editor,
     return LLE_EDITOR_OK;
 }
 
+// ============================================================================
+// Incremental Search Operations
+// ============================================================================
+
+// Start incremental search forward
+int lle_editor_search_forward(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Initialize search state
+    editor->search.active = true;
+    editor->search.forward = true;
+    editor->search.pattern_len = 0;
+    editor->search.pattern[0] = '\0';
+    editor->search.search_start_pos = editor->state.cursor_pos;
+    editor->search.found = false;
+    editor->search.match_count = 0;
+    editor->search.match_start = 0;
+    editor->search.match_end = 0;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Start incremental search backward
+int lle_editor_search_backward(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Initialize search state
+    editor->search.active = true;
+    editor->search.forward = false;
+    editor->search.pattern_len = 0;
+    editor->search.pattern[0] = '\0';
+    editor->search.search_start_pos = editor->state.cursor_pos;
+    editor->search.found = false;
+    editor->search.match_count = 0;
+    editor->search.match_start = 0;
+    editor->search.match_end = 0;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Helper: Search forward from position
+static lle_buffer_pos_t search_forward_from(lle_editor_t *editor, 
+                                             lle_buffer_pos_t start_pos) {
+    if (editor->search.pattern_len == 0) {
+        return (lle_buffer_pos_t)-1;  // No pattern
+    }
+    
+    return lle_buffer_find_string(&editor->buffer,
+                                  start_pos,
+                                  editor->search.pattern,
+                                  editor->search.pattern_len);
+}
+
+// Helper: Search backward from position
+static lle_buffer_pos_t search_backward_from(lle_editor_t *editor,
+                                             lle_buffer_pos_t start_pos) {
+    if (editor->search.pattern_len == 0 || start_pos == 0) {
+        return (lle_buffer_pos_t)-1;  // No pattern or at beginning
+    }
+    
+    // Search backwards by trying each position from start_pos-1 to 0
+    lle_buffer_pos_t pos = start_pos;
+    while (pos > 0) {
+        pos--;
+        
+        // Check if pattern matches at this position
+        char buffer[LLE_SEARCH_MAX_PATTERN];
+        size_t available = lle_buffer_size(&editor->buffer) - pos;
+        size_t check_len = (available < editor->search.pattern_len) ? 
+                          available : editor->search.pattern_len;
+        
+        if (check_len < editor->search.pattern_len) {
+            continue;  // Not enough space for pattern
+        }
+        
+        int result = lle_buffer_get_substring(&editor->buffer, pos, 
+                                              pos + editor->search.pattern_len,
+                                              buffer, sizeof(buffer));
+        if (result == LLE_BUFFER_OK) {
+            if (memcmp(buffer, editor->search.pattern, editor->search.pattern_len) == 0) {
+                return pos;  // Found match
+            }
+        }
+    }
+    
+    return (lle_buffer_pos_t)-1;  // Not found
+}
+
+// Add character to search pattern
+int lle_editor_search_add_char(lle_editor_t *editor, char ch) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active) {
+        return LLE_EDITOR_OK;  // Not searching
+    }
+    
+    if (editor->search.pattern_len >= LLE_SEARCH_MAX_PATTERN - 1) {
+        return LLE_EDITOR_OK;  // Pattern too long
+    }
+    
+    // Add character to pattern
+    editor->search.pattern[editor->search.pattern_len++] = ch;
+    editor->search.pattern[editor->search.pattern_len] = '\0';
+    
+    // Search for new pattern
+    lle_buffer_pos_t match_pos;
+    if (editor->search.forward) {
+        match_pos = search_forward_from(editor, editor->search.search_start_pos);
+    } else {
+        match_pos = search_backward_from(editor, editor->search.search_start_pos);
+    }
+    
+    if (match_pos != (lle_buffer_pos_t)-1) {
+        // Found match
+        editor->search.found = true;
+        editor->search.match_start = match_pos;
+        editor->search.match_end = match_pos + editor->search.pattern_len;
+        editor->search.match_count = 1;
+        editor->state.cursor_pos = match_pos;
+        editor->state.needs_redraw = true;
+    } else {
+        // No match
+        editor->search.found = false;
+        editor->search.match_count = 0;
+    }
+    
+    return LLE_EDITOR_OK;
+}
+
+// Remove last character from search pattern
+int lle_editor_search_backspace(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active || editor->search.pattern_len == 0) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Remove last character
+    editor->search.pattern_len--;
+    editor->search.pattern[editor->search.pattern_len] = '\0';
+    
+    if (editor->search.pattern_len == 0) {
+        // Empty pattern - return to start position
+        editor->search.found = false;
+        editor->search.match_count = 0;
+        editor->state.cursor_pos = editor->search.search_start_pos;
+        editor->state.needs_redraw = true;
+        return LLE_EDITOR_OK;
+    }
+    
+    // Re-search with shorter pattern
+    lle_buffer_pos_t match_pos;
+    if (editor->search.forward) {
+        match_pos = search_forward_from(editor, editor->search.search_start_pos);
+    } else {
+        match_pos = search_backward_from(editor, editor->search.search_start_pos);
+    }
+    
+    if (match_pos != (lle_buffer_pos_t)-1) {
+        editor->search.found = true;
+        editor->search.match_start = match_pos;
+        editor->search.match_end = match_pos + editor->search.pattern_len;
+        editor->search.match_count = 1;
+        editor->state.cursor_pos = match_pos;
+        editor->state.needs_redraw = true;
+    } else {
+        editor->search.found = false;
+        editor->search.match_count = 0;
+    }
+    
+    return LLE_EDITOR_OK;
+}
+
+// Find next match
+int lle_editor_search_next(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active || editor->search.pattern_len == 0) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Start search from after current match
+    lle_buffer_pos_t start_pos;
+    if (editor->search.found) {
+        start_pos = editor->search.match_end;
+    } else {
+        start_pos = editor->state.cursor_pos + 1;
+    }
+    
+    lle_buffer_pos_t match_pos;
+    if (editor->search.forward) {
+        match_pos = search_forward_from(editor, start_pos);
+    } else {
+        match_pos = search_backward_from(editor, start_pos);
+    }
+    
+    if (match_pos != (lle_buffer_pos_t)-1) {
+        editor->search.found = true;
+        editor->search.match_start = match_pos;
+        editor->search.match_end = match_pos + editor->search.pattern_len;
+        editor->search.match_count++;
+        editor->state.cursor_pos = match_pos;
+        editor->state.needs_redraw = true;
+    } else {
+        // Wrap around - search from beginning/end
+        if (editor->search.forward) {
+            match_pos = search_forward_from(editor, 0);
+        } else {
+            match_pos = search_backward_from(editor, lle_buffer_size(&editor->buffer));
+        }
+        
+        if (match_pos != (lle_buffer_pos_t)-1) {
+            editor->search.found = true;
+            editor->search.match_start = match_pos;
+            editor->search.match_end = match_pos + editor->search.pattern_len;
+            editor->state.cursor_pos = match_pos;
+            editor->state.needs_redraw = true;
+        }
+    }
+    
+    return LLE_EDITOR_OK;
+}
+
+// Find previous match
+int lle_editor_search_previous(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active || editor->search.pattern_len == 0) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Reverse direction temporarily
+    bool was_forward = editor->search.forward;
+    editor->search.forward = !editor->search.forward;
+    
+    // Find next in reversed direction
+    int result = lle_editor_search_next(editor);
+    
+    // Restore direction
+    editor->search.forward = was_forward;
+    
+    return result;
+}
+
+// Cancel search
+int lle_editor_search_cancel(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Return to original position
+    editor->state.cursor_pos = editor->search.search_start_pos;
+    
+    // Clear search state
+    editor->search.active = false;
+    editor->search.found = false;
+    editor->search.pattern_len = 0;
+    editor->search.match_count = 0;
+    
+    editor->state.needs_redraw = true;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Accept search
+int lle_editor_search_accept(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    if (!editor->search.active) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Stay at current position (cursor already moved to match)
+    
+    // Clear search state
+    editor->search.active = false;
+    editor->search.found = false;
+    editor->search.pattern_len = 0;
+    editor->search.match_count = 0;
+    
+    editor->state.needs_redraw = true;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Get search state
+const lle_search_state_t* lle_editor_get_search_state(const lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return NULL;
+    }
+    
+    return &editor->search;
+}
+
 const char* lle_editor_error_string(int error_code) {
     switch (error_code) {
         case LLE_EDITOR_OK:

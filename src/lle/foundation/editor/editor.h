@@ -52,6 +52,21 @@ typedef struct {
     bool last_was_yank;    // Track if last operation was yank (for yank-pop)
 } lle_kill_ring_t;
 
+// Search state
+#define LLE_SEARCH_MAX_PATTERN 256
+
+typedef struct {
+    char pattern[LLE_SEARCH_MAX_PATTERN];  // Current search pattern
+    size_t pattern_len;                     // Pattern length
+    lle_buffer_pos_t match_start;           // Start of current match
+    lle_buffer_pos_t match_end;             // End of current match
+    lle_buffer_pos_t search_start_pos;      // Where search began
+    bool active;                            // Is search currently active
+    bool forward;                           // Search direction (true=forward)
+    bool found;                             // Has a match been found
+    int match_count;                        // Number of matches found
+} lle_search_state_t;
+
 // Editor state
 typedef struct {
     // Cursor position (buffer position, not screen position)
@@ -80,6 +95,9 @@ typedef struct {
     
     // Kill ring
     lle_kill_ring_t kill_ring;
+    
+    // Search state
+    lle_search_state_t search;
     
     // Prompt (if any)
     char *prompt;
@@ -181,6 +199,35 @@ int lle_editor_yank_pop(lle_editor_t *editor);                  // Meta-y
 int lle_editor_kill_region(lle_editor_t *editor, 
                            lle_buffer_pos_t start,
                            lle_buffer_pos_t end);
+
+// Search operations
+
+// Start incremental search forward (Ctrl-s)
+int lle_editor_search_forward(lle_editor_t *editor);
+
+// Start incremental search backward (Ctrl-r)
+int lle_editor_search_backward(lle_editor_t *editor);
+
+// Add character to current search pattern
+int lle_editor_search_add_char(lle_editor_t *editor, char ch);
+
+// Remove last character from search pattern
+int lle_editor_search_backspace(lle_editor_t *editor);
+
+// Find next match in current direction
+int lle_editor_search_next(lle_editor_t *editor);
+
+// Find previous match (reverse direction)
+int lle_editor_search_previous(lle_editor_t *editor);
+
+// Cancel search and return to original position
+int lle_editor_search_cancel(lle_editor_t *editor);
+
+// Accept search and stay at current match
+int lle_editor_search_accept(lle_editor_t *editor);
+
+// Get current search state (for display/highlighting)
+const lle_search_state_t* lle_editor_get_search_state(const lle_editor_t *editor);
 
 // Utility: Convert error code to string
 const char* lle_editor_error_string(int error_code);
