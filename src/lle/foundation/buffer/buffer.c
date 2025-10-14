@@ -656,3 +656,78 @@ lle_buffer_pos_t lle_buffer_find_string(const lle_buffer_t *buffer,
     
     return (lle_buffer_pos_t)-1;  // Not found
 }
+
+// Find character in buffer starting from position
+lle_buffer_pos_t lle_buffer_find_char(const lle_buffer_t *buffer,
+                                      lle_buffer_pos_t start,
+                                      char target) {
+    if (!buffer || !buffer->data) {
+        return (lle_buffer_pos_t)-1;
+    }
+    
+    size_t size = text_size(buffer);
+    if (start >= size) {
+        return (lle_buffer_pos_t)-1;
+    }
+    
+    // Search for character
+    for (lle_buffer_pos_t pos = start; pos < size; pos++) {
+        char ch;
+        if (lle_buffer_get_char(buffer, pos, &ch) == LLE_BUFFER_OK) {
+            if (ch == target) {
+                return pos;
+            }
+        }
+    }
+    
+    return (lle_buffer_pos_t)-1;  // Not found
+}
+
+// Count number of lines in buffer
+size_t lle_buffer_line_count(const lle_buffer_t *buffer) {
+    if (!buffer || !buffer->data) {
+        return 0;
+    }
+    
+    size_t size = text_size(buffer);
+    if (size == 0) {
+        return 0;
+    }
+    
+    size_t lines = 1;  // At least one line
+    for (lle_buffer_pos_t pos = 0; pos < size; pos++) {
+        char ch;
+        if (lle_buffer_get_char(buffer, pos, &ch) == LLE_BUFFER_OK) {
+            if (ch == '\n') {
+                lines++;
+            }
+        }
+    }
+    
+    return lines;
+}
+
+// Get line number for position (0-based)
+size_t lle_buffer_get_line_number(const lle_buffer_t *buffer,
+                                  lle_buffer_pos_t pos) {
+    if (!buffer || !buffer->data) {
+        return 0;
+    }
+    
+    size_t size = text_size(buffer);
+    if (pos >= size) {
+        pos = size > 0 ? size - 1 : 0;
+    }
+    
+    size_t line = 0;  // Lines start at 0 (0-indexed)
+    for (lle_buffer_pos_t i = 0; i < pos; i++) {
+        char ch;
+        if (lle_buffer_get_char(buffer, i, &ch) == LLE_BUFFER_OK) {
+            if (ch == '\n') {
+                line++;
+            }
+        }
+    }
+    
+    return line;
+}

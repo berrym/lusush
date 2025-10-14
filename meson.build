@@ -7,6 +7,9 @@ project('lusush',
         version: '1.3.0',
         license: 'GPL-3.0+')
 
+# Import filesystem module for directory checks
+fs = import('fs')
+
 # Debug build configuration
 debug_option = get_option('enable_debug')
 if debug_option
@@ -84,6 +87,12 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
 # Find readline dependency
 readline_dep = dependency('readline', required: true)
+
+# Build LLE foundation library (if in feature branch)
+# This provides liblle_foundation and lle_foundation_dep
+if fs.is_dir('src/lle/foundation')
+  subdir('src/lle/foundation')
+endif
 
 executable('lusush',
            src,
