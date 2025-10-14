@@ -8,8 +8,13 @@ CFLAGS += -D_POSIX_C_SOURCE=200809L
 TERMINAL_SOURCES = terminal/terminal.c terminal/capability.c
 TERMINAL_OBJECTS = $(TERMINAL_SOURCES:.c=.o)
 
+DISPLAY_SOURCES = display/display.c
+DISPLAY_OBJECTS = $(DISPLAY_SOURCES:.c=.o)
+
+ALL_OBJECTS = $(TERMINAL_OBJECTS) $(DISPLAY_OBJECTS)
+
 # Test files
-TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c
+TEST_SOURCES = test/terminal_test.c test/terminal_unit_test.c test/display_test.c
 TEST_BINARIES = $(TEST_SOURCES:.c=)
 
 # Targets
@@ -22,6 +27,10 @@ test/terminal_test: test/terminal_test.c $(TERMINAL_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 test/terminal_unit_test: test/terminal_unit_test.c $(TERMINAL_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+# Display tests
+test/display_test: test/display_test.c $(ALL_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 
 # Object files
@@ -38,8 +47,8 @@ test: all
 
 # Clean
 clean:
-	rm -f $(TERMINAL_OBJECTS) $(TEST_BINARIES)
-	rm -f terminal/*.o test/*.o
+	rm -f $(ALL_OBJECTS) $(TEST_BINARIES)
+	rm -f terminal/*.o display/*.o test/*.o
 
 # Dependencies
 terminal/terminal.o: terminal/terminal.h
