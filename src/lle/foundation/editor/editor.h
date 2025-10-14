@@ -32,6 +32,26 @@ typedef enum {
     LLE_EDITOR_MODE_COMMAND
 } lle_editor_mode_t;
 
+// Kill ring entry
+#define LLE_KILL_RING_SIZE 60
+#define LLE_KILL_MAX_ENTRY_SIZE 8192
+
+typedef struct {
+    char *text;
+    size_t length;
+} lle_kill_entry_t;
+
+// Kill ring
+typedef struct {
+    lle_kill_entry_t entries[LLE_KILL_RING_SIZE];
+    size_t head;           // Next position to write
+    size_t count;          // Number of entries (0 to LLE_KILL_RING_SIZE)
+    size_t yank_index;     // Current yank position for yank-pop
+    lle_buffer_pos_t last_yank_start;  // Start of last yank (for yank-pop)
+    lle_buffer_pos_t last_yank_end;    // End of last yank (for yank-pop)
+    bool last_was_yank;    // Track if last operation was yank (for yank-pop)
+} lle_kill_ring_t;
+
 // Editor state
 typedef struct {
     // Cursor position (buffer position, not screen position)
@@ -57,6 +77,9 @@ typedef struct {
     
     // Editor state
     lle_editor_state_t state;
+    
+    // Kill ring
+    lle_kill_ring_t kill_ring;
     
     // Prompt (if any)
     char *prompt;
@@ -145,6 +168,19 @@ bool lle_editor_is_modified(const lle_editor_t *editor);
 void lle_editor_get_metrics(const lle_editor_t *editor,
                             uint64_t *operation_count,
                             double *avg_time_us);
+
+// Kill ring operations
+
+// Yank (paste) most recent kill
+int lle_editor_yank(lle_editor_t *editor);                      // Ctrl-y
+
+// Yank-pop (cycle through kill ring after yank)
+int lle_editor_yank_pop(lle_editor_t *editor);                  // Meta-y
+
+// Kill region (arbitrary text range)
+int lle_editor_kill_region(lle_editor_t *editor, 
+                           lle_buffer_pos_t start,
+                           lle_buffer_pos_t end);
 
 // Utility: Convert error code to string
 const char* lle_editor_error_string(int error_code);

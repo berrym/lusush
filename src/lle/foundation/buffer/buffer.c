@@ -563,3 +563,58 @@ const char* lle_buffer_error_string(int error_code) {
             return "Unknown error";
     }
 }
+
+// Find start of line containing given position
+lle_buffer_pos_t lle_buffer_line_start(const lle_buffer_t *buffer,
+                                       lle_buffer_pos_t pos) {
+    if (!buffer || !buffer->data) {
+        return 0;
+    }
+    
+    size_t size = text_size(buffer);
+    if (pos >= size) {
+        pos = size > 0 ? size - 1 : 0;
+    }
+    
+    // Scan backwards to find newline or start of buffer
+    lle_buffer_pos_t start = pos;
+    while (start > 0) {
+        char ch;
+        // Get character at start - 1
+        if (lle_buffer_get_char(buffer, start - 1, &ch) == LLE_BUFFER_OK) {
+            if (ch == '\n') {
+                break;
+            }
+        }
+        start--;
+    }
+    
+    return start;
+}
+
+// Find end of line containing given position
+lle_buffer_pos_t lle_buffer_line_end(const lle_buffer_t *buffer,
+                                     lle_buffer_pos_t pos) {
+    if (!buffer || !buffer->data) {
+        return 0;
+    }
+    
+    size_t size = text_size(buffer);
+    if (pos >= size) {
+        return size;
+    }
+    
+    // Scan forwards to find newline or end of buffer
+    lle_buffer_pos_t end = pos;
+    while (end < size) {
+        char ch;
+        if (lle_buffer_get_char(buffer, end, &ch) == LLE_BUFFER_OK) {
+            if (ch == '\n') {
+                break;
+            }
+        }
+        end++;
+    }
+    
+    return end;
+}

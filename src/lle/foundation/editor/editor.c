@@ -133,6 +133,14 @@ void lle_editor_cleanup(lle_editor_t *editor) {
         editor->prompt = NULL;
     }
     
+    // Cleanup kill ring
+    for (size_t i = 0; i < editor->kill_ring.count && i < LLE_KILL_RING_SIZE; i++) {
+        if (editor->kill_ring.entries[i].text) {
+            free(editor->kill_ring.entries[i].text);
+            editor->kill_ring.entries[i].text = NULL;
+        }
+    }
+    
     lle_buffer_cleanup(&editor->buffer);
     lle_display_cleanup(&editor->display);
     lle_term_cleanup(&editor->term);
@@ -780,6 +788,89 @@ int lle_editor_delete_word_at_cursor(lle_editor_t *editor) {
     return LLE_EDITOR_OK;
 }
 
+// ============================================================================
+// Kill Ring Helper Functions
+// ============================================================================
+
+// Helper: Add text to kill ring
+static int kill_ring_add(lle_kill_ring_t *ring, const char *text, size_t length) {
+    if (!ring || !text || length == 0) {
+        return LLE_EDITOR_ERR_NULL_PTR;
+    }
+    
+    // Limit entry size
+    if (length > LLE_KILL_MAX_ENTRY_SIZE) {
+        length = LLE_KILL_MAX_ENTRY_SIZE;
+    }
+    
+    // Free old entry if ring is full
+    if (ring->count == LLE_KILL_RING_SIZE) {
+        if (ring->entries[ring->head].text) {
+            free(ring->entries[ring->head].text);
+            ring->entries[ring->head].text = NULL;
+        }
+    }
+    
+    // Allocate new entry
+    ring->entries[ring->head].text = malloc(length + 1);
+    if (!ring->entries[ring->head].text) {
+        return LLE_EDITOR_ERR_NULL_PTR;
+    }
+    
+    // Copy text
+    memcpy(ring->entries[ring->head].text, text, length);
+    ring->entries[ring->head].text[length] = '\0';
+    ring->entries[ring->head].length = length;
+    
+    // Update ring state
+    ring->head = (ring->head + 1) % LLE_KILL_RING_SIZE;
+    if (ring->count < LLE_KILL_RING_SIZE) {
+        ring->count++;
+    }
+    
+    // Reset yank state
+    ring->yank_index = (ring->head == 0) ? (ring->count - 1) : (ring->head - 1);
+    ring->last_was_yank = false;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Helper: Get most recent kill entry
+static const lle_kill_entry_t* kill_ring_get_recent(const lle_kill_ring_t *ring) {
+    if (!ring || ring->count == 0) {
+        return NULL;
+    }
+    
+    size_t index = (ring->head == 0) ? (ring->count - 1) : (ring->head - 1);
+    return &ring->entries[index];
+}
+
+// Helper: Get entry at yank index
+static const lle_kill_entry_t* kill_ring_get_at_yank_index(const lle_kill_ring_t *ring) {
+    if (!ring || ring->count == 0) {
+        return NULL;
+    }
+    
+    return &ring->entries[ring->yank_index];
+}
+
+// Helper: Cycle yank index to previous entry
+static void kill_ring_cycle_yank_index(lle_kill_ring_t *ring) {
+    if (!ring || ring->count == 0) {
+        return;
+    }
+    
+    if (ring->yank_index == 0) {
+        ring->yank_index = ring->count - 1;
+    } else {
+        ring->yank_index--;
+    }
+}
+
+// ============================================================================
+// Kill and Yank Operations
+// ============================================================================
+
 // Advanced editing: Kill line from cursor to end (Ctrl-k)
 int lle_editor_kill_line(lle_editor_t *editor) {
     if (!editor || !editor->initialized) {
@@ -797,6 +888,21 @@ int lle_editor_kill_line(lle_editor_t *editor) {
                                                      editor->state.cursor_pos);
     
     if (line_end > editor->state.cursor_pos) {
+        // Get text to save to kill ring
+        size_t kill_len = line_end - editor->state.cursor_pos;
+        char *kill_text = malloc(kill_len + 1);
+        if (kill_text) {
+            int result = lle_buffer_get_substring(&editor->buffer,
+                                                 editor->state.cursor_pos,
+                                                 line_end,
+                                                 kill_text, kill_len + 1);
+            if (result == LLE_BUFFER_OK) {
+                kill_ring_add(&editor->kill_ring, kill_text, kill_len);
+            }
+            free(kill_text);
+        }
+        
+        // Delete the text
         int result = lle_buffer_delete_range(&editor->buffer,
                                             editor->state.cursor_pos,
                                             line_end);
@@ -833,6 +939,21 @@ int lle_editor_kill_whole_line(lle_editor_t *editor) {
                                                      editor->state.cursor_pos);
     
     if (line_end > line_start) {
+        // Get text to save to kill ring
+        size_t kill_len = line_end - line_start;
+        char *kill_text = malloc(kill_len + 1);
+        if (kill_text) {
+            int result = lle_buffer_get_substring(&editor->buffer,
+                                                 line_start,
+                                                 line_end,
+                                                 kill_text, kill_len + 1);
+            if (result == LLE_BUFFER_OK) {
+                kill_ring_add(&editor->kill_ring, kill_text, kill_len);
+            }
+            free(kill_text);
+        }
+        
+        // Delete the text
         int result = lle_buffer_delete_range(&editor->buffer,
                                             line_start,
                                             line_end);
@@ -846,6 +967,155 @@ int lle_editor_kill_whole_line(lle_editor_t *editor) {
     
     uint64_t end = get_timestamp_ns();
     editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Kill ring: Yank (paste most recent kill)
+int lle_editor_yank(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    const lle_kill_entry_t *entry = kill_ring_get_recent(&editor->kill_ring);
+    if (!entry || !entry->text) {
+        return LLE_EDITOR_OK;  // Nothing to yank
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    // Insert the killed text at cursor
+    int result = lle_buffer_insert_string(&editor->buffer,
+                                         editor->state.cursor_pos,
+                                         entry->text,
+                                         entry->length);
+    if (result != LLE_BUFFER_OK) {
+        return result;
+    }
+    
+    // Track yank for yank-pop
+    editor->kill_ring.last_yank_start = editor->state.cursor_pos;
+    editor->kill_ring.last_yank_end = editor->state.cursor_pos + entry->length;
+    editor->kill_ring.last_was_yank = true;
+    
+    // Move cursor to end of yanked text
+    editor->state.cursor_pos += entry->length;
+    editor->state.needs_redraw = true;
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Kill ring: Yank-pop (cycle through kill ring)
+int lle_editor_yank_pop(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Only works immediately after yank
+    if (!editor->kill_ring.last_was_yank) {
+        return LLE_EDITOR_OK;  // Silently ignore if not after yank
+    }
+    
+    // Need at least 2 entries to pop
+    if (editor->kill_ring.count < 2) {
+        return LLE_EDITOR_OK;
+    }
+    
+    uint64_t start = get_timestamp_ns();
+    
+    // Delete the previously yanked text
+    int result = lle_buffer_delete_range(&editor->buffer,
+                                        editor->kill_ring.last_yank_start,
+                                        editor->kill_ring.last_yank_end);
+    if (result != LLE_BUFFER_OK) {
+        return result;
+    }
+    
+    // Cycle to previous entry
+    kill_ring_cycle_yank_index(&editor->kill_ring);
+    
+    // Get the new entry to yank
+    const lle_kill_entry_t *entry = kill_ring_get_at_yank_index(&editor->kill_ring);
+    if (!entry || !entry->text) {
+        return LLE_EDITOR_ERR_NULL_PTR;
+    }
+    
+    // Insert the new text
+    result = lle_buffer_insert_string(&editor->buffer,
+                                     editor->kill_ring.last_yank_start,
+                                     entry->text,
+                                     entry->length);
+    if (result != LLE_BUFFER_OK) {
+        return result;
+    }
+    
+    // Update yank tracking
+    editor->kill_ring.last_yank_end = editor->kill_ring.last_yank_start + entry->length;
+    
+    // Move cursor to end of yanked text
+    editor->state.cursor_pos = editor->kill_ring.last_yank_end;
+    editor->state.needs_redraw = true;
+    
+    uint64_t end = get_timestamp_ns();
+    editor->total_op_time_ns += (end - start);
+    editor->operation_count++;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Kill ring: Kill region
+int lle_editor_kill_region(lle_editor_t *editor,
+                           lle_buffer_pos_t start,
+                           lle_buffer_pos_t end) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    size_t size = lle_buffer_size(&editor->buffer);
+    if (start > size || end > size || start >= end) {
+        return LLE_EDITOR_ERR_INVALID_POS;
+    }
+    
+    uint64_t op_start = get_timestamp_ns();
+    
+    // Get the text to kill
+    size_t kill_len = end - start;
+    char *kill_text = malloc(kill_len + 1);
+    if (!kill_text) {
+        return LLE_EDITOR_ERR_NULL_PTR;
+    }
+    
+    int result = lle_buffer_get_substring(&editor->buffer, start, end,
+                                         kill_text, kill_len + 1);
+    if (result != LLE_BUFFER_OK) {
+        free(kill_text);
+        return result;
+    }
+    
+    // Add to kill ring
+    result = kill_ring_add(&editor->kill_ring, kill_text, kill_len);
+    free(kill_text);
+    if (result != LLE_EDITOR_OK) {
+        return result;
+    }
+    
+    // Delete the region
+    result = lle_buffer_delete_range(&editor->buffer, start, end);
+    if (result != LLE_BUFFER_OK) {
+        return result;
+    }
+    
+    // Move cursor to start of killed region
+    editor->state.cursor_pos = start;
+    editor->state.needs_redraw = true;
+    
+    uint64_t op_end = get_timestamp_ns();
+    editor->total_op_time_ns += (op_end - op_start);
     editor->operation_count++;
     
     return LLE_EDITOR_OK;
