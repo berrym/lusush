@@ -2450,6 +2450,206 @@ void lle_trigger_suggestion_prefetch(lle_suggestion_prefetcher_t *prefetcher,
 
 ---
 
+### 9.3 Thread Safety Implementation
+
+```c
+// Comprehensive thread safety implementation for autosuggestions system
+typedef enum {
+    LLE_AUTOSUGGESTIONS_LOCK_READ,                    // Read lock for data access
+    LLE_AUTOSUGGESTIONS_LOCK_WRITE,                   // Write lock for data modification  
+    LLE_AUTOSUGGESTIONS_LOCK_INTEGRATION,             // Lock for integration coordination
+    LLE_AUTOSUGGESTIONS_LOCK_GENERATION,              // Lock for suggestion generation
+    LLE_AUTOSUGGESTIONS_LOCK_CACHE,                   // Lock for cache operations
+    LLE_AUTOSUGGESTIONS_LOCK_PREFETCH                 // Lock for prefetch operations
+} lle_autosuggestions_lock_type_t;
+
+// Thread-safe suggestion access patterns
+lle_result_t lle_autosuggestions_acquire_lock(lle_autosuggestions_system_t *system,
+                                             lle_autosuggestions_lock_type_t lock_type) {
+    if (!system) return LLE_ERROR_NULL_PARAMETER;
+    
+    switch (lock_type) {
+        case LLE_AUTOSUGGESTIONS_LOCK_READ:
+            if (pthread_rwlock_rdlock(&system->suggestions_lock) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_WRITE:
+            if (pthread_rwlock_wrlock(&system->suggestions_lock) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_INTEGRATION:
+            if (pthread_rwlock_wrlock(&system->integration_lock) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_GENERATION:
+            if (pthread_mutex_lock(&system->suggestion_core->generation_mutex) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_CACHE:
+            if (pthread_mutex_lock(&system->cache_system->cache_mutex) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_PREFETCH:
+            if (pthread_mutex_lock(&system->prefetcher->prefetch_mutex) != 0) {
+                return LLE_ERROR_THREAD_LOCK;
+            }
+            break;
+            
+        default:
+            return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+// Thread-safe lock release
+lle_result_t lle_autosuggestions_release_lock(lle_autosuggestions_system_t *system,
+                                             lle_autosuggestions_lock_type_t lock_type) {
+    if (!system) return LLE_ERROR_NULL_PARAMETER;
+    
+    switch (lock_type) {
+        case LLE_AUTOSUGGESTIONS_LOCK_READ:
+        case LLE_AUTOSUGGESTIONS_LOCK_WRITE:
+            if (pthread_rwlock_unlock(&system->suggestions_lock) != 0) {
+                return LLE_ERROR_THREAD_UNLOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_INTEGRATION:
+            if (pthread_rwlock_unlock(&system->integration_lock) != 0) {
+                return LLE_ERROR_THREAD_UNLOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_GENERATION:
+            if (pthread_mutex_unlock(&system->suggestion_core->generation_mutex) != 0) {
+                return LLE_ERROR_THREAD_UNLOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_CACHE:
+            if (pthread_mutex_unlock(&system->cache_system->cache_mutex) != 0) {
+                return LLE_ERROR_THREAD_UNLOCK;
+            }
+            break;
+            
+        case LLE_AUTOSUGGESTIONS_LOCK_PREFETCH:
+            if (pthread_mutex_unlock(&system->prefetcher->prefetch_mutex) != 0) {
+                return LLE_ERROR_THREAD_UNLOCK;
+            }
+            break;
+            
+        default:
+            return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+// Thread-safe suggestion generation with proper locking hierarchy
+lle_result_t lle_autosuggestions_generate_thread_safe(lle_autosuggestions_system_t *system,
+                                                     const char *input_text,
+                                                     size_t input_length,
+                                                     lle_command_context_t *context,
+                                                     lle_suggestion_t **suggestion) {
+    if (!system || !input_text || !suggestion) return LLE_ERROR_NULL_PARAMETER;
+    
+    lle_result_t result;
+    
+    // Step 1: Acquire read lock for system state access
+    result = lle_autosuggestions_acquire_lock(system, LLE_AUTOSUGGESTIONS_LOCK_READ);
+    if (result != LLE_SUCCESS) return result;
+    
+    // Step 2: Check cache under cache lock
+    result = lle_autosuggestions_acquire_lock(system, LLE_AUTOSUGGESTIONS_LOCK_CACHE);
+    if (result == LLE_SUCCESS) {
+        *suggestion = lle_cache_lookup_suggestion(system->cache_system, input_text, 
+                                                 input_length, context);
+        lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_CACHE);
+        
+        if (*suggestion) {
+            lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_READ);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    // Step 3: Acquire generation lock for suggestion creation
+    result = lle_autosuggestions_acquire_lock(system, LLE_AUTOSUGGESTIONS_LOCK_GENERATION);
+    if (result != LLE_SUCCESS) {
+        lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_READ);
+        return result;
+    }
+    
+    // Step 4: Generate suggestion with all locks held appropriately
+    result = lle_suggestion_core_generate_internal(system->suggestion_core,
+                                                  input_text, input_length,
+                                                  context, suggestion);
+    
+    // Step 5: Release locks in reverse order
+    lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_GENERATION);
+    lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_READ);
+    
+    return result;
+}
+
+// Thread-safe integration coordination with history and completion systems
+lle_result_t lle_autosuggestions_coordinate_integration_thread_safe(
+    lle_autosuggestions_system_t *system,
+    lle_integration_event_t *event) {
+    
+    if (!system || !event) return LLE_ERROR_NULL_PARAMETER;
+    
+    lle_result_t result;
+    
+    // Acquire integration lock for coordination
+    result = lle_autosuggestions_acquire_lock(system, LLE_AUTOSUGGESTIONS_LOCK_INTEGRATION);
+    if (result != LLE_SUCCESS) return result;
+    
+    // Coordinate with history system safely
+    if (system->history_integration && event->type == LLE_EVENT_HISTORY_UPDATE) {
+        result = lle_autosuggestions_handle_history_update_internal(
+            system->history_integration, event);
+    }
+    
+    // Coordinate with completion menu safely  
+    if (system->completion_coordination && event->type == LLE_EVENT_COMPLETION_UPDATE) {
+        result = lle_autosuggestions_handle_completion_update_internal(
+            system->completion_coordination, event);
+    }
+    
+    lle_autosuggestions_release_lock(system, LLE_AUTOSUGGESTIONS_LOCK_INTEGRATION);
+    return result;
+}
+
+// Lock hierarchy documentation for deadlock prevention
+/*
+ * AUTOSUGGESTIONS THREAD SAFETY LOCK HIERARCHY
+ * 
+ * To prevent deadlocks, locks must be acquired in this order:
+ * 1. suggestions_lock (system-wide read/write access)
+ * 2. integration_lock (integration coordination)
+ * 3. generation_mutex (suggestion generation operations)  
+ * 4. cache_mutex (cache operations)
+ * 5. prefetch_mutex (prefetch operations)
+ * 
+ * Locks must be released in reverse order of acquisition.
+ * Never hold multiple write locks simultaneously.
+ * Minimize lock hold time to prevent contention.
+ */
+```
+
+---
+
 ## 11. Memory Management Integration
 
 ### 9.1 Memory Pool Integration

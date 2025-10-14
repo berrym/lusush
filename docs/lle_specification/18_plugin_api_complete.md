@@ -1332,6 +1332,314 @@ lle_result_t lle_plugin_api_select_completion(lle_completion_item_t *item) {
 
 ---
 
+## 17.1 Plugin Loading Order and Dependency Resolution
+
+### 17.1.1 Plugin Dependency System
+
+```c
+// Comprehensive plugin dependency management system
+typedef struct lle_plugin_dependency {
+    char *plugin_name;                                // Name of required plugin
+    char *minimum_version;                            // Minimum required version
+    char *maximum_version;                            // Maximum compatible version  
+    bool is_optional;                                 // Whether dependency is optional
+    lle_plugin_loading_priority_t priority;           // Loading priority level
+} lle_plugin_dependency_t;
+
+typedef struct lle_plugin_dependency_graph {
+    lle_hash_table_t *dependencies;                   // Plugin -> dependency list mapping
+    lle_hash_table_t *dependents;                     // Plugin -> dependent list mapping
+    lle_list_t *loading_order;                        // Computed loading order
+    bool has_circular_dependencies;                   // Circular dependency detection flag
+    char **circular_dependency_path;                  // Path showing circular dependency
+} lle_plugin_dependency_graph_t;
+
+// Plugin loading priority levels for dependency resolution
+typedef enum {
+    LLE_PLUGIN_PRIORITY_CRITICAL = 0,                 // Core system plugins (load first)
+    LLE_PLUGIN_PRIORITY_HIGH = 1,                     // High priority plugins
+    LLE_PLUGIN_PRIORITY_NORMAL = 2,                   // Normal priority plugins  
+    LLE_PLUGIN_PRIORITY_LOW = 3,                      // Low priority plugins
+    LLE_PLUGIN_PRIORITY_OPTIONAL = 4                  // Optional plugins (load last)
+} lle_plugin_loading_priority_t;
+
+// Dependency resolution algorithm implementation
+lle_result_t lle_plugin_resolve_dependencies(lle_plugin_manager_t *manager,
+                                            lle_plugin_list_t *plugins,
+                                            lle_list_t **loading_order) {
+    if (!manager || !plugins || !loading_order) return LLE_ERROR_NULL_PARAMETER;
+    
+    lle_plugin_dependency_graph_t *graph = NULL;
+    lle_result_t result = lle_plugin_build_dependency_graph(plugins, &graph);
+    if (result != LLE_SUCCESS) return result;
+    
+    // Step 1: Detect circular dependencies using DFS
+    result = lle_plugin_detect_circular_dependencies(graph);
+    if (result != LLE_SUCCESS) {
+        lle_plugin_dependency_graph_destroy(graph);
+        return result;
+    }
+    
+    // Step 2: Topological sort with priority ordering
+    result = lle_plugin_topological_sort_with_priorities(graph, loading_order);
+    
+    lle_plugin_dependency_graph_destroy(graph);
+    return result;
+}
+
+// Topological sorting with priority levels
+lle_result_t lle_plugin_topological_sort_with_priorities(
+    lle_plugin_dependency_graph_t *graph,
+    lle_list_t **loading_order) {
+    
+    // Kahn's algorithm modified for priority-based ordering
+    lle_priority_queue_t *ready_queue = lle_priority_queue_create();
+    lle_hash_table_t *in_degree = lle_hash_table_create(32);
+    
+    // Step 1: Calculate in-degrees for all plugins
+    lle_hash_table_iterator_t *iter = lle_hash_table_iterator_create(graph->dependencies);
+    while (lle_hash_table_iterator_has_next(iter)) {
+        const char *plugin_name;
+        lle_plugin_list_t *deps;
+        lle_hash_table_iterator_next(iter, (void**)&plugin_name, (void**)&deps);
+        
+        // Initialize in-degree
+        int *degree = malloc(sizeof(int));
+        *degree = 0;
+        lle_hash_table_insert(in_degree, plugin_name, degree);
+        
+        // Count incoming edges
+        for (size_t i = 0; i < deps->count; i++) {
+            lle_plugin_dependency_t *dep = &deps->dependencies[i];
+            int *dep_degree;
+            if (lle_hash_table_lookup(in_degree, dep->plugin_name, (void**)&dep_degree)) {
+                (*dep_degree)++;
+            }
+        }
+    }
+    
+    // Step 2: Add nodes with zero in-degree to priority queue
+    lle_hash_table_iterator_reset(iter);
+    while (lle_hash_table_iterator_has_next(iter)) {
+        const char *plugin_name;
+        int *degree;
+        lle_hash_table_iterator_next(iter, (void**)&plugin_name, (void**)&degree);
+        
+        if (*degree == 0) {
+            lle_plugin_t *plugin = lle_plugin_manager_get_plugin(manager, plugin_name);
+            if (plugin) {
+                lle_priority_queue_enqueue(ready_queue, plugin, plugin->loading_priority);
+            }
+        }
+    }
+    
+    // Step 3: Process nodes in priority order
+    *loading_order = lle_list_create();
+    while (!lle_priority_queue_is_empty(ready_queue)) {
+        lle_plugin_t *plugin = lle_priority_queue_dequeue(ready_queue);
+        lle_list_append(*loading_order, plugin);
+        
+        // Reduce in-degree of dependent plugins
+        lle_plugin_list_t *dependents;
+        if (lle_hash_table_lookup(graph->dependents, plugin->name, (void**)&dependents)) {
+            for (size_t i = 0; i < dependents->count; i++) {
+                const char *dependent_name = dependents->plugins[i]->name;
+                int *dep_degree;
+                if (lle_hash_table_lookup(in_degree, dependent_name, (void**)&dep_degree)) {
+                    (*dep_degree)--;
+                    if (*dep_degree == 0) {
+                        lle_plugin_t *dep_plugin = lle_plugin_manager_get_plugin(manager, dependent_name);
+                        if (dep_plugin) {
+                            lle_priority_queue_enqueue(ready_queue, dep_plugin, 
+                                                     dep_plugin->loading_priority);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    lle_priority_queue_destroy(ready_queue);
+    lle_hash_table_destroy(in_degree);
+    lle_hash_table_iterator_destroy(iter);
+    
+    return LLE_SUCCESS;
+}
+```
+
+### 17.1.2 Plugin Initialization Sequencing
+
+```c
+// Plugin initialization state tracking
+typedef enum {
+    LLE_PLUGIN_STATE_UNLOADED,                        // Plugin not loaded
+    LLE_PLUGIN_STATE_LOADING,                         // Currently loading
+    LLE_PLUGIN_STATE_LOADED,                          // Loaded but not initialized
+    LLE_PLUGIN_STATE_INITIALIZING,                    // Currently initializing
+    LLE_PLUGIN_STATE_INITIALIZED,                     // Fully initialized and active
+    LLE_PLUGIN_STATE_FAILED,                          // Initialization failed
+    LLE_PLUGIN_STATE_UNLOADING                        // Currently unloading
+} lle_plugin_state_t;
+
+// Sequential plugin initialization with dependency verification
+lle_result_t lle_plugin_initialize_in_order(lle_plugin_manager_t *manager,
+                                           lle_list_t *loading_order) {
+    if (!manager || !loading_order) return LLE_ERROR_NULL_PARAMETER;
+    
+    lle_list_iterator_t *iter = lle_list_iterator_create(loading_order);
+    
+    while (lle_list_iterator_has_next(iter)) {
+        lle_plugin_t *plugin = lle_list_iterator_next(iter);
+        
+        // Step 1: Verify all dependencies are initialized
+        lle_result_t dep_result = lle_plugin_verify_dependencies_initialized(plugin);
+        if (dep_result != LLE_SUCCESS) {
+            plugin->state = LLE_PLUGIN_STATE_FAILED;
+            lle_log_error("Plugin %s: dependency verification failed", plugin->name);
+            continue;
+        }
+        
+        // Step 2: Initialize plugin with timeout
+        plugin->state = LLE_PLUGIN_STATE_INITIALIZING;
+        uint64_t init_start = lle_get_timestamp_microseconds();
+        
+        lle_result_t init_result = lle_plugin_initialize_single(plugin, manager);
+        
+        uint64_t init_duration = lle_get_timestamp_microseconds() - init_start;
+        
+        // Step 3: Update plugin state based on initialization result
+        if (init_result == LLE_SUCCESS) {
+            plugin->state = LLE_PLUGIN_STATE_INITIALIZED;
+            plugin->initialization_time_us = init_duration;
+            lle_log_info("Plugin %s: initialized successfully (%llu μs)", 
+                        plugin->name, init_duration);
+        } else {
+            plugin->state = LLE_PLUGIN_STATE_FAILED;
+            lle_log_error("Plugin %s: initialization failed (%llu μs)", 
+                         plugin->name, init_duration);
+        }
+        
+        // Step 4: Handle initialization timeout
+        if (init_duration > LLE_PLUGIN_INIT_TIMEOUT_MICROSECONDS) {
+            lle_log_warning("Plugin %s: initialization exceeded timeout (%llu μs)", 
+                           plugin->name, init_duration);
+        }
+    }
+    
+    lle_list_iterator_destroy(iter);
+    return LLE_SUCCESS;
+}
+
+// Cleanup sequencing (reverse order of initialization)
+lle_result_t lle_plugin_cleanup_in_reverse_order(lle_plugin_manager_t *manager,
+                                                lle_list_t *loading_order) {
+    if (!manager || !loading_order) return LLE_ERROR_NULL_PARAMETER;
+    
+    // Create reverse iterator for cleanup
+    lle_list_reverse_iterator_t *iter = lle_list_reverse_iterator_create(loading_order);
+    
+    while (lle_list_reverse_iterator_has_next(iter)) {
+        lle_plugin_t *plugin = lle_list_reverse_iterator_next(iter);
+        
+        if (plugin->state == LLE_PLUGIN_STATE_INITIALIZED) {
+            plugin->state = LLE_PLUGIN_STATE_UNLOADING;
+            
+            lle_result_t cleanup_result = lle_plugin_cleanup_single(plugin);
+            
+            if (cleanup_result == LLE_SUCCESS) {
+                plugin->state = LLE_PLUGIN_STATE_UNLOADED;
+            } else {
+                lle_log_error("Plugin %s: cleanup failed", plugin->name);
+            }
+        }
+    }
+    
+    lle_list_reverse_iterator_destroy(iter);
+    return LLE_SUCCESS;
+}
+```
+
+### 17.1.3 Circular Dependency Detection
+
+```c
+// Circular dependency detection using DFS
+typedef struct lle_plugin_dfs_state {
+    lle_hash_table_t *visited;                        // Visited plugin tracking
+    lle_hash_table_t *recursion_stack;                // Current recursion path
+    lle_list_t *circular_path;                        // Detected circular path
+} lle_plugin_dfs_state_t;
+
+lle_result_t lle_plugin_detect_circular_dependencies(lle_plugin_dependency_graph_t *graph) {
+    lle_plugin_dfs_state_t state = {0};
+    state.visited = lle_hash_table_create(64);
+    state.recursion_stack = lle_hash_table_create(64);
+    state.circular_path = lle_list_create();
+    
+    lle_hash_table_iterator_t *iter = lle_hash_table_iterator_create(graph->dependencies);
+    
+    while (lle_hash_table_iterator_has_next(iter)) {
+        const char *plugin_name;
+        lle_plugin_list_t *deps;
+        lle_hash_table_iterator_next(iter, (void**)&plugin_name, (void**)&deps);
+        
+        bool visited;
+        if (!lle_hash_table_lookup(state.visited, plugin_name, (void**)&visited)) {
+            if (lle_plugin_dfs_visit(graph, plugin_name, &state) == LLE_ERROR_CIRCULAR_DEPENDENCY) {
+                // Circular dependency detected
+                graph->has_circular_dependencies = true;
+                graph->circular_dependency_path = lle_list_to_string_array(state.circular_path);
+                
+                lle_hash_table_destroy(state.visited);
+                lle_hash_table_destroy(state.recursion_stack);
+                lle_list_destroy(state.circular_path);
+                lle_hash_table_iterator_destroy(iter);
+                
+                return LLE_ERROR_CIRCULAR_DEPENDENCY;
+            }
+        }
+    }
+    
+    lle_hash_table_destroy(state.visited);
+    lle_hash_table_destroy(state.recursion_stack);
+    lle_list_destroy(state.circular_path);
+    lle_hash_table_iterator_destroy(iter);
+    
+    return LLE_SUCCESS;
+}
+
+/*
+ * PLUGIN LOADING ORDER SPECIFICATION
+ * 
+ * Loading Priority Levels:
+ * 1. CRITICAL (0): Core system plugins - widget system, display integration
+ * 2. HIGH (1): Essential functionality - history management, completion engine
+ * 3. NORMAL (2): Standard features - syntax highlighting, autosuggestions  
+ * 4. LOW (3): Optional enhancements - themes, custom commands
+ * 5. OPTIONAL (4): User customizations - personal scripts, experimental features
+ * 
+ * Dependency Resolution Algorithm:
+ * - Modified Kahn's algorithm with priority-based tie-breaking
+ * - Circular dependency detection using DFS with recursion stack
+ * - Graceful handling of missing optional dependencies
+ * - Timeout protection for plugin initialization (default: 5000μs)
+ * 
+ * Initialization Sequence:
+ * 1. Load all plugin files and validate metadata
+ * 2. Build dependency graph and detect circular dependencies
+ * 3. Compute topological sort with priority ordering
+ * 4. Initialize plugins sequentially with dependency verification
+ * 5. Track initialization times and handle failures gracefully
+ * 
+ * Cleanup Sequence:
+ * 1. Cleanup plugins in reverse order of initialization
+ * 2. Verify no active dependencies before cleanup
+ * 3. Handle cleanup failures without affecting other plugins
+ * 4. Release all resources and update plugin states
+ */
+```
+
+---
+
 ## 18. Performance Requirements
 
 ### 18.1 API Performance Targets
