@@ -511,26 +511,188 @@ typedef struct lle_config_schema {
 // LLE Configuration Integration with Lusush Central Config System
 // 
 // LLE configuration is fully integrated into the main Lusush config system.
-// New fields will be added to config_values_t structure in include/config.h:
-//
-// // LLE (Line Editor) settings  
-// bool lle_enabled;                        // Enable LLE line editor
-// bool lle_syntax_highlighting;            // Enable syntax highlighting  
-// bool lle_autosuggestions;                // Enable autosuggestions
-// bool lle_completion_menu;                // Enable interactive completion menu
-// bool lle_history_editing;                // Enable history editing
-// int lle_history_size;                    // LLE history size
-// bool lle_performance_monitoring;         // Enable performance monitoring
-// bool lle_thread_safety;                  // Enable thread safety features
-// char *lle_theme;                         // LLE theme name
-// char *lle_keybindings;                   // LLE keybinding mode (emacs/vi)
-// bool lle_widget_hooks;                   // Enable widget hooks
-// bool lle_plugin_system;                  // Enable plugin system
-// int lle_buffer_size;                     // Buffer size for LLE
-// bool lle_unicode_support;                // Enable Unicode support
-// bool lle_debug_mode;                     // Enable LLE debug mode
-//
-// These will be added to config_options[] array in src/config.c with CONFIG_SECTION_LLE
+// The following implementation changes are required:
+
+## Implementation Changes Required:
+
+### 1. include/config.h Changes:
+
+Add CONFIG_SECTION_LLE to config_section_t enum:
+```c
+typedef enum {
+    CONFIG_SECTION_NONE,
+    CONFIG_SECTION_HISTORY,
+    CONFIG_SECTION_COMPLETION,
+    CONFIG_SECTION_PROMPT,
+    CONFIG_SECTION_BEHAVIOR,
+    CONFIG_SECTION_ALIASES,
+    CONFIG_SECTION_KEYS,
+    CONFIG_SECTION_NETWORK,
+    CONFIG_SECTION_SCRIPTS,
+    CONFIG_SECTION_SHELL,
+    CONFIG_SECTION_DISPLAY,
+    CONFIG_SECTION_LLE          // Add LLE section
+} config_section_t;
+```
+
+Add LLE fields to config_values_t structure:
+```c
+typedef struct {
+    // ... existing fields ...
+    
+    // LLE (Line Editor) settings
+    bool lle_enabled;                        // Enable LLE line editor
+    bool lle_syntax_highlighting;            // Enable syntax highlighting  
+    bool lle_autosuggestions;                // Enable autosuggestions
+    bool lle_completion_menu;                // Enable interactive completion menu
+    bool lle_history_editing;                // Enable history editing
+    int lle_history_size;                    // LLE history size (default 10000)
+    bool lle_performance_monitoring;         // Enable performance monitoring
+    bool lle_thread_safety;                  // Enable thread safety features
+    char *lle_theme;                         // LLE theme name
+    char *lle_keybindings;                   // LLE keybinding mode (emacs/vi)
+    bool lle_widget_hooks;                   // Enable widget hooks
+    bool lle_plugin_system;                  // Enable plugin system
+    int lle_buffer_size;                     // Buffer size for LLE (default 8192)
+    bool lle_unicode_support;                // Enable Unicode support
+    bool lle_debug_mode;                     // Enable LLE debug mode
+} config_values_t;
+```
+
+### 2. src/config.c Changes:
+
+Add LLE options to config_options[] array before the closing brace:
+```c
+static config_option_t config_options[] = {
+    // ... existing options ...
+    
+    // LLE (Line Editor) settings
+    {"lle.enabled", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_enabled, "Enable LLE line editor", config_validate_bool},
+    {"lle.syntax_highlighting", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_syntax_highlighting, "Enable syntax highlighting", config_validate_bool},
+    {"lle.autosuggestions", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_autosuggestions, "Enable autosuggestions", config_validate_bool},
+    {"lle.completion_menu", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_completion_menu, "Enable interactive completion menu", config_validate_bool},
+    {"lle.history_editing", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_history_editing, "Enable history editing", config_validate_bool},
+    {"lle.history_size", CONFIG_TYPE_INT, CONFIG_SECTION_LLE,
+     &config.lle_history_size, "LLE history size", config_validate_int},
+    {"lle.performance_monitoring", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_performance_monitoring, "Enable performance monitoring", config_validate_bool},
+    {"lle.thread_safety", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_thread_safety, "Enable thread safety features", config_validate_bool},
+    {"lle.theme", CONFIG_TYPE_STRING, CONFIG_SECTION_LLE,
+     &config.lle_theme, "LLE theme name", config_validate_string},
+    {"lle.keybindings", CONFIG_TYPE_STRING, CONFIG_SECTION_LLE,
+     &config.lle_keybindings, "LLE keybinding mode (emacs/vi)", config_validate_string},
+    {"lle.widget_hooks", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_widget_hooks, "Enable widget hooks", config_validate_bool},
+    {"lle.plugin_system", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_plugin_system, "Enable plugin system", config_validate_bool},
+    {"lle.buffer_size", CONFIG_TYPE_INT, CONFIG_SECTION_LLE,
+     &config.lle_buffer_size, "Buffer size for LLE", config_validate_int},
+    {"lle.unicode_support", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_unicode_support, "Enable Unicode support", config_validate_bool},
+    {"lle.debug_mode", CONFIG_TYPE_BOOL, CONFIG_SECTION_LLE,
+     &config.lle_debug_mode, "Enable LLE debug mode", config_validate_bool},
+};
+```
+
+Add LLE section handling in config_show_section() function:
+```c
+void config_show_section(config_section_t section) {
+    // ... existing cases ...
+    
+    case CONFIG_SECTION_LLE:
+        printf("LLE (Line Editor) Settings:\n");
+        break;
+```
+
+Add LLE defaults in config_set_defaults() function:
+```c
+void config_set_defaults(void) {
+    // ... existing defaults ...
+    
+    // LLE defaults
+    config.lle_enabled = false;
+    config.lle_syntax_highlighting = true;
+    config.lle_autosuggestions = true;
+    config.lle_completion_menu = true;
+    config.lle_history_editing = true;
+    config.lle_history_size = 10000;
+    config.lle_performance_monitoring = false;
+    config.lle_thread_safety = true;
+    config.lle_theme = strdup("default");
+    config.lle_keybindings = strdup("emacs");
+    config.lle_widget_hooks = true;
+    config.lle_plugin_system = false;
+    config.lle_buffer_size = 8192;
+    config.lle_unicode_support = true;
+    config.lle_debug_mode = false;
+}
+```
+
+Add LLE section handling in builtin_config() help:
+```c
+void builtin_config(int argc, char **argv) {
+    // ... existing help sections ...
+    
+    } else if (strcmp(argv[2], "lle") == 0) {
+        section = CONFIG_SECTION_LLE;
+```
+
+### 3. Display Builtin Integration:
+
+The existing display builtin (src/builtins/builtin_display.c) must be extended to handle LLE commands.
+Add LLE command parsing in display command handler:
+```c
+int builtin_display(int argc, char **argv) {
+    // Check for LLE subcommands: display lle <command>
+    if (argc >= 2 && strcmp(argv[1], "lle") == 0) {
+        return lle_display_command_handler(argc - 1, argv + 1);
+    }
+    
+    // Original display command handling
+    return original_display_command_handler(argc, argv);
+}
+```
+
+### 4. Theme Builtin Integration:
+
+The existing theme builtin (src/builtins/builtin_theme.c) must be extended to handle LLE commands.
+Add LLE command parsing in theme command handler:
+```c
+int builtin_theme(int argc, char **argv) {
+    // Check for LLE subcommands: theme lle <command>
+    if (argc >= 2 && strcmp(argv[1], "lle") == 0) {
+        return lle_theme_command_handler(argc - 1, argv + 1);
+    }
+    
+    // Original theme command handling
+    return original_theme_command_handler(argc, argv);
+}
+```
+
+### 5. Config System Cleanup:
+
+Add LLE string cleanup in config_cleanup() function:
+```c
+void config_cleanup(void) {
+    // ... existing cleanup ...
+    
+    // LLE string cleanup
+    if (config.lle_theme) {
+        free(config.lle_theme);
+        config.lle_theme = NULL;
+    }
+    if (config.lle_keybindings) {
+        free(config.lle_keybindings);
+        config.lle_keybindings = NULL;
+    }
+}
+```
 
 typedef struct lle_config_integration {
     config_values_t *global_config;          // Reference to main Lusush config
@@ -1186,10 +1348,135 @@ lle_result_t lle_user_interface_initialize(void) {
     
     return LLE_SUCCESS;
 }
-```
 
 ---
 
+## 📋 **DIVISION OF LABOR SPECIFICATION**
+
+### Complete System Integration Responsibilities
+
+This section provides 200% complete specification of the division of labor between display, theme, and config systems for LLE integration, maintaining v1.3.0 behavior patterns.
+
+#### Display System Responsibilities (Functional Control)
+The display builtin handles all LLE **functional operations** - what LLE does, not how it looks:
+
+**System Control:**
+- `display lle enable [--force] [--performance]` - Initialize and activate LLE system
+- `display lle disable [--graceful]` - Deactivate LLE system  
+- `display lle status` - Show LLE operational status and health
+- `display lle restart` - Restart LLE system components
+
+**Feature Control:**
+- `display lle autosuggestions on|off` - Enable/disable autosuggestion functionality
+- `display lle syntax on|off` - Enable/disable syntax highlighting functionality  
+- `display lle completion on|off` - Enable/disable enhanced completion functionality
+- `display lle history on|off` - Enable/disable history editing functionality
+
+**Performance & Diagnostics:**
+- `display lle performance init|report|reset` - Performance monitoring operations
+- `display lle cache status|clear|stats` - Cache management operations
+- `display lle memory usage|pools|optimize` - Memory management operations  
+- `display lle diagnostics` - Run system diagnostics
+- `display lle health` - Show system health status
+- `display lle debug on|off|level <n>` - Control debug output
+
+**Configuration Management:**
+- `display lle config show [key]` - Show current LLE configuration values
+- `display lle config set <key> <value>` - Set LLE configuration (session only)
+- `display lle config reset [key]` - Reset LLE configuration to defaults
+- `display lle config validate` - Validate current configuration
+
+**Keybinding Control:**
+- `display lle keybindings mode emacs|vi` - Set keybinding mode
+- `display lle keybindings list` - List active keybindings  
+- `display lle keybindings test` - Test keybinding functionality
+
+#### Theme System Responsibilities (Visual Control)
+The theme builtin handles all LLE **visual operations** - how LLE looks, not what it does:
+
+**Color Management:**
+- `theme lle colors show [--format=table|json]` - Display current LLE color scheme
+- `theme lle colors list` - List available LLE color schemes
+- `theme lle colors set <scheme>` - Set LLE color scheme
+- `theme lle colors reset` - Reset LLE colors to theme defaults
+- `theme lle colors export <file>` - Export LLE color configuration
+- `theme lle colors import <file>` - Import LLE color configuration
+
+**Syntax Highlighting Visual Control:**
+- `theme lle syntax colors` - Show syntax highlighting color scheme
+- `theme lle syntax customize` - Interactive syntax color customization
+- `theme lle syntax preview [file]` - Preview syntax highlighting
+- `theme lle syntax reset` - Reset syntax colors to theme defaults
+
+**Component Visual Styling:**
+- `theme lle autosuggestions style` - Configure autosuggestion appearance
+- `theme lle cursor style` - Configure cursor visual styling
+- `theme lle selection style` - Configure selection highlighting appearance  
+- `theme lle completion style` - Configure completion menu visual styling
+
+**Theme Integration:**
+- `theme lle status` - Show LLE theme integration status
+- `theme lle sync` - Synchronize LLE colors with current theme
+- `theme lle preview` - Preview all LLE visual features with current theme
+
+#### Config System Responsibilities (Persistence Control)
+The config builtin handles ALL **persistence operations** - making changes permanent:
+
+**Session to Persistent Storage:**
+- `config save` - Save ALL session changes (including LLE) to persistent storage
+- `config reload` - Reload ALL configuration from persistent storage to session
+- `config show lle` - Show current LLE configuration status with persistence info
+
+**LLE Section Management:**
+- `config show lle` displays complete LLE section from config system
+- `config set lle.<key> <value>` directly sets LLE config values
+- `config get lle.<key>` directly gets LLE config values
+
+#### Implementation Integration Points
+
+**Display → Config Integration:**
+```c
+// Display commands update session config and remind about persistence
+config_set_value("lle.autosuggestions", value);  // Updates session
+printf("Use 'config save' to persist changes between sessions\n");
+```
+
+**Theme → Config Integration:**
+```c
+// Theme commands update session config for visual settings
+config_set_value("lle.theme", theme_name);       // Updates session
+config_set_value("lle.syntax_colors", colors);   // Updates session
+printf("Use 'config save' to persist theme changes\n");
+```
+
+**Config System Integration:**
+```c
+// Config commands handle all persistence operations
+if (section == CONFIG_SECTION_LLE) {
+    // Show/save/reload all LLE settings
+    config_save_user();  // Persists all LLE changes made by display/theme
+}
+```
+
+#### User Mental Model
+
+**Session Changes (Immediate Effect):**
+- `display lle syntax on` → Works immediately, lost on shell restart
+- `theme lle colors set dark` → Applied immediately, lost on shell restart
+
+**Persistent Changes (Survive Shell Restart):**
+- After session changes: `config save` → Changes survive shell restart
+- `config reload` → Discards session changes, reloads from persistent storage
+
+This division ensures:
+- **Clear Separation**: Function vs. appearance vs. persistence
+- **No Duplication**: Each responsibility handled by one system
+- **User Clarity**: Obvious which command to use for each type of operation
+- **V1.3.0 Consistency**: Same patterns as existing Lusush systems
+
+---
+
+## 🔍 **COMMAND COMPLETION SYSTEM**
 ## 📋 **DIVISION OF LABOR: SYSTEM INTEGRATION RESPONSIBILITIES**
 
 ### System Responsibilities Matrix
