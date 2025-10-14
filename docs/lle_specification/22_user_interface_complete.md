@@ -218,25 +218,12 @@ int lle_handle_enable_command(int argc, char **argv) {
         return 1;
     }
     
-    // Update configuration using standardized interface with synchronization
-    lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
-    lle_config_sync_manager_t *sync_manager = lle_get_config_sync_manager();
+    // Update session configuration using real Lusush config system
+    // Changes session values only - use 'config save' to persist
+    extern config_values_t config;
+    config.lle_enabled = true;
     
-    if (customization_system && customization_system->config_manager) {
-        bool enabled = true;
-        lle_result_t result = lle_config_manager_set_value(
-            customization_system->config_manager,
-            "lle_enabled",
-            LLE_CONFIG_TYPE_BOOLEAN,
-            &enabled,
-            true  // immediate_save = true
-        );
-        
-        // Update Lusush central config directly
-        if (result == LLE_SUCCESS) {
-            lle_config_set_lle_value("lle.enabled", enabled ? "true" : "false");
-        }
-    }
+    printf("LLE enabled for this session. Use 'config save' to persist.\n");
     
     // Enable performance monitoring if requested
     if (enable_performance) {
@@ -616,28 +603,34 @@ const char* lle_config_get_lle_value(const char *key) {
     return NULL;
 }
 
-// Theme change notification using real Lusush config system
+// Theme change notification using real Lusush config system (v1.3.0 pattern)
 lle_result_t lle_config_on_theme_changed(const char *new_theme_name) {
     if (!new_theme_name) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Use real Lusush config system to set theme
-    lle_result_t result = lle_config_set_lle_value("lle.theme", new_theme_name);
+    // Update session config directly - follows v1.3.0 pattern
+    extern config_values_t config;
+    if (config.lle_theme) {
+        free(config.lle_theme);
+    }
+    config.lle_theme = strdup(new_theme_name);
     
-    return result;
+    return LLE_SUCCESS;
 }
 
-// Display change notification using real Lusush config system
+// Display change notification using real Lusush config system (v1.3.0 pattern)  
 lle_result_t lle_config_on_display_changed(const char *config_key, const char *new_value) {
     if (!config_key || !new_value) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    // Use real Lusush config system to set display option
-    lle_result_t result = lle_config_set_lle_value(config_key, new_value);
+    // Update session config directly using real config_set_value
+    char lle_key[256];
+    snprintf(lle_key, sizeof(lle_key), "lle.%s", config_key);
+    config_set_value(lle_key, new_value);
     
-    return result;
+    return LLE_SUCCESS;
 }
 
 // Save configuration changes using real Lusush config system
@@ -690,9 +683,9 @@ int lle_handle_config_command(int argc, char **argv) {
         printf("LLE Configuration Commands:\n");
         printf("  display lle config show [key]          Show configuration value(s)\n");
         printf("  display lle config set <key> <value>   Set configuration option (session only)\n");
-        printf("  display lle config save                Save changes to persistent storage\n");
-        printf("  display lle config reload              Reload from persistent storage\n");
-        printf("  display lle config status              Show configuration status\n");
+        printf("  config save                            Save changes to persistent storage\n");
+        printf("  config reload                          Reload from persistent storage\n");
+        printf("  config show lle                        Show LLE configuration status\n");
         printf("  display lle config reset [key]         Reset configuration to defaults\n");
         printf("  display lle config validate            Validate current configuration\n");
         printf("  display lle config export <file>       Export configuration to file\n");
@@ -712,11 +705,14 @@ int lle_handle_config_command(int argc, char **argv) {
         }
         return lle_config_set(argv[1], argv[2]);
     } else if (strcmp(action, "save") == 0) {
-        return lle_config_save();
+        printf("Use 'config save' command to persist configuration\n");
+        return 0;
     } else if (strcmp(action, "reload") == 0) {
-        return lle_config_reload();
+        printf("Use 'config reload' command to reload configuration\n");
+        return 0;
     } else if (strcmp(action, "status") == 0) {
-        return lle_config_status();
+        printf("Use 'config show lle' command to see LLE configuration status\n");
+        return 0;
     } else if (strcmp(action, "reset") == 0) {
         const char *key = (argc > 1) ? argv[1] : NULL;
         return lle_config_reset(key);
@@ -862,53 +858,20 @@ int lle_config_reset(const char *key) {
     return 0;
 }
 
-// Set configuration implementation with unified synchronization
+// Set LLE configuration using real Lusush config system (session only)
 int lle_config_set(const char *key, const char *value) {
-    // Get the user customization system config manager
-    lle_user_customization_system_t *customization_system = lle_get_user_customization_system();
-    if (!customization_system || !customization_system->config_manager) {
-        fprintf(stderr, "display lle config set: customization system not initialized\n");
-        return 1;
-    }
-    
-    // Get config integration
-    lle_config_integration_t *config_int = lle_get_config_integration();
-    if (!config_int) {
-        fprintf(stderr, "display lle config set: config integration not initialized\n");
-        return 1;
-    }
-    
-    // Parse value type from string - simplified approach for UI
-    lle_config_value_type_t type = LLE_CONFIG_TYPE_STRING;
-    void *value_data = (void *)value;
-    
-    // For boolean values, convert string to boolean
-    bool bool_value;
-    if (strcmp(value, "true") == 0 || strcmp(value, "false") == 0) {
-        type = LLE_CONFIG_TYPE_BOOLEAN;
-        bool_value = (strcmp(value, "true") == 0);
-        value_data = &bool_value;
-    }
-    
-    // Use real Lusush config system - prefix LLE keys with "lle."
+    // Use real Lusush config_set_value function directly
+    // This follows v1.3.0 pattern: changes session, 'config save' persists
     char lle_key[256];
     snprintf(lle_key, sizeof(lle_key), "lle.%s", key);
     
-    lle_result_t result = lle_config_set_lle_value(lle_key, value);
-    if (result != LLE_SUCCESS) {
-        fprintf(stderr, "display lle config set: failed to update configuration\n");
-        return 1;
-    }
+    config_set_value(lle_key, value);
     
     printf("Configuration updated: %s = %s\n", key, value);
-    
-    // Show persistence reminder
-    if (config_int->has_unsaved_changes) {
-        printf("Note: Use 'config save' to persist changes between sessions\n");
-    }
+    printf("Note: Use 'config save' to persist changes between sessions\n");
     
     // Show effect information if applicable
-    if (strcmp(key, "lle_enabled") == 0) {
+    if (strcmp(key, "enabled") == 0) {
         printf("Note: LLE system will be %s on next shell restart or use 'display lle %s'\n",
                strcmp(value, "true") == 0 ? "enabled" : "disabled",
                strcmp(value, "true") == 0 ? "enable" : "disable");
@@ -917,73 +880,15 @@ int lle_config_set(const char *key, const char *value) {
     return 0;
 }
 
-// Save configuration implementation
-int lle_config_save(void) {
-    lle_config_integration_t *config_int = lle_get_config_integration();
-    if (!config_int) {
-        fprintf(stderr, "display lle config save: config integration not initialized\n");
-        return 1;
-    }
-    
-    if (!config_int->has_unsaved_changes) {
-        printf("No configuration changes to save\n");
-        return 0;
-    }
-    
-    lle_result_t result = lle_config_save_persistent();
-    if (result != LLE_SUCCESS) {
-        fprintf(stderr, "display lle config save: failed to save configuration\n");
-        return 1;
-    }
-    
-    printf("Configuration saved successfully\n");
-    return 0;
-}
-
-// Reload configuration implementation
-int lle_config_reload(void) {
-    lle_config_integration_t *config_int = lle_get_config_integration();
-    if (!config_int) {
-        fprintf(stderr, "display lle config reload: config integration not initialized\n");
-        return 1;
-    }
-    
-    if (config_int->has_unsaved_changes) {
-        printf("Warning: You have unsaved configuration changes that will be lost.\n");
-        printf("Use 'config save' first, or continue with 'config reload --force'\n");
-        return 1;
-    }
-    
-    lle_result_t result = lle_config_reload_from_persistent();
-    if (result != LLE_SUCCESS) {
-        fprintf(stderr, "display lle config reload: failed to reload configuration\n");
-        return 1;
-    }
-    
-    printf("Configuration reloaded from persistent storage\n");
-    return 0;
-}
-
-// Show configuration status implementation
-int lle_config_status(void) {
-    lle_config_integration_t *config_int = lle_get_config_integration();
-    if (!config_int) {
-        fprintf(stderr, "display lle config status: config integration not initialized\n");
-        return 1;
-    }
-    
-    printf("Configuration Status:\n");
-    printf("  Integration: enabled (using Lusush central config)\n");
-    printf("  Unsaved changes: %s\n", config_int->has_unsaved_changes ? "yes" : "no");
-    printf("  Last change: %llu seconds ago\n", 
-           time(NULL) - config_int->last_change_timestamp);
-    
-    if (config_int->has_unsaved_changes) {
-        printf("\nUse 'config save' to persist changes between sessions\n");
-    }
-    
-    return 0;
-}
+// Removed - use real 'config' builtin command instead
+// This follows v1.3.0 coherent synchronization pattern:
+// - display/theme commands: change session values
+// - config command: handles all persistence (save/reload/status)
+//
+// Users should use:
+// - 'config save' to persist session changes
+// - 'config reload' to reload from persistent storage  
+// - 'config show lle' to see current LLE configuration
 
 // Export configuration implementation
 int lle_config_export(const char *filename) {
@@ -1283,7 +1188,21 @@ lle_result_t lle_user_interface_initialize(void) {
 }
 ```
 
-### **Error Handling and Validation**
+---
+
+## 📋 **DIVISION OF LABOR: SYSTEM INTEGRATION RESPONSIBILITIES**
+
+### System Responsibilities Matrix
+
+**Display Builtin (`display lle *`) - Functional Control**:
+- System lifecycle: enable/disable/restart/status
+- Feature toggles: autosuggestions/syntax/completion/history on/off  
+- Performance management: monitoring/cache/memory/diagnostics
+- Configuration: show/set/reset configuration values
+- Keybindings: mode selection and testing
+- **Responsibility**: Functional state management and system control
+- **Config Integration**: Uses `lle_config_set_lle_value()` for functional settings
+- **Does NOT**: Handle visualng and Validation**
 
 ```c
 // Command validation system
