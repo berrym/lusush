@@ -12,6 +12,7 @@ lle_sources = [
   'terminal/capability.c',
   'display/display.c',
   'buffer/buffer.c',
+  'buffer/undo.c',
   'editor/editor.c',
   'history/history.c',
   'fuzzy_matching/fuzzy_matching.c',
@@ -33,6 +34,7 @@ lle_foundation_dep = declare_dependency(
 test_sources = {
   'terminal_unit_test': 'test/terminal_unit_test.c',
   'buffer_test': 'test/buffer_test.c',
+  'undo_test': 'test/undo_test.c',
   'editor_kill_ring_test': 'test/editor_kill_ring_test.c',
   'editor_search_test': 'test/editor_search_test.c',
   'display_scroll_test': 'test/display_scroll_test.c',
@@ -69,4 +71,4 @@ foreach test_name, test_source : tty_test_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library with 7 automated tests + 2 TTY tests (run ./run_tty_tests.sh)')
+message('LLE Foundation: Building library with 8 automated tests + 2 TTY tests (run ./run_tty_tests.sh)')
