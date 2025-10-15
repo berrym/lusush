@@ -30,11 +30,11 @@
 
 // Test set scroll region
 static int test_set_scroll_region(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    int result = lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    int result = lle_display_init(&display, term, 24, 80);
     ASSERT_EQ("Display init", result, LLE_DISPLAY_OK);
     
     // Set scroll region
@@ -49,17 +49,17 @@ static int test_set_scroll_region(void) {
     ASSERT_EQ("Scroll offset", region->scroll_offset, 0);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test invalid scroll region
 static int test_invalid_scroll_region(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Top > bottom
     int result = lle_display_set_scroll_region(&display, 20, 5);
@@ -70,17 +70,17 @@ static int test_invalid_scroll_region(void) {
     ASSERT_EQ("Out of bounds rejected", result, LLE_DISPLAY_ERR_INVALID_REGION);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test clear scroll region
 static int test_clear_scroll_region(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set then clear
     lle_display_set_scroll_region(&display, 5, 20);
@@ -92,17 +92,17 @@ static int test_clear_scroll_region(void) {
     ASSERT_TRUE("Region disabled", !region->enabled);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll up basic
 static int test_scroll_up_basic(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set scroll region (rows 5-10)
     lle_display_set_scroll_region(&display, 5, 10);
@@ -135,17 +135,17 @@ static int test_scroll_up_basic(void) {
     ASSERT_EQ("Scroll offset", region->scroll_offset, 1);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll down basic
 static int test_scroll_down_basic(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set scroll region (rows 5-10)
     lle_display_set_scroll_region(&display, 5, 10);
@@ -174,17 +174,17 @@ static int test_scroll_down_basic(void) {
     ASSERT_EQ("Top cleared", top_cell->codepoint, 0);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll up multiple lines
 static int test_scroll_up_multiple(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set scroll region
     lle_display_set_scroll_region(&display, 0, 9);
@@ -216,17 +216,17 @@ static int test_scroll_up_multiple(void) {
     ASSERT_EQ("Row 9 cleared", cell->codepoint, 0);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll down multiple lines
 static int test_scroll_down_multiple(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set scroll region
     lle_display_set_scroll_region(&display, 0, 9);
@@ -258,17 +258,17 @@ static int test_scroll_down_multiple(void) {
     ASSERT_EQ("Row 2 cleared", cell->codepoint, 0);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll without region enabled
 static int test_scroll_no_region(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Render content
     lle_display_render_line(&display, 0, "Test", 4);
@@ -286,17 +286,17 @@ static int test_scroll_no_region(void) {
     ASSERT_EQ("Content unchanged", cell_after->codepoint, char_before);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll region isolation
 static int test_scroll_region_isolation(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     // Set scroll region (rows 5-10)
     lle_display_set_scroll_region(&display, 5, 10);
@@ -324,17 +324,17 @@ static int test_scroll_region_isolation(void) {
     ASSERT_EQ("Row 11 unchanged", row11_after->codepoint, row11_char);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
 // Test scroll offset tracking
 static int test_scroll_offset_tracking(void) {
-    lle_term_t term;
+    lle_terminal_abstraction_t *term = NULL;
     lle_display_t display;
     
-    lle_term_init(&term, STDIN_FILENO, STDOUT_FILENO);
-    lle_display_init(&display, &term, 24, 80);
+    lle_terminal_abstraction_init(&term, NULL, STDIN_FILENO, STDOUT_FILENO);
+    lle_display_init(&display, term, 24, 80);
     
     lle_display_set_scroll_region(&display, 0, 9);
     
@@ -353,7 +353,7 @@ static int test_scroll_offset_tracking(void) {
     ASSERT_EQ("Offset after scroll down 2", region->scroll_offset, 3);
     
     lle_display_cleanup(&display);
-    lle_term_cleanup(&term);
+    lle_terminal_abstraction_cleanup(term);
     return TEST_PASS;
 }
 
