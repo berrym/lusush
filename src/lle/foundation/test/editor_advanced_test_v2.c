@@ -32,9 +32,9 @@ static int tests_run = 0;
 static int tests_passed = 0;
 
 // Print test result
-static void test_result(const char *test_name, int passed) {
+static void test_result(const char *test_name, int result) {
     tests_run++;
-    if (passed) {
+    if (result == TEST_PASS) {  // TEST_PASS is 0, so check explicitly
         tests_passed++;
         printf("[PASS] %s\n", test_name);
     } else {
@@ -47,23 +47,32 @@ static int test_word_backward(void) {
     lle_editor_t editor;
     int result = lle_editor_init(&editor, STDIN_FILENO, STDOUT_FILENO);
     if (result != LLE_EDITOR_OK) {
-        fprintf(stderr, "  FAIL: Editor init failed with code %d\n", result);
+        fprintf(stderr, "  FAIL: Editor init failed with code %d (LLE_EDITOR_OK=%d)\n", result, LLE_EDITOR_OK);
         fflush(stderr);
         return TEST_FAIL;
     }
     
+    printf("  Inserting 'hello world test' (16 chars)\n");
     lle_editor_insert_string(&editor, "hello world test", 16);
-    
-    lle_editor_move_word_backward(&editor);
     size_t pos = lle_editor_get_cursor_pos(&editor);
+    printf("  After insert, cursor at: %zu\n", pos);
+    
+    printf("  Moving word backward (1st)...\n");
+    lle_editor_move_word_backward(&editor);
+    pos = lle_editor_get_cursor_pos(&editor);
+    printf("  Cursor at: %zu (expected 12)\n", pos);
     ASSERT_EQ("First backward", pos, 12);
     
+    printf("  Moving word backward (2nd)...\n");
     lle_editor_move_word_backward(&editor);
     pos = lle_editor_get_cursor_pos(&editor);
+    printf("  Cursor at: %zu (expected 6)\n", pos);
     ASSERT_EQ("Second backward", pos, 6);
     
+    printf("  Moving word backward (3rd)...\n");
     lle_editor_move_word_backward(&editor);
     pos = lle_editor_get_cursor_pos(&editor);
+    printf("  Cursor at: %zu (expected 0)\n", pos);
     ASSERT_EQ("Third backward", pos, 0);
     
     lle_editor_cleanup(&editor);

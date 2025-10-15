@@ -57,4 +57,4 @@ foreach test_name, test_source : test_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library and 9 test suites (Phase 1 complete, 1 pending history integration)')
+message('LLE Foundation: Building library and 9 test suites (7 automated + 2 TTY-only, 1 pending: history integration)')
