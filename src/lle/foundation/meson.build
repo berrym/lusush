@@ -15,6 +15,7 @@ lle_sources = [
   'buffer/buffer.c',
   'buffer/undo.c',
   'buffer/buffer_manager.c',
+  'buffer/buffer_system.c',
   'input/input_processor.c',
   'editor/editor.c',
   'history/history.c',
@@ -39,6 +40,7 @@ test_sources = {
   'buffer_test': 'test/buffer_test.c',
   'undo_test': 'test/undo_test.c',
   'buffer_manager_test': 'test/buffer_manager_test.c',
+  'buffer_system_test': 'test/buffer_system_test.c',
   'display_buffer_test': 'test/display_buffer_test.c',
   'input_processor_test': 'test/input_processor_test.c',
   'editor_kill_ring_test': 'test/editor_kill_ring_test.c',
@@ -94,4 +96,4 @@ foreach bench_name, bench_source : benchmark_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library with 11 automated tests + 5 TTY tests + 1 benchmark')
+message('LLE Foundation: Building library with 12 automated tests + 5 TTY tests + 1 benchmark')
