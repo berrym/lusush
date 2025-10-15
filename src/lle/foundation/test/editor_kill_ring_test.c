@@ -384,7 +384,7 @@ int main(void) {
         printf("\nAll tests passed!\n");
         return 0;
     } else {
-        printf("\n✗ Some tests failed\n");
+        printf("\nSome tests failed\n");
         return 1;
     }
 }
