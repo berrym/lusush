@@ -51,6 +51,11 @@ tty_test_sources = {
   'editor_advanced_test_tty': 'test/editor_advanced_test_tty.c',
 }
 
+# Benchmark executables (run manually for performance testing)
+benchmark_sources = {
+  'buffer_benchmark': 'test/buffer_benchmark.c',
+}
+
 # Build and register automated tests
 foreach test_name, test_source : test_sources
   test_exe = executable(test_name,
@@ -72,5 +77,14 @@ foreach test_name, test_source : tty_test_sources
             c_args: ['-std=c99', '-Wall', '-Wextra'])
 endforeach
 
+# Build benchmarks (not registered with meson test - run manually)
+foreach bench_name, bench_source : benchmark_sources
+  executable(bench_name,
+            bench_source,
+            link_with: liblle_foundation,
+            include_directories: lle_inc,
+            c_args: ['-std=c99', '-Wall', '-Wextra'])
+endforeach
+
 # Summary message
-message('LLE Foundation: Building library with 9 automated tests + 2 TTY tests (run ./run_tty_tests.sh)')
+message('LLE Foundation: Building library with 9 automated tests + 2 TTY tests + 1 benchmark')
