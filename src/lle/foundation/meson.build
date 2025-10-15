@@ -20,6 +20,7 @@ lle_sources = [
   'input/input_processor.c',
   'editor/editor.c',
   'history/history.c',
+  'history/history_system.c',
   'fuzzy_matching/fuzzy_matching.c',
 ]
 
@@ -49,6 +50,7 @@ test_sources = {
   'editor_search_test': 'test/editor_search_test.c',
   'display_scroll_test': 'test/display_scroll_test.c',
   'history_test': 'test/history_test.c',
+  'history_system_test': 'test/history_system_test.c',
   'fuzzy_matching_test': 'test/test_fuzzy_matching.c',
   # 'editor_history_integration_test': 'test/editor_history_integration_test.c',  # TODO: needs lle_editor_set_history() implementation
 }
@@ -98,4 +100,4 @@ foreach bench_name, bench_source : benchmark_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library with 13 automated tests + 5 TTY tests + 1 benchmark')
+message('LLE Foundation: Building library with 14 automated tests + 5 TTY tests + 1 benchmark')
