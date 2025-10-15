@@ -29,22 +29,25 @@ lle_foundation_dep = declare_dependency(
   include_directories: lle_inc
 )
 
-# Test executables
+# Test executables (automated - no TTY required)
 test_sources = {
-  # Phase 1 tests - all updated for Phase 1 API
   'terminal_unit_test': 'test/terminal_unit_test.c',
   'buffer_test': 'test/buffer_test.c',
-  'editor_test': 'test/editor_test.c',
-  'editor_advanced_test_v2': 'test/editor_advanced_test_v2.c',
   'editor_kill_ring_test': 'test/editor_kill_ring_test.c',
   'editor_search_test': 'test/editor_search_test.c',
   'display_scroll_test': 'test/display_scroll_test.c',
   'history_test': 'test/history_test.c',
-  # 'editor_history_integration_test': 'test/editor_history_integration_test.c',  # TODO: needs lle_editor_set_history() implementation
   'fuzzy_matching_test': 'test/test_fuzzy_matching.c',
+  # 'editor_history_integration_test': 'test/editor_history_integration_test.c',  # TODO: needs lle_editor_set_history() implementation
 }
 
-# Build and register tests
+# TTY-required tests (run manually with run_tty_tests.sh)
+tty_test_sources = {
+  'editor_test_tty': 'test/editor_test_tty.c',
+  'editor_advanced_test_tty': 'test/editor_advanced_test_tty.c',
+}
+
+# Build and register automated tests
 foreach test_name, test_source : test_sources
   test_exe = executable(test_name,
                        test_source,
@@ -56,5 +59,14 @@ foreach test_name, test_source : test_sources
   test(test_name, test_exe, timeout: 30)
 endforeach
 
+# Build TTY-required tests (not registered with meson test - run manually)
+foreach test_name, test_source : tty_test_sources
+  executable(test_name,
+            test_source,
+            link_with: liblle_foundation,
+            include_directories: lle_inc,
+            c_args: ['-std=c99', '-Wall', '-Wextra'])
+endforeach
+
 # Summary message
-message('LLE Foundation: Building library and 9 test suites (7 automated + 2 TTY-only, 1 pending: history integration)')
+message('LLE Foundation: Building library with 7 automated tests + 2 TTY tests (run ./run_tty_tests.sh)')

@@ -381,7 +381,7 @@ int main(void) {
     printf("Tests failed: %d\n", tests_run - tests_passed);
     
     if (tests_passed == tests_run) {
-        printf("\n✓ All tests passed!\n");
+        printf("\nAll tests passed!\n");
         return 0;
     } else {
         printf("\n✗ Some tests failed\n");

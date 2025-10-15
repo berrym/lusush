@@ -1,21 +1,25 @@
 #!/bin/bash
-# Run TTY-dependent tests for manual verification
+# Run TTY-required tests for manual verification
+# These tests require a real interactive terminal and cannot run via meson test
 
 echo "==================================================="
-echo "LLE Phase 1 TTY-Dependent Test Runner"
+echo "LLE Phase 1 TTY-Required Test Runner"
 echo "==================================================="
+echo ""
+echo "NOTE: These tests MUST run in a real terminal (TTY)"
+echo "      They will fail if run via automation/CI"
 echo ""
 
 cd /home/mberry/Lab/c/lusush
 
-echo "Test 1: editor_test"
-echo "-------------------"
-./builddir/src/lle/foundation/editor_test
+echo "Test 1: editor_test_tty (basic editor operations)"
+echo "---------------------------------------------------"
+./builddir/src/lle/foundation/editor_test_tty
 echo ""
 
-echo "Test 2: editor_advanced_test_v2"
-echo "--------------------------------"
-./builddir/src/lle/foundation/editor_advanced_test_v2
+echo "Test 2: editor_advanced_test_tty (word/line operations)"
+echo "--------------------------------------------------------"
+./builddir/src/lle/foundation/editor_advanced_test_tty
 echo ""
 
 echo "==================================================="

@@ -21,13 +21,13 @@ static int tests_passed = 0;
 
 #define PASS() \
         tests_passed++; \
-        printf("✓ PASS\n"); \
+        printf("PASS\n"); \
     } while(0)
 
 #define ASSERT_EQ(expected, actual) \
     do { \
         if ((expected) != (actual)) { \
-            printf("✗ FAIL\n"); \
+            printf("FAIL\n"); \
             printf("  Expected: %d\n", (expected)); \
             printf("  Actual: %d\n", (actual)); \
             return; \
@@ -37,7 +37,7 @@ static int tests_passed = 0;
 #define ASSERT_TRUE(condition) \
     do { \
         if (!(condition)) { \
-            printf("✗ FAIL\n"); \
+            printf("FAIL\n"); \
             printf("  Condition failed: %s\n", #condition); \
             return; \
         } \
@@ -46,7 +46,7 @@ static int tests_passed = 0;
 #define ASSERT_RANGE(value, min, max) \
     do { \
         if ((value) < (min) || (value) > (max)) { \
-            printf("✗ FAIL\n"); \
+            printf("FAIL\n"); \
             printf("  Value %d not in range [%d, %d]\n", (value), (min), (max)); \
             return; \
         } \
@@ -368,10 +368,10 @@ int main(void) {
     printf("Tests failed: %d\n", tests_run - tests_passed);
     
     if (tests_passed == tests_run) {
-        printf("\n✓ ALL TESTS PASSED\n");
+        printf("\nALL TESTS PASSED\n");
         return 0;
     } else {
-        printf("\n✗ SOME TESTS FAILED\n");
+        printf("\nSOME TESTS FAILED\n");
         return 1;
     }
 }
