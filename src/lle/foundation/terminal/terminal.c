@@ -6,8 +6,6 @@
 // CRITICAL: This implements the research-validated "never query terminal" approach
 // Internal state is AUTHORITATIVE - we calculate everything from buffer state
 
-#define _POSIX_C_SOURCE 200809L
-
 #include "terminal.h"
 #include <stdlib.h>
 #include <string.h>

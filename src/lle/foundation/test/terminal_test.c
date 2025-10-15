@@ -2,7 +2,6 @@
 //
 // Comprehensive tests for terminal abstraction layer
 
-#define _POSIX_C_SOURCE 200809L
 #include "../terminal/terminal.h"
 #include <stdio.h>
 #include <stdlib.h>

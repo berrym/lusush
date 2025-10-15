@@ -4,7 +4,6 @@
 //
 // All algorithms extracted from production-tested autocorrect.c
 
-#define _POSIX_C_SOURCE 200809L
 #include "fuzzy_matching.h"
 #include <stdlib.h>
 #include <string.h>

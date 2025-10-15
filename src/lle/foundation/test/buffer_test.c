@@ -2,7 +2,6 @@
 //
 // Comprehensive tests for gap buffer implementation
 
-#define _POSIX_C_SOURCE 200809L
 #include "../buffer/buffer.h"
 #include <stdio.h>
 #include <stdlib.h>

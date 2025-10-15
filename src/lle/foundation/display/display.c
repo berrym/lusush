@@ -64,7 +64,7 @@ static void free_buffer(lle_display_buffer_t *buffer) {
 }
 
 int lle_display_init(lle_display_t *display,
-                     lle_term_t *term,
+                     lle_terminal_abstraction_t *term,
                      uint16_t rows,
                      uint16_t cols) {
     if (!display) {
@@ -571,7 +571,7 @@ int lle_display_flush(lle_display_t *display) {
     // For now, we'll write directly (Phase 2 will integrate with display controller)
     
     char buf[4096];
-    int fd = display->term->output_fd;
+    int fd = display->term->unix_interface->output_fd;
     
     // Move cursor to home
     const char *home = "\x1b[H";

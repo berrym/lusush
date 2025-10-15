@@ -2,7 +2,6 @@
 //
 // Unit tests for terminal abstraction (can run without TTY)
 
-#define _POSIX_C_SOURCE 200809L
 #include "../terminal/terminal.h"
 #include <stdio.h>
 #include <stdlib.h>

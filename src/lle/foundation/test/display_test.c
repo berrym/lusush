@@ -2,7 +2,6 @@
 //
 // Comprehensive tests for display system
 
-#define _POSIX_C_SOURCE 200809L
 #include "../display/display.h"
 #include "../terminal/terminal.h"
 #include <stdio.h>

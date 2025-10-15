@@ -3,7 +3,6 @@
 // Terminal capability detection
 // This runs ONCE at initialization with a timeout to detect terminal features
 
-#define _POSIX_C_SOURCE 200809L
 #include "terminal.h"
 #include <stdlib.h>
 #include <string.h>
