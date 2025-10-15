@@ -11,6 +11,7 @@
 #include "../terminal/terminal.h"
 #include "../display/display.h"
 #include "../buffer/buffer.h"
+#include "../history/history.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -83,12 +84,21 @@ typedef struct {
     bool running;
 } lle_editor_state_t;
 
+// History navigation state
+typedef struct {
+    size_t current_index;       // Current position in history (0 = not navigating)
+    char *saved_line;           // Original line before history navigation
+    size_t saved_line_len;      // Length of saved line
+    bool navigating;            // Currently navigating history
+} lle_history_nav_state_t;
+
 // Main editor context
 typedef struct {
     // Component systems
     lle_term_t term;
     lle_display_t display;
     lle_buffer_t buffer;
+    lle_history_t *history;     // History system (optional, can be NULL)
     
     // Editor state
     lle_editor_state_t state;
@@ -98,6 +108,9 @@ typedef struct {
     
     // Search state
     lle_search_state_t search;
+    
+    // History navigation state
+    lle_history_nav_state_t history_nav;
     
     // Prompt (if any)
     char *prompt;
@@ -228,6 +241,23 @@ int lle_editor_search_accept(lle_editor_t *editor);
 
 // Get current search state (for display/highlighting)
 const lle_search_state_t* lle_editor_get_search_state(const lle_editor_t *editor);
+
+// History operations
+
+// Set history system (optional, can be NULL)
+void lle_editor_set_history(lle_editor_t *editor, lle_history_t *history);
+
+// Navigate to previous history entry (Ctrl-p or Up)
+int lle_editor_history_previous(lle_editor_t *editor);
+
+// Navigate to next history entry (Ctrl-n or Down)
+int lle_editor_history_next(lle_editor_t *editor);
+
+// Accept current line and add to history
+int lle_editor_history_accept_line(lle_editor_t *editor);
+
+// Cancel history navigation and restore original line
+int lle_editor_history_cancel(lle_editor_t *editor);
 
 // Utility: Convert error code to string
 const char* lle_editor_error_string(int error_code);

@@ -1433,6 +1433,209 @@ const lle_search_state_t* lle_editor_get_search_state(const lle_editor_t *editor
     return &editor->search;
 }
 
+// History operations
+
+// Set history system
+void lle_editor_set_history(lle_editor_t *editor, lle_history_t *history) {
+    if (!editor || !editor->initialized) {
+        return;
+    }
+    
+    editor->history = history;
+}
+
+// Navigate to previous history entry
+int lle_editor_history_previous(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // No history system set
+    if (!editor->history) {
+        return LLE_EDITOR_OK;
+    }
+    
+    size_t history_count = lle_history_count(editor->history);
+    if (history_count == 0) {
+        return LLE_EDITOR_OK;  // No history
+    }
+    
+    // First time navigating history - save current line
+    if (!editor->history_nav.navigating) {
+        // Get current buffer contents
+        size_t size = lle_buffer_size(&editor->buffer);
+        if (size > 0) {
+            editor->history_nav.saved_line = malloc(size + 1);
+            if (!editor->history_nav.saved_line) {
+                return LLE_EDITOR_ERR_NOT_INIT;  // Memory allocation failed
+            }
+            
+            lle_buffer_get_contents(&editor->buffer, 
+                                   editor->history_nav.saved_line, 
+                                   size + 1);
+            editor->history_nav.saved_line_len = size;
+        } else {
+            editor->history_nav.saved_line = NULL;
+            editor->history_nav.saved_line_len = 0;
+        }
+        
+        editor->history_nav.navigating = true;
+        editor->history_nav.current_index = 0;
+    } else {
+        // Already navigating, move to older entry
+        if (editor->history_nav.current_index < history_count - 1) {
+            editor->history_nav.current_index++;
+        } else {
+            return LLE_EDITOR_OK;  // At oldest entry
+        }
+    }
+    
+    // Get history entry
+    const lle_history_entry_t *entry = lle_history_get(editor->history, 
+                                                        editor->history_nav.current_index);
+    if (!entry || !entry->line) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Replace buffer contents with history entry
+    lle_buffer_clear(&editor->buffer);
+    lle_buffer_insert_string(&editor->buffer, 0, entry->line, entry->line_len);
+    editor->state.cursor_pos = entry->line_len;
+    editor->state.needs_redraw = true;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Navigate to next history entry
+int lle_editor_history_next(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Not navigating history
+    if (!editor->history_nav.navigating) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // At the newest entry (current line)
+    if (editor->history_nav.current_index == 0) {
+        // Restore original line
+        lle_buffer_clear(&editor->buffer);
+        if (editor->history_nav.saved_line && editor->history_nav.saved_line_len > 0) {
+            lle_buffer_insert_string(&editor->buffer, 0, 
+                                    editor->history_nav.saved_line,
+                                    editor->history_nav.saved_line_len);
+            editor->state.cursor_pos = editor->history_nav.saved_line_len;
+        } else {
+            editor->state.cursor_pos = 0;
+        }
+        
+        // Cleanup navigation state
+        if (editor->history_nav.saved_line) {
+            free(editor->history_nav.saved_line);
+            editor->history_nav.saved_line = NULL;
+        }
+        editor->history_nav.navigating = false;
+        editor->state.needs_redraw = true;
+        
+        return LLE_EDITOR_OK;
+    }
+    
+    // Move to newer entry
+    editor->history_nav.current_index--;
+    
+    // Get history entry
+    const lle_history_entry_t *entry = lle_history_get(editor->history, 
+                                                        editor->history_nav.current_index);
+    if (!entry || !entry->line) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Replace buffer contents with history entry
+    lle_buffer_clear(&editor->buffer);
+    lle_buffer_insert_string(&editor->buffer, 0, entry->line, entry->line_len);
+    editor->state.cursor_pos = entry->line_len;
+    editor->state.needs_redraw = true;
+    
+    return LLE_EDITOR_OK;
+}
+
+// Accept current line and add to history
+int lle_editor_history_accept_line(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Cleanup navigation state if active
+    if (editor->history_nav.navigating) {
+        if (editor->history_nav.saved_line) {
+            free(editor->history_nav.saved_line);
+            editor->history_nav.saved_line = NULL;
+        }
+        editor->history_nav.navigating = false;
+        editor->history_nav.current_index = 0;
+    }
+    
+    // No history system set
+    if (!editor->history) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Get current buffer contents
+    size_t size = lle_buffer_size(&editor->buffer);
+    if (size == 0) {
+        return LLE_EDITOR_OK;  // Don't add empty lines
+    }
+    
+    char *line = malloc(size + 1);
+    if (!line) {
+        return LLE_EDITOR_ERR_NOT_INIT;  // Memory allocation failed
+    }
+    
+    lle_buffer_get_contents(&editor->buffer, line, size + 1);
+    
+    // Add to history
+    lle_history_add(editor->history, line);
+    
+    free(line);
+    
+    return LLE_EDITOR_OK;
+}
+
+// Cancel history navigation and restore original line
+int lle_editor_history_cancel(lle_editor_t *editor) {
+    if (!editor || !editor->initialized) {
+        return LLE_EDITOR_ERR_NOT_INIT;
+    }
+    
+    // Not navigating history
+    if (!editor->history_nav.navigating) {
+        return LLE_EDITOR_OK;
+    }
+    
+    // Restore original line
+    lle_buffer_clear(&editor->buffer);
+    if (editor->history_nav.saved_line && editor->history_nav.saved_line_len > 0) {
+        lle_buffer_insert_string(&editor->buffer, 0, 
+                                editor->history_nav.saved_line,
+                                editor->history_nav.saved_line_len);
+        editor->state.cursor_pos = editor->history_nav.saved_line_len;
+    } else {
+        editor->state.cursor_pos = 0;
+    }
+    
+    // Cleanup navigation state
+    if (editor->history_nav.saved_line) {
+        free(editor->history_nav.saved_line);
+        editor->history_nav.saved_line = NULL;
+    }
+    editor->history_nav.navigating = false;
+    editor->history_nav.current_index = 0;
+    editor->state.needs_redraw = true;
+    
+    return LLE_EDITOR_OK;
+}
+
 const char* lle_editor_error_string(int error_code) {
     switch (error_code) {
         case LLE_EDITOR_OK:
