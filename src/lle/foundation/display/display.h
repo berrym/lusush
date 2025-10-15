@@ -65,6 +65,14 @@ typedef enum {
     LLE_DISPLAY_ERR_NOT_INIT = -5
 } lle_display_error_t;
 
+// Scroll region state
+typedef struct {
+    uint16_t top_row;       // Top row of scroll region (inclusive)
+    uint16_t bottom_row;    // Bottom row of scroll region (inclusive)
+    uint16_t scroll_offset; // Current scroll offset (lines scrolled)
+    bool enabled;           // Is scroll region active
+} lle_scroll_region_t;
+
 // Display context
 typedef struct {
     // Display buffer
@@ -74,6 +82,9 @@ typedef struct {
     uint16_t cursor_row;
     uint16_t cursor_col;
     bool cursor_visible;
+    
+    // Scroll region
+    lle_scroll_region_t scroll_region;
     
     // Terminal reference (for output)
     lle_term_t *term;
@@ -157,6 +168,19 @@ void lle_display_get_cursor(const lle_display_t *display,
                            uint16_t *row,
                            uint16_t *col,
                            bool *visible);
+
+// Scroll region management
+int lle_display_set_scroll_region(lle_display_t *display,
+                                  uint16_t top_row,
+                                  uint16_t bottom_row);
+
+int lle_display_clear_scroll_region(lle_display_t *display);
+
+int lle_display_scroll_up(lle_display_t *display, uint16_t lines);
+
+int lle_display_scroll_down(lle_display_t *display, uint16_t lines);
+
+const lle_scroll_region_t* lle_display_get_scroll_region(const lle_display_t *display);
 
 // Flush display buffer to terminal
 // This is where we actually write to the terminal

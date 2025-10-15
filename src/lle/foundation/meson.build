@@ -35,6 +35,7 @@ test_sources = {
   'editor_advanced_test_v2': 'test/editor_advanced_test_v2.c',
   'editor_kill_ring_test': 'test/editor_kill_ring_test.c',
   'editor_search_test': 'test/editor_search_test.c',
+  'display_scroll_test': 'test/display_scroll_test.c',
 }
 
 # Build and register tests
@@ -50,4 +51,4 @@ foreach test_name, test_source : test_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library and 6 test suites')
+message('LLE Foundation: Building library and 7 test suites')

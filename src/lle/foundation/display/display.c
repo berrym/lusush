@@ -404,6 +404,160 @@ void lle_display_get_cursor(const lle_display_t *display,
     if (visible) *visible = display->cursor_visible;
 }
 
+// Scroll region management
+int lle_display_set_scroll_region(lle_display_t *display,
+                                  uint16_t top_row,
+                                  uint16_t bottom_row) {
+    if (!display || !display->initialized) {
+        return LLE_DISPLAY_ERR_NOT_INIT;
+    }
+    
+    // Validate region bounds
+    if (top_row >= display->buffer.rows ||
+        bottom_row >= display->buffer.rows ||
+        top_row > bottom_row) {
+        return LLE_DISPLAY_ERR_INVALID_REGION;
+    }
+    
+    display->scroll_region.top_row = top_row;
+    display->scroll_region.bottom_row = bottom_row;
+    display->scroll_region.scroll_offset = 0;
+    display->scroll_region.enabled = true;
+    
+    return LLE_DISPLAY_OK;
+}
+
+int lle_display_clear_scroll_region(lle_display_t *display) {
+    if (!display || !display->initialized) {
+        return LLE_DISPLAY_ERR_NOT_INIT;
+    }
+    
+    display->scroll_region.enabled = false;
+    display->scroll_region.top_row = 0;
+    display->scroll_region.bottom_row = 0;
+    display->scroll_region.scroll_offset = 0;
+    
+    return LLE_DISPLAY_OK;
+}
+
+int lle_display_scroll_up(lle_display_t *display, uint16_t lines) {
+    if (!display || !display->initialized) {
+        return LLE_DISPLAY_ERR_NOT_INIT;
+    }
+    
+    if (!display->scroll_region.enabled) {
+        return LLE_DISPLAY_OK;  // No-op if scroll region not enabled
+    }
+    
+    if (lines == 0) {
+        return LLE_DISPLAY_OK;
+    }
+    
+    uint16_t top = display->scroll_region.top_row;
+    uint16_t bottom = display->scroll_region.bottom_row;
+    uint16_t region_height = bottom - top + 1;
+    
+    // Limit scroll to region height
+    if (lines > region_height) {
+        lines = region_height;
+    }
+    
+    // Shift content up within scroll region
+    for (uint16_t row = top; row <= bottom - lines; row++) {
+        size_t dest_idx = (size_t)row * display->buffer.cols;
+        size_t src_idx = (size_t)(row + lines) * display->buffer.cols;
+        
+        memcpy(&display->buffer.cells[dest_idx],
+               &display->buffer.cells[src_idx],
+               display->buffer.cols * sizeof(lle_display_cell_t));
+        
+        display->buffer.dirty_lines[row] = true;
+    }
+    
+    // Clear the newly exposed lines at the bottom
+    for (uint16_t row = bottom - lines + 1; row <= bottom; row++) {
+        for (uint16_t col = 0; col < display->buffer.cols; col++) {
+            size_t idx = (size_t)row * display->buffer.cols + col;
+            display->buffer.cells[idx].codepoint = 0;
+            display->buffer.cells[idx].fg_color = 7;
+            display->buffer.cells[idx].bg_color = 0;
+            display->buffer.cells[idx].attrs = 0;
+        }
+        display->buffer.dirty_lines[row] = true;
+    }
+    
+    // Update scroll offset
+    display->scroll_region.scroll_offset += lines;
+    
+    return LLE_DISPLAY_OK;
+}
+
+int lle_display_scroll_down(lle_display_t *display, uint16_t lines) {
+    if (!display || !display->initialized) {
+        return LLE_DISPLAY_ERR_NOT_INIT;
+    }
+    
+    if (!display->scroll_region.enabled) {
+        return LLE_DISPLAY_OK;  // No-op if scroll region not enabled
+    }
+    
+    if (lines == 0) {
+        return LLE_DISPLAY_OK;
+    }
+    
+    uint16_t top = display->scroll_region.top_row;
+    uint16_t bottom = display->scroll_region.bottom_row;
+    uint16_t region_height = bottom - top + 1;
+    
+    // Limit scroll to region height
+    if (lines > region_height) {
+        lines = region_height;
+    }
+    
+    // Shift content down within scroll region (work backwards to avoid overwriting)
+    for (uint16_t row = bottom; row >= top + lines; row--) {
+        size_t dest_idx = (size_t)row * display->buffer.cols;
+        size_t src_idx = (size_t)(row - lines) * display->buffer.cols;
+        
+        memcpy(&display->buffer.cells[dest_idx],
+               &display->buffer.cells[src_idx],
+               display->buffer.cols * sizeof(lle_display_cell_t));
+        
+        display->buffer.dirty_lines[row] = true;
+        
+        if (row == top + lines) break;  // Avoid underflow
+    }
+    
+    // Clear the newly exposed lines at the top
+    for (uint16_t row = top; row < top + lines; row++) {
+        for (uint16_t col = 0; col < display->buffer.cols; col++) {
+            size_t idx = (size_t)row * display->buffer.cols + col;
+            display->buffer.cells[idx].codepoint = 0;
+            display->buffer.cells[idx].fg_color = 7;
+            display->buffer.cells[idx].bg_color = 0;
+            display->buffer.cells[idx].attrs = 0;
+        }
+        display->buffer.dirty_lines[row] = true;
+    }
+    
+    // Update scroll offset (decrease when scrolling down)
+    if (display->scroll_region.scroll_offset >= lines) {
+        display->scroll_region.scroll_offset -= lines;
+    } else {
+        display->scroll_region.scroll_offset = 0;
+    }
+    
+    return LLE_DISPLAY_OK;
+}
+
+const lle_scroll_region_t* lle_display_get_scroll_region(const lle_display_t *display) {
+    if (!display || !display->initialized) {
+        return NULL;
+    }
+    
+    return &display->scroll_region;
+}
+
 int lle_display_flush(lle_display_t *display) {
     if (!display || !display->initialized) {
         return LLE_DISPLAY_ERR_NOT_INIT;
