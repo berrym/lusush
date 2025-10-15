@@ -69,8 +69,8 @@ int main(void) {
     }
     
     // Init input processor
-    lle_simple_input_processor_t processor;
-    if (lle_simple_input_init(&processor, STDIN_FILENO, &manager, &renderer) != LLE_INPUT_OK) {
+    lle_input_parser_system_t *processor = NULL;
+    if (lle_input_parser_system_init_simple(&processor, STDIN_FILENO, &manager, &renderer) != LLE_INPUT_OK) {
         fprintf(stderr, "Failed to initialize input processor\n");
         lle_display_buffer_cleanup(&renderer);
         lle_display_cleanup(&display);
@@ -79,9 +79,9 @@ int main(void) {
     }
     
     // Enable raw mode
-    if (lle_simple_input_enable_raw_mode(&processor) != LLE_INPUT_OK) {
+    if (lle_input_parser_enable_raw_mode(processor) != LLE_INPUT_OK) {
         fprintf(stderr, "Failed to enable raw mode\n");
-        lle_simple_input_cleanup(&processor);
+        lle_input_parser_system_cleanup(processor);
         lle_display_buffer_cleanup(&renderer);
         lle_display_cleanup(&display);
         lle_buffer_manager_cleanup(&manager);
@@ -92,10 +92,10 @@ int main(void) {
     printf("Debug logs will show on stderr.\n\n");
     
     // Read and process events manually
-    processor.running = true;
-    while (processor.running) {
+    processor->running = true;
+    while (processor->running) {
         lle_key_event_t event;
-        int result = lle_simple_input_read_event(&processor, &event);
+        int result = lle_input_parser_read_event(processor, &event);
         
         if (result == LLE_INPUT_ERR_EOF) {
             printf("\nEOF detected\n");
@@ -111,18 +111,18 @@ int main(void) {
         // Process the event
         if (event.key == LLE_KEY_CTRL_D) {
             printf("\nCtrl+D - exiting\n");
-            processor.running = false;
+            processor->running = false;
             break;
         }
         
         if (event.key == LLE_KEY_CTRL_C) {
             printf("\nCtrl+C - exiting\n");
-            processor.running = false;
+            processor->running = false;
             break;
         }
         
         // Call process_event which has debug logging
-        lle_simple_input_process_event(&processor, &event);
+        lle_input_parser_process_event(processor, &event);
         
         // Show buffer content (using simple text output, no ANSI escapes)
         lle_managed_buffer_t *mbuf = lle_buffer_manager_get_buffer(&manager, buffer_id);
@@ -134,7 +134,7 @@ int main(void) {
     }
     
     // Cleanup
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);

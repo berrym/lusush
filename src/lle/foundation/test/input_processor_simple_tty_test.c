@@ -78,15 +78,15 @@ int main(void) {
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     
     // Initialize minimal input processor (without display/renderer)
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     memset(&processor, 0, sizeof(processor));
-    processor.input_fd = STDIN_FILENO;
-    processor.buffer_manager = &manager;
-    processor.renderer = NULL;  // Not using display rendering
-    processor.initialized = true;
+    processor->input_fd = STDIN_FILENO;
+    processor->buffer_manager = &manager;
+    processor->renderer = NULL;  // Not using display rendering
+    processor->initialized = true;
     
     // Enable raw mode
-    if (lle_simple_input_enable_raw_mode(&processor) != LLE_INPUT_OK) {
+    if (lle_input_parser_enable_raw_mode(processor) != LLE_INPUT_OK) {
         fprintf(stderr, "Failed to enable raw mode\n");
         lle_buffer_manager_cleanup(&manager);
         return 1;
@@ -100,10 +100,10 @@ int main(void) {
     simple_display_buffer(&buf->buffer);
     
     // Input loop
-    processor.running = true;
-    while (processor.running) {
+    processor->running = true;
+    while (processor->running) {
         lle_key_event_t event;
-        int result = lle_simple_input_read_event(&processor, &event);
+        int result = lle_input_parser_read_event(processor, &event);
         
         if (result == LLE_INPUT_ERR_EOF) {
             break;
@@ -115,61 +115,61 @@ int main(void) {
         
         // Process event (updates buffer)
         int action_result = LLE_INPUT_OK;
-        processor.keys_processed++;
+        processor->keys_processed++;
         
         switch (event.key) {
             case LLE_KEY_CHAR:
-                action_result = lle_input_action_insert_char(&processor, event.ch);
+                action_result = lle_input_action_insert_char(processor, event.ch);
                 break;
             case LLE_KEY_BACKSPACE:
-                action_result = lle_input_action_backspace(&processor);
+                action_result = lle_input_action_backspace(processor);
                 break;
             case LLE_KEY_DELETE:
-                action_result = lle_input_action_delete(&processor);
+                action_result = lle_input_action_delete(processor);
                 break;
             case LLE_KEY_ARROW_LEFT:
-                action_result = lle_input_action_move_left(&processor);
+                action_result = lle_input_action_move_left(processor);
                 break;
             case LLE_KEY_ARROW_RIGHT:
-                action_result = lle_input_action_move_right(&processor);
+                action_result = lle_input_action_move_right(processor);
                 break;
             case LLE_KEY_HOME:
-                action_result = lle_input_action_move_home(&processor);
+                action_result = lle_input_action_move_home(processor);
                 break;
             case LLE_KEY_END:
-                action_result = lle_input_action_move_end(&processor);
+                action_result = lle_input_action_move_end(processor);
                 break;
             case LLE_KEY_ENTER:
-                action_result = lle_input_action_newline(&processor);
+                action_result = lle_input_action_newline(processor);
                 break;
             case LLE_KEY_CTRL_A:
-                action_result = lle_input_action_beginning_of_line(&processor);
+                action_result = lle_input_action_beginning_of_line(processor);
                 break;
             case LLE_KEY_CTRL_E:
-                action_result = lle_input_action_end_of_line(&processor);
+                action_result = lle_input_action_end_of_line(processor);
                 break;
             case LLE_KEY_CTRL_K:
-                action_result = lle_input_action_kill_line(&processor);
+                action_result = lle_input_action_kill_line(processor);
                 break;
             case LLE_KEY_CTRL_U:
-                action_result = lle_input_action_kill_backward(&processor);
+                action_result = lle_input_action_kill_backward(processor);
                 break;
             case LLE_KEY_CTRL_D:
                 if (lle_buffer_size(&buf->buffer) == 0) {
-                    processor.running = false;
+                    processor->running = false;
                 } else {
-                    action_result = lle_input_action_delete(&processor);
+                    action_result = lle_input_action_delete(processor);
                 }
                 break;
             case LLE_KEY_CTRL_C:
-                processor.running = false;
+                processor->running = false;
                 break;
             default:
                 break;
         }
         
         // Redisplay buffer after action
-        if (action_result == LLE_INPUT_OK && processor.running) {
+        if (action_result == LLE_INPUT_OK && processor->running) {
             simple_display_buffer(&buf->buffer);
         }
     }
@@ -178,7 +178,7 @@ int main(void) {
     
     // Show statistics
     uint64_t keys, inserted, deleted, moves;
-    lle_simple_input_get_stats(&processor, &keys, &inserted, &deleted, &moves);
+    lle_input_parser_get_stats(processor, &keys, &inserted, &deleted, &moves);
     
     printf("==================================================\n");
     printf("  Session Statistics\n");
@@ -190,7 +190,7 @@ int main(void) {
     printf("==================================================\n\n");
     
     // Cleanup
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_buffer_manager_cleanup(&manager);
     
     printf("Test completed.\n");

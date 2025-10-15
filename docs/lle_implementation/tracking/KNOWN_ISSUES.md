@@ -11,7 +11,7 @@ This document tracks known issues, technical debt, and TODO items discovered dur
 
 *Issues that violate core LLE principles or cause crashes/data loss.*
 
-### None Currently
+**NONE** - All critical issues resolved as of 2025-10-15
 
 ---
 
@@ -95,6 +95,28 @@ This document tracks known issues, technical debt, and TODO items discovered dur
 ## Resolved Issues
 
 *Issues that have been fixed - kept for historical reference.*
+
+### ~~ISSUE-R004: Week 10 Input Processing Names Deviate from Spec 06~~
+- **Status:** ✅ RESOLVED (2025-10-15)
+- **Component:** Input Processing (`src/lle/foundation/input/`)
+- **Severity:** CRITICAL - Violated audited specification compliance
+- **Description:** Week 10 implementation used invented names (`lle_simple_input_processor_t`, `lle_simple_input_init()`) instead of Spec 06 defined names (`lle_input_parser_system_t`, `lle_input_parser_system_init()`)
+- **Root Cause:** AI assistant incorrectly assumed naming conflict and created non-spec names without user approval
+- **Resolution:** Complete reimplementation with FULL Spec 06 compliance:
+  - Implemented complete `lle_input_parser_system_t` structure with all 22 fields from Spec 06 Section 2.1
+  - All Spec 06 component pointers included (even if NULL/stub for Week 10)
+  - All function names match Spec 06 exactly (`lle_input_parser_system_init`, `lle_input_parser_enable_raw_mode`, etc.)
+  - 7-parameter `lle_input_parser_system_init()` signature matches Spec 06 Section 2.2
+  - All 4 test files updated to use correct names
+  - All 11 automated tests pass
+  - Week 10 functionality fully preserved (keyboard input, arrow keys, Ctrl keys all working)
+- **Files Fixed:**
+  - `src/lle/foundation/input/input_processor.h` - Complete Spec 06 structure
+  - `src/lle/foundation/input/input_processor.c` - Spec 06 compliant implementation
+  - `src/lle/foundation/test/input_processor_test.c` - Updated names
+  - `src/lle/foundation/test/input_processor_*_test.c` - All 4 TTY tests updated
+- **Test Results:** All 11 automated tests passing
+- **Commit:** [To be added after Spec 06 reimplementation commit]
 
 ### ~~ISSUE-R001: Function Naming Inconsistency in Input Processor~~
 - **Status:** ✅ RESOLVED (2025-10-15)

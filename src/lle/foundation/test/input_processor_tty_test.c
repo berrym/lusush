@@ -71,7 +71,7 @@ int main(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     memset(&term, 0, sizeof(term));
     memset(&unix_interface, 0, sizeof(unix_interface));
@@ -110,7 +110,7 @@ int main(void) {
     }
     
     // Init input processor
-    if (lle_simple_input_init(&processor, STDIN_FILENO, &manager, &renderer) != LLE_INPUT_OK) {
+    if (lle_input_parser_system_init_simple(&processor, STDIN_FILENO, &manager, &renderer) != LLE_INPUT_OK) {
         fprintf(stderr, "Failed to initialize input processor\n");
         lle_display_buffer_cleanup(&renderer);
         lle_display_cleanup(&display);
@@ -119,9 +119,9 @@ int main(void) {
     }
     
     // Enable raw mode
-    if (lle_simple_input_enable_raw_mode(&processor) != LLE_INPUT_OK) {
+    if (lle_input_parser_enable_raw_mode(processor) != LLE_INPUT_OK) {
         fprintf(stderr, "Failed to enable raw mode\n");
-        lle_simple_input_cleanup(&processor);
+        lle_input_parser_system_cleanup(processor);
         lle_display_buffer_cleanup(&renderer);
         lle_display_cleanup(&display);
         lle_buffer_manager_cleanup(&manager);
@@ -134,11 +134,11 @@ int main(void) {
     printf("(Ctrl+D or Ctrl+C to exit)\n\n");
     
     // Run input loop
-    int result = lle_simple_input_run(&processor);
+    int result = lle_input_parser_run(processor);
     
     // Show statistics
     uint64_t keys, inserted, deleted, moves;
-    lle_simple_input_get_stats(&processor, &keys, &inserted, &deleted, &moves);
+    lle_input_parser_get_stats(processor, &keys, &inserted, &deleted, &moves);
     
     printf("\n\n");
     printf("==================================================\n");
@@ -151,7 +151,7 @@ int main(void) {
     printf("==================================================\n\n");
     
     // Cleanup
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);

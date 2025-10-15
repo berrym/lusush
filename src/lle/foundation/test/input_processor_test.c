@@ -43,7 +43,7 @@ static bool test_init_cleanup(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     
@@ -51,15 +51,15 @@ static bool test_init_cleanup(void) {
     lle_display_init(&display, &test_term, 24, 80);
     lle_display_buffer_init(&renderer, &manager, &display);
     
-    int result = lle_simple_input_init(&processor, 0, &manager, &renderer);
+    int result = lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     assert(result == LLE_INPUT_OK);
-    assert(processor.initialized);
-    assert(processor.buffer_manager == &manager);
-    assert(processor.renderer == &renderer);
-    assert(!processor.raw_mode_enabled);
-    assert(!processor.running);
+    assert(processor->initialized);
+    assert(processor->buffer_manager == &manager);
+    assert(processor->renderer == &renderer);
+    assert(!processor->raw_mode_enabled);
+    assert(!processor->running);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -95,7 +95,7 @@ static bool test_action_insert_char(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -106,20 +106,20 @@ static bool test_action_insert_char(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert some characters
-    lle_input_action_insert_char(&processor, 'H');
-    lle_input_action_insert_char(&processor, 'e');
-    lle_input_action_insert_char(&processor, 'l');
-    lle_input_action_insert_char(&processor, 'l');
-    lle_input_action_insert_char(&processor, 'o');
+    lle_input_action_insert_char(processor, 'H');
+    lle_input_action_insert_char(processor, 'e');
+    lle_input_action_insert_char(processor, 'l');
+    lle_input_action_insert_char(processor, 'l');
+    lle_input_action_insert_char(processor, 'o');
     
     // Check buffer content
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     assert(buf != NULL);
     assert(lle_buffer_size(&buf->buffer) == 5);
-    assert(processor.chars_inserted == 5);
+    assert(processor->chars_inserted == 5);
     
     char content[10] = {0};
     int result = lle_buffer_get_contents(&buf->buffer, content, sizeof(content));
@@ -127,7 +127,7 @@ static bool test_action_insert_char(void) {
     content[5] = '\0';  // Null-terminate after 5 chars
     assert(strcmp(content, "Hello") == 0);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -140,7 +140,7 @@ static bool test_action_backspace(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -150,17 +150,17 @@ static bool test_action_backspace(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert then backspace
-    lle_input_action_insert_char(&processor, 'a');
-    lle_input_action_insert_char(&processor, 'b');
-    lle_input_action_insert_char(&processor, 'c');
-    lle_input_action_backspace(&processor);
+    lle_input_action_insert_char(processor, 'a');
+    lle_input_action_insert_char(processor, 'b');
+    lle_input_action_insert_char(processor, 'c');
+    lle_input_action_backspace(processor);
     
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     assert(lle_buffer_size(&buf->buffer) == 2);
-    assert(processor.chars_deleted == 1);
+    assert(processor->chars_deleted == 1);
     
     char content[10] = {0};
     int result = lle_buffer_get_contents(&buf->buffer, content, sizeof(content));
@@ -168,7 +168,7 @@ static bool test_action_backspace(void) {
     content[2] = '\0';  // Null-terminate after 2 chars
     assert(strcmp(content, "ab") == 0);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -181,7 +181,7 @@ static bool test_action_cursor_movement(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -191,30 +191,30 @@ static bool test_action_cursor_movement(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert "abc"
-    lle_input_action_insert_char(&processor, 'a');
-    lle_input_action_insert_char(&processor, 'b');
-    lle_input_action_insert_char(&processor, 'c');
+    lle_input_action_insert_char(processor, 'a');
+    lle_input_action_insert_char(processor, 'b');
+    lle_input_action_insert_char(processor, 'c');
     
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     assert(buf->buffer.gap_start == 3);  // Cursor at end
     
     // Move left
-    lle_input_action_move_left(&processor);
+    lle_input_action_move_left(processor);
     assert(buf->buffer.gap_start == 2);
     
-    lle_input_action_move_left(&processor);
+    lle_input_action_move_left(processor);
     assert(buf->buffer.gap_start == 1);
     
     // Move right
-    lle_input_action_move_right(&processor);
+    lle_input_action_move_right(processor);
     assert(buf->buffer.gap_start == 2);
     
-    assert(processor.cursor_moves == 3);
+    assert(processor->cursor_moves == 3);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -227,7 +227,7 @@ static bool test_action_home_end(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -237,31 +237,31 @@ static bool test_action_home_end(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert "Hello\nWorld"
-    lle_input_action_insert_char(&processor, 'H');
-    lle_input_action_insert_char(&processor, 'e');
-    lle_input_action_insert_char(&processor, 'l');
-    lle_input_action_insert_char(&processor, 'l');
-    lle_input_action_insert_char(&processor, 'o');
-    lle_input_action_newline(&processor);
-    lle_input_action_insert_char(&processor, 'W');
-    lle_input_action_insert_char(&processor, 'o');
-    lle_input_action_insert_char(&processor, 'r');
+    lle_input_action_insert_char(processor, 'H');
+    lle_input_action_insert_char(processor, 'e');
+    lle_input_action_insert_char(processor, 'l');
+    lle_input_action_insert_char(processor, 'l');
+    lle_input_action_insert_char(processor, 'o');
+    lle_input_action_newline(processor);
+    lle_input_action_insert_char(processor, 'W');
+    lle_input_action_insert_char(processor, 'o');
+    lle_input_action_insert_char(processor, 'r');
     
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     size_t cursor_before_home = buf->buffer.gap_start;
     
     // Home should move to beginning of "World" line
-    lle_input_action_move_home(&processor);
+    lle_input_action_move_home(processor);
     assert(buf->buffer.gap_start == 6);  // After "Hello\n"
     
     // End should move to end of "World" line (where we were)
-    lle_input_action_move_end(&processor);
+    lle_input_action_move_end(processor);
     assert(buf->buffer.gap_start == cursor_before_home);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -274,7 +274,7 @@ static bool test_action_delete(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -284,14 +284,14 @@ static bool test_action_delete(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert "abc", move to middle, delete
-    lle_input_action_insert_char(&processor, 'a');
-    lle_input_action_insert_char(&processor, 'b');
-    lle_input_action_insert_char(&processor, 'c');
-    lle_input_action_move_left(&processor);  // Between 'b' and 'c'
-    lle_input_action_delete(&processor);     // Delete 'c'
+    lle_input_action_insert_char(processor, 'a');
+    lle_input_action_insert_char(processor, 'b');
+    lle_input_action_insert_char(processor, 'c');
+    lle_input_action_move_left(processor);  // Between 'b' and 'c'
+    lle_input_action_delete(processor);     // Delete 'c'
     
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     assert(lle_buffer_size(&buf->buffer) == 2);
@@ -302,7 +302,7 @@ static bool test_action_delete(void) {
     content[2] = '\0';  // Null-terminate after 2 chars
     assert(strcmp(content, "ab") == 0);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -315,7 +315,7 @@ static bool test_action_kill_line(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -325,20 +325,20 @@ static bool test_action_kill_line(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Insert "Hello World", move to middle, kill to end
     const char *text = "Hello World";
     for (const char *p = text; *p; p++) {
-        lle_input_action_insert_char(&processor, *p);
+        lle_input_action_insert_char(processor, *p);
     }
     
     // Move to 'W' (position 6)
     while (lle_buffer_manager_get_current(&manager)->buffer.gap_start > 6) {
-        lle_input_action_move_left(&processor);
+        lle_input_action_move_left(processor);
     }
     
-    lle_input_action_kill_line(&processor);
+    lle_input_action_kill_line(processor);
     
     lle_managed_buffer_t *buf = lle_buffer_manager_get_current(&manager);
     char content[20] = {0};
@@ -347,7 +347,7 @@ static bool test_action_kill_line(void) {
     content[6] = '\0';  // Null-terminate after 6 chars ("Hello ")
     assert(strcmp(content, "Hello ") == 0);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
@@ -360,7 +360,7 @@ static bool test_statistics(void) {
     lle_buffer_manager_t manager;
     lle_display_t display;
     lle_display_buffer_renderer_t renderer;
-    lle_simple_input_processor_t processor;
+    lle_input_parser_system_t *processor = NULL;
     
     setup_test_terminal();
     lle_buffer_manager_init(&manager, 10, 256);
@@ -370,22 +370,22 @@ static bool test_statistics(void) {
     uint32_t buffer_id;
     lle_buffer_manager_create_buffer(&manager, "test", &buffer_id);
     
-    lle_simple_input_init(&processor, 0, &manager, &renderer);
+    lle_input_parser_system_init_simple(&processor, 0, &manager, &renderer);
     
     // Perform various operations
-    lle_input_action_insert_char(&processor, 'a');
-    lle_input_action_insert_char(&processor, 'b');
-    lle_input_action_backspace(&processor);
-    lle_input_action_move_left(&processor);
+    lle_input_action_insert_char(processor, 'a');
+    lle_input_action_insert_char(processor, 'b');
+    lle_input_action_backspace(processor);
+    lle_input_action_move_left(processor);
     
     uint64_t keys, inserted, deleted, moves;
-    lle_simple_input_get_stats(&processor, &keys, &inserted, &deleted, &moves);
+    lle_input_parser_get_stats(processor, &keys, &inserted, &deleted, &moves);
     
     assert(inserted == 2);
     assert(deleted == 1);
     assert(moves == 1);
     
-    lle_simple_input_cleanup(&processor);
+    lle_input_parser_system_cleanup(processor);
     lle_display_buffer_cleanup(&renderer);
     lle_display_cleanup(&display);
     lle_buffer_manager_cleanup(&manager);
