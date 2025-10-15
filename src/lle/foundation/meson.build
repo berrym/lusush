@@ -4,7 +4,7 @@
 # with comprehensive test coverage.
 
 # Include directories for LLE foundation
-lle_inc = include_directories('terminal', 'display', 'buffer', 'editor', 'history', 'fuzzy_matching')
+lle_inc = include_directories('terminal', 'display', 'buffer', 'input', 'editor', 'history', 'fuzzy_matching')
 
 # LLE Foundation source files
 lle_sources = [
@@ -15,6 +15,7 @@ lle_sources = [
   'buffer/buffer.c',
   'buffer/undo.c',
   'buffer/buffer_manager.c',
+  'input/input_processor.c',
   'editor/editor.c',
   'history/history.c',
   'fuzzy_matching/fuzzy_matching.c',
@@ -39,6 +40,7 @@ test_sources = {
   'undo_test': 'test/undo_test.c',
   'buffer_manager_test': 'test/buffer_manager_test.c',
   'display_buffer_test': 'test/display_buffer_test.c',
+  'input_processor_test': 'test/input_processor_test.c',
   'editor_kill_ring_test': 'test/editor_kill_ring_test.c',
   'editor_search_test': 'test/editor_search_test.c',
   'display_scroll_test': 'test/display_scroll_test.c',
@@ -51,6 +53,9 @@ test_sources = {
 tty_test_sources = {
   'editor_test_tty': 'test/editor_test_tty.c',
   'editor_advanced_test_tty': 'test/editor_advanced_test_tty.c',
+  'input_processor_tty_test': 'test/input_processor_tty_test.c',
+  'input_processor_simple_tty_test': 'test/input_processor_simple_tty_test.c',
+  'input_processor_minimal_test': 'test/input_processor_minimal_test.c',
 }
 
 # Benchmark executables (run manually for performance testing)
@@ -89,4 +94,4 @@ foreach bench_name, bench_source : benchmark_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library with 10 automated tests + 2 TTY tests + 1 benchmark')
+message('LLE Foundation: Building library with 11 automated tests + 5 TTY tests + 1 benchmark')

@@ -1,9 +1,33 @@
 # LLE Implementation Timeline
 
 **Document Status**: Living Document  
-**Version**: 1.0.0  
-**Last Updated**: 2025-10-14  
+**Version**: 1.1.0  
+**Last Updated**: 2025-10-15  
 **Authority Level**: Tactical (Implementation Schedule)
+
+---
+
+## Revision History
+
+### Version 1.1.0 (2025-10-15)
+**Revised Phase 1 Months 2-3 to reflect actual implementation:**
+
+**Month 2 (Weeks 9-12):** Renamed from "Basic Line Editing" to "Display Integration & Input Processing"
+- Week 9: Changed from "Character Operations" to "Display Integration" (✅ completed)
+- Week 10: Changed from "Kill Ring" to "Input Processing" (🔄 in progress)
+- Week 11: Changed from "Search" to "Syntax Highlighting" (planned)
+- Week 12: Changed from "Testing & Integration" to "History Management" (planned)
+
+**Month 3 (Weeks 13-16):** Renamed from "Display System Integration" to "Advanced Line Editing"
+- Moved character operations, kill ring, and search from original Month 2 to Month 3
+- Kept multi-line editing and prompt system in Month 3
+- Removed duplicate syntax highlighting (now in Month 2 Week 11)
+- Removed preview system (deferred to later phase)
+
+**Rationale**: Actual implementation prioritized establishing the complete input→buffer→display flow (Weeks 9-10) before implementing character-level editing operations. Display integration and syntax highlighting were brought forward, while character operations and kill ring were deferred to Month 3.
+
+### Version 1.0.0 (2025-10-14)
+Initial timeline based on strategic planning.
 
 ---
 
@@ -184,57 +208,65 @@
 - [ ] Memory leak testing
 - [ ] API documentation
 
-### Month 2: Basic Line Editing (Weeks 9-12)
+### Month 2: Display Integration & Input Processing (Weeks 9-12)
 
-**Week 9: Character Operations**
-- [ ] Character insertion/deletion
-- [ ] Cursor movement (char, word, line)
-- [ ] Beginning/end navigation
-- [ ] Transpose operations
+**Week 9: Display Integration** ✅ COMPLETE
+- [x] Display buffer renderer implementation
+- [x] Buffer-to-display coordinate mapping
+- [x] Multi-line rendering support
+- [x] Cursor position tracking
+- [x] Re-render optimization
+- [x] Integration with buffer manager
+- [x] 10 automated tests passing
 
-**Week 10: Kill Ring**
-- [ ] Kill/yank implementation
-- [ ] Kill ring cycling
-- [ ] Append to last kill
-- [ ] Kill ring size management
+**Week 10: Input Processing** 🔄 IN PROGRESS
+- [ ] Escape sequence parser (arrow keys, Home/End, Page Up/Down)
+- [ ] Ctrl key detection and handling
+- [ ] Raw terminal mode management
+- [ ] Input event processing
+- [ ] Action handlers (insert, delete, move)
+- [ ] Input→buffer→display integration
+- [ ] Interactive TTY testing
 
-**Week 11: Search**
-- [ ] Incremental forward search
-- [ ] Incremental backward search
-- [ ] Search history
-- [ ] Case-insensitive search
-
-**Week 12: Testing & Integration**
-- [ ] Interactive testing
-- [ ] Integration with buffer system
-- [ ] Performance validation
-- [ ] User testing
-
-### Month 3: Display System Integration (Weeks 13-16)
-
-**Week 13: Multi-line Editing**
-- [ ] Line wrapping logic
-- [ ] Scroll region management
-- [ ] Cursor position calculation
-- [ ] Screen update optimization
-
-**Week 14: Syntax Highlighting**
+**Week 11: Syntax Highlighting**
 - [ ] Highlighting hook system
 - [ ] Token-based highlighting
 - [ ] Real-time updates
 - [ ] Performance optimization
 
-**Week 15: Prompt System**
+**Week 12: History Management**
+- [ ] History storage and retrieval
+- [ ] History search (Ctrl-R)
+- [ ] History navigation
+- [ ] Persistent history across sessions
+
+### Month 3: Advanced Line Editing (Weeks 13-16)
+
+**Week 13: Character Operations & Kill Ring**
+- [ ] Character insertion/deletion
+- [ ] Cursor movement (char, word, line)
+- [ ] Kill/yank implementation
+- [ ] Kill ring cycling
+- [ ] Beginning/end navigation
+
+**Week 14: Search & Replace**
+- [ ] Incremental forward search
+- [ ] Incremental backward search
+- [ ] Search history
+- [ ] Case-insensitive search
+- [ ] Basic replace functionality
+
+**Week 15: Multi-line Editing**
+- [ ] Line wrapping logic
+- [ ] Scroll region management
+- [ ] Multi-line cursor movement
+- [ ] Screen update optimization
+
+**Week 16: Prompt System**
 - [ ] Prompt rendering
 - [ ] Prompt expansion (PS1, PS2)
 - [ ] Multi-line prompts
 - [ ] Dynamic prompts
-
-**Week 16: Preview System**
-- [ ] Real-time preview hooks
-- [ ] Command validation preview
-- [ ] Syntax error highlighting
-- [ ] Preview rendering
 
 ### Month 4: History System (Weeks 17-20)
 
