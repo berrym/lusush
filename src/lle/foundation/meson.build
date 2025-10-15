@@ -4,7 +4,7 @@
 # with comprehensive test coverage.
 
 # Include directories for LLE foundation
-lle_inc = include_directories('terminal', 'display', 'buffer', 'editor', 'history')
+lle_inc = include_directories('terminal', 'display', 'buffer', 'editor', 'history', 'fuzzy_matching')
 
 # LLE Foundation source files
 lle_sources = [
@@ -14,6 +14,7 @@ lle_sources = [
   'buffer/buffer.c',
   'editor/editor.c',
   'history/history.c',
+  'fuzzy_matching/fuzzy_matching.c',
 ]
 
 # Build LLE foundation as a static library
@@ -39,6 +40,7 @@ test_sources = {
   'display_scroll_test': 'test/display_scroll_test.c',
   'history_test': 'test/history_test.c',
   'editor_history_integration_test': 'test/editor_history_integration_test.c',
+  'fuzzy_matching_test': 'test/test_fuzzy_matching.c',
 }
 
 # Build and register tests
@@ -54,4 +56,4 @@ foreach test_name, test_source : test_sources
 endforeach
 
 # Summary message
-message('LLE Foundation: Building library and 9 test suites')
+message('LLE Foundation: Building library and 10 test suites')
