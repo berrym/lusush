@@ -87,7 +87,7 @@ typedef struct {
     lle_scroll_region_t scroll_region;
     
     // Terminal reference (for output)
-    lle_term_t *term;
+    lle_terminal_abstraction_t *term;
     
     // Display system integration (Phase 1: will connect to actual display controller)
     void *display_controller;    // Opaque display system reference
@@ -107,7 +107,7 @@ typedef struct {
 
 // Initialize display system
 int lle_display_init(lle_display_t *display,
-                     lle_term_t *term,
+                     lle_terminal_abstraction_t *term,
                      uint16_t rows,
                      uint16_t cols);
 

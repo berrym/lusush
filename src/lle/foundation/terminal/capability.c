@@ -3,6 +3,7 @@
 // Terminal capability detection
 // This runs ONCE at initialization with a timeout to detect terminal features
 
+#define _POSIX_C_SOURCE 200809L
 #include "terminal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -61,9 +62,9 @@ static lle_term_type_t detect_term_type(void) {
     } else if (strstr(term_env, "konsole")) {
         return LLE_TERM_TYPE_KONSOLE;
     } else if (strstr(term_env, "gnome")) {
-        return LLE_TERM_TYPE_GNOME;
+        return LLE_TERM_TYPE_GNOME_TERMINAL;
     } else if (strstr(term_env, "xterm-256")) {
-        return LLE_TERM_TYPE_XTERM_256;
+        return LLE_TERM_TYPE_XTERM_256COLOR;
     } else if (strstr(term_env, "xterm")) {
         return LLE_TERM_TYPE_XTERM;
     } else if (strstr(term_env, "rxvt")) {
@@ -80,7 +81,7 @@ static lle_term_type_t detect_term_type(void) {
 }
 
 // Detect color support from TERM and COLORTERM
-static void detect_color_support(lle_term_capabilities_t *caps) {
+static void detect_color_support(lle_terminal_capabilities_t *caps) {
     const char *term_env = getenv("TERM");
     const char *colorterm_env = getenv("COLORTERM");
     
@@ -132,11 +133,11 @@ static bool detect_unicode_support(void) {
 }
 
 // Detect text attributes support
-static void detect_text_attributes(lle_term_capabilities_t *caps) {
+static void detect_text_attributes(lle_terminal_capabilities_t *caps) {
     // Most modern terminals support these
     // We use conservative defaults based on terminal type
     
-    switch (caps->type) {
+    switch (caps->terminal_type) {
         case LLE_TERM_TYPE_VT100:
             caps->has_bold = true;
             caps->has_underline = true;
@@ -144,9 +145,9 @@ static void detect_text_attributes(lle_term_capabilities_t *caps) {
             break;
             
         case LLE_TERM_TYPE_XTERM:
-        case LLE_TERM_TYPE_XTERM_256:
+        case LLE_TERM_TYPE_XTERM_256COLOR:
         case LLE_TERM_TYPE_KONSOLE:
-        case LLE_TERM_TYPE_GNOME:
+        case LLE_TERM_TYPE_GNOME_TERMINAL:
         case LLE_TERM_TYPE_ALACRITTY:
         case LLE_TERM_TYPE_KITTY:
             caps->has_bold = true;
@@ -172,14 +173,14 @@ static void detect_text_attributes(lle_term_capabilities_t *caps) {
 }
 
 // Detect interactive features (mouse, bracketed paste, focus events)
-static void detect_interactive_features(lle_term_capabilities_t *caps) {
+static void detect_interactive_features(lle_terminal_capabilities_t *caps) {
     // Modern terminals typically support these features
     
-    switch (caps->type) {
+    switch (caps->terminal_type) {
         case LLE_TERM_TYPE_XTERM:
-        case LLE_TERM_TYPE_XTERM_256:
+        case LLE_TERM_TYPE_XTERM_256COLOR:
         case LLE_TERM_TYPE_KONSOLE:
-        case LLE_TERM_TYPE_GNOME:
+        case LLE_TERM_TYPE_GNOME_TERMINAL:
         case LLE_TERM_TYPE_ALACRITTY:
         case LLE_TERM_TYPE_KITTY:
         case LLE_TERM_TYPE_RXVT:
@@ -213,60 +214,90 @@ static void detect_interactive_features(lle_term_capabilities_t *caps) {
 }
 
 // Main capability detection function
-int lle_term_detect_capabilities(lle_term_t *term, uint32_t timeout_ms) {
-    if (!term) {
-        return LLE_TERM_ERR_NULL_PTR;
+lle_result_t lle_capabilities_detect_environment(lle_terminal_capabilities_t **caps_out,
+                                                 const lle_unix_interface_t *unix_iface) {
+    if (!caps_out || !unix_iface) {
+        return LLE_ERROR_NULL_POINTER;
     }
     
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
     
+    // Allocate capabilities structure
+    lle_terminal_capabilities_t *caps = malloc(sizeof(lle_terminal_capabilities_t));
+    if (!caps) {
+        return LLE_ERROR_MEMORY_ALLOCATION;
+    }
+    
     // Initialize capabilities structure
-    memset(&term->caps, 0, sizeof(term->caps));
+    memset(caps, 0, sizeof(*caps));
     
     // Detect terminal type from environment
-    term->caps.type = detect_term_type();
+    caps->terminal_type = detect_term_type();
+    
+    // Store environment variables
+    const char *term_env = getenv("TERM");
+    const char *colorterm_env = getenv("COLORTERM");
+    if (term_env) {
+        strncpy(caps->term_env, term_env, sizeof(caps->term_env) - 1);
+    }
+    if (colorterm_env) {
+        strncpy(caps->colorterm_env, colorterm_env, sizeof(caps->colorterm_env) - 1);
+    }
     
     // Detect color support
-    detect_color_support(&term->caps);
+    detect_color_support(caps);
     
     // Detect Unicode support
-    term->caps.has_unicode = detect_unicode_support();
+    caps->has_unicode = detect_unicode_support();
     
     // Detect text attributes
-    detect_text_attributes(&term->caps);
+    detect_text_attributes(caps);
     
     // Detect interactive features
-    detect_interactive_features(&term->caps);
+    detect_interactive_features(caps);
     
     // Optionally query terminal for device attributes (DA1)
     // This is the ONLY time we query terminal, with strict timeout
+    // Note: unix_iface provides the file descriptor
     char response[256];
     int query_result = query_terminal_with_timeout(
-        term->input_fd,
+        unix_iface->output_fd,
         "\x1b[c",  // Device Attributes query
         response,
         sizeof(response),
-        timeout_ms
+        100  // 100ms timeout
     );
     
     if (query_result > 0) {
         // Successfully got response - terminal is responsive
-        term->caps.detection_successful = true;
-        term->caps.detection_timed_out = false;
+        caps->detection_successful = true;
         
         // Parse response for additional capabilities if needed
         // For now, we rely on environment-based detection
     } else {
         // Query timed out or failed - not critical, we have environment data
-        term->caps.detection_successful = false;
-        term->caps.detection_timed_out = (query_result == -1);
+        caps->detection_successful = false;
     }
     
     clock_gettime(CLOCK_MONOTONIC, &end);
-    term->caps.detection_time_ms = 
+    caps->detection_time_ms = 
         (uint32_t)((end.tv_sec - start.tv_sec) * 1000 +
                    (end.tv_nsec - start.tv_nsec) / 1000000);
     
-    return LLE_TERM_OK;
+    caps->detection_complete = true;
+    
+    // Set alternate screen support based on terminal type
+    caps->has_alternate_screen = (caps->terminal_type != LLE_TERM_TYPE_VT100 &&
+                                   caps->terminal_type != LLE_TERM_TYPE_UNKNOWN);
+    
+    *caps_out = caps;
+    return LLE_SUCCESS;
+}
+
+// Cleanup capabilities structure
+void lle_capabilities_destroy(lle_terminal_capabilities_t *caps) {
+    if (caps) {
+        free(caps);
+    }
 }

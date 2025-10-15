@@ -95,7 +95,7 @@ typedef struct {
 // Main editor context
 typedef struct {
     // Component systems
-    lle_term_t term;
+    lle_terminal_abstraction_t *term;
     lle_display_t display;
     lle_buffer_t buffer;
     lle_history_t *history;     // History system (optional, can be NULL)
