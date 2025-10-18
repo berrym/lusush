@@ -652,6 +652,15 @@ int main(void) {
 - [ ] Integration tests passing
 - [ ] User workflow tested end-to-end
 
+### Architectural Compliance (CRITICAL - Added 2025-10-17)
+- [ ] **Compliance check passes** (`./scripts/lle_architectural_compliance_check.sh`)
+- [ ] **No direct terminal writes** (grep verified)
+- [ ] **No escape sequences** in LLE code (grep verified)
+- [ ] **Display system integration** verified (not NULL, actually used)
+- [ ] **Follows specification patterns** exactly (reviewed against spec)
+- [ ] **No prohibited patterns** (see architectural review checklist)
+- [ ] **Required patterns present** (display controller, composition engine, etc.)
+
 ### Quality
 - [ ] No compiler warnings
 - [ ] Static analysis clean

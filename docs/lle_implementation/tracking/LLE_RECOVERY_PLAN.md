@@ -107,22 +107,28 @@ Following manual testing and comprehensive code audit, critical discrepancies be
 **BLOCKER-001: Fix Display Overflow Bug** (Week 2, Days 1-3)
 - **Current**: Cursor wraps to top when content exceeds terminal
 - **Target**: Proper scrolling and bounds checking
+- **ROOT CAUSE**: Architectural violation - direct terminal control instead of display system integration
 - **Validation**: Manual test - type command longer than terminal height
 - **Deliverables**:
-  - Fix display flush scrolling logic
-  - Implement proper scroll region management
-  - Add terminal bounds checking
+  - **REWRITE display flush following Spec 08** (see CORRECT_DISPLAY_IMPLEMENTATION.md)
+  - Implement proper display system integration
+  - Route all rendering through Lusush display controller
+  - Remove all direct terminal writes
+  - Remove all escape sequences
+  - Architectural compliance check must pass
   - Manual test protocol document
   - Video recording of working scroll behavior
 
 **BLOCKER-003: Fix Syntax Highlighting Rendering** (Week 2, Days 4-5)
 - **Current**: Colors stored but not rendered
-- **Target**: ANSI color codes in terminal output
+- **Target**: Colors rendered through display system
+- **ROOT CAUSE**: Architectural violation - bypasses display system color support
 - **Validation**: Manual test - see colored syntax in terminal
 - **Deliverables**:
-  - Generate ANSI color escape sequences in flush
-  - Apply fg_color and bg_color to output
-  - Handle text attributes (bold, underline, etc.)
+  - Integrate syntax attributes with display integration
+  - Pass color data to command layer
+  - Display system generates color codes (NOT LLE)
+  - Architectural compliance check must pass
   - Manual test with multiple color schemes
   - Screenshot evidence of working colors
 
@@ -269,6 +275,119 @@ Before marking ANY feature "complete":
 - Roadmap adjustment if needed
 
 ---
+
+## Architectural Compliance Safeguards
+
+### Automated Compliance Checks
+
+**Script**: `scripts/lle_architectural_compliance_check.sh`
+
+This script MUST pass before any LLE code is considered complete.
+
+**Checks Performed**:
+1. No direct terminal writes in display code
+2. No ANSI escape sequences in LLE code  
+3. Display controller integration present (not NULL)
+4. No terminal control bypassing abstraction layer
+5. Display system API usage verification
+6. Lusush display integration points present
+7. Spec 08 required structures exist
+
+**Usage**:
+```bash
+# Run manually
+./scripts/lle_architectural_compliance_check.sh
+
+# Automatically runs on commit (if hook installed)
+git commit
+```
+
+**Installation**:
+```bash
+# Install pre-commit hook
+ln -s ../../scripts/pre-commit-lle-compliance .git/hooks/pre-commit
+```
+
+**Policy**: 
+- MUST pass before marking code complete
+- MUST pass before committing LLE code
+- Zero tolerance for violations
+
+### Correct Implementation Reference
+
+**Document**: `docs/lle_implementation/CORRECT_DISPLAY_IMPLEMENTATION.md`
+
+Complete reference implementation showing:
+- Proper display integration structure
+- Correct rendering through display system
+- Syntax highlighting integration
+- What to do and what NOT to do
+
+**Required Reading**: Before implementing ANY display-related code
+
+### Specification Compliance Review
+
+**Before Implementing**:
+1. Read relevant specification (e.g., Spec 08 for display)
+2. Read CORRECT_DISPLAY_IMPLEMENTATION.md
+3. Understand integration requirements
+4. Plan implementation following spec patterns
+
+**During Implementation**:
+1. Follow spec patterns exactly
+2. No "temporary" or "for now" code
+3. No prototype code marked as complete
+4. Integration from the start, not "Phase 2"
+
+**After Implementation**:
+1. Run compliance check (must pass)
+2. Manual code review against spec
+3. Verify no prohibited patterns
+4. Check architectural traceability
+
+### Architectural Review Checklist
+
+Before marking display code complete:
+
+**Prohibited Patterns** (Must be ABSENT):
+- [ ] No `write()` calls to terminal fd
+- [ ] No escape sequences (`\x1b`, `\033`, `\e[`)
+- [ ] No `sprintf`/`snprintf` of escape codes
+- [ ] No direct terminal struct access for I/O
+- [ ] No `printf`/`fprintf` to stdout
+- [ ] No hardcoded terminal control sequences
+
+**Required Patterns** (Must be PRESENT):
+- [ ] Display integration structure exists and used
+- [ ] Display controller reference exists and NOT NULL
+- [ ] Rendering through command layer
+- [ ] Composition engine called for updates
+- [ ] Proper error handling
+- [ ] Memory pool usage (not raw malloc)
+
+**Integration Verification**:
+- [ ] Can trace rendering path through display system
+- [ ] No direct terminal I/O in path
+- [ ] Display controller APIs called
+- [ ] Composition engine coordinating output
+- [ ] Terminal writes ONLY in display controller code
+
+### Prevention Measures
+
+**Why This Happened**:
+1. Prototype code written to make tests pass
+2. Never replaced with proper implementation
+3. No architectural compliance checking
+4. No code review against specifications
+5. Tests validated state, not architecture
+
+**How We Prevent It**:
+1. ✅ Automated compliance checks (created)
+2. ✅ Pre-commit hook blocks violations (created)
+3. ✅ Correct implementation reference (created)
+4. ✅ Architectural violation analysis (documented)
+5. ⏳ Quality gates require compliance (in progress)
+6. ⏳ Specification traceability matrix (planned)
 
 ## Critical Success Factors
 

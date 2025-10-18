@@ -12,6 +12,8 @@ Following manual testing by the project owner, **critical discrepancies** have b
 
 **CRITICAL FINDING**: LLE is currently **NOT INTEGRATED** into the Lusush shell and has **CRITICAL BUGS** that make it unusable even in isolation. All "Complete" claims in the handoff document require downgrading.
 
+**ARCHITECTURAL VIOLATION DISCOVERED**: The display implementation contains **fundamental violations** of the LLE design architecture. Code was written with direct terminal control instead of routing through Lusush display system as specified. See `DESIGN_VIOLATION_ANALYSIS.md` for complete analysis.
+
 ---
 
 ## BLOCKER Issues (Must Fix Before Any Further Development)
