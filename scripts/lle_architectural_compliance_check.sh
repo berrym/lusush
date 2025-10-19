@@ -51,7 +51,18 @@ report_pass() {
     ((CHECKS++))
 }
 
-echo "Checking LLE source directory: src/lle/foundation/"
+echo "Checking LLE source directory: src/lle/"
+echo ""
+
+# Check if src/lle exists and has files
+if [ ! -d "src/lle" ]; then
+    echo "ERROR: src/lle/ directory not found"
+    exit 1
+fi
+
+# Count source files
+SOURCE_FILES=$(find src/lle -name "*.c" 2>/dev/null | wc -l)
+echo "Found $SOURCE_FILES LLE source files"
 echo ""
 
 # ============================================================================
@@ -63,7 +74,7 @@ echo ""
 
 # CHECK 1: No direct terminal writes in display code
 echo "Check 1: No direct terminal writes in display code..."
-if grep -r "write\s*([^,]*fd" src/lle/foundation/display/*.c 2>/dev/null | grep -v "//.*write"; then
+if find src/lle/display -name "*.c" -exec grep "write\s*([^,]*fd" {} \; 2>/dev/null | grep -v "//.*write"; then
     report_violation "Direct terminal writes in display code" \
         "Display code MUST NOT write directly to terminal fd. Use Lusush display system."
 else
@@ -72,7 +83,7 @@ fi
 
 # CHECK 2: No ANSI escape sequences in display code
 echo "Check 2: No ANSI escape sequences in display code..."
-if grep -r "\\\\x1b\|\\\\033\|\\\\e\[" src/lle/foundation/display/*.c 2>/dev/null | grep -v "//"; then
+if find src/lle/display -name "*.c" -exec grep "\\\\x1b\|\\\\033\|\\\\e\[" {} \; 2>/dev/null | grep -v "//"; then
     report_violation "ANSI escape sequences in display code" \
         "Display code MUST NOT contain escape sequences. Use Lusush display system."
 else
