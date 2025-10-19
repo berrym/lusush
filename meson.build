@@ -88,13 +88,35 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 # Find readline dependency
 readline_dep = dependency('readline', required: true)
 
-# Build LLE foundation library (if in feature branch)
-# This provides liblle_foundation and lle_foundation_dep
-if fs.is_dir('src/lle/foundation')
-  subdir('src/lle/foundation')
+# ============================================================================
+# LLE (Lusush Line Editor) Build System
+# ============================================================================
+# Build LLE as a static library (liblle.a) and link into lusush executable.
+# The src/lle/meson.build file automatically detects implemented modules
+# via fs.exists() checks - no manual updates needed when adding modules.
+
+# Include LLE build configuration
+subdir('src/lle')
+
+# Build LLE static library if any modules exist
+if lle_sources.length() > 0
+  message('Building LLE with ' + lle_sources.length().to_string() + ' module(s)')
+
+  lle_lib = static_library('lle',
+                           sources: lle_sources,
+                           include_directories: inc,
+                           dependencies: [readline_dep])
+
+  lle_dep = declare_dependency(link_with: lle_lib,
+                               include_directories: include_directories('include/lle'))
+else
+  # LLE not yet implemented, create empty dependency
+  message('LLE: No modules implemented yet (zero source files)')
+  lle_dep = dependency('', required: false)
 endif
 
+# Build lusush executable (with or without LLE)
 executable('lusush',
            src,
            include_directories: inc,
-           dependencies: [readline_dep])
+           dependencies: [readline_dep, lle_dep])
