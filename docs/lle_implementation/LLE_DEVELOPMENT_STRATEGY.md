@@ -22,9 +22,32 @@ Implement the most comprehensive line editor specification ever created, transla
 
 ---
 
+## 🏗️ BUILD INFRASTRUCTURE
+
+**Status**: ✅ DEFINED (2025-10-19)  
+**Document**: `LLE_BUILD_INFRASTRUCTURE.md`
+
+### Architecture
+
+**Flat module structure**:
+- One specification = one module (`src/lle/<module>.c`)
+- Clear naming (e.g., `error_handling.c`, `memory_management.c`, `buffer.c`)
+- No deep nesting (all modules at same level under `src/lle/`)
+- Professional, maintainable organization
+
+**Static library approach**:
+- LLE built as `liblle.a` static library
+- Linked into final `lusush` executable
+- Clean separation, independent testing
+- Automatic scaling via Meson `fs.exists()` checks
+
+**See**: `LLE_BUILD_INFRASTRUCTURE.md` for complete build system details
+
+---
+
 ## 📋 IMPLEMENTATION STRATEGY
 
-### The Three-Phase Approach
+### The Five-Phase Approach
 
 #### Phase 0: Foundation (CURRENT PHASE)
 
@@ -32,9 +55,13 @@ Implement the most comprehensive line editor specification ever created, transla
 
 **Specs to Implement**:
 1. Spec 16: Error Handling → `lle_result_t`, `lle_error_context_t`
+   - Files: `src/lle/error_handling.c`, `include/lle/error_handling.h`
 2. Spec 15: Memory Management → `lusush_memory_pool_t`
+   - Files: `src/lle/memory_management.c`, `include/lle/memory_management.h`
 3. Spec 14: Performance Optimization → `lle_performance_monitor_t`
+   - Files: `src/lle/performance.c`, `include/lle/performance.h`
 4. Spec 17: Testing Framework → Testing infrastructure
+   - Files: `src/lle/testing.c`, `include/lle/testing.h`
 
 **Duration**: 4-6 weeks  
 **Deliverable**: ~12,000-16,000 lines of foundation code  

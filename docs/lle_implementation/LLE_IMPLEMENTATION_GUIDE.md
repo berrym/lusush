@@ -48,6 +48,31 @@
 
 ---
 
+## 🏗️ BUILD INFRASTRUCTURE
+
+**Status**: ✅ DEFINED (2025-10-19)  
+**Document**: `LLE_BUILD_INFRASTRUCTURE.md`
+
+### Directory Structure
+
+**Flat, professional layout** - Each specification = one module at same level:
+
+- **Source**: `src/lle/<module>.c` (e.g., `error_handling.c`, `buffer.c`)
+- **Headers**: `include/lle/<module>.h` (e.g., `error_handling.h`, `buffer.h`)
+- **Tests**: `tests/lle/test_<module>.c` (e.g., `test_error_handling.c`)
+
+**No deep nesting** - everything under `src/lle/` is at the same level.
+
+### Build Approach
+
+- **Static Library**: LLE built as `liblle.a` and linked into lusush
+- **Automatic scaling**: Meson uses `fs.exists()` to automatically include new modules
+- **Master header**: `include/lle/lle.h` includes all public APIs
+
+**See**: `LLE_BUILD_INFRASTRUCTURE.md` for complete build system details
+
+---
+
 ## 📋 IMPLEMENTATION ORDER
 
 **See**: `SPEC_IMPLEMENTATION_ORDER.md` for complete dependency analysis
@@ -61,6 +86,7 @@
    - Used by: ALL other specs
    - Estimated: ~3,000-4,000 LOC, 1-1.5 weeks
    - Status: ⏳ NOT STARTED
+   - Files: `src/lle/error_handling.c`, `include/lle/error_handling.h`
 
 2. **Spec 15: Memory Management** (2,217 lines)
    - Depends on: Spec 16
@@ -152,7 +178,9 @@
 
 #### 2. Header File Creation
 
-- [ ] Create header file in `include/lle/`
+- [ ] Create header file in `include/lle/<module>.h`
+- [ ] Add header guards
+- [ ] Add necessary includes
 - [ ] Copy EXACT type definitions from spec
 - [ ] Copy EXACT enums from spec
 - [ ] Copy EXACT structure definitions from spec
@@ -162,13 +190,23 @@
 
 #### 3. Implementation File Creation
 
-- [ ] Create source file in `src/lle/`
+- [ ] Create source file in `src/lle/<module>.c`
+- [ ] Include public header: `#include "lle/<module>.h"`
+- [ ] Include dependency headers as needed
 - [ ] Implement COMPLETE algorithms from spec
 - [ ] Implement ALL error handling from spec
 - [ ] Implement ALL memory management from spec
 - [ ] Implement ALL performance monitoring from spec
 - [ ] Add internal helper functions as needed (not in spec)
 - [ ] Ensure NO TODO/STUB/FIXME markers
+
+**Note**: Meson build system will automatically detect the new `.c` file via `fs.exists()` checks - no manual build file edits needed!
+
+#### 3a. Update Master Header (if new module)
+
+- [ ] Edit `include/lle/lle.h`
+- [ ] Add `#include "lle/<module>.h"` in appropriate phase section
+- [ ] Maintain phase organization (Phase 0, Phase 1, etc.)
 
 #### 4. Testing Phase
 
