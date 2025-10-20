@@ -159,54 +159,188 @@
 
 ## 📖 IMPLEMENTATION PROCEDURES
 
-### For Each Specification
+### LAYERED IMPLEMENTATION STRATEGY (REVISED 2025-10-19)
 
-**Step-by-step process for implementing a spec**:
+**Critical Change**: Implementation now follows a 3-layer approach to handle circular dependencies.
 
-#### 1. Pre-Implementation Phase
+**The Layers**:
+- **Layer 0**: Type definitions only (headers, no implementations)
+- **Layer 1**: Complete implementations (won't compile individually)
+- **Layer 2**: Integration (link everything together)
+
+---
+
+### Layer 0: Type Definition Procedures
+
+**Goal**: Create complete header files with ALL types, NO implementations
+
+#### Step 1: Pre-Implementation Analysis
 
 - [ ] Read specification COMPLETELY (all sections)
-- [ ] Understand all structures defined
-- [ ] Understand all function signatures
-- [ ] Understand all algorithms
-- [ ] Understand all error handling requirements
-- [ ] Understand all performance requirements
-- [ ] Understand all integration points
-- [ ] Review SPEC_IMPLEMENTATION_ORDER.md for dependencies
-- [ ] Verify all dependency specs are complete
-- [ ] Check KNOWN_ISSUES.md for any blockers
+- [ ] Extract ALL type definitions:
+  - All enums
+  - All structs
+  - All typedefs
+  - All constants/macros
+- [ ] Extract ALL function signatures (return type, name, parameters)
+- [ ] Note all dependencies on other specs (for includes)
+- [ ] Verify no implementation details in header (types only)
 
-#### 2. Header File Creation
+#### Step 2: Header File Creation
 
 - [ ] Create header file in `include/lle/<module>.h`
-- [ ] Add header guards
-- [ ] Add necessary includes
-- [ ] Copy EXACT type definitions from spec
-- [ ] Copy EXACT enums from spec
+- [ ] Add header guards: `#ifndef LLE_<MODULE>_H` / `#define LLE_<MODULE>_H` / `#endif`
+- [ ] Add includes for standard headers (`<stdint.h>`, `<stdbool.h>`, etc.)
+- [ ] Add includes for other LLE headers (forward dependencies)
+- [ ] Copy EXACT enum definitions from spec
 - [ ] Copy EXACT structure definitions from spec
-- [ ] Copy EXACT function signatures from spec
+- [ ] Copy EXACT typedef definitions from spec
+- [ ] Add EXACT function declarations (signatures only, NO implementations)
 - [ ] Add comprehensive comments from spec
 - [ ] Verify header matches spec 100%
 
-#### 3. Implementation File Creation
+#### Step 3: Header Validation
 
-- [ ] Create source file in `src/lle/<module>.c`
-- [ ] Include public header: `#include "lle/<module>.h"`
-- [ ] Include dependency headers as needed
-- [ ] Implement COMPLETE algorithms from spec
-- [ ] Implement ALL error handling from spec
-- [ ] Implement ALL memory management from spec
-- [ ] Implement ALL performance monitoring from spec
-- [ ] Add internal helper functions as needed (not in spec)
-- [ ] Ensure NO TODO/STUB/FIXME markers
+- [ ] Compile header independently:
+  ```bash
+  gcc -std=c99 -Wall -Werror -Iinclude -fsyntax-only include/lle/<module>.h
+  ```
+- [ ] Fix any compilation errors (syntax, missing types, etc.)
+- [ ] Verify zero warnings
+- [ ] Verify all types are complete (no forward declarations that cause issues)
 
-**Note**: Meson build system will automatically detect the new `.c` file via `fs.exists()` checks - no manual build file edits needed!
-
-#### 3a. Update Master Header (if new module)
+#### Step 4: Master Header Update
 
 - [ ] Edit `include/lle/lle.h`
 - [ ] Add `#include "lle/<module>.h"` in appropriate phase section
 - [ ] Maintain phase organization (Phase 0, Phase 1, etc.)
+- [ ] Verify master header still compiles
+
+**Layer 0 Completion Criteria**:
+- ✅ Header compiles independently
+- ✅ All types from spec present
+- ✅ All function signatures present
+- ✅ NO implementations in header (declarations only)
+- ✅ Zero compiler warnings
+
+---
+
+### Layer 1: Implementation File Procedures
+
+**Goal**: Implement ALL functions completely (will NOT compile yet - THIS IS EXPECTED)
+
+**Important**: During Layer 1, implementations will NOT compile because they reference functions from other specs that don't exist yet. **This is correct and expected behavior.**
+
+#### Step 1: Implementation File Creation
+
+- [ ] Create source file in `src/lle/<module>.c`
+- [ ] Include public header: `#include "lle/<module>.h"`
+- [ ] Include ALL dependency headers needed:
+  ```c
+  #include "lle/error_handling.h"
+  #include "lle/memory_management.h"
+  #include "lle/performance.h"
+  #include "lle/testing.h"
+  ```
+- [ ] Include standard headers as needed
+- [ ] Add file-level documentation
+
+#### Step 2: Complete Function Implementation
+
+- [ ] Implement EVERY function from spec
+- [ ] For each function:
+  - [ ] Copy algorithm from spec EXACTLY
+  - [ ] Implement ALL error handling from spec
+  - [ ] Implement ALL memory management from spec
+  - [ ] Implement ALL performance monitoring from spec
+  - [ ] Add internal helper functions as needed
+  - [ ] Ensure NO TODO/STUB/FIXME markers
+  - [ ] Add comprehensive function documentation
+
+#### Step 3: Handle Undefined Function Calls
+
+**When you call functions from other specs that don't exist yet**:
+
+```c
+// This will cause compiler error in Layer 1 - EXPECTED
+void* ptr = lle_memory_pool_alloc(pool, size);  // Function not defined yet
+
+// DO NOT:
+// - Add stubs
+// - Add TODOs
+// - Comment out the call
+// - Use conditional compilation
+
+// DO:
+// - Implement the call exactly as specified
+// - Ignore compiler errors about undefined references
+// - Trust that Layer 2 will resolve dependencies
+```
+
+**Compiler errors in Layer 1 are NORMAL and EXPECTED**. Do not try to fix them.
+
+#### Step 4: Internal Helper Functions
+
+- [ ] Add any helper functions needed (not in spec)
+- [ ] Make helper functions `static` (file-local)
+- [ ] Document helper functions thoroughly
+- [ ] Ensure helpers don't leak outside module
+
+#### Step 5: Completion Verification (Without Compilation)
+
+- [ ] Every function from spec is implemented
+- [ ] Every algorithm from spec is coded
+- [ ] No stubs, no TODOs, no placeholders
+- [ ] All error handling present
+- [ ] All performance requirements addressed in code
+- [ ] Code review for spec compliance (without compiling)
+
+**Layer 1 Completion Criteria**:
+- ✅ ALL functions implemented
+- ✅ ALL algorithms from spec present
+- ✅ NO stubs, NO TODOs
+- ✅ Code review confirms spec compliance
+- ⚠️ File does NOT compile (missing function definitions from other specs)
+- ⚠️ This is CORRECT and EXPECTED
+
+**Note**: Meson build system will automatically detect the new `.c` file via `fs.exists()` checks when we reach Layer 2.
+
+---
+
+### Layer 2: Integration Procedures
+
+**Goal**: Link all implementations together, resolve all dependencies
+
+#### Step 1: Verification Before Integration
+
+- [ ] ALL Layer 0 headers complete
+- [ ] ALL Layer 1 implementations complete
+- [ ] No stubs, no TODOs in any file
+- [ ] Living documents updated
+
+#### Step 2: Compilation
+
+- [ ] Run meson compile:
+  ```bash
+  meson compile -C build
+  ```
+- [ ] Expect clean compilation (all dependencies resolved)
+- [ ] Fix any REAL errors (not missing function errors, those should be gone)
+- [ ] Verify zero warnings
+
+#### Step 3: Validation
+
+- [ ] All implementations compile together
+- [ ] No missing function errors
+- [ ] No undefined reference errors
+- [ ] Circular dependencies resolved
+- [ ] Ready for testing
+
+**Layer 2 Completion Criteria**:
+- ✅ Clean compilation (zero errors)
+- ✅ Zero compiler warnings
+- ✅ All circular dependencies resolved
+- ✅ Ready for Layer 3 (testing)
 
 #### 4. Testing Phase
 

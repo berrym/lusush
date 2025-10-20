@@ -3,6 +3,19 @@
 #
 # This file defines the source files for the LLE static library.
 # New modules are automatically detected via fs.exists() checks.
+#
+# LAYERED IMPLEMENTATION STRATEGY:
+# - Layer 0: Only headers exist (.h files only)
+#   Result: lle_sources empty, library not built
+#
+# - Layer 1: Individual .c files created (WON'T COMPILE ALONE)
+#   DO NOT attempt to build during Layer 1!
+#   Source files reference functions from other specs that don't exist yet.
+#   This is expected - circular dependencies resolve in Layer 2.
+#
+# - Layer 2: ALL Phase 0 .c files exist simultaneously
+#   Result: lle_sources has all 4 files, library builds, dependencies resolve
+#
 # Add files in phase order (Phase 0 -> Phase 1 -> ... -> Phase 5)
 
 # LLE source files - add incrementally as specs are implemented
