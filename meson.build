@@ -105,6 +105,7 @@ if lle_sources.length() > 0
   lle_lib = static_library('lle',
                            sources: lle_sources,
                            include_directories: inc,
+                           c_args: lle_c_args,
                            dependencies: [readline_dep])
 
   lle_dep = declare_dependency(link_with: lle_lib,

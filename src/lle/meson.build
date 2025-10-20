@@ -18,6 +18,19 @@
 #
 # Add files in phase order (Phase 0 -> Phase 1 -> ... -> Phase 5)
 
+# ============================================================================
+# LLE Compilation Flags
+# ============================================================================
+# Define feature test macros for POSIX/XOPEN functionality
+# These enable pthread_rwlock_t and other POSIX types used in LLE headers
+
+lle_c_args = [
+  '-D_DEFAULT_SOURCE',
+  '-D_XOPEN_SOURCE=700',
+  '-D_XOPEN_SOURCE_EXTENDED',
+  '-D_POSIX_C_SOURCE=200809L',
+]
+
 # LLE source files - add incrementally as specs are implemented
 lle_sources = []
 

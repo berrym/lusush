@@ -7,31 +7,37 @@
  * 
  * Individual module headers can also be included separately if needed.
  * 
- * @note This file will be populated as specifications are implemented.
- *       Currently empty as no LLE modules have been implemented yet.
+ * @note Layer 0 (type definitions) complete for Phase 0 Foundation specs.
+ *       Layer 1 (implementations) coming next.
  */
 
 #ifndef LLE_H
 #define LLE_H
 
+/* Feature test macros for POSIX types (must be before all includes) */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 /* ============================================================================
- * PHASE 0: FOUNDATION
+ * PHASE 0: FOUNDATION - LAYER 0 COMPLETE
  * ============================================================================
  * Foundational types used by ALL other specs.
- * Must be implemented first.
+ * Layer 0: Type definitions only (headers compile independently).
+ * Layer 1: Complete implementations (coming next).
  */
 
 /* Spec 16: Error Handling */
-/* #include "lle/error_handling.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/error_handling.h"  /* LAYER 0 COMPLETE */
 
 /* Spec 15: Memory Management */
-/* #include "lle/memory_management.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/memory_management.h"  /* LAYER 0 COMPLETE */
 
 /* Spec 14: Performance Optimization */
-/* #include "lle/performance.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/performance.h"  /* LAYER 0 COMPLETE */
 
 /* Spec 17: Testing Framework */
-/* #include "lle/testing.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/testing.h"  /* LAYER 0 COMPLETE */
 
 /* ============================================================================
  * PHASE 1: CORE SYSTEMS
@@ -122,7 +128,7 @@
  * 
  * Incremented when new features are added in a backwards-compatible manner.
  */
-#define LLE_VERSION_MINOR 0
+#define LLE_VERSION_MINOR 1
 
 /**
  * @brief LLE patch version number
@@ -134,9 +140,11 @@
 /**
  * @brief LLE implementation status
  * 
- * Current status: NOT STARTED (post-Nuclear Option #2)
- * Zero LLE modules implemented.
+ * Current status: LAYER 0 COMPLETE (Phase 0 Foundation)
+ * - 4 headers with complete type definitions (error_handling, memory_management, performance, testing)
+ * - All headers compile independently with zero warnings
+ * - Ready for Layer 1 implementation
  */
-#define LLE_STATUS "NOT_STARTED"
+#define LLE_STATUS "LAYER_0_COMPLETE"
 
 #endif /* LLE_H */
