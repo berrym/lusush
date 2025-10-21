@@ -15,9 +15,6 @@
 #ifndef LLE_MEMORY_MANAGEMENT_H
 #define LLE_MEMORY_MANAGEMENT_H
 
-/* Feature test macros for POSIX types */
-#define _POSIX_C_SOURCE 200809L
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>

@@ -15,11 +15,6 @@
 #ifndef LLE_PERFORMANCE_H
 #define LLE_PERFORMANCE_H
 
-/* Feature test macros for POSIX types (must be before all includes) */
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>

@@ -14,11 +14,6 @@
 #ifndef LLE_H
 #define LLE_H
 
-/* Feature test macros for POSIX types (must be before all includes) */
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
-#endif
-
 /* ============================================================================
  * PHASE 0: FOUNDATION - LAYER 0 COMPLETE
  * ============================================================================
