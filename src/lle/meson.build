@@ -43,32 +43,32 @@ lle_sources = []
 # Spec 16: Error Handling
 # Defines: lle_result_t, lle_error_context_t
 # Used by: ALL specs
-if fs.exists('src/lle/error_handling.c')
-  lle_sources += 'error_handling.c'
+if fs.exists('error_handling.c')
+  lle_sources += files('error_handling.c')
 endif
 
 # Spec 15: Memory Management
 # Defines: lusush_memory_pool_t
 # Depends on: Spec 16
 # Used by: ALL specs
-if fs.exists('src/lle/memory_management.c')
-  lle_sources += 'memory_management.c'
+if fs.exists('memory_management.c')
+  lle_sources += files('memory_management.c')
 endif
 
 # Spec 14: Performance Optimization
 # Defines: lle_performance_monitor_t, lle_performance_context_t
 # Depends on: Spec 16, 15
 # Used by: ALL specs
-if fs.exists('src/lle/performance.c')
-  lle_sources += 'performance.c'
+if fs.exists('performance.c')
+  lle_sources += files('performance.c')
 endif
 
 # Spec 17: Testing Framework
 # Provides: Testing infrastructure for all specs
 # Depends on: Spec 16, 15, 14
 # Used by: ALL specs
-if fs.exists('src/lle/testing.c')
-  lle_sources += 'testing.c'
+if fs.exists('testing.c')
+  lle_sources += files('testing.c')
 endif
 
 # ============================================================================
