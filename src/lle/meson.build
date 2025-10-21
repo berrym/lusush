@@ -109,11 +109,15 @@ endif
 # ============================================================================
 # Implement after Phase 1 complete and tested.
 
-# Spec 03: Buffer Management
-# Provides: Core buffer editing operations, UTF-8 support, undo/redo
-# Depends on: Spec 16, 15, 14, 17, 02, 04, 05
-if fs.exists('src/lle/buffer.c')
-  lle_sources += 'buffer.c'
+# Spec 03: Buffer Management - Phase 1
+# Provides: Buffer system lifecycle, buffer pool, core buffer creation
+# Depends on: Spec 16, 15, 14
+# Phase 1: Foundation (2 files)
+if fs.exists('buffer_system.c')
+  lle_sources += files('buffer_system.c')
+endif
+if fs.exists('buffer_core.c')
+  lle_sources += files('buffer_core.c')
 endif
 
 # Spec 08: Display Integration

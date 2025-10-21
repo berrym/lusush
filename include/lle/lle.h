@@ -56,7 +56,7 @@
  */
 
 /* Spec 03: Buffer Management */
-/* #include "lle/buffer.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/buffer_system.h"  /* PHASE 1 IN PROGRESS */
 
 /* Spec 08: Display Integration */
 /* #include "lle/display.h" */  /* NOT YET IMPLEMENTED */
