@@ -48,6 +48,7 @@ This policy is **ENFORCED** not suggested. The pre-commit hook system will **REJ
 **Required Structure**:
 ```
 docs/
+├── DOCUMENTATION_POLICY.md        # THIS FILE - Documentation policy and enforcement
 ├── user/                          # End-user documentation
 │   ├── GETTING_STARTED.md
 │   ├── USER_GUIDE.md
