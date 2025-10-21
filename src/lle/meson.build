@@ -83,11 +83,18 @@ if fs.exists('src/lle/terminal.c')
   lle_sources += 'terminal.c'
 endif
 
-# Spec 04: Event System
-# Provides: Event-driven architecture, event queue management
-# Depends on: Spec 16, 15, 14, 17
-if fs.exists('src/lle/event_system.c')
-  lle_sources += 'event_system.c'
+# Spec 04: Event System - Phase 1
+# Provides: Core event infrastructure, queue, handlers, dispatch
+# Depends on: Spec 16, 15
+# Phase 1: Basic event system (3 files)
+if fs.exists('event_system.c')
+  lle_sources += files('event_system.c')
+endif
+if fs.exists('event_queue.c')
+  lle_sources += files('event_queue.c')
+endif
+if fs.exists('event_handlers.c')
+  lle_sources += files('event_handlers.c')
 endif
 
 # Spec 05: libhashtable Integration

@@ -44,7 +44,7 @@
 /* #include "lle/terminal.h" */  /* NOT YET IMPLEMENTED */
 
 /* Spec 04: Event System */
-/* #include "lle/event_system.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/event_system.h"  /* LAYER 0 + PHASE 1 COMPLETE */
 
 /* Spec 05: libhashtable Integration */
 /* #include "lle/hashtable_integration.h" */  /* NOT YET IMPLEMENTED */
