@@ -36,9 +36,10 @@
  */
 
 /**
- * @brief Get current thread ID
+ * @brief Get current thread ID for performance monitoring
+ * Note: lle_get_thread_id is defined in error_handling.c, we use a local helper
  */
-static uint32_t lle_get_thread_id(void) {
+static uint32_t perf_get_thread_id(void) {
     return (uint32_t)pthread_self();
 }
 
@@ -114,11 +115,8 @@ lle_result_t lle_perf_monitor_init(
         monitor->warning_threshold_ns = config->warning_threshold_ns;
         monitor->critical_threshold_ns = config->critical_threshold_ns;
         
-        /* Initialize filters if configured */
-        if (config->enable_operation_filtering) {
-            monitor->active_filters.filter_by_operation = true;
-            monitor->active_filters.operation_mask = config->operation_filter_mask;
-        }
+        /* Initialize filters from default */
+        monitor->active_filters = config->default_filters;
     } else {
         /* Use defaults */
         monitor->monitoring_enabled = true;
@@ -184,7 +182,7 @@ uint64_t lle_perf_timespec_diff_ns(const struct timespec *start, const struct ti
  * @brief Check if operation should be monitored based on filters
  */
 bool lle_perf_should_monitor_operation(
-    const lle_performance_monitor_t *monitor,
+    lle_performance_monitor_t *monitor,
     lle_perf_operation_type_t op_type)
 {
     if (!monitor || !monitor->monitoring_enabled) {
@@ -275,12 +273,12 @@ lle_result_t lle_perf_measurement_start(
         measurement->context = *context;
     }
     
-    measurement->thread_id = lle_get_thread_id();
+    measurement->thread_id = perf_get_thread_id();
     measurement->is_critical_path = lle_perf_is_critical_path(op_type);
     
     /* High-precision timing start */
     if (clock_gettime(CLOCK_MONOTONIC, &measurement->start_time) != 0) {
-        return LLE_ERROR_SYSTEM;
+        return LLE_ERROR_SYSTEM_CALL;
     }
     
     /* Increment total operations counter */
@@ -316,7 +314,7 @@ lle_result_t lle_perf_measurement_end(
     
     /* High-precision timing end */
     if (clock_gettime(CLOCK_MONOTONIC, &measurement->end_time) != 0) {
-        return LLE_ERROR_SYSTEM;
+        return LLE_ERROR_SYSTEM_CALL;
     }
     
     /* Calculate duration */
@@ -336,9 +334,9 @@ lle_result_t lle_perf_measurement_end(
     
     /* Check thresholds */
     if (measurement->duration_ns >= monitor->critical_threshold_ns) {
-        lle_perf_handle_critical_threshold_exceeded(monitor, measurement_id);
+        lle_perf_handle_critical_threshold_exceeded(monitor, measurement);
     } else if (measurement->duration_ns >= monitor->warning_threshold_ns) {
-        lle_perf_handle_warning_threshold_exceeded(monitor, measurement_id);
+        lle_perf_handle_warning_threshold_exceeded(monitor, measurement);
     }
     
     /* Increment measurement count */
@@ -477,9 +475,9 @@ lle_result_t lle_perf_calculate_statistics(
  */
 lle_result_t lle_perf_history_record(
     lle_performance_monitor_t *monitor,
-    const lle_perf_statistics_t *stats)
+    lle_performance_measurement_t *measurement)
 {
-    if (!monitor || !stats) {
+    if (!monitor || !measurement) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -487,9 +485,18 @@ lle_result_t lle_perf_history_record(
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* Add to ring buffer */
+    /* Convert measurement to statistics and add to ring buffer */
     uint32_t write_index = monitor->history_ring.head;
-    monitor->history_ring.entries[write_index] = *stats;
+    
+    /* Create stats from measurement - simplified for Phase 1 */
+    lle_perf_statistics_t stats = {0};
+    stats.call_count = 1;
+    stats.total_duration_ns = measurement->duration_ns;
+    stats.min_duration_ns = measurement->duration_ns;
+    stats.max_duration_ns = measurement->duration_ns;
+    stats.mean_duration_ns = measurement->duration_ns;
+    
+    monitor->history_ring.entries[write_index] = stats;
     
     /* Update head */
     monitor->history_ring.head = (write_index + 1) % monitor->history_ring.capacity;
@@ -512,16 +519,14 @@ lle_result_t lle_perf_history_record(
  */
 lle_result_t lle_perf_handle_warning_threshold_exceeded(
     lle_performance_monitor_t *monitor,
-    lle_perf_measurement_id_t measurement_id)
+    lle_performance_measurement_t *measurement)
 {
-    if (!monitor || measurement_id >= LLE_PERF_MAX_MEASUREMENTS) {
+    if (!monitor || !measurement) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
     /* In Phase 1, we simply track that a warning occurred */
     /* Phase 2 will add logging, alerting, and dashboard updates */
-    
-    lle_performance_measurement_t *measurement = &monitor->measurements[measurement_id];
     
     /* Could log to stderr for visibility */
     if (monitor->monitoring_level >= LLE_PERF_MONITORING_DETAILED) {
@@ -539,16 +544,14 @@ lle_result_t lle_perf_handle_warning_threshold_exceeded(
  */
 lle_result_t lle_perf_handle_critical_threshold_exceeded(
     lle_performance_monitor_t *monitor,
-    lle_perf_measurement_id_t measurement_id)
+    lle_performance_measurement_t *measurement)
 {
-    if (!monitor || measurement_id >= LLE_PERF_MAX_MEASUREMENTS) {
+    if (!monitor || !measurement) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
     /* In Phase 1, we track critical threshold violations */
     /* Phase 2 will add comprehensive logging and alerting */
-    
-    lle_performance_measurement_t *measurement = &monitor->measurements[measurement_id];
     
     /* Always log critical threshold violations */
     fprintf(stderr, "[LLE PERF CRITICAL] Operation '%s' took %lu ns (threshold: %lu ns)\n",
