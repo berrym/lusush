@@ -1,7 +1,7 @@
 # LLE Development Strategy
 
-**Version**: 3.0.0 (Post-Nuclear Option #2)  
-**Date**: 2025-10-19  
+**Version**: 3.1.0 (Git Commit Policy Added)  
+**Date**: 2025-10-21  
 **Status**: ⚠️ **CLEAN SLATE** - Ready for Complete Spec Implementation  
 **Classification**: Development Strategy and Approach
 
@@ -289,6 +289,30 @@ return LLE_SUCCESS;  // Just using error code, no function call needed
 - Update implementation tracking docs when specs complete
 - Verify consistency before ending sessions
 - No development without living document compliance
+
+### Git Commit Policy
+
+**Enforcement**: Pre-commit hooks
+
+**LLE Commit Prefix Requirement**:
+- ALL commits touching LLE code MUST start with "LLE"
+- Provides clarity in git history when LLE is integrated into main lusush
+- Distinguishes LLE-specific work from core lusush components
+
+**Good Examples**:
+- ✅ `LLE Spec 03 Phase 1: Buffer Management Foundation`
+- ✅ `LLE Spec 14 Phase 1: Core performance monitoring system`
+- ✅ `LLE: Fix memory leak in buffer pool allocation`
+- ✅ `LLE: Update compliance audit for Spec 02`
+
+**Bad Examples**:
+- ❌ `Implement buffer system` (ambiguous - which buffer system?)
+- ❌ `Add performance monitoring` (could be lusush core feature)
+- ❌ `Phase 1 complete` (no context about what Phase 1)
+
+**Rationale**: When reviewing git history after integration, someone seeing "implemented core error handling" might think it's a core lusush component, not LLE-specific work. The "LLE" prefix eliminates this ambiguity.
+
+**Pre-commit Hook**: Automatically enforces this policy - commits touching `include/lle/` or `src/lle/` files must have "LLE" prefix or commit will be rejected.
 
 ### Quality First
 

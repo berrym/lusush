@@ -1,7 +1,7 @@
 # LLE Implementation - AI Assistant Handoff Document
 
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
-**Date**: 2025-10-19 (Last Updated: 2025-10-20)  
+**Date**: 2025-10-19 (Last Updated: 2025-10-21)  
 **Branch**: feature/lle  
 **Status**: ✅ LAYER 0 COMPLETE - Phase 0 Foundation Type Definitions Ready  
 **Next**: Begin Layer 1 - Implement complete functions for Phase 0 specs
@@ -538,9 +538,22 @@ tests/lle/
 9. **Validate performance** (meets spec requirements)
 10. **Validate memory safety** (valgrind zero leaks)
 11. **Update living documents** (this file, implementation guide, etc.)
-12. **Commit with detailed message**
+12. **Commit with detailed message** (MUST start with "LLE" prefix - enforced by pre-commit hook)
 
 **Only proceed to next spec after current spec is 100% complete.**
+
+### Git Commit Policy (Added 2025-10-21)
+
+**MANDATORY PREFIX**: All commits touching LLE code MUST start with "LLE"
+
+**Examples**:
+- ✅ `LLE Spec 03 Phase 1: Buffer Management Foundation`
+- ✅ `LLE: Fix memory leak in buffer pool allocation`
+- ❌ `Implement buffer system` (rejected by pre-commit hook)
+
+**Rationale**: Provides clarity in git history when LLE is integrated into main lusush. Distinguishes LLE-specific work from core lusush components.
+
+**Enforcement**: Pre-commit hook automatically rejects commits touching `include/lle/` or `src/lle/` without "LLE" prefix.
 
 ### Living Documents Protocol
 
