@@ -109,15 +109,19 @@ endif
 # ============================================================================
 # Implement after Phase 1 complete and tested.
 
-# Spec 03: Buffer Management - Phase 1
-# Provides: Buffer system lifecycle, buffer pool, core buffer creation
+# Spec 03: Buffer Management
+# Provides: Complete buffer management system
 # Depends on: Spec 16, 15, 14
-# Phase 1: Foundation (2 files)
-if fs.exists('buffer_system.c')
-  lle_sources += files('buffer_system.c')
-endif
-if fs.exists('buffer_core.c')
-  lle_sources += files('buffer_core.c')
+# Implementation: Phased approach (single file, multiple phases)
+#   Phase 1: Core buffer structure and lifecycle
+#   Phase 2: UTF-8 processing subsystem
+#   Phase 3: Line structure management
+#   Phase 4: Cursor management
+#   Phase 5: Change tracking and undo/redo
+#   Phase 6: Buffer operations (insert, delete, replace)
+#   Phase 7: Multiline support
+if fs.exists('buffer_management.c')
+  lle_sources += files('buffer_management.c')
 endif
 
 # Spec 08: Display Integration

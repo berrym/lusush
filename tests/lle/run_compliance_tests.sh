@@ -19,6 +19,43 @@ echo ""
 TOTAL_FAILURES=0
 TESTS_RUN=0
 
+# Run Spec 03 compliance tests (Buffer Management - Phase 1)
+echo "-------------------------------------------------------------------"
+echo "Spec 03: Buffer Management Phase 1 Compliance"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_03_buffer_management_compliance.c" ]; then
+    echo "Compiling spec_03_buffer_management_compliance..."
+
+    gcc -o spec_03_compliance \
+        compliance/spec_03_buffer_management_compliance.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_03_compliance
+    SPEC_03_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_03_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_03_compliance
+
+    echo ""
+else
+    echo "Spec 03 compliance test not found - skipping"
+    echo ""
+fi
+
 # Run Spec 14 compliance tests (Performance Monitoring)
 echo "-------------------------------------------------------------------"
 echo "Spec 14: Performance Monitoring Compliance"
