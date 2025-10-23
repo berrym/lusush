@@ -38,6 +38,9 @@ extern "C" {
  * ============================================================================ */
 
 /* Lusush types from lusush_memory_pool.h are included via header */
+/* Spec uses lusush_memory_pool_t but actual Lusush uses lusush_memory_pool_system_t */
+/* Create alias to match spec naming */
+typedef lusush_memory_pool_system_t lusush_memory_pool_t;
 
 typedef struct lusush_memory_system_t lusush_memory_system_t;
 typedef struct lle_input_event_t lle_input_event_t;
@@ -290,158 +293,9 @@ typedef struct {
 } lle_integration_error_t;
 
 /* ============================================================================
- * COMPLETE STRUCTURE DEFINITIONS
+ * NOTE: Full struct definitions moved to memory_management.c for encapsulation
+ * Only forward declarations (typedef struct) remain in header
  * ============================================================================ */
-
-/* Memory Pool Tuner - Complete Definition */
-struct lle_memory_pool_tuner_t {
-    lle_memory_pool_t *target_pool;
-    
-    struct {
-        double allocation_rate;
-        double deallocation_rate;
-        struct timespec average_allocation_time;
-        struct timespec peak_allocation_time;
-        double fragmentation_ratio;
-        double utilization_efficiency;
-    } performance_metrics;
-    
-    struct {
-        size_t target_allocation_time_ns;
-        double target_fragmentation_ratio;
-        double target_utilization_ratio;
-        size_t tuning_sample_size;
-        struct timespec tuning_interval;
-    } tuning_config;
-    
-    struct {
-        bool enable_block_coalescing;
-        bool enable_preallocation;
-        bool enable_size_optimization;
-        bool enable_alignment_optimization;
-    } optimization_strategies;
-    
-    struct {
-        struct {
-            struct timespec tuning_time;
-            lle_tuning_action_t action;
-            double performance_before;
-            double performance_after;
-            double improvement_ratio;
-        } tuning_history[LLE_TUNING_HISTORY_SIZE];
-        
-        size_t history_count;
-        double cumulative_improvement;
-    } tuning_history;
-};
-
-/* Memory Encryption - Complete Definition */
-struct lle_memory_encryption_t {
-    struct {
-        lle_encryption_algorithm_t algorithm;
-        size_t key_size;
-        size_t block_size;
-        bool encrypt_sensitive_data;
-        bool encrypt_all_allocations;
-    } encryption_config;
-    
-    struct {
-        uint8_t master_key[LLE_MAX_KEY_SIZE];
-        uint8_t derived_keys[LLE_MAX_DERIVED_KEYS][LLE_MAX_KEY_SIZE];
-        size_t active_key_index;
-        struct timespec key_generation_time;
-        struct timespec key_rotation_interval;
-    } key_management;
-    
-    struct {
-        size_t encrypted_allocations;
-        size_t total_encrypted_bytes;
-        double encryption_overhead;
-        struct timespec average_encryption_time;
-        struct timespec average_decryption_time;
-    } encryption_state;
-    
-    struct {
-        size_t encryption_failures;
-        size_t decryption_failures;
-        size_t key_rotation_count;
-        size_t security_violations;
-        struct timespec last_security_event;
-    } security_monitoring;
-};
-
-/* Lusush Memory Integration Complete - Complete Definition */
-struct lle_lusush_memory_integration_complete_t {
-    lle_memory_manager_t *lle_memory_manager;
-    lusush_memory_system_t *lusush_memory_system;
-    
-    struct {
-        bool integration_active;
-        lle_integration_mode_t mode;
-        double memory_sharing_ratio;
-        size_t shared_memory_regions;
-        struct timespec integration_start_time;
-    } integration_state;
-    
-    struct {
-        uint64_t cross_system_allocations;
-        uint64_t shared_memory_hits;
-        uint64_t shared_memory_misses;
-        double integration_overhead;
-        struct timespec average_cross_allocation_time;
-    } integration_performance;
-    
-    struct {
-        pthread_mutex_t integration_mutex;
-        pthread_rwlock_t shared_memory_lock;
-        sem_t resource_semaphore;
-        volatile bool coordination_active;
-    } synchronization;
-    
-    struct {
-        size_t integration_errors;
-        size_t sync_failures;
-        lle_integration_error_t last_error;
-        struct timespec last_error_time;
-        bool automatic_recovery_enabled;
-    } error_handling;
-};
-
-/* Memory Test Framework - Complete Definition */
-struct lle_memory_test_framework_t {
-    struct {
-        bool enable_stress_testing;
-        bool enable_leak_testing;
-        bool enable_performance_testing;
-        bool enable_concurrency_testing;
-        size_t test_duration_seconds;
-        size_t concurrent_thread_count;
-    } test_config;
-    
-    struct {
-        uint64_t total_test_allocations;
-        uint64_t successful_allocations;
-        uint64_t failed_allocations;
-        uint64_t memory_leaks_detected;
-        uint64_t corruption_events_detected;
-    } test_statistics;
-    
-    struct {
-        struct timespec fastest_allocation;
-        struct timespec slowest_allocation;
-        struct timespec average_allocation_time;
-        double allocations_per_second;
-        size_t peak_memory_usage;
-    } performance_benchmarks;
-    
-    struct {
-        bool all_tests_passed;
-        size_t passed_test_count;
-        size_t failed_test_count;
-        lle_test_failure_reason_t failure_reasons[LLE_MAX_TEST_FAILURES];
-        size_t failure_count;
-    } test_results;
-};
 
 typedef struct {
     lle_memory_pool_type_t type;
@@ -456,7 +310,7 @@ typedef struct {
     bool enable_encryption;
     bool enable_poisoning;
     bool share_with_lusush;
-    lusush_memory_pool_system_t *parent_pool;
+    lusush_memory_pool_t *parent_pool;
 } lle_memory_pool_config_t;
 
 typedef struct {
@@ -546,8 +400,8 @@ lle_result_t lle_memory_shutdown_pools(lle_memory_manager_t *manager);
 
 /* Lusush Integration */
 lle_result_t lle_integrate_with_lusush_memory(lle_memory_manager_t *manager);
-lusush_memory_pool_system_t* lusush_get_memory_pools(void);
-lle_result_t lle_analyze_lusush_memory_config(lusush_memory_pool_system_t *lusush_pools, lle_memory_config_t *lusush_config);
+lusush_memory_pool_t* lusush_get_memory_pools(void);
+lle_result_t lle_analyze_lusush_memory_config(lusush_memory_pool_t *lusush_pools, lle_memory_config_t *lusush_config);
 lle_result_t lle_create_specialized_pool(lle_memory_manager_t *manager, const lle_memory_pool_config_t *pool_config);
 void lle_cleanup_partial_integration(lle_memory_manager_t *manager, size_t pool_index);
 lle_result_t lle_create_shared_memory_regions(lle_memory_manager_t *manager, const lle_memory_config_t *lusush_config);
