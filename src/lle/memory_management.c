@@ -1604,10 +1604,12 @@ lle_result_t lle_dynamic_pool_resize(lle_dynamic_pool_resizer_t *resizer) {
         // Step 5: Record resize operation
         if (resizer->resize_count < LLE_RESIZE_HISTORY_SIZE) {
             size_t index = resizer->resize_count++;
-            resizer->resize_history[index].resize_time = lle_get_current_time();
-            resizer->resize_history[index].old_size = current_size;
-            resizer->resize_history[index].new_size = new_size;
-            resizer->resize_history[index].reason = decision.reason;
+            resizer->resize_history[index] = (typeof(resizer->resize_history[0])){
+                .resize_time = lle_get_current_time(),
+                .old_size = current_size,
+                .new_size = new_size,
+                .reason = decision.reason
+            };
         }
         
         // Step 6: Update utilization statistics
