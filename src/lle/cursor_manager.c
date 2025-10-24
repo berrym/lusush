@@ -275,7 +275,10 @@ lle_result_t lle_cursor_manager_move_to_byte_offset(lle_cursor_manager_t *manage
     manager->position.position_valid = true;
     manager->position.buffer_version = manager->buffer->modification_count;
     
-    /* Step 7: Update preferred visual column if sticky */
+    /* Step 7: Sync to buffer's cursor (source of truth) */
+    manager->buffer->cursor = manager->position;
+    
+    /* Step 8: Update preferred visual column if sticky */
     if (manager->sticky_column) {
         manager->preferred_visual_column = manager->position.visual_column;
     }

@@ -471,19 +471,40 @@ static void test_e2e_text_editing_session() {
     result = lle_change_tracker_init(&tracker, global_memory_pool, 0);
     ASSERT_SUCCESS(result, "Change tracker init succeeds");
     
-    /* Simulate typing "Hello World" */
+    /* Enable change tracking */
+    buffer->change_tracking_enabled = true;
+    
+    /* Simulate typing "Hello World" with change tracking */
+    lle_change_sequence_t *seq_h = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "type H", &seq_h);
+    ASSERT_SUCCESS(result, "Begin sequence");
+    buffer->current_sequence = seq_h;
     result = lle_buffer_insert_text(buffer, 0, "H", 1);
     ASSERT_SUCCESS(result, "Insert 'H'");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence");
     result = lle_cursor_manager_move_to_byte_offset(cursor_mgr, 1);
     ASSERT_SUCCESS(result, "Move cursor");
     
+    lle_change_sequence_t *seq_ello = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "type ello", &seq_ello);
+    ASSERT_SUCCESS(result, "Begin sequence");
+    buffer->current_sequence = seq_ello;
     result = lle_buffer_insert_text(buffer, 1, "ello", 4);
     ASSERT_SUCCESS(result, "Insert 'ello'");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence");
     result = lle_cursor_manager_move_to_byte_offset(cursor_mgr, 5);
     ASSERT_SUCCESS(result, "Move cursor");
     
+    lle_change_sequence_t *seq_world = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "type  World", &seq_world);
+    ASSERT_SUCCESS(result, "Begin sequence");
+    buffer->current_sequence = seq_world;
     result = lle_buffer_insert_text(buffer, 5, " World", 6);
     ASSERT_SUCCESS(result, "Insert ' World'");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence");
     result = lle_cursor_manager_move_to_byte_offset(cursor_mgr, 11);
     ASSERT_SUCCESS(result, "Move cursor");
     
@@ -494,13 +515,25 @@ static void test_e2e_text_editing_session() {
     ASSERT_EQ(cursor_mgr->position.byte_offset, 11, "Cursor at end");
     
     /* User realizes they want "Hello Universe" instead */
-    /* Delete "World" */
+    /* Delete "World" with change tracking */
+    lle_change_sequence_t *seq_del = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "delete World", &seq_del);
+    ASSERT_SUCCESS(result, "Begin delete sequence");
+    buffer->current_sequence = seq_del;
     result = lle_buffer_delete_text(buffer, 6, 5);
     ASSERT_SUCCESS(result, "Delete 'World'");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete delete sequence");
     
-    /* Insert "Universe" */
+    /* Insert "Universe" with change tracking */
+    lle_change_sequence_t *seq_ins = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "insert Universe", &seq_ins);
+    ASSERT_SUCCESS(result, "Begin insert sequence");
+    buffer->current_sequence = seq_ins;
     result = lle_buffer_insert_text(buffer, 6, "Universe", 8);
     ASSERT_SUCCESS(result, "Insert 'Universe'");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete insert sequence");
     
     /* Validate */
     result = lle_buffer_validate_complete(buffer, validator);
@@ -547,15 +580,36 @@ static void test_e2e_utf8_editing_with_all_subsystems() {
     result = lle_change_tracker_init(&tracker, global_memory_pool, 0);
     ASSERT_SUCCESS(result, "Change tracker init succeeds");
     
-    /* Insert mixed ASCII and UTF-8 content */
+    /* Enable change tracking */
+    buffer->change_tracking_enabled = true;
+    
+    /* Insert mixed ASCII and UTF-8 content with change tracking */
+    lle_change_sequence_t *seq1 = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "insert Hello", &seq1);
+    ASSERT_SUCCESS(result, "Begin sequence 1");
+    buffer->current_sequence = seq1;
     result = lle_buffer_insert_text(buffer, 0, "Hello ", 6);
     ASSERT_SUCCESS(result, "Insert ASCII");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence 1");
     
+    lle_change_sequence_t *seq2 = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "insert 世界", &seq2);
+    ASSERT_SUCCESS(result, "Begin sequence 2");
+    buffer->current_sequence = seq2;
     result = lle_buffer_insert_text(buffer, 6, "世界", 6); /* 2 Chinese chars, 6 bytes */
     ASSERT_SUCCESS(result, "Insert UTF-8");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence 2");
     
+    lle_change_sequence_t *seq3 = NULL;
+    result = lle_change_tracker_begin_sequence(tracker, "insert World", &seq3);
+    ASSERT_SUCCESS(result, "Begin sequence 3");
+    buffer->current_sequence = seq3;
     result = lle_buffer_insert_text(buffer, 12, " World", 6);
     ASSERT_SUCCESS(result, "Insert ASCII");
+    result = lle_change_tracker_complete_sequence(tracker);
+    ASSERT_SUCCESS(result, "Complete sequence 3");
     
     /* Verify UTF-8 handling */
     ASSERT_EQ(buffer->length, 18, "Total bytes correct");
