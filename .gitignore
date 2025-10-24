@@ -14,6 +14,13 @@ buildDir/
 debug_simple_test
 test_all_implementations
 test_enhanced_symtable
+test_buffer_operations
+test_buffer_ops
+test_cursor_mgr
+test_utf8_index
+test_utf8_compliance
+test_spec03_buffer
+test_buffer_validator
 *.log
 test_output/
 coverage/

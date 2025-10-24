@@ -118,7 +118,26 @@ else
 endif
 
 # Build lusush executable (with or without LLE)
-executable('lusush',
-           src,
-           include_directories: inc,
-           dependencies: [readline_dep, lle_dep])
+lusush_exe = executable('lusush',
+                        src,
+                        include_directories: inc,
+                        dependencies: [readline_dep, lle_dep])
+
+# ============================================================================
+# TEST INFRASTRUCTURE
+# ============================================================================
+
+# LLE Functional Tests - standalone with mock memory pool
+if lle_sources.length() > 0
+  # Buffer operations functional tests
+  # Uses mock memory pool to avoid full lusush dependencies
+  test_buffer_ops = executable('test_buffer_operations',
+                               ['tests/lle/functional/buffer_operations_test.c',
+                                'tests/lle/functional/test_memory_mock.c'],
+                               include_directories: inc,
+                               dependencies: [lle_dep])
+
+  test('LLE Buffer Operations', test_buffer_ops,
+       suite: 'lle-functional',
+       timeout: 30)
+endif
