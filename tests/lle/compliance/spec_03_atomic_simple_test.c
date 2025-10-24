@@ -86,11 +86,11 @@ int main(void) {
     lle_cursor_position_t test_cursor;
     memset(&test_cursor, 0, sizeof(test_cursor));
     test_cursor.byte_offset = 0;
-    test_cursor.codepoint_offset = 0;
-    test_cursor.grapheme_offset = 0;
+    test_cursor.codepoint_index = 0;
+    test_cursor.grapheme_index = 0;
     if (sizeof(test_cursor.byte_offset) > 0 &&
-        sizeof(test_cursor.codepoint_offset) > 0 &&
-        sizeof(test_cursor.grapheme_offset) > 0) {
+        sizeof(test_cursor.codepoint_index) > 0 &&
+        sizeof(test_cursor.grapheme_index) > 0) {
         printf("PASS\n");
         tests_passed++;
     } else {

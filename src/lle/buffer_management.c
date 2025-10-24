@@ -151,8 +151,8 @@ lle_result_t lle_buffer_create(lle_buffer_t **buffer,
     
     /* Initialize cursor and selection */
     memset(&buf->cursor, 0, sizeof(lle_cursor_position_t));
-    buf->cursor.valid = true;
-    buf->cursor.timestamp = buf->creation_time;
+    buf->cursor.position_valid = true;
+    buf->cursor.buffer_version = 0;
     buf->selection = NULL;
     buf->selection_active = false;
     
@@ -288,8 +288,8 @@ lle_result_t lle_buffer_clear(lle_buffer_t *buffer) {
     
     /* Reset cursor to beginning */
     memset(&buffer->cursor, 0, sizeof(lle_cursor_position_t));
-    buffer->cursor.valid = true;
-    buffer->cursor.timestamp = buffer->last_modified_time;
+    buffer->cursor.position_valid = true;
+    buffer->cursor.buffer_version = buffer->modification_count;
     
     /* Clear selection */
     buffer->selection_active = false;

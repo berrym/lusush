@@ -158,6 +158,7 @@ typedef struct lle_buffer_validator_t lle_buffer_validator_t;
 typedef struct lle_buffer_cache_t lle_buffer_cache_t;
 typedef struct lle_selection_range_t lle_selection_range_t;
 typedef struct lle_buffer_performance_metrics_t lle_buffer_performance_metrics_t;
+typedef struct lle_cursor_cache_t lle_cursor_cache_t;
 
 /* Type aliases for flag bitfields */
 typedef uint16_t lle_buffer_flags_t;
@@ -171,39 +172,68 @@ typedef uint8_t lle_cache_flags_t;
 
 /**
  * @brief Cursor position structure
- * Spec Reference: Line 867-891
+ * Spec Reference: Spec 03, Line 867-891
  * 
  * Complete cursor position structure with ALL fields from specification.
- * Phase 4 will implement cursor management.
  */
 struct lle_cursor_position_t {
-    /* Logical position */
+    /* Byte-based position (primary) */
     size_t byte_offset;                            /* Byte offset in buffer */
-    size_t codepoint_offset;                       /* Codepoint offset */
-    size_t grapheme_offset;                        /* Grapheme cluster offset */
+    
+    /* UTF-8 based positions */
+    size_t codepoint_index;                        /* Unicode codepoint index */
+    size_t grapheme_index;                         /* Grapheme cluster index */
+    
+    /* Line-based position */
     size_t line_number;                            /* Line number (0-based) */
-    size_t column;                                 /* Column within line */
+    size_t column_offset;                          /* Column offset in line (bytes) */
+    size_t column_codepoint;                       /* Column position (codepoints) */
+    size_t column_grapheme;                        /* Column position (graphemes) */
     
     /* Visual position */
-    size_t visual_column;                          /* Visual column (display) */
-    size_t visual_row;                             /* Visual row (display) */
+    size_t visual_line;                            /* Visual line (with wrapping) */
+    size_t visual_column;                          /* Visual column position */
     
-    /* Validation */
-    bool valid;                                    /* Position validity flag */
-    uint64_t timestamp;                            /* Position update timestamp */
+    /* Position validity */
+    bool position_valid;                           /* Position validity flag */
+    uint32_t buffer_version;                       /* Associated buffer version */
 };
 
 /**
  * @brief Selection range structure
  * 
  * Represents a selected range of text in the buffer.
- * Phase 6 will implement selection operations.
  */
 struct lle_selection_range_t {
     lle_cursor_position_t start;                   /* Selection start position */
     lle_cursor_position_t end;                     /* Selection end position */
     bool active;                                   /* Selection is active */
     bool visual_mode;                              /* Visual selection mode */
+};
+
+/**
+ * @brief Cursor manager structure
+ * Spec Reference: Spec 03, Line 891-909
+ * 
+ * Manages cursor position and movement operations.
+ */
+struct lle_cursor_manager_t {
+    /* Current cursor state */
+    lle_cursor_position_t position;                /* Current cursor position */
+    lle_cursor_position_t target;                  /* Target cursor position */
+    
+    /* Movement preferences */
+    size_t preferred_visual_column;                /* Preferred visual column */
+    bool sticky_column;                            /* Sticky column mode */
+    
+    /* UTF-8 processor reference */
+    lle_utf8_processor_t *utf8_processor;          /* UTF-8 processor (optional) */
+    
+    /* Buffer reference */
+    lle_buffer_t *buffer;                          /* Associated buffer */
+    
+    /* Performance optimization */
+    lle_cursor_cache_t *position_cache;            /* Position calculation cache */
 };
 
 /**
@@ -658,5 +688,109 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
                                      size_t delete_length,
                                      const char *insert_text,
                                      size_t insert_length);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - CURSOR MANAGER
+ * ============================================================================
+ */
+
+/**
+ * @brief Initialize cursor manager
+ * Spec Reference: Spec 03, Section 6
+ * 
+ * @param manager Pointer to receive initialized cursor manager
+ * @param buffer Associated buffer
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_init(lle_cursor_manager_t **manager,
+                                     lle_buffer_t *buffer);
+
+/**
+ * @brief Destroy cursor manager
+ * 
+ * @param manager Cursor manager to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_destroy(lle_cursor_manager_t *manager);
+
+/**
+ * @brief Move cursor to specific byte offset
+ * Spec Reference: Spec 03, Line 915-976
+ * 
+ * Updates all cursor position fields (codepoint, grapheme, line, column, visual).
+ * 
+ * @param manager Cursor manager
+ * @param byte_offset Target byte offset
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_to_byte_offset(lle_cursor_manager_t *manager,
+                                                    size_t byte_offset);
+
+/**
+ * @brief Move cursor by grapheme clusters
+ * Spec Reference: Spec 03, Line 975-1006
+ * 
+ * @param manager Cursor manager
+ * @param grapheme_delta Number of graphemes to move (positive or negative)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_by_graphemes(lle_cursor_manager_t *manager,
+                                                  int grapheme_delta);
+
+/**
+ * @brief Move cursor by codepoints
+ * 
+ * @param manager Cursor manager
+ * @param codepoint_delta Number of codepoints to move (positive or negative)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_by_codepoints(lle_cursor_manager_t *manager,
+                                                   int codepoint_delta);
+
+/**
+ * @brief Move cursor to start of line
+ * 
+ * @param manager Cursor manager
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_to_line_start(lle_cursor_manager_t *manager);
+
+/**
+ * @brief Move cursor to end of line
+ * 
+ * @param manager Cursor manager
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_to_line_end(lle_cursor_manager_t *manager);
+
+/**
+ * @brief Move cursor up/down by lines
+ * 
+ * @param manager Cursor manager
+ * @param line_delta Number of lines to move (positive or negative)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_move_by_lines(lle_cursor_manager_t *manager,
+                                              int line_delta);
+
+/**
+ * @brief Validate and correct cursor position
+ * 
+ * Ensures cursor is at a valid position in the buffer.
+ * 
+ * @param manager Cursor manager
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_validate_and_correct(lle_cursor_manager_t *manager);
+
+/**
+ * @brief Get current cursor position
+ * 
+ * @param manager Cursor manager
+ * @param position Pointer to receive cursor position
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_cursor_manager_get_position(const lle_cursor_manager_t *manager,
+                                             lle_cursor_position_t *position);
 
 #endif /* LLE_BUFFER_MANAGEMENT_H */
