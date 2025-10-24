@@ -473,6 +473,7 @@ lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer,
     /* Step 5: Insert new text */
     memcpy(buffer->data + position, text, text_length);
     buffer->length += text_length;
+    buffer->used = buffer->length; /* Update used space */
     buffer->data[buffer->length] = '\0'; /* Ensure null termination */
     
     /* Step 6: Update buffer metadata */
@@ -574,6 +575,7 @@ lle_result_t lle_buffer_delete_text(lle_buffer_t *buffer,
     }
     
     buffer->length -= delete_length;
+    buffer->used = buffer->length; /* Update used space */
     buffer->data[buffer->length] = '\0'; /* Ensure null termination */
     
     /* Step 4: Update buffer metadata */
@@ -722,6 +724,7 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
     /* Copy new text */
     memcpy(buffer->data + start_position, insert_text, insert_length);
     buffer->length = new_length;
+    buffer->used = buffer->length; /* Update used space */
     buffer->data[buffer->length] = '\0';
     
     /* Step 5: Update buffer metadata */

@@ -320,8 +320,8 @@ lle_result_t lle_cursor_manager_move_by_codepoints(lle_cursor_manager_t *manager
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Calculate target codepoint index */
-    int target_codepoint = (int)manager->position.codepoint_index + codepoint_delta;
+    /* Calculate target codepoint index from buffer's current cursor (source of truth) */
+    int target_codepoint = (int)manager->buffer->cursor.codepoint_index + codepoint_delta;
     
     /* Bounds checking */
     if (target_codepoint < 0) {

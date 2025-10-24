@@ -59,12 +59,16 @@ static lle_change_sequence_t *find_last_undoable_sequence(lle_change_tracker_t *
  * @brief Find last redoable sequence
  */
 static lle_change_sequence_t *find_last_redoable_sequence(lle_change_tracker_t *tracker) {
-    if (!tracker || !tracker->current_position) {
+    if (!tracker) {
         return NULL;
     }
     
     /* Start from current position and search forwards */
-    lle_change_sequence_t *seq = tracker->current_position->next;
+    /* If current_position is NULL, start from first_sequence */
+    lle_change_sequence_t *seq = tracker->current_position 
+                                   ? tracker->current_position->next 
+                                   : tracker->first_sequence;
+    
     while (seq) {
         if (seq->can_redo && seq->sequence_complete) {
             return seq;
@@ -466,8 +470,8 @@ lle_result_t lle_change_tracker_undo(lle_change_tracker_t *tracker,
         tracker->undo_count++;
         
         /* Move current position back */
-        if (tracker->current_position == sequence && sequence->prev) {
-            tracker->current_position = sequence->prev;
+        if (tracker->current_position == sequence) {
+            tracker->current_position = sequence->prev;  /* Can be NULL for first sequence */
         }
     }
     

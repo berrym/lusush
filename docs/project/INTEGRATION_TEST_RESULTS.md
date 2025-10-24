@@ -3,7 +3,7 @@
 ## Summary
 
 Created comprehensive integration test suite combining multiple LLE subsystems.
-**Result: 5/10 tests passing** (50% success rate)
+**Result: 7/10 tests passing** (70% success rate) - **UPDATED after bug fixes**
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Integration tests verify that multiple subsystems work together correctly:
 
 ## Test Results
 
-### ✅ PASSING (5/10)
+### ✅ PASSING (7/10) - After Bug Fixes
 
 1. **Delete text updates UTF-8 index correctly**
    - Tests: Buffer ops update UTF-8 counts on deletion
@@ -34,37 +34,37 @@ Integration tests verify that multiple subsystems work together correctly:
    - Tests: Multiple operations can be undone in reverse order
    - Status: Working correctly with proper initialization
 
-5. **Cursor movement handles UTF-8 correctly** (partial)
-   - Tests: Cursor manager integrates with buffer
-   - Status: Integration working, but cursor manager has implementation bugs
+5. **Undo single insert operation**
+   - Tests: Single operation undo/redo functionality
+   - Status: Working after fixing NULL current_position bug
 
-### ❌ FAILING (5/10)
+6. **Buffer operations maintain validity**
+   - Tests: Validator accepts valid buffers after operations
+   - Status: Working after fixing buffer.used field updates
 
-1. **Insert text updates UTF-8 index correctly**
-   - Issue: Test expected full UTF-8 index structure, not just counts
-   - Fix Applied: Clarified that index is lazily created, counts are maintained
-   - Status: Now passing
+7. **Undo complex operation sequence**
+   - Tests: Multiple operations can be undone in sequence
+   - Status: Working correctly
 
-2. **Cursor movement handles UTF-8 correctly**
-   - Issue: `lle_cursor_manager_move_by_codepoints()` implementation bug
+### ❌ FAILING (3/10) - Cursor Manager Implementation Bugs
+
+1. **Cursor movement handles UTF-8 correctly**
+   - Issue: `lle_cursor_manager_move_by_codepoints()` moves to wrong position
    - Expected: Move 1 codepoint = 1 byte (for ASCII 'a')
    - Actual: Moves to end of buffer (byte 9)
-   - Root Cause: Cursor manager implementation bug, NOT integration issue
-   - Action Required: Fix cursor manager implementation
+   - Root Cause: Cursor manager implementation bug (not reading codepoint positions correctly)
+   - Status: Cursor manager implementation needs fixing (not an integration issue)
 
-3. **Buffer operations maintain validity**
-   - Issue: Validator rejects valid buffers after operations
-   - Root Cause: Validator implementation checking fields incorrectly
-   - Action Required: Debug and fix validator
+2. **End-to-end text editing session**
+   - Issue: Undo operation fails in complex scenario
+   - Root Cause: Likely cursor manager issue propagating to e2e test
+   - Status: Needs investigation after cursor manager fixes
 
-4. **Undo single insert operation - Redo not available**
-   - Issue: After undo, `lle_change_tracker_can_redo()` returns false
-   - Root Cause: Change tracker implementation bug in redo stack management
-   - Action Required: Fix change tracker redo logic
-
-5. **End-to-end tests**
-   - Issues: Combination of above bugs (validator, cursor movement)
-   - Action Required: Fix underlying subsystems
+3. **End-to-end UTF-8 editing**
+   - Issue: Cursor at wrong byte offset after operations
+   - Expected: byte 9, Got: byte 18
+   - Root Cause: Cursor manager position calculation bug
+   - Status: Depends on cursor manager fixes
 
 ## Integration Improvements Made
 
@@ -92,10 +92,22 @@ Integration tests verify that multiple subsystems work together correctly:
 - Set `buffer->current_sequence` and `buffer->change_tracking_enabled`
 - Call `lle_change_tracker_complete_sequence()` after operations
 
-### 4. Validator Integration (⚠️ Partial)
-**Problem**: Validator rejects valid buffers.
+### 4. Validator Integration (✅ Fixed)
+**Problem**: Validator rejected valid buffers - `buffer->length > buffer->used` check failed.
 
-**Status**: Validator can detect corruption (test passes) but rejects valid buffers (needs debugging).
+**Root Cause**: Buffer operations updated `buffer->length` but never updated `buffer->used` field.
+
+**Fix**: Added `buffer->used = buffer->length` after all length updates in:
+- `lle_buffer_insert_text()`
+- `lle_buffer_delete_text()`
+- `lle_buffer_replace_text()`
+
+### 5. Change Tracker Redo (✅ Fixed)
+**Problem**: `lle_change_tracker_can_redo()` returned false after undo.
+
+**Root Cause**: When first sequence was undone, `current_position` became NULL, and `find_last_redoable_sequence()` immediately returned NULL without checking sequences.
+
+**Fix**: Modified `find_last_redoable_sequence()` to handle NULL `current_position` by starting from `first_sequence` instead.
 
 ## Bugs Found by Integration Testing
 
