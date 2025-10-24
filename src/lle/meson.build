@@ -117,6 +117,7 @@ endif
 #   - unicode_grapheme.c: Unicode TR#29 grapheme cluster boundary detection
 #   - change_tracker.c: Complete undo/redo with atomic operation tracking
 #   - cursor_manager.c: Complete cursor position tracking and movement
+#   - utf8_index.c: Fast O(1) UTF-8 position mapping (byte/codepoint/grapheme)
 #   - buffer_management.c: Complete buffer system with all subsystems
 if fs.exists('utf8_support.c')
   lle_sources += files('utf8_support.c')
@@ -129,6 +130,9 @@ if fs.exists('change_tracker.c')
 endif
 if fs.exists('cursor_manager.c')
   lle_sources += files('cursor_manager.c')
+endif
+if fs.exists('utf8_index.c')
+  lle_sources += files('utf8_index.c')
 endif
 if fs.exists('buffer_management.c')
   lle_sources += files('buffer_management.c')

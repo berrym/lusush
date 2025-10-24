@@ -212,6 +212,35 @@ struct lle_selection_range_t {
 };
 
 /**
+ * @brief UTF-8 index structure
+ * Spec Reference: Spec 03 Section 4.1
+ * 
+ * Fast position mapping for UTF-8 buffers providing O(1) lookups.
+ * Maps between byte offsets, codepoint indices, and grapheme cluster indices.
+ */
+struct lle_utf8_index_t {
+    /* Fast position mapping arrays */
+    size_t *byte_to_codepoint;                     /* Byte offset to codepoint index */
+    size_t *codepoint_to_byte;                     /* Codepoint index to byte offset */
+    size_t *grapheme_to_codepoint;                 /* Grapheme cluster to codepoint index */
+    size_t *codepoint_to_grapheme;                 /* Codepoint to grapheme cluster index */
+    
+    /* Index metadata */
+    size_t byte_count;                             /* Total bytes indexed */
+    size_t codepoint_count;                        /* Total codepoints indexed */
+    size_t grapheme_count;                         /* Total grapheme clusters indexed */
+    
+    /* Index validity and versioning */
+    bool index_valid;                              /* Index validity flag */
+    uint32_t buffer_version;                       /* Associated buffer version */
+    uint64_t last_update_time;                     /* Last index update time */
+    
+    /* Performance optimization */
+    size_t cache_hit_count;                        /* Cache hit statistics */
+    size_t cache_miss_count;                       /* Cache miss statistics */
+};
+
+/**
  * @brief Cursor manager structure
  * Spec Reference: Spec 03, Line 891-909
  * 
@@ -688,6 +717,109 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
                                      size_t delete_length,
                                      const char *insert_text,
                                      size_t insert_length);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - UTF-8 INDEX
+ * ============================================================================
+ */
+
+/**
+ * @brief Initialize UTF-8 index
+ * Spec Reference: Spec 03, Section 4.2
+ * 
+ * @param index Pointer to receive initialized UTF-8 index
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_init(lle_utf8_index_t **index);
+
+/**
+ * @brief Destroy UTF-8 index
+ * 
+ * @param index UTF-8 index to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_destroy(lle_utf8_index_t *index);
+
+/**
+ * @brief Rebuild UTF-8 index from text
+ * Spec Reference: Spec 03, Section 4.2
+ * 
+ * Rebuilds all position mapping arrays for fast O(1) lookups.
+ * 
+ * @param index UTF-8 index to rebuild
+ * @param text Text to index
+ * @param text_length Length of text in bytes
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index,
+                                    const char *text,
+                                    size_t text_length);
+
+/**
+ * @brief Get codepoint index from byte offset
+ * 
+ * O(1) lookup using index if available, O(n) scan if not.
+ * 
+ * @param index UTF-8 index
+ * @param byte_offset Byte offset in text
+ * @param codepoint_index Pointer to receive codepoint index
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_byte_to_codepoint(const lle_utf8_index_t *index,
+                                              size_t byte_offset,
+                                              size_t *codepoint_index);
+
+/**
+ * @brief Get byte offset from codepoint index
+ * 
+ * O(1) lookup using index.
+ * 
+ * @param index UTF-8 index
+ * @param codepoint_index Codepoint index
+ * @param byte_offset Pointer to receive byte offset
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_codepoint_to_byte(const lle_utf8_index_t *index,
+                                              size_t codepoint_index,
+                                              size_t *byte_offset);
+
+/**
+ * @brief Get grapheme index from codepoint index
+ * 
+ * O(1) lookup using index.
+ * 
+ * @param index UTF-8 index
+ * @param codepoint_index Codepoint index
+ * @param grapheme_index Pointer to receive grapheme index
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_codepoint_to_grapheme(const lle_utf8_index_t *index,
+                                                  size_t codepoint_index,
+                                                  size_t *grapheme_index);
+
+/**
+ * @brief Get codepoint index from grapheme index
+ * 
+ * O(1) lookup using index.
+ * 
+ * @param index UTF-8 index
+ * @param grapheme_index Grapheme cluster index
+ * @param codepoint_index Pointer to receive codepoint index
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
+                                                  size_t grapheme_index,
+                                                  size_t *codepoint_index);
+
+/**
+ * @brief Invalidate UTF-8 index
+ * 
+ * Marks index as invalid (requires rebuild before next use).
+ * 
+ * @param index UTF-8 index to invalidate
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_invalidate(lle_utf8_index_t *index);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - CURSOR MANAGER
