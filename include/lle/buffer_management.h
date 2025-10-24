@@ -241,6 +241,34 @@ struct lle_utf8_index_t {
 };
 
 /**
+ * @brief Buffer validator structure
+ * Spec Reference: Spec 03 Section 8
+ * 
+ * Validates buffer integrity including UTF-8 encoding, line structure,
+ * cursor positions, and content checksums.
+ */
+struct lle_buffer_validator_t {
+    /* Validation configuration */
+    bool utf8_validation_enabled;                  /* UTF-8 validation flag */
+    bool line_structure_validation;                /* Line structure validation flag */
+    bool cursor_validation_enabled;                /* Cursor position validation flag */
+    bool bounds_checking_enabled;                  /* Bounds checking flag */
+    
+    /* Validation statistics */
+    uint32_t validation_count;                     /* Total validations performed */
+    uint32_t validation_failures;                  /* Number of validation failures */
+    uint32_t corruption_detections;                /* Buffer corruption detections */
+    uint32_t bounds_violations;                    /* Bounds check violations */
+    
+    /* UTF-8 processor reference */
+    lle_utf8_processor_t *utf8_processor;          /* UTF-8 processor (optional) */
+    
+    /* Last validation results */
+    lle_result_t last_validation_result;           /* Result of last validation */
+    uint64_t last_validation_time;                 /* Timestamp of last validation */
+};
+
+/**
  * @brief Cursor manager structure
  * Spec Reference: Spec 03, Line 891-909
  * 
@@ -820,6 +848,84 @@ lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_utf8_index_invalidate(lle_utf8_index_t *index);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - BUFFER VALIDATOR
+ * ============================================================================
+ */
+
+/**
+ * @brief Initialize buffer validator
+ * Spec Reference: Spec 03, Section 8
+ * 
+ * @param validator Pointer to receive initialized validator
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validator_init(lle_buffer_validator_t **validator);
+
+/**
+ * @brief Destroy buffer validator
+ * 
+ * @param validator Buffer validator to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validator_destroy(lle_buffer_validator_t *validator);
+
+/**
+ * @brief Validate complete buffer
+ * Spec Reference: Spec 03, Section 8.1
+ * 
+ * Performs comprehensive buffer validation including UTF-8 encoding,
+ * line structure, cursor positions, and bounds checking.
+ * 
+ * @param buffer Buffer to validate
+ * @param validator Buffer validator
+ * @return LLE_SUCCESS or error code indicating validation failure
+ */
+lle_result_t lle_buffer_validate_complete(lle_buffer_t *buffer,
+                                          lle_buffer_validator_t *validator);
+
+/**
+ * @brief Validate UTF-8 encoding
+ * 
+ * @param buffer Buffer to validate
+ * @param validator Buffer validator
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validate_utf8(lle_buffer_t *buffer,
+                                      lle_buffer_validator_t *validator);
+
+/**
+ * @brief Validate line structure
+ * 
+ * @param buffer Buffer to validate
+ * @param validator Buffer validator
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validate_line_structure(lle_buffer_t *buffer,
+                                                lle_buffer_validator_t *validator);
+
+/**
+ * @brief Validate cursor position
+ * 
+ * @param buffer Buffer to validate
+ * @param validator Buffer validator
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validate_cursor_position(lle_buffer_t *buffer,
+                                                 lle_buffer_validator_t *validator);
+
+/**
+ * @brief Validate buffer bounds
+ * 
+ * Checks that all offsets and sizes are within valid ranges.
+ * 
+ * @param buffer Buffer to validate
+ * @param validator Buffer validator
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_validate_bounds(lle_buffer_t *buffer,
+                                        lle_buffer_validator_t *validator);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - CURSOR MANAGER

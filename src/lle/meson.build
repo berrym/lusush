@@ -118,6 +118,7 @@ endif
 #   - change_tracker.c: Complete undo/redo with atomic operation tracking
 #   - cursor_manager.c: Complete cursor position tracking and movement
 #   - utf8_index.c: Fast O(1) UTF-8 position mapping (byte/codepoint/grapheme)
+#   - buffer_validator.c: Buffer integrity validation (UTF-8, bounds, structure)
 #   - buffer_management.c: Complete buffer system with all subsystems
 if fs.exists('utf8_support.c')
   lle_sources += files('utf8_support.c')
@@ -133,6 +134,9 @@ if fs.exists('cursor_manager.c')
 endif
 if fs.exists('utf8_index.c')
   lle_sources += files('utf8_index.c')
+endif
+if fs.exists('buffer_validator.c')
+  lle_sources += files('buffer_validator.c')
 endif
 if fs.exists('buffer_management.c')
   lle_sources += files('buffer_management.c')
