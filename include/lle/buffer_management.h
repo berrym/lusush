@@ -295,6 +295,101 @@ struct lle_line_info_t {
     bool needs_revalidation;                       /* Revalidation required flag */
 };
 
+/**
+ * @brief Change operation structure
+ * Spec Reference: Line 1025-1051
+ * 
+ * Represents a single atomic change to the buffer.
+ * Contains all information needed for undo/redo.
+ */
+struct lle_change_operation_t {
+    /* Operation metadata */
+    uint32_t operation_id;                         /* Unique operation ID */
+    lle_change_type_t type;                        /* Operation type */
+    uint64_t timestamp;                            /* Operation timestamp */
+    
+    /* Position information */
+    size_t start_position;                         /* Start byte offset */
+    size_t end_position;                           /* End byte offset */
+    size_t affected_length;                        /* Length of affected text */
+    
+    /* Operation data for undo/redo */
+    char *inserted_text;                           /* Text that was inserted */
+    size_t inserted_length;                        /* Length of inserted text */
+    char *deleted_text;                            /* Text that was deleted */
+    size_t deleted_length;                         /* Length of deleted text */
+    
+    /* Cursor state preservation */
+    lle_cursor_position_t cursor_before;           /* Cursor before operation */
+    lle_cursor_position_t cursor_after;            /* Cursor after operation */
+    
+    /* Operation linking */
+    struct lle_change_operation_t *next;           /* Next in sequence */
+    struct lle_change_operation_t *prev;           /* Previous in sequence */
+};
+
+/**
+ * @brief Change sequence structure
+ * Spec Reference: Line 1053-1069
+ * 
+ * Groups related operations into a single undo/redo unit.
+ */
+struct lle_change_sequence_t {
+    /* Sequence metadata */
+    uint32_t sequence_id;                          /* Unique sequence ID */
+    char description[64];                          /* Human-readable description */
+    uint64_t start_time;                           /* Sequence start time */
+    uint64_t end_time;                             /* Sequence end time */
+    
+    /* Operation chain */
+    lle_change_operation_t *first_op;              /* First operation */
+    lle_change_operation_t *last_op;               /* Last operation */
+    size_t operation_count;                        /* Number of operations */
+    
+    /* Sequence state */
+    bool sequence_complete;                        /* Sequence is complete */
+    bool can_undo;                                 /* Can be undone */
+    bool can_redo;                                 /* Can be redone */
+    
+    /* Sequence linking */
+    struct lle_change_sequence_t *next;            /* Next in history */
+    struct lle_change_sequence_t *prev;            /* Previous in history */
+};
+
+/**
+ * @brief Change tracker structure
+ * 
+ * Manages undo/redo history for a buffer.
+ */
+struct lle_change_tracker_t {
+    /* Sequence history */
+    lle_change_sequence_t *first_sequence;         /* First in history */
+    lle_change_sequence_t *last_sequence;          /* Last in history */
+    lle_change_sequence_t *current_position;       /* Current position */
+    size_t sequence_count;                         /* Total sequences */
+    
+    /* Active sequence tracking */
+    lle_change_sequence_t *active_sequence;        /* Building sequence */
+    bool sequence_in_progress;                     /* Sequence in progress */
+    
+    /* Undo/redo limits */
+    size_t max_undo_levels;                        /* Maximum undo levels */
+    size_t max_redo_levels;                        /* Maximum redo levels */
+    
+    /* Statistics */
+    uint32_t undo_count;                           /* Undo operations */
+    uint32_t redo_count;                           /* Redo operations */
+    uint32_t operation_count;                      /* Total operations */
+    
+    /* ID generation */
+    uint32_t next_sequence_id;                     /* Next sequence ID */
+    uint32_t next_operation_id;                    /* Next operation ID */
+    
+    /* Memory management */
+    lusush_memory_pool_t *memory_pool;             /* Memory pool */
+    size_t memory_used;                            /* Memory used */
+};
+
 /* ============================================================================
  * FUNCTION DECLARATIONS - PHASE 1: CORE BUFFER LIFECYCLE
  * ============================================================================
@@ -350,5 +445,218 @@ lle_result_t lle_buffer_clear(lle_buffer_t *buffer);
  * @return LLE_SUCCESS if valid, error code if validation fails
  */
 lle_result_t lle_buffer_validate(lle_buffer_t *buffer);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - CHANGE TRACKING AND UNDO/REDO
+ * ============================================================================
+ */
+
+/**
+ * @brief Initialize change tracker
+ * 
+ * @param tracker Pointer to receive initialized tracker
+ * @param memory_pool Memory pool for allocations
+ * @param max_undo_levels Maximum undo history (0 = use default)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_init(lle_change_tracker_t **tracker,
+                                     lusush_memory_pool_t *memory_pool,
+                                     size_t max_undo_levels);
+
+/**
+ * @brief Destroy change tracker
+ * 
+ * @param tracker Change tracker to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_destroy(lle_change_tracker_t *tracker);
+
+/**
+ * @brief Clear all change history
+ * 
+ * @param tracker Change tracker to clear
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_clear(lle_change_tracker_t *tracker);
+
+/**
+ * @brief Begin a new change sequence
+ * 
+ * @param tracker Change tracker
+ * @param description Human-readable description
+ * @param sequence Pointer to receive new sequence
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_begin_sequence(lle_change_tracker_t *tracker,
+                                               const char *description,
+                                               lle_change_sequence_t **sequence);
+
+/**
+ * @brief Complete current change sequence
+ * 
+ * @param tracker Change tracker
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_complete_sequence(lle_change_tracker_t *tracker);
+
+/**
+ * @brief Begin tracking a buffer operation
+ * 
+ * @param sequence Active sequence (NULL = create new sequence)
+ * @param type Operation type
+ * @param start_position Operation start position
+ * @param length Operation length
+ * @param operation Pointer to receive new operation
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_begin_operation(lle_change_sequence_t *sequence,
+                                                lle_change_type_t type,
+                                                size_t start_position,
+                                                size_t length,
+                                                lle_change_operation_t **operation);
+
+/**
+ * @brief Complete a buffer operation
+ * 
+ * @param operation Operation to complete
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_complete_operation(lle_change_operation_t *operation);
+
+/**
+ * @brief Save deleted text for undo
+ * 
+ * @param operation Operation to save text for
+ * @param deleted_text Text that was deleted
+ * @param deleted_length Length of deleted text
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_save_deleted_text(lle_change_operation_t *operation,
+                                                  const char *deleted_text,
+                                                  size_t deleted_length);
+
+/**
+ * @brief Save inserted text for undo
+ * 
+ * @param operation Operation to save text for
+ * @param inserted_text Text that was inserted
+ * @param inserted_length Length of inserted text
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_save_inserted_text(lle_change_operation_t *operation,
+                                                   const char *inserted_text,
+                                                   size_t inserted_length);
+
+/**
+ * @brief Undo last operation sequence
+ * Spec Reference: Spec 03, Line 1073-1151
+ * 
+ * @param tracker Change tracker
+ * @param buffer Buffer to apply undo to
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_undo(lle_change_tracker_t *tracker,
+                                     lle_buffer_t *buffer);
+
+/**
+ * @brief Redo previously undone sequence
+ * 
+ * @param tracker Change tracker
+ * @param buffer Buffer to apply redo to
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_change_tracker_redo(lle_change_tracker_t *tracker,
+                                     lle_buffer_t *buffer);
+
+/**
+ * @brief Check if undo is available
+ * 
+ * @param tracker Change tracker
+ * @return true if undo available, false otherwise
+ */
+bool lle_change_tracker_can_undo(const lle_change_tracker_t *tracker);
+
+/**
+ * @brief Check if redo is available
+ * 
+ * @param tracker Change tracker
+ * @return true if redo available, false otherwise
+ */
+bool lle_change_tracker_can_redo(const lle_change_tracker_t *tracker);
+
+/**
+ * @brief Get undo history depth
+ * 
+ * @param tracker Change tracker
+ * @return Number of undoable sequences
+ */
+size_t lle_change_tracker_undo_depth(const lle_change_tracker_t *tracker);
+
+/**
+ * @brief Get redo history depth
+ * 
+ * @param tracker Change tracker
+ * @return Number of redoable sequences
+ */
+size_t lle_change_tracker_redo_depth(const lle_change_tracker_t *tracker);
+
+/**
+ * @brief Get memory usage
+ * 
+ * @param tracker Change tracker
+ * @return Memory used in bytes
+ */
+size_t lle_change_tracker_memory_usage(const lle_change_tracker_t *tracker);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - BUFFER OPERATIONS (ATOMIC)
+ * ============================================================================
+ */
+
+/**
+ * @brief Insert text into buffer (atomic operation)
+ * Spec Reference: Spec 03, Line 382-487
+ * 
+ * All buffer modifications are atomic and tracked for undo/redo.
+ * 
+ * @param buffer Buffer to insert into
+ * @param position Byte offset position
+ * @param text Text to insert
+ * @param text_length Length of text
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer,
+                                    size_t position,
+                                    const char *text,
+                                    size_t text_length);
+
+/**
+ * @brief Delete text from buffer (atomic operation)
+ * Spec Reference: Spec 03, Line 489-594
+ * 
+ * @param buffer Buffer to delete from
+ * @param start_position Start byte offset
+ * @param delete_length Number of bytes to delete
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_delete_text(lle_buffer_t *buffer,
+                                    size_t start_position,
+                                    size_t delete_length);
+
+/**
+ * @brief Replace text in buffer (atomic operation)
+ * 
+ * @param buffer Buffer to modify
+ * @param start_position Start byte offset
+ * @param delete_length Number of bytes to delete
+ * @param insert_text Text to insert
+ * @param insert_length Length of text to insert
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
+                                     size_t start_position,
+                                     size_t delete_length,
+                                     const char *insert_text,
+                                     size_t insert_length);
 
 #endif /* LLE_BUFFER_MANAGEMENT_H */

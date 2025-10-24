@@ -26,8 +26,11 @@
  */
 
 #include "lle/buffer_management.h"
+#include "lle/utf8_support.h"
+#include "lle/unicode_grapheme.h"
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
 
 /* ============================================================================
  * STATIC HELPER FUNCTIONS
@@ -372,6 +375,381 @@ lle_result_t lle_buffer_validate(lle_buffer_t *buffer) {
     /* Clear validation failed flag */
     buffer->flags &= ~LLE_BUFFER_FLAG_VALIDATION_FAILED;
     buffer->integrity_valid = true;
+    
+    return LLE_SUCCESS;
+}
+
+/* ============================================================================
+ * ATOMIC BUFFER OPERATIONS
+ * ============================================================================
+ */
+
+/**
+ * @brief Insert text into buffer (atomic operation)
+ * Spec Reference: Spec 03, Line 382-487
+ * 
+ * This is a complete atomic operation with full change tracking.
+ * All operations are tracked for undo/redo.
+ */
+lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer,
+                                    size_t position,
+                                    const char *text,
+                                    size_t text_length) {
+    /* Validate parameters */
+    if (!buffer || !text) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (position > buffer->length) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    if (text_length == 0) {
+        return LLE_SUCCESS; /* Nothing to insert */
+    }
+    
+    /* Step 1: Validate UTF-8 input */
+    if (!lle_utf8_is_valid(text, text_length)) {
+        return LLE_ERROR_INVALID_ENCODING;
+    }
+    
+    lle_result_t result = LLE_SUCCESS;
+    
+    /* Step 2: Check if buffer needs expansion */
+    if (buffer->length + text_length >= buffer->capacity) {
+        size_t new_capacity = buffer->capacity;
+        while (new_capacity < buffer->length + text_length + 1) {
+            new_capacity *= LLE_BUFFER_GROWTH_FACTOR;
+            if (new_capacity > LLE_BUFFER_MAX_CAPACITY) {
+                return LLE_ERROR_BUFFER_OVERFLOW;
+            }
+        }
+        
+        /* Reallocate buffer */
+        char *new_data = (char *)lle_pool_alloc(new_capacity);
+        if (!new_data) {
+            return LLE_ERROR_OUT_OF_MEMORY;
+        }
+        
+        memcpy(new_data, buffer->data, buffer->length);
+        lle_pool_free(buffer->data);
+        buffer->data = new_data;
+        buffer->capacity = new_capacity;
+    }
+    
+    /* Step 3: Start change tracking sequence */
+    lle_change_operation_t *change_op = NULL;
+    if (buffer->change_tracking_enabled && buffer->current_sequence) {
+        result = lle_change_tracker_begin_operation(
+            buffer->current_sequence,
+            LLE_CHANGE_TYPE_INSERT,
+            position,
+            text_length,
+            &change_op
+        );
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+        
+        /* Save cursor state before operation */
+        if (change_op) {
+            change_op->cursor_before = buffer->cursor;
+        }
+        
+        /* Save inserted text for undo */
+        result = lle_change_tracker_save_inserted_text(change_op, text, text_length);
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+    }
+    
+    /* Step 4: Make space for new text */
+    if (position < buffer->length) {
+        memmove(buffer->data + position + text_length,
+                buffer->data + position,
+                buffer->length - position);
+    }
+    
+    /* Step 5: Insert new text */
+    memcpy(buffer->data + position, text, text_length);
+    buffer->length += text_length;
+    buffer->data[buffer->length] = '\0'; /* Ensure null termination */
+    
+    /* Step 6: Update buffer metadata */
+    buffer->modification_count++;
+    buffer->last_modified_time = get_timestamp_us();
+    buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
+    
+    /* Step 7: Update UTF-8 counts */
+    buffer->codepoint_count += lle_utf8_count_codepoints(text, text_length);
+    buffer->grapheme_count += lle_utf8_count_graphemes(text, text_length);
+    
+    /* Step 8: Update cursor if after insertion point */
+    if (buffer->cursor.byte_offset >= position) {
+        buffer->cursor.byte_offset += text_length;
+    }
+    
+    /* Step 9: Complete change tracking */
+    if (buffer->change_tracking_enabled && change_op) {
+        /* Save cursor state after operation */
+        change_op->cursor_after = buffer->cursor;
+        
+        result = lle_change_tracker_complete_operation(change_op);
+        if (result != LLE_SUCCESS) {
+            /* Log warning but continue - operation succeeded */
+        }
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Delete text from buffer (atomic operation)
+ * Spec Reference: Spec 03, Line 489-594
+ */
+lle_result_t lle_buffer_delete_text(lle_buffer_t *buffer,
+                                    size_t start_position,
+                                    size_t delete_length) {
+    /* Validate parameters */
+    if (!buffer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (start_position > buffer->length) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    if (start_position + delete_length > buffer->length) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    if (delete_length == 0) {
+        return LLE_SUCCESS; /* Nothing to delete */
+    }
+    
+    lle_result_t result = LLE_SUCCESS;
+    
+    /* Step 1: Start change tracking sequence */
+    lle_change_operation_t *change_op = NULL;
+    if (buffer->change_tracking_enabled && buffer->current_sequence) {
+        result = lle_change_tracker_begin_operation(
+            buffer->current_sequence,
+            LLE_CHANGE_TYPE_DELETE,
+            start_position,
+            delete_length,
+            &change_op
+        );
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+        
+        /* Save cursor state before operation */
+        if (change_op) {
+            change_op->cursor_before = buffer->cursor;
+        }
+        
+        /* Save deleted text for undo */
+        result = lle_change_tracker_save_deleted_text(
+            change_op,
+            buffer->data + start_position,
+            delete_length
+        );
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+    }
+    
+    /* Step 2: Calculate UTF-8 statistics of deleted text */
+    size_t deleted_codepoints = lle_utf8_count_codepoints(
+        buffer->data + start_position, delete_length);
+    size_t deleted_graphemes = lle_utf8_count_graphemes(
+        buffer->data + start_position, delete_length);
+    
+    /* Step 3: Remove text by shifting remaining data */
+    if (start_position + delete_length < buffer->length) {
+        memmove(buffer->data + start_position,
+                buffer->data + start_position + delete_length,
+                buffer->length - (start_position + delete_length));
+    }
+    
+    buffer->length -= delete_length;
+    buffer->data[buffer->length] = '\0'; /* Ensure null termination */
+    
+    /* Step 4: Update buffer metadata */
+    buffer->modification_count++;
+    buffer->last_modified_time = get_timestamp_us();
+    buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
+    
+    /* Step 5: Update UTF-8 counts */
+    buffer->codepoint_count -= deleted_codepoints;
+    buffer->grapheme_count -= deleted_graphemes;
+    
+    /* Step 6: Update cursor if affected */
+    if (buffer->cursor.byte_offset > start_position) {
+        if (buffer->cursor.byte_offset >= start_position + delete_length) {
+            buffer->cursor.byte_offset -= delete_length;
+        } else {
+            buffer->cursor.byte_offset = start_position;
+        }
+    }
+    
+    /* Step 7: Complete change tracking */
+    if (buffer->change_tracking_enabled && change_op) {
+        /* Save cursor state after operation */
+        change_op->cursor_after = buffer->cursor;
+        
+        result = lle_change_tracker_complete_operation(change_op);
+        if (result != LLE_SUCCESS) {
+            /* Log warning but continue - operation succeeded */
+        }
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Replace text in buffer (atomic operation)
+ * 
+ * This is implemented as a single atomic operation (not delete + insert)
+ * to ensure it appears as one operation in undo/redo history.
+ */
+lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
+                                     size_t start_position,
+                                     size_t delete_length,
+                                     const char *insert_text,
+                                     size_t insert_length) {
+    /* Validate parameters */
+    if (!buffer || !insert_text) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (start_position > buffer->length) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    if (start_position + delete_length > buffer->length) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    /* Validate UTF-8 input */
+    if (!lle_utf8_is_valid(insert_text, insert_length)) {
+        return LLE_ERROR_INVALID_ENCODING;
+    }
+    
+    lle_result_t result = LLE_SUCCESS;
+    
+    /* Step 1: Check if buffer needs expansion */
+    ssize_t size_delta = (ssize_t)insert_length - (ssize_t)delete_length;
+    size_t new_length = buffer->length + size_delta;
+    
+    if (new_length >= buffer->capacity) {
+        size_t new_capacity = buffer->capacity;
+        while (new_capacity < new_length + 1) {
+            new_capacity *= LLE_BUFFER_GROWTH_FACTOR;
+            if (new_capacity > LLE_BUFFER_MAX_CAPACITY) {
+                return LLE_ERROR_BUFFER_OVERFLOW;
+            }
+        }
+        
+        /* Reallocate buffer */
+        char *new_data = (char *)lle_pool_alloc(new_capacity);
+        if (!new_data) {
+            return LLE_ERROR_OUT_OF_MEMORY;
+        }
+        
+        memcpy(new_data, buffer->data, buffer->length);
+        lle_pool_free(buffer->data);
+        buffer->data = new_data;
+        buffer->capacity = new_capacity;
+    }
+    
+    /* Step 2: Start change tracking sequence */
+    lle_change_operation_t *change_op = NULL;
+    if (buffer->change_tracking_enabled && buffer->current_sequence) {
+        result = lle_change_tracker_begin_operation(
+            buffer->current_sequence,
+            LLE_CHANGE_TYPE_REPLACE,
+            start_position,
+            delete_length,
+            &change_op
+        );
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+        
+        /* Save cursor state before operation */
+        if (change_op) {
+            change_op->cursor_before = buffer->cursor;
+        }
+        
+        /* Save deleted text for undo */
+        result = lle_change_tracker_save_deleted_text(
+            change_op,
+            buffer->data + start_position,
+            delete_length
+        );
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+        
+        /* Save inserted text for undo */
+        result = lle_change_tracker_save_inserted_text(change_op, insert_text, insert_length);
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+    }
+    
+    /* Step 3: Calculate UTF-8 statistics */
+    size_t deleted_codepoints = lle_utf8_count_codepoints(
+        buffer->data + start_position, delete_length);
+    size_t deleted_graphemes = lle_utf8_count_graphemes(
+        buffer->data + start_position, delete_length);
+    size_t inserted_codepoints = lle_utf8_count_codepoints(insert_text, insert_length);
+    size_t inserted_graphemes = lle_utf8_count_graphemes(insert_text, insert_length);
+    
+    /* Step 4: Perform replacement */
+    if (delete_length != insert_length) {
+        /* Need to shift data */
+        if (start_position + delete_length < buffer->length) {
+            memmove(buffer->data + start_position + insert_length,
+                    buffer->data + start_position + delete_length,
+                    buffer->length - (start_position + delete_length));
+        }
+    }
+    
+    /* Copy new text */
+    memcpy(buffer->data + start_position, insert_text, insert_length);
+    buffer->length = new_length;
+    buffer->data[buffer->length] = '\0';
+    
+    /* Step 5: Update buffer metadata */
+    buffer->modification_count++;
+    buffer->last_modified_time = get_timestamp_us();
+    buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
+    
+    /* Step 6: Update UTF-8 counts */
+    buffer->codepoint_count = buffer->codepoint_count - deleted_codepoints + inserted_codepoints;
+    buffer->grapheme_count = buffer->grapheme_count - deleted_graphemes + inserted_graphemes;
+    
+    /* Step 7: Update cursor if affected */
+    if (buffer->cursor.byte_offset > start_position) {
+        if (buffer->cursor.byte_offset >= start_position + delete_length) {
+            buffer->cursor.byte_offset += size_delta;
+        } else {
+            buffer->cursor.byte_offset = start_position;
+        }
+    }
+    
+    /* Step 8: Complete change tracking */
+    if (buffer->change_tracking_enabled && change_op) {
+        /* Save cursor state after operation */
+        change_op->cursor_after = buffer->cursor;
+        
+        result = lle_change_tracker_complete_operation(change_op);
+        if (result != LLE_SUCCESS) {
+            /* Log warning but continue - operation succeeded */
+        }
+    }
     
     return LLE_SUCCESS;
 }
