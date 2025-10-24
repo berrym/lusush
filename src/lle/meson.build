@@ -112,14 +112,16 @@ endif
 # Spec 03: Buffer Management
 # Provides: Complete buffer management system
 # Depends on: Spec 16, 15, 14
-# Implementation: Phased approach (single file, multiple phases)
-#   Phase 1: Core buffer structure and lifecycle
-#   Phase 2: UTF-8 processing subsystem
-#   Phase 3: Line structure management
-#   Phase 4: Cursor management
-#   Phase 5: Change tracking and undo/redo
-#   Phase 6: Buffer operations (insert, delete, replace)
-#   Phase 7: Multiline support
+# Supporting modules:
+#   - utf8_support.c: Complete UTF-8 encoding/decoding and validation
+#   - unicode_grapheme.c: Unicode TR#29 grapheme cluster boundary detection
+#   - buffer_management.c: Complete buffer system with all subsystems
+if fs.exists('utf8_support.c')
+  lle_sources += files('utf8_support.c')
+endif
+if fs.exists('unicode_grapheme.c')
+  lle_sources += files('unicode_grapheme.c')
+endif
 if fs.exists('buffer_management.c')
   lle_sources += files('buffer_management.c')
 endif

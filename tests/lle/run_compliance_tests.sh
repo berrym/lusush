@@ -19,9 +19,47 @@ echo ""
 TOTAL_FAILURES=0
 TESTS_RUN=0
 
-# Run Spec 03 compliance tests (Buffer Management - Phase 1)
+# Run Spec 03 UTF-8 and Unicode compliance tests
 echo "-------------------------------------------------------------------"
-echo "Spec 03: Buffer Management Phase 1 Compliance"
+echo "Spec 03: UTF-8 and Unicode TR#29 Foundation Compliance"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_03_utf8_unicode_compliance.c" ]; then
+    echo "Compiling spec_03_utf8_unicode_compliance..."
+
+    gcc -o spec_03_utf8_unicode_compliance \
+        compliance/spec_03_utf8_unicode_compliance.c \
+        ../../src/lle/utf8_support.c \
+        ../../src/lle/unicode_grapheme.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_03_utf8_unicode_compliance
+    SPEC_03_UTF8_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_03_UTF8_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_03_utf8_unicode_compliance
+
+    echo ""
+else
+    echo "Spec 03 UTF-8/Unicode compliance test not found - skipping"
+    echo ""
+fi
+
+# Run Spec 03 compliance tests (Buffer Management)
+echo "-------------------------------------------------------------------"
+echo "Spec 03: Buffer Management Compliance"
 echo "-------------------------------------------------------------------"
 echo ""
 
