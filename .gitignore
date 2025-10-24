@@ -21,6 +21,7 @@ test_utf8_index
 test_utf8_compliance
 test_spec03_buffer
 test_buffer_validator
+test_subsystem_integration
 *.log
 test_output/
 coverage/

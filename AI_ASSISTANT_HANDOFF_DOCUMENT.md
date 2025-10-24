@@ -3,9 +3,9 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-10-23  
 **Branch**: feature/lle  
-**Status**: ACTIVE DEVELOPMENT - Functional Test Infrastructure COMPLETE (17/17 tests passing)  
-**Last Action**: Created comprehensive functional test suite validating actual buffer operations  
-**Next**: Integration tests combining subsystems (cursor + UTF-8 index + validation)
+**Status**: ACTIVE DEVELOPMENT - Integration Testing Infrastructure PARTIAL (5/10 tests passing)  
+**Last Action**: Created integration tests, found/fixed 3 integration bugs, identified 3 subsystem bugs  
+**Next**: Fix subsystem bugs (cursor_manager, validator, change_tracker) to achieve 10/10 passing
 
 ---
 
@@ -396,13 +396,68 @@ The phased plan document explicitly described "simplified implementations" which
 
 **Key Achievement**: First REAL functional tests that verify code actually works, not just compiles
 
-### Future Work
+### Integration Testing Infrastructure (PARTIAL - 570 lines - 2025-10-23)
 
-**Integration Tests** (NOT YET IMPLEMENTED):
-- Combine cursor manager + buffer operations
-- Combine UTF-8 index + buffer operations
-- Combine validation + buffer operations
-- End-to-end scenarios with all subsystems
+**Purpose**: Test interaction between multiple subsystems to ensure they work together correctly.
+
+**Test Infrastructure**:
+- Meson test suite: `lle-integration` registered in meson.build
+- Reuses mock memory pool from functional tests
+- 10 comprehensive integration tests
+- Tests combine 2-5 subsystems per test
+
+**Test Coverage** (subsystem_integration_test.c):
+1. **Buffer Ops + UTF-8 Index**: Insert/delete updates counts and validity flag
+2. **Buffer Ops + Cursor Manager**: Operations adjust cursor position correctly
+3. **Buffer Ops + Validator**: Operations maintain buffer validity
+4. **Buffer Ops + Change Tracker**: Undo/redo functionality
+5. **End-to-End**: Multi-subsystem scenarios (typing session, UTF-8 editing)
+
+**Results**:
+- Compile: ✅ Clean build
+- Run: ⚠️ 5/10 tests passing
+- **Success**: Integration tests found and fixed 3 integration bugs
+- **Success**: Integration tests identified 3 subsystem implementation bugs
+
+**Integration Fixes Applied**:
+1. **UTF-8 Index Validity** (✅ Fixed)
+   - Problem: Buffer ops didn't set `utf8_index_valid` flag
+   - Fix: Added flag setting in insert/delete/replace operations
+   - Files: src/lle/buffer_management.c (3 locations)
+
+2. **Cursor Manager Sync** (✅ Fixed)
+   - Problem: Tests checked cursor_manager cache vs buffer->cursor (source of truth)
+   - Fix: Updated tests to check buffer->cursor directly
+   - Files: tests/lle/integration/subsystem_integration_test.c
+
+3. **Change Tracker Attachment** (✅ Fixed)
+   - Problem: Tests never attached tracker to buffer or started sequences
+   - Fix: Added proper initialization: begin_sequence, attach to buffer, complete_sequence
+   - Files: tests/lle/integration/subsystem_integration_test.c
+
+**Bugs Found** (require subsystem fixes, not integration fixes):
+1. **Cursor Manager `move_by_codepoints()`** (❌ Implementation Bug)
+   - Symptom: Moving by 1 codepoint jumps to end of buffer
+   - Component: src/lle/cursor_manager.c
+   - Test: test_cursor_movement_with_utf8()
+
+2. **Validator Rejects Valid Buffers** (❌ Implementation Bug)
+   - Symptom: `lle_buffer_validate_complete()` fails on valid buffers
+   - Component: src/lle/buffer_validator.c
+   - Test: test_operations_maintain_validity()
+
+3. **Change Tracker Redo Stack** (❌ Implementation Bug)
+   - Symptom: `can_redo()` returns false after successful undo
+   - Component: src/lle/change_tracker.c
+   - Test: test_undo_single_insert()
+
+**Key Achievement**: Integration testing successfully validated subsystem interaction design and found real bugs!
+
+**Documentation**:
+- INTEGRATION_TEST_ANALYSIS.md - Detailed failure analysis
+- INTEGRATION_TEST_RESULTS.md - Summary and lessons learned
+
+**Next Steps**: Fix 3 subsystem bugs, expect 10/10 tests passing
 
 ---
 

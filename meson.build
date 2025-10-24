@@ -140,4 +140,21 @@ if lle_sources.length() > 0
   test('LLE Buffer Operations', test_buffer_ops,
        suite: 'lle-functional',
        timeout: 30)
+
+  # Subsystem integration tests
+  # Tests interaction between multiple LLE subsystems:
+  # - Buffer operations + UTF-8 index
+  # - Buffer operations + cursor manager
+  # - Buffer operations + validator
+  # - Buffer operations + change tracker (undo/redo)
+  # - End-to-end multi-subsystem scenarios
+  test_integration = executable('test_subsystem_integration',
+                                ['tests/lle/integration/subsystem_integration_test.c',
+                                 'tests/lle/functional/test_memory_mock.c'],
+                                include_directories: inc,
+                                dependencies: [lle_dep])
+
+  test('LLE Subsystem Integration', test_integration,
+       suite: 'lle-integration',
+       timeout: 60)
 endif

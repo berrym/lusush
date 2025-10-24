@@ -486,6 +486,12 @@ lle_result_t lle_cursor_manager_get_position(const lle_cursor_manager_t *manager
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    *position = manager->position;
+    /* Always return buffer's current cursor position, not cached position */
+    /* This ensures cursor manager sees updates from direct buffer operations */
+    if (manager->buffer) {
+        *position = manager->buffer->cursor;
+    } else {
+        *position = manager->position;
+    }
     return LLE_SUCCESS;
 }
