@@ -141,6 +141,9 @@ endif
 if fs.exists('buffer_management.c')
   lle_sources += files('buffer_management.c')
 endif
+if fs.exists('multiline_manager.c')
+  lle_sources += files('multiline_manager.c')
+endif
 
 # Spec 08: Display Integration
 # Provides: Display rendering through Lusush, cursor management

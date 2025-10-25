@@ -477,6 +477,55 @@ struct lle_change_tracker_t {
     size_t memory_used;                            /* Memory used */
 };
 
+/**
+ * @brief Multiline context for shell construct tracking
+ * 
+ * Wraps the shared input_continuation.c parser to provide LLE-specific
+ * multiline state tracking. This allows buffer management to understand
+ * shell constructs (quotes, brackets, control structures) and determine
+ * when input is complete or needs continuation.
+ */
+struct lle_multiline_context_t {
+    /* Core parser state (delegates to input_continuation.c) */
+    void *core_state;                              /* continuation_state_t wrapper */
+    
+    /* LLE-specific tracking */
+    char *current_construct;                       /* Current construct name */
+    size_t construct_start_line;                   /* Starting line number */
+    size_t construct_start_offset;                 /* Starting byte offset */
+    uint8_t nesting_level;                         /* Nesting depth */
+    
+    /* Completion state */
+    bool construct_complete;                       /* Construct is complete */
+    bool needs_continuation;                       /* Needs continuation line */
+    char *expected_terminator;                     /* Expected terminator string */
+    
+    /* Performance optimization */
+    uint32_t cache_key;                            /* Cache key for results */
+    bool cache_valid;                              /* Cache validity flag */
+    
+    /* Memory management */
+    lusush_memory_pool_t *memory_pool;             /* Memory pool */
+};
+
+/**
+ * @brief Multiline manager for buffer-wide multiline analysis
+ * 
+ * Manages multiline state for an entire buffer, analyzing lines to
+ * determine shell construct boundaries and continuation requirements.
+ */
+struct lle_multiline_manager_t {
+    /* Configuration */
+    lusush_memory_pool_t *memory_pool;             /* Memory pool */
+    
+    /* Statistics */
+    uint64_t analysis_count;                       /* Analysis operations */
+    uint64_t line_updates;                         /* Line updates */
+    
+    /* Performance monitoring */
+    lle_performance_monitor_t *perf_monitor;       /* Performance monitor */
+};
+
 /* ============================================================================
  * FUNCTION DECLARATIONS - PHASE 1: CORE BUFFER LIFECYCLE
  * ============================================================================
@@ -1030,5 +1079,157 @@ lle_result_t lle_cursor_manager_validate_and_correct(lle_cursor_manager_t *manag
  */
 lle_result_t lle_cursor_manager_get_position(const lle_cursor_manager_t *manager,
                                              lle_cursor_position_t *position);
+
+/* ============================================================================
+ * FUNCTION DECLARATIONS - MULTILINE MANAGER
+ * ============================================================================
+ */
+
+/**
+ * @brief Initialize multiline context
+ * 
+ * Creates and initializes a multiline context for tracking shell constructs.
+ * Allocates the core continuation_state_t parser and initializes LLE-specific
+ * tracking fields.
+ * 
+ * @param ctx Pointer to receive created context
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
+                                        lusush_memory_pool_t *memory_pool);
+
+/**
+ * @brief Destroy multiline context
+ * 
+ * Frees all resources associated with a multiline context, including
+ * the wrapped continuation_state_t and any allocated strings.
+ * 
+ * @param ctx Context to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_context_destroy(lle_multiline_context_t *ctx);
+
+/**
+ * @brief Reset multiline context to initial state
+ * 
+ * Clears all parsing state while preserving allocated structures.
+ * Used when starting analysis of a new buffer or after completing
+ * a multiline construct.
+ * 
+ * @param ctx Context to reset
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_context_reset(lle_multiline_context_t *ctx);
+
+/**
+ * @brief Analyze a line for shell constructs
+ * 
+ * Parses a line and updates the multiline context state. Delegates core
+ * parsing to continuation_analyze_line() from input_continuation.c, then
+ * extracts and caches LLE-specific state.
+ * 
+ * @param ctx Multiline context
+ * @param line Line content to analyze
+ * @param length Line length in bytes
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
+                                        const char *line,
+                                        size_t length);
+
+/**
+ * @brief Check if current construct is complete
+ * 
+ * Determines if all shell constructs are closed and input is complete.
+ * Delegates to continuation_is_complete() from input_continuation.c.
+ * 
+ * @param ctx Multiline context
+ * @return true if complete, false if continuation needed
+ */
+bool lle_multiline_is_complete(const lle_multiline_context_t *ctx);
+
+/**
+ * @brief Check if continuation is needed
+ * 
+ * Inverse of lle_multiline_is_complete() for convenience.
+ * 
+ * @param ctx Multiline context
+ * @return true if continuation needed, false if complete
+ */
+bool lle_multiline_needs_continuation(const lle_multiline_context_t *ctx);
+
+/**
+ * @brief Get continuation prompt string
+ * 
+ * Returns appropriate prompt based on current parsing state.
+ * Delegates to continuation_get_prompt() from input_continuation.c.
+ * 
+ * @param ctx Multiline context
+ * @return Prompt string (e.g., "> ", "quote> ", "if> ")
+ */
+const char *lle_multiline_get_prompt(const lle_multiline_context_t *ctx);
+
+/**
+ * @brief Get current construct name
+ * 
+ * Returns a string describing the current multiline construct
+ * (e.g., "if statement", "double quote", "function definition").
+ * 
+ * @param ctx Multiline context
+ * @return Construct name or NULL if none
+ */
+const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx);
+
+/**
+ * @brief Initialize multiline manager
+ * 
+ * Creates and initializes a multiline manager for buffer-wide analysis.
+ * 
+ * @param manager Pointer to receive created manager
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
+                                        lusush_memory_pool_t *memory_pool);
+
+/**
+ * @brief Destroy multiline manager
+ * 
+ * Frees all resources associated with a multiline manager.
+ * 
+ * @param manager Manager to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_manager_destroy(lle_multiline_manager_t *manager);
+
+/**
+ * @brief Analyze entire buffer for multiline constructs
+ * 
+ * Performs line-by-line analysis of the buffer, updating each line's
+ * multiline state and determining overall buffer completion status.
+ * Updates buffer->multiline_active and line flags.
+ * 
+ * @param manager Multiline manager
+ * @param buffer Buffer to analyze
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manager,
+                                                  lle_buffer_t *buffer);
+
+/**
+ * @brief Update multiline state for a specific line
+ * 
+ * Re-analyzes a single line and updates its multiline state.
+ * Used after line edits to maintain accurate state.
+ * 
+ * @param manager Multiline manager
+ * @param buffer Buffer containing the line
+ * @param line_index Index of line to update
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_multiline_manager_update_line_state(lle_multiline_manager_t *manager,
+                                                     lle_buffer_t *buffer,
+                                                     size_t line_index);
 
 #endif /* LLE_BUFFER_MANAGEMENT_H */

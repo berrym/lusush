@@ -141,6 +141,20 @@ if lle_sources.length() > 0
        suite: 'lle-functional',
        timeout: 30)
 
+  # Multiline manager functional tests
+  # Tests multiline context and buffer analysis
+  test_multiline = executable('test_multiline_manager',
+                              ['tests/lle/functional/multiline_manager_test.c',
+                               'tests/lle/functional/test_memory_mock.c',
+                               'src/input_continuation.c',
+                               'src/symtable.c'],
+                              include_directories: inc,
+                              dependencies: [lle_dep])
+
+  test('LLE Multiline Manager', test_multiline,
+       suite: 'lle-functional',
+       timeout: 30)
+
   # Subsystem integration tests
   # Tests interaction between multiple LLE subsystems:
   # - Buffer operations + UTF-8 index
