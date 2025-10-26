@@ -200,4 +200,18 @@ if lle_sources.length() > 0
   test('LLE Performance Benchmarks', benchmark_perf,
        suite: 'lle-benchmarks',
        timeout: 120)
+
+  # Display Bridge Unit Tests (Spec 08)
+  # Unit tests for display bridge initialization, cleanup, and error handling
+  # Uses mocks for display_controller and memory pool (standard unit test practice)
+  # Integration with real display system will be tested in integration tests
+  test_display_bridge = executable('test_display_bridge',
+                                   ['tests/lle/unit/test_display_bridge.c',
+                                    'tests/lle/functional/test_memory_mock.c'],
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, readline_dep])
+
+  test('LLE Display Bridge', test_display_bridge,
+       suite: 'lle-unit',
+       timeout: 30)
 endif
