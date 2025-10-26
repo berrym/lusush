@@ -19,6 +19,43 @@ echo ""
 TOTAL_FAILURES=0
 TESTS_RUN=0
 
+# Run Spec 08 compliance tests (Display Integration)
+echo "-------------------------------------------------------------------"
+echo "Spec 08: Display Integration Compliance (Layer 0)"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_08_display_integration_compliance.c" ]; then
+    echo "Compiling spec_08_display_integration_compliance..."
+
+    gcc -o spec_08_compliance \
+        compliance/spec_08_display_integration_compliance.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_08_compliance
+    SPEC_08_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_08_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_08_compliance
+
+    echo ""
+else
+    echo "Spec 08 compliance test not found - skipping"
+    echo ""
+fi
+
 # Run Spec 02 compliance tests (Terminal Abstraction)
 echo "-------------------------------------------------------------------"
 echo "Spec 02: Terminal Abstraction Compliance"
