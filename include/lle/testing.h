@@ -840,7 +840,11 @@ typedef struct {
 
 /**
  * @brief Terminal Capabilities
+ * 
+ * Note: Testing-specific version. When terminal_abstraction.h is included
+ * (Spec 02), that provides the authoritative complete definition.
  */
+#ifndef LLE_TERMINAL_ABSTRACTION_H
 typedef struct {
     bool supports_colors;
     bool supports_cursor_movement;
@@ -849,6 +853,7 @@ typedef struct {
     uint32_t max_width;
     uint32_t max_height;
 } lle_terminal_capabilities_t;
+#endif /* LLE_TERMINAL_ABSTRACTION_H */
 
 /**
  * @brief Test Input Event
@@ -873,11 +878,16 @@ typedef struct {
 
 /**
  * @brief Cursor Position
+ * 
+ * Note: Testing framework version. When buffer_management.h is included,
+ * use the complete lle_cursor_position_t from Spec 03.
  */
+#ifndef LLE_BUFFER_MANAGEMENT_H
 typedef struct {
     uint32_t line;
     uint32_t column;
 } lle_cursor_position_t;
+#endif /* LLE_BUFFER_MANAGEMENT_H */
 
 /**
  * @brief Lusush Cursor Info
@@ -1174,9 +1184,13 @@ const char *lle_format_bytes(uint64_t bytes);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Buffer Operations
+ * 
+ * Note: Testing framework helpers. When buffer_management.h is included
+ * (Spec 03), use those authoritative APIs instead.
  * ============================================================================
  */
 
+#ifndef LLE_BUFFER_MANAGEMENT_H
 lle_buffer_t *lle_buffer_create(size_t initial_capacity);
 lle_buffer_t *lle_buffer_create_with_size(lle_buffer_t **buffer, size_t size);
 void lle_buffer_destroy(lle_buffer_t *buffer);
@@ -1186,6 +1200,7 @@ lle_result_t lle_buffer_clear(lle_buffer_t *buffer);
 char *lle_buffer_get_text(lle_buffer_t *buffer);
 size_t lle_buffer_get_grapheme_cluster_count(lle_buffer_t *buffer);
 lle_cursor_position_t lle_buffer_get_cursor_position(lle_buffer_t *buffer);
+#endif /* LLE_BUFFER_MANAGEMENT_H */
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - UTF-8 Operations

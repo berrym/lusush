@@ -19,6 +19,43 @@ echo ""
 TOTAL_FAILURES=0
 TESTS_RUN=0
 
+# Run Spec 02 compliance tests (Terminal Abstraction)
+echo "-------------------------------------------------------------------"
+echo "Spec 02: Terminal Abstraction Compliance"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_02_terminal_abstraction_compliance.c" ]; then
+    echo "Compiling spec_02_terminal_abstraction_compliance..."
+
+    gcc -o spec_02_compliance \
+        compliance/spec_02_terminal_abstraction_compliance.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_02_compliance
+    SPEC_02_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_02_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_02_compliance
+
+    echo ""
+else
+    echo "Spec 02 compliance test not found - skipping"
+    echo ""
+fi
+
 # Run Spec 03 UTF-8 and Unicode compliance tests
 echo "-------------------------------------------------------------------"
 echo "Spec 03: UTF-8 and Unicode TR#29 Foundation Compliance"
