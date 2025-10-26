@@ -143,13 +143,18 @@ if lle_sources.length() > 0
 
   # Multiline manager functional tests
   # Tests multiline context and buffer analysis
+  # NOTE: Includes hashtable sources because symtable.c depends on them
   test_multiline = executable('test_multiline_manager',
                               ['tests/lle/functional/multiline_manager_test.c',
                                'tests/lle/functional/test_memory_mock.c',
                                'src/input_continuation.c',
-                               'src/symtable.c'],
+                               'src/symtable.c',
+                               'src/libhashtable/ht.c',
+                               'src/libhashtable/ht_fnv1a.c',
+                               'src/libhashtable/ht_strstr.c',
+                               'src/globals.c'],
                               include_directories: inc,
-                              dependencies: [lle_dep])
+                              dependencies: [lle_dep, readline_dep])
 
   test('LLE Multiline Manager', test_multiline,
        suite: 'lle-functional',
@@ -171,4 +176,28 @@ if lle_sources.length() > 0
   test('LLE Subsystem Integration', test_integration,
        suite: 'lle-integration',
        timeout: 60)
+
+  # End-to-end realistic scenario tests
+  # Tests complete editing workflows that simulate real-world usage
+  test_e2e_scenarios = executable('test_realistic_scenarios',
+                                  ['tests/lle/e2e/realistic_scenarios_test.c',
+                                   'tests/lle/functional/test_memory_mock.c'],
+                                  include_directories: inc,
+                                  dependencies: [lle_dep])
+
+  test('LLE Realistic Scenarios', test_e2e_scenarios,
+       suite: 'lle-e2e',
+       timeout: 60)
+
+  # Performance benchmarks
+  # Validates operations meet spec performance requirements
+  benchmark_perf = executable('benchmark_performance',
+                              ['tests/lle/benchmarks/performance_benchmark.c',
+                               'tests/lle/functional/test_memory_mock.c'],
+                              include_directories: inc,
+                              dependencies: [lle_dep])
+
+  test('LLE Performance Benchmarks', benchmark_perf,
+       suite: 'lle-benchmarks',
+       timeout: 120)
 endif

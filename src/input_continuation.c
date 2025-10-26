@@ -337,12 +337,14 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
             }
         }
         
-        // Check for line continuation
-        if (c == '\\' && *(p + 1) == '\0') {
-            state->has_continuation = true;
-        }
-        
         p++;
+    }
+    
+    // Check if line ends with unescaped backslash (line continuation)
+    // Must check after loop completes to handle escaped flag correctly
+    if (state->escaped) {
+        state->has_continuation = true;
+        state->escaped = false;  // Reset for next line
     }
     
     // Handle remaining word at end of line

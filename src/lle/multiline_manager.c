@@ -425,36 +425,48 @@ lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manag
     }
 
     /* Step 2: Analyze each line in the buffer */
-    for (size_t line_idx = 0; line_idx < buffer->line_count; line_idx++) {
-        lle_line_info_t *line = &buffer->lines[line_idx];
+    if (buffer->line_count > 0) {
+        /* Buffer has line structure - analyze each line */
+        for (size_t line_idx = 0; line_idx < buffer->line_count; line_idx++) {
+            lle_line_info_t *line = &buffer->lines[line_idx];
 
-        /* Extract line content */
-        if (line->start_offset + line->length > buffer->length) {
-            return LLE_ERROR_BUFFER_OVERFLOW;
+            /* Extract line content */
+            if (line->start_offset + line->length > buffer->length) {
+                return LLE_ERROR_BUFFER_OVERFLOW;
+            }
+
+            const char *line_content = (const char *)(buffer->data + line->start_offset);
+            size_t line_length = line->length;
+
+            /* Analyze line */
+            result = lle_multiline_analyze_line(buffer->multiline_ctx,
+                                                line_content,
+                                                line_length);
+            if (result != LLE_SUCCESS) {
+                return result;
+            }
+
+            /* Update line multiline state */
+            continuation_state_t *state = (continuation_state_t *)buffer->multiline_ctx->core_state;
+            line->ml_state = convert_to_lle_state(state);
+
+            /* Update line flags */
+            if (buffer->multiline_ctx->needs_continuation) {
+                line->flags |= LLE_LINE_FLAG_CONTINUATION;
+            } else {
+                line->flags &= ~LLE_LINE_FLAG_CONTINUATION;
+            }
+
+            manager->line_updates++;
         }
-
-        const char *line_content = (const char *)(buffer->data + line->start_offset);
-        size_t line_length = line->length;
-
-        /* Analyze line */
+    } else if (buffer->length > 0) {
+        /* Buffer has text but no line structure - treat entire buffer as one line */
         result = lle_multiline_analyze_line(buffer->multiline_ctx,
-                                            line_content,
-                                            line_length);
+                                            (const char *)buffer->data,
+                                            buffer->length);
         if (result != LLE_SUCCESS) {
             return result;
         }
-
-        /* Update line multiline state */
-        continuation_state_t *state = (continuation_state_t *)buffer->multiline_ctx->core_state;
-        line->ml_state = convert_to_lle_state(state);
-
-        /* Update line flags */
-        if (buffer->multiline_ctx->needs_continuation) {
-            line->flags |= LLE_LINE_FLAG_CONTINUATION;
-        } else {
-            line->flags &= ~LLE_LINE_FLAG_CONTINUATION;
-        }
-
         manager->line_updates++;
     }
 
