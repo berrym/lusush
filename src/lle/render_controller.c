@@ -638,6 +638,7 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
                                        lle_cursor_position_t *cursor,
                                        lle_render_output_t **output) {
     struct timespec start_time, end_time;
+    bool is_partial_render = false;
     
     /* Step 1: Performance monitoring start */
     clock_gettime(CLOCK_MONOTONIC, &start_time);
@@ -647,17 +648,28 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Step 3: Allocate render output structure */
+    /* Step 3: Check dirty tracker for partial render opportunity */
+    bool needs_full_render = true;
+    if (controller->dirty_tracker && controller->config->dirty_tracking_enabled) {
+        needs_full_render = lle_dirty_tracker_needs_full_redraw(controller->dirty_tracker);
+        
+        /* If we have dirty regions but not full redraw, attempt partial render */
+        if (!needs_full_render && controller->dirty_tracker->region_count > 0) {
+            is_partial_render = true;
+        }
+    }
+    
+    /* Step 4: Allocate render output structure */
     lle_render_output_t *render_out = lle_pool_alloc(sizeof(lle_render_output_t));
     if (!render_out) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(render_out, 0, sizeof(lle_render_output_t));
     
-    /* Step 4: Estimate required output size (buffer length + ANSI codes overhead) */
+    /* Step 5: Estimate required output size (buffer length + ANSI codes overhead) */
     size_t estimated_size = buffer->length + 256; /* Extra space for ANSI codes */
     
-    /* Step 5: Allocate output content buffer */
+    /* Step 6: Allocate output content buffer */
     render_out->content = lle_pool_alloc(estimated_size);
     if (!render_out->content) {
         lle_pool_free(render_out);
@@ -665,25 +677,87 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
     }
     render_out->content_capacity = estimated_size;
     
-    /* Step 6: Copy buffer content to output */
-    if (buffer->length > 0) {
-        memcpy(render_out->content, buffer->data, buffer->length);
-        render_out->content_length = buffer->length;
-    } else {
-        render_out->content[0] = '\0';
-        render_out->content_length = 0;
+    /* Step 7: Render content based on dirty tracking */
+    if (is_partial_render) {
+        /* PARTIAL RENDER: Only copy dirty regions */
+        size_t bytes_copied = 0;
+        
+        /* Iterate through dirty regions and copy them */
+        for (size_t i = 0; i < controller->dirty_tracker->region_count; i++) {
+            size_t offset = controller->dirty_tracker->dirty_regions[i];
+            
+            /* Copy region around the dirty offset (with some context) */
+            size_t region_start = (offset > 64) ? (offset - 64) : 0;
+            size_t region_end = (offset + 64 < buffer->length) ? (offset + 64) : buffer->length;
+            size_t region_size = region_end - region_start;
+            
+            /* Ensure we have space in output buffer */
+            if (bytes_copied + region_size > render_out->content_capacity) {
+                /* Fall back to full render if partial would overflow */
+                is_partial_render = false;
+                break;
+            }
+            
+            /* Copy dirty region to output */
+            memcpy(render_out->content + bytes_copied, 
+                   buffer->data + region_start, 
+                   region_size);
+            bytes_copied += region_size;
+        }
+        
+        if (is_partial_render) {
+            render_out->content_length = bytes_copied;
+        }
     }
     
-    /* Step 7: Set render timestamp */
+    /* Step 8: Full render if needed or partial render failed */
+    if (!is_partial_render) {
+        if (buffer->length > 0) {
+            memcpy(render_out->content, buffer->data, buffer->length);
+            render_out->content_length = buffer->length;
+        } else {
+            render_out->content[0] = '\0';
+            render_out->content_length = 0;
+        }
+    }
+    
+    /* Step 9: Set render timestamp */
     clock_gettime(CLOCK_MONOTONIC, &end_time);
     render_out->timestamp = (uint64_t)end_time.tv_sec * 1000000ULL + 
                             (uint64_t)end_time.tv_nsec / 1000ULL;
     
-    /* Step 8: Update render metrics */
+    /* Step 10: Update render metrics */
     uint64_t render_time_ns = (end_time.tv_sec - start_time.tv_sec) * 1000000000ULL +
                               (end_time.tv_nsec - start_time.tv_nsec);
     
     controller->metrics->total_renders++;
+    
+    /* Track partial vs full render counts and timing */
+    if (is_partial_render) {
+        controller->metrics->partial_renders++;
+        
+        /* Update average partial render time */
+        if (controller->metrics->partial_renders == 1) {
+            controller->metrics->avg_partial_render_time_ns = render_time_ns;
+        } else {
+            controller->metrics->avg_partial_render_time_ns = 
+                (controller->metrics->avg_partial_render_time_ns * (controller->metrics->partial_renders - 1) + 
+                 render_time_ns) / controller->metrics->partial_renders;
+        }
+    } else {
+        controller->metrics->full_renders++;
+        
+        /* Update average full render time */
+        if (controller->metrics->full_renders == 1) {
+            controller->metrics->avg_full_render_time_ns = render_time_ns;
+        } else {
+            controller->metrics->avg_full_render_time_ns = 
+                (controller->metrics->avg_full_render_time_ns * (controller->metrics->full_renders - 1) + 
+                 render_time_ns) / controller->metrics->full_renders;
+        }
+    }
+    
+    /* Update global min/max render times */
     if (render_time_ns < controller->metrics->min_render_time_ns || 
         controller->metrics->min_render_time_ns == 0) {
         controller->metrics->min_render_time_ns = render_time_ns;
@@ -692,7 +766,7 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
         controller->metrics->max_render_time_ns = render_time_ns;
     }
     
-    /* Update average render time */
+    /* Update average render time (all renders) */
     if (controller->metrics->total_renders == 1) {
         controller->metrics->avg_render_time_ns = render_time_ns;
     } else {
@@ -701,12 +775,16 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
              render_time_ns) / controller->metrics->total_renders;
     }
     
-    /* Step 9: Mark dirty tracker as clean (full render done) */
+    /* Step 11: Clear dirty tracker after successful render */
     if (controller->dirty_tracker) {
-        controller->dirty_tracker->full_redraw_needed = false;
+        lle_result_t clear_result = lle_dirty_tracker_clear(controller->dirty_tracker);
+        if (clear_result != LLE_SUCCESS) {
+            /* Log warning but don't fail the render */
+            /* In production, this would use proper logging */
+        }
     }
     
-    /* Step 10: Return rendered output */
+    /* Step 12: Return rendered output */
     *output = render_out;
     return LLE_SUCCESS;
 }

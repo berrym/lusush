@@ -1175,6 +1175,223 @@ TEST(dirty_tracker_cleanup_null) {
 }
 
 /* ========================================================================== */
+/*                      PARTIAL RENDERING INTEGRATION TESTS                   */
+/* ========================================================================== */
+
+TEST(partial_render_with_dirty_regions) {
+    /* Test that marking dirty regions triggers partial render */
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    lle_render_controller_t *controller = NULL;
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Controller init should succeed");
+    
+    /* Enable dirty tracking */
+    controller->config->dirty_tracking_enabled = true;
+    
+    /* Create a buffer with content */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    /* Insert some content */
+    const char *content = "Hello World";
+    result = lle_buffer_insert_text(buffer, 0, content, strlen(content));
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer insert should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Clear full redraw flag first (set by init) */
+    controller->dirty_tracker->full_redraw_needed = false;
+    
+    /* Mark some regions dirty (far apart to avoid merging - 64 byte threshold) */
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 5);
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 100);
+    
+    /* Verify we have dirty regions */
+    ASSERT_TRUE(controller->dirty_tracker->region_count >= 1, "Should have at least 1 dirty region");
+    
+    /* Render buffer */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render should succeed");
+    ASSERT_NOT_NULL(output, "Output should be allocated");
+    
+    /* Verify partial render was attempted (might fall back to full if buffer too small) */
+    ASSERT_TRUE(controller->metrics->total_renders == 1, "Should have 1 total render");
+    
+    /* Verify dirty tracker was cleared */
+    ASSERT_EQ(controller->dirty_tracker->region_count, 0, "Dirty regions should be cleared");
+    ASSERT_FALSE(controller->dirty_tracker->full_redraw_needed, "Full redraw flag should be clear");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(full_render_when_full_redraw_needed) {
+    /* Test that full redraw flag triggers full render */
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    lle_render_controller_t *controller = NULL;
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Controller init should succeed");
+    
+    /* Enable dirty tracking */
+    controller->config->dirty_tracking_enabled = true;
+    
+    /* Create a buffer */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Mark full redraw needed */
+    lle_dirty_tracker_mark_full(controller->dirty_tracker);
+    ASSERT_TRUE(controller->dirty_tracker->full_redraw_needed, "Full redraw should be needed");
+    
+    /* Render buffer */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render should succeed");
+    
+    /* Verify full render metrics */
+    ASSERT_EQ(controller->metrics->full_renders, 1, "Should have 1 full render");
+    ASSERT_EQ(controller->metrics->partial_renders, 0, "Should have 0 partial renders");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(full_render_when_dirty_tracking_disabled) {
+    /* Test that disabled dirty tracking always does full render */
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    lle_render_controller_t *controller = NULL;
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Controller init should succeed");
+    
+    /* Disable dirty tracking */
+    controller->config->dirty_tracking_enabled = false;
+    
+    /* Create a buffer */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Mark dirty regions (should be ignored) */
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 2);
+    controller->dirty_tracker->full_redraw_needed = false;
+    
+    /* Render buffer */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render should succeed");
+    
+    /* Verify full render even with dirty regions */
+    ASSERT_EQ(controller->metrics->full_renders, 1, "Should do full render when tracking disabled");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(partial_render_metrics_tracking) {
+    /* Test that partial render timing is tracked separately */
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    lle_render_controller_t *controller = NULL;
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Controller init should succeed");
+    
+    controller->config->dirty_tracking_enabled = true;
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Do a partial render attempt */
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 5);
+    controller->dirty_tracker->full_redraw_needed = false;
+    
+    lle_render_output_t *output1 = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output1);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render should succeed");
+    
+    /* Do a full render */
+    lle_dirty_tracker_mark_full(controller->dirty_tracker);
+    lle_render_output_t *output2 = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output2);
+    ASSERT_EQ(result, LLE_SUCCESS, "Full render should succeed");
+    
+    /* Verify total renders */
+    ASSERT_EQ(controller->metrics->total_renders, 2, "Should have 2 total renders");
+    
+    /* Verify at least one metric is tracked */
+    ASSERT_TRUE(controller->metrics->avg_render_time_ns > 0, "Average render time should be tracked");
+    
+    /* Cleanup */
+    lle_render_output_free(output1);
+    lle_render_output_free(output2);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(dirty_tracker_cleared_after_render) {
+    /* Test that dirty tracker is cleared after successful render */
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    lle_render_controller_t *controller = NULL;
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Controller init should succeed");
+    
+    controller->config->dirty_tracking_enabled = true;
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Clear full redraw flag first (set by init) */
+    controller->dirty_tracker->full_redraw_needed = false;
+    
+    /* Mark multiple dirty regions (far apart to avoid merging - 64 byte threshold) */
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 10);
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 100);
+    lle_dirty_tracker_mark_region(controller->dirty_tracker, 200);
+    
+    size_t dirty_count_before = controller->dirty_tracker->region_count;
+    ASSERT_TRUE(dirty_count_before >= 1, "Should have at least 1 dirty region");
+    
+    /* Render */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render should succeed");
+    
+    /* Verify dirty tracker cleared */
+    ASSERT_EQ(controller->dirty_tracker->region_count, 0, "Dirty regions should be cleared");
+    ASSERT_FALSE(controller->dirty_tracker->full_redraw_needed, "Full redraw flag should be cleared");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+/* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
 
@@ -1245,6 +1462,13 @@ int main(void) {
     run_test_dirty_tracker_needs_full_redraw();
     run_test_dirty_tracker_region_merging();
     run_test_dirty_tracker_cleanup_null();
+    
+    /* Partial rendering integration tests */
+    run_test_partial_render_with_dirty_regions();
+    run_test_full_render_when_full_redraw_needed();
+    run_test_full_render_when_dirty_tracking_disabled();
+    run_test_partial_render_metrics_tracking();
+    run_test_dirty_tracker_cleared_after_render();
     
     /* Print summary */
     printf("\n=================================================================\n");

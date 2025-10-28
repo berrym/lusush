@@ -360,11 +360,15 @@ typedef struct {
  */
 typedef struct {
     uint64_t total_renders;             /**< Total renders performed */
+    uint64_t partial_renders;           /**< Partial renders performed */
+    uint64_t full_renders;              /**< Full renders performed */
     uint64_t cache_hits;                /**< Cache hits */
     uint64_t cache_misses;              /**< Cache misses */
     uint64_t avg_render_time_ns;        /**< Average render time */
     uint64_t max_render_time_ns;        /**< Maximum render time */
     uint64_t min_render_time_ns;        /**< Minimum render time */
+    uint64_t avg_partial_render_time_ns; /**< Average partial render time */
+    uint64_t avg_full_render_time_ns;   /**< Average full render time */
 } lle_render_metrics_t;
 
 /**

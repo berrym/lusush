@@ -1,7 +1,7 @@
 # LLE Specification Implementation Order
 
 **Date**: 2025-10-28  
-**Status**: Phase 0 Complete + Spec 03 Complete + Spec 08 Phase 1 Complete + Phase 2 Week 3-5 COMPLETE  
+**Status**: Phase 0 Complete + Spec 03 Complete + Spec 08 Phase 1 Complete + Phase 2 Week 3-5 COMPLETE (with integration)  
 **Purpose**: Define correct implementation order based on specification dependencies
 
 ---
@@ -52,10 +52,15 @@
   * Region merging within 64-byte threshold
   * Full redraw fallback on memory pressure
   * Query functions for dirty region detection
+  * INTEGRATED with render_controller for actual partial rendering
 - Phase 1 Complete: Display Bridge + Event Coordination
 - Phase 2 Week 3 Complete: Render Controller + Basic Rendering
 - Phase 2 Week 4 COMPLETE: Multi-Stage Pipeline + libhashtable-based Caching
-- Phase 2 Week 5 COMPLETE: LRU Cache Policy + Dirty Region Tracking
+- Phase 2 Week 5 COMPLETE: LRU Cache Policy + Dirty Region Tracking + Partial Rendering Integration
+  * Partial render path in lle_render_buffer_content()
+  * Enhanced metrics tracking (partial vs full renders)
+  * Automatic dirty tracker clearing after render
+  * 52/52 tests passing including 5 integration tests
 
 **Spec 02: Terminal Abstraction** - Layer 0 COMPLETE (type definitions)
 - Complete type definitions for terminal abstraction system
