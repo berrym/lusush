@@ -261,4 +261,14 @@ if lle_sources.length() > 0
   test('LLE Theme Integration', test_theme_integration,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Render pipeline unit tests
+  test_render_pipeline = executable('test_render_pipeline',
+                                    'tests/lle/unit/test_render_pipeline.c',
+                                    include_directories: inc,
+                                    dependencies: [lle_dep, readline_dep])
+
+  test('LLE Render Pipeline', test_render_pipeline,
+       suite: 'lle-unit',
+       timeout: 30)
 endif
