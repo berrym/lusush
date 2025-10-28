@@ -34,6 +34,9 @@
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t*)&mock_pool_dummy;
 
+/* External memory pool from mock for buffer operations */
+extern lusush_memory_pool_t *global_memory_pool;
+
 /* Test result tracking */
 static int tests_run = 0;
 static int tests_passed = 0;
@@ -402,6 +405,207 @@ TEST(render_controller_render_metrics_initialized) {
 }
 
 /* ========================================================================== */
+/*                         RENDERING OUTPUT TESTS                             */
+/* ========================================================================== */
+
+TEST(render_buffer_content_success) {
+    lle_render_controller_t *controller = NULL;
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
+    
+    /* Initialize controller */
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render controller init should succeed");
+    
+    /* Create a test buffer */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    ASSERT_NOT_NULL(buffer, "Buffer should be allocated");
+    
+    /* Insert some test content */
+    result = lle_buffer_insert_text(buffer, 0, "Hello, World!", 13);
+    ASSERT_EQ(result, LLE_SUCCESS, "Insert text should succeed");
+    
+    /* Create cursor position */
+    lle_cursor_position_t cursor = {0};
+    cursor.byte_offset = 0;
+    cursor.line_number = 0;
+    cursor.visual_column = 0;
+    cursor.position_valid = true;
+    
+    /* Render buffer content */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render buffer content should succeed");
+    ASSERT_NOT_NULL(output, "Render output should be allocated");
+    ASSERT_NOT_NULL(output->content, "Output content should be allocated");
+    ASSERT_EQ(output->content_length, 13, "Output length should match buffer");
+    ASSERT_TRUE(memcmp(output->content, "Hello, World!", 13) == 0, "Output content should match buffer");
+    
+    /* Verify metrics were updated */
+    ASSERT_EQ(controller->metrics->total_renders, 1, "Total renders should be 1");
+    ASSERT_TRUE(controller->metrics->min_render_time_ns > 0, "Min render time should be tracked");
+    ASSERT_TRUE(controller->metrics->max_render_time_ns > 0, "Max render time should be tracked");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(render_buffer_content_empty_buffer) {
+    lle_render_controller_t *controller = NULL;
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
+    
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render controller init should succeed");
+    
+    /* Create an empty buffer */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    /* Create cursor position */
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Render empty buffer */
+    lle_render_output_t *output = NULL;
+    result = lle_render_buffer_content(controller, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render empty buffer should succeed");
+    ASSERT_NOT_NULL(output, "Render output should be allocated");
+    ASSERT_EQ(output->content_length, 0, "Empty buffer should have zero length output");
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(render_buffer_content_null_params) {
+    lle_render_controller_t *controller = NULL;
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
+    
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render controller init should succeed");
+    
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_cursor_position_t cursor = {0};
+    lle_render_output_t *output = NULL;
+    
+    /* Test null controller */
+    result = lle_render_buffer_content(NULL, buffer, &cursor, &output);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null controller");
+    
+    /* Test null buffer */
+    result = lle_render_buffer_content(controller, NULL, &cursor, &output);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null buffer");
+    
+    /* Test null cursor */
+    result = lle_render_buffer_content(controller, buffer, NULL, &output);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null cursor");
+    
+    /* Test null output */
+    result = lle_render_buffer_content(controller, buffer, &cursor, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null output");
+    
+    /* Cleanup */
+    lle_buffer_destroy(buffer);
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(render_cursor_position_success) {
+    lle_render_controller_t *controller = NULL;
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
+    
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render controller init should succeed");
+    
+    /* Create cursor at line 5, column 10 */
+    lle_cursor_position_t cursor = {0};
+    cursor.line_number = 5;
+    cursor.visual_column = 10;
+    cursor.position_valid = true;
+    
+    /* Render cursor position */
+    char output[64];
+    size_t bytes_written = 0;
+    result = lle_render_cursor_position(controller, &cursor, output, sizeof(output), &bytes_written);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render cursor position should succeed");
+    ASSERT_TRUE(bytes_written > 0, "Should write bytes");
+    
+    /* Verify ANSI escape sequence format: ESC[row;colH */
+    /* Line 5, col 10 -> screen row 6, col 11 (1-based) */
+    ASSERT_TRUE(strstr(output, "\033[6;11H") != NULL, "Should generate correct ANSI sequence");
+    
+    /* Cleanup */
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(render_cursor_position_hidden) {
+    lle_render_controller_t *controller = NULL;
+    lle_display_bridge_t *bridge = create_mock_display_bridge();
+    ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
+    
+    lle_result_t result = lle_render_controller_init(&controller, bridge, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render controller init should succeed");
+    
+    /* Hide cursor */
+    controller->cursor_renderer->cursor_visible = false;
+    
+    /* Create cursor position */
+    lle_cursor_position_t cursor = {0};
+    cursor.position_valid = true;
+    
+    /* Render cursor position */
+    char output[64];
+    size_t bytes_written = 0;
+    result = lle_render_cursor_position(controller, &cursor, output, sizeof(output), &bytes_written);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render cursor position should succeed");
+    ASSERT_TRUE(bytes_written > 0, "Should write bytes");
+    
+    /* Verify hide cursor sequence: ESC[?25l */
+    ASSERT_TRUE(strstr(output, "\033[?25l") != NULL, "Should generate hide cursor sequence");
+    
+    /* Cleanup */
+    lle_render_controller_cleanup(controller);
+    destroy_mock_display_bridge(bridge);
+}
+
+TEST(render_output_free_success) {
+    /* Allocate a render output */
+    lle_render_output_t *output = lle_pool_alloc(sizeof(lle_render_output_t));
+    ASSERT_NOT_NULL(output, "Output allocation should succeed");
+    memset(output, 0, sizeof(lle_render_output_t));
+    
+    output->content = lle_pool_alloc(100);
+    ASSERT_NOT_NULL(output->content, "Content allocation should succeed");
+    output->content_capacity = 100;
+    output->content_length = 50;
+    
+    /* Free the output */
+    lle_result_t result = lle_render_output_free(output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render output free should succeed");
+}
+
+TEST(render_output_free_null) {
+    /* Test freeing null output */
+    lle_result_t result = lle_render_output_free(NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null output");
+}
+
+/* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
 
@@ -428,6 +632,15 @@ int main(void) {
     run_test_render_controller_render_cache_initialized();
     run_test_render_controller_dirty_tracker_initialized();
     run_test_render_controller_render_metrics_initialized();
+    
+    /* Rendering output tests */
+    run_test_render_buffer_content_success();
+    run_test_render_buffer_content_empty_buffer();
+    run_test_render_buffer_content_null_params();
+    run_test_render_cursor_position_success();
+    run_test_render_cursor_position_hidden();
+    run_test_render_output_free_success();
+    run_test_render_output_free_null();
     
     /* Print summary */
     printf("\n=================================================================\n");

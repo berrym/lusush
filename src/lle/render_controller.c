@@ -18,7 +18,10 @@
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
+#include "lle/buffer_management.h"
 #include <string.h>
+#include <time.h>
+#include <stdio.h>
 
 /* ========================================================================== */
 /*                       HELPER FUNCTION DECLARATIONS                         */
@@ -637,4 +640,194 @@ lle_result_t lle_render_metrics_init(lle_render_metrics_t **metrics,
 lle_result_t lle_render_config_init(lle_render_config_t **config,
                                     lle_memory_pool_t *memory_pool) {
     return lle_render_config_init_internal(config, memory_pool);
+}
+
+/* ========================================================================== */
+/*                         RENDERING FUNCTIONS                                */
+/* ========================================================================== */
+
+/**
+ * @brief Render buffer content to display output
+ * 
+ * Converts buffer content to rendered display output with cursor positioning.
+ * This is the main rendering entry point that coordinates buffer-to-display
+ * conversion with performance optimization.
+ * 
+ * @param controller Render controller managing the rendering process
+ * @param buffer Buffer containing content to render
+ * @param cursor Current cursor position
+ * @param output Output pointer to receive rendered output
+ * @return LLE_SUCCESS on success, error code on failure
+ * 
+ * SPEC COMPLIANCE: Section 3.4 "Rendering System"
+ * PERFORMANCE: Uses render metrics for timing tracking
+ */
+lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
+                                       lle_buffer_t *buffer,
+                                       lle_cursor_position_t *cursor,
+                                       lle_render_output_t **output) {
+    struct timespec start_time, end_time;
+    
+    /* Step 1: Performance monitoring start */
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+    
+    /* Step 2: Validate input parameters */
+    if (!controller || !buffer || !cursor || !output) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Step 3: Allocate render output structure */
+    lle_render_output_t *render_out = lle_pool_alloc(sizeof(lle_render_output_t));
+    if (!render_out) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    memset(render_out, 0, sizeof(lle_render_output_t));
+    
+    /* Step 4: Estimate required output size (buffer length + ANSI codes overhead) */
+    size_t estimated_size = buffer->length + 256; /* Extra space for ANSI codes */
+    
+    /* Step 5: Allocate output content buffer */
+    render_out->content = lle_pool_alloc(estimated_size);
+    if (!render_out->content) {
+        lle_pool_free(render_out);
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    render_out->content_capacity = estimated_size;
+    
+    /* Step 6: Copy buffer content to output */
+    if (buffer->length > 0) {
+        memcpy(render_out->content, buffer->data, buffer->length);
+        render_out->content_length = buffer->length;
+    } else {
+        render_out->content[0] = '\0';
+        render_out->content_length = 0;
+    }
+    
+    /* Step 7: Set render timestamp */
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    render_out->timestamp = (uint64_t)end_time.tv_sec * 1000000ULL + 
+                            (uint64_t)end_time.tv_nsec / 1000ULL;
+    
+    /* Step 8: Update render metrics */
+    uint64_t render_time_ns = (end_time.tv_sec - start_time.tv_sec) * 1000000000ULL +
+                              (end_time.tv_nsec - start_time.tv_nsec);
+    
+    controller->metrics->total_renders++;
+    if (render_time_ns < controller->metrics->min_render_time_ns || 
+        controller->metrics->min_render_time_ns == 0) {
+        controller->metrics->min_render_time_ns = render_time_ns;
+    }
+    if (render_time_ns > controller->metrics->max_render_time_ns) {
+        controller->metrics->max_render_time_ns = render_time_ns;
+    }
+    
+    /* Update average render time */
+    if (controller->metrics->total_renders == 1) {
+        controller->metrics->avg_render_time_ns = render_time_ns;
+    } else {
+        controller->metrics->avg_render_time_ns = 
+            (controller->metrics->avg_render_time_ns * (controller->metrics->total_renders - 1) + 
+             render_time_ns) / controller->metrics->total_renders;
+    }
+    
+    /* Step 9: Mark dirty tracker as clean (full render done) */
+    if (controller->dirty_tracker) {
+        controller->dirty_tracker->full_redraw_needed = false;
+    }
+    
+    /* Step 10: Return rendered output */
+    *output = render_out;
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Render cursor position to terminal escape codes
+ * 
+ * Generates ANSI escape sequences to position the cursor at the specified
+ * location. Handles coordinate translation from buffer positions to screen
+ * positions.
+ * 
+ * @param controller Render controller
+ * @param cursor Cursor position to render
+ * @param output Output buffer for escape codes
+ * @param output_size Size of output buffer
+ * @param bytes_written Number of bytes written to output
+ * @return LLE_SUCCESS on success, error code on failure
+ * 
+ * SPEC COMPLIANCE: Section 3.4.2 "Cursor Rendering"
+ */
+lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
+                                        lle_cursor_position_t *cursor,
+                                        char *output,
+                                        size_t output_size,
+                                        size_t *bytes_written) {
+    /* Step 1: Validate parameters */
+    if (!controller || !cursor || !output || !bytes_written) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    if (output_size < 32) { /* Minimum space for ANSI cursor positioning */
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Step 2: Check cursor visibility */
+    if (!controller->cursor_renderer->cursor_visible) {
+        /* Cursor hidden - generate hide cursor sequence */
+        int written = snprintf(output, output_size, "\033[?25l");
+        if (written < 0 || (size_t)written >= output_size) {
+            return LLE_ERROR_INVALID_PARAMETER;
+        }
+        *bytes_written = (size_t)written;
+        return LLE_SUCCESS;
+    }
+    
+    /* Step 3: Calculate screen position from buffer position */
+    /* For now, use simple 1:1 mapping (line_number, visual_column) */
+    /* Terminal coordinates are 1-based, so add 1 to both */
+    size_t screen_row = cursor->line_number + 1;
+    size_t screen_col = cursor->visual_column + 1;
+    
+    /* Step 4: Generate ANSI cursor positioning sequence */
+    /* Format: ESC[row;colH */
+    int written = snprintf(output, output_size, "\033[%zu;%zuH", screen_row, screen_col);
+    if (written < 0 || (size_t)written >= output_size) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    *bytes_written = (size_t)written;
+    
+    /* Step 5: Update cursor renderer state (if needed for tracking) */
+    /* For basic implementation, no additional state tracking needed */
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Free render output structure
+ * 
+ * Releases memory allocated for render output.
+ * 
+ * @param output Render output to free
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_render_output_free(lle_render_output_t *output) {
+    if (!output) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Free content buffer if allocated */
+    if (output->content) {
+        lle_pool_free(output->content);
+        output->content = NULL;
+    }
+    
+    /* Free attributes if allocated */
+    if (output->attributes) {
+        lle_pool_free(output->attributes);
+        output->attributes = NULL;
+    }
+    
+    /* Free output structure itself */
+    lle_pool_free(output);
+    
+    return LLE_SUCCESS;
 }

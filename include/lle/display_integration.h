@@ -868,6 +868,18 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
                                         lle_memory_pool_t *memory_pool);
 lle_result_t lle_render_controller_cleanup(lle_render_controller_t *controller);
 
+/* Rendering Functions */
+lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
+                                       lle_buffer_t *buffer,
+                                       lle_cursor_position_t *cursor,
+                                       lle_render_output_t **output);
+lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
+                                        lle_cursor_position_t *cursor,
+                                        char *output,
+                                        size_t output_size,
+                                        size_t *bytes_written);
+lle_result_t lle_render_output_free(lle_render_output_t *output);
+
 /* Event Sub-Component Functions */
 lle_result_t lle_event_translator_init(lle_event_translator_t **translator,
                                        lle_memory_pool_t *memory_pool);
