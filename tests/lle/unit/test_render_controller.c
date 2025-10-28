@@ -890,6 +890,120 @@ TEST(render_cache_init_null_params) {
     ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null memory pool");
 }
 
+TEST(cache_invalidate_entry) {
+    /* Test cache entry invalidation */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Store data */
+    const char *test_data = "test data";
+    uint64_t key = 300;
+    result = lle_display_cache_store(cache, key, test_data, strlen(test_data) + 1);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache store should succeed");
+    
+    /* Verify it's in cache */
+    void *data = NULL;
+    size_t size = 0;
+    result = lle_display_cache_lookup(cache, key, &data, &size);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache lookup should succeed");
+    if (data) lle_pool_free(data);
+    
+    /* Invalidate entry */
+    result = lle_display_cache_invalidate(cache, key);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache invalidate should succeed");
+    
+    /* Verify it's no longer in cache */
+    data = NULL;
+    result = lle_display_cache_lookup(cache, key, &data, &size);
+    ASSERT_EQ(result, LLE_ERROR_CACHE_MISS, "Should return cache miss after invalidation");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_invalidate_all) {
+    /* Test invalidating all cache entries */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Store multiple entries */
+    const char *test_data = "test";
+    for (uint64_t i = 0; i < 5; i++) {
+        result = lle_display_cache_store(cache, 400 + i, test_data, strlen(test_data) + 1);
+        ASSERT_EQ(result, LLE_SUCCESS, "Cache store should succeed");
+    }
+    
+    /* Invalidate all */
+    result = lle_display_cache_invalidate_all(cache);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache invalidate all should succeed");
+    
+    /* Verify all entries are gone */
+    void *data = NULL;
+    size_t size = 0;
+    for (uint64_t i = 0; i < 5; i++) {
+        result = lle_display_cache_lookup(cache, 400 + i, &data, &size);
+        ASSERT_EQ(result, LLE_ERROR_CACHE_MISS, "Should return cache miss after invalidate all");
+    }
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_hit_rate_calculation) {
+    /* Test cache hit rate calculation */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Store data */
+    const char *test_data = "test";
+    uint64_t key = 500;
+    result = lle_display_cache_store(cache, key, test_data, strlen(test_data) + 1);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache store should succeed");
+    
+    /* Generate 7 hits and 3 misses for 70% hit rate */
+    void *data = NULL;
+    size_t size = 0;
+    
+    /* 7 hits */
+    for (int i = 0; i < 7; i++) {
+        result = lle_display_cache_lookup(cache, key, &data, &size);
+        ASSERT_EQ(result, LLE_SUCCESS, "Cache lookup should succeed");
+        if (data) {
+            lle_pool_free(data);
+            data = NULL;
+        }
+    }
+    
+    /* 3 misses */
+    for (int i = 0; i < 3; i++) {
+        result = lle_display_cache_lookup(cache, 600 + i, &data, &size);
+        ASSERT_EQ(result, LLE_ERROR_CACHE_MISS, "Cache lookup should miss");
+    }
+    
+    /* Check hit rate (should be 70%) */
+    double hit_rate = cache->metrics->hit_rate;
+    ASSERT_TRUE(hit_rate >= 69.0 && hit_rate <= 71.0, "Hit rate should be approximately 70%");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_policy_initialized) {
+    /* Test that LRU policy is initialized */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Verify policy is initialized */
+    ASSERT_NOT_NULL(cache->policy, "Cache policy should be initialized");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
 /* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
@@ -943,6 +1057,12 @@ int main(void) {
     run_test_cache_miss_count();
     run_test_render_cache_init_success();
     run_test_render_cache_init_null_params();
+    
+    /* Cache policy and invalidation tests */
+    run_test_cache_invalidate_entry();
+    run_test_cache_invalidate_all();
+    run_test_cache_hit_rate_calculation();
+    run_test_cache_policy_initialized();
     
     /* Print summary */
     printf("\n=================================================================\n");

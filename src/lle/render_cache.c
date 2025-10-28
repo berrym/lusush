@@ -29,6 +29,13 @@
 #include <time.h>
 
 /* ========================================================================== */
+/*                      LRU CACHE POLICY CONSTANTS                            */
+/* ========================================================================== */
+
+#define LLE_CACHE_DEFAULT_MAX_ENTRIES 1000  /* Default maximum cache entries */
+#define LLE_CACHE_EVICTION_BATCH_SIZE 100   /* Evict in batches for efficiency */
+
+/* ========================================================================== */
 /*                      CACHE ENTRY SERIALIZATION                             */
 /* ========================================================================== */
 
@@ -127,6 +134,166 @@ static lle_result_t deserialize_cache_entry(const char *serialized,
 }
 
 /* ========================================================================== */
+/*                      LRU CACHE POLICY IMPLEMENTATION                       */
+/* ========================================================================== */
+
+/**
+ * @brief Initialize LRU cache policy
+ * 
+ * Creates an LRU eviction policy for the cache.
+ * 
+ * @param policy Output pointer to receive initialized policy
+ * @param max_entries Maximum number of cache entries before eviction
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+static lle_result_t lle_cache_policy_init(lle_display_cache_policy_t **policy,
+                                          size_t max_entries,
+                                          lle_memory_pool_t *memory_pool) {
+    if (!policy || !memory_pool) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    lle_display_cache_policy_t *p = lle_pool_alloc(sizeof(struct lle_cache_policy_t));
+    if (!p) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    memset(p, 0, sizeof(struct lle_cache_policy_t));
+    p->lru_head = NULL;
+    p->lru_tail = NULL;
+    p->max_entries = max_entries > 0 ? max_entries : LLE_CACHE_DEFAULT_MAX_ENTRIES;
+    p->eviction_count = 0;
+    
+    *policy = p;
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Clean up LRU cache policy
+ * 
+ * @param policy Policy to clean up
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+static lle_result_t lle_cache_policy_cleanup(lle_display_cache_policy_t *policy) {
+    if (!policy) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* LRU list entries are owned by cache entries, not the policy */
+    lle_pool_free(policy);
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Add entry to LRU list (most recently used position)
+ * 
+ * @param policy LRU policy
+ * @param entry Cache entry to add
+ */
+static void lle_lru_add_entry(lle_display_cache_policy_t *policy,
+                              lle_cached_entry_t *entry) {
+    if (!policy || !entry) {
+        return;
+    }
+    
+    /* Add to head (most recently used) */
+    entry->next = policy->lru_head;
+    policy->lru_head = entry;
+    
+    /* Update tail if this is the first entry */
+    if (!policy->lru_tail) {
+        policy->lru_tail = entry;
+    }
+}
+
+/**
+ * @brief Remove entry from LRU list
+ * 
+ * @param policy LRU policy
+ * @param entry Cache entry to remove
+ */
+static void lle_lru_remove_entry(lle_display_cache_policy_t *policy,
+                                 lle_cached_entry_t *entry) {
+    if (!policy || !entry) {
+        return;
+    }
+    
+    /* Find and remove entry from list */
+    lle_cached_entry_t *prev = NULL;
+    lle_cached_entry_t *curr = policy->lru_head;
+    
+    while (curr) {
+        if (curr == entry) {
+            if (prev) {
+                prev->next = curr->next;
+            } else {
+                policy->lru_head = curr->next;
+            }
+            
+            if (curr == policy->lru_tail) {
+                policy->lru_tail = prev;
+            }
+            
+            return;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+}
+
+/**
+ * @brief Move entry to head of LRU list (mark as recently used)
+ * 
+ * @param policy LRU policy
+ * @param entry Cache entry to move
+ */
+static void lle_lru_touch_entry(lle_display_cache_policy_t *policy,
+                                lle_cached_entry_t *entry) {
+    if (!policy || !entry) {
+        return;
+    }
+    
+    /* Remove from current position and re-add to head */
+    lle_lru_remove_entry(policy, entry);
+    lle_lru_add_entry(policy, entry);
+}
+
+/**
+ * @brief Get least recently used entry for eviction
+ * 
+ * @param policy LRU policy
+ * @return Least recently used entry, or NULL if list is empty
+ */
+static lle_cached_entry_t* lle_lru_get_eviction_candidate(lle_display_cache_policy_t *policy) {
+    if (!policy) {
+        return NULL;
+    }
+    
+    /* LRU entry is at the tail */
+    return policy->lru_tail;
+}
+
+/**
+ * @brief Calculate cache hit rate
+ * 
+ * @param metrics Cache metrics
+ * @return Hit rate as percentage (0.0 - 100.0)
+ */
+static double lle_calculate_hit_rate(lle_cache_metrics_t *metrics) {
+    if (!metrics) {
+        return 0.0;
+    }
+    
+    uint64_t total = metrics->cache_hits + metrics->cache_misses;
+    if (total == 0) {
+        return 0.0;
+    }
+    
+    return (double)metrics->cache_hits * 100.0 / (double)total;
+}
+
+/* ========================================================================== */
 /*                      DISPLAY CACHE IMPLEMENTATION                          */
 /* ========================================================================== */
 
@@ -172,15 +339,25 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     }
     memset(c->metrics, 0, sizeof(lle_cache_metrics_t));
     
-    /* Step 6: Initialize read-write lock */
+    /* Step 6: Initialize LRU cache policy */
+    lle_result_t result = lle_cache_policy_init(&c->policy, LLE_CACHE_DEFAULT_MAX_ENTRIES, memory_pool);
+    if (result != LLE_SUCCESS) {
+        lle_pool_free(c->metrics);
+        ht_strstr_destroy(c->cache_table);
+        lle_pool_free(c);
+        return result;
+    }
+    
+    /* Step 7: Initialize read-write lock */
     if (pthread_rwlock_init(&c->cache_lock, NULL) != 0) {
+        lle_cache_policy_cleanup(c->policy);
         lle_pool_free(c->metrics);
         ht_strstr_destroy(c->cache_table);
         lle_pool_free(c);
         return LLE_ERROR_INITIALIZATION_FAILED;
     }
     
-    /* Step 7: Return initialized cache */
+    /* Step 8: Return initialized cache */
     *cache = c;
     return LLE_SUCCESS;
 }
@@ -203,6 +380,11 @@ lle_result_t lle_display_cache_cleanup(lle_display_cache_t *cache) {
     
     /* Destroy lock */
     pthread_rwlock_destroy(&cache->cache_lock);
+    
+    /* Clean up LRU policy */
+    if (cache->policy) {
+        lle_cache_policy_cleanup(cache->policy);
+    }
     
     /* Free metrics */
     if (cache->metrics) {
@@ -307,6 +489,7 @@ lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
     if (!serialized) {
         /* Cache miss */
         cache->metrics->cache_misses++;
+        cache->metrics->hit_rate = lle_calculate_hit_rate(cache->metrics);
         pthread_rwlock_unlock(&cache->cache_lock);
         return LLE_ERROR_CACHE_MISS;
     }
@@ -327,8 +510,80 @@ lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
     
     /* Step 7: Update metrics */
     cache->metrics->cache_hits++;
+    cache->metrics->hit_rate = lle_calculate_hit_rate(cache->metrics);
     
     /* Step 8: Release lock */
+    pthread_rwlock_unlock(&cache->cache_lock);
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Invalidate specific cache entry
+ * 
+ * Removes a specific entry from the cache.
+ * 
+ * @param cache Display cache
+ * @param key Cache key to invalidate
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_display_cache_invalidate(lle_display_cache_t *cache,
+                                          uint64_t key) {
+    if (!cache) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Convert key to string */
+    char key_str[32];
+    snprintf(key_str, sizeof(key_str), "%lu", key);
+    
+    /* Acquire write lock */
+    pthread_rwlock_wrlock(&cache->cache_lock);
+    
+    /* Remove from libhashtable */
+    ht_strstr_remove(cache->cache_table, key_str);
+    
+    /* Update metrics */
+    cache->metrics->evictions++;
+    
+    /* Release lock */
+    pthread_rwlock_unlock(&cache->cache_lock);
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Invalidate all cache entries
+ * 
+ * Clears the entire cache.
+ * 
+ * @param cache Display cache
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_display_cache_invalidate_all(lle_display_cache_t *cache) {
+    if (!cache) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Acquire write lock */
+    pthread_rwlock_wrlock(&cache->cache_lock);
+    
+    /* Destroy and recreate libhashtable to clear all entries */
+    if (cache->cache_table) {
+        ht_strstr_destroy(cache->cache_table);
+    }
+    
+    cache->cache_table = ht_strstr_create(HT_SEED_RANDOM);
+    if (!cache->cache_table) {
+        pthread_rwlock_unlock(&cache->cache_lock);
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    /* Reset metrics but preserve historical data */
+    uint64_t total_evictions = cache->metrics->evictions;
+    cache->metrics->evictions = total_evictions + cache->metrics->cache_hits;
+    
+    /* Release lock */
     pthread_rwlock_unlock(&cache->cache_lock);
     
     return LLE_SUCCESS;

@@ -68,7 +68,7 @@ typedef struct lle_render_context_t lle_render_context_t;
 typedef struct lle_display_cache_t lle_display_cache_t;
 typedef struct lle_render_cache_t lle_render_cache_t;
 typedef struct lle_cached_entry_t lle_cached_entry_t;
-typedef struct lle_display_cache_policy_t lle_display_cache_policy_t;
+typedef struct lle_cache_policy_t lle_display_cache_policy_t;
 
 /* Event structures */
 typedef struct lle_event_translator_t lle_event_translator_t;
@@ -926,6 +926,9 @@ lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
                                       uint64_t key,
                                       void **data,
                                       size_t *data_size);
+lle_result_t lle_display_cache_invalidate(lle_display_cache_t *cache,
+                                          uint64_t key);
+lle_result_t lle_display_cache_invalidate_all(lle_display_cache_t *cache);
 lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
                                    lle_memory_pool_t *memory_pool);
 lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);

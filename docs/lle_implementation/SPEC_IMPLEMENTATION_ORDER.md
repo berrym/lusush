@@ -45,6 +45,7 @@
 - Phase 1 Complete: Display Bridge + Event Coordination
 - Phase 2 Week 3 Complete: Render Controller + Basic Rendering
 - Phase 2 Week 4 COMPLETE: Multi-Stage Pipeline + libhashtable-based Caching
+- Phase 2 Week 5 Day 1-3 COMPLETE: LRU Cache Policy + Performance Metrics
 
 **Spec 02: Terminal Abstraction** - Layer 0 COMPLETE (type definitions)
 - Complete type definitions for terminal abstraction system
@@ -58,7 +59,7 @@
 - Header compiles standalone and with full LLE stack
 - Status: Deferred until after Spec 08 (dependency discovered)
 
-**Next Implementation**: Spec 08 Phase 2 Week 4 Day 4-5 - Simple Caching
+**Next Implementation**: Spec 08 Phase 2 Week 5 Day 4-5 - Dirty Region Tracking
 
 ---
 
