@@ -606,6 +606,134 @@ TEST(render_output_free_null) {
 }
 
 /* ========================================================================== */
+/*                         PIPELINE STAGE TESTS                               */
+/* ========================================================================== */
+
+TEST(pipeline_init_success) {
+    lle_render_pipeline_t *pipeline = NULL;
+    
+    /* Initialize pipeline */
+    lle_result_t result = lle_render_pipeline_init(&pipeline, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Pipeline init should succeed");
+    ASSERT_NOT_NULL(pipeline, "Pipeline should be allocated");
+    
+    /* Verify pipeline structure */
+    ASSERT_EQ(pipeline->stage_count, 4, "Should have 4 stages");
+    ASSERT_EQ(pipeline->stage_capacity, 4, "Should have capacity for 4 stages");
+    ASSERT_NOT_NULL(pipeline->stages, "Stages array should be allocated");
+    ASSERT_FALSE(pipeline->parallel_execution_enabled, "Parallel execution should be disabled by default");
+    
+    /* Verify each stage */
+    ASSERT_EQ(pipeline->stages[0].type, LLE_RENDER_STAGE_PREPROCESSING, "Stage 0 should be preprocessing");
+    ASSERT_TRUE(pipeline->stages[0].enabled, "Preprocessing stage should be enabled");
+    ASSERT_NOT_NULL(pipeline->stages[0].execute, "Preprocessing stage should have execute function");
+    
+    ASSERT_EQ(pipeline->stages[1].type, LLE_RENDER_STAGE_SYNTAX, "Stage 1 should be syntax");
+    ASSERT_TRUE(pipeline->stages[1].enabled, "Syntax stage should be enabled");
+    ASSERT_NOT_NULL(pipeline->stages[1].execute, "Syntax stage should have execute function");
+    
+    ASSERT_EQ(pipeline->stages[2].type, LLE_RENDER_STAGE_FORMATTING, "Stage 2 should be formatting");
+    ASSERT_TRUE(pipeline->stages[2].enabled, "Formatting stage should be enabled");
+    ASSERT_NOT_NULL(pipeline->stages[2].execute, "Formatting stage should have execute function");
+    
+    ASSERT_EQ(pipeline->stages[3].type, LLE_RENDER_STAGE_COMPOSITION, "Stage 3 should be composition");
+    ASSERT_TRUE(pipeline->stages[3].enabled, "Composition stage should be enabled");
+    ASSERT_NOT_NULL(pipeline->stages[3].execute, "Composition stage should have execute function");
+    
+    /* Cleanup */
+    lle_render_pipeline_cleanup(pipeline);
+}
+
+TEST(pipeline_init_null_params) {
+    lle_render_pipeline_t *pipeline = NULL;
+    
+    /* Test null pipeline pointer */
+    lle_result_t result = lle_render_pipeline_init(NULL, mock_pool);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null pipeline pointer");
+    
+    /* Test null memory pool */
+    result = lle_render_pipeline_init(&pipeline, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null memory pool");
+}
+
+TEST(pipeline_execute_success) {
+    lle_render_pipeline_t *pipeline = NULL;
+    
+    /* Initialize pipeline */
+    lle_result_t result = lle_render_pipeline_init(&pipeline, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Pipeline init should succeed");
+    
+    /* Create a test buffer */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    /* Insert test content */
+    result = lle_buffer_insert_text(buffer, 0, "Test content", 12);
+    ASSERT_EQ(result, LLE_SUCCESS, "Insert text should succeed");
+    
+    /* Create render context */
+    lle_render_context_t context = {0};
+    context.buffer = buffer;
+    context.memory_pool = mock_pool;
+    
+    /* Execute pipeline */
+    lle_render_output_t *output = NULL;
+    result = lle_render_pipeline_execute(pipeline, &context, &output);
+    ASSERT_EQ(result, LLE_SUCCESS, "Pipeline execution should succeed");
+    ASSERT_NOT_NULL(output, "Output should be allocated");
+    ASSERT_NOT_NULL(output->content, "Output content should be allocated");
+    ASSERT_EQ(output->content_length, 12, "Output length should match input");
+    
+    /* Verify stage metrics were updated */
+    for (size_t i = 0; i < pipeline->stage_count; i++) {
+        ASSERT_TRUE(pipeline->stages[i].execution_count > 0, "Stage should have been executed");
+    }
+    
+    /* Cleanup */
+    lle_render_output_free(output);
+    lle_buffer_destroy(buffer);
+    lle_render_pipeline_cleanup(pipeline);
+}
+
+TEST(pipeline_execute_null_params) {
+    lle_render_pipeline_t *pipeline = NULL;
+    lle_result_t result = lle_render_pipeline_init(&pipeline, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Pipeline init should succeed");
+    
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 1024);
+    ASSERT_EQ(result, LLE_SUCCESS, "Buffer creation should succeed");
+    
+    lle_render_context_t context = {0};
+    context.buffer = buffer;
+    context.memory_pool = mock_pool;
+    lle_render_output_t *output = NULL;
+    
+    /* Test null pipeline */
+    result = lle_render_pipeline_execute(NULL, &context, &output);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null pipeline");
+    
+    /* Test null context */
+    result = lle_render_pipeline_execute(pipeline, NULL, &output);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null context");
+    
+    /* Test null output */
+    result = lle_render_pipeline_execute(pipeline, &context, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null output");
+    
+    /* Cleanup */
+    lle_buffer_destroy(buffer);
+    lle_render_pipeline_cleanup(pipeline);
+}
+
+TEST(pipeline_cleanup_null) {
+    /* Test cleanup with null pipeline */
+    lle_result_t result = lle_render_pipeline_cleanup(NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null pipeline");
+}
+
+/* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
 
@@ -641,6 +769,13 @@ int main(void) {
     run_test_render_cursor_position_hidden();
     run_test_render_output_free_success();
     run_test_render_output_free_null();
+    
+    /* Pipeline stage tests */
+    run_test_pipeline_init_success();
+    run_test_pipeline_init_null_params();
+    run_test_pipeline_execute_success();
+    run_test_pipeline_execute_null_params();
+    run_test_pipeline_cleanup_null();
     
     /* Print summary */
     printf("\n=================================================================\n");

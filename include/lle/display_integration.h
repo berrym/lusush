@@ -880,6 +880,14 @@ lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
                                         size_t *bytes_written);
 lle_result_t lle_render_output_free(lle_render_output_t *output);
 
+/* Pipeline Functions */
+lle_result_t lle_render_pipeline_init(lle_render_pipeline_t **pipeline,
+                                      lle_memory_pool_t *memory_pool);
+lle_result_t lle_render_pipeline_cleanup(lle_render_pipeline_t *pipeline);
+lle_result_t lle_render_pipeline_execute(lle_render_pipeline_t *pipeline,
+                                         lle_render_context_t *context,
+                                         lle_render_output_t **output);
+
 /* Event Sub-Component Functions */
 lle_result_t lle_event_translator_init(lle_event_translator_t **translator,
                                        lle_memory_pool_t *memory_pool);

@@ -160,6 +160,11 @@ if fs.exists('render_controller.c')
   lle_sources += files('render_controller.c')
 endif
 
+# Phase 2: Rendering System - Rendering Pipeline
+if fs.exists('render_pipeline.c')
+  lle_sources += files('render_pipeline.c')
+endif
+
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================
