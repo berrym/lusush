@@ -214,4 +214,17 @@ if lle_sources.length() > 0
   test('LLE Display Bridge', test_display_bridge,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Event Coordinator Unit Tests (Spec 08)
+  # Unit tests for event coordinator initialization, cleanup, and event processing
+  # Tests sub-components: translator, router, filter, queue, metrics
+  test_event_coordinator = executable('test_event_coordinator',
+                                      ['tests/lle/unit/test_event_coordinator.c',
+                                       'tests/lle/functional/test_memory_mock.c'],
+                                      include_directories: inc,
+                                      dependencies: [lle_dep, readline_dep])
+
+  test('LLE Event Coordinator', test_event_coordinator,
+       suite: 'lle-unit',
+       timeout: 30)
 endif

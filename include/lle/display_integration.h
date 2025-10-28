@@ -853,6 +853,34 @@ lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
                                        display_controller_t *display,
                                        lle_memory_pool_t *pool);
 
+/* Event Coordinator Functions */
+lle_result_t lle_event_coordinator_init(lle_event_coordinator_t **coordinator,
+                                        void *editor,
+                                        display_controller_t *display,
+                                        lle_memory_pool_t *memory_pool);
+lle_result_t lle_event_coordinator_cleanup(lle_event_coordinator_t *coordinator);
+lle_result_t lle_event_coordinator_process_event(lle_event_coordinator_t *coordinator,
+                                                 lle_event_t *event);
+
+/* Event Sub-Component Functions */
+lle_result_t lle_event_translator_init(lle_event_translator_t **translator,
+                                       lle_memory_pool_t *memory_pool);
+lle_result_t lle_event_router_init(lle_event_router_t **router,
+                                   lle_memory_pool_t *memory_pool);
+lle_result_t lle_event_filter_init(lle_event_filter_t **filter,
+                                   lle_memory_pool_t *memory_pool);
+lle_result_t lle_event_queue_init(lle_event_queue_t **queue,
+                                  lle_memory_pool_t *memory_pool);
+lle_result_t lle_event_metrics_init(lle_event_metrics_t **metrics,
+                                    lle_memory_pool_t *memory_pool);
+
+/* Event Routing Functions */
+lle_result_t lle_event_router_add_route(lle_event_router_t *router,
+                                        lle_display_event_type_t event_type,
+                                        lle_event_handler_fn handler);
+bool lle_event_filter_should_process(lle_event_filter_t *filter,
+                                     lle_event_t *event);
+
 /* Event Handlers */
 lle_result_t lle_display_on_buffer_change(lle_display_integration_t *integration,
                                           lle_buffer_change_event_t *event);
