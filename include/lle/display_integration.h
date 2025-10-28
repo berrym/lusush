@@ -888,6 +888,24 @@ lle_result_t lle_render_pipeline_execute(lle_render_pipeline_t *pipeline,
                                          lle_render_context_t *context,
                                          lle_render_output_t **output);
 
+/* Display Cache Functions */
+lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
+                                    size_t table_size,
+                                    lle_memory_pool_t *memory_pool);
+lle_result_t lle_display_cache_cleanup(lle_display_cache_t *cache);
+lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
+                                   lle_memory_pool_t *memory_pool);
+lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);
+lle_result_t lle_display_cache_store(lle_display_cache_t *cache,
+                                     uint64_t key,
+                                     const void *data,
+                                     size_t data_size);
+lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
+                                      uint64_t key,
+                                      void **data,
+                                      size_t *data_size);
+uint64_t lle_compute_cache_key(lle_buffer_t *buffer, lle_cursor_position_t *cursor);
+
 /* Event Sub-Component Functions */
 lle_result_t lle_event_translator_init(lle_event_translator_t **translator,
                                        lle_memory_pool_t *memory_pool);
