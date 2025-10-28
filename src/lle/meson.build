@@ -186,6 +186,11 @@ if fs.exists('render_cache.c')
   lle_sources += files('render_cache.c')
 endif
 
+# Phase 2: Rendering System - Dirty Region Tracking
+if fs.exists('dirty_tracker.c')
+  lle_sources += files('dirty_tracker.c')
+endif
+
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================

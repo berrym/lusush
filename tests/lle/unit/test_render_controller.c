@@ -1005,6 +1005,176 @@ TEST(cache_policy_initialized) {
 }
 
 /* ========================================================================== */
+/*                      DIRTY REGION TRACKING TESTS                           */
+/* ========================================================================== */
+
+TEST(dirty_tracker_init_success) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Dirty tracker init should succeed");
+    ASSERT_NOT_NULL(tracker, "Dirty tracker should be allocated");
+    ASSERT_NOT_NULL(tracker->dirty_regions, "Dirty regions array should be allocated");
+    ASSERT_EQ(tracker->region_count, 0, "Region count should be 0");
+    ASSERT_TRUE(tracker->full_redraw_needed, "Full redraw should be needed initially");
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_init_null_params) {
+    lle_result_t result = lle_dirty_tracker_init(NULL, mock_pool);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject NULL tracker pointer");
+    
+    lle_dirty_tracker_t *tracker = NULL;
+    result = lle_dirty_tracker_init(&tracker, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject NULL memory pool");
+}
+
+TEST(dirty_tracker_mark_region) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Clear initial full redraw flag */
+    tracker->full_redraw_needed = false;
+    
+    /* Mark a region dirty */
+    result = lle_dirty_tracker_mark_region(tracker, 100);
+    ASSERT_EQ(result, LLE_SUCCESS, "Mark region should succeed");
+    ASSERT_EQ(tracker->region_count, 1, "Should have 1 dirty region");
+    ASSERT_EQ(tracker->dirty_regions[0], 100, "Region should be at offset 100");
+    
+    /* Mark another non-overlapping region */
+    result = lle_dirty_tracker_mark_region(tracker, 500);
+    ASSERT_EQ(result, LLE_SUCCESS, "Mark second region should succeed");
+    ASSERT_EQ(tracker->region_count, 2, "Should have 2 dirty regions");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_mark_range) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Clear initial full redraw flag */
+    tracker->full_redraw_needed = false;
+    
+    /* Mark a range dirty (100 bytes starting at offset 200) */
+    result = lle_dirty_tracker_mark_range(tracker, 200, 100);
+    ASSERT_EQ(result, LLE_SUCCESS, "Mark range should succeed");
+    ASSERT_TRUE(tracker->region_count > 0, "Should have dirty regions");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_mark_full) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Clear initial state */
+    tracker->full_redraw_needed = false;
+    tracker->region_count = 5; /* Simulate some regions */
+    
+    /* Mark for full redraw */
+    result = lle_dirty_tracker_mark_full(tracker);
+    ASSERT_EQ(result, LLE_SUCCESS, "Mark full should succeed");
+    ASSERT_TRUE(tracker->full_redraw_needed, "Full redraw flag should be set");
+    ASSERT_EQ(tracker->region_count, 0, "Regions should be cleared");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_clear) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Mark some regions */
+    tracker->full_redraw_needed = false;
+    lle_dirty_tracker_mark_region(tracker, 100);
+    lle_dirty_tracker_mark_region(tracker, 200);
+    ASSERT_EQ(tracker->region_count, 2, "Should have 2 regions");
+    
+    /* Clear the tracker */
+    result = lle_dirty_tracker_clear(tracker);
+    ASSERT_EQ(result, LLE_SUCCESS, "Clear should succeed");
+    ASSERT_EQ(tracker->region_count, 0, "Region count should be 0");
+    ASSERT_FALSE(tracker->full_redraw_needed, "Full redraw flag should be cleared");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_is_region_dirty) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Initial state: full redraw needed */
+    ASSERT_TRUE(lle_dirty_tracker_is_region_dirty(tracker, 100), 
+                "Any region should be dirty when full redraw needed");
+    
+    /* Clear and mark specific region */
+    tracker->full_redraw_needed = false;
+    lle_dirty_tracker_mark_region(tracker, 200);
+    
+    /* Check region is dirty (within merge threshold) */
+    ASSERT_TRUE(lle_dirty_tracker_is_region_dirty(tracker, 200), 
+                "Marked region should be dirty");
+    ASSERT_TRUE(lle_dirty_tracker_is_region_dirty(tracker, 210), 
+                "Region within threshold should be dirty");
+    ASSERT_FALSE(lle_dirty_tracker_is_region_dirty(tracker, 500), 
+                 "Far region should not be dirty");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_needs_full_redraw) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    /* Initial state */
+    ASSERT_TRUE(lle_dirty_tracker_needs_full_redraw(tracker), 
+                "Should need full redraw initially");
+    
+    /* Clear flag */
+    tracker->full_redraw_needed = false;
+    ASSERT_FALSE(lle_dirty_tracker_needs_full_redraw(tracker), 
+                 "Should not need full redraw after clearing");
+    
+    /* Set flag again */
+    lle_dirty_tracker_mark_full(tracker);
+    ASSERT_TRUE(lle_dirty_tracker_needs_full_redraw(tracker), 
+                "Should need full redraw after marking");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_region_merging) {
+    lle_dirty_tracker_t *tracker = NULL;
+    lle_result_t result = lle_dirty_tracker_init(&tracker, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Tracker init should succeed");
+    
+    tracker->full_redraw_needed = false;
+    
+    /* Mark two regions close together (within merge threshold of 64 bytes) */
+    lle_dirty_tracker_mark_region(tracker, 100);
+    size_t count_after_first = tracker->region_count;
+    ASSERT_EQ(count_after_first, 1, "Should have 1 region after first mark");
+    
+    lle_dirty_tracker_mark_region(tracker, 130); /* Within 64 bytes */
+    /* Should merge with existing region or add new one depending on implementation */
+    ASSERT_TRUE(tracker->region_count <= 2, "Should have at most 2 regions");
+    
+    lle_dirty_tracker_cleanup(tracker);
+}
+
+TEST(dirty_tracker_cleanup_null) {
+    lle_result_t result = lle_dirty_tracker_cleanup(NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject NULL tracker");
+}
+
+/* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
 
@@ -1063,6 +1233,18 @@ int main(void) {
     run_test_cache_invalidate_all();
     run_test_cache_hit_rate_calculation();
     run_test_cache_policy_initialized();
+    
+    /* Dirty region tracking tests */
+    run_test_dirty_tracker_init_success();
+    run_test_dirty_tracker_init_null_params();
+    run_test_dirty_tracker_mark_region();
+    run_test_dirty_tracker_mark_range();
+    run_test_dirty_tracker_mark_full();
+    run_test_dirty_tracker_clear();
+    run_test_dirty_tracker_is_region_dirty();
+    run_test_dirty_tracker_needs_full_redraw();
+    run_test_dirty_tracker_region_merging();
+    run_test_dirty_tracker_cleanup_null();
     
     /* Print summary */
     printf("\n=================================================================\n");

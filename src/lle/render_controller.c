@@ -46,7 +46,7 @@ static lle_result_t lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer)
 static lle_result_t lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer);
 static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler);
 /* lle_render_cache_cleanup now implemented in render_cache.c */
-static lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker);
+/* lle_dirty_tracker_cleanup now implemented in dirty_tracker.c */
 static lle_result_t lle_render_metrics_cleanup(lle_render_metrics_t *metrics);
 static lle_result_t lle_render_config_cleanup(lle_render_config_t *config);
 
@@ -535,14 +535,9 @@ static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler
 
 /**
  * @brief Clean up dirty tracker
+ * 
+ * Now implemented in dirty_tracker.c as public function.
  */
-static lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker) {
-    if (!tracker) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    /* No dynamic allocations to clean up */
-    return LLE_SUCCESS;
-}
 
 /**
  * @brief Clean up render metrics
@@ -598,11 +593,9 @@ lle_result_t lle_frame_scheduler_init(lle_frame_scheduler_t **scheduler,
 
 /**
  * @brief Initialize dirty tracker (public API)
+ * 
+ * Now implemented in dirty_tracker.c as public function.
  */
-lle_result_t lle_dirty_tracker_init(lle_dirty_tracker_t **tracker,
-                                    lle_memory_pool_t *memory_pool) {
-    return lle_dirty_tracker_init_internal(tracker, memory_pool);
-}
 
 /**
  * @brief Initialize render metrics (public API)

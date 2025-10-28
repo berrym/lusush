@@ -934,6 +934,21 @@ lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
 lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);
 uint64_t lle_compute_cache_key(lle_buffer_t *buffer, lle_cursor_position_t *cursor);
 
+/* Dirty Region Tracking Functions */
+lle_result_t lle_dirty_tracker_init(lle_dirty_tracker_t **tracker,
+                                    lle_memory_pool_t *memory_pool);
+lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker);
+lle_result_t lle_dirty_tracker_mark_region(lle_dirty_tracker_t *tracker,
+                                           size_t offset);
+lle_result_t lle_dirty_tracker_mark_range(lle_dirty_tracker_t *tracker,
+                                          size_t start_offset,
+                                          size_t length);
+lle_result_t lle_dirty_tracker_mark_full(lle_dirty_tracker_t *tracker);
+lle_result_t lle_dirty_tracker_clear(lle_dirty_tracker_t *tracker);
+bool lle_dirty_tracker_is_region_dirty(const lle_dirty_tracker_t *tracker,
+                                       size_t offset);
+bool lle_dirty_tracker_needs_full_redraw(const lle_dirty_tracker_t *tracker);
+
 /* Additional function declarations will be added as implementation progresses */
 
 #ifdef __cplusplus
