@@ -227,4 +227,17 @@ if lle_sources.length() > 0
   test('LLE Event Coordinator', test_event_coordinator,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Render Controller Unit Tests (Spec 08)
+  # Unit tests for render controller initialization, cleanup, and sub-component setup
+  # Tests sub-components: buffer renderer, cursor renderer, frame scheduler, cache, etc.
+  test_render_controller = executable('test_render_controller',
+                                      ['tests/lle/unit/test_render_controller.c',
+                                       'tests/lle/functional/test_memory_mock.c'],
+                                      include_directories: inc,
+                                      dependencies: [lle_dep, readline_dep])
+
+  test('LLE Render Controller', test_render_controller,
+       suite: 'lle-unit',
+       timeout: 30)
 endif

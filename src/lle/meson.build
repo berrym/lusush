@@ -155,6 +155,10 @@ endif
 if fs.exists('event_coordinator.c')
   lle_sources += files('event_coordinator.c')
 endif
+# Phase 2: Rendering System - Render Controller
+if fs.exists('render_controller.c')
+  lle_sources += files('render_controller.c')
+endif
 
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION

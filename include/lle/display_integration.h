@@ -862,6 +862,12 @@ lle_result_t lle_event_coordinator_cleanup(lle_event_coordinator_t *coordinator)
 lle_result_t lle_event_coordinator_process_event(lle_event_coordinator_t *coordinator,
                                                  lle_event_t *event);
 
+/* Render Controller Functions */
+lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
+                                        lle_display_bridge_t *bridge,
+                                        lle_memory_pool_t *memory_pool);
+lle_result_t lle_render_controller_cleanup(lle_render_controller_t *controller);
+
 /* Event Sub-Component Functions */
 lle_result_t lle_event_translator_init(lle_event_translator_t **translator,
                                        lle_memory_pool_t *memory_pool);
