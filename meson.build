@@ -251,4 +251,14 @@ if lle_sources.length() > 0
   test('LLE Terminal Adapter', test_terminal_adapter,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Theme integration unit tests
+  test_theme_integration = executable('test_theme_integration',
+                                      'tests/lle/unit/test_theme_integration.c',
+                                      include_directories: inc,
+                                      dependencies: [lle_dep, readline_dep])
+
+  test('LLE Theme Integration', test_theme_integration,
+       suite: 'lle-unit',
+       timeout: 30)
 endif

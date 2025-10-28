@@ -399,6 +399,8 @@ struct lle_render_controller_t {
     lle_dirty_tracker_t *dirty_tracker; /**< Dirty region tracker */
     lle_render_metrics_t *metrics;      /**< Rendering metrics */
     lle_render_config_t *config;        /**< Rendering configuration */
+    lle_syntax_color_table_t *theme_colors; /**< Theme syntax colors */
+    lle_cursor_colors_t *cursor_theme_colors; /**< Theme cursor colors */
     lle_memory_pool_t *memory_pool;     /**< Memory pool for rendering */
 };
 
@@ -962,6 +964,18 @@ const lle_terminal_capabilities_t* lle_terminal_adapter_get_capabilities(
     const lle_terminal_adapter_t *adapter);
 bool lle_terminal_adapter_supports_feature(const lle_terminal_adapter_t *adapter,
                                            const char *feature_name);
+
+/* Theme Integration Functions */
+lle_result_t lle_display_integrate_theme_system(lle_display_integration_t *integration,
+                                                theme_definition_t *theme);
+lle_result_t lle_on_theme_changed(lle_display_integration_t *integration,
+                                  const char *theme_name);
+lle_result_t lle_extract_syntax_colors_from_theme(theme_definition_t *theme,
+                                                  lle_syntax_color_table_t **table,
+                                                  lle_memory_pool_t *memory_pool);
+lle_result_t lle_extract_cursor_colors_from_theme(theme_definition_t *theme,
+                                                  lle_cursor_colors_t **colors,
+                                                  lle_memory_pool_t *memory_pool);
 
 /* Additional function declarations will be added as implementation progresses */
 

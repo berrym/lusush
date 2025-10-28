@@ -196,6 +196,11 @@ if fs.exists('terminal_adapter.c')
   lle_sources += files('terminal_adapter.c')
 endif
 
+# Phase 2: Rendering System - Theme Integration
+if fs.exists('theme_integration.c')
+  lle_sources += files('theme_integration.c')
+endif
+
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================
