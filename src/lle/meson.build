@@ -165,11 +165,6 @@ if fs.exists('render_pipeline.c')
   lle_sources += files('render_pipeline.c')
 endif
 
-# Phase 2: Rendering System - Render Cache
-if fs.exists('render_cache.c')
-  lle_sources += files('render_cache.c')
-endif
-
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================
