@@ -729,7 +729,7 @@ struct lle_terminal_capabilities_t {
  * Matrix of feature support across terminal types.
  */
 struct lle_compatibility_matrix_t {
-    bool feature_support[8][16];        /**< Feature support matrix [terminal][feature] */
+    bool feature_support[9][16];        /**< Feature support matrix [terminal][feature] - 9 terminal types */
     const char *feature_names[16];      /**< Feature name strings */
 };
 
@@ -952,6 +952,16 @@ lle_result_t lle_dirty_tracker_clear(lle_dirty_tracker_t *tracker);
 bool lle_dirty_tracker_is_region_dirty(const lle_dirty_tracker_t *tracker,
                                        size_t offset);
 bool lle_dirty_tracker_needs_full_redraw(const lle_dirty_tracker_t *tracker);
+
+/* Terminal Adapter Functions */
+lle_result_t lle_terminal_adapter_init(lle_terminal_adapter_t **adapter,
+                                       display_controller_t *display_controller,
+                                       lle_memory_pool_t *memory_pool);
+lle_result_t lle_terminal_adapter_cleanup(lle_terminal_adapter_t *adapter);
+const lle_terminal_capabilities_t* lle_terminal_adapter_get_capabilities(
+    const lle_terminal_adapter_t *adapter);
+bool lle_terminal_adapter_supports_feature(const lle_terminal_adapter_t *adapter,
+                                           const char *feature_name);
 
 /* Additional function declarations will be added as implementation progresses */
 

@@ -191,6 +191,11 @@ if fs.exists('dirty_tracker.c')
   lle_sources += files('dirty_tracker.c')
 endif
 
+# Phase 2: Rendering System - Terminal Adapter
+if fs.exists('terminal_adapter.c')
+  lle_sources += files('terminal_adapter.c')
+endif
+
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================

@@ -240,4 +240,15 @@ if lle_sources.length() > 0
   test('LLE Render Controller', test_render_controller,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Terminal adapter unit tests
+  test_terminal_adapter = executable('test_terminal_adapter',
+                                     ['tests/lle/unit/test_terminal_adapter.c',
+                                      'tests/lle/functional/test_memory_mock.c'],
+                                     include_directories: inc,
+                                     dependencies: [lle_dep, readline_dep])
+
+  test('LLE Terminal Adapter', test_terminal_adapter,
+       suite: 'lle-unit',
+       timeout: 30)
 endif
