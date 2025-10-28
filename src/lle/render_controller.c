@@ -45,7 +45,7 @@ static lle_result_t lle_render_config_init_internal(lle_render_config_t **config
 static lle_result_t lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer);
 static lle_result_t lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer);
 static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler);
-static lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);
+/* lle_render_cache_cleanup now implemented in render_cache.c */
 static lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker);
 static lle_result_t lle_render_metrics_cleanup(lle_render_metrics_t *metrics);
 static lle_result_t lle_render_config_cleanup(lle_render_config_t *config);
@@ -534,22 +534,6 @@ static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler
 }
 
 /**
- * @brief Clean up render cache
- */
-static lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache) {
-    if (!cache) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    /* Base cache cleaned up by memory pool */
-    cache->base_cache = NULL;
-    cache->max_render_size = 0;
-    cache->cache_ttl_ms = 0;
-    
-    return LLE_SUCCESS;
-}
-
-/**
  * @brief Clean up dirty tracker
  */
 static lle_result_t lle_dirty_tracker_cleanup(lle_dirty_tracker_t *tracker) {
@@ -610,13 +594,7 @@ lle_result_t lle_frame_scheduler_init(lle_frame_scheduler_t **scheduler,
     return lle_frame_scheduler_init_internal(scheduler, memory_pool);
 }
 
-/**
- * @brief Initialize render cache (public API)
- */
-lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
-                                   lle_memory_pool_t *memory_pool) {
-    return lle_render_cache_init_internal(cache, memory_pool);
-}
+/* lle_render_cache_init now implemented in render_cache.c (libhashtable version) */
 
 /**
  * @brief Initialize dirty tracker (public API)

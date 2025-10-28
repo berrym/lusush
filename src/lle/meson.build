@@ -35,6 +35,22 @@ lle_c_args = [
 lle_sources = []
 
 # ============================================================================
+# LIBHASHTABLE INTEGRATION (Spec 05)
+# ============================================================================
+# libhashtable is the exclusive hashtable solution for all LLE components.
+# Per Spec 05, integrate libhashtable sources directly into liblle.a
+
+libhashtable_root = '../libhashtable'
+lle_sources += files(
+  libhashtable_root + '/ht.c',
+  libhashtable_root + '/ht_fnv1a.c',
+  libhashtable_root + '/ht_strdouble.c',
+  libhashtable_root + '/ht_strfloat.c',
+  libhashtable_root + '/ht_strint.c',
+  libhashtable_root + '/ht_strstr.c',
+)
+
+# ============================================================================
 # PHASE 0: FOUNDATION (IMPLEMENT FIRST)
 # ============================================================================
 # These define foundational types used by ALL other specs.
@@ -163,6 +179,11 @@ endif
 # Phase 2: Rendering System - Rendering Pipeline
 if fs.exists('render_pipeline.c')
   lle_sources += files('render_pipeline.c')
+endif
+
+# Phase 2: Rendering System - Render Cache (libhashtable integration per Spec 05)
+if fs.exists('render_cache.c')
+  lle_sources += files('render_cache.c')
 endif
 
 # ============================================================================

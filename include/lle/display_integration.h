@@ -40,6 +40,9 @@
 #include "display/display_controller.h"
 #include "themes.h"
 
+/* libhashtable Integration (Spec 05) */
+#include "libhashtable/ht.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -443,16 +446,14 @@ typedef struct {
 /**
  * @brief Display cache
  * 
- * Main display caching system with LRU policy.
+ * Main display caching system with LRU policy using libhashtable.
  */
 struct lle_display_cache_t {
-    lle_cached_entry_t **entries;       /**< Hash table of entries */
-    size_t table_size;                  /**< Hash table size */
-    size_t entry_count;                 /**< Current entry count */
-    lle_display_cache_policy_t *policy;         /**< Cache policy (LRU) */
+    ht_strstr_t *cache_table;           /**< libhashtable for cache storage */
+    lle_display_cache_policy_t *policy; /**< Cache policy (LRU) */
     lle_cache_metrics_t *metrics;       /**< Cache metrics */
     pthread_rwlock_t cache_lock;        /**< Thread safety lock */
-    lle_memory_pool_t *memory_pool;         /**< Memory pool for cache */
+    lle_memory_pool_t *memory_pool;     /**< Memory pool for cache */
 };
 
 /**
@@ -912,6 +913,23 @@ lle_result_t lle_display_on_buffer_change(lle_display_integration_t *integration
                                           lle_buffer_change_event_t *event);
 lle_result_t lle_display_on_cursor_move(lle_display_integration_t *integration,
                                         lle_cursor_move_event_t *event);
+
+/* Cache Functions (libhashtable integration per Spec 05) */
+lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
+                                    lle_memory_pool_t *memory_pool);
+lle_result_t lle_display_cache_cleanup(lle_display_cache_t *cache);
+lle_result_t lle_display_cache_store(lle_display_cache_t *cache,
+                                     uint64_t key,
+                                     const void *data,
+                                     size_t data_size);
+lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
+                                      uint64_t key,
+                                      void **data,
+                                      size_t *data_size);
+lle_result_t lle_render_cache_init(lle_render_cache_t **cache,
+                                   lle_memory_pool_t *memory_pool);
+lle_result_t lle_render_cache_cleanup(lle_render_cache_t *cache);
+uint64_t lle_compute_cache_key(lle_buffer_t *buffer, lle_cursor_position_t *cursor);
 
 /* Additional function declarations will be added as implementation progresses */
 

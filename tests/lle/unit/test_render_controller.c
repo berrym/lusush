@@ -734,6 +734,163 @@ TEST(pipeline_cleanup_null) {
 }
 
 /* ========================================================================== */
+/*                    CACHE SYSTEM TESTS (libhashtable)                       */
+/* ========================================================================== */
+
+TEST(cache_init_success) {
+    /* Test successful cache initialization using libhashtable */
+    lle_display_cache_t *cache = NULL;
+    
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    ASSERT_NOT_NULL(cache, "Cache should be allocated");
+    ASSERT_NOT_NULL(cache->cache_table, "libhashtable should be created");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_init_null_params) {
+    /* Test cache init with null parameters */
+    lle_display_cache_t *cache = NULL;
+    
+    lle_result_t result = lle_display_cache_init(NULL, mock_pool);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null cache pointer");
+    
+    result = lle_display_cache_init(&cache, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null memory pool");
+}
+
+TEST(cache_store_and_lookup_success) {
+    /* Test storing and retrieving from cache using libhashtable */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Store data in cache */
+    const char *test_data = "test render output";
+    uint64_t key = 12345;
+    
+    result = lle_display_cache_store(cache, key, test_data, strlen(test_data) + 1);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache store should succeed");
+    
+    /* Lookup data from cache */
+    void *retrieved_data = NULL;
+    size_t retrieved_size = 0;
+    
+    result = lle_display_cache_lookup(cache, key, &retrieved_data, &retrieved_size);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache lookup should succeed");
+    ASSERT_NOT_NULL(retrieved_data, "Retrieved data should not be null");
+    ASSERT_EQ(retrieved_size, strlen(test_data) + 1, "Retrieved size should match");
+    ASSERT_EQ(strcmp((char*)retrieved_data, test_data), 0, "Retrieved data should match");
+    
+    /* Cleanup */
+    lle_pool_free(retrieved_data); /* Free deserialized data */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_lookup_miss) {
+    /* Test cache miss on non-existent key */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Try to lookup non-existent key */
+    void *retrieved_data = NULL;
+    size_t retrieved_size = 0;
+    uint64_t nonexistent_key = 99999;
+    
+    result = lle_display_cache_lookup(cache, nonexistent_key, &retrieved_data, &retrieved_size);
+    ASSERT_EQ(result, LLE_ERROR_CACHE_MISS, "Should return cache miss");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_hit_count) {
+    /* Test cache hit metrics with libhashtable backend */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Store data */
+    const char *test_data = "test data";
+    uint64_t key = 100;
+    result = lle_display_cache_store(cache, key, test_data, strlen(test_data) + 1);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache store should succeed");
+    
+    /* Get initial hit count */
+    uint64_t initial_hits = cache->metrics->cache_hits;
+    
+    /* Lookup multiple times to increment hit count */
+    void *data = NULL;
+    size_t size = 0;
+    for (int i = 0; i < 5; i++) {
+        result = lle_display_cache_lookup(cache, key, &data, &size);
+        ASSERT_EQ(result, LLE_SUCCESS, "Cache lookup should succeed");
+        if (data) {
+            lle_pool_free(data);
+            data = NULL;
+        }
+    }
+    
+    /* Verify hit count increased */
+    ASSERT_EQ(cache->metrics->cache_hits, initial_hits + 5, "Hit count should increase by 5");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(cache_miss_count) {
+    /* Test cache miss metrics */
+    lle_display_cache_t *cache = NULL;
+    lle_result_t result = lle_display_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Cache init should succeed");
+    
+    /* Get initial miss count */
+    uint64_t initial_misses = cache->metrics->cache_misses;
+    
+    /* Try to lookup non-existent keys */
+    void *data = NULL;
+    size_t size = 0;
+    for (int i = 0; i < 3; i++) {
+        result = lle_display_cache_lookup(cache, 1000 + i, &data, &size);
+        ASSERT_EQ(result, LLE_ERROR_CACHE_MISS, "Should return cache miss");
+    }
+    
+    /* Verify miss count increased */
+    ASSERT_EQ(cache->metrics->cache_misses, initial_misses + 3, "Miss count should increase by 3");
+    
+    /* Cleanup */
+    lle_display_cache_cleanup(cache);
+}
+
+TEST(render_cache_init_success) {
+    /* Test render cache initialization with libhashtable */
+    lle_render_cache_t *cache = NULL;
+    
+    lle_result_t result = lle_render_cache_init(&cache, mock_pool);
+    ASSERT_EQ(result, LLE_SUCCESS, "Render cache init should succeed");
+    ASSERT_NOT_NULL(cache, "Render cache should be allocated");
+    ASSERT_NOT_NULL(cache->base_cache, "Base cache should be initialized");
+    ASSERT_NOT_NULL(cache->base_cache->cache_table, "libhashtable should be created");
+    
+    /* Cleanup */
+    lle_render_cache_cleanup(cache);
+}
+
+TEST(render_cache_init_null_params) {
+    /* Test render cache init with null parameters */
+    lle_render_cache_t *cache = NULL;
+    
+    lle_result_t result = lle_render_cache_init(NULL, mock_pool);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null cache pointer");
+    
+    result = lle_render_cache_init(&cache, NULL);
+    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should reject null memory pool");
+}
+
+/* ========================================================================== */
 /*                            TEST RUNNER                                     */
 /* ========================================================================== */
 
@@ -776,6 +933,16 @@ int main(void) {
     run_test_pipeline_execute_success();
     run_test_pipeline_execute_null_params();
     run_test_pipeline_cleanup_null();
+    
+    /* Cache system tests (libhashtable integration) */
+    run_test_cache_init_success();
+    run_test_cache_init_null_params();
+    run_test_cache_store_and_lookup_success();
+    run_test_cache_lookup_miss();
+    run_test_cache_hit_count();
+    run_test_cache_miss_count();
+    run_test_render_cache_init_success();
+    run_test_render_cache_init_null_params();
     
     /* Print summary */
     printf("\n=================================================================\n");
