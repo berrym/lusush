@@ -177,6 +177,21 @@ if lle_sources.length() > 0
        suite: 'lle-integration',
        timeout: 60)
 
+  # Display integration tests
+  # Tests the complete integration flow through the display system:
+  # - Display Bridge → Event Coordinator → Render Controller
+  # - Render Controller → Pipeline → Cache → Output
+  # - Terminal Adapter → Theme Integration
+  # - Full rendering workflows with multi-component scenarios
+  test_display_integration = executable('test_display_integration',
+                                        'tests/lle/integration/display_integration_test.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep, readline_dep])
+
+  test('LLE Display Integration', test_display_integration,
+       suite: 'lle-integration',
+       timeout: 60)
+
   # End-to-end realistic scenario tests
   # Tests complete editing workflows that simulate real-world usage
   test_e2e_scenarios = executable('test_realistic_scenarios',
@@ -198,6 +213,17 @@ if lle_sources.length() > 0
                               dependencies: [lle_dep])
 
   test('LLE Performance Benchmarks', benchmark_perf,
+       suite: 'lle-benchmarks',
+       timeout: 120)
+
+  # Display integration performance benchmarks
+  # Validates display operations meet Spec 08 performance requirements
+  benchmark_display = executable('benchmark_display_performance',
+                                 'tests/lle/benchmarks/display_performance_benchmark.c',
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+
+  test('LLE Display Performance', benchmark_display,
        suite: 'lle-benchmarks',
        timeout: 120)
 
