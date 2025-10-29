@@ -367,4 +367,17 @@ if lle_sources.length() > 0
   test('LLE Sequence Parser', test_sequence_parser,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Key Detector Unit Tests (Spec 06 Phase 4)
+  # Unit tests for key sequence detection and mapping
+  # Tests: function keys, cursor keys, modifiers, control chars, partial sequences
+  test_key_detector = executable('test_key_detector',
+                                 ['tests/lle/unit/test_key_detector.c',
+                                  'tests/lle/functional/test_memory_mock.c'],
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+
+  test('LLE Key Detector', test_key_detector,
+       suite: 'lle-unit',
+       timeout: 30)
 endif

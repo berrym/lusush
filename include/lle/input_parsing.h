@@ -882,6 +882,15 @@ lle_result_t lle_key_detector_handle_ambiguous_sequence(lle_key_detector_t *dete
 
 lle_result_t lle_key_detector_force_resolution(lle_key_detector_t *detector);
 
+lle_result_t lle_key_detector_get_stats(const lle_key_detector_t *detector,
+                                        uint64_t *sequences_detected,
+                                        uint64_t *sequences_resolved,
+                                        uint64_t *ambiguous_timeouts);
+
+lle_result_t lle_key_detector_reset(lle_key_detector_t *detector);
+
+bool lle_key_detector_is_waiting(const lle_key_detector_t *detector);
+
 /* Key sequence mapping */
 lle_result_t lle_key_sequence_map_init(lle_key_sequence_map_t **map,
                                        lle_memory_pool_t *memory_pool);

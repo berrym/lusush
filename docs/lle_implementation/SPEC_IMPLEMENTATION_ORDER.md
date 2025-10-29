@@ -1,7 +1,7 @@
 # LLE Specification Implementation Order
 
 **Date**: 2025-10-28  
-**Status**: Phase 0 Complete + Spec 03 Complete + Spec 08 COMPLETE + Spec 06 Phase 1-3 COMPLETE  
+**Status**: Phase 0 Complete + Spec 03 Complete + Spec 08 COMPLETE + Spec 06 Phase 1-4 COMPLETE  
 **Purpose**: Define correct implementation order based on specification dependencies
 
 ---
@@ -72,7 +72,7 @@
 - Header compiles standalone and with full LLE stack
 - Status: Deferred until after Spec 08 (dependency discovered)
 
-**Spec 06: Input Parsing** - Phase 1-3 COMPLETE (Input Stream + UTF-8 Processor + Sequence Parser)
+**Spec 06: Input Parsing** - Phase 1-4 COMPLETE (Input Stream + UTF-8 + Sequence Parser + Key Detector)
 - ✅ Layer 0: Complete type definitions (955 lines, 80+ function signatures)
   * Complete header with all parsing component types
   * 10 enumerations, 20+ structure definitions
@@ -108,7 +108,20 @@
   * 16/16 unit tests passing (CSI, OSC, DCS, control chars, incomplete sequences, state machine)
   * Compiles cleanly, full test suite: 11/11 passing
 
-**Next Implementation**: Spec 06 Phase 4 - Key sequence detector (1 week)
+- ✅ **Phase 4: Key Sequence Detector** - COMPLETE (550 lines, 11 functions)
+  * Comprehensive key mapping table (120+ key sequences)
+  * Function keys (F1-F12 in xterm and VT100 formats)
+  * Cursor keys (arrows, Home, End, PgUp, PgDn) - normal and application modes
+  * Editing keys (Insert, Delete, Backspace)
+  * Control characters (Ctrl+A through Ctrl+Z)
+  * Modified keys (Shift, Alt, Ctrl combinations)
+  * Ambiguous sequence detection with timeout (100ms)
+  * Exact match, prefix match, and ambiguity resolution
+  * Statistics tracking (sequences detected, resolved, timeouts)
+  * 15/15 unit tests passing (function keys, cursor keys, modifiers, partial sequences)
+  * Compiles cleanly, full test suite: 12/12 passing
+
+**Next Implementation**: Spec 06 Phase 5 - Mouse input parser (1 week)
 
 ---
 
