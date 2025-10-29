@@ -192,6 +192,19 @@ if lle_sources.length() > 0
        suite: 'lle-integration',
        timeout: 60)
 
+  # Input Parser Integration (Phase 7-9)
+  # Tests event generation, keybinding integration, and error recovery
+  if fs.exists('tests/lle/integration/input_parser_integration_test.c')
+    test_input_parser_integration = executable('test_input_parser_integration',
+                                              'tests/lle/integration/input_parser_integration_test.c',
+                                              include_directories: inc,
+                                              dependencies: [lle_dep])
+
+    test('LLE Input Parser Integration', test_input_parser_integration,
+         suite: 'lle-integration',
+         timeout: 60)
+  endif
+
   # End-to-end realistic scenario tests
   # Tests complete editing workflows that simulate real-world usage
   test_e2e_scenarios = executable('test_realistic_scenarios',
@@ -262,6 +275,18 @@ if lle_sources.length() > 0
                                       dependencies: [lle_dep, readline_dep])
 
   test('LLE Event Coordinator', test_event_coordinator,
+       suite: 'lle-unit',
+       timeout: 30)
+
+  # Event System Unit Tests (Spec 04 Phase 1)
+  # Tests core event system infrastructure: lifecycle, events, queues, handlers
+  test_event_system = executable('test_event_system',
+                                 ['tests/lle/unit/test_event_system.c',
+                                  'tests/lle/functional/test_memory_mock.c'],
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+
+  test('LLE Event System', test_event_system,
        suite: 'lle-unit',
        timeout: 30)
 

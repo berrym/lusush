@@ -307,9 +307,9 @@ TEST(filter_init_success) {
 }
 
 TEST(queue_init_success) {
-    lle_event_queue_t *queue = NULL;
+    lle_coord_queue_t *queue = NULL;
     
-    lle_result_t result = lle_event_queue_init(&queue, mock_pool);
+    lle_result_t result = lle_coord_queue_init(&queue, mock_pool);
     
     ASSERT_EQ(result, LLE_SUCCESS, "Queue init should succeed");
     ASSERT_NOT_NULL(queue, "Queue should be allocated");

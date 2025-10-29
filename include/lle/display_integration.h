@@ -74,7 +74,7 @@ typedef struct lle_cache_policy_t lle_display_cache_policy_t;
 typedef struct lle_event_translator_t lle_event_translator_t;
 typedef struct lle_event_router_t lle_event_router_t;
 typedef struct lle_event_filter_t lle_event_filter_t;
-typedef struct lle_event_queue_t lle_event_queue_t;
+typedef struct lle_coord_queue_t lle_coord_queue_t;  /* Coordinator queue (not core event system) */
 
 /* Memory structures */
 typedef struct lle_display_memory_manager_t lle_display_memory_manager_t;
@@ -172,7 +172,7 @@ typedef struct {
  * 
  * Queue for managing pending render requests.
  */
-struct lle_event_queue_t {
+struct lle_coord_queue_t {
     lle_render_request_t *requests;     /**< Array of requests */
     size_t capacity;                    /**< Queue capacity */
     size_t count;                       /**< Current request count */
@@ -213,7 +213,7 @@ struct lle_display_bridge_t {
     
     /* Bridge state management */
     lle_display_sync_state_t sync_state; /**< Synchronization state tracking */
-    lle_event_queue_t *render_queue;    /**< Pending render requests */
+    lle_coord_queue_t *render_queue;    /**< Pending render requests */
     lle_display_diff_t *diff_tracker;   /**< Display change tracking */
     
     /* Performance optimization */
@@ -587,7 +587,7 @@ struct lle_event_coordinator_t {
     lle_event_translator_t *translator; /**< Event translator */
     lle_event_router_t *router;         /**< Event router */
     lle_event_filter_t *filter;         /**< Event filter */
-    lle_event_queue_t *queue;           /**< Event queue */
+    lle_coord_queue_t *queue;           /**< Coordinator queue */
     lle_event_metrics_t *metrics;       /**< Event metrics */
     pthread_mutex_t coordinator_lock;   /**< Thread safety lock */
     lle_memory_pool_t *memory_pool;         /**< Memory pool */
@@ -902,7 +902,7 @@ lle_result_t lle_event_router_init(lle_event_router_t **router,
                                    lle_memory_pool_t *memory_pool);
 lle_result_t lle_event_filter_init(lle_event_filter_t **filter,
                                    lle_memory_pool_t *memory_pool);
-lle_result_t lle_event_queue_init(lle_event_queue_t **queue,
+lle_result_t lle_coord_queue_init(lle_coord_queue_t **queue,
                                   lle_memory_pool_t *memory_pool);
 lle_result_t lle_event_metrics_init(lle_event_metrics_t **metrics,
                                     lle_memory_pool_t *memory_pool);

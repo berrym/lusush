@@ -31,7 +31,7 @@ static lle_result_t lle_event_router_init_internal(lle_event_router_t **router,
                                                    lle_memory_pool_t *memory_pool);
 static lle_result_t lle_event_filter_init_internal(lle_event_filter_t **filter,
                                                    lle_memory_pool_t *memory_pool);
-static lle_result_t lle_event_queue_init_internal(lle_event_queue_t **queue,
+static lle_result_t lle_event_queue_init_internal(lle_coord_queue_t **queue,
                                                   lle_memory_pool_t *memory_pool);
 static lle_result_t lle_event_metrics_init_internal(lle_event_metrics_t **metrics,
                                                     lle_memory_pool_t *memory_pool);
@@ -39,7 +39,7 @@ static lle_result_t lle_event_metrics_init_internal(lle_event_metrics_t **metric
 static lle_result_t lle_event_translator_cleanup(lle_event_translator_t *translator);
 static lle_result_t lle_event_router_cleanup(lle_event_router_t *router);
 static lle_result_t lle_event_filter_cleanup(lle_event_filter_t *filter);
-static lle_result_t lle_event_queue_cleanup(lle_event_queue_t *queue);
+static lle_result_t lle_event_queue_cleanup(lle_coord_queue_t *queue);
 static lle_result_t lle_event_metrics_cleanup(lle_event_metrics_t *metrics);
 
 /* Default filter function - accepts all events */
@@ -384,20 +384,20 @@ static lle_result_t lle_event_filter_init_internal(lle_event_filter_t **filter,
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_event_queue_init_internal(lle_event_queue_t **queue,
+static lle_result_t lle_event_queue_init_internal(lle_coord_queue_t **queue,
                                                   lle_memory_pool_t *memory_pool) {
-    lle_event_queue_t *q = NULL;
+    lle_coord_queue_t *q = NULL;
     
     if (!queue || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
     /* Allocate queue structure */
-    q = lle_pool_alloc(sizeof(lle_event_queue_t));
+    q = lle_pool_alloc(sizeof(lle_coord_queue_t));
     if (!q) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    memset(q, 0, sizeof(lle_event_queue_t));
+    memset(q, 0, sizeof(lle_coord_queue_t));
     
     /* Set initial capacity */
     q->capacity = 32; /* Start with 32 requests */
@@ -503,7 +503,7 @@ static lle_result_t lle_event_filter_cleanup(lle_event_filter_t *filter) {
 /**
  * @brief Clean up event queue
  */
-static lle_result_t lle_event_queue_cleanup(lle_event_queue_t *queue) {
+static lle_result_t lle_event_queue_cleanup(lle_coord_queue_t *queue) {
     if (!queue) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -568,9 +568,9 @@ lle_result_t lle_event_filter_init(lle_event_filter_t **filter,
 }
 
 /**
- * @brief Initialize event queue (public API)
+ * @brief Initialize coordinator queue (public API)
  */
-lle_result_t lle_event_queue_init(lle_event_queue_t **queue,
+lle_result_t lle_coord_queue_init(lle_coord_queue_t **queue,
                                   lle_memory_pool_t *memory_pool) {
     return lle_event_queue_init_internal(queue, memory_pool);
 }

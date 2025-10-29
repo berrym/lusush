@@ -25,9 +25,9 @@
 /*                       HELPER FUNCTION DECLARATIONS                         */
 /* ========================================================================== */
 
-static lle_result_t lle_render_queue_init(lle_event_queue_t **queue,
+static lle_result_t lle_render_queue_init(lle_coord_queue_t **queue,
                                           lle_memory_pool_t *memory_pool);
-static lle_result_t lle_render_queue_cleanup(lle_event_queue_t *queue);
+static lle_result_t lle_render_queue_cleanup(lle_coord_queue_t *queue);
 static lle_result_t lle_display_diff_init(lle_display_diff_t **diff_tracker,
                                           lle_memory_pool_t *memory_pool);
 static lle_result_t lle_display_diff_cleanup(lle_display_diff_t *diff_tracker);
@@ -222,20 +222,20 @@ lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_render_queue_init(lle_event_queue_t **queue,
+static lle_result_t lle_render_queue_init(lle_coord_queue_t **queue,
                                           lle_memory_pool_t *memory_pool) {
-    lle_event_queue_t *q = NULL;
+    lle_coord_queue_t *q = NULL;
     
     if (!queue || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
     /* Allocate queue structure */
-    q = lle_pool_alloc(sizeof(lle_event_queue_t));
+    q = lle_pool_alloc(sizeof(lle_coord_queue_t));
     if (!q) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    memset(q, 0, sizeof(lle_event_queue_t));
+    memset(q, 0, sizeof(lle_coord_queue_t));
     
     /* Set initial capacity (reasonable default) */
     q->capacity = 16;  /* Start with 16 entries, will grow if needed */
@@ -272,7 +272,7 @@ static lle_result_t lle_render_queue_init(lle_event_queue_t **queue,
  * @param queue Queue to clean up
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_render_queue_cleanup(lle_event_queue_t *queue) {
+static lle_result_t lle_render_queue_cleanup(lle_coord_queue_t *queue) {
     if (!queue) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

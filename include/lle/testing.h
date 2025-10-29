@@ -169,7 +169,7 @@ typedef struct lle_plugin_t lle_plugin_t;
 /* External LLE system types (from other specs) */
 typedef struct lle_unix_terminal_t lle_unix_terminal_t;
 typedef struct lle_buffer_t lle_buffer_t;
-typedef struct lle_event_system_t lle_event_system_t;
+typedef struct lle_event_system lle_event_system_t;
 typedef struct lle_history_system_t lle_history_system_t;
 typedef struct lle_system_t lle_system_t;
 typedef struct lle_display_context_t lle_display_context_t;

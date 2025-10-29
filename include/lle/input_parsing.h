@@ -1050,6 +1050,20 @@ lle_result_t lle_input_parser_process_as_text(lle_input_parser_system_t *parser_
                                               const char *data,
                                               size_t data_len);
 
+lle_result_t lle_input_parser_validate_utf8(const char *data, 
+                                            size_t len, 
+                                            size_t *valid_len);
+
+bool lle_input_parser_check_sequence_timeout(lle_input_parser_system_t *parser_sys,
+                                             uint64_t current_time_us);
+
+lle_result_t lle_input_parser_handle_timeout(lle_input_parser_system_t *parser_sys);
+
+lle_result_t lle_input_parser_get_error_stats(lle_input_parser_system_t *parser_sys,
+                                              uint64_t *utf8_errors,
+                                              uint64_t *mouse_errors,
+                                              uint64_t *sequence_errors);
+
 /* ============================================================================
  * Function Declarations - Performance and Testing
  * ============================================================================ */

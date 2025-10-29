@@ -40,7 +40,7 @@ typedef struct lle_performance_dashboard_t lle_performance_dashboard_t;
 /* Forward declarations from other LLE systems */
 typedef struct lle_terminal_abstraction_t lle_terminal_abstraction_t;
 typedef struct lle_buffer_manager_t lle_buffer_manager_t;
-typedef struct lle_event_system_t lle_event_system_t;
+typedef struct lle_event_system lle_event_system_t;
 typedef struct lle_display_integration_t lle_display_integration_t;
 typedef struct lle_history_system_t lle_history_system_t;
 typedef struct lle_autosuggestions_t lle_autosuggestions_t;

@@ -103,6 +103,10 @@ typedef enum {
     LLE_ERROR_PERFORMANCE_DEGRADED = 1500,    /**< Performance below threshold */
     LLE_ERROR_RESOURCE_EXHAUSTED,             /**< Resource limit exceeded */
     LLE_ERROR_QUEUE_FULL,                     /**< Event queue full */
+    LLE_ERROR_QUEUE_EMPTY,                    /**< Event queue empty */
+    LLE_ERROR_NOT_FOUND,                      /**< Item not found */
+    LLE_ERROR_ALREADY_INITIALIZED,            /**< Already initialized */
+    LLE_ERROR_NOT_INITIALIZED,                /**< Not initialized */
     LLE_ERROR_CACHE_MISS,                     /**< Critical cache miss */
     LLE_ERROR_CACHE_CORRUPTED,                /**< Cache corruption detected */
     LLE_ERROR_THROTTLING_ACTIVE,              /**< Resource throttling active */

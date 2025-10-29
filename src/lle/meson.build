@@ -238,6 +238,18 @@ if fs.exists('input_parser_integration.c')
   lle_sources += files('input_parser_integration.c')
 endif
 
+if fs.exists('input_keybinding_integration.c')
+  lle_sources += files('input_keybinding_integration.c')
+endif
+
+if fs.exists('input_widget_hooks.c')
+  lle_sources += files('input_widget_hooks.c')
+endif
+
+if fs.exists('input_parser_error_recovery.c')
+  lle_sources += files('input_parser_error_recovery.c')
+endif
+
 # Spec 07: Extensibility Framework
 # Provides: Plugin system, widget hooks, extension API
 # Depends on: Spec 16, 15, 14, 17, 04
