@@ -35,6 +35,14 @@ lle_c_args = [
 lle_sources = []
 
 # ============================================================================
+# LUSUSH MEMORY POOL (Foundation Dependency)
+# ============================================================================
+# LLE memory management depends on Lusush memory pool system
+# Must be included before any LLE components that use memory
+
+lle_sources += files('../lusush_memory_pool.c')
+
+# ============================================================================
 # LIBHASHTABLE INTEGRATION (Spec 05)
 # ============================================================================
 # libhashtable is the exclusive hashtable solution for all LLE components.
