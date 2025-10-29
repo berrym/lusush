@@ -393,3 +393,15 @@ if fs.exists('tests/lle/unit/test_mouse_parser.c')
        suite: 'lle-unit',
        timeout: 30)
 endif
+
+# Test: Parser State Machine
+if fs.exists('tests/lle/unit/test_parser_state_machine.c')
+  test_parser_state_machine = executable('test_parser_state_machine',
+                                         ['tests/lle/unit/test_parser_state_machine.c',
+                                          'tests/lle/functional/test_memory_mock.c'],
+                                         include_directories: inc,
+                                         dependencies: [lle_dep, readline_dep])
+  test('LLE Parser State Machine', test_parser_state_machine,
+       suite: 'lle-unit',
+       timeout: 30)
+endif

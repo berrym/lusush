@@ -957,6 +957,23 @@ lle_result_t lle_parser_state_machine_process(lle_parser_state_machine_t *state_
                                               const char *data,
                                               size_t data_len);
 
+lle_parser_state_t lle_parser_state_machine_get_state(const lle_parser_state_machine_t *state_machine);
+
+uint64_t lle_parser_state_machine_get_transitions(const lle_parser_state_machine_t *state_machine);
+
+uint32_t lle_parser_state_machine_get_error_recoveries(const lle_parser_state_machine_t *state_machine);
+
+lle_result_t lle_parser_state_machine_reset(lle_parser_state_machine_t *state_machine);
+
+lle_result_t lle_parser_state_machine_transition(lle_parser_state_machine_t *state_machine,
+                                                 lle_parser_state_t new_state);
+
+lle_parser_state_t lle_parser_state_machine_get_previous_state(const lle_parser_state_machine_t *state_machine);
+
+uint64_t lle_parser_state_machine_time_in_state(const lle_parser_state_machine_t *state_machine);
+
+bool lle_parser_state_machine_is_error_state(const lle_parser_state_machine_t *state_machine);
+
 /* ============================================================================
  * Function Declarations - Event Generation
  * ============================================================================ */
