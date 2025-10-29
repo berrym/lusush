@@ -328,4 +328,17 @@ if lle_sources.length() > 0
   test('LLE Dirty Tracker', test_dirty_tracker,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Input Stream Unit Tests (Spec 06 Phase 1)
+  # Unit tests for input stream buffering, flow control, and data management
+  # Tests: init/destroy, buffer data, consume, peek, statistics, overflow handling
+  test_input_stream = executable('test_input_stream',
+                                 ['tests/lle/unit/test_input_stream.c',
+                                  'tests/lle/functional/test_memory_mock.c'],
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+
+  test('LLE Input Stream', test_input_stream,
+       suite: 'lle-unit',
+       timeout: 30)
 endif
