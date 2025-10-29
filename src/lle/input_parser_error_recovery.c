@@ -44,8 +44,13 @@
  * to maintain zero data loss while indicating the error visually.
  */
 static lle_result_t insert_replacement_character(lle_input_parser_system_t *parser_sys) {
-    if (!parser_sys || !parser_sys->event_system) {
+    if (!parser_sys) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* If no event system, recovery still succeeds (just no event generated) */
+    if (!parser_sys->event_system) {
+        return LLE_SUCCESS;
     }
     
     /* Unicode replacement character U+FFFD in UTF-8 */
@@ -121,16 +126,18 @@ static lle_result_t process_as_text(lle_input_parser_system_t *parser_sys,
  * Clear any partial sequence state when recovery is needed.
  */
 static lle_result_t reset_sequence_parser(lle_input_parser_system_t *parser_sys) {
-    if (!parser_sys || !parser_sys->sequence_parser) {
+    if (!parser_sys) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Reset parser state */
-    parser_sys->sequence_parser->state = LLE_PARSER_STATE_NORMAL;
-    parser_sys->sequence_parser->buffer_pos = 0;
-    parser_sys->sequence_parser->parameter_count = 0;
-    memset(parser_sys->sequence_parser->buffer, 0, 
-           sizeof(parser_sys->sequence_parser->buffer));
+    /* Reset parser state if available */
+    if (parser_sys->sequence_parser) {
+        parser_sys->sequence_parser->state = LLE_PARSER_STATE_NORMAL;
+        parser_sys->sequence_parser->buffer_pos = 0;
+        parser_sys->sequence_parser->parameter_count = 0;
+        memset(parser_sys->sequence_parser->buffer, 0, 
+               sizeof(parser_sys->sequence_parser->buffer));
+    }
     
     return LLE_SUCCESS;
 }
