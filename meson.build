@@ -227,6 +227,17 @@ if lle_sources.length() > 0
        suite: 'lle-benchmarks',
        timeout: 120)
 
+  # Display integration stress tests
+  # Week 8: Production validation - stress testing under extreme conditions
+  stress_display = executable('stress_display_test',
+                              'tests/lle/stress/display_stress_test.c',
+                              include_directories: inc,
+                              dependencies: [lle_dep, readline_dep])
+
+  test('LLE Display Stress Tests', stress_display,
+       suite: 'lle-stress',
+       timeout: 300)
+
   # Display Bridge Unit Tests (Spec 08)
   # Unit tests for display bridge initialization, cleanup, and error handling
   # Uses mocks for display_controller and memory pool (standard unit test practice)
