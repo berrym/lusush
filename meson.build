@@ -354,4 +354,17 @@ if lle_sources.length() > 0
   test('LLE Input UTF-8 Processor', test_input_utf8_processor,
        suite: 'lle-unit',
        timeout: 30)
+
+  # Sequence Parser Unit Tests (Spec 06 Phase 3)
+  # Unit tests for terminal escape sequence parsing (CSI, OSC, DCS, control chars)
+  # Tests: state machine, CSI parameters, string sequences, incomplete sequences, error recovery
+  test_sequence_parser = executable('test_sequence_parser',
+                                    ['tests/lle/unit/test_sequence_parser.c',
+                                     'tests/lle/functional/test_memory_mock.c'],
+                                    include_directories: inc,
+                                    dependencies: [lle_dep, readline_dep])
+
+  test('LLE Sequence Parser', test_sequence_parser,
+       suite: 'lle-unit',
+       timeout: 30)
 endif

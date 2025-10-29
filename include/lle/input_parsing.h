@@ -806,6 +806,22 @@ lle_result_t lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
 
 lle_result_t lle_sequence_parser_reset_state(lle_sequence_parser_t *parser);
 
+lle_parser_state_t lle_sequence_parser_get_state(const lle_sequence_parser_t *parser);
+
+lle_sequence_type_t lle_sequence_parser_get_type(const lle_sequence_parser_t *parser);
+
+lle_result_t lle_sequence_parser_get_buffer(const lle_sequence_parser_t *parser,
+                                            const char **buffer,
+                                            size_t *buffer_len);
+
+lle_result_t lle_sequence_parser_get_csi_params(const lle_sequence_parser_t *parser,
+                                                const uint32_t **params,
+                                                uint8_t *param_count);
+
+lle_result_t lle_sequence_parser_get_stats(const lle_sequence_parser_t *parser,
+                                           uint32_t *malformed,
+                                           uint32_t *timeout);
+
 /* ============================================================================
  * Function Declarations - UTF-8 Processor
  * ============================================================================ */
