@@ -390,6 +390,25 @@ struct lle_utf8_processor {
 };
 
 /**
+ * UTF-8 processor statistics
+ */
+typedef struct {
+    uint64_t codepoints_processed;             /* Total codepoints processed */
+    uint64_t grapheme_clusters_detected;       /* Total grapheme clusters */
+    uint64_t invalid_sequences_handled;        /* Invalid sequences handled */
+    size_t partial_sequence_length;            /* Current partial sequence length */
+} lle_utf8_processor_stats_t;
+
+/**
+ * Codepoint information with grapheme boundary data
+ */
+typedef struct {
+    uint32_t codepoint;                        /* Unicode codepoint */
+    bool is_grapheme_boundary;                 /* Starts new grapheme cluster */
+    int width;                                 /* Display width (0, 1, or 2) */
+} lle_codepoint_info_t;
+
+/**
  * Key sequence mapping entry
  */
 typedef struct {
@@ -791,22 +810,41 @@ lle_result_t lle_sequence_parser_reset_state(lle_sequence_parser_t *parser);
  * Function Declarations - UTF-8 Processor
  * ============================================================================ */
 
-lle_result_t lle_utf8_processor_init(lle_utf8_processor_t **processor);
+lle_result_t lle_input_utf8_processor_init(lle_utf8_processor_t **processor,
+                                           lle_memory_pool_t *memory_pool);
 
-lle_result_t lle_utf8_processor_destroy(lle_utf8_processor_t *processor);
+void lle_input_utf8_processor_destroy(lle_utf8_processor_t *processor);
 
-lle_result_t lle_utf8_processor_process_data(lle_utf8_processor_t *processor,
-                                             const char *data,
-                                             size_t data_len,
-                                             lle_text_input_info_t **text_info);
+lle_result_t lle_input_utf8_processor_reset(lle_utf8_processor_t *processor);
 
-lle_result_t lle_utf8_decode_sequence(const char *utf8_bytes,
-                                      size_t byte_count,
-                                      uint32_t *codepoint);
+bool lle_input_utf8_processor_has_partial(const lle_utf8_processor_t *processor);
 
-lle_result_t lle_utf8_validate_sequence(const char *utf8_bytes,
-                                        size_t byte_count,
-                                        lle_utf8_validation_result_t *result);
+size_t lle_input_utf8_processor_bytes_needed(const lle_utf8_processor_t *processor);
+
+lle_result_t lle_input_utf8_processor_process_byte(lle_utf8_processor_t *processor,
+                                                   unsigned char byte,
+                                                   uint32_t *codepoint_out,
+                                                   bool *is_grapheme_boundary);
+
+lle_result_t lle_input_utf8_processor_process_buffer(lle_utf8_processor_t *processor,
+                                                     const char *buffer,
+                                                     size_t buffer_len,
+                                                     lle_codepoint_info_t *codepoints,
+                                                     size_t max_codepoints,
+                                                     size_t *codepoints_decoded,
+                                                     size_t *bytes_consumed);
+
+lle_result_t lle_input_utf8_processor_get_stats(const lle_utf8_processor_t *processor,
+                                                lle_utf8_processor_stats_t *stats);
+
+/* Convenience wrappers for complete string processing */
+bool lle_input_utf8_validate_string(const char *text, size_t length);
+
+size_t lle_input_utf8_count_codepoints(const char *text, size_t length);
+
+size_t lle_input_utf8_count_graphemes(const char *text, size_t length);
+
+size_t lle_input_utf8_get_display_width(const char *text, size_t length);
 
 /* ============================================================================
  * Function Declarations - Key Detector
