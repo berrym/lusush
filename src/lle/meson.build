@@ -209,8 +209,33 @@ endif
 # Spec 06: Input Parsing
 # Provides: Input stream parsing, key sequence detection, mouse input
 # Depends on: Spec 16, 15, 14, 17, 02, 04
-if fs.exists('src/lle/input_parsing.c')
-  lle_sources += 'input_parsing.c'
+# Phase 1: Input Stream Management
+if fs.exists('input_stream.c')
+  lle_sources += files('input_stream.c')
+endif
+# Phase 2: UTF-8 Processor (will reuse utf8_support.c from Spec 03)
+if fs.exists('input_utf8_processor.c')
+  lle_sources += files('input_utf8_processor.c')
+endif
+# Phase 3: Terminal Sequence Parser
+if fs.exists('sequence_parser.c')
+  lle_sources += files('sequence_parser.c')
+endif
+# Phase 4: Key Sequence Detector
+if fs.exists('key_detector.c')
+  lle_sources += files('key_detector.c')
+endif
+# Phase 5: Mouse Parser
+if fs.exists('mouse_parser.c')
+  lle_sources += files('mouse_parser.c')
+endif
+# Phase 6: Parser State Machine
+if fs.exists('parser_state_machine.c')
+  lle_sources += files('parser_state_machine.c')
+endif
+# Phase 7-9: Integration (combined file)
+if fs.exists('input_parser_integration.c')
+  lle_sources += files('input_parser_integration.c')
 endif
 
 # Spec 07: Extensibility Framework

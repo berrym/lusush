@@ -733,6 +733,22 @@ lle_result_t lle_input_stream_peek(lle_input_stream_t *stream,
                                    size_t offset,
                                    char *byte);
 
+lle_result_t lle_input_stream_set_blocking(lle_input_stream_t *stream,
+                                           bool blocking);
+
+lle_result_t lle_input_stream_set_flow_control(lle_input_stream_t *stream,
+                                               bool enabled);
+
+lle_result_t lle_input_stream_get_statistics(lle_input_stream_t *stream,
+                                             uint64_t *bytes_read,
+                                             uint64_t *read_operations,
+                                             uint64_t *buffer_overflows);
+
+lle_result_t lle_input_stream_reset(lle_input_stream_t *stream);
+
+lle_result_t lle_input_stream_get_available(lle_input_stream_t *stream,
+                                            size_t *available);
+
 /* ============================================================================
  * Function Declarations - Input Buffer Management
  * ============================================================================ */
