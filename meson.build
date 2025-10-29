@@ -381,3 +381,15 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 endif
+
+# Test: Mouse Parser
+if fs.exists('tests/lle/unit/test_mouse_parser.c')
+  test_mouse_parser = executable('test_mouse_parser',
+                                 ['tests/lle/unit/test_mouse_parser.c',
+                                  'tests/lle/functional/test_memory_mock.c'],
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+  test('LLE Mouse Parser', test_mouse_parser,
+       suite: 'lle-unit',
+       timeout: 30)
+endif

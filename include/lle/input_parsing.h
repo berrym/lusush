@@ -927,6 +927,21 @@ lle_result_t lle_mouse_parser_parse_sgr_sequence(lle_mouse_parser_t *parser,
                                                  size_t sequence_len,
                                                  lle_mouse_event_info_t **mouse_info);
 
+lle_result_t lle_mouse_parser_set_tracking(lle_mouse_parser_t *parser,
+                                           bool enabled,
+                                           lle_mouse_tracking_mode_t mode);
+
+lle_result_t lle_mouse_parser_get_stats(const lle_mouse_parser_t *parser,
+                                        uint64_t *events_parsed,
+                                        uint64_t *invalid_sequences);
+
+lle_result_t lle_mouse_parser_reset(lle_mouse_parser_t *parser);
+
+lle_result_t lle_mouse_parser_get_state(const lle_mouse_parser_t *parser,
+                                        uint16_t *x,
+                                        uint16_t *y,
+                                        lle_mouse_button_t *pressed_buttons);
+
 /* ============================================================================
  * Function Declarations - Parser State Machine
  * ============================================================================ */

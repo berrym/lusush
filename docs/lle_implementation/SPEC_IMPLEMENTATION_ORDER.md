@@ -121,7 +121,21 @@
   * 15/15 unit tests passing (function keys, cursor keys, modifiers, partial sequences)
   * Compiles cleanly, full test suite: 12/12 passing
 
-**Next Implementation**: Spec 06 Phase 5 - Mouse input parser (1 week)
+- ✅ **Phase 5: Mouse Input Parser** - COMPLETE (430 lines, 10 functions)
+  * X10 mouse format parsing (ESC[M<btn><x><y>)
+  * SGR mouse format parsing (ESC[<btn;x;y>M/m)
+  * Button press/release tracking (left, middle, right)
+  * Mouse movement and drag detection
+  * Wheel event detection (scroll up/down)
+  * Multi-click detection (double-click 500ms, triple-click 750ms)
+  * Modifier key extraction (Shift, Alt, Ctrl)
+  * Coordinate conversion (terminal 1-based to 0-based)
+  * Statistics tracking (events parsed, invalid sequences)
+  * State management (position, pressed buttons, click timing)
+  * 16/16 unit tests passing (X10 formats, SGR formats, wheel events, drag, multi-click)
+  * Compiles cleanly, full test suite: 13/13 passing
+
+**Next Implementation**: Spec 06 Phase 6 - Parser state machine integration (1 week)
 
 ---
 
