@@ -1152,6 +1152,38 @@ tests/lle/
 
 ## ⚠️ CRITICAL PROTOCOLS
 
+### 🚨 MANDATORY: Read All Lessons Learned Documents FIRST
+
+**BEFORE beginning ANY work**, you MUST read these lessons learned documents:
+
+1. **SPEC_03_LESSONS_LEARNED.md** - Buffer management mistakes and recovery
+2. **SPEC_04_LESSONS_LEARNED.md** - Event system implementation patterns
+3. **SPEC_04_COMPLIANCE_TEST_LESSONS.md** - Why assuming API is dangerous (READ THIS!)
+4. **SPEC_06_LESSONS_LEARNED.md** - Input system integration challenges
+
+**Why This Is Critical**:
+- These documents capture ACTUAL mistakes that happened in LLE development
+- Each represents a protocol violation that wasted time and created bugs
+- Reading them takes 15 minutes, repeating the mistakes costs hours
+- The most recent (SPEC_04_COMPLIANCE_TEST_LESSONS.md) shows exactly what happens when you assume instead of verify
+
+**Key Patterns to Avoid** (from lessons learned):
+- ❌ Assuming API signatures without reading actual header files
+- ❌ Creating compliance tests before verifying they compile and pass
+- ❌ Ignoring pre-commit hook warnings
+- ❌ Rushing to complete work without following protocols
+- ❌ Pattern matching from other code without verification
+- ✅ Always read actual implementation files first
+- ✅ Verify every assumption with grep/read of actual code
+- ✅ Compile and test before committing
+- ✅ Treat warnings as blockers
+
+**Enforcement**: Cannot be automated (yet), but violating these lessons will result in the same mistakes. The user has expressed serious doubts about development quality due to repeated protocol violations. Don't add to that list.
+
+**Location**: `docs/lle_implementation/*LESSON*.md`
+
+---
+
 ### Implementation Protocol
 
 **FOR EACH SPECIFICATION**:
