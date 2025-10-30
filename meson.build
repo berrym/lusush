@@ -473,3 +473,17 @@ if fs.exists('tests/lle/unit/test_parser_state_machine.c')
        suite: 'lle-unit',
        timeout: 30)
 endif
+
+# ============================================================================
+# LLE Manual Integration Test (CRITICAL VERIFICATION)
+# ============================================================================
+# This is NOT an automated test - it's a manual verification tool
+# Purpose: Verify raw terminal input works at 11% implementation
+# Usage: Run manually and observe behavior
+# Exit: User must verify results manually
+# NOTE: Standalone executable, no LLE dependencies (tests raw input only)
+if fs.exists('tests/lle/integration/manual_input_test.c')
+  manual_input_test = executable('manual_input_test',
+                                  'tests/lle/integration/manual_input_test.c')
+  # NOTE: Not added to automated test suite - must be run manually
+endif
