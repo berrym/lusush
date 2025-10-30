@@ -148,19 +148,19 @@ static const char* detect_sequence(const uint8_t *buf, ssize_t len) {
 
 static void print_header(void) {
     printf("\033[2J\033[H");  /* Clear screen and home */
-    printf("╔════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║           LLE Manual Integration Test - Raw Input Verification        ║\n");
-    printf("╠════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║ Purpose: Verify terminal input works at 11%% implementation            ║\n");
-    printf("║                                                                        ║\n");
-    printf("║ Test Scenarios:                                                        ║\n");
-    printf("║   1. Type ASCII - verify bytes received                               ║\n");
-    printf("║   2. Type Unicode (😀 你好) - verify UTF-8 processing                ║\n");
-    printf("║   3. Arrow keys - verify escape sequence detection                    ║\n");
-    printf("║   4. Type fast - verify no lag or dropped input                       ║\n");
-    printf("║                                                                        ║\n");
-    printf("║ Controls: Type to test | Ctrl+C to exit                               ║\n");
-    printf("╚════════════════════════════════════════════════════════════════════════╝\n\n");
+    printf("========================================================================\n");
+    printf("         LLE Manual Integration Test - Raw Input Verification\n");
+    printf("========================================================================\n");
+    printf("Purpose: Verify terminal input works at 11%% implementation\n");
+    printf("\n");
+    printf("Test Scenarios:\n");
+    printf("  1. Type ASCII - verify bytes received\n");
+    printf("  2. Type Unicode (emoji, Chinese) - verify UTF-8 processing\n");
+    printf("  3. Arrow keys - verify escape sequence detection\n");
+    printf("  4. Type fast - verify no lag or dropped input\n");
+    printf("\n");
+    printf("Controls: Type to test | Ctrl+C to exit\n");
+    printf("========================================================================\n\n");
 }
 
 static void print_stats(test_context_t *ctx) {
@@ -299,24 +299,25 @@ int main(void) {
     restore_terminal(ctx);
     
     /* Print final results */
-    printf("╔════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                          Test Completed                                ║\n");
-    printf("╠════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║ Total Bytes:       %-10lu                                         ║\n", ctx->byte_count);
-    printf("║ Sequences:         %-10lu                                         ║\n", ctx->sequence_count);
-    printf("║ UTF-8 Characters:  %-10lu                                         ║\n", ctx->utf8_char_count);
-    printf("║                                                                        ║\n");
-    printf("║ Manual Verification Questions:                                         ║\n");
-    printf("║   ✓ Did all typed characters appear?                                  ║\n");
-    printf("║   ✓ Were arrow keys detected correctly?                               ║\n");
-    printf("║   ✓ Did Unicode characters display properly?                          ║\n");
-    printf("║   ✓ Was there any lag or dropped input?                               ║\n");
-    printf("║                                                                        ║\n");
-    printf("║ If YES to all: Basic input system is functional                       ║\n");
-    printf("║ If NO to any: Document issues - may need architectural changes        ║\n");
-    printf("║                                                                        ║\n");
-    printf("║ Next Step: If basic input works, test buffer integration              ║\n");
-    printf("╚════════════════════════════════════════════════════════════════════════╝\n");
+    printf("\n");
+    printf("========================================================================\n");
+    printf("                        Test Completed\n");
+    printf("========================================================================\n");
+    printf("Total Bytes:       %lu\n", ctx->byte_count);
+    printf("Sequences:         %lu\n", ctx->sequence_count);
+    printf("UTF-8 Characters:  %lu\n", ctx->utf8_char_count);
+    printf("\n");
+    printf("Manual Verification Questions:\n");
+    printf("  - Did all typed characters appear?\n");
+    printf("  - Were arrow keys detected correctly?\n");
+    printf("  - Did Unicode characters display properly?\n");
+    printf("  - Was there any lag or dropped input?\n");
+    printf("\n");
+    printf("If YES to all: Basic input system is functional\n");
+    printf("If NO to any: Document issues - may need architectural changes\n");
+    printf("\n");
+    printf("Next Step: If basic input works, test buffer integration\n");
+    printf("========================================================================\n");
     
     return result == 0 ? 0 : 1;
 }
