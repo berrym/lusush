@@ -1,14 +1,18 @@
 /*
- * event_handlers.c - Event Handler Management and Dispatching (Phase 1)
+ * event_handlers.c - Event Handler Management and Dispatching (Phase 1 + Phase 2C)
  * 
- * Handler registration, unregistration, and event dispatching.
+ * Handler registration, unregistration, and event dispatching with filtering.
  * 
- * Spec 04: Event System - Phase 1
+ * Spec 04: Event System - Phase 1 + Phase 2C
  */
 
 #include "../../include/lle/event_system.h"
 #include <stdlib.h>
 #include <string.h>
+
+/* Forward declaration for filter apply function (from event_filter.c) */
+extern lle_filter_result_t lle_event_filter_apply(lle_event_system_t *system,
+                                                   lle_event_t *event);
 
 /*
  * Register event handler
@@ -166,17 +170,38 @@ size_t lle_event_handler_count(lle_event_system_t *system,
 }
 
 /*
- * Dispatch event to all registered handlers
+ * Dispatch event to all registered handlers (Phase 1 + Phase 2C with filtering and hooks)
  */
 lle_result_t lle_event_dispatch(lle_event_system_t *system, lle_event_t *event) {
     if (!system || !event) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Phase 2C: Apply event filters */
+    if (system->filter_system) {
+        lle_filter_result_t filter_result = lle_event_filter_apply(system, event);
+        if (filter_result == LLE_FILTER_BLOCK) {
+            return LLE_SUCCESS;  /* Event blocked by filter, but not an error */
+        }
+        /* FILTER_PASS, FILTER_TRANSFORM, or FILTER_ERROR: continue dispatch */
+    }
+    
+    /* Phase 2C: Call pre-dispatch hook */
+    if (system->pre_dispatch_hook) {
+        lle_result_t hook_result = system->pre_dispatch_hook(event, system->pre_dispatch_data);
+        if (hook_result != LLE_SUCCESS) {
+            return hook_result;  /* Hook rejected event */
+        }
+    }
+    
+    /* Phase 2C: Update system state to PROCESSING */
+    lle_system_state_t previous_state = system->current_state;
+    system->current_state = LLE_STATE_PROCESSING;
+    
     pthread_mutex_lock(&system->system_mutex);
     
     /* Find all handlers for this event type */
-    lle_result_t last_result = LLE_SUCCESS;
+    lle_result_t dispatch_result = LLE_SUCCESS;
     size_t dispatched = 0;
     
     for (size_t i = 0; i < system->handler_count; i++) {
@@ -188,7 +213,7 @@ lle_result_t lle_event_dispatch(lle_event_system_t *system, lle_event_t *event) 
             
             /* Track last error (but continue with other handlers) */
             if (result != LLE_SUCCESS) {
-                last_result = result;
+                dispatch_result = result;
             }
             
             dispatched++;
@@ -202,7 +227,15 @@ lle_result_t lle_event_dispatch(lle_event_system_t *system, lle_event_t *event) 
         __atomic_fetch_add(&system->events_dispatched, 1, __ATOMIC_SEQ_CST);
     }
     
-    return last_result;
+    /* Phase 2C: Restore previous system state */
+    system->current_state = previous_state;
+    
+    /* Phase 2C: Call post-dispatch hook */
+    if (system->post_dispatch_hook) {
+        system->post_dispatch_hook(event, dispatch_result, system->post_dispatch_data);
+    }
+    
+    return dispatch_result;
 }
 
 /*

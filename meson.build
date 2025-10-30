@@ -290,6 +290,49 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Event System Phase 2 Tests (Spec 04 Phase 2A-2D)
+  # Tests filters, timers, enhanced stats, and priority queues
+  test_event_phase2 = executable('test_event_phase2',
+                                 ['tests/lle/unit/test_event_phase2.c',
+                                  'tests/lle/functional/test_memory_mock.c'],
+                                 include_directories: inc,
+                                 dependencies: [lle_dep, readline_dep])
+
+  test('LLE Event System Phase 2', test_event_phase2,
+       suite: 'lle-unit',
+       timeout: 30)
+
+  # Terminal Capabilities Unit Tests (Spec 02 Phase 1)
+  test_terminal_capabilities = executable('test_terminal_capabilities',
+                                          'tests/lle/unit/test_terminal_capabilities.c',
+                                          include_directories: inc,
+                                          dependencies: [lle_dep, readline_dep],
+                                          link_args: ['-lncurses'])
+
+  test('LLE Terminal Capabilities', test_terminal_capabilities,
+       suite: 'lle-unit',
+       timeout: 30)
+
+  # Terminal State Management Unit Tests (Spec 02 Phase 2)
+  test_terminal_state = executable('test_terminal_state',
+                                   'tests/lle/unit/test_terminal_state.c',
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, readline_dep])
+
+  test('LLE Terminal State', test_terminal_state,
+       suite: 'lle-unit',
+       timeout: 30)
+
+  # Terminal Event Reading Unit Tests (Spec 02 Phase 3)
+  test_terminal_event_reading = executable('test_terminal_event_reading',
+                                          'tests/lle/unit/test_terminal_event_reading.c',
+                                          include_directories: inc,
+                                          dependencies: [lle_dep, readline_dep])
+
+  test('LLE Terminal Event Reading', test_terminal_event_reading,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render Controller Unit Tests (Spec 08)
   # Unit tests for render controller initialization, cleanup, and sub-component setup
   # Tests sub-components: buffer renderer, cursor renderer, frame scheduler, cache, etc.

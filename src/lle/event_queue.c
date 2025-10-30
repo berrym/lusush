@@ -78,7 +78,14 @@ lle_result_t lle_event_enqueue(lle_event_system_t *system, lle_event_t *event) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    lle_event_queue_t *queue = system->queue;
+    /* Phase 2: Route to priority queue for CRITICAL priority events only */
+    lle_event_queue_t *queue;
+    if (system->use_priority_queue && event->priority == LLE_PRIORITY_CRITICAL) {
+        queue = system->priority_queue;
+        __atomic_fetch_add(&system->priority_events_queued, 1, __ATOMIC_SEQ_CST);
+    } else {
+        queue = system->queue;
+    }
     
     pthread_mutex_lock(&queue->mutex);
     
@@ -94,6 +101,10 @@ lle_result_t lle_event_enqueue(lle_event_system_t *system, lle_event_t *event) {
     queue->tail = (queue->tail + 1) % queue->capacity;
     queue->count++;
     
+    /* Phase 2: Mark event as queued and update statistics */
+    event->flags |= LLE_EVENT_FLAG_QUEUED;
+    __atomic_fetch_add(&system->events_by_priority[event->priority], 1, __ATOMIC_SEQ_CST);
+    
     pthread_mutex_unlock(&queue->mutex);
     
     return LLE_SUCCESS;
@@ -107,9 +118,24 @@ lle_result_t lle_event_dequeue(lle_event_system_t *system, lle_event_t **event) 
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    lle_event_queue_t *queue = system->queue;
+    /* Phase 2: Check priority queue first if enabled */
+    lle_event_queue_t *queue;
+    bool from_priority_queue = false;
     
-    pthread_mutex_lock(&queue->mutex);
+    if (system->use_priority_queue && system->priority_queue) {
+        pthread_mutex_lock(&system->priority_queue->mutex);
+        if (system->priority_queue->count > 0) {
+            queue = system->priority_queue;
+            from_priority_queue = true;
+        } else {
+            pthread_mutex_unlock(&system->priority_queue->mutex);
+            queue = system->queue;
+            pthread_mutex_lock(&queue->mutex);
+        }
+    } else {
+        queue = system->queue;
+        pthread_mutex_lock(&queue->mutex);
+    }
     
     /* Check if queue is empty */
     if (queue->count == 0) {
@@ -124,48 +150,76 @@ lle_result_t lle_event_dequeue(lle_event_system_t *system, lle_event_t **event) 
     queue->head = (queue->head + 1) % queue->capacity;
     queue->count--;
     
+    /* Phase 2: Update event flags and statistics */
+    if (*event) {
+        (*event)->flags &= ~LLE_EVENT_FLAG_QUEUED;  /* Clear queued flag */
+        if (from_priority_queue) {
+            __atomic_fetch_add(&system->priority_events_processed, 1, __ATOMIC_SEQ_CST);
+        }
+    }
+    
     pthread_mutex_unlock(&queue->mutex);
     
     return LLE_SUCCESS;
 }
 
 /*
- * Get queue size
+ * Get queue size (Phase 1 + Phase 2 - returns total events in both queues)
  */
 size_t lle_event_queue_size(lle_event_system_t *system) {
     if (!system || !system->queue) {
         return 0;
     }
     
-    lle_event_queue_t *queue = system->queue;
+    size_t count = 0;
     
-    pthread_mutex_lock(&queue->mutex);
-    size_t count = queue->count;
-    pthread_mutex_unlock(&queue->mutex);
+    /* Count events in main queue */
+    pthread_mutex_lock(&system->queue->mutex);
+    count += system->queue->count;
+    pthread_mutex_unlock(&system->queue->mutex);
+    
+    /* Phase 2: Count events in priority queue if enabled */
+    if (system->use_priority_queue && system->priority_queue) {
+        pthread_mutex_lock(&system->priority_queue->mutex);
+        count += system->priority_queue->count;
+        pthread_mutex_unlock(&system->priority_queue->mutex);
+    }
     
     return count;
 }
 
 /*
- * Check if queue is empty
+ * Check if queue is empty (Phase 1 + Phase 2 - checks both queues)
  */
 bool lle_event_queue_empty(lle_event_system_t *system) {
     return lle_event_queue_size(system) == 0;
 }
 
 /*
- * Check if queue is full
+ * Check if queue is full (Phase 1 + Phase 2 - checks if both queues are full)
  */
 bool lle_event_queue_full(lle_event_system_t *system) {
     if (!system || !system->queue) {
         return false;
     }
     
-    lle_event_queue_t *queue = system->queue;
+    bool main_full = false;
+    bool priority_full = false;
     
-    pthread_mutex_lock(&queue->mutex);
-    bool full = (queue->count >= queue->capacity);
-    pthread_mutex_unlock(&queue->mutex);
+    /* Check main queue */
+    pthread_mutex_lock(&system->queue->mutex);
+    main_full = (system->queue->count >= system->queue->capacity);
+    pthread_mutex_unlock(&system->queue->mutex);
     
-    return full;
+    /* Phase 2: Check priority queue if enabled */
+    if (system->use_priority_queue && system->priority_queue) {
+        pthread_mutex_lock(&system->priority_queue->mutex);
+        priority_full = (system->priority_queue->count >= system->priority_queue->capacity);
+        pthread_mutex_unlock(&system->priority_queue->mutex);
+        
+        /* Both queues must be full for system to be considered full */
+        return main_full && priority_full;
+    }
+    
+    return main_full;
 }

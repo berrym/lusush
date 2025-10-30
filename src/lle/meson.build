@@ -103,11 +103,16 @@ endif
 # Spec 02: Terminal Abstraction
 # Provides: Terminal capability detection, state management
 # Depends on: Spec 16, 15, 14, 17
-if fs.exists('src/lle/terminal.c')
-  lle_sources += 'terminal.c'
+# Phase 1: Terminal capability detection
+if fs.exists('terminal_capabilities.c')
+  lle_sources += files('terminal_capabilities.c')
+endif
+# Phase 2: Terminal state management
+if fs.exists('terminal_state.c')
+  lle_sources += files('terminal_state.c')
 endif
 
-# Spec 04: Event System - Phase 1
+# Spec 04: Event System - Phase 1 + Phase 2
 # Provides: Core event infrastructure, queue, handlers, dispatch
 # Depends on: Spec 16, 15
 # Phase 1: Basic event system (3 files)
@@ -119,6 +124,18 @@ if fs.exists('event_queue.c')
 endif
 if fs.exists('event_handlers.c')
   lle_sources += files('event_handlers.c')
+endif
+# Phase 2B: Enhanced statistics and processing control
+if fs.exists('event_stats.c')
+  lle_sources += files('event_stats.c')
+endif
+# Phase 2C: Event filtering and system state
+if fs.exists('event_filter.c')
+  lle_sources += files('event_filter.c')
+endif
+# Phase 2D: Timer events
+if fs.exists('event_timer.c')
+  lle_sources += files('event_timer.c')
 endif
 
 # Spec 05: libhashtable Integration

@@ -131,6 +131,43 @@ else
     echo ""
 fi
 
+# Run Spec 04 compliance tests (Event System)
+echo "-------------------------------------------------------------------"
+echo "Spec 04: Event System Compliance"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_04_event_system_compliance.c" ]; then
+    echo "Compiling spec_04_event_system_compliance..."
+
+    gcc -o spec_04_compliance \
+        compliance/spec_04_event_system_compliance.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_04_compliance
+    SPEC_04_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_04_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_04_compliance
+
+    echo ""
+else
+    echo "Spec 04 compliance test not found - skipping"
+    echo ""
+fi
+
 # Run Spec 03 compliance tests (Buffer Management)
 echo "-------------------------------------------------------------------"
 echo "Spec 03: Buffer Management Compliance"
