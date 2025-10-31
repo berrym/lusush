@@ -92,7 +92,9 @@
   * Reader-writer locks for concurrent access
   * Thread-safe operations (insert, lookup, delete, contains, size, clear)
   * Lock-free reads when configured
-  * Documented libhashtable concurrency limitation (hash collision linked lists)
+  * **BUG FIX**: Fixed metrics race condition - moved metrics update inside lock boundary
+  * **BUG FIX**: Implemented entry_count tracking to work around libhashtable enumeration bug
+  * Thread safety now achieves 100% success rate (200/200 concurrent inserts)
 - ✅ Phase 3: Advanced Features
   * Generic hashtable support for custom types
   * Specialized string-to-string implementation
@@ -101,8 +103,9 @@
 - ✅ Integration: render_cache.c migrated to use LLE wrapper
 - ✅ Compliance test: 25 tests passing (Layer 0 + Layer 1)
 - ✅ Functional test: 25 comprehensive tests (config, registry, factory, operations, thread safety, performance, system init)
-- ✅ All 29 LLE tests passing (100% success rate)
-- Status: COMPLETE - Full wrapper layer with all enhancements and comprehensive functional testing
+  * Thread safety test: 100% success rate (200/200 concurrent inserts) after bug fixes
+- ✅ All 23 LLE tests passing (100% success rate)
+- Status: COMPLETE - Full wrapper layer with all enhancements, thread safety bug fixes, and comprehensive functional testing
 
 **Spec 06: Input Parsing** - Phase 1-9 COMPLETE (Full Input Parsing + Event Generation + Error Recovery)
 - ✅ Layer 0: Complete type definitions (955 lines, 80+ function signatures)

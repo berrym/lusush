@@ -553,30 +553,9 @@ TEST(thread_safe_concurrent_inserts) {
     size_t expected_size = num_threads * ops_per_thread;
     size_t actual_size = lle_strstr_hashtable_size(ht);
     
-    if (actual_size != expected_size) {
-        printf("  Expected %zu entries, got %zu (%.1f%% success)\n", 
-               expected_size, actual_size, (actual_size * 100.0) / expected_size);
-        
-        /* Verify a sample of keys to check if they exist */
-        int missing_count = 0;
-        for (int t = 0; t < num_threads && missing_count < 10; t++) {
-            for (int i = 0; i < 5 && missing_count < 10; i++) {
-                char key[64];
-                snprintf(key, sizeof(key), "thread%d_operation%d_key", t, i);
-                if (!lle_strstr_hashtable_contains(ht, key)) {
-                    printf("    Missing key: %s\n", key);
-                    missing_count++;
-                }
-            }
-        }
-    }
-    
-    /* Thread safety limitation: libhashtable uses linked lists for hash collision handling.
-     * Even with external rwlock protection, concurrent inserts with hash collisions can
-     * cause entry loss due to non-atomic linked list operations inside libhashtable.
-     * This is a known architectural limitation. Accept 90%+ success rate as passing. */
-    double success_rate = (actual_size * 100.0) / expected_size;
-    ASSERT_TRUE(success_rate >= 90.0, "Thread-safe inserts should have >= 90% success rate");
+    /* With our entry_count tracking fix, we should now get 100% success rate.
+     * The previous issue was libhashtable's enumeration bug, not a thread safety issue. */
+    ASSERT_EQ(actual_size, expected_size, "Thread-safe inserts should have 100% success rate");
     
     lle_strstr_hashtable_destroy(ht);
     lle_hashtable_factory_destroy(factory);

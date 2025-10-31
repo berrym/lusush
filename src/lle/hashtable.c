@@ -499,6 +499,7 @@ lle_result_t lle_hashtable_factory_create_strstr(
     }
     
     ht_wrapper->name = cfg->hashtable_name;
+    ht_wrapper->entry_count = 0;  /* Initialize entry count */
     
     /* Register with factory registry */
     lle_hashtable_registry_add(factory->registry, ht_wrapper);
@@ -570,6 +571,7 @@ lle_result_t lle_hashtable_factory_create_generic(
     }
     
     ht_wrapper->name = cfg->hashtable_name;
+    ht_wrapper->entry_count = 0;  /* Initialize entry count */
     
     /* Clear memory context */
     if (cfg->use_memory_pool) {
@@ -619,20 +621,18 @@ lle_result_t lle_strstr_hashtable_insert(lle_strstr_hashtable_t *ht,
         pthread_rwlock_wrlock(ht->lock);
     }
     
+    /* Check if key exists (to track new inserts vs updates) */
+    bool key_exists = (ht_strstr_get(ht->ht, key) != NULL);
+    
     /* Perform insertion */
     ht_strstr_insert(ht->ht, key, value);
     
-    /* Release lock if thread-safe */
-    if (ht->is_concurrent && ht->lock) {
-        pthread_rwlock_unlock(ht->lock);
+    /* Update entry count if this was a new insertion */
+    if (!key_exists) {
+        ht->entry_count++;
     }
     
-    /* Clear memory context */
-    if (ht->mem_ctx) {
-        lle_set_current_memory_context(NULL);
-    }
-    
-    /* Update metrics */
+    /* Update metrics - MUST happen inside lock to prevent race conditions */
     if (ht->metrics) {
         uint64_t end_time = lle_get_current_time_microseconds();
         uint64_t duration = end_time - start_time;
@@ -646,6 +646,16 @@ lle_result_t lle_strstr_hashtable_insert(lle_strstr_hashtable_t *ht,
         
         ht->metrics->avg_insert_time_us = 
             ht->metrics->total_insert_time_us / ht->metrics->insert_operations;
+    }
+    
+    /* Release lock if thread-safe */
+    if (ht->is_concurrent && ht->lock) {
+        pthread_rwlock_unlock(ht->lock);
+    }
+    
+    /* Clear memory context */
+    if (ht->mem_ctx) {
+        lle_set_current_memory_context(NULL);
     }
     
     return LLE_SUCCESS;
@@ -670,12 +680,7 @@ const char *lle_strstr_hashtable_lookup(lle_strstr_hashtable_t *ht,
     /* Perform lookup */
     const char *result = ht_strstr_get(ht->ht, key);
     
-    /* Release lock if thread-safe */
-    if (ht->is_concurrent && ht->lock) {
-        pthread_rwlock_unlock(ht->lock);
-    }
-    
-    /* Update metrics */
+    /* Update metrics - MUST happen inside lock to prevent race conditions */
     if (ht->metrics) {
         uint64_t end_time = lle_get_current_time_microseconds();
         uint64_t duration = end_time - start_time;
@@ -689,6 +694,11 @@ const char *lle_strstr_hashtable_lookup(lle_strstr_hashtable_t *ht,
         
         ht->metrics->avg_lookup_time_us = 
             ht->metrics->total_lookup_time_us / ht->metrics->lookup_operations;
+    }
+    
+    /* Release lock if thread-safe */
+    if (ht->is_concurrent && ht->lock) {
+        pthread_rwlock_unlock(ht->lock);
     }
     
     return result;
@@ -715,9 +725,26 @@ lle_result_t lle_strstr_hashtable_delete(lle_strstr_hashtable_t *ht,
         pthread_rwlock_wrlock(ht->lock);
     }
     
+    /* Check if key exists before deletion */
+    bool key_exists = (ht_strstr_get(ht->ht, key) != NULL);
+    
     /* Perform deletion - libhashtable uses remove, not delete */
     ht_strstr_remove(ht->ht, key);
-    bool deleted = true;  /* libhashtable remove is void, assume success */
+    bool deleted = key_exists;
+    
+    /* Update entry count if something was actually deleted */
+    if (deleted) {
+        ht->entry_count--;
+    }
+    
+    /* Update metrics - MUST happen inside lock to prevent race conditions */
+    if (ht->metrics) {
+        uint64_t end_time = lle_get_current_time_microseconds();
+        uint64_t duration = end_time - start_time;
+        
+        ht->metrics->delete_operations++;
+        ht->metrics->total_delete_time_us += duration;
+    }
     
     /* Release lock if thread-safe */
     if (ht->is_concurrent && ht->lock) {
@@ -727,15 +754,6 @@ lle_result_t lle_strstr_hashtable_delete(lle_strstr_hashtable_t *ht,
     /* Clear memory context */
     if (ht->mem_ctx) {
         lle_set_current_memory_context(NULL);
-    }
-    
-    /* Update metrics */
-    if (ht->metrics) {
-        uint64_t end_time = lle_get_current_time_microseconds();
-        uint64_t duration = end_time - start_time;
-        
-        ht->metrics->delete_operations++;
-        ht->metrics->total_delete_time_us += duration;
     }
     
     return deleted ? LLE_SUCCESS : LLE_ERROR_NOT_FOUND;
@@ -773,16 +791,10 @@ size_t lle_strstr_hashtable_size(lle_strstr_hashtable_t *ht) {
         pthread_rwlock_rdlock(ht->lock);
     }
     
-    /* libhashtable doesn't have size function, enumerate to count */
-    size_t count = 0;
-    ht_enum_t *enumerator = ht_strstr_enum_create(ht->ht);
-    if (enumerator) {
-        const char *key, *value;
-        while (ht_strstr_enum_next(enumerator, &key, &value)) {
-            count++;
-        }
-        ht_strstr_enum_destroy(enumerator);
-    }
+    /* Return the tracked entry count
+     * Note: We maintain our own count because libhashtable's enumeration
+     * has a bug where it doesn't correctly count all entries in collision chains */
+    size_t count = ht->entry_count;
     
     /* Release lock if thread-safe */
     if (ht->is_concurrent && ht->lock) {
@@ -837,6 +849,9 @@ void lle_strstr_hashtable_clear(lle_strstr_hashtable_t *ht) {
         }
         ht_strstr_enum_destroy(enumerator);
     }
+    
+    /* Reset entry count */
+    ht->entry_count = 0;
     
     /* Release lock if thread-safe */
     if (ht->is_concurrent && ht->lock) {

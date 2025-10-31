@@ -151,6 +151,7 @@ struct lle_strstr_hashtable {
     pthread_rwlock_t *lock;                 /**< Thread safety lock */
     bool is_concurrent;                     /**< Thread-safe flag */
     const char *name;                       /**< Hashtable name */
+    size_t entry_count;                     /**< Entry count (workaround for libhashtable enumeration bug) */
 };
 
 /**
@@ -164,6 +165,7 @@ struct lle_generic_hashtable {
     pthread_rwlock_t *lock;                 /**< Thread safety lock */
     bool is_concurrent;                     /**< Thread-safe flag */
     const char *name;                       /**< Hashtable name */
+    size_t entry_count;                     /**< Entry count (workaround for libhashtable enumeration bug) */
 };
 
 /**
