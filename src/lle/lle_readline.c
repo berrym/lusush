@@ -8,15 +8,16 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 2 - Buffer Management Integration
+ * Implementation: Step 3 - Event System Integration
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
  * - Uses lle_buffer_t for proper buffer management
- * - Supports UTF-8, cursor tracking, undo/redo infrastructure
+ * - Uses event system to dispatch events to handlers
+ * - Event handlers modify buffer (decoupled architecture)
  * - Returns on Enter key
  * 
- * NOTE: Creates own terminal and memory pool for now.
+ * NOTE: Creates own terminal, buffer, and event system for now.
  * Future steps will integrate with full LLE system initialization.
  */
 
@@ -33,6 +34,105 @@
 
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
+
+/* Event handler context for Step 3 */
+typedef struct {
+    lle_buffer_t *buffer;
+    bool *done;
+    char **final_line;
+} readline_context_t;
+
+/**
+ * @brief Event handler for character input
+ * Step 3: Handler modifies buffer instead of direct modification
+ */
+static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
+{
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Get UTF-8 character from event */
+    const char *utf8_char = event->event_data.key.utf8_char;
+    size_t char_len = strlen(utf8_char);
+    
+    /* Insert character into buffer at cursor position */
+    lle_result_t result = lle_buffer_insert_text(
+        ctx->buffer,
+        ctx->buffer->cursor.byte_offset,
+        utf8_char,
+        char_len
+    );
+    
+    return result;
+}
+
+/**
+ * @brief Event handler for backspace
+ * Step 3: Handler modifies buffer
+ */
+static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (ctx->buffer->cursor.byte_offset > 0) {
+        /* Delete one byte before cursor (Step 5 will improve to grapheme) */
+        size_t delete_pos = ctx->buffer->cursor.byte_offset - 1;
+        lle_result_t result = lle_buffer_delete_text(ctx->buffer, delete_pos, 1);
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Enter key
+ * Step 3: Handler signals completion
+ */
+static lle_result_t handle_enter(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Line complete */
+    *ctx->done = true;
+    *ctx->final_line = ctx->buffer->data ? strdup(ctx->buffer->data) : strdup("");
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Ctrl-D (EOF)
+ * Step 3: Handler signals EOF
+ */
+static lle_result_t handle_eof(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (ctx->buffer->length == 0) {
+        /* EOF on empty line */
+        *ctx->done = true;
+        *ctx->final_line = NULL;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Ctrl-C (interrupt)
+ * Step 3: Handler signals interrupt
+ */
+static lle_result_t handle_interrupt(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Interrupted */
+    *ctx->done = true;
+    *ctx->final_line = NULL;
+    
+    return LLE_SUCCESS;
+}
 
 /**
  * @brief Read a line of input from the user with line editing
@@ -81,7 +181,6 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 4: Create buffer for line editing === */
-    /* Step 2: Use proper lle_buffer_t instead of simple char array */
     lle_buffer_t *buffer = NULL;
     result = lle_buffer_create(&buffer, global_memory_pool, 256);
     if (result != LLE_SUCCESS || buffer == NULL) {
@@ -91,14 +190,44 @@ char *lle_readline(const char *prompt)
         return NULL;
     }
     
-    /* === STEP 5: Display prompt === */
-    /* Note: Step 1 does not display the prompt. Display integration comes in Step 4. */
-    /* The prompt parameter is acknowledged but not used in this minimal implementation. */
-    (void)prompt;  /* Suppress unused warning */
+    /* === STEP 5: Create event system === */
+    /* Step 3: Add event system for decoupled architecture */
+    lle_event_system_t *event_system = NULL;
+    result = lle_event_system_init(&event_system, (lle_memory_pool_t *)global_memory_pool);
+    if (result != LLE_SUCCESS || event_system == NULL) {
+        /* Failed to create event system */
+        lle_buffer_destroy(buffer);
+        lle_unix_interface_exit_raw_mode(unix_iface);
+        lle_terminal_abstraction_destroy(term);
+        return NULL;
+    }
     
-    /* === STEP 6: Main input loop === */
+    /* === STEP 6: Register event handlers === */
+    /* Step 3: Register handlers that will modify buffer */
     bool done = false;
     char *final_line = NULL;
+    readline_context_t ctx = {
+        .buffer = buffer,
+        .done = &done,
+        .final_line = &final_line
+    };
+    
+    /* Register handler for character input */
+    result = lle_event_handler_register(event_system, LLE_EVENT_KEY_PRESS,
+                                       handle_character_input, &ctx, "character_input");
+    if (result != LLE_SUCCESS) {
+        lle_event_system_destroy(event_system);
+        lle_buffer_destroy(buffer);
+        lle_unix_interface_exit_raw_mode(unix_iface);
+        lle_terminal_abstraction_destroy(term);
+        return NULL;
+    }
+    
+    /* === STEP 7: Display prompt === */
+    /* Note: Prompt display comes in Step 4 (display integration). */
+    (void)prompt;  /* Suppress unused warning */
+    
+    /* === STEP 8: Main input loop === */
     
     while (!done) {
         /* Read next input event */
@@ -122,7 +251,8 @@ char *lle_readline(const char *prompt)
             continue;
         }
         
-        /* === STEP 7: Process input event === */
+        /* === STEP 9: Convert input event to LLE event and dispatch === */
+        /* Step 3: Use event system instead of direct buffer manipulation */
         switch (event->type) {
             case LLE_INPUT_TYPE_CHARACTER: {
                 /* Regular character input */
@@ -130,77 +260,64 @@ char *lle_readline(const char *prompt)
                 
                 /* Check for Enter key (newline) */
                 if (codepoint == '\n' || codepoint == '\r') {
-                    /* Line complete - get contents from buffer */
-                    done = true;
-                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
+                    handle_enter(NULL, &ctx);
                     break;
                 }
                 
                 /* Check for Ctrl-D (EOF) */
                 if (codepoint == 4) {  /* ASCII EOT */
-                    if (buffer->length == 0) {
-                        /* EOF on empty line */
-                        done = true;
-                        final_line = NULL;
-                    }
+                    handle_eof(NULL, &ctx);
                     break;
                 }
                 
                 /* Check for Ctrl-C (interrupt) */
                 if (codepoint == 3) {  /* ASCII ETX */
-                    /* Interrupted */
-                    done = true;
-                    final_line = NULL;
+                    handle_interrupt(NULL, &ctx);
                     break;
                 }
                 
                 /* Check for backspace */
                 if (codepoint == 127 || codepoint == 8) {  /* DEL or BS */
-                    /* Step 2: Use lle_buffer_delete_text() for backspace */
-                    if (buffer->cursor.byte_offset > 0) {
-                        /* Delete one character before cursor */
-                        /* For simplicity in Step 2, delete 1 byte (assumes ASCII) */
-                        /* Step 5 will handle proper grapheme cluster deletion */
-                        size_t delete_pos = buffer->cursor.byte_offset - 1;
-                        result = lle_buffer_delete_text(buffer, delete_pos, 1);
-                        (void)result;  /* Ignore errors for now */
-                    }
+                    handle_backspace(NULL, &ctx);
                     break;
                 }
                 
-                /* Add character to buffer */
-                /* Step 2: Use lle_buffer_insert_text() */
-                result = lle_buffer_insert_text(
-                    buffer,
-                    buffer->cursor.byte_offset,
-                    event->data.character.utf8_bytes,
-                    event->data.character.byte_count
-                );
-                (void)result;  /* Ignore errors for now */
+                /* Regular character - create LLE event and dispatch */
+                lle_event_t *lle_event = NULL;
+                result = lle_event_create(event_system, LLE_EVENT_KEY_PRESS, 
+                                         NULL, 0, &lle_event);
+                if (result == LLE_SUCCESS && lle_event != NULL) {
+                    /* Set event data */
+                    lle_event->event_data.key.key_code = codepoint;
+                    lle_event->event_data.key.modifiers = 0;
+                    lle_event->event_data.key.is_special = false;
+                    
+                    /* Copy UTF-8 bytes */
+                    size_t copy_len = event->data.character.byte_count;
+                    if (copy_len > 7) copy_len = 7;  /* utf8_char is char[8] */
+                    memcpy(lle_event->event_data.key.utf8_char,
+                           event->data.character.utf8_bytes,
+                           copy_len);
+                    lle_event->event_data.key.utf8_char[copy_len] = '\0';
+                    
+                    /* Dispatch event - handler will modify buffer */
+                    lle_event_dispatch(event_system, lle_event);
+                }
                 break;
             }
             
             case LLE_INPUT_TYPE_SPECIAL_KEY: {
                 /* Special keys */
                 if (event->data.special_key.key == LLE_KEY_ENTER) {
-                    /* Enter key pressed */
-                    done = true;
-                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
+                    handle_enter(NULL, &ctx);
                 }
-                /* Other special keys ignored in Step 2 */
+                /* Other special keys ignored in Step 3 */
                 break;
             }
             
             case LLE_INPUT_TYPE_EOF: {
                 /* EOF received */
-                if (buffer->length == 0) {
-                    done = true;
-                    final_line = NULL;
-                } else {
-                    /* Return partial line */
-                    done = true;
-                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
-                }
+                handle_eof(NULL, &ctx);
                 break;
             }
             
@@ -239,11 +356,12 @@ char *lle_readline(const char *prompt)
         /* Event processed - in Step 1 we don't free events (managed by input processor) */
     }
     
-    /* === STEP 8: Exit raw mode === */
+    /* === STEP 10: Exit raw mode === */
     lle_unix_interface_exit_raw_mode(unix_iface);
     
-    /* === STEP 9: Cleanup and return === */
-    /* Step 2: Destroy buffer using proper API */
+    /* === STEP 11: Cleanup and return === */
+    /* Step 3: Destroy event system, buffer, and terminal */
+    lle_event_system_destroy(event_system);
     lle_buffer_destroy(buffer);
     lle_terminal_abstraction_destroy(term);
     
