@@ -145,7 +145,7 @@ typedef struct lle_buffer_t lle_buffer_t;
 typedef struct lle_buffer_system_t lle_buffer_system_t;
 typedef struct lle_buffer_pool_t lle_buffer_pool_t;
 typedef struct lle_line_info_t lle_line_info_t;
-typedef struct lle_utf8_processor_t lle_utf8_processor_t;
+typedef struct lle_utf8_processor lle_utf8_processor_t;
 typedef struct lle_utf8_index_t lle_utf8_index_t;
 typedef struct lle_multiline_context_t lle_multiline_context_t;
 typedef struct lle_multiline_manager_t lle_multiline_manager_t;

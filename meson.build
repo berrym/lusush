@@ -89,6 +89,9 @@ add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 # Find readline dependency
 readline_dep = dependency('readline', required: true)
 
+# Find ncurses dependency (required by LLE terminal capabilities)
+ncurses_dep = dependency('ncurses', required: true)
+
 # ============================================================================
 # LLE (Lusush Line Editor) Build System
 # ============================================================================
@@ -107,7 +110,7 @@ if lle_sources.length() > 0
                            sources: lle_sources,
                            include_directories: inc,
                            c_args: lle_c_args,
-                           dependencies: [readline_dep])
+                           dependencies: [readline_dep, ncurses_dep])
 
   lle_dep = declare_dependency(link_with: lle_lib,
                                include_directories: include_directories('include/lle'))
@@ -121,7 +124,7 @@ endif
 lusush_exe = executable('lusush',
                         src,
                         include_directories: inc,
-                        dependencies: [readline_dep, lle_dep])
+                        dependencies: [readline_dep, ncurses_dep, lle_dep])
 
 # ============================================================================
 # TEST INFRASTRUCTURE
