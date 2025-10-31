@@ -739,17 +739,31 @@ lle_buffer_delete_text(ctx->buffer, ctx->buffer->cursor.byte_offset, delete_leng
 - Ctrl-K for killing to end of line (bash-style)
 - Ctrl-U for killing entire line (bash-style)
 
+**Step 5 Enhancement - Complete Emacs Keybindings**:
+- **Ctrl-A**: Beginning of line (same as Home)
+- **Ctrl-B**: Back one character (same as Left arrow)
+- **Ctrl-E**: End of line (same as End)
+- **Ctrl-F**: Forward one character (same as Right arrow)
+- **Ctrl-G**: Abort/cancel current line (clear buffer, fresh prompt)
+- **Ctrl-L**: Clear screen and redraw (full refresh)
+- **Ctrl-W**: Kill word backwards (delete previous word)
+- **Ctrl-Y**: Yank (paste) from kill buffer
+- **Kill Buffer**: Simple single-entry buffer stores text from Ctrl-K/U/W
+
 **Improvements Over Step 4**:
 - Before: Could only insert at end, backspace from end
 - After: Full cursor navigation and editing capabilities
 - Can edit middle of line
 - Can quickly delete portions of line
+- Complete Emacs-style keybinding support
+- Kill/yank functionality for efficient editing
 
 **Limitations** (by design):
 - Byte-based movement (not grapheme-aware yet)
 - No Up/Down arrows (requires history, not in scope)
 - No multiline support (Step 6)
 - No undo/redo (buffer has infrastructure, not wired up)
+- Single kill buffer (not full kill ring - sufficient until Spec 09)
 
 **Build Status**: Compiles cleanly, all tests passing
 
