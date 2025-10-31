@@ -1,15 +1,10 @@
 /*
- * terminal_state.c - Terminal State Management & Event Reading
+ * terminal_unix_interface.c - Unix Terminal Interface (Spec 02 Subsystem 6)
  * 
- * Spec 02: Terminal Abstraction - Phases 2 & 3
- * 
- * Phase 2: Terminal State Management
+ * Minimal Unix terminal interface abstraction providing:
  * - Raw mode setup and teardown
  * - Terminal attribute saving and restoration
  * - Signal handling (SIGWINCH, SIGTSTP, SIGCONT, SIGINT, SIGTERM)
- * - Clean state transitions with guaranteed restore on exit/error
- * 
- * Phase 3: Event Reading
  * - Non-blocking input with timeout support
  * - UTF-8 character decoding
  * - Window resize event generation
@@ -20,6 +15,8 @@
  * - Thread-safe state transitions
  * - Async-signal-safe signal handlers
  * - Idempotent operations (safe to call multiple times)
+ * 
+ * Spec 02: Terminal Abstraction - Subsystem 6
  */
 
 #include "lle/terminal_abstraction.h"

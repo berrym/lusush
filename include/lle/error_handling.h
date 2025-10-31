@@ -81,11 +81,13 @@ typedef enum {
     LLE_ERROR_SYNTAX_HIGHLIGHTING,            /**< Syntax highlighting error */
     LLE_ERROR_COMPLETION_SYSTEM,              /**< Tab completion error */
     LLE_ERROR_DISPLAY_INTEGRATION,            /**< Display integration error */
+    LLE_ERROR_DISPLAY_SUBMISSION,             /**< Display submission error */
     LLE_ERROR_PERFORMANCE_MONITORING,         /**< Performance monitoring error */
     LLE_ERROR_NO_UNDO_AVAILABLE,              /**< No undo operation available */
     LLE_ERROR_NO_REDO_AVAILABLE,              /**< No redo operation available */
     LLE_ERROR_OPERATION_IN_PROGRESS,          /**< Operation already in progress */
     LLE_ERROR_NO_OPERATION_IN_PROGRESS,       /**< No operation in progress */
+    LLE_ERROR_INVALID_INPUT_EVENT,            /**< Invalid input event data */
     
     /* Feature and extensibility errors (1400-1499) */
     LLE_ERROR_FEATURE_DISABLED = 1400,        /**< Required feature disabled */

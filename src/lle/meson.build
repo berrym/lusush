@@ -101,15 +101,43 @@ endif
 # Implement after Phase 0 complete and tested.
 
 # Spec 02: Terminal Abstraction
-# Provides: Terminal capability detection, state management
+# Provides: Terminal capability detection, state management, display generation
 # Depends on: Spec 16, 15, 14, 17
-# Phase 1: Terminal capability detection
+# Subsystem 1: Terminal capability detection
 if fs.exists('terminal_capabilities.c')
   lle_sources += files('terminal_capabilities.c')
 endif
-# Phase 2: Terminal state management
-if fs.exists('terminal_state.c')
-  lle_sources += files('terminal_state.c')
+# Subsystem 2: Internal State Authority Model
+if fs.exists('terminal_internal_state.c')
+  lle_sources += files('terminal_internal_state.c')
+endif
+# Subsystem 3: Display Content Generation
+if fs.exists('terminal_display_generator.c')
+  lle_sources += files('terminal_display_generator.c')
+endif
+# Subsystem 4: Lusush Display Integration
+if fs.exists('terminal_lusush_client.c')
+  lle_sources += files('terminal_lusush_client.c')
+endif
+# Subsystem 5: Input Event Processing
+if fs.exists('terminal_input_processor.c')
+  lle_sources += files('terminal_input_processor.c')
+endif
+# Subsystem 6: Unix Terminal Interface (renamed from terminal_state.c)
+if fs.exists('terminal_unix_interface.c')
+  lle_sources += files('terminal_unix_interface.c')
+endif
+# Subsystem 7: Error Handling
+if fs.exists('terminal_error_handler.c')
+  lle_sources += files('terminal_error_handler.c')
+endif
+# Subsystem 8: Performance Monitoring
+if fs.exists('terminal_perf_monitor.c')
+  lle_sources += files('terminal_perf_monitor.c')
+endif
+# Main Terminal Abstraction
+if fs.exists('terminal_abstraction.c')
+  lle_sources += files('terminal_abstraction.c')
 endif
 
 # Spec 04: Event System - Phase 1 + Phase 2

@@ -2,10 +2,12 @@
  * @file spec_02_terminal_abstraction_compliance.c
  * @brief Spec 02 Terminal Abstraction - Compliance Test
  * 
+ * API verified from include/lle/terminal_abstraction.h on 2025-10-30
+ * 
  * This test verifies that Spec 02 type definitions match the specification.
  * 
  * Layer 0: Type definition compliance (structure existence and field verification)
- * Layer 1: Function implementation compliance (coming after implementation)
+ * Layer 1: Function implementation compliance (now implemented)
  */
 
 #include "lle/terminal_abstraction.h"
@@ -162,25 +164,20 @@ void test_enum_definitions(void) {
 /**
  * @brief Test: Verify function declarations exist
  * 
- * NOTE: This test is commented out for Layer 0 compliance testing.
- * Layer 0 only verifies type definitions exist and compile correctly.
- * Function declaration verification will be enabled in Layer 1 when
- * implementations are added.
+ * Layer 1: Function declarations now implemented (Spec 02 complete)
  */
 void test_function_declarations(void) {
-    printf("[ SKIP ] Function declarations (Layer 1 compliance)\n");
+    printf("[ TEST ] Function declarations (Layer 1 compliance)\n");
     
-    /* Layer 0: Type definitions only - no function implementations yet
-     * This will be uncommented when Layer 1 implementation is complete
-     */
-    
-    /*
+    /* Verify key function pointers exist */
     void *fn1 = (void*)lle_terminal_abstraction_init;
     void *fn2 = (void*)lle_terminal_abstraction_destroy;
     void *fn3 = (void*)lle_capabilities_detect_environment;
     void *fn4 = (void*)lle_internal_state_init;
     void *fn5 = (void*)lle_display_generator_generate_content;
     void *fn6 = (void*)lle_unix_interface_init;
+    void *fn7 = (void*)lle_command_buffer_init;
+    void *fn8 = (void*)lle_input_processor_init;
     
     TEST_ASSERT(fn1 != NULL, "lle_terminal_abstraction_init declared");
     TEST_ASSERT(fn2 != NULL, "lle_terminal_abstraction_destroy declared");
@@ -188,13 +185,16 @@ void test_function_declarations(void) {
     TEST_ASSERT(fn4 != NULL, "lle_internal_state_init declared");
     TEST_ASSERT(fn5 != NULL, "lle_display_generator_generate_content declared");
     TEST_ASSERT(fn6 != NULL, "lle_unix_interface_init declared");
-    */
+    TEST_ASSERT(fn7 != NULL, "lle_command_buffer_init declared");
+    TEST_ASSERT(fn8 != NULL, "lle_input_processor_init declared");
+    
+    printf("[ PASS ] Function declarations (Layer 1 compliance)\n");
 }
 
 int main(void) {
     printf("=================================================\n");
     printf("Spec 02 Terminal Abstraction - Compliance Tests\n");
-    printf("Layer 0: Type Definition Compliance\n");
+    printf("Layer 0 + Layer 1: Type and Function Compliance\n");
     printf("=================================================\n\n");
     
     test_terminal_abstraction_structure();
