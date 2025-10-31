@@ -8,7 +8,7 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 4 - Display Integration
+ * Implementation: Step 5 - Special Keys Support
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
@@ -18,6 +18,11 @@
  * - Event handlers modify buffer (decoupled architecture)
  * - Display refreshed after buffer modifications
  * - Returns on Enter key
+ * - Adds support for arrow keys (Left/Right cursor movement)
+ * - Adds support for Home/End keys
+ * - Adds support for Delete key
+ * - Adds support for Ctrl-K (kill to end of line)
+ * - Adds support for Ctrl-U (kill entire line)
  * 
  * NOTE: Creates own terminal, buffer, and event system for now.
  * Future steps will integrate with full LLE system initialization.
@@ -177,6 +182,160 @@ static lle_result_t handle_interrupt(lle_event_t *event, void *user_data)
 }
 
 /**
+ * @brief Event handler for Left arrow key
+ * Step 5: Move cursor left one position
+ */
+static lle_result_t handle_arrow_left(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Move cursor left if not at beginning */
+    if (ctx->buffer->cursor.byte_offset > 0) {
+        /* Move back one byte (Step 5: simple byte-based, UTF-8 grapheme in future) */
+        ctx->buffer->cursor.byte_offset--;
+        refresh_display(ctx);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Right arrow key
+ * Step 5: Move cursor right one position
+ */
+static lle_result_t handle_arrow_right(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Move cursor right if not at end */
+    if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
+        /* Move forward one byte (Step 5: simple byte-based, UTF-8 grapheme in future) */
+        ctx->buffer->cursor.byte_offset++;
+        refresh_display(ctx);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Home key
+ * Step 5: Move cursor to beginning of line
+ */
+static lle_result_t handle_home(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Move to beginning */
+    ctx->buffer->cursor.byte_offset = 0;
+    refresh_display(ctx);
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for End key
+ * Step 5: Move cursor to end of line
+ */
+static lle_result_t handle_end(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Move to end */
+    ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+    refresh_display(ctx);
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Delete key
+ * Step 5: Delete character at cursor position
+ */
+static lle_result_t handle_delete(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Delete character at cursor if not at end */
+    if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
+        /* Delete one byte at cursor (Step 5: simple byte-based, UTF-8 grapheme in future) */
+        lle_result_t result = lle_buffer_delete_text(
+            ctx->buffer, 
+            ctx->buffer->cursor.byte_offset, 
+            1
+        );
+        
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Ctrl-K
+ * Step 5: Kill (delete) text from cursor to end of line
+ */
+static lle_result_t handle_kill_to_end(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Delete from cursor to end of buffer */
+    if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
+        size_t delete_length = ctx->buffer->length - ctx->buffer->cursor.byte_offset;
+        lle_result_t result = lle_buffer_delete_text(
+            ctx->buffer,
+            ctx->buffer->cursor.byte_offset,
+            delete_length
+        );
+        
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Ctrl-U
+ * Step 5: Kill (delete) entire line
+ */
+static lle_result_t handle_kill_line(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Delete entire buffer contents */
+    if (ctx->buffer->length > 0) {
+        lle_result_t result = lle_buffer_delete_text(
+            ctx->buffer,
+            0,
+            ctx->buffer->length
+        );
+        
+        if (result == LLE_SUCCESS) {
+            /* Cursor automatically moves to position 0 after deleting all content */
+            refresh_display(ctx);
+        }
+        
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Read a line of input from the user with line editing
  * 
  * This is the core readline function that replaces GNU readline when LLE is enabled.
@@ -326,6 +485,18 @@ char *lle_readline(const char *prompt)
                     break;
                 }
                 
+                /* Step 5: Check for Ctrl-K (kill to end of line) */
+                if (codepoint == 11) {  /* ASCII VT (Ctrl-K) */
+                    handle_kill_to_end(NULL, &ctx);
+                    break;
+                }
+                
+                /* Step 5: Check for Ctrl-U (kill entire line) */
+                if (codepoint == 21) {  /* ASCII NAK (Ctrl-U) */
+                    handle_kill_line(NULL, &ctx);
+                    break;
+                }
+                
                 /* Regular character - create LLE event and dispatch */
                 lle_event_t *lle_event = NULL;
                 result = lle_event_create(event_system, LLE_EVENT_KEY_PRESS, 
@@ -355,7 +526,25 @@ char *lle_readline(const char *prompt)
                 if (event->data.special_key.key == LLE_KEY_ENTER) {
                     handle_enter(NULL, &ctx);
                 }
-                /* Other special keys ignored in Step 3 */
+                /* Step 5: Arrow keys for cursor movement */
+                else if (event->data.special_key.key == LLE_KEY_LEFT) {
+                    handle_arrow_left(NULL, &ctx);
+                }
+                else if (event->data.special_key.key == LLE_KEY_RIGHT) {
+                    handle_arrow_right(NULL, &ctx);
+                }
+                /* Step 5: Home/End keys */
+                else if (event->data.special_key.key == LLE_KEY_HOME) {
+                    handle_home(NULL, &ctx);
+                }
+                else if (event->data.special_key.key == LLE_KEY_END) {
+                    handle_end(NULL, &ctx);
+                }
+                /* Step 5: Delete key */
+                else if (event->data.special_key.key == LLE_KEY_DELETE) {
+                    handle_delete(NULL, &ctx);
+                }
+                /* Other special keys ignored */
                 break;
             }
             

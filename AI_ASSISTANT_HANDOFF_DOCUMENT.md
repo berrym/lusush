@@ -3,12 +3,12 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-10-31  
 **Branch**: feature/lle  
-**Status**: [COMPLETE] lle_readline() Step 4 - Display Integration  
-**Last Action**: Added display refresh using generator and client APIs after buffer modifications  
-**Next**: **Implement lle_readline() Step 5** - Add special keys support  
+**Status**: [COMPLETE] lle_readline() Step 5 - Special Keys Support  
+**Last Action**: Added arrow keys, Home/End, Delete, Ctrl-K, Ctrl-U support with proper handlers  
+**Next**: **Implement lle_readline() Step 6** - Add multiline support  
 **Tests**: All LLE tests passing + Compiles cleanly + Build clean  
 **Automation**: Pre-commit hooks enforcing zero-tolerance policy  
-**Critical Achievement**: Proper buffer management with lle_buffer_t - ZERO architectural violations
+**Critical Achievement**: Full line editing with cursor navigation - ZERO architectural violations
 
 ---
 
@@ -678,6 +678,82 @@ lle_buffer_destroy(buffer);
 **Build Status**: Compiles cleanly, all tests passing
 
 **Next Step**: Step 5 - Special keys (arrows, Home, End, Delete)
+
+---
+
+## [COMPLETE] LLE READLINE STEP 5 - SPECIAL KEYS SUPPORT (2025-10-31)
+
+### What Was Implemented
+
+**Code Updated**: lle_readline() Step 5 - Added support for special keys and editing commands
+
+**New Event Handlers**:
+1. handle_arrow_left() - Move cursor left one byte
+2. handle_arrow_right() - Move cursor right one byte
+3. handle_home() - Move cursor to beginning of line
+4. handle_end() - Move cursor to end of line
+5. handle_delete() - Delete character at cursor position
+6. handle_kill_to_end() - Delete from cursor to end (Ctrl-K)
+7. handle_kill_line() - Delete entire line (Ctrl-U)
+
+**Input Processing Updates**:
+- Added Ctrl-K detection (ASCII 11) in character processing
+- Added Ctrl-U detection (ASCII 21) in character processing
+- Extended LLE_INPUT_TYPE_SPECIAL_KEY handler for arrow keys
+- Extended LLE_INPUT_TYPE_SPECIAL_KEY handler for Home/End
+- Extended LLE_INPUT_TYPE_SPECIAL_KEY handler for Delete key
+
+**Implementation Details**:
+```c
+// Arrow key handlers manipulate cursor.byte_offset directly
+if (ctx->buffer->cursor.byte_offset > 0) {
+    ctx->buffer->cursor.byte_offset--;  // Left arrow
+    refresh_display(ctx);
+}
+
+// Ctrl-K kills to end of line
+size_t delete_length = ctx->buffer->length - ctx->buffer->cursor.byte_offset;
+lle_buffer_delete_text(ctx->buffer, ctx->buffer->cursor.byte_offset, delete_length);
+```
+
+### Architecture Compliance
+
+**ZERO Architectural Violations**:
+- Uses lle_buffer_delete_text() for all deletions
+- Manipulates cursor.byte_offset for cursor movement
+- All handlers call refresh_display() after modifications
+- NO direct terminal I/O
+- NO escape sequences
+
+**Note on Byte-Based Operations**:
+- Step 5 uses simple byte-based cursor movement
+- UTF-8 grapheme cluster support deferred to future enhancement
+- Works correctly for ASCII, may split multi-byte characters
+
+### What Step 5 Adds
+
+**New Functionality**:
+- Left/Right arrow keys for cursor navigation
+- Home/End keys for line start/end navigation
+- Delete key for forward deletion
+- Ctrl-K for killing to end of line (bash-style)
+- Ctrl-U for killing entire line (bash-style)
+
+**Improvements Over Step 4**:
+- Before: Could only insert at end, backspace from end
+- After: Full cursor navigation and editing capabilities
+- Can edit middle of line
+- Can quickly delete portions of line
+
+**Limitations** (by design):
+- Byte-based movement (not grapheme-aware yet)
+- No Up/Down arrows (requires history, not in scope)
+- No multiline support (Step 6)
+- No undo/redo (buffer has infrastructure, not wired up)
+
+**Build Status**: Compiles cleanly, all tests passing
+
+**Next Step**: Step 6 - Multiline support
 
 ---
 **Objective**: Strengthen automated enforcement of development policies to prevent protocol violations
