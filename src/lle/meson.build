@@ -351,6 +351,15 @@ if fs.exists('src/lle/customization.c')
 endif
 
 # ============================================================================
+# LLE READLINE - CORE ORCHESTRATION
+# ============================================================================
+# The main readline function that ties all subsystems together
+# Depends on: Spec 02, 03, 04, 08, 16, 15, 14, 17
+if fs.exists('lle_readline.c')
+  lle_sources += files('lle_readline.c')
+endif
+
+# ============================================================================
 # PHASE 5: INFRASTRUCTURE
 # ============================================================================
 # Implement after Phase 4 complete and tested.

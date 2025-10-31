@@ -208,6 +208,18 @@ if lle_sources.length() > 0
          timeout: 60)
   endif
 
+  # LLE Readline Step 1 Test
+  # Manual integration test for minimal lle_readline() implementation
+  if fs.exists('tests/lle/integration/test_lle_readline_step1.c')
+    test_readline_step1 = executable('test_lle_readline_step1',
+                                     'tests/lle/integration/test_lle_readline_step1.c',
+                                     include_directories: inc,
+                                     dependencies: [lle_dep])
+
+    # Note: This is a manual test requiring user interaction
+    # Run manually with: ./build/test_lle_readline_step1
+  endif
+
   # End-to-end realistic scenario tests
   # Tests complete editing workflows that simulate real-world usage
   test_e2e_scenarios = executable('test_realistic_scenarios',
