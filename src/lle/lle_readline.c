@@ -8,7 +8,7 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 5 - Special Keys Support
+ * Implementation: Step 6 - Multiline Support
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
@@ -23,6 +23,9 @@
  * - Adds support for Delete key
  * - Adds support for Ctrl-K (kill to end of line)
  * - Adds support for Ctrl-U (kill entire line)
+ * - Adds multiline detection for unclosed quotes
+ * - Inserts newline and continues reading if input incomplete
+ * - Supports multi-line input within quoted strings
  * 
  * NOTE: Creates own terminal, buffer, and event system for now.
  * Future steps will integrate with full LLE system initialization.
@@ -33,6 +36,7 @@
 #include "lle/memory_management.h"
 #include "lle/event_system.h"
 #include "lle/error_handling.h"
+#include "input_continuation.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -42,14 +46,47 @@
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
 
-/* Event handler context for Step 4 */
+/* Event handler context for Step 6 */
 typedef struct {
     lle_buffer_t *buffer;
     bool *done;
     char **final_line;
     lle_terminal_abstraction_t *term;
     const char *prompt;
+    continuation_state_t *continuation_state;  /* Step 6: Shared multiline parser state */
 } readline_context_t;
+
+/**
+ * @brief Multiline detection using shared continuation parser
+ * Step 6: Uses input_continuation.c for proper shell construct detection
+ * 
+ * Analyzes buffer content using the shared multiline parser which handles:
+ * - Quote tracking (single, double, backtick)
+ * - Bracket/brace/parenthesis counting
+ * - Control structures (if/then/fi, case, loops)
+ * - Here documents
+ * - Function definitions
+ * 
+ * @param buffer_data The buffer content to check
+ * @param state Continuation state to analyze with
+ * @return true if input appears incomplete, false otherwise
+ */
+static bool is_input_incomplete(const char *buffer_data, continuation_state_t *state)
+{
+    if (buffer_data == NULL || state == NULL) {
+        return false;
+    }
+    
+    /* Reset state for fresh analysis */
+    continuation_state_cleanup(state);
+    continuation_state_init(state);
+    
+    /* Analyze the entire buffer content */
+    continuation_analyze_line(buffer_data, state);
+    
+    /* Check if continuation is needed */
+    return continuation_needs_continuation(state);
+}
 
 /**
  * @brief Refresh display after buffer modification
@@ -133,12 +170,29 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
 
 /**
  * @brief Event handler for Enter key
- * Step 3: Handler signals completion
+ * Step 6: Check for multiline continuation before completing
  */
 static lle_result_t handle_enter(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Step 6: Check for incomplete input using shared continuation parser */
+    if (is_input_incomplete(ctx->buffer->data, ctx->continuation_state)) {
+        /* Input incomplete - insert newline and continue */
+        lle_result_t result = lle_buffer_insert_text(
+            ctx->buffer,
+            ctx->buffer->cursor.byte_offset,
+            "\n",
+            1
+        );
+        
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        
+        return result;
+    }
     
     /* Line complete */
     *ctx->done = true;
@@ -403,6 +457,11 @@ char *lle_readline(const char *prompt)
         return NULL;
     }
     
+    /* === STEP 5.5: Create continuation state === */
+    /* Step 6: Initialize shared multiline parser state */
+    continuation_state_t continuation_state;
+    continuation_state_init(&continuation_state);
+    
     /* === STEP 6: Register event handlers === */
     /* Step 4: Register handlers that will modify buffer and refresh display */
     bool done = false;
@@ -412,7 +471,8 @@ char *lle_readline(const char *prompt)
         .done = &done,
         .final_line = &final_line,
         .term = term,
-        .prompt = prompt
+        .prompt = prompt,
+        .continuation_state = &continuation_state
     };
     
     /* Register handler for character input */
@@ -593,7 +653,8 @@ char *lle_readline(const char *prompt)
     lle_unix_interface_exit_raw_mode(unix_iface);
     
     /* === STEP 11: Cleanup and return === */
-    /* Step 3: Destroy event system, buffer, and terminal */
+    /* Step 6: Cleanup continuation state, destroy event system, buffer, and terminal */
+    continuation_state_cleanup(&continuation_state);
     lle_event_system_destroy(event_system);
     lle_buffer_destroy(buffer);
     lle_terminal_abstraction_destroy(term);

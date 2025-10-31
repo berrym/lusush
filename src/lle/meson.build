@@ -357,6 +357,15 @@ endif
 # Depends on: Spec 02, 03, 04, 08, 16, 15, 14, 17
 if fs.exists('lle_readline.c')
   lle_sources += files('lle_readline.c')
+  # lle_readline uses shared multiline parser from input_continuation.c
+  # input_continuation.c depends on symtable.c
+  # symtable.c depends on globals.c for last_exit_status
+  # Include all necessary lusush sources for proper multiline support
+  lle_sources += files(
+    '../input_continuation.c',
+    '../symtable.c',
+    '../globals.c'
+  )
 endif
 
 # ============================================================================
