@@ -487,3 +487,9 @@ if fs.exists('tests/lle/integration/manual_input_test.c')
                                   'tests/lle/integration/manual_input_test.c')
   # NOTE: Not added to automated test suite - must be run manually
 endif
+
+# Simple input test - absolutely minimal, no formatting
+if fs.exists('tests/lle/integration/simple_input_test.c')
+  simple_input_test = executable('simple_input_test',
+                                  'tests/lle/integration/simple_input_test.c')
+endif

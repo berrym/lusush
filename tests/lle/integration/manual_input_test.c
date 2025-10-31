@@ -76,7 +76,7 @@ static int setup_raw_terminal(test_context_t *ctx) {
     
     struct termios raw = ctx->original_termios;
     raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_oflag &= ~(OPOST);
+    /* DON'T disable OPOST - we need output processing for proper \n handling */
     raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
     raw.c_cc[VMIN] = 0;
