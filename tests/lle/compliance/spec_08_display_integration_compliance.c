@@ -102,11 +102,16 @@ void test_display_cache_structure(void) {
     lle_display_cache_t cache;
     memset(&cache, 0, sizeof(cache));
     
-    cache.table_size = 0;
-    cache.entry_count = 0;
+    /* Verify cache_table field (LLE hashtable wrapper per Spec 05) */
+    cache.cache_table = NULL;
+    cache.policy = NULL;
+    cache.metrics = NULL;
+    cache.memory_pool = NULL;
     
-    TEST_ASSERT(cache.table_size == 0, "table_size field accessible");
-    TEST_ASSERT(cache.entry_count == 0, "entry_count field accessible");
+    TEST_ASSERT(cache.cache_table == NULL, "cache_table field accessible");
+    TEST_ASSERT(cache.policy == NULL, "policy field accessible");
+    TEST_ASSERT(cache.metrics == NULL, "metrics field accessible");
+    TEST_ASSERT(cache.memory_pool == NULL, "memory_pool field accessible");
     
     printf("[ PASS ] Display cache structure definition\n");
 }

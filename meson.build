@@ -377,6 +377,16 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Hashtable wrapper unit tests (Spec 05)
+  test_hashtable = executable('test_hashtable',
+                              'tests/lle/unit/test_hashtable.c',
+                              include_directories: inc,
+                              dependencies: [lle_dep, readline_dep])
+
+  test('LLE Hashtable Wrapper', test_hashtable,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render cache unit tests
   test_render_cache = executable('test_render_cache',
                                  'tests/lle/unit/test_render_cache.c',

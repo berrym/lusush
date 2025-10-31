@@ -40,8 +40,8 @@
 #include "display/display_controller.h"
 #include "themes.h"
 
-/* libhashtable Integration (Spec 05) */
-#include "libhashtable/ht.h"
+/* libhashtable Integration (Spec 05) - Use LLE wrapper */
+#include "lle/hashtable.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -455,11 +455,11 @@ typedef struct {
  * Main display caching system with LRU policy using libhashtable.
  */
 struct lle_display_cache_t {
-    ht_strstr_t *cache_table;           /**< libhashtable for cache storage */
+    lle_strstr_hashtable_t *cache_table; /**< LLE hashtable wrapper for cache storage (Spec 05) */
     lle_display_cache_policy_t *policy; /**< Cache policy (LRU) */
     lle_cache_metrics_t *metrics;       /**< Cache metrics */
     pthread_rwlock_t cache_lock;        /**< Thread safety lock */
-    lle_memory_pool_t *memory_pool;     /**< Memory pool for cache */
+    lusush_memory_pool_t *memory_pool;  /**< Lusush memory pool for cache */
 };
 
 /**

@@ -20,9 +20,9 @@
  */
 
 #include "lle/display_integration.h"
+#include "lle/hashtable.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "libhashtable/ht.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -320,20 +320,39 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     }
     memset(c, 0, sizeof(lle_display_cache_t));
     
-    /* Step 3: Store memory pool reference */
-    c->memory_pool = memory_pool;
+    /* Step 3: Store memory pool reference (cast from LLE to Lusush type) */
+    c->memory_pool = (lusush_memory_pool_t *)memory_pool;
     
-    /* Step 4: Create libhashtable instance (string->string mapping) */
-    c->cache_table = ht_strstr_create(HT_SEED_RANDOM);
-    if (!c->cache_table) {
+    /* Step 4: Create LLE hashtable wrapper with memory pool integration (Spec 05) */
+    lle_hashtable_config_t config;
+    lle_hashtable_config_init_default(&config);
+    config.use_memory_pool = true;
+    config.memory_pool = (lusush_memory_pool_t *)memory_pool;
+    config.random_seed = true;
+    config.thread_safe = false;  /* render_cache has its own rwlock */
+    config.performance_monitoring = true;
+    config.hashtable_name = "render_cache";
+    
+    /* Use factory pattern to create hashtable */
+    lle_hashtable_factory_t *factory = NULL;
+    lle_result_t factory_result = lle_hashtable_factory_init(&factory, (lusush_memory_pool_t *)memory_pool);
+    if (factory_result != LLE_SUCCESS) {
         lle_pool_free(c);
-        return LLE_ERROR_OUT_OF_MEMORY;
+        return factory_result;
+    }
+    
+    factory_result = lle_hashtable_factory_create_strstr(factory, &config, &c->cache_table);
+    lle_hashtable_factory_destroy(factory);
+    
+    if (factory_result != LLE_SUCCESS) {
+        lle_pool_free(c);
+        return factory_result;
     }
     
     /* Step 5: Allocate cache metrics */
     c->metrics = lle_pool_alloc(sizeof(lle_cache_metrics_t));
     if (!c->metrics) {
-        ht_strstr_destroy(c->cache_table);
+        lle_strstr_hashtable_destroy(c->cache_table);
         lle_pool_free(c);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -343,7 +362,7 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     lle_result_t result = lle_cache_policy_init(&c->policy, LLE_CACHE_DEFAULT_MAX_ENTRIES, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_pool_free(c->metrics);
-        ht_strstr_destroy(c->cache_table);
+        lle_strstr_hashtable_destroy(c->cache_table);
         lle_pool_free(c);
         return result;
     }
@@ -352,7 +371,7 @@ lle_result_t lle_display_cache_init(lle_display_cache_t **cache,
     if (pthread_rwlock_init(&c->cache_lock, NULL) != 0) {
         lle_cache_policy_cleanup(c->policy);
         lle_pool_free(c->metrics);
-        ht_strstr_destroy(c->cache_table);
+        lle_strstr_hashtable_destroy(c->cache_table);
         lle_pool_free(c);
         return LLE_ERROR_INITIALIZATION_FAILED;
     }
@@ -373,9 +392,9 @@ lle_result_t lle_display_cache_cleanup(lle_display_cache_t *cache) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Destroy libhashtable (frees all entries) */
+    /* Destroy LLE hashtable wrapper (frees all entries) */
     if (cache->cache_table) {
-        ht_strstr_destroy(cache->cache_table);
+        lle_strstr_hashtable_destroy(cache->cache_table);
     }
     
     /* Destroy lock */
@@ -445,7 +464,7 @@ lle_result_t lle_display_cache_store(lle_display_cache_t *cache,
     pthread_rwlock_wrlock(&cache->cache_lock);
     
     /* Step 6: Insert into libhashtable */
-    ht_strstr_insert(cache->cache_table, key_str, serialized);
+    lle_strstr_hashtable_insert(cache->cache_table, key_str, serialized);
     
     /* Step 7: Release lock */
     pthread_rwlock_unlock(&cache->cache_lock);
@@ -484,7 +503,7 @@ lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
     pthread_rwlock_rdlock(&cache->cache_lock);
     
     /* Step 4: Lookup in libhashtable */
-    const char *serialized = ht_strstr_get(cache->cache_table, key_str);
+    const char *serialized = lle_strstr_hashtable_lookup(cache->cache_table, key_str);
     
     if (!serialized) {
         /* Cache miss */
@@ -541,7 +560,7 @@ lle_result_t lle_display_cache_invalidate(lle_display_cache_t *cache,
     pthread_rwlock_wrlock(&cache->cache_lock);
     
     /* Remove from libhashtable */
-    ht_strstr_remove(cache->cache_table, key_str);
+    lle_strstr_hashtable_delete(cache->cache_table, key_str);
     
     /* Update metrics */
     cache->metrics->evictions++;
@@ -570,10 +589,24 @@ lle_result_t lle_display_cache_invalidate_all(lle_display_cache_t *cache) {
     
     /* Destroy and recreate libhashtable to clear all entries */
     if (cache->cache_table) {
-        ht_strstr_destroy(cache->cache_table);
+        lle_strstr_hashtable_destroy(cache->cache_table);
     }
     
-    cache->cache_table = ht_strstr_create(HT_SEED_RANDOM);
+    /* Recreate hashtable using LLE wrapper */
+    lle_hashtable_config_t config;
+    lle_hashtable_config_init_default(&config);
+    config.use_memory_pool = true;
+    config.memory_pool = cache->memory_pool;
+    config.random_seed = true;
+    config.thread_safe = false;
+    config.performance_monitoring = true;
+    config.hashtable_name = "render_cache";
+    
+    lle_hashtable_factory_t *factory = NULL;
+    if (lle_hashtable_factory_init(&factory, cache->memory_pool) == LLE_SUCCESS) {
+        lle_hashtable_factory_create_strstr(factory, &config, &cache->cache_table);
+        lle_hashtable_factory_destroy(factory);
+    }
     if (!cache->cache_table) {
         pthread_rwlock_unlock(&cache->cache_lock);
         return LLE_ERROR_OUT_OF_MEMORY;

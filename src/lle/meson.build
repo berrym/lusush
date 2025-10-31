@@ -169,8 +169,8 @@ endif
 # Spec 05: libhashtable Integration
 # Provides: Hash table data structure for caching/lookup
 # Depends on: Spec 16, 15, 14, 17
-if fs.exists('src/lle/hashtable_integration.c')
-  lle_sources += 'hashtable_integration.c'
+if fs.exists('hashtable.c')
+  lle_sources += files('hashtable.c')
 endif
 
 # ============================================================================

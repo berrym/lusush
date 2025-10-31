@@ -131,6 +131,44 @@ else
     echo ""
 fi
 
+# Run Spec 05 compliance tests (libhashtable Integration)
+echo "-------------------------------------------------------------------"
+echo "Spec 05: libhashtable Integration Compliance"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_05_libhashtable_integration_compliance.c" ]; then
+    echo "Compiling spec_05_libhashtable_integration_compliance..."
+
+    gcc -o spec_05_compliance \
+        compliance/spec_05_libhashtable_integration_compliance.c \
+        -I../../include \
+        -I../../include/libhashtable \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_05_compliance
+    SPEC_05_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_05_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_05_compliance
+
+    echo ""
+else
+    echo "Spec 05 compliance test not found - skipping"
+    echo ""
+fi
+
 # Run Spec 04 compliance tests (Event System)
 echo "-------------------------------------------------------------------"
 echo "Spec 04: Event System Compliance"
