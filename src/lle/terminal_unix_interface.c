@@ -59,8 +59,10 @@ static lle_unix_interface_t *g_signal_interface = NULL;
 static void handle_sigwinch(int sig) {
     (void)sig;
     
-    /* Signal acknowledged - actual handling will be in event loop */
-    /* In Phase 3, we'll generate a resize event */
+    /* Set flag to be checked in event loop (async-signal-safe) */
+    if (g_signal_interface) {
+        g_signal_interface->sigwinch_received = true;
+    }
 }
 
 /*

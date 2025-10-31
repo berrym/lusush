@@ -8,7 +8,7 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 6 - Multiline Support
+ * Implementation: Step 7 - Signal Handling
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
@@ -26,6 +26,13 @@
  * - Adds multiline detection for unclosed quotes
  * - Inserts newline and continues reading if input incomplete
  * - Supports multi-line input within quoted strings
+ * 
+ * Step 7 - Signal Handling:
+ * - SIGWINCH: Window resize events trigger display refresh
+ * - SIGTSTP: Ctrl-Z handled by terminal_unix_interface (exits raw mode before suspend)
+ * - SIGCONT: Resume handled by terminal_unix_interface (re-enters raw mode)
+ * - SIGINT: Ctrl-C handled by terminal_unix_interface (restores terminal, exits)
+ * - All signal handlers installed by lle_unix_interface_install_signal_handlers()
  * 
  * Step 5 Enhancement - Complete Emacs Keybindings:
  * - Ctrl-A: Beginning of line
@@ -853,7 +860,8 @@ char *lle_readline(const char *prompt)
             }
             
             case LLE_INPUT_TYPE_WINDOW_RESIZE: {
-                /* Window resize - ignore for Step 1 */
+                /* Step 7: Window resize - refresh display with new dimensions */
+                refresh_display(&ctx);
                 break;
             }
             
