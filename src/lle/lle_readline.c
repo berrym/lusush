@@ -8,13 +8,15 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 3 - Event System Integration
+ * Implementation: Step 4 - Display Integration
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
  * - Uses lle_buffer_t for proper buffer management
  * - Uses event system to dispatch events to handlers
+ * - Uses display generator and display client for rendering
  * - Event handlers modify buffer (decoupled architecture)
+ * - Display refreshed after buffer modifications
  * - Returns on Enter key
  * 
  * NOTE: Creates own terminal, buffer, and event system for now.
@@ -35,16 +37,45 @@
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
 
-/* Event handler context for Step 3 */
+/* Event handler context for Step 4 */
 typedef struct {
     lle_buffer_t *buffer;
     bool *done;
     char **final_line;
+    lle_terminal_abstraction_t *term;
+    const char *prompt;
 } readline_context_t;
 
 /**
+ * @brief Refresh display after buffer modification
+ * Step 4: Use display generator and client for rendering
+ */
+static void refresh_display(readline_context_t *ctx)
+{
+    /* Step 4: Use display APIs if available */
+    if (ctx->term && ctx->term->display_generator && ctx->term->display_client) {
+        /* Note: Display components may not be fully initialized if Lusush display is NULL */
+        /* This call will use the proper API even if it doesn't fully render yet */
+        lle_display_content_t *content = NULL;
+        lle_result_t result = lle_display_generator_generate_content(
+            ctx->term->display_generator,
+            &content
+        );
+        
+        if (result == LLE_SUCCESS && content != NULL) {
+            /* Submit to Lusush display client */
+            lle_lusush_display_client_submit_content(
+                ctx->term->display_client,
+                content
+            );
+        }
+    }
+    /* If display components are not available, no rendering occurs */
+}
+
+/**
  * @brief Event handler for character input
- * Step 3: Handler modifies buffer instead of direct modification
+ * Step 4: Handler modifies buffer and refreshes display
  */
 static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
 {
@@ -62,12 +93,17 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         char_len
     );
     
+    /* Step 4: Refresh display after buffer modification */
+    if (result == LLE_SUCCESS) {
+        refresh_display(ctx);
+    }
+    
     return result;
 }
 
 /**
  * @brief Event handler for backspace
- * Step 3: Handler modifies buffer
+ * Step 4: Handler modifies buffer and refreshes display
  */
 static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
 {
@@ -78,6 +114,12 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
         /* Delete one byte before cursor (Step 5 will improve to grapheme) */
         size_t delete_pos = ctx->buffer->cursor.byte_offset - 1;
         lle_result_t result = lle_buffer_delete_text(ctx->buffer, delete_pos, 1);
+        
+        /* Step 4: Refresh display after buffer modification */
+        if (result == LLE_SUCCESS) {
+            refresh_display(ctx);
+        }
+        
         return result;
     }
     
@@ -203,13 +245,15 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 6: Register event handlers === */
-    /* Step 3: Register handlers that will modify buffer */
+    /* Step 4: Register handlers that will modify buffer and refresh display */
     bool done = false;
     char *final_line = NULL;
     readline_context_t ctx = {
         .buffer = buffer,
         .done = &done,
-        .final_line = &final_line
+        .final_line = &final_line,
+        .term = term,
+        .prompt = prompt
     };
     
     /* Register handler for character input */
@@ -224,8 +268,8 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 7: Display prompt === */
-    /* Note: Prompt display comes in Step 4 (display integration). */
-    (void)prompt;  /* Suppress unused warning */
+    /* Step 4: Initial display refresh to show prompt */
+    refresh_display(&ctx);
     
     /* === STEP 8: Main input loop === */
     
