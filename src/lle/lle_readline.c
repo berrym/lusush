@@ -8,19 +8,21 @@
  * CRITICAL: This implementation uses ONLY proper LLE subsystem APIs.
  * NO direct terminal I/O, NO escape sequences, NO architectural violations.
  * 
- * Implementation: Step 1 - Minimal Implementation
+ * Implementation: Step 2 - Buffer Management Integration
  * - Creates local terminal abstraction instance
  * - Uses terminal abstraction for raw mode
  * - Uses input processor for reading
- * - Minimal local buffer for character accumulation
+ * - Uses lle_buffer_t for proper buffer management
+ * - Supports UTF-8, cursor tracking, undo/redo infrastructure
  * - Returns on Enter key
  * 
- * NOTE: Step 1 creates its own terminal instance for simplicity.
+ * NOTE: Creates own terminal and memory pool for now.
  * Future steps will integrate with full LLE system initialization.
  */
 
 #include "lle/terminal_abstraction.h"
 #include "lle/buffer_management.h"
+#include "lle/memory_management.h"
 #include "lle/event_system.h"
 #include "lle/error_handling.h"
 
@@ -29,16 +31,21 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+/* External global memory pool */
+extern lusush_memory_pool_t *global_memory_pool;
+
 /**
  * @brief Read a line of input from the user with line editing
  * 
  * This is the core readline function that replaces GNU readline when LLE is enabled.
  * 
- * Step 1 Implementation:
- * - Verify LLE system is initialized
+ * Step 2 Implementation:
+ * - Create terminal abstraction
  * - Enter raw terminal mode
+ * - Create lle_buffer_t for line editing
  * - Read input events one at a time
- * - Build simple line buffer (character accumulation)
+ * - Use lle_buffer_insert_text() for character input
+ * - Use lle_buffer_delete_text() for backspace
  * - Return on Enter key
  * - Exit raw mode and cleanup
  * 
@@ -50,7 +57,6 @@ char *lle_readline(const char *prompt)
     lle_result_t result;
     
     /* === STEP 1: Create terminal abstraction instance === */
-    /* Note: Step 1 creates a minimal instance. Future steps will use global system. */
     lle_terminal_abstraction_t *term = NULL;
     result = lle_terminal_abstraction_init(&term, NULL);  /* NULL = no Lusush display yet */
     if (result != LLE_SUCCESS || term == NULL) {
@@ -70,19 +76,20 @@ char *lle_readline(const char *prompt)
     result = lle_unix_interface_enter_raw_mode(unix_iface);
     if (result != LLE_SUCCESS) {
         /* Failed to enter raw mode */
+        lle_terminal_abstraction_destroy(term);
         return NULL;
     }
     
-    /* === STEP 4: Simple line buffer for Step 1 === */
-    /* Using a simple char buffer for minimal implementation */
-    size_t buffer_capacity = 256;
-    size_t buffer_length = 0;
-    char *line_buffer = malloc(buffer_capacity);
-    if (line_buffer == NULL) {
+    /* === STEP 4: Create buffer for line editing === */
+    /* Step 2: Use proper lle_buffer_t instead of simple char array */
+    lle_buffer_t *buffer = NULL;
+    result = lle_buffer_create(&buffer, global_memory_pool, 256);
+    if (result != LLE_SUCCESS || buffer == NULL) {
+        /* Failed to create buffer */
         lle_unix_interface_exit_raw_mode(unix_iface);
+        lle_terminal_abstraction_destroy(term);
         return NULL;
     }
-    memset(line_buffer, 0, buffer_capacity);
     
     /* === STEP 5: Display prompt === */
     /* Note: Step 1 does not display the prompt. Display integration comes in Step 4. */
@@ -123,15 +130,15 @@ char *lle_readline(const char *prompt)
                 
                 /* Check for Enter key (newline) */
                 if (codepoint == '\n' || codepoint == '\r') {
-                    /* Line complete */
+                    /* Line complete - get contents from buffer */
                     done = true;
-                    final_line = strdup(line_buffer);
+                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
                     break;
                 }
                 
                 /* Check for Ctrl-D (EOF) */
                 if (codepoint == 4) {  /* ASCII EOT */
-                    if (buffer_length == 0) {
+                    if (buffer->length == 0) {
                         /* EOF on empty line */
                         done = true;
                         final_line = NULL;
@@ -149,21 +156,27 @@ char *lle_readline(const char *prompt)
                 
                 /* Check for backspace */
                 if (codepoint == 127 || codepoint == 8) {  /* DEL or BS */
-                    if (buffer_length > 0) {
-                        buffer_length--;
-                        line_buffer[buffer_length] = '\0';
+                    /* Step 2: Use lle_buffer_delete_text() for backspace */
+                    if (buffer->cursor.byte_offset > 0) {
+                        /* Delete one character before cursor */
+                        /* For simplicity in Step 2, delete 1 byte (assumes ASCII) */
+                        /* Step 5 will handle proper grapheme cluster deletion */
+                        size_t delete_pos = buffer->cursor.byte_offset - 1;
+                        result = lle_buffer_delete_text(buffer, delete_pos, 1);
+                        (void)result;  /* Ignore errors for now */
                     }
                     break;
                 }
                 
                 /* Add character to buffer */
-                if (buffer_length + event->data.character.byte_count < buffer_capacity - 1) {
-                    memcpy(line_buffer + buffer_length, 
-                           event->data.character.utf8_bytes,
-                           event->data.character.byte_count);
-                    buffer_length += event->data.character.byte_count;
-                    line_buffer[buffer_length] = '\0';
-                }
+                /* Step 2: Use lle_buffer_insert_text() */
+                result = lle_buffer_insert_text(
+                    buffer,
+                    buffer->cursor.byte_offset,
+                    event->data.character.utf8_bytes,
+                    event->data.character.byte_count
+                );
+                (void)result;  /* Ignore errors for now */
                 break;
             }
             
@@ -172,21 +185,21 @@ char *lle_readline(const char *prompt)
                 if (event->data.special_key.key == LLE_KEY_ENTER) {
                     /* Enter key pressed */
                     done = true;
-                    final_line = strdup(line_buffer);
+                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
                 }
-                /* Other special keys ignored in Step 1 */
+                /* Other special keys ignored in Step 2 */
                 break;
             }
             
             case LLE_INPUT_TYPE_EOF: {
                 /* EOF received */
-                if (buffer_length == 0) {
+                if (buffer->length == 0) {
                     done = true;
                     final_line = NULL;
                 } else {
                     /* Return partial line */
                     done = true;
-                    final_line = strdup(line_buffer);
+                    final_line = buffer->data ? strdup(buffer->data) : strdup("");
                 }
                 break;
             }
@@ -230,7 +243,8 @@ char *lle_readline(const char *prompt)
     lle_unix_interface_exit_raw_mode(unix_iface);
     
     /* === STEP 9: Cleanup and return === */
-    free(line_buffer);
+    /* Step 2: Destroy buffer using proper API */
+    lle_buffer_destroy(buffer);
     lle_terminal_abstraction_destroy(term);
     
     return final_line;
