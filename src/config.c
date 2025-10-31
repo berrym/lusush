@@ -214,6 +214,10 @@ static config_option_t config_options[] = {
     {               "scripts.execution",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SCRIPTS,
      &config.script_execution,                       "Enable script execution",         config_validate_bool   },
 
+    // Line editor selection
+    {                   "editor.use_lle",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_BEHAVIOR,
+     &config.use_lle,                  "Use LLE instead of GNU readline (requires restart)",   config_validate_bool   },
+
     // Shell options integration - all 24 POSIX options with shell.* namespace
     // These map directly to existing shell_opts flags for perfect compatibility
     {            "shell.errexit",   CONFIG_TYPE_BOOL,    CONFIG_SECTION_SHELL,
@@ -990,6 +994,9 @@ void config_set_defaults(void) {
 
     // Script execution defaults
     config.script_execution = true;
+    
+    // Line editor defaults - GNU readline by default, LLE opt-in
+    config.use_lle = false;
 }
 
 /**

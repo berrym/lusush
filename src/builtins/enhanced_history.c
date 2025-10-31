@@ -288,6 +288,16 @@ static void enhanced_history_usage(void) {
  * @return Exit status
  */
 int bin_enhanced_history(int argc, char **argv) {
+    // Check if LLE is enabled - ehistory command uses GNU readline/POSIX history API
+    #include "../../include/config.h"
+    extern config_values_t config;
+    if (config.use_lle) {
+        fprintf(stderr, "ehistory: command disabled when LLE is enabled\n");
+        fprintf(stderr, "ehistory: LLE will have its own history system (Spec 09)\n");
+        fprintf(stderr, "ehistory: use 'display lle disable' to switch back to GNU readline\n");
+        return 1;
+    }
+    
     // Initialize history manager if not already done
     if (!global_posix_history) {
         global_posix_history = posix_history_create(0);

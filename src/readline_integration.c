@@ -48,6 +48,7 @@
 #include "../include/completion.h"
 #include "../include/config.h"
 #include "../include/symtable.h"
+#include "../include/lle/lle_readline.h"
 #include "../include/posix_history.h"
 #include "../include/autosuggestions.h"
 #include "../include/rich_completion.h"
@@ -472,10 +473,18 @@ char *lusush_readline_with_prompt(const char *prompt) {
     // MINIMAL INTEGRATION: Only enhance primary prompts, preserve established input.c flow
     char *line = NULL;
     
-    // CRITICAL FIX: Always use standard readline to prevent history corruption
-    // Layered display deviation was causing history access isolation
-    // Keep single unified readline path for consistent history behavior
-    line = readline(actual_prompt);
+    // Line editor selection: Use LLE if configured, otherwise GNU readline
+    // Note: config.use_lle requires shell restart to take effect
+    if (config.use_lle) {
+        // Use LLE (Lusush Line Editor)
+        line = lle_readline(actual_prompt);
+    } else {
+        // Use GNU readline (default)
+        // CRITICAL FIX: Always use standard readline to prevent history corruption
+        // Layered display deviation was causing history access isolation
+        // Keep single unified readline path for consistent history behavior
+        line = readline(actual_prompt);
+    }
     
     // Note: Do not free themed_prompt here - it's managed by readline cleanup system
     // The themed_prompt becomes current_prompt and will be freed in lusush_readline_cleanup()
@@ -503,7 +512,9 @@ char *lusush_readline_with_prompt(const char *prompt) {
     }
     
     // Add to history if non-empty and in interactive mode
-    if (line && *line && is_interactive_shell()) {
+    // Note: Only use GNU readline history API when using GNU readline
+    // LLE will implement its own history system in Spec 09
+    if (line && *line && is_interactive_shell() && !config.use_lle) {
         lusush_history_add(line);
     }
     

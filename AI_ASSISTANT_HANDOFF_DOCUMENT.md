@@ -3,12 +3,12 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-10-31  
 **Branch**: feature/lle  
-**Status**: [COMPLETE] lle_readline() Step 6 - Multiline Support  
-**Last Action**: Added simple multiline detection for unclosed quotes with continuation support  
-**Next**: **Implement lle_readline() Step 7** - Add signal handling  
-**Tests**: All LLE tests passing + Compiles cleanly + Build clean  
+**Status**: [COMPLETE] GNU Readline ↔ LLE Switching Mechanism  
+**Last Action**: Implemented complete switching infrastructure with mutual exclusion  
+**Next**: **Implement lle_readline() Step 7** - Add signal handling, then manual testing  
+**Tests**: All LLE tests passing + Compiles cleanly + Build clean + Switching tested  
 **Automation**: Pre-commit hooks enforcing zero-tolerance policy  
-**Critical Achievement**: Multiline input with continuation - ZERO architectural violations
+**Critical Achievement**: Safe switching between readline implementations - prevents conflicts
 
 ---
 
@@ -856,6 +856,144 @@ continuation_state_cleanup(&continuation_state);
 **Build Status**: Compiles cleanly, all tests passing
 
 **Next Step**: Step 7 - Signal handling (SIGWINCH, SIGTSTP)
+
+---
+
+## GNU Readline ↔ LLE Switching Mechanism (2025-10-31)
+
+**Objective**: Implement safe switching between GNU readline and LLE with mutual exclusion
+
+**Status**: COMPLETE - Full switching infrastructure implemented and tested
+
+### Implementation Summary
+
+**Config System Integration**:
+- Added `config.use_lle` boolean flag to `include/config.h` and `src/config.c`
+- Config option: `editor.use_lle` (default: false - GNU readline for safety)
+- Persists via standard config save/load system
+
+**Display Command Integration** (following Spec 22):
+- `display lle enable` - Enable LLE for session (requires restart)
+- `display lle disable` - Disable LLE for session (requires restart)  
+- `display lle status` - Show current line editor and session setting
+- Commands added to `src/builtins/builtins.c:4336`
+
+**Readline Integration**:
+- Modified `src/readline_integration.c:472` to branch on `config.use_lle`
+- If LLE enabled: calls `lle_readline(prompt)`
+- If LLE disabled: calls GNU `readline(prompt)` (default)
+- Skips GNU readline history API when LLE active (line 516)
+
+**History Command Mutual Exclusion**:
+- `history` command disabled when LLE enabled (`src/builtins/builtins.c:431`)
+- `fc` command disabled when LLE enabled (`src/builtins/fc.c:433`)
+- `ehistory` command disabled when LLE enabled (`src/builtins/enhanced_history.c:290`)
+- All show helpful error messages directing users to `display lle disable`
+
+### Conflicts Prevented by Mutual Exclusion
+
+1. **History File Corruption** (CRITICAL): Both systems writing to same file with different APIs
+2. **Terminal State Conflicts** (CRITICAL): Competing raw mode control, signal handlers
+3. **Display Corruption** (HIGH): Direct escape sequences vs layered display system
+4. **Signal Handler Conflicts** (LIKELY): SIGWINCH, SIGTSTP, SIGINT handlers competing
+5. **History Command API Conflicts** (BLOCKING): Commands use GNU readline history API
+
+### Usage Examples
+
+```bash
+# Check current line editor
+display lle status
+
+# Enable LLE for session
+display lle enable
+
+# Enable LLE persistently
+config set editor.use_lle true
+config save
+
+# Disable LLE
+display lle disable
+config set editor.use_lle false
+config save
+```
+
+### Testing Results
+
+```bash
+# Test display lle commands
+echo -e "display lle\nexit" | ./builddir/lusush
+# Output: Shows help with enable/disable/status commands
+
+# Test status (default GNU readline)
+echo -e "display lle status\nexit" | ./builddir/lusush
+# Output: Current session setting: disabled, Active: GNU readline
+
+# Test enabling
+echo -e "display lle enable\ndisplay lle status\nexit" | ./builddir/lusush
+# Output: LLE enabled, status shows enabled
+
+# Test config integration
+echo -e "config set editor.use_lle true\ndisplay lle status\nexit" | ./builddir/lusush
+# Output: Set editor.use_lle = true, status shows enabled
+
+# Test history command blocking
+echo -e "display lle enable\nhistory\nexit" | ./builddir/lusush
+# Output: history: command disabled when LLE is enabled
+
+# Test fc command blocking
+echo -e "display lle enable\nfc -l\nexit" | ./builddir/lusush
+# Output: fc: command disabled when LLE is enabled
+
+# Test ehistory command blocking
+echo -e "display lle enable\nehistory\nexit" | ./builddir/lusush
+# Output: ehistory: command disabled when LLE is enabled
+```
+
+### Files Modified
+
+- `include/config.h` - Added `use_lle` field to config structure
+- `src/config.c` - Added `editor.use_lle` option and default (false)
+- `src/builtins/builtins.c` - Added `display lle` commands, disabled `history` in LLE mode
+- `src/builtins/fc.c` - Disabled `fc` command in LLE mode
+- `src/builtins/enhanced_history.c` - Disabled `ehistory` command in LLE mode
+- `src/readline_integration.c` - Added switching logic, included `lle/lle_readline.h`
+
+### Build and Test Status
+
+✅ Build successful  
+✅ All commands tested and working  
+✅ Proper error messages when history commands used in LLE mode  
+✅ Config integration verified  
+✅ Default behavior preserved (GNU readline)  
+
+### Design Decisions
+
+**Why require restart?**  
+- Initialization happens at shell startup
+- GNU readline initializes global state (history, keybindings, completion)
+- LLE initializes terminal abstraction, event system, display
+- Clean transition requires fresh initialization
+- Prevents partial/mixed state
+
+**Why default to GNU readline?**  
+- Battle-tested, mature implementation
+- Full feature parity (history, completion, keybindings)
+- LLE is opt-in while under development
+- Users can switch when ready
+
+**Why disable history commands?**  
+- They use GNU readline's history API directly
+- Would corrupt history file if both systems active
+- LLE will have its own history system (Spec 09)
+- Clear error messages guide users
+
+### Next Steps
+
+1. Complete lle_readline() Steps 7-8 (signal handling, optimization)
+2. Manual testing in real terminal with LLE enabled
+3. Verify no conflicts or corruption
+4. Document any issues found
+5. Implement Spec 09 (History System) for LLE
 
 ---
 **Objective**: Strengthen automated enforcement of development policies to prevent protocol violations

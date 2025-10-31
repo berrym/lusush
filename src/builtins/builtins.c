@@ -430,6 +430,15 @@ int bin_pwd(int argc __attribute__((unused)),
  */
 int bin_history(int argc __attribute__((unused)),
                 char **argv __attribute__((unused))) {
+    // Check if LLE is enabled - history command uses GNU readline API
+    extern config_values_t config;
+    if (config.use_lle) {
+        fprintf(stderr, "history: command disabled when LLE is enabled\n");
+        fprintf(stderr, "history: LLE will have its own history system (Spec 09)\n");
+        fprintf(stderr, "history: use 'display lle disable' to switch back to GNU readline\n");
+        return 1;
+    }
+    
     char *line = NULL;
 
     switch (argc) {
@@ -4035,6 +4044,7 @@ int bin_display(int argc, char **argv) {
         printf("  config      - Show current configuration\n");
         printf("  stats       - Show performance statistics\n");
         printf("  diagnostics - Show detailed diagnostic information\n");
+        printf("  lle         - LLE (Lusush Line Editor) control commands\n");
         printf("  help        - Show this help message\n");
         printf("\nEnvironment Variables:\n");
         printf("  LUSUSH_DISPLAY_DEBUG=1|0        - Enable/disable debug output\n");
@@ -4330,6 +4340,50 @@ int bin_display(int argc, char **argv) {
         } else {
             fprintf(stderr, "display: Unknown performance command '%s'\n", perf_cmd);
             fprintf(stderr, "display: Use 'display performance' for available commands\n");
+            return 1;
+        }
+        
+    } else if (strcmp(subcmd, "lle") == 0) {
+        // LLE (Lusush Line Editor) control commands
+        if (argc < 3) {
+            printf("LLE (Lusush Line Editor) Commands\n");
+            printf("Usage: display lle <command> [options]\n");
+            printf("\nCommands:\n");
+            printf("  enable      - Enable LLE for this session\n");
+            printf("  disable     - Disable LLE for this session\n");
+            printf("  status      - Show LLE status\n");
+            printf("\nNote: Changes apply to current session. Use 'config set editor.use_lle true' \n");
+            printf("      and 'config save' to persist across sessions.\n");
+            return 0;
+        }
+        
+        const char *lle_cmd = argv[2];
+        
+        if (strcmp(lle_cmd, "enable") == 0) {
+            extern config_values_t config;
+            config.use_lle = true;
+            printf("LLE enabled for this session (requires shell restart to take effect)\n");
+            printf("To persist: config set editor.use_lle true && config save\n");
+            return 0;
+            
+        } else if (strcmp(lle_cmd, "disable") == 0) {
+            extern config_values_t config;
+            config.use_lle = false;
+            printf("LLE disabled for this session (requires shell restart to take effect)\n");
+            printf("To persist: config set editor.use_lle false && config save\n");
+            return 0;
+            
+        } else if (strcmp(lle_cmd, "status") == 0) {
+            extern config_values_t config;
+            printf("LLE Status:\n");
+            printf("  Current session setting: %s\n", config.use_lle ? "enabled" : "disabled");
+            printf("  Active line editor: %s\n", config.use_lle ? "LLE" : "GNU readline");
+            printf("  Note: Changes require shell restart to take effect\n");
+            return 0;
+            
+        } else {
+            fprintf(stderr, "display lle: Unknown command '%s'\n", lle_cmd);
+            fprintf(stderr, "display lle: Use 'display lle' for usage information\n");
             return 1;
         }
         

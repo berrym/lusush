@@ -138,6 +138,9 @@ typedef struct {
 
     // Script execution control
     bool script_execution;
+    
+    // Line editor selection (GNU readline vs LLE)
+    bool use_lle;  // Use LLE instead of GNU readline (default: false)
 } config_values_t;
 
 // Global configuration instance
