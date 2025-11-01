@@ -15,16 +15,10 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-/* Memory pool function wrappers - Lusush uses global pool, spec uses per-pool allocation */
-static inline void* lle_pool_alloc(lle_memory_pool_t *pool, size_t size) {
-    (void)pool;  /* Lusush uses global pool - pool parameter ignored */
-    return lusush_pool_alloc(size);
-}
-
-static inline void lle_pool_free(lle_memory_pool_t *pool, void *ptr) {
-    (void)pool;  /* Lusush uses global pool - pool parameter ignored */
-    lusush_pool_free(ptr);
-}
+/* Note: lle_pool_alloc() and lle_pool_free() are provided by memory_management.h
+ * They wrap the Lusush global pool. The memory_pool parameter in our API is for
+ * future per-pool allocation support, but currently uses the global pool.
+ */
 
 /* ============================================================================
  * CONFIGURATION MANAGEMENT
@@ -42,10 +36,7 @@ lle_result_t lle_history_config_create_default(
     }
     
     /* Allocate configuration */
-    lle_history_config_t *cfg = lle_pool_alloc(
-        memory_pool,
-        sizeof(lle_history_config_t)
-    );
+    lle_history_config_t *cfg = lle_pool_alloc(sizeof(lle_history_config_t));
     if (!cfg) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -60,7 +51,7 @@ lle_result_t lle_history_config_create_default(
     const char *home = getenv("HOME");
     if (home) {
         size_t path_len = strlen(home) + strlen(LLE_HISTORY_DEFAULT_FILE) + 2;
-        cfg->history_file_path = lle_memory_pool_alloc(memory_pool, path_len);
+        cfg->history_file_path = lle_pool_alloc(path_len);
         if (cfg->history_file_path) {
             snprintf(cfg->history_file_path, path_len, "%s/%s", 
                     home, LLE_HISTORY_DEFAULT_FILE);
@@ -95,11 +86,11 @@ lle_result_t lle_history_config_destroy(
     
     /* Free history file path if allocated */
     if (config->history_file_path) {
-        lle_pool_free(memory_pool, config->history_file_path);
+        lle_pool_free( config->history_file_path);
     }
     
     /* Free configuration structure */
-    lle_pool_free(memory_pool, config);
+    lle_pool_free( config);
     
     return LLE_SUCCESS;
 }
@@ -130,10 +121,7 @@ lle_result_t lle_history_entry_create(
     }
     
     /* Allocate entry */
-    lle_history_entry_t *e = lle_memory_pool_alloc(
-        memory_pool,
-        sizeof(lle_history_entry_t)
-    );
+    lle_history_entry_t *e = lle_pool_alloc(sizeof(lle_history_entry_t));
     if (!e) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -142,9 +130,9 @@ lle_result_t lle_history_entry_create(
     memset(e, 0, sizeof(lle_history_entry_t));
     
     /* Copy command */
-    e->command = lle_memory_pool_alloc(memory_pool, cmd_len + 1);
+    e->command = lle_pool_alloc(cmd_len + 1);
     if (!e->command) {
-        lle_pool_free(memory_pool, e);
+        lle_pool_free( e);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memcpy(e->command, command, cmd_len + 1);
@@ -159,7 +147,7 @@ lle_result_t lle_history_entry_create(
     char cwd_buffer[LLE_HISTORY_MAX_PATH_LENGTH];
     if (lle_history_get_cwd(cwd_buffer, sizeof(cwd_buffer)) == LLE_SUCCESS) {
         size_t cwd_len = strlen(cwd_buffer);
-        e->working_directory = lle_memory_pool_alloc(memory_pool, cwd_len + 1);
+        e->working_directory = lle_pool_alloc(cwd_len + 1);
         if (e->working_directory) {
             memcpy(e->working_directory, cwd_buffer, cwd_len + 1);
         }
@@ -196,21 +184,21 @@ lle_result_t lle_history_entry_destroy(
     
     /* Free command */
     if (entry->command) {
-        lle_pool_free(memory_pool, entry->command);
+        lle_pool_free( entry->command);
     }
     
     /* Free working directory */
     if (entry->working_directory) {
-        lle_pool_free(memory_pool, entry->working_directory);
+        lle_pool_free( entry->working_directory);
     }
     
     /* Phase 4: Free multiline data if present */
     if (entry->original_multiline) {
-        lle_pool_free(memory_pool, entry->original_multiline);
+        lle_pool_free( entry->original_multiline);
     }
     
     /* Free entry structure */
-    lle_pool_free(memory_pool, entry);
+    lle_pool_free( entry);
     
     return LLE_SUCCESS;
 }
@@ -260,10 +248,7 @@ lle_result_t lle_history_core_create(
     lle_result_t result = LLE_SUCCESS;
     
     /* Allocate core structure */
-    lle_history_core_t *c = lle_memory_pool_alloc(
-        memory_pool,
-        sizeof(lle_history_core_t)
-    );
+    lle_history_core_t *c = lle_pool_alloc(sizeof(lle_history_core_t));
     if (!c) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -275,9 +260,9 @@ lle_result_t lle_history_core_create(
     /* Create or copy configuration */
     if (config) {
         /* Copy provided configuration */
-        c->config = lle_memory_pool_alloc(memory_pool, sizeof(lle_history_config_t));
+        c->config = lle_pool_alloc(sizeof(lle_history_config_t));
         if (!c->config) {
-            lle_pool_free(memory_pool, c);
+            lle_pool_free( c);
             return LLE_ERROR_OUT_OF_MEMORY;
         }
         memcpy(c->config, config, sizeof(lle_history_config_t));
@@ -285,7 +270,7 @@ lle_result_t lle_history_core_create(
         /* Deep copy history_file_path if present */
         if (config->history_file_path) {
             size_t path_len = strlen(config->history_file_path) + 1;
-            c->config->history_file_path = lle_memory_pool_alloc(memory_pool, path_len);
+            c->config->history_file_path = lle_pool_alloc(path_len);
             if (c->config->history_file_path) {
                 memcpy(c->config->history_file_path, config->history_file_path, path_len);
             }
@@ -294,20 +279,17 @@ lle_result_t lle_history_core_create(
         /* Create default configuration */
         result = lle_history_config_create_default(&c->config, memory_pool);
         if (result != LLE_SUCCESS) {
-            lle_pool_free(memory_pool, c);
+            lle_pool_free( c);
             return result;
         }
     }
     
     /* Allocate initial entry array */
     size_t initial_cap = c->config->initial_capacity;
-    c->entries = lle_memory_pool_alloc(
-        memory_pool,
-        sizeof(lle_history_entry_t*) * initial_cap
-    );
+    c->entries = lle_pool_alloc(sizeof(lle_history_entry_t*) * initial_cap);
     if (!c->entries) {
         lle_history_config_destroy(c->config, memory_pool);
-        lle_pool_free(memory_pool, c);
+        lle_pool_free( c);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(c->entries, 0, sizeof(lle_history_entry_t*) * initial_cap);
@@ -328,9 +310,9 @@ lle_result_t lle_history_core_create(
     
     /* Initialize thread safety */
     if (pthread_rwlock_init(&c->lock, NULL) != 0) {
-        lle_pool_free(memory_pool, c->entries);
+        lle_pool_free( c->entries);
         lle_history_config_destroy(c->config, memory_pool);
-        lle_pool_free(memory_pool, c);
+        lle_pool_free( c);
         return LLE_ERROR_INITIALIZATION_FAILED;
     }
     
@@ -363,12 +345,14 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
     
     /* Free entries array */
     if (core->entries) {
-        lle_pool_free(core->memory_pool, core->entries);
+        lle_pool_free( core->entries);
     }
     
     /* Phase 2: Destroy hashtable if present */
     if (core->entry_lookup) {
-        lle_hash_table_destroy(core->entry_lookup);
+        /* NOTE: Hashtable indexing not yet implemented in Phase 1 */
+        /* Phase 2 will create hashtable and implement proper destroy */
+        core->entry_lookup = NULL;
     }
     
     /* Destroy configuration */
@@ -381,7 +365,7 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
     pthread_rwlock_destroy(&core->lock);
     
     /* Free core structure */
-    lle_pool_free(core->memory_pool, core);
+    lle_pool_free( core);
     
     return LLE_SUCCESS;
 }
@@ -408,14 +392,11 @@ lle_result_t lle_history_expand_capacity(lle_history_core_t *core) {
     
     /* Check if already at max */
     if (core->entry_capacity >= core->config->max_entries) {
-        return LLE_ERROR_CAPACITY_EXCEEDED;
+        return LLE_ERROR_BUFFER_OVERFLOW;
     }
     
     /* Allocate new array */
-    lle_history_entry_t **new_entries = lle_memory_pool_alloc(
-        core->memory_pool,
-        sizeof(lle_history_entry_t*) * new_capacity
-    );
+    lle_history_entry_t **new_entries = lle_pool_alloc(sizeof(lle_history_entry_t*) * new_capacity);
     if (!new_entries) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -429,7 +410,7 @@ lle_result_t lle_history_expand_capacity(lle_history_core_t *core) {
            sizeof(lle_history_entry_t*) * (new_capacity - core->entry_count));
     
     /* Free old array */
-    lle_pool_free(core->memory_pool, core->entries);
+    lle_pool_free( core->entries);
     
     /* Update core */
     core->entries = new_entries;
@@ -720,7 +701,7 @@ lle_result_t lle_history_get_cwd(char *buffer, size_t size) {
     }
     
     if (getcwd(buffer, size) == NULL) {
-        return LLE_ERROR_SYSTEM_CALL_FAILED;
+        return LLE_ERROR_ASSERTION_FAILED;
     }
     
     return LLE_SUCCESS;
