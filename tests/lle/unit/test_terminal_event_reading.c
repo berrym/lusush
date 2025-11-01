@@ -332,6 +332,69 @@ TEST(test_resize_event_priority) {
 }
 
 /* ============================================================================
+ * FUNCTION KEY TESTS
+ * ============================================================================ */
+
+TEST(test_function_keys_f1_f4) {
+    /* Test F1-F4 keys using SS3 sequences (ESC O P/Q/R/S) */
+    /* F1: ESC O P */
+    unsigned char f1_data[] = {0x1B, 'O', 'P'};
+    int pipe_fd = create_pipe_with_data(f1_data, sizeof(f1_data), NULL);
+    assert(pipe_fd >= 0);
+    
+    lle_unix_interface_t *interface = NULL;
+    lle_result_t result = lle_unix_interface_init(&interface);
+    assert(result == LLE_SUCCESS);
+    
+    int saved_stdin = dup(STDIN_FILENO);
+    dup2(pipe_fd, STDIN_FILENO);
+    interface->terminal_fd = STDIN_FILENO;
+    
+    /* Without parser initialization, should use fallback escape handling */
+    /* The fallback won't recognize F1, so it will return ESC or partial sequence */
+    /* With parser, it would recognize F1 */
+    
+    /* For now, just verify it doesn't crash and returns some event */
+    lle_input_event_t event;
+    result = lle_unix_interface_read_event(interface, &event, 1000);
+    
+    assert(result == LLE_SUCCESS);
+    /* Event type could be CHARACTER (ESC), SPECIAL_KEY, or TIMEOUT depending on parser */
+    
+    dup2(saved_stdin, STDIN_FILENO);
+    close(saved_stdin);
+    close(pipe_fd);
+    lle_unix_interface_destroy(interface);
+}
+
+TEST(test_function_keys_f5_f12) {
+    /* Test F5 key using CSI sequence (ESC [ 1 5 ~) */
+    unsigned char f5_data[] = {0x1B, '[', '1', '5', '~'};
+    int pipe_fd = create_pipe_with_data(f5_data, sizeof(f5_data), NULL);
+    assert(pipe_fd >= 0);
+    
+    lle_unix_interface_t *interface = NULL;
+    lle_result_t result = lle_unix_interface_init(&interface);
+    assert(result == LLE_SUCCESS);
+    
+    int saved_stdin = dup(STDIN_FILENO);
+    dup2(pipe_fd, STDIN_FILENO);
+    interface->terminal_fd = STDIN_FILENO;
+    
+    /* Read events - should get something without crashing */
+    lle_input_event_t event;
+    result = lle_unix_interface_read_event(interface, &event, 1000);
+    
+    assert(result == LLE_SUCCESS);
+    /* Without full parser integration, exact behavior varies */
+    
+    dup2(saved_stdin, STDIN_FILENO);
+    close(saved_stdin);
+    close(pipe_fd);
+    lle_unix_interface_destroy(interface);
+}
+
+/* ============================================================================
  * EOF DETECTION TESTS
  * ============================================================================ */
 
@@ -489,6 +552,10 @@ int main(void) {
     
     printf("\nWindow Resize Tests:\n");
     run_test_resize_event_priority();
+    
+    printf("\nFunction Key Tests:\n");
+    run_test_function_keys_f1_f4();
+    run_test_function_keys_f5_f12();
     
     printf("\nEOF Detection Tests:\n");
     run_test_eof_detection();

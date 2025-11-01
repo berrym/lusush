@@ -62,8 +62,9 @@ typedef int lusush_result_t;
 /* Lusush result codes */
 #define LUSUSH_SUCCESS 0
 
-/* Forward declaration for sequence parser (from input_parsing.h) */
+/* Forward declarations for input parsing components (from input_parsing.h) */
 typedef struct lle_sequence_parser lle_sequence_parser_t;
+typedef struct lle_key_detector lle_key_detector_t;
 
 /* ============================================================================
  * ENUMERATIONS
@@ -459,6 +460,7 @@ typedef struct lle_unix_interface {
     
     /* Escape sequence parsing (Spec 06 integration) */
     lle_sequence_parser_t *sequence_parser; /* Comprehensive sequence parser */
+    lle_key_detector_t *key_detector;      /* Key sequence detector */
     lle_terminal_capabilities_t *capabilities; /* Terminal capabilities for parser */
     lle_memory_pool_t *memory_pool;        /* Memory pool for parser */
     
