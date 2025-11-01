@@ -905,6 +905,13 @@ int config_init(void) {
 
     // Apply loaded settings (always safe to call with defaults)
     config_apply_settings();
+    
+    // AFTER loading config files, check environment variable override
+    // This allows LLE_ENABLED=1 to work even if config file says false
+    const char *lle_env = getenv("LLE_ENABLED");
+    if (lle_env && strcmp(lle_env, "1") == 0) {
+        config.use_lle = true;
+    }
 
     return 0;
 }
@@ -996,7 +1003,9 @@ void config_set_defaults(void) {
     config.script_execution = true;
     
     // Line editor defaults - GNU readline by default, LLE opt-in
-    config.use_lle = false;
+    // Check environment variable for testing purposes
+    const char *lle_env = getenv("LLE_ENABLED");
+    config.use_lle = (lle_env && strcmp(lle_env, "1") == 0);
 }
 
 /**

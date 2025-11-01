@@ -665,6 +665,98 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
         return LLE_SUCCESS;
     }
     
+    /* Check for escape sequences (ESC = 0x1B = 27) */
+    if (first_byte == 0x1B) {
+        /* Read next byte with short timeout to detect escape sequences */
+        unsigned char second_byte;
+        fd_set read_fds;
+        struct timeval escape_timeout;
+        
+        FD_ZERO(&read_fds);
+        FD_SET(interface->terminal_fd, &read_fds);
+        escape_timeout.tv_sec = 0;
+        escape_timeout.tv_usec = 10000;  /* 10ms timeout for escape sequence */
+        
+        int ready = select(interface->terminal_fd + 1, &read_fds, NULL, NULL, &escape_timeout);
+        
+        if (ready > 0) {
+            ssize_t read2 = read(interface->terminal_fd, &second_byte, 1);
+            
+            if (read2 == 1 && second_byte == '[') {
+                /* CSI sequence - read the final byte */
+                unsigned char final_byte;
+                ssize_t read3 = read(interface->terminal_fd, &final_byte, 1);
+                
+                if (read3 == 1) {
+                    /* Detect common arrow key sequences: ESC [ A/B/C/D */
+                    event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
+                    event->timestamp = lle_get_current_time_microseconds();
+                    event->data.special_key.modifiers = 0;
+                    
+                    switch (final_byte) {
+                        case 'A':
+                            event->data.special_key.key = LLE_KEY_UP;
+                            return LLE_SUCCESS;
+                        case 'B':
+                            event->data.special_key.key = LLE_KEY_DOWN;
+                            return LLE_SUCCESS;
+                        case 'C':
+                            event->data.special_key.key = LLE_KEY_RIGHT;
+                            return LLE_SUCCESS;
+                        case 'D':
+                            event->data.special_key.key = LLE_KEY_LEFT;
+                            return LLE_SUCCESS;
+                        case 'H':
+                            event->data.special_key.key = LLE_KEY_HOME;
+                            return LLE_SUCCESS;
+                        case 'F':
+                            event->data.special_key.key = LLE_KEY_END;
+                            return LLE_SUCCESS;
+                        case '3':
+                            /* Delete key: ESC [ 3 ~ - need to read the ~ */
+                            {
+                                unsigned char tilde;
+                                ssize_t read4 = read(interface->terminal_fd, &tilde, 1);
+                                if (read4 == 1 && tilde == '~') {
+                                    event->data.special_key.key = LLE_KEY_DELETE;
+                                    return LLE_SUCCESS;
+                                }
+                            }
+                            break;
+                        default:
+                            /* Unknown CSI sequence - fall through to return as character */
+                            break;
+                    }
+                }
+            } else if (read2 == 1 && second_byte == 'O') {
+                /* SS3 sequence - alternate function keys */
+                unsigned char final_byte;
+                ssize_t read3 = read(interface->terminal_fd, &final_byte, 1);
+                
+                if (read3 == 1) {
+                    event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
+                    event->timestamp = lle_get_current_time_microseconds();
+                    event->data.special_key.modifiers = 0;
+                    
+                    switch (final_byte) {
+                        case 'H':
+                            event->data.special_key.key = LLE_KEY_HOME;
+                            return LLE_SUCCESS;
+                        case 'F':
+                            event->data.special_key.key = LLE_KEY_END;
+                            return LLE_SUCCESS;
+                        default:
+                            /* Unknown SS3 sequence */
+                            break;
+                    }
+                }
+            }
+        }
+        
+        /* If we get here, it's just a plain ESC key or unrecognized sequence */
+        /* Return ESC as a regular character */
+    }
+    
     /* Decode UTF-8 character */
     uint32_t codepoint;
     char utf8_bytes[8] = {0};

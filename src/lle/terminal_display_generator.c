@@ -273,7 +273,7 @@ lle_result_t lle_display_generator_generate_content(lle_display_generator_t *gen
     
     /* Generate display lines from buffer */
     size_t current_line = 0;
-    size_t current_column = state->prompt_width;
+    size_t current_column = 0;
     size_t buffer_pos = 0;
     
     /* Initialize first line */

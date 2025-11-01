@@ -1070,10 +1070,18 @@ display_controller_error_t display_controller_display_with_cursor(
     }
     
     // Terminal control wrapping requested - use composition engine with cursor tracking
+    DC_DEBUG("display_controller_display_with_cursor: apply_terminal_control=true");
+    DC_DEBUG("prompt_text: %s", prompt_text ? prompt_text : "(null)");
+    DC_DEBUG("command_text: %s", command_text ? command_text : "(null)");
+    DC_DEBUG("cursor_byte_offset: %zu", cursor_byte_offset);
     
     // Check if compositor is initialized, if not we need to initialize it
     bool compositor_initialized = composition_engine_is_initialized(controller->compositor);
+    DC_DEBUG("compositor_initialized: %s", compositor_initialized ? "true" : "false");
+    
     if (!compositor_initialized) {
+        DC_DEBUG("Initializing compositor...");
+
         // Initialize compositor with empty layers first
         prompt_layer_t *new_prompt_layer = prompt_layer_create();
         command_layer_t *new_command_layer = command_layer_create();
@@ -1121,6 +1129,8 @@ display_controller_error_t display_controller_display_with_cursor(
     prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
     command_layer_t *command_layer = controller->compositor->command_layer;
     
+    DC_DEBUG("prompt_layer: %p, command_layer: %p", (void*)prompt_layer, (void*)command_layer);
+    
     if (!prompt_layer || !command_layer) {
         DC_ERROR("Failed to get layers from composition engine");
         return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
@@ -1128,20 +1138,28 @@ display_controller_error_t display_controller_display_with_cursor(
     
     // Set prompt content if provided
     if (prompt_text && *prompt_text) {
+        DC_DEBUG("Setting prompt content...");
         prompt_layer_error_t prompt_result = prompt_layer_set_content(prompt_layer, prompt_text);
+        DC_DEBUG("prompt_layer_set_content returned: %d", prompt_result);
         if (prompt_result != PROMPT_LAYER_SUCCESS) {
             DC_ERROR("Failed to set prompt content");
             return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
         }
+    } else {
+        DC_DEBUG("No prompt text provided");
     }
     
     // Set command content if provided
     if (command_text && *command_text) {
+        DC_DEBUG("Setting command content...");
         command_layer_error_t cmd_result = command_layer_set_command(command_layer, command_text, cursor_byte_offset);
+        DC_DEBUG("command_layer_set_command returned: %d", cmd_result);
         if (cmd_result != COMMAND_LAYER_SUCCESS) {
             DC_ERROR("Failed to set command content");
             return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
         }
+    } else {
+        DC_DEBUG("No command text provided");
     }
     
     // Get terminal width from terminal control layer
@@ -1157,12 +1175,17 @@ display_controller_error_t display_controller_display_with_cursor(
     composition_with_cursor_t comp_result;
     memset(&comp_result, 0, sizeof(comp_result));
     
+    DC_DEBUG("Calling composition_engine_compose_with_cursor...");
     composition_engine_error_t comp_error = composition_engine_compose_with_cursor(
         controller->compositor,
         cursor_byte_offset,
         terminal_width,
         &comp_result
     );
+    
+    DC_DEBUG("composition_engine_compose_with_cursor returned: %d", comp_error);
+    DC_DEBUG("composed_output length: %zu", strlen(comp_result.composed_output));
+    DC_DEBUG("cursor_found: %s", comp_result.cursor_found ? "true" : "false");
     
     if (comp_error != COMPOSITION_ENGINE_SUCCESS) {
         DC_ERROR("Composition with cursor failed: %s", 
@@ -1174,6 +1197,8 @@ display_controller_error_t display_controller_display_with_cursor(
         DC_ERROR("Cursor position not found during composition");
         return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
     }
+    
+    DC_DEBUG("Cursor position: row=%zu, col=%zu", comp_result.cursor_screen_row, comp_result.cursor_screen_column);
     
     // Now wrap the composed output with terminal control sequences
     
@@ -1244,7 +1269,9 @@ display_controller_error_t display_controller_display_with_cursor(
     // Null-terminate
     output[offset] = '\0';
     
-    DC_DEBUG("Display with cursor completed: row=%d, col=%d", target_row, target_column);
+    DC_DEBUG("Display with cursor completed: row=%d, col=%d, total output length=%zu", 
+             target_row, target_column, offset);
+    DC_DEBUG("Output buffer first 100 chars: %.100s", output);
     return DISPLAY_CONTROLLER_SUCCESS;
 }
 

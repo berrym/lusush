@@ -125,18 +125,11 @@ static bool is_input_incomplete(const char *buffer_data, continuation_state_t *s
  */
 static void refresh_display(readline_context_t *ctx)
 {
-    fprintf(stderr, "[LLE] refresh_display() called\n");
-    fflush(stderr);
-    
     /* Get the global display controller */
     display_controller_t *display = display_integration_get_controller();
     if (!display) {
-        fprintf(stderr, "[LLE] Display controller not available\n");
         return;
     }
-    
-    fprintf(stderr, "[LLE] Display controller = %p\n", (void*)display);
-    fflush(stderr);
     
     /* Extract command text from buffer */
     const char *command_text = "";
@@ -177,21 +170,11 @@ static void refresh_display(readline_context_t *ctx)
         sizeof(display_output)
     );
     
-    fprintf(stderr, "[LLE] display_controller_display_with_cursor returned error=%d\n", error);
-    fflush(stderr);
-    
     if (error == DISPLAY_CONTROLLER_SUCCESS) {
         /* Output is now terminal-ready with proper cursor positioning */
         /* This handles line wrapping, UTF-8, ANSI codes, tabs correctly */
-        fprintf(stderr, "[LLE] Output length: %zu\n", strlen(display_output));
-        fprintf(stderr, "[LLE] About to printf output\n");
-        fflush(stderr);
         printf("%s", display_output);
         fflush(stdout);
-        fprintf(stderr, "[LLE] printf done\n");
-        fflush(stderr);
-    } else {
-        fprintf(stderr, "[LLE] display_controller_display_with_cursor() failed with error %d\n", error);
     }
 }
 
@@ -652,25 +635,19 @@ char *lle_readline(const char *prompt)
 {
     lle_result_t result;
     
-    fprintf(stderr, "[LLE] lle_readline starting\n");
-    
     /* Get display controller from display_integration */
     void *display_controller = display_integration_get_controller();
-    fprintf(stderr, "[LLE] display_controller = %p\n", display_controller);
     
     /* === STEP 1: Create terminal abstraction instance === */
     lle_terminal_abstraction_t *term = NULL;
     result = lle_terminal_abstraction_init(&term, (lusush_display_context_t *)display_controller);
     if (result != LLE_SUCCESS || term == NULL) {
         /* Failed to initialize terminal abstraction */
-        fprintf(stderr, "[LLE] FAILED: terminal abstraction init failed, result=%d\n", result);
         return NULL;
     }
-    fprintf(stderr, "[LLE] Terminal abstraction initialized\n");
     
     /* === STEP 2: Get unix interface for raw mode === */
     if (term->unix_interface == NULL) {
-        fprintf(stderr, "[LLE] FAILED: unix_interface is NULL\n");
         lle_terminal_abstraction_destroy(term);
         return NULL;
     }
@@ -681,11 +658,9 @@ char *lle_readline(const char *prompt)
     result = lle_unix_interface_enter_raw_mode(unix_iface);
     if (result != LLE_SUCCESS) {
         /* Failed to enter raw mode */
-        fprintf(stderr, "[LLE] FAILED: enter raw mode failed, result=%d\n", result);
         lle_terminal_abstraction_destroy(term);
         return NULL;
     }
-    fprintf(stderr, "[LLE] Entered raw mode\n");
     
     /* === STEP 4: Create buffer for line editing === */
     lle_buffer_t *buffer = NULL;
@@ -747,20 +722,11 @@ char *lle_readline(const char *prompt)
     
     /* === STEP 7: Display prompt === */
     /* Step 4: Initial display refresh to show prompt */
-    fprintf(stderr, "[LLE] About to call refresh_display()\n");
-    fflush(stderr);
     refresh_display(&ctx);
-    
-    fprintf(stderr, "[LLE] About to enter event loop, done=%d\n", done);
     
     /* === STEP 8: Main input loop === */
     
-    int loop_iterations = 0;
     while (!done) {
-        loop_iterations++;
-        if (loop_iterations == 1 || loop_iterations % 100 == 0) {
-            fprintf(stderr, "[LLE] Event loop iteration %d\n", loop_iterations);
-        }
         
         /* Read next input event */
         lle_input_event_t *event = NULL;
@@ -780,13 +746,9 @@ char *lle_readline(const char *prompt)
             continue;
         }
         
-        fprintf(stderr, "[LLE] Got real event, result=%d, type=%d\n", 
-                result, event->type);
-        
         /* Handle read errors */
         if (result != LLE_SUCCESS) {
             /* Error reading input - abort */
-            fprintf(stderr, "[LLE] Read error, aborting\n");
             done = true;
             final_line = NULL;
             continue;
@@ -977,8 +939,6 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 10: Exit raw mode === */
-    fprintf(stderr, "[LLE] Exiting event loop after %d iterations, done=%d, final_line=%p\n",
-            loop_iterations, done, (void*)final_line);
     lle_unix_interface_exit_raw_mode(unix_iface);
     
     /* === STEP 11: Cleanup and return === */
@@ -993,6 +953,5 @@ char *lle_readline(const char *prompt)
     lle_buffer_destroy(buffer);
     lle_terminal_abstraction_destroy(term);
     
-    fprintf(stderr, "[LLE] lle_readline returning: %p\n", (void*)final_line);
     return final_line;
 }

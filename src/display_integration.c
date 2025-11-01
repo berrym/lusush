@@ -918,6 +918,16 @@ bool display_integration_is_layered_active(void) {
 }
 
 /**
+ * Get the global display controller instance.
+ * For use by LLE and other components that need display integration.
+ *
+ * @return pointer to display controller, or NULL if not initialized
+ */
+display_controller_t *display_integration_get_controller(void) {
+    return global_display_controller;
+}
+
+/**
  * Get display integration health status.
  *
  * @return health status enum

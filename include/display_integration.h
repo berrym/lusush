@@ -367,6 +367,14 @@ void display_integration_reset_stats(void);
 bool display_integration_is_layered_active(void);
 
 /**
+ * Get the global display controller instance.
+ * Returns the display controller for integration with other components like LLE.
+ * 
+ * @return pointer to display controller, or NULL if not initialized
+ */
+display_controller_t *display_integration_get_controller(void);
+
+/**
  * Get display integration health status.
  * Provides a comprehensive health assessment of the integration system
  * based on performance metrics, error rates, and system status.
