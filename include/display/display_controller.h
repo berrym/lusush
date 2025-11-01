@@ -327,6 +327,46 @@ display_controller_error_t display_controller_display(
 );
 
 /**
+ * Perform display operation with cursor position tracking and optional terminal control.
+ * 
+ * This function extends display_controller_display() with cursor position tracking
+ * and optional terminal control sequence wrapping for LLE integration. It uses
+ * the composition engine's incremental cursor tracking (proven approach from
+ * Replxx/Fish/ZLE) to calculate cursor screen position, then optionally wraps
+ * the output with terminal control sequences for line clearing and cursor positioning.
+ * 
+ * When terminal control wrapping is enabled, the output includes:
+ * - Line clear sequence (\r\033[J)
+ * - Composed content (prompt + command with syntax highlighting)
+ * - Cursor positioning sequence (\033[row;colH)
+ * 
+ * This makes the output "terminal-ready" for LLE, which maintains architectural
+ * purity by having NO terminal knowledge.
+ * 
+ * @param controller The display controller
+ * @param prompt_text Prompt text to display (NULL to use current)
+ * @param command_text Command text for syntax highlighting (NULL for none)
+ * @param cursor_byte_offset Cursor position as byte offset in command_text (0-based)
+ * @param apply_terminal_control If true, wrap output with terminal control sequences
+ * @param output Buffer to receive display output (terminal-ready if wrapping enabled)
+ * @param output_size Size of output buffer
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ * 
+ * @note For GNU Readline: Pass apply_terminal_control=false (handles own terminal control)
+ * @note For LLE: Pass apply_terminal_control=true (gets terminal-ready output)
+ * @see docs/development/TERMINAL_CONTROL_WRAPPING_DESIGN.md
+ */
+display_controller_error_t display_controller_display_with_cursor(
+    display_controller_t *controller,
+    const char *prompt_text,
+    const char *command_text,
+    size_t cursor_byte_offset,
+    bool apply_terminal_control,
+    char *output,
+    size_t output_size
+);
+
+/**
  * Update display with intelligent diff algorithms.
  * 
  * Performs an intelligent update of the display using diff algorithms to

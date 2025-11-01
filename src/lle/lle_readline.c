@@ -55,11 +55,14 @@
 #include "lle/event_system.h"
 #include "lle/error_handling.h"
 #include "input_continuation.h"
+#include "display_integration.h"
+#include "display/display_controller.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <stdio.h>
 
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
@@ -110,29 +113,72 @@ static bool is_input_incomplete(const char *buffer_data, continuation_state_t *s
 
 /**
  * @brief Refresh display after buffer modification
- * Step 4: Use display generator and client for rendering
+ * 
+ * PROPER ARCHITECTURE: Uses Lusush's layered display system via display_controller_display()
+ * - Prompt text → prompt_layer (separate, independent rendering)
+ * - Command text → command_layer (separate, independent rendering with syntax highlighting)
+ * - Composition → composition_engine (intelligently combines the layers)
+ * - Final output → display_controller (coordinates and optimizes)
+ * 
+ * This is the CORRECT way to integrate LLE with Lusush's display architecture.
+ * LLE does NOT render anything itself - it delegates to the layered display system.
  */
 static void refresh_display(readline_context_t *ctx)
 {
-    /* Step 4: Use display APIs if available */
-    if (ctx->term && ctx->term->display_generator && ctx->term->display_client) {
-        /* Note: Display components may not be fully initialized if Lusush display is NULL */
-        /* This call will use the proper API even if it doesn't fully render yet */
-        lle_display_content_t *content = NULL;
-        lle_result_t result = lle_display_generator_generate_content(
-            ctx->term->display_generator,
-            &content
-        );
-        
-        if (result == LLE_SUCCESS && content != NULL) {
-            /* Submit to Lusush display client */
-            lle_lusush_display_client_submit_content(
-                ctx->term->display_client,
-                content
-            );
-        }
+    /* Get the global display controller */
+    display_controller_t *display = display_integration_get_controller();
+    if (!display) {
+        fprintf(stderr, "[LLE] Display controller not available\n");
+        return;
     }
-    /* If display components are not available, no rendering occurs */
+    
+    /* Extract command text from buffer */
+    const char *command_text = "";
+    if (ctx->buffer && ctx->buffer->data) {
+        command_text = ctx->buffer->data;
+    }
+    
+    /* Get cursor byte offset from buffer */
+    size_t cursor_byte_offset = 0;
+    if (ctx->buffer) {
+        cursor_byte_offset = ctx->buffer->cursor.byte_offset;
+    }
+    
+    /* Prepare output buffer for display result */
+    static char display_output[32768];  /* Large buffer for complex prompts with ANSI codes */
+    
+    /* Call display_controller_display_with_cursor() with terminal control enabled:
+     * - prompt_text: Goes to prompt_layer for rendering
+     * - command_text: Goes to command_layer for rendering with syntax highlighting  
+     * - cursor_byte_offset: LLE's cursor position as byte offset in buffer
+     * - apply_terminal_control=true: Enables terminal control wrapping for LLE
+     * 
+     * This uses incremental cursor tracking (Replxx/Fish/ZLE approach) to calculate
+     * cursor screen position, then wraps output with terminal control sequences:
+     * - \r\033[J (clear to end of screen)
+     * - Composed content (prompt + command with colors)
+     * - \033[row;colH (cursor positioning)
+     * 
+     * LLE remains architecturally pure - NO terminal knowledge needed!
+     */
+    display_controller_error_t error = display_controller_display_with_cursor(
+        display,
+        ctx->prompt,               /* Prompt → prompt_layer */
+        command_text,              /* Command → command_layer */
+        cursor_byte_offset,        /* Cursor position in buffer (byte offset) */
+        true,                      /* Enable terminal control wrapping for LLE */
+        display_output,
+        sizeof(display_output)
+    );
+    
+    if (error == DISPLAY_CONTROLLER_SUCCESS) {
+        /* Output is now terminal-ready with proper cursor positioning */
+        /* This handles line wrapping, UTF-8, ANSI codes, tabs correctly */
+        printf("%s", display_output);
+        fflush(stdout);
+    } else {
+        fprintf(stderr, "[LLE] display_controller_display_with_cursor() failed with error %d\n", error);
+    }
 }
 
 /**
@@ -592,16 +638,25 @@ char *lle_readline(const char *prompt)
 {
     lle_result_t result;
     
+    fprintf(stderr, "[LLE] lle_readline starting\n");
+    
+    /* Get display controller from display_integration */
+    void *display_controller = display_integration_get_controller();
+    fprintf(stderr, "[LLE] display_controller = %p\n", display_controller);
+    
     /* === STEP 1: Create terminal abstraction instance === */
     lle_terminal_abstraction_t *term = NULL;
-    result = lle_terminal_abstraction_init(&term, NULL);  /* NULL = no Lusush display yet */
+    result = lle_terminal_abstraction_init(&term, (lusush_display_context_t *)display_controller);
     if (result != LLE_SUCCESS || term == NULL) {
         /* Failed to initialize terminal abstraction */
+        fprintf(stderr, "[LLE] FAILED: terminal abstraction init failed, result=%d\n", result);
         return NULL;
     }
+    fprintf(stderr, "[LLE] Terminal abstraction initialized\n");
     
     /* === STEP 2: Get unix interface for raw mode === */
     if (term->unix_interface == NULL) {
+        fprintf(stderr, "[LLE] FAILED: unix_interface is NULL\n");
         lle_terminal_abstraction_destroy(term);
         return NULL;
     }
@@ -612,9 +667,11 @@ char *lle_readline(const char *prompt)
     result = lle_unix_interface_enter_raw_mode(unix_iface);
     if (result != LLE_SUCCESS) {
         /* Failed to enter raw mode */
+        fprintf(stderr, "[LLE] FAILED: enter raw mode failed, result=%d\n", result);
         lle_terminal_abstraction_destroy(term);
         return NULL;
     }
+    fprintf(stderr, "[LLE] Entered raw mode\n");
     
     /* === STEP 4: Create buffer for line editing === */
     lle_buffer_t *buffer = NULL;
@@ -678,9 +735,17 @@ char *lle_readline(const char *prompt)
     /* Step 4: Initial display refresh to show prompt */
     refresh_display(&ctx);
     
+    fprintf(stderr, "[LLE] About to enter event loop, done=%d\n", done);
+    
     /* === STEP 8: Main input loop === */
     
+    int loop_iterations = 0;
     while (!done) {
+        loop_iterations++;
+        if (loop_iterations == 1 || loop_iterations % 100 == 0) {
+            fprintf(stderr, "[LLE] Event loop iteration %d\n", loop_iterations);
+        }
+        
         /* Read next input event */
         lle_input_event_t *event = NULL;
         result = lle_input_processor_read_next_event(
@@ -689,14 +754,23 @@ char *lle_readline(const char *prompt)
             100  /* 100ms timeout */
         );
         
-        /* Handle timeout - just continue */
+        /* Handle timeout and null events - just continue */
         if (result == LLE_ERROR_TIMEOUT || event == NULL) {
             continue;
         }
         
+        /* ALSO check event type for timeout (timeout can be returned as SUCCESS with type=TIMEOUT) */
+        if (event->type == LLE_INPUT_TYPE_TIMEOUT) {
+            continue;
+        }
+        
+        fprintf(stderr, "[LLE] Got real event, result=%d, type=%d\n", 
+                result, event->type);
+        
         /* Handle read errors */
         if (result != LLE_SUCCESS) {
             /* Error reading input - abort */
+            fprintf(stderr, "[LLE] Read error, aborting\n");
             done = true;
             final_line = NULL;
             continue;
@@ -887,6 +961,8 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 10: Exit raw mode === */
+    fprintf(stderr, "[LLE] Exiting event loop after %d iterations, done=%d, final_line=%p\n",
+            loop_iterations, done, (void*)final_line);
     lle_unix_interface_exit_raw_mode(unix_iface);
     
     /* === STEP 11: Cleanup and return === */
@@ -901,5 +977,6 @@ char *lle_readline(const char *prompt)
     lle_buffer_destroy(buffer);
     lle_terminal_abstraction_destroy(term);
     
+    fprintf(stderr, "[LLE] lle_readline returning: %p\n", (void*)final_line);
     return final_line;
 }

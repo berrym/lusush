@@ -1037,6 +1037,144 @@ display_controller_error_t display_controller_display(
     return DISPLAY_CONTROLLER_SUCCESS;
 }
 
+display_controller_error_t display_controller_display_with_cursor(
+    display_controller_t *controller,
+    const char *prompt_text,
+    const char *command_text,
+    size_t cursor_byte_offset,
+    bool apply_terminal_control,
+    char *output,
+    size_t output_size
+) {
+    if (!controller || !output) {
+        return DISPLAY_CONTROLLER_ERROR_INVALID_PARAM;
+    }
+    
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+    
+    if (output_size == 0) {
+        return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+    }
+    
+    // If terminal control is NOT requested, just use normal display
+    if (!apply_terminal_control) {
+        return display_controller_display(
+            controller,
+            prompt_text,
+            command_text,
+            output,
+            output_size
+        );
+    }
+    
+    // Terminal control wrapping requested - use composition engine with cursor tracking
+    
+    // Get terminal width from terminal control layer
+    int terminal_width = 80;  // Default
+    if (controller->terminal_ctrl) {
+        terminal_width = controller->terminal_ctrl->capabilities.terminal_width;
+        if (terminal_width <= 0) {
+            terminal_width = 80;
+        }
+    }
+    
+    // Use composition engine with cursor tracking
+    composition_with_cursor_t comp_result;
+    memset(&comp_result, 0, sizeof(comp_result));
+    
+    composition_engine_error_t comp_error = composition_engine_compose_with_cursor(
+        controller->compositor,
+        cursor_byte_offset,
+        terminal_width,
+        &comp_result
+    );
+    
+    if (comp_error != COMPOSITION_ENGINE_SUCCESS) {
+        DC_ERROR("Composition with cursor failed: %s", 
+                 composition_engine_error_string(comp_error));
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    if (!comp_result.cursor_found) {
+        DC_ERROR("Cursor position not found during composition");
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    // Now wrap the composed output with terminal control sequences
+    
+    if (!controller->terminal_ctrl) {
+        // No terminal control available - just return composed content
+        size_t len = strlen(comp_result.composed_output);
+        if (len >= output_size) {
+            return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+        }
+        strcpy(output, comp_result.composed_output);
+        return DISPLAY_CONTROLLER_SUCCESS;
+    }
+    
+    terminal_control_t *tc = controller->terminal_ctrl;
+    
+    // Step 1: Clear line sequence (\r\033[J)
+    char clear_seq[64];
+    ssize_t clear_len = snprintf(clear_seq, sizeof(clear_seq), "\r\033[J");
+    
+    if (clear_len < 0 || (size_t)clear_len >= sizeof(clear_seq)) {
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    // Step 2: Build output: clear + content + cursor positioning
+    size_t offset = 0;
+    
+    // Add clear sequence
+    if (offset + clear_len >= output_size) {
+        return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+    }
+    memcpy(output + offset, clear_seq, clear_len);
+    offset += clear_len;
+    
+    // Add composed content
+    size_t content_len = strlen(comp_result.composed_output);
+    if (offset + content_len >= output_size) {
+        return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+    }
+    memcpy(output + offset, comp_result.composed_output, content_len);
+    offset += content_len;
+    
+    // Step 3: Add cursor positioning
+    // Convert from 0-based (composition) to 1-based (ANSI)
+    int target_row = comp_result.cursor_screen_row + 1;
+    int target_column = comp_result.cursor_screen_column + 1;
+    
+    // Generate cursor positioning sequence using Layer 2 (terminal_control)
+    char cursor_seq[64];
+    ssize_t cursor_len = terminal_control_generate_cursor_sequence(
+        tc,
+        target_row,
+        target_column,
+        cursor_seq,
+        sizeof(cursor_seq)
+    );
+    
+    if (cursor_len < 0) {
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    if (offset + cursor_len >= output_size) {
+        return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+    }
+    
+    memcpy(output + offset, cursor_seq, cursor_len);
+    offset += cursor_len;
+    
+    // Null-terminate
+    output[offset] = '\0';
+    
+    DC_DEBUG("Display with cursor completed: row=%d, col=%d", target_row, target_column);
+    return DISPLAY_CONTROLLER_SUCCESS;
+}
+
 display_controller_error_t display_controller_update(
     display_controller_t *controller,
     const char *new_prompt_text,

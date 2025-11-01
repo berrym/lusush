@@ -550,8 +550,6 @@ static composition_engine_error_t compose_layers(
         engine->composed_output_size = COMPOSITION_ENGINE_MAX_OUTPUT_SIZE;
     }
 
-
-    
     // Apply composition strategy
     switch (strategy) {
         case COMPOSITION_STRATEGY_SIMPLE:
@@ -811,14 +809,21 @@ composition_engine_error_t composition_engine_compose(composition_engine_t *engi
     if (cached && !is_cache_entry_expired(engine, cached)) {
         // Use cached result
         if (cached->cached_output) {
-            if (engine->composed_output) {
-                free(engine->composed_output);
+            // Ensure we have a buffer (allocate if needed)
+            if (!engine->composed_output) {
+                engine->composed_output = malloc(COMPOSITION_ENGINE_MAX_OUTPUT_SIZE);
+                if (!engine->composed_output) {
+                    return COMPOSITION_ENGINE_ERROR_MEMORY_ALLOCATION;
+                }
+                engine->composed_output_size = COMPOSITION_ENGINE_MAX_OUTPUT_SIZE;
             }
+            
+            // Copy cached output into existing buffer (don't shrink buffer!)
             size_t output_len = strlen(cached->cached_output);
-            engine->composed_output = malloc(output_len + 1);
-            if (engine->composed_output) {
+            if (output_len < engine->composed_output_size) {
                 strcpy(engine->composed_output, cached->cached_output);
-                engine->composed_output_size = output_len + 1;
+            } else {
+                return COMPOSITION_ENGINE_ERROR_BUFFER_TOO_SMALL;
             }
         }
         
@@ -1314,6 +1319,177 @@ composition_engine_error_t composition_engine_calculate_hash(
              prompt_content, command_content);
     
     calculate_content_hash(combined_content, hash_buffer, buffer_size);
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+// ============================================================================
+// CURSOR TRACKING IMPLEMENTATION (For LLE Terminal Control Wrapping)
+// ============================================================================
+
+/**
+ * Calculate visual width of a text string, stripping ANSI escape sequences.
+ * This is needed to calculate the prompt width correctly.
+ */
+static size_t calculate_visual_width(const char *text) {
+    if (!text) return 0;
+    
+    size_t visual_len = 0;
+    bool in_escape = false;
+    
+    for (const char *p = text; *p; p++) {
+        if (*p == '\033' || *p == '\x1b') {
+            in_escape = true;
+            continue;
+        }
+        
+        if (in_escape) {
+            // Skip until we find the end of the escape sequence
+            if (*p == 'm' || *p == 'K' || *p == 'J' || *p == 'H' || 
+                *p == 'A' || *p == 'B' || *p == 'C' || *p == 'D' ||
+                *p == 'G' || *p == 'f' || *p == 's' || *p == 'u') {
+                in_escape = false;
+            }
+            continue;
+        }
+        
+        // Count visible characters
+        // TODO: Proper UTF-8 width calculation (for now assume 1 column per char)
+        visual_len++;
+    }
+    
+    return visual_len;
+}
+
+/**
+ * Compose layers with cursor position tracking using incremental tracking.
+ * 
+ * This implements the proven approach from Replxx/Fish/ZLE: walk through
+ * the buffer character-by-character, track (x, y) position, and record
+ * the position when we reach the cursor byte offset.
+ */
+composition_engine_error_t composition_engine_compose_with_cursor(
+    composition_engine_t *engine,
+    size_t cursor_byte_offset,
+    int terminal_width,
+    composition_with_cursor_t *result
+) {
+    if (!engine || !result) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    if (!engine->initialized) {
+        return COMPOSITION_ENGINE_ERROR_NOT_INITIALIZED;
+    }
+    
+    if (terminal_width <= 0) {
+        terminal_width = 80;  // Fallback to standard width
+    }
+    
+    // First, perform normal composition to get the composed output
+    composition_engine_error_t comp_result = composition_engine_compose(engine);
+    if (comp_result != COMPOSITION_ENGINE_SUCCESS) {
+        return comp_result;
+    }
+    
+    // Get the composed output
+    comp_result = composition_engine_get_output(
+        engine, 
+        result->composed_output, 
+        sizeof(result->composed_output)
+    );
+    if (comp_result != COMPOSITION_ENGINE_SUCCESS) {
+        return comp_result;
+    }
+    
+    // Get prompt content to calculate its visual width
+    char prompt_content[PROMPT_LAYER_MAX_CONTENT_SIZE];
+    prompt_layer_error_t prompt_error = prompt_layer_get_rendered_content(
+        engine->prompt_layer, prompt_content, sizeof(prompt_content)
+    );
+    if (prompt_error != PROMPT_LAYER_SUCCESS) {
+        return COMPOSITION_ENGINE_ERROR_LAYER_NOT_READY;
+    }
+    
+    // Calculate prompt visual width (strip ANSI codes)
+    size_t prompt_width = calculate_visual_width(prompt_content);
+    
+    // Get command text for cursor tracking
+    const char *cmd = engine->command_layer->command_text;
+    if (!cmd) {
+        cmd = "";
+    }
+    size_t cmd_len = strlen(cmd);
+    
+    // Initialize cursor tracking
+    int x = prompt_width;  // Start after prompt
+    int y = 0;
+    size_t bytes_processed = 0;
+    result->cursor_found = false;
+    result->terminal_width = terminal_width;
+    
+    // Walk through command buffer character by character
+    for (size_t i = 0; i < cmd_len; ) {
+        // Check if we've reached cursor position
+        if (bytes_processed == cursor_byte_offset && !result->cursor_found) {
+            result->cursor_screen_row = y;
+            result->cursor_screen_column = x;
+            result->cursor_found = true;
+        }
+        
+        // Determine character type and visual width
+        int char_width = 0;
+        int bytes_consumed = 1;
+        
+        if (cmd[i] == '\t') {
+            // Tab character - expand to next multiple of 8
+            char_width = 8 - (x % 8);
+        } else if ((cmd[i] & 0x80) == 0) {
+            // ASCII character (single byte, width 1)
+            char_width = 1;
+        } else {
+            // Multi-byte UTF-8 character
+            // Detect byte count
+            if ((cmd[i] & 0xE0) == 0xC0) {
+                bytes_consumed = 2;  // 2-byte UTF-8
+            } else if ((cmd[i] & 0xF0) == 0xE0) {
+                bytes_consumed = 3;  // 3-byte UTF-8
+            } else if ((cmd[i] & 0xF8) == 0xF0) {
+                bytes_consumed = 4;  // 4-byte UTF-8
+            }
+            
+            // For now, assume width 1 (proper wide char detection would check Unicode range)
+            // TODO: Implement proper wcwidth() for CJK characters (width 2)
+            char_width = 1;
+        }
+        
+        // Advance cursor position
+        x += char_width;
+        
+        // Handle line wrapping
+        if (x >= terminal_width) {
+            x = 0;
+            y++;
+        }
+        
+        // Advance through buffer
+        i += bytes_consumed;
+        bytes_processed += bytes_consumed;
+    }
+    
+    // If cursor is at end of buffer and not found yet
+    if (bytes_processed == cursor_byte_offset && !result->cursor_found) {
+        result->cursor_screen_row = y;
+        result->cursor_screen_column = x;
+        result->cursor_found = true;
+    }
+    
+    // If cursor position exceeds buffer, place at end
+    if (!result->cursor_found) {
+        result->cursor_screen_row = y;
+        result->cursor_screen_column = x;
+        result->cursor_found = true;
+    }
     
     return COMPOSITION_ENGINE_SUCCESS;
 }

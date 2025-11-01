@@ -76,7 +76,7 @@ extern "C" {
 #define COMPOSITION_ENGINE_VERSION_PATCH 0
 
 // Composition content limits
-#define COMPOSITION_ENGINE_MAX_OUTPUT_SIZE 24576
+#define COMPOSITION_ENGINE_MAX_OUTPUT_SIZE 65536  /* Increased for complex prompts */
 #define COMPOSITION_ENGINE_MAX_LINES 64
 #define COMPOSITION_ENGINE_MAX_LINE_WIDTH 1024
 
@@ -596,6 +596,67 @@ layer_events_error_t composition_engine_handle_theme_changed(
 layer_events_error_t composition_engine_handle_terminal_resize(
     const layer_event_t *event,
     void *user_data
+);
+
+// ============================================================================
+// CURSOR TRACKING API (For LLE Terminal Control Wrapping)
+// ============================================================================
+
+/**
+ * Composition result with cursor position tracking.
+ * 
+ * This structure extends the basic composition output with cursor position
+ * information calculated using incremental tracking during composition.
+ * This is required for LLE to get terminal-ready output with correct cursor
+ * positioning that handles line wrapping, UTF-8, ANSI codes, and tabs.
+ */
+typedef struct {
+    char composed_output[COMPOSITION_ENGINE_MAX_OUTPUT_SIZE];  // Composed content
+    size_t cursor_screen_row;                                   // Cursor row (0-based)
+    size_t cursor_screen_column;                                // Cursor column (0-based)
+    bool cursor_found;                                          // Cursor position was calculated
+    size_t terminal_width;                                      // Terminal width used for wrapping
+} composition_with_cursor_t;
+
+/**
+ * Compose layers with cursor position tracking.
+ * 
+ * This function performs composition while tracking the screen position of
+ * a cursor at a specific byte offset in the command buffer. It uses incremental
+ * cursor tracking (the proven approach from Replxx/Fish/ZLE) to handle:
+ * - Multi-byte UTF-8 characters (correct visual width)
+ * - Wide characters (CJK - 2 columns)
+ * - ANSI escape sequences (0 columns)
+ * - Tab expansion (to next multiple of 8)
+ * - Line wrapping (when content exceeds terminal width)
+ * 
+ * The cursor position is calculated by walking through the command buffer
+ * character-by-character during composition, tracking the visual (x, y)
+ * position. When the byte offset matches cursor_byte_offset, the current
+ * position is recorded.
+ * 
+ * This is the architecturally correct approach for LLE integration:
+ * - LLE passes cursor as byte offset in its buffer
+ * - Composition engine calculates screen position during rendering
+ * - Display controller uses pre-calculated position for terminal sequences
+ * - LLE never needs terminal knowledge (maintains architectural purity)
+ * 
+ * @param engine The composition engine
+ * @param cursor_byte_offset Cursor position as byte offset in command text (0-based)
+ * @param terminal_width Terminal width for line wrapping calculation
+ * @param result Output structure with composed content and cursor position
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code on failure
+ * 
+ * @note This is the CORRECT approach researched from modern line editors
+ * @note Do NOT use division/modulo formulas (breaks on UTF-8/ANSI/tabs/wide chars)
+ * @see docs/development/TERMINAL_CONTROL_WRAPPING_DESIGN.md
+ * @see docs/development/MODERN_EDITOR_WRAPPING_RESEARCH.md
+ */
+composition_engine_error_t composition_engine_compose_with_cursor(
+    composition_engine_t *engine,
+    size_t cursor_byte_offset,
+    int terminal_width,
+    composition_with_cursor_t *result
 );
 
 #ifdef __cplusplus

@@ -1,14 +1,14 @@
 # LLE Implementation - AI Assistant Handoff Document
 
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
-**Date**: 2025-10-31  
+**Date**: 2025-11-01  
 **Branch**: feature/lle  
-**Status**: [COMPLETE] lle_readline() Step 7 - Signal Handling  
-**Last Action**: Integrated SIGWINCH handling for terminal resize with display refresh  
-**Next**: **Implement lle_readline() Step 8** - Performance optimization, then manual testing  
-**Tests**: All LLE tests passing + Compiles cleanly + Build clean + Signal handling integrated  
+**Status**: [IMPLEMENTATION COMPLETE] Terminal Control Wrapping - Ready for Testing  
+**Last Action**: Implemented incremental cursor tracking in composition engine and display controller  
+**Next**: **Run PTY tests to validate cursor positioning** - Expect 5/5 passing  
+**Tests**: PTY test infrastructure ready, cursor tracking implementation complete  
 **Automation**: Pre-commit hooks enforcing zero-tolerance policy  
-**Critical Achievement**: Complete signal handling - SIGWINCH/SIGTSTP/SIGCONT/SIGINT all working
+**Critical Achievement**: Research-validated incremental cursor tracking (Replxx-based) fully implemented
 
 ---
 
@@ -173,29 +173,49 @@ The phased plan document explicitly described "simplified implementations" which
 - Remove: Implementation files (violate policies, call non-existent functions)
 - Return to Spec 22 AFTER lle_readline() works
 
-### Path Forward
+### Path Forward (UPDATED 2025-11-01)
 
-**Immediate Priority**: **Implement lle_readline()**
-1. Design is complete (LLE_READLINE_DESIGN.md)
-2. All required subsystem APIs exist
-3. Can be implemented incrementally (8 steps)
-4. Will prove LLE viability
-5. Enables testing of entire architecture
+**Current Status**: lle_readline() implemented (Steps 1-7 complete), PTY tests created, critical display bug identified
 
-**After lle_readline() Works**:
-1. Test basic editing (type, backspace, enter)
-2. Test special keys (arrows, home, end)
-3. Test multiline support
-4. Prove architecture works
-5. THEN return to Spec 22
+**Critical Discovery (2025-11-01)**:
+- LLE was not displaying prompt/input despite commands executing
+- Root cause: LLE bypassed Lusush layered display system
+- Display controller returns composed content only (no terminal control sequences)
+- This worked for GNU Readline (handles own terminal control)
+- Broke for LLE (pure display system client with NO terminal knowledge)
+
+**Architectural Gap Identified**:
+- Display controller needs **optional terminal control wrapping** feature
+- Must add cursor positioning sequences for LLE
+- Must maintain backward compatibility for GNU Readline
+- Research shows modern line editors (Replxx, Fish, ZLE) use incremental cursor tracking
+
+**Design Phase Complete**:
+1. ✅ Researched modern line editor implementations (Replxx source code)
+2. ✅ Designed incremental cursor tracking in composition engine
+3. ✅ Designed terminal control wrapping in display controller
+4. ✅ Documents: TERMINAL_CONTROL_WRAPPING_DESIGN.md, MODERN_EDITOR_WRAPPING_RESEARCH.md
+5. ✅ Prevented repeating cursor positioning bugs from first LLE attempt
+
+**Immediate Priority**: **Implement Terminal Control Wrapping**
+1. Add cursor tracking to composition engine (incremental approach)
+2. Update display controller API: `display_controller_display_with_cursor()`
+3. Integrate with LLE refresh_display()
+4. Run PTY tests for validation (expect 5/5 passing)
+
+**After Terminal Control Works**:
+1. Complete lle_readline() Step 8 (performance optimization)
+2. Manual testing in real terminals
+3. Prove LLE architecture works end-to-end
+4. THEN return to Spec 22
 
 **Success Criteria**:
-- User types at lusush prompt
-- Characters appear on screen
-- Backspace deletes characters
-- Enter returns line to shell
-- Command executes
-- **LLE WORKS** - architecture validated
+- Prompt and input visible on screen
+- Cursor positioned correctly (handles line wrapping)
+- Arrow keys work across wrap boundaries
+- Backspace works across wrap boundaries
+- Ctrl+A/E work with wrapping
+- **LLE DISPLAYS CORRECTLY** - architecture validated
 
 ### Build System Fix
 
