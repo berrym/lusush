@@ -282,21 +282,11 @@ static lle_result_t handle_eof(lle_event_t *event, void *user_data)
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Event handler for Ctrl-C (interrupt)
- * Step 3: Handler signals interrupt
+/*
+ * NOTE: handle_interrupt() removed - Ctrl+C now handled via SIGINT signal.
+ * With ISIG enabled in raw mode, Ctrl+C generates SIGINT caught by lusush's
+ * sigint_handler() in src/signals.c, which properly manages child processes.
  */
-static lle_result_t handle_interrupt(lle_event_t *event, void *user_data)
-{
-    (void)event;  /* Unused */
-    readline_context_t *ctx = (readline_context_t *)user_data;
-    
-    /* Interrupted */
-    *ctx->done = true;
-    *ctx->final_line = NULL;
-    
-    return LLE_SUCCESS;
-}
 
 /**
  * @brief Event handler for Ctrl-G (abort/cancel line)
@@ -785,11 +775,11 @@ char *lle_readline(const char *prompt)
                     break;
                 }
                 
-                /* Check for Ctrl-C (interrupt) */
-                if (codepoint == 3) {  /* ASCII ETX */
-                    handle_interrupt(NULL, &ctx);
-                    break;
-                }
+                /* NOTE: Ctrl-C (codepoint == 3) is handled via SIGINT signal (src/signals.c)
+                 * With ISIG enabled in raw mode, Ctrl-C generates SIGINT instead of character input.
+                 * Lusush's sigint_handler() manages child process killing and line clearing.
+                 * We should NOT see codepoint==3 here anymore.
+                 */
                 
                 /* Check for Ctrl-E (end of line) */
                 if (codepoint == 5) {  /* ASCII ENQ */

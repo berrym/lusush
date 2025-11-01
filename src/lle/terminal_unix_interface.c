@@ -107,23 +107,9 @@ static void handle_sigcont(int sig) {
 }
 
 /*
- * SIGINT/SIGTERM handler - clean exit
- * 
- * Ensure terminal is restored before exiting.
+ * NOTE: handle_exit_signal() removed - we no longer install SIGINT/SIGTERM handlers.
+ * Lusush's signal handlers (src/signals.c) now manage these signals correctly.
  */
-static void handle_exit_signal(int sig) {
-    if (!g_signal_interface) return;
-    
-    /* Exit raw mode before terminating (async-signal-safe) */
-    if (g_signal_interface->raw_mode_active) {
-        tcsetattr(g_signal_interface->terminal_fd, TCSAFLUSH,
-                  &g_signal_interface->original_termios);
-    }
-    
-    /* Re-raise with default handler to actually exit */
-    signal(sig, SIG_DFL);
-    raise(sig);
-}
 
 /* ============================================================================
  * CLEANUP ON EXIT
@@ -162,8 +148,7 @@ static void register_cleanup(void) {
 static struct sigaction original_sigwinch;
 static struct sigaction original_sigtstp;
 static struct sigaction original_sigcont;
-static struct sigaction original_sigint;
-static struct sigaction original_sigterm;
+/* Note: We don't install SIGINT/SIGTERM handlers anymore (lusush handles them) */
 static bool signals_installed = false;
 
 /*
@@ -201,23 +186,15 @@ static lle_result_t install_signal_handlers(lle_unix_interface_t *interface) {
         return LLE_ERROR_SYSTEM_CALL;
     }
     
-    /* SIGINT - Ctrl-C */
-    sa.sa_handler = handle_exit_signal;
-    if (sigaction(SIGINT, &sa, &original_sigint) != 0) {
-        sigaction(SIGWINCH, &original_sigwinch, NULL);
-        sigaction(SIGTSTP, &original_sigtstp, NULL);
-        sigaction(SIGCONT, &original_sigcont, NULL);
-        return LLE_ERROR_SYSTEM_CALL;
-    }
-    
-    /* SIGTERM - termination */
-    if (sigaction(SIGTERM, &sa, &original_sigterm) != 0) {
-        sigaction(SIGWINCH, &original_sigwinch, NULL);
-        sigaction(SIGTSTP, &original_sigtstp, NULL);
-        sigaction(SIGCONT, &original_sigcont, NULL);
-        sigaction(SIGINT, &original_sigint, NULL);
-        return LLE_ERROR_SYSTEM_CALL;
-    }
+    /* NOTE: We do NOT install SIGINT/SIGTERM handlers here.
+     * Lusush's signal handlers (src/signals.c) manage these properly:
+     * - SIGINT: kills child process OR clears line (but never exits shell)
+     * - SIGTERM: handles graceful shutdown
+     * 
+     * LLE previously installed handlers that would exit the shell on Ctrl+C,
+     * which is incorrect shell behavior. Now that ISIG is enabled in raw mode,
+     * Ctrl+C generates SIGINT which lusush's handler will catch and handle correctly.
+     */
     
     /* Set global pointer for handlers */
     g_signal_interface = interface;
@@ -239,12 +216,11 @@ static void restore_signal_handlers(lle_unix_interface_t *interface) {
         return;
     }
     
-    /* Restore all original signal handlers */
+    /* Restore signal handlers that we installed */
     sigaction(SIGWINCH, &original_sigwinch, NULL);
     sigaction(SIGTSTP, &original_sigtstp, NULL);
     sigaction(SIGCONT, &original_sigcont, NULL);
-    sigaction(SIGINT, &original_sigint, NULL);
-    sigaction(SIGTERM, &original_sigterm, NULL);
+    /* Note: We don't restore SIGINT/SIGTERM because we never installed them */
     
     /* Clear global pointer */
     g_signal_interface = NULL;
@@ -435,11 +411,12 @@ lle_result_t lle_unix_interface_enter_raw_mode(lle_unix_interface_t *interface) 
     /* Control flags - 8-bit characters */
     raw->c_cflag |= (CS8);      /* 8 bits per byte */
     
-    /* Local flags - disable canonical mode, echo, and signals */
+    /* Local flags - disable canonical mode and echo, but KEEP signals enabled */
     raw->c_lflag &= ~(ECHO |    /* No echo */
                       ICANON |  /* Non-canonical mode */
-                      IEXTEN |  /* Disable extended input processing */
-                      ISIG);    /* Disable signals (Ctrl-C, Ctrl-Z) */
+                      IEXTEN);  /* Disable extended input processing */
+    /* KEEP ISIG ENABLED - allow Ctrl-C to generate SIGINT for proper shell behavior */
+    /* This ensures lusush's signal handler (src/signals.c) can manage child processes */
     
     /* Control characters - non-blocking read */
     raw->c_cc[VMIN] = 0;        /* Non-blocking: return immediately */
