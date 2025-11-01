@@ -125,12 +125,18 @@ static bool is_input_incomplete(const char *buffer_data, continuation_state_t *s
  */
 static void refresh_display(readline_context_t *ctx)
 {
+    fprintf(stderr, "[LLE] refresh_display() called\n");
+    fflush(stderr);
+    
     /* Get the global display controller */
     display_controller_t *display = display_integration_get_controller();
     if (!display) {
         fprintf(stderr, "[LLE] Display controller not available\n");
         return;
     }
+    
+    fprintf(stderr, "[LLE] Display controller = %p\n", (void*)display);
+    fflush(stderr);
     
     /* Extract command text from buffer */
     const char *command_text = "";
@@ -171,11 +177,19 @@ static void refresh_display(readline_context_t *ctx)
         sizeof(display_output)
     );
     
+    fprintf(stderr, "[LLE] display_controller_display_with_cursor returned error=%d\n", error);
+    fflush(stderr);
+    
     if (error == DISPLAY_CONTROLLER_SUCCESS) {
         /* Output is now terminal-ready with proper cursor positioning */
         /* This handles line wrapping, UTF-8, ANSI codes, tabs correctly */
+        fprintf(stderr, "[LLE] Output length: %zu\n", strlen(display_output));
+        fprintf(stderr, "[LLE] About to printf output\n");
+        fflush(stderr);
         printf("%s", display_output);
         fflush(stdout);
+        fprintf(stderr, "[LLE] printf done\n");
+        fflush(stderr);
     } else {
         fprintf(stderr, "[LLE] display_controller_display_with_cursor() failed with error %d\n", error);
     }
@@ -733,6 +747,8 @@ char *lle_readline(const char *prompt)
     
     /* === STEP 7: Display prompt === */
     /* Step 4: Initial display refresh to show prompt */
+    fprintf(stderr, "[LLE] About to call refresh_display()\n");
+    fflush(stderr);
     refresh_display(&ctx);
     
     fprintf(stderr, "[LLE] About to enter event loop, done=%d\n", done);

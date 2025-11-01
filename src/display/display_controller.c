@@ -1071,6 +1071,79 @@ display_controller_error_t display_controller_display_with_cursor(
     
     // Terminal control wrapping requested - use composition engine with cursor tracking
     
+    // Check if compositor is initialized, if not we need to initialize it
+    bool compositor_initialized = composition_engine_is_initialized(controller->compositor);
+    if (!compositor_initialized) {
+        // Initialize compositor with empty layers first
+        prompt_layer_t *new_prompt_layer = prompt_layer_create();
+        command_layer_t *new_command_layer = command_layer_create();
+        
+        if (!new_prompt_layer || !new_command_layer) {
+            DC_ERROR("Failed to create display layers");
+            if (new_prompt_layer) prompt_layer_destroy(new_prompt_layer);
+            if (new_command_layer) command_layer_destroy(new_command_layer);
+            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+        }
+        
+        // Initialize layers
+        prompt_layer_error_t prompt_init = prompt_layer_init(new_prompt_layer, controller->event_system);
+        if (prompt_init != PROMPT_LAYER_SUCCESS) {
+            DC_ERROR("Failed to initialize prompt layer");
+            prompt_layer_destroy(new_prompt_layer);
+            command_layer_destroy(new_command_layer);
+            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+        }
+        
+        command_layer_error_t cmd_init = command_layer_init(new_command_layer, controller->event_system);
+        if (cmd_init != COMMAND_LAYER_SUCCESS) {
+            DC_ERROR("Failed to initialize command layer");
+            prompt_layer_cleanup(new_prompt_layer);
+            prompt_layer_destroy(new_prompt_layer);
+            command_layer_destroy(new_command_layer);
+            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+        }
+        
+        // Initialize composition engine
+        composition_engine_error_t comp_init = composition_engine_init(
+            controller->compositor, new_prompt_layer, new_command_layer, controller->event_system);
+        
+        if (comp_init != COMPOSITION_ENGINE_SUCCESS) {
+            DC_ERROR("Failed to initialize composition engine");
+            prompt_layer_cleanup(new_prompt_layer);
+            prompt_layer_destroy(new_prompt_layer);
+            command_layer_cleanup(new_command_layer);
+            command_layer_destroy(new_command_layer);
+            return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+        }
+    }
+    
+    // Get the layers (now guaranteed to be initialized)
+    prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
+    command_layer_t *command_layer = controller->compositor->command_layer;
+    
+    if (!prompt_layer || !command_layer) {
+        DC_ERROR("Failed to get layers from composition engine");
+        return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+    }
+    
+    // Set prompt content if provided
+    if (prompt_text && *prompt_text) {
+        prompt_layer_error_t prompt_result = prompt_layer_set_content(prompt_layer, prompt_text);
+        if (prompt_result != PROMPT_LAYER_SUCCESS) {
+            DC_ERROR("Failed to set prompt content");
+            return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+        }
+    }
+    
+    // Set command content if provided
+    if (command_text && *command_text) {
+        command_layer_error_t cmd_result = command_layer_set_command(command_layer, command_text, cursor_byte_offset);
+        if (cmd_result != COMMAND_LAYER_SUCCESS) {
+            DC_ERROR("Failed to set command content");
+            return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
+        }
+    }
+    
     // Get terminal width from terminal control layer
     int terminal_width = 80;  // Default
     if (controller->terminal_ctrl) {
