@@ -318,8 +318,42 @@ endif
 # Spec 09: History System
 # Provides: Command history, persistent storage, history search
 # Depends on: Spec 16, 15, 14, 17, 03, 05
-if fs.exists('src/lle/history.c')
-  lle_sources += 'history.c'
+# Phase 1: Core engine, indexing, persistence
+if fs.exists('history_core.c')
+  lle_sources += files('history_core.c')
+endif
+if fs.exists('history_index.c')
+  lle_sources += files('history_index.c')
+endif
+if fs.exists('history_storage.c')
+  lle_sources += files('history_storage.c')
+endif
+# Phase 2: Lusush integration
+if fs.exists('history_lusush_bridge.c')
+  lle_sources += files('history_lusush_bridge.c')
+endif
+if fs.exists('history_events.c')
+  lle_sources += files('history_events.c')
+endif
+# Phase 3: Search and navigation
+if fs.exists('history_search.c')
+  lle_sources += files('history_search.c')
+endif
+if fs.exists('history_interactive_search.c')
+  lle_sources += files('history_interactive_search.c')
+endif
+if fs.exists('history_navigation.c')
+  lle_sources += files('history_navigation.c')
+endif
+# Phase 4: Advanced features
+if fs.exists('history_forensics.c')
+  lle_sources += files('history_forensics.c')
+endif
+if fs.exists('history_dedup.c')
+  lle_sources += files('history_dedup.c')
+endif
+if fs.exists('history_multiline.c')
+  lle_sources += files('history_multiline.c')
 endif
 
 # Spec 11: Syntax Highlighting
