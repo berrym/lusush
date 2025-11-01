@@ -348,6 +348,26 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # F-Key Detection Integration Test (Spec 02 + Spec 06)
+  # Tests F-key detection with full terminal_abstraction initialization
+  # Validates production code path with parser + key_detector
+  test_fkey_detection = executable('test_fkey_detection',
+                                   'tests/lle/integration/test_fkey_detection.c',
+                                   include_directories: inc,
+                                   dependencies: [lle_dep, readline_dep])
+
+  test('LLE F-Key Detection Integration', test_fkey_detection,
+       suite: 'lle-integration',
+       timeout: 30)
+
+  # F-Key Manual Test Program (Spec 02 + Spec 06)
+  # Interactive manual test for F-key detection in real terminals
+  # Not registered as automated test - for manual verification only
+  test_fkey_manual = executable('test_fkey_manual',
+                                'tests/lle/manual/test_fkey_manual.c',
+                                include_directories: inc,
+                                dependencies: [lle_dep, readline_dep])
+
   # Render Controller Unit Tests (Spec 08)
   # Unit tests for render controller initialization, cleanup, and sub-component setup
   # Tests sub-components: buffer renderer, cursor renderer, frame scheduler, cache, etc.

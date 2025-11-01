@@ -308,6 +308,7 @@ lle_result_t lle_unix_interface_init(lle_unix_interface_t **interface) {
     
     /* Initialize parser-related fields to NULL (will be set up later) */
     iface->sequence_parser = NULL;
+    iface->key_detector = NULL;
     iface->capabilities = NULL;
     iface->memory_pool = NULL;
     
@@ -347,6 +348,21 @@ lle_result_t lle_unix_interface_init_sequence_parser(
         return result;
     }
     
+    /* Initialize key detector */
+    result = lle_key_detector_init(
+        &interface->key_detector,
+        capabilities,
+        memory_pool
+    );
+    
+    if (result != LLE_SUCCESS) {
+        lle_sequence_parser_destroy(interface->sequence_parser);
+        interface->sequence_parser = NULL;
+        interface->capabilities = NULL;
+        interface->memory_pool = NULL;
+        return result;
+    }
+    
     return LLE_SUCCESS;
 }
 
@@ -367,6 +383,12 @@ void lle_unix_interface_destroy(lle_unix_interface_t *interface) {
     if (interface->sequence_parser) {
         lle_sequence_parser_destroy(interface->sequence_parser);
         interface->sequence_parser = NULL;
+    }
+    
+    /* Clean up key detector if initialized */
+    if (interface->key_detector) {
+        lle_key_detector_destroy(interface->key_detector);
+        interface->key_detector = NULL;
     }
     
     /* Clear references (we don't own capabilities or memory_pool) */
@@ -506,9 +528,23 @@ static lle_special_key_t convert_key_code(uint32_t keycode, lle_key_type_t key_t
     /* For cursor keys and editing keys, keycode typically maps directly */
     switch (key_type) {
         case LLE_KEY_TYPE_CURSOR:
-            /* Cursor keys: assume keycode maps to arrow keys */
+            /* Cursor keys: handle both numeric (1-4) and ASCII ('A'-'D') formats */
             if (keycode >= 1 && keycode <= 4) {
                 return (lle_special_key_t)(LLE_KEY_UP + keycode - 1);
+            }
+            /* CSI cursor keys use ASCII: A=Up, B=Down, C=Right, D=Left */
+            switch (keycode) {
+                case 'A': return LLE_KEY_UP;
+                case 'B': return LLE_KEY_DOWN;
+                case 'C': return LLE_KEY_RIGHT;
+                case 'D': return LLE_KEY_LEFT;
+                /* Home/End also sometimes reported as cursor type */
+                case 'H': return LLE_KEY_HOME;
+                case 'F': return LLE_KEY_END;
+                /* PageUp/PageDown with ASCII digit keycodes */
+                case '5': return LLE_KEY_PAGE_UP;
+                case '6': return LLE_KEY_PAGE_DOWN;
+                default: break;
             }
             break;
         case LLE_KEY_TYPE_FUNCTION:
@@ -518,16 +554,21 @@ static lle_special_key_t convert_key_code(uint32_t keycode, lle_key_type_t key_t
             }
             break;
         case LLE_KEY_TYPE_EDITING:
-            /* Editing keys: map common codes */
+            /* Editing keys: map common codes (both numeric and ASCII) */
             switch (keycode) {
                 case 1: return LLE_KEY_HOME;
-                case 2: return LLE_KEY_INSERT;
-                case 3: return LLE_KEY_DELETE;
+                case 2: case '2': return LLE_KEY_INSERT;
+                case 3: case '3': return LLE_KEY_DELETE;
                 case 4: return LLE_KEY_END;
-                case 5: return LLE_KEY_PAGE_UP;
-                case 6: return LLE_KEY_PAGE_DOWN;
+                case 5: case '5': return LLE_KEY_PAGE_UP;
+                case 6: case '6': return LLE_KEY_PAGE_DOWN;
                 default: break;
             }
+            break;
+        case LLE_KEY_TYPE_CONTROL:
+            /* Control characters - treat as regular characters for now */
+            /* Ctrl+C (0x03) should be handled by the application layer */
+            /* We'll return UNKNOWN here and let the character handler deal with it */
             break;
         case LLE_KEY_TYPE_SPECIAL:
             /* Special keys */
@@ -590,14 +631,37 @@ static lle_result_t convert_parsed_input_to_event(
             
         case LLE_PARSED_INPUT_TYPE_KEY:
             /* Key press or combination */
-            event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
-            event->data.special_key.key = convert_key_code(
+            /* First try to convert to special key */
+            lle_special_key_t special_key = convert_key_code(
                 parsed->data.key_info.keycode,
                 parsed->data.key_info.type
             );
-            event->data.special_key.modifiers = convert_modifiers(
-                parsed->data.key_info.modifiers
-            );
+            
+            /* If it's a control character that didn't map to a special key,
+             * treat it as a regular character event (e.g., Ctrl+C) */
+            if (special_key == LLE_KEY_UNKNOWN && 
+                parsed->data.key_info.type == LLE_KEY_TYPE_CONTROL) {
+                /* Control character - return as CHARACTER event */
+                /* For control chars, keycode might be ASCII letter, so use raw value */
+                uint32_t ctrl_code = parsed->data.key_info.keycode;
+                /* If keycode is uppercase letter, convert to control code (Ctrl+C = 'C'-64 = 3) */
+                if (ctrl_code >= 'A' && ctrl_code <= 'Z') {
+                    ctrl_code = ctrl_code - 64;
+                } else if (ctrl_code >= 'a' && ctrl_code <= 'z') {
+                    ctrl_code = ctrl_code - 96;
+                }
+                event->type = LLE_INPUT_TYPE_CHARACTER;
+                event->data.character.codepoint = ctrl_code;
+                event->data.character.utf8_bytes[0] = (char)ctrl_code;
+                event->data.character.byte_count = 1;
+            } else {
+                /* Regular special key */
+                event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
+                event->data.special_key.key = special_key;
+                event->data.special_key.modifiers = convert_modifiers(
+                    parsed->data.key_info.modifiers
+                );
+            }
             event->timestamp = parsed->data.key_info.timestamp;
             break;
             
@@ -847,7 +911,7 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
     }
     
     /* Data available - read first byte */
-    unsigned char first_byte;
+    unsigned char first_byte = 0;
     ssize_t bytes_read = read(interface->terminal_fd, &first_byte, 1);
     
     if (bytes_read == -1) {
@@ -874,18 +938,36 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
         return LLE_SUCCESS;
     }
     
-    /* Use comprehensive sequence parser for escape sequences and control chars if available */
-    if (interface->sequence_parser && (first_byte == 0x1B || first_byte < 0x20)) {
-        /* ESC or control character - feed to comprehensive parser */
-        lle_parsed_input_t *parsed_input = NULL;
-        char byte_buffer[1] = {(char)first_byte};
+    /* Use comprehensive sequence parser if available */
+    if (interface->sequence_parser) {
+        /* Check if parser is accumulating a sequence or if this is ESC/control char */
+        lle_parser_state_t parser_state = lle_sequence_parser_get_state(interface->sequence_parser);
+        bool parser_accumulating = (parser_state != LLE_PARSER_STATE_NORMAL);
+        bool should_parse = parser_accumulating || (first_byte == 0x1B) || (first_byte < 0x20);
         
-        lle_result_t parse_result = lle_sequence_parser_process_data(
-            interface->sequence_parser,
-            byte_buffer,
-            1,
-            &parsed_input
-        );
+        if (should_parse) {
+            /* Feed byte to comprehensive parser */
+            lle_parsed_input_t *parsed_input = NULL;
+            char byte_buffer[1] = {(char)first_byte};
+            
+            /* Save parser buffer BEFORE process_data (in case it needs to be retrieved) */
+            const char *pre_buffer = NULL;
+            size_t pre_buffer_len = 0;
+            lle_sequence_parser_get_buffer(interface->sequence_parser, &pre_buffer, &pre_buffer_len);
+            
+            /* Make a copy since parser will reset after returning a result */
+            char saved_buffer[256];
+            size_t saved_len = (pre_buffer_len < sizeof(saved_buffer)) ? pre_buffer_len : sizeof(saved_buffer);
+            if (pre_buffer && saved_len > 0) {
+                memcpy(saved_buffer, pre_buffer, saved_len);
+            }
+            
+            lle_result_t parse_result = lle_sequence_parser_process_data(
+                interface->sequence_parser,
+                byte_buffer,
+                1,
+                &parsed_input
+            );
         
         if (parse_result != LLE_SUCCESS) {
             event->type = LLE_INPUT_TYPE_ERROR;
@@ -898,17 +980,58 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
         }
         
         if (parsed_input) {
-            /* Parser returned a complete sequence - convert to event */
+            /* Parser returned a complete sequence */
+            /* Note: Parser has already reset its buffer, but we saved it beforehand */
+            
+            /* Add the last byte we just processed to the saved buffer */
+            if (saved_len < sizeof(saved_buffer)) {
+                saved_buffer[saved_len++] = first_byte;
+            }
+            
+            /* Try key_detector if:
+             * 1. It's a generic SEQUENCE type, OR
+             * 2. It's a KEY type but with unknown/zero keycode (parser didn't identify it)
+             */
+            bool should_try_detector = false;
+            if (parsed_input->type == LLE_PARSED_INPUT_TYPE_SEQUENCE) {
+                should_try_detector = true;
+            } else if (parsed_input->type == LLE_PARSED_INPUT_TYPE_KEY && 
+                       parsed_input->data.key_info.keycode == 0) {
+                should_try_detector = true;
+            }
+            
+            if (should_try_detector && interface->key_detector && saved_len > 0) {
+                
+                /* Try to identify the key */
+                lle_key_info_t *key_info = NULL;
+                lle_result_t detect_result = lle_key_detector_process_sequence(
+                    interface->key_detector,
+                    saved_buffer,
+                    saved_len,
+                    &key_info
+                );
+                
+                if (detect_result == LLE_SUCCESS && key_info) {
+                    /* Successfully identified the key - update parsed_input */
+                    parsed_input->type = LLE_PARSED_INPUT_TYPE_KEY;
+                    parsed_input->data.key_info = *key_info;
+                    lle_pool_free(key_info);
+                }
+            }
+            
+            /* Convert to event */
             lle_result_t convert_result = convert_parsed_input_to_event(parsed_input, event);
             lle_pool_free(parsed_input);
             return convert_result;
         }
         
-        /* Parser is accumulating a sequence - return timeout so caller will call again */
-        /* This allows the parser to accumulate the full escape sequence across multiple calls */
-        event->type = LLE_INPUT_TYPE_TIMEOUT;
-        event->timestamp = lle_get_current_time_microseconds();
-        return LLE_SUCCESS;
+            /* Parser is accumulating a sequence - return timeout so caller will call again */
+            /* This allows the parser to accumulate the full escape sequence across multiple calls */
+            event->type = LLE_INPUT_TYPE_TIMEOUT;
+            event->timestamp = lle_get_current_time_microseconds();
+            return LLE_SUCCESS;
+        }
+        /* else: regular character, parser not accumulating - fall through to UTF-8 handling */
     }
     
     /* Check for escape sequences (ESC = 0x1B = 27) */
