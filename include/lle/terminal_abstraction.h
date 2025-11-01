@@ -62,6 +62,9 @@ typedef int lusush_result_t;
 /* Lusush result codes */
 #define LUSUSH_SUCCESS 0
 
+/* Forward declaration for sequence parser (from input_parsing.h) */
+typedef struct lle_sequence_parser lle_sequence_parser_t;
+
 /* ============================================================================
  * ENUMERATIONS
  * ============================================================================
@@ -454,6 +457,11 @@ typedef struct lle_unix_interface {
     /* Signal handling integration */
     bool sigwinch_received;
     
+    /* Escape sequence parsing (Spec 06 integration) */
+    lle_sequence_parser_t *sequence_parser; /* Comprehensive sequence parser */
+    lle_terminal_capabilities_t *capabilities; /* Terminal capabilities for parser */
+    lle_memory_pool_t *memory_pool;        /* Memory pool for parser */
+    
     /* Error state */
     lle_result_t last_error;
 } lle_unix_interface_t;
@@ -575,6 +583,10 @@ lle_result_t lle_input_processor_read_next_event(lle_input_processor_t *processo
 
 /* Unix Terminal Interface */
 lle_result_t lle_unix_interface_init(lle_unix_interface_t **interface);
+lle_result_t lle_unix_interface_init_sequence_parser(
+    lle_unix_interface_t *interface,
+    lle_terminal_capabilities_t *capabilities,
+    lle_memory_pool_t *memory_pool);
 void lle_unix_interface_destroy(lle_unix_interface_t *interface);
 lle_result_t lle_unix_interface_enter_raw_mode(lle_unix_interface_t *interface);
 lle_result_t lle_unix_interface_exit_raw_mode(lle_unix_interface_t *interface);

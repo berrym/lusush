@@ -60,6 +60,20 @@ lle_result_t lle_terminal_abstraction_init(lle_terminal_abstraction_t **abstract
         return result;
     }
     
+    /* Step 3.5: Initialize sequence parser now that capabilities are available */
+    extern lusush_memory_pool_t *global_memory_pool;
+    result = lle_unix_interface_init_sequence_parser(
+        abs->unix_interface,
+        abs->capabilities,
+        (lle_memory_pool_t *)global_memory_pool
+    );
+    if (result != LLE_SUCCESS) {
+        lle_capabilities_destroy(abs->capabilities);
+        lle_unix_interface_destroy(abs->unix_interface);
+        free(abs);
+        return result;
+    }
+    
     /* Step 4: Initialize internal state authority model */
     result = lle_internal_state_init(&abs->internal_state, abs->capabilities);
     if (result != LLE_SUCCESS) {
