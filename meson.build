@@ -614,6 +614,26 @@ endif
          timeout: 60)
   endif
 
+  # History Phase 4 Complete Tests
+  # Tests Phase 4 features: forensics, deduplication, multiline
+  # NOTE: Includes input_continuation.c for multiline support
+  if fs.exists('tests/lle/functional/test_history_phase4_complete.c')
+    test_history_phase4_complete = executable('test_history_phase4_complete',
+                                              ['tests/lle/functional/test_history_phase4_complete.c',
+                                               'tests/lle/functional/test_memory_mock.c',
+                                               'src/input_continuation.c',
+                                               'src/symtable.c',
+                                               'src/libhashtable/ht.c',
+                                               'src/libhashtable/ht_fnv1a.c',
+                                               'src/libhashtable/ht_strstr.c',
+                                               'src/globals.c'],
+                                              include_directories: inc,
+                                              dependencies: [lle_dep, readline_dep])
+    test('LLE History Phase 4 Complete', test_history_phase4_complete,
+         suite: 'lle-functional',
+         timeout: 60)
+  endif
+
 # ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
