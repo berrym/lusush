@@ -348,6 +348,10 @@ endif
 if fs.exists('history_navigation.c')
   lle_sources += files('history_navigation.c')
 endif
+# Critical Gap Spec 22: History-Buffer Integration
+if fs.exists('history_buffer_integration.c')
+  lle_sources += files('history_buffer_integration.c')
+endif
 # Phase 4: Advanced features
 if fs.exists('history_forensics.c')
   lle_sources += files('history_forensics.c')
