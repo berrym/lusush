@@ -30,6 +30,11 @@
 #include "lle/memory_management.h"
 #include "lle/performance.h"
 #include "lle/hashtable.h"
+#include "ht.h"  /* libhashtable */
+
+/* Forward declaration for event system integration */
+struct lle_event_system;
+struct lle_event;
 
 /* ============================================================================
  * FORWARD DECLARATIONS
@@ -367,6 +372,524 @@ lle_result_t lle_history_get_stats(
     lle_history_core_t *core,
     const lle_history_stats_t **stats
 );
+
+/* ============================================================================
+ * INDEXING AND FAST LOOKUP (Phase 1 Day 2)
+ * ============================================================================ */
+
+/**
+ * Create hashtable index for fast ID lookup
+ */
+lle_result_t lle_history_index_create(
+    lle_hashtable_t **index,
+    size_t initial_capacity
+);
+
+/**
+ * Destroy hashtable index
+ */
+void lle_history_index_destroy(lle_hashtable_t *index);
+
+/**
+ * Insert entry into index
+ */
+lle_result_t lle_history_index_insert(
+    lle_hashtable_t *index,
+    uint64_t entry_id,
+    lle_history_entry_t *entry
+);
+
+/**
+ * Lookup entry by ID in index
+ */
+lle_result_t lle_history_index_lookup(
+    lle_hashtable_t *index,
+    uint64_t entry_id,
+    lle_history_entry_t **entry
+);
+
+/**
+ * Remove entry from index
+ */
+lle_result_t lle_history_index_remove(
+    lle_hashtable_t *index,
+    uint64_t entry_id
+);
+
+/**
+ * Clear all entries from index
+ */
+lle_result_t lle_history_index_clear(lle_hashtable_t *index);
+
+/**
+ * Get index size
+ */
+lle_result_t lle_history_index_get_size(
+    lle_hashtable_t *index,
+    size_t *size
+);
+
+/**
+ * Rebuild index from core entries
+ */
+lle_result_t lle_history_rebuild_index(lle_history_core_t *core);
+
+/**
+ * Get last N entries (most recent)
+ */
+lle_result_t lle_history_get_last_n_entries(
+    lle_history_core_t *core,
+    size_t n,
+    lle_history_entry_t **entries,
+    size_t *count
+);
+
+/**
+ * Get entry by reverse index (0 = newest)
+ */
+lle_result_t lle_history_get_entry_by_reverse_index(
+    lle_history_core_t *core,
+    size_t reverse_index,
+    lle_history_entry_t **entry
+);
+
+/* ============================================================================
+ * PERSISTENCE AND FILE STORAGE (Phase 1 Day 3)
+ * ============================================================================ */
+
+/**
+ * Save all history entries to file
+ */
+lle_result_t lle_history_save_to_file(
+    lle_history_core_t *core,
+    const char *file_path
+);
+
+/**
+ * Load history entries from file
+ */
+lle_result_t lle_history_load_from_file(
+    lle_history_core_t *core,
+    const char *file_path
+);
+
+/**
+ * Append single entry to history file (incremental save)
+ */
+lle_result_t lle_history_append_entry(
+    const lle_history_entry_t *entry,
+    const char *file_path
+);
+
+/* ============================================================================
+ * LUSUSH INTEGRATION BRIDGE (Phase 2 Day 5)
+ * ============================================================================ */
+
+/* Forward declarations */
+typedef struct posix_history_manager posix_history_manager_t;
+
+/**
+ * Initialize Lusush history bridge
+ * 
+ * Establishes bidirectional synchronization between LLE history core
+ * and existing Lusush history systems (GNU Readline, POSIX history).
+ * 
+ * @param lle_core LLE history core instance
+ * @param posix_manager POSIX history manager (can be NULL)
+ * @param memory_pool Memory pool for allocations
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_init(
+    lle_history_core_t *lle_core,
+    posix_history_manager_t *posix_manager,
+    lle_memory_pool_t *memory_pool
+);
+
+/**
+ * Shutdown and cleanup bridge
+ * 
+ * Performs final synchronization and frees bridge resources.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_shutdown(void);
+
+/**
+ * Check if bridge is initialized
+ * 
+ * @return true if initialized, false otherwise
+ */
+bool lle_history_bridge_is_initialized(void);
+
+/**
+ * Import history from GNU Readline
+ * 
+ * Imports all entries from GNU Readline history into LLE core.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_import_from_readline(void);
+
+/**
+ * Export history to GNU Readline
+ * 
+ * Exports all LLE entries to GNU Readline history.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_export_to_readline(void);
+
+/**
+ * Sync single entry to readline
+ * 
+ * @param entry Entry to sync
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_sync_entry_to_readline(const lle_history_entry_t *entry);
+
+/**
+ * Clear readline history
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_clear_readline(void);
+
+/**
+ * Import history from POSIX manager
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_import_from_posix(void);
+
+/**
+ * Export history to POSIX manager
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_export_to_posix(void);
+
+/**
+ * Sync single entry to POSIX manager
+ * 
+ * @param entry Entry to sync
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_sync_entry_to_posix(const lle_history_entry_t *entry);
+
+/**
+ * Add entry to LLE and sync to all systems
+ * 
+ * High-level API that adds an entry and automatically syncs
+ * to GNU Readline and POSIX if enabled.
+ * 
+ * @param command Command text
+ * @param exit_code Command exit code
+ * @param entry_id Output pointer for assigned entry ID (can be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_add_entry(
+    const char *command,
+    int exit_code,
+    uint64_t *entry_id
+);
+
+/**
+ * Synchronize all systems (full bidirectional sync)
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_sync_all(void);
+
+/**
+ * Handle history builtin command
+ * 
+ * Provides compatibility with existing 'history' command behavior.
+ * 
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @param output Output buffer (allocated by function, caller must free)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_handle_builtin(
+    int argc,
+    char **argv,
+    char **output
+);
+
+/**
+ * Get entry by history number (for history expansion like !123)
+ * 
+ * @param number History entry number
+ * @param entry Output pointer to entry (do not free)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_get_by_number(
+    uint64_t number,
+    lle_history_entry_t **entry
+);
+
+/**
+ * Get entry by reverse index (0 = most recent, for !! and !-N)
+ * 
+ * @param reverse_index Reverse index (0 = newest)
+ * @param entry Output pointer to entry (do not free)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_get_by_reverse_index(
+    size_t reverse_index,
+    lle_history_entry_t **entry
+);
+
+/**
+ * Enable/disable readline synchronization
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_set_readline_sync(bool enabled);
+
+/**
+ * Enable/disable POSIX synchronization
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_set_posix_sync(bool enabled);
+
+/**
+ * Enable/disable automatic synchronization
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_set_auto_sync(bool enabled);
+
+/**
+ * Enable/disable bidirectional synchronization
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_set_bidirectional_sync(bool enabled);
+
+/**
+ * Get bridge statistics
+ * 
+ * @param readline_imports Number of entries imported from readline
+ * @param readline_exports Number of entries exported to readline
+ * @param posix_imports Number of entries imported from POSIX
+ * @param posix_exports Number of entries exported to POSIX
+ * @param sync_errors Number of synchronization errors
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_get_stats(
+    size_t *readline_imports,
+    size_t *readline_exports,
+    size_t *posix_imports,
+    size_t *posix_exports,
+    size_t *sync_errors
+);
+
+/**
+ * Print bridge diagnostics
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_bridge_print_diagnostics(void);
+
+/* ============================================================================
+ * EVENT SYSTEM INTEGRATION (Phase 2 Day 6)
+ * ============================================================================ */
+
+/* Event handler function type (matches event_system.h) */
+typedef lle_result_t (*lle_event_handler_fn)(struct lle_event *event, void *user_data);
+
+/**
+ * Initialize history event integration
+ * 
+ * Connects history system to Spec 04 event system for real-time notifications.
+ * 
+ * @param event_system Event system instance
+ * @param history_core History core instance
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_init(
+    struct lle_event_system *event_system,
+    lle_history_core_t *history_core
+);
+
+/**
+ * Shutdown history event integration
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_shutdown(void);
+
+/**
+ * Check if event system is initialized
+ * 
+ * @return true if initialized, false otherwise
+ */
+bool lle_history_events_is_initialized(void);
+
+/**
+ * Emit entry added event
+ * 
+ * @param entry_id Entry ID
+ * @param command Command text
+ * @param exit_code Exit code
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_emit_entry_added(
+    uint64_t entry_id,
+    const char *command,
+    int exit_code
+);
+
+/**
+ * Emit entry accessed event
+ * 
+ * @param entry_id Entry ID
+ * @param command Command text
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_emit_entry_accessed(
+    uint64_t entry_id,
+    const char *command
+);
+
+/**
+ * Emit history loaded event
+ * 
+ * @param file_path File path
+ * @param entry_count Number of entries loaded
+ * @param duration_us Operation duration in microseconds
+ * @param success Operation success
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_emit_history_loaded(
+    const char *file_path,
+    size_t entry_count,
+    uint64_t duration_us,
+    bool success
+);
+
+/**
+ * Emit history saved event
+ * 
+ * @param file_path File path
+ * @param entry_count Number of entries saved
+ * @param duration_us Operation duration in microseconds
+ * @param success Operation success
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_emit_history_saved(
+    const char *file_path,
+    size_t entry_count,
+    uint64_t duration_us,
+    bool success
+);
+
+/**
+ * Emit history search event
+ * 
+ * @param search_query Search query
+ * @param result_count Number of results
+ * @param duration_us Search duration in microseconds
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_emit_history_search(
+    const char *search_query,
+    size_t result_count,
+    uint64_t duration_us
+);
+
+/**
+ * Register handler for history change events
+ * 
+ * @param handler Handler function
+ * @param user_data User data passed to handler
+ * @param handler_name Handler name (for debugging)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_register_change_handler(
+    lle_event_handler_fn handler,
+    void *user_data,
+    const char *handler_name
+);
+
+/**
+ * Register handler for history navigation events
+ * 
+ * @param handler Handler function
+ * @param user_data User data passed to handler
+ * @param handler_name Handler name (for debugging)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_register_navigate_handler(
+    lle_event_handler_fn handler,
+    void *user_data,
+    const char *handler_name
+);
+
+/**
+ * Register handler for history search events
+ * 
+ * @param handler Handler function
+ * @param user_data User data passed to handler
+ * @param handler_name Handler name (for debugging)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_register_search_handler(
+    lle_event_handler_fn handler,
+    void *user_data,
+    const char *handler_name
+);
+
+/**
+ * Enable or disable event emission
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_set_enabled(bool enabled);
+
+/**
+ * Enable or disable access event emission
+ * 
+ * Access events can be noisy, so they're disabled by default.
+ * 
+ * @param enabled true to enable, false to disable
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_set_emit_access(bool enabled);
+
+/**
+ * Get event emission statistics
+ * 
+ * @param total_events Total events emitted (can be NULL)
+ * @param entry_added Entry added events (can be NULL)
+ * @param entry_accessed Entry accessed events (can be NULL)
+ * @param history_loaded History loaded events (can be NULL)
+ * @param history_saved History saved events (can be NULL)
+ * @param history_searched History searched events (can be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_get_stats(
+    uint64_t *total_events,
+    uint64_t *entry_added,
+    uint64_t *entry_accessed,
+    uint64_t *history_loaded,
+    uint64_t *history_saved,
+    uint64_t *history_searched
+);
+
+/**
+ * Print event statistics
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_events_print_stats(void);
 
 /* ============================================================================
  * INTERNAL HELPERS
