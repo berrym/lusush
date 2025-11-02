@@ -51,20 +51,9 @@ typedef struct lle_edit_change lle_edit_change_t;
  * ENUMERATIONS
  * ============================================================================ */
 
-/**
- * Edit session state
- */
-typedef enum lle_edit_session_state {
-    LLE_EDIT_SESSION_INACTIVE = 0,      /* No active session */
-    LLE_EDIT_SESSION_STARTING,          /* Session initializing */
-    LLE_EDIT_SESSION_ACTIVE,            /* Session active, editing in progress */
-    LLE_EDIT_SESSION_MODIFIED,          /* Buffer modified during session */
-    LLE_EDIT_SESSION_SAVING,            /* Saving changes */
-    LLE_EDIT_SESSION_CANCELING,         /* Canceling session */
-    LLE_EDIT_SESSION_COMPLETED,         /* Session completed successfully */
-    LLE_EDIT_SESSION_CANCELED,          /* Session canceled */
-    LLE_EDIT_SESSION_ERROR              /* Session error state */
-} lle_edit_session_state_t;
+/* Edit session state enum is defined in edit_session_manager.h */
+/* Include that header to get the enum definition */
+#include "lle/edit_session_manager.h"
 
 /**
  * Command structure type (shell constructs)
@@ -357,20 +346,105 @@ lle_result_t lle_history_buffer_integration_unregister_callbacks(
 );
 
 /* ============================================================================
- * PHASE 2 & 3 FUNCTIONS
+ * PHASE 3 - INTERACTIVE EDITING FUNCTIONS
  * ============================================================================ */
 
-/*
- * Phase 2 (Multiline Reconstruction) and Phase 3 (Interactive Editing)
- * functions will be added to this header as they are fully implemented.
+/**
+ * Start interactive editing of a history entry
  *
- * Planned Phase 3 functions (not yet implemented):
- * - lle_history_edit_entry() - Interactive editing with callbacks
- * - lle_edit_session_complete() - Save edited entry
- * - lle_edit_session_cancel() - Cancel editing session
+ * Loads the specified history entry into a buffer with multiline
+ * reconstruction applied. Creates an edit session to track modifications.
  *
- * These functions will be exposed in the API only when Phase 2 reconstruction
- * engine is complete and Phase 3 implementation is finished.
+ * @param integration Integration system
+ * @param entry_index History entry index to edit
+ * @param buffer Buffer to load entry into
+ * @return LLE_SUCCESS or error code
  */
+lle_result_t lle_history_edit_entry(
+    lle_history_buffer_integration_t *integration,
+    size_t entry_index,
+    lle_buffer_t *buffer
+);
+
+/**
+ * Complete an edit session and save changes
+ *
+ * Saves the buffer contents back to history, replacing the original entry.
+ * Triggers on_edit_complete callback if registered.
+ *
+ * @param integration Integration system
+ * @param buffer Buffer with edited content
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_session_complete(
+    lle_history_buffer_integration_t *integration,
+    lle_buffer_t *buffer
+);
+
+/**
+ * Cancel an edit session without saving
+ *
+ * Discards buffer modifications and closes the edit session.
+ * Triggers on_edit_cancel callback if registered.
+ *
+ * @param integration Integration system
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_session_cancel(
+    lle_history_buffer_integration_t *integration
+);
+
+/* ============================================================================
+ * PHASE 4 - PERFORMANCE MONITORING FUNCTIONS
+ * ============================================================================ */
+
+/* Forward declaration for cache stats */
+typedef struct lle_edit_cache_stats lle_edit_cache_stats_t;
+
+/* Include edit_cache.h to get stats structure definition */
+#include "lle/edit_cache.h"
+
+/**
+ * Get cache performance statistics
+ *
+ * Retrieves hit/miss ratios, entry counts, evictions, and other
+ * cache performance metrics.
+ *
+ * @param integration Integration system
+ * @param stats Output parameter for cache statistics
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_buffer_integration_get_cache_stats(
+    lle_history_buffer_integration_t *integration,
+    lle_edit_cache_stats_t *stats
+);
+
+/**
+ * Clear all cache entries
+ *
+ * Removes all cached reconstruction results. Useful for testing
+ * or when memory needs to be reclaimed.
+ *
+ * @param integration Integration system
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_buffer_integration_clear_cache(
+    lle_history_buffer_integration_t *integration
+);
+
+/**
+ * Perform cache maintenance
+ *
+ * Evicts expired cache entries based on TTL settings.
+ * Should be called periodically to prevent unbounded growth.
+ *
+ * @param integration Integration system
+ * @param expired_count Output parameter for number of entries evicted (optional)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_buffer_integration_maintain_cache(
+    lle_history_buffer_integration_t *integration,
+    size_t *expired_count
+);
 
 #endif /* LLE_HISTORY_BUFFER_INTEGRATION_H */

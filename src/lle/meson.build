@@ -368,6 +368,17 @@ endif
 if fs.exists('formatting_engine.c')
   lle_sources += files('formatting_engine.c')
 endif
+# Spec 22 Phase 3: Interactive Editing System
+if fs.exists('edit_session_manager.c')
+  lle_sources += files('edit_session_manager.c')
+endif
+if fs.exists('history_buffer_bridge.c')
+  lle_sources += files('history_buffer_bridge.c')
+endif
+# Spec 22 Phase 4: Performance Optimization
+if fs.exists('edit_cache.c')
+  lle_sources += files('edit_cache.c')
+endif
 # Phase 4: Advanced features
 if fs.exists('history_forensics.c')
   lle_sources += files('history_forensics.c')
