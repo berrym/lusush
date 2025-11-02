@@ -6,6 +6,8 @@
  * Tests Phase 1: Core structures, configuration, entry management, lifecycle.
  * 
  * ZERO TOLERANCE: This test verifies 100% spec compliance.
+ * 
+ * API verified from include/lle/history.h on 2025-11-02
  */
 
 #include <stdio.h>

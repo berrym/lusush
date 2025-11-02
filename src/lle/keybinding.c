@@ -46,6 +46,7 @@ struct lle_keybinding_manager {
     lle_strstr_hashtable_t *bindings;      /* Key sequence -> entry mapping */
     lle_keymap_mode_t current_mode;        /* Active keymap mode */
     lle_key_sequence_buffer_t seq_buffer;  /* Multi-key sequence buffer */
+    lusush_memory_pool_t *pool;            /* Memory pool for allocations */
     
     /* Performance tracking */
     uint64_t total_lookups;
@@ -67,15 +68,21 @@ static uint64_t get_time_us(void) {
 }
 
 /**
- * Allocate string using malloc
+ * Allocate string using memory pool or malloc
  */
-static char* keybinding_strdup(const char *str) {
+static char* keybinding_strdup(lusush_memory_pool_t *pool, const char *str) {
     if (str == NULL) {
         return NULL;
     }
     
     size_t len = strlen(str);
-    char *copy = (char*)malloc(len + 1);
+    char *copy;
+    
+    if (pool != NULL) {
+        copy = (char*)lusush_pool_alloc(len + 1);
+    } else {
+        copy = (char*)malloc(len + 1);
+    }
     
     if (copy != NULL) {
         memcpy(copy, str, len + 1);
@@ -85,18 +92,38 @@ static char* keybinding_strdup(const char *str) {
 }
 
 /**
+ * Free string from memory pool or malloc
+ */
+static void keybinding_free_string(lusush_memory_pool_t *pool, char *str) {
+    if (str == NULL) {
+        return;
+    }
+    
+    if (pool != NULL) {
+        lusush_pool_free(str);
+    } else {
+        free(str);
+    }
+}
+
+/**
  * Free keybinding entry
  */
-static void free_keybinding_entry(lle_keybinding_entry_t *entry) {
+static void free_keybinding_entry(lusush_memory_pool_t *pool, 
+                                  lle_keybinding_entry_t *entry) {
     if (entry == NULL) {
         return;
     }
     
     if (entry->function_name != NULL) {
-        free(entry->function_name);
+        keybinding_free_string(pool, entry->function_name);
     }
     
-    free(entry);
+    if (pool != NULL) {
+        lusush_pool_free(entry);
+    } else {
+        free(entry);
+    }
 }
 
 /**
@@ -151,36 +178,46 @@ static lle_result_t parse_special_key(const char *name, lle_special_key_t *key_o
  * ============================================================================ */
 
 lle_result_t lle_keybinding_manager_create(
-    lle_keybinding_manager_t **manager
+    lle_keybinding_manager_t **manager,
+    lusush_memory_pool_t *pool
 ) {
     if (manager == NULL) {
         return LLE_ERROR_NULL_POINTER;
     }
     
     /* Allocate manager structure */
-    lle_keybinding_manager_t *new_manager = 
-        (lle_keybinding_manager_t*)malloc(sizeof(lle_keybinding_manager_t));
+    lle_keybinding_manager_t *new_manager;
+    if (pool != NULL) {
+        new_manager = (lle_keybinding_manager_t*)lusush_pool_alloc(sizeof(lle_keybinding_manager_t));
+    } else {
+        new_manager = (lle_keybinding_manager_t*)malloc(sizeof(lle_keybinding_manager_t));
+    }
     
     if (new_manager == NULL) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     
     memset(new_manager, 0, sizeof(lle_keybinding_manager_t));
+    new_manager->pool = pool;
     new_manager->current_mode = LLE_KEYMAP_EMACS;
     
     /* Create hashtable for bindings */
     lle_hashtable_config_t config;
     lle_hashtable_config_init_default(&config);
     config.initial_capacity = LLE_KEYBINDING_INITIAL_SIZE;
-    config.memory_pool = NULL;
-    config.use_memory_pool = false;
+    config.memory_pool = pool;
+    config.use_memory_pool = (pool != NULL);
     config.hashtable_name = "keybindings";
     
     /* Use factory to create hashtable */
     lle_hashtable_factory_t *factory = NULL;
-    lle_result_t result = lle_hashtable_factory_init(&factory, NULL);
+    lle_result_t result = lle_hashtable_factory_init(&factory, pool);
     if (result != LLE_SUCCESS) {
-        free(new_manager);
+        if (pool != NULL) {
+            lusush_pool_free(new_manager);
+        } else {
+            free(new_manager);
+        }
         return result;
     }
     
@@ -188,7 +225,11 @@ lle_result_t lle_keybinding_manager_create(
     lle_hashtable_factory_destroy(factory);
     
     if (result != LLE_SUCCESS) {
-        free(new_manager);
+        if (pool != NULL) {
+            lusush_pool_free(new_manager);
+        } else {
+            free(new_manager);
+        }
         return result;
     }
     
@@ -207,7 +248,11 @@ lle_result_t lle_keybinding_manager_destroy(lle_keybinding_manager_t *manager) {
     }
     
     /* Free manager structure */
-    free(manager);
+    if (manager->pool != NULL) {
+        lusush_pool_free(manager);
+    } else {
+        free(manager);
+    }
     
     return LLE_SUCCESS;
 }
@@ -361,8 +406,12 @@ lle_result_t lle_keybinding_manager_bind(
     }
     
     /* Create keybinding entry */
-    lle_keybinding_entry_t *entry = 
-        (lle_keybinding_entry_t*)malloc(sizeof(lle_keybinding_entry_t));
+    lle_keybinding_entry_t *entry;
+    if (manager->pool != NULL) {
+        entry = (lle_keybinding_entry_t*)lusush_pool_alloc(sizeof(lle_keybinding_entry_t));
+    } else {
+        entry = (lle_keybinding_entry_t*)malloc(sizeof(lle_keybinding_entry_t));
+    }
     
     if (entry == NULL) {
         return LLE_ERROR_OUT_OF_MEMORY;
@@ -370,7 +419,7 @@ lle_result_t lle_keybinding_manager_bind(
     
     entry->action = action;
     entry->mode = manager->current_mode;
-    entry->function_name = function_name ? keybinding_strdup(function_name) : NULL;
+    entry->function_name = function_name ? keybinding_strdup(manager->pool, function_name) : NULL;
     
     /* Convert entry to string for storage (hackish but works with strstr hashtable) */
     char entry_str[32];
@@ -381,7 +430,7 @@ lle_result_t lle_keybinding_manager_bind(
         manager->bindings, key_sequence, entry_str);
     
     if (result != LLE_SUCCESS) {
-        free_keybinding_entry(entry);
+        free_keybinding_entry(manager->pool, entry);
         return result;
     }
     
@@ -401,7 +450,7 @@ lle_result_t lle_keybinding_manager_unbind(
     if (entry_str != NULL) {
         lle_keybinding_entry_t *entry;
         sscanf(entry_str, "%p", (void**)&entry);
-        free_keybinding_entry(entry);
+        free_keybinding_entry(manager->pool, entry);
     }
     
     /* Remove from hashtable */
@@ -569,8 +618,12 @@ lle_result_t lle_keybinding_manager_list_bindings(
     }
     
     /* Allocate bindings array */
-    lle_keybinding_info_t *bindings = 
-        (lle_keybinding_info_t*)malloc(sizeof(lle_keybinding_info_t) * count);
+    lle_keybinding_info_t *bindings;
+    if (manager->pool != NULL) {
+        bindings = (lle_keybinding_info_t*)lusush_pool_alloc(sizeof(lle_keybinding_info_t) * count);
+    } else {
+        bindings = (lle_keybinding_info_t*)malloc(sizeof(lle_keybinding_info_t) * count);
+    }
     
     if (bindings == NULL) {
         return LLE_ERROR_OUT_OF_MEMORY;

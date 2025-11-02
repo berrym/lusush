@@ -67,7 +67,7 @@ TEST(create_destroy) {
     lle_result_t result;
     
     /* Create manager */
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     ASSERT(manager != NULL, "Manager is NULL");
     
@@ -91,7 +91,7 @@ TEST(null_pointer_checks) {
     lle_result_t result;
     
     /* Create with NULL pointer */
-    result = lle_keybinding_manager_create(NULL);
+    result = lle_keybinding_manager_create(NULL, NULL);
     ASSERT(result == LLE_ERROR_NULL_POINTER, "Create accepted NULL");
     
     /* Destroy with NULL */
@@ -221,7 +221,7 @@ TEST(bind_and_lookup) {
     lle_keybinding_manager_t *manager = NULL;
     lle_result_t result;
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Bind C-a to test_action */
@@ -247,7 +247,7 @@ TEST(bind_multiple_keys) {
     lle_keybinding_manager_t *manager = NULL;
     lle_result_t result;
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Bind multiple keys */
@@ -273,7 +273,7 @@ TEST(unbind_key) {
     lle_keybinding_manager_t *manager = NULL;
     lle_result_t result;
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Bind and unbind */
@@ -300,7 +300,7 @@ TEST(lookup_nonexistent_key) {
     lle_keybinding_manager_t *manager = NULL;
     lle_result_t result;
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Lookup non-existent key */
@@ -320,7 +320,7 @@ TEST(process_key_executes_action) {
     lle_result_t result;
     lle_editor_t editor = {0};
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Bind action */
@@ -346,7 +346,7 @@ TEST(process_unbound_key) {
     lle_result_t result;
     lle_editor_t editor = {0};
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Create unbound key event */
@@ -371,7 +371,7 @@ TEST(mode_switching) {
     lle_keybinding_manager_t *manager = NULL;
     lle_result_t result;
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Default should be EMACS */
@@ -400,7 +400,7 @@ TEST(performance_tracking) {
     lle_result_t result;
     lle_editor_t editor = {0};
     
-    result = lle_keybinding_manager_create(&manager);
+    result = lle_keybinding_manager_create(&manager, NULL);
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Bind action */
