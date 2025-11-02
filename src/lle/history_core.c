@@ -339,6 +339,23 @@ lle_result_t lle_history_core_create(
         c->entry_lookup = NULL;
     }
     
+    /* Phase 4 Day 12: Create deduplication engine if configured */
+    if (c->config->ignore_duplicates) {
+        /* Default to KEEP_RECENT strategy when ignore_duplicates is enabled */
+        result = lle_history_dedup_create(&c->dedup_engine, c, LLE_DEDUP_KEEP_RECENT);
+        if (result != LLE_SUCCESS) {
+            if (c->entry_lookup) {
+                lle_history_index_destroy(c->entry_lookup);
+            }
+            lle_pool_free(c->entries);
+            lle_history_config_destroy(c->config, memory_pool);
+            lle_pool_free(c);
+            return result;
+        }
+    } else {
+        c->dedup_engine = NULL;
+    }
+    
     /* Initialize statistics */
     memset(&c->stats, 0, sizeof(lle_history_stats_t));
     
@@ -386,6 +403,12 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
     if (core->entry_lookup) {
         lle_history_index_destroy(core->entry_lookup);
         core->entry_lookup = NULL;
+    }
+    
+    /* Phase 4 Day 12: Destroy deduplication engine if present */
+    if (core->dedup_engine) {
+        lle_history_dedup_destroy(core->dedup_engine);
+        core->dedup_engine = NULL;
     }
     
     /* Destroy configuration */
@@ -509,6 +532,31 @@ lle_result_t lle_history_add_entry(
     if (lle_forensic_capture_context(&forensic_ctx) == LLE_SUCCESS) {
         lle_forensic_apply_to_entry(entry, &forensic_ctx);
         lle_forensic_free_context(&forensic_ctx);
+    }
+    
+    /* Phase 4 Day 12: Check for duplicates if dedup engine is enabled */
+    if (core->dedup_engine) {
+        bool entry_rejected = false;
+        result = lle_history_dedup_apply(core->dedup_engine, entry, &entry_rejected);
+        
+        if (result != LLE_SUCCESS) {
+            lle_history_entry_destroy(entry, core->memory_pool);
+            pthread_rwlock_unlock(&core->lock);
+            return result;
+        }
+        
+        if (entry_rejected) {
+            /* Duplicate was rejected - clean up and return success */
+            lle_history_entry_destroy(entry, core->memory_pool);
+            pthread_rwlock_unlock(&core->lock);
+            
+            /* Optionally return the ID of the existing entry if requested */
+            if (entry_id) {
+                *entry_id = 0;  /* Indicate entry was not added */
+            }
+            
+            return LLE_SUCCESS;
+        }
     }
     
     /* Add to array */

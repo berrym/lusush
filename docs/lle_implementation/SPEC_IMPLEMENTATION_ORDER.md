@@ -537,7 +537,7 @@ After Phase 0 foundation is complete and tested, implement core systems:
   * Day 10: History expansion (!!, !n, !-n, !string, !?string, ^old^new)
 - 🔄 Phase 4 (Days 11-14): Advanced features - IN PROGRESS
   * ✅ Day 11: Forensic tracking (process, user, terminal, timing, usage analytics)
-  * ⏳ Day 12: Intelligent deduplication - PENDING
+  * ✅ Day 12: Intelligent deduplication (5 strategies, forensic merging, configurable)
   * ⏳ Day 13: Multiline command support - PENDING
   * ⏳ Day 14: Integration testing - PENDING
 

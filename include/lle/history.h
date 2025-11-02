@@ -219,6 +219,9 @@ struct lle_history_core {
     /* Indexing - Phase 2 */
     lle_hashtable_t *entry_lookup;      /* ID -> entry hashtable (Phase 2) */
     
+    /* Advanced engines - Phase 4 */
+    lle_history_dedup_engine_t *dedup_engine;  /* Deduplication engine (Phase 4 Day 12) */
+    
     /* Configuration and statistics */
     lle_history_config_t *config;       /* Configuration */
     lle_history_stats_t stats;          /* Statistics */
@@ -1419,5 +1422,162 @@ uint64_t lle_forensic_get_timestamp_ns(void);
  * @param context Forensic context to free
  */
 void lle_forensic_free_context(lle_forensic_context_t *context);
+
+/* ============================================================================
+ * DEDUPLICATION API (Phase 4 Day 12)
+ * ============================================================================ */
+
+/**
+ * Deduplication strategy enumeration
+ * 
+ * Defines how duplicate commands should be handled when added to history.
+ */
+typedef enum lle_history_dedup_strategy {
+    LLE_DEDUP_IGNORE = 0,       /* Ignore all duplicates (reject new) */
+    LLE_DEDUP_KEEP_RECENT,      /* Keep most recent, discard older */
+    LLE_DEDUP_KEEP_FREQUENT,    /* Keep entry with highest usage count */
+    LLE_DEDUP_MERGE_METADATA,   /* Merge forensic metadata, keep existing */
+    LLE_DEDUP_KEEP_ALL          /* No deduplication (keep all instances) */
+} lle_history_dedup_strategy_t;
+
+/**
+ * Deduplication statistics
+ */
+typedef struct lle_history_dedup_stats {
+    uint64_t duplicates_detected;   /* Total duplicates found */
+    uint64_t duplicates_merged;     /* Total duplicates merged */
+    uint64_t duplicates_ignored;    /* Total duplicates rejected */
+    lle_history_dedup_strategy_t current_strategy;  /* Active strategy */
+} lle_history_dedup_stats_t;
+
+/**
+ * Create deduplication engine
+ * 
+ * Initializes deduplication engine with specified strategy.
+ * 
+ * @param dedup Output pointer for dedup engine
+ * @param history_core Reference to history core engine
+ * @param strategy Initial deduplication strategy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_create(
+    lle_history_dedup_engine_t **dedup,
+    lle_history_core_t *history_core,
+    lle_history_dedup_strategy_t strategy);
+
+/**
+ * Destroy deduplication engine
+ * 
+ * Frees resources associated with dedup engine.
+ * 
+ * @param dedup Dedup engine to destroy
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_destroy(lle_history_dedup_engine_t *dedup);
+
+/**
+ * Check if entry is duplicate of existing entry
+ * 
+ * Scans recent history for duplicate command. If found, returns the
+ * existing entry via duplicate_entry parameter.
+ * 
+ * @param dedup Dedup engine
+ * @param new_entry Entry to check for duplicates
+ * @param duplicate_entry Output pointer for duplicate (NULL if not found)
+ * @return LLE_SUCCESS if duplicate found, LLE_ERROR_NOT_FOUND if unique
+ */
+lle_result_t lle_history_dedup_check(
+    lle_history_dedup_engine_t *dedup,
+    const lle_history_entry_t *new_entry,
+    lle_history_entry_t **duplicate_entry);
+
+/**
+ * Merge duplicate entry with existing entry
+ * 
+ * Merges forensic metadata from discard_entry into keep_entry,
+ * then marks discard_entry as deleted.
+ * 
+ * @param dedup Dedup engine
+ * @param keep_entry Entry to keep and update
+ * @param discard_entry Entry to merge and mark deleted
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_merge(
+    lle_history_dedup_engine_t *dedup,
+    lle_history_entry_t *keep_entry,
+    lle_history_entry_t *discard_entry);
+
+/**
+ * Apply deduplication strategy to new entry
+ * 
+ * Applies configured strategy to determine if entry should be added,
+ * merged, or rejected. Sets entry_rejected flag if entry was not added.
+ * 
+ * @param dedup Dedup engine
+ * @param new_entry Entry being added
+ * @param entry_rejected Output flag indicating if entry was rejected
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_apply(
+    lle_history_dedup_engine_t *dedup,
+    lle_history_entry_t *new_entry,
+    bool *entry_rejected);
+
+/**
+ * Cleanup old duplicate entries
+ * 
+ * Physically removes entries marked as deleted during deduplication.
+ * Returns count of entries removed.
+ * 
+ * @param dedup Dedup engine
+ * @param entries_removed Output count of entries removed
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_cleanup(
+    lle_history_dedup_engine_t *dedup,
+    size_t *entries_removed);
+
+/**
+ * Set deduplication strategy
+ * 
+ * Changes the active deduplication strategy.
+ * 
+ * @param dedup Dedup engine
+ * @param strategy New strategy to apply
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_set_strategy(
+    lle_history_dedup_engine_t *dedup,
+    lle_history_dedup_strategy_t strategy);
+
+/**
+ * Get deduplication statistics
+ * 
+ * Retrieves statistics about deduplication operations.
+ * 
+ * @param dedup Dedup engine
+ * @param stats Output structure for statistics
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_get_stats(
+    const lle_history_dedup_engine_t *dedup,
+    lle_history_dedup_stats_t *stats);
+
+/**
+ * Set deduplication configuration options
+ * 
+ * Configures comparison behavior for duplicate detection.
+ * 
+ * @param dedup Dedup engine
+ * @param case_sensitive true for case-sensitive comparison
+ * @param trim_whitespace true to trim whitespace before comparison
+ * @param merge_forensics true to merge forensic metadata on dedup
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_configure(
+    lle_history_dedup_engine_t *dedup,
+    bool case_sensitive,
+    bool trim_whitespace,
+    bool merge_forensics);
 
 #endif /* LLE_HISTORY_H */
