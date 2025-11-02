@@ -434,6 +434,10 @@ endif
 if fs.exists('keybinding.c')
   lle_sources += files('keybinding.c')
 endif
+# Phase 3: Default Keybinding Actions (42 GNU Readline compatible functions)
+if fs.exists('keybinding_actions.c')
+  lle_sources += files('keybinding_actions.c')
+endif
 
 # ============================================================================
 # LLE READLINE - CORE ORCHESTRATION
