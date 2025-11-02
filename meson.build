@@ -659,6 +659,17 @@ endif
          timeout: 60)
   endif
 
+  # Validates compliance with Spec 25 requirements
+  if fs.exists('tests/lle/compliance/spec_25_keybinding_compliance.c')
+    test_spec25_compliance = executable('spec_25_compliance',
+                                        'tests/lle/compliance/spec_25_keybinding_compliance.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 25 Keybinding System Compliance', test_spec25_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
   # History Phase 4 Complete Tests
   # Tests Phase 4 features: forensics, deduplication, multiline
   # NOTE: Includes input_continuation.c for multiline support
