@@ -601,6 +601,32 @@ endif
          timeout: 60)
   endif
 
+  # History Phase 3 Day 8 Tests - Search Engine
+  # Tests exact, prefix, substring, and fuzzy search functionality
+  if fs.exists('tests/lle/functional/test_history_phase3_day8.c')
+    test_history_phase3_day8 = executable('test_history_phase3_day8',
+                                          ['tests/lle/functional/test_history_phase3_day8.c',
+                                           'tests/lle/functional/test_memory_mock.c'],
+                                          include_directories: inc,
+                                          dependencies: [lle_dep])
+    test('LLE History Phase 3 Day 8', test_history_phase3_day8,
+         suite: 'lle-functional',
+         timeout: 60)
+  endif
+
+  # History Phase 3 Day 9 Tests - Interactive Search
+  # Tests Ctrl+R style reverse incremental search functionality
+  if fs.exists('tests/lle/functional/test_history_phase3_day9.c')
+    test_history_phase3_day9 = executable('test_history_phase3_day9',
+                                          ['tests/lle/functional/test_history_phase3_day9.c',
+                                           'tests/lle/functional/test_memory_mock.c'],
+                                          include_directories: inc,
+                                          dependencies: [lle_dep])
+    test('LLE History Phase 3 Day 9', test_history_phase3_day9,
+         suite: 'lle-functional',
+         timeout: 60)
+  endif
+
   # History Compliance Tests (Spec 09)
   # Validates compliance with Spec 09 requirements
   if fs.exists('tests/lle/compliance/spec_09_history_compliance.c')
