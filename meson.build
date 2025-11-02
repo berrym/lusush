@@ -520,6 +520,101 @@ if fs.exists('tests/lle/unit/test_parser_state_machine.c')
 endif
 
 # ============================================================================
+# LLE History System Tests (Spec 09)
+# ============================================================================
+
+  # History Core Functional Tests (Phase 1 Day 1)
+  # Tests basic history operations: add, get, search, navigate
+  if fs.exists('tests/lle/functional/test_history_phase1_day1.c')
+    test_history_core = executable('test_history_phase1_day1',
+                                   ['tests/lle/functional/test_history_phase1_day1.c',
+                                    'tests/lle/functional/test_memory_mock.c'],
+                                   include_directories: inc,
+                                   dependencies: [lle_dep])
+    test('LLE History Core', test_history_core,
+         suite: 'lle-functional',
+         timeout: 30)
+  endif
+
+  # History Indexing Functional Tests (Phase 1 Day 2)
+  # Tests command indexing, prefix search, full-text search
+  if fs.exists('tests/lle/functional/test_history_phase1_day2.c')
+    test_history_indexing = executable('test_history_phase1_day2',
+                                       ['tests/lle/functional/test_history_phase1_day2.c',
+                                        'tests/lle/functional/test_memory_mock.c'],
+                                       include_directories: inc,
+                                       dependencies: [lle_dep])
+    test('LLE History Indexing', test_history_indexing,
+         suite: 'lle-functional',
+         timeout: 30)
+  endif
+
+  # History Persistence Functional Tests (Phase 1 Day 3)
+  # Tests file I/O, format conversion, import/export
+  if fs.exists('tests/lle/functional/test_history_phase1_day3.c')
+    test_history_persistence = executable('test_history_phase1_day3',
+                                          ['tests/lle/functional/test_history_phase1_day3.c',
+                                           'tests/lle/functional/test_memory_mock.c'],
+                                          include_directories: inc,
+                                          dependencies: [lle_dep])
+    test('LLE History Persistence', test_history_persistence,
+         suite: 'lle-functional',
+         timeout: 30)
+  endif
+
+  # History Lusush Bridge Functional Tests (Phase 2 Day 5)
+  # Tests bidirectional sync with Lusush history
+  if fs.exists('tests/lle/functional/test_history_phase2_day5.c')
+    test_history_bridge = executable('test_history_phase2_day5',
+                                     ['tests/lle/functional/test_history_phase2_day5.c',
+                                      'tests/lle/functional/test_memory_mock.c'],
+                                     include_directories: inc,
+                                     dependencies: [lle_dep])
+    test('LLE History Lusush Bridge', test_history_bridge,
+         suite: 'lle-functional',
+         timeout: 30)
+  endif
+
+  # History Phase 1 Integration Tests
+  # Tests integration between core, indexing, and persistence
+  if fs.exists('tests/lle/integration/test_history_phase1_integration.c')
+    test_history_phase1_integration = executable('test_history_phase1_integration',
+                                                 ['tests/lle/integration/test_history_phase1_integration.c',
+                                                  'tests/lle/functional/test_memory_mock.c'],
+                                                 include_directories: inc,
+                                                 dependencies: [lle_dep])
+    test('LLE History Phase 1 Integration', test_history_phase1_integration,
+         suite: 'lle-integration',
+         timeout: 60)
+  endif
+
+  # History Phase 2 Integration Tests
+  # Tests integration between bridge, events, and all Phase 1 components
+  if fs.exists('tests/lle/integration/test_history_phase2_integration.c')
+    test_history_phase2_integration = executable('test_history_phase2_integration',
+                                                 ['tests/lle/integration/test_history_phase2_integration.c',
+                                                  'tests/lle/functional/test_memory_mock.c'],
+                                                 include_directories: inc,
+                                                 dependencies: [lle_dep])
+    test('LLE History Phase 2 Integration', test_history_phase2_integration,
+         suite: 'lle-integration',
+         timeout: 60)
+  endif
+
+  # History Compliance Tests (Spec 09)
+  # Validates compliance with Spec 09 requirements
+  if fs.exists('tests/lle/compliance/spec_09_history_compliance.c')
+    test_history_compliance = executable('spec_09_compliance',
+                                         ['tests/lle/compliance/spec_09_history_compliance.c',
+                                          'tests/lle/functional/test_memory_mock.c'],
+                                         include_directories: inc,
+                                         dependencies: [lle_dep])
+    test('Spec 09 History Compliance', test_history_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
+# ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
 # This is NOT an automated test - it's a manual verification tool

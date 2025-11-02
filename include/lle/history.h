@@ -1076,4 +1076,240 @@ lle_history_search_results_t* lle_history_search_fuzzy(
     size_t max_results
 );
 
+/* ============================================================================
+ * INTERACTIVE SEARCH API (Phase 3 Day 9) - Ctrl+R Reverse Incremental Search
+ * ============================================================================ */
+
+/**
+ * Interactive search state
+ */
+typedef enum {
+    LLE_SEARCH_STATE_INACTIVE,      /* No active search */
+    LLE_SEARCH_STATE_ACTIVE,        /* Search active, have results */
+    LLE_SEARCH_STATE_NO_RESULTS,    /* Search active, no matches found */
+    LLE_SEARCH_STATE_FAILED         /* Search failed (error condition) */
+} lle_interactive_search_state_t;
+
+/**
+ * Initialize interactive search session
+ * 
+ * Starts a new Ctrl+R search session. Saves current line for cancel operation.
+ * 
+ * @param history_core History core engine
+ * @param current_line Current line buffer (saved for cancel)
+ * @param cursor_pos Current cursor position
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_init(
+    lle_history_core_t *history_core,
+    const char *current_line,
+    size_t cursor_pos
+);
+
+/**
+ * Update search query with new character
+ * 
+ * Appends character to query and re-runs search. Called for each keypress.
+ * 
+ * @param c Character to append
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_update_query(char c);
+
+/**
+ * Remove last character from search query (backspace)
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_backspace(void);
+
+/**
+ * Move to next (older) search result
+ * 
+ * Called when user presses Ctrl+R during search.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_next(void);
+
+/**
+ * Move to previous (newer) search result
+ * 
+ * Called when user presses Ctrl+S during search.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_prev(void);
+
+/**
+ * Accept current search result and exit search mode
+ * 
+ * Returns selected command. Caller must copy string before next operation.
+ * 
+ * @return Command string (read-only, must copy) or NULL
+ */
+const char* lle_history_interactive_search_accept(void);
+
+/**
+ * Cancel search and restore original line
+ * 
+ * Returns original line. Caller must copy string before next operation.
+ * 
+ * @return Original line (read-only, must copy) or NULL
+ */
+const char* lle_history_interactive_search_cancel(void);
+
+/**
+ * Check if search is currently active
+ * 
+ * @return true if search session is active
+ */
+bool lle_history_interactive_search_is_active(void);
+
+/**
+ * Get current search query
+ * 
+ * @return Current query string (read-only)
+ */
+const char* lle_history_interactive_search_get_query(void);
+
+/**
+ * Get current search prompt string
+ * 
+ * Returns prompt like "(reverse-i-search)`query': "
+ * 
+ * @return Prompt string (read-only)
+ */
+const char* lle_history_interactive_search_get_prompt(void);
+
+/**
+ * Get currently selected command
+ * 
+ * Returns command highlighted in search results.
+ * 
+ * @return Current command (read-only) or NULL
+ */
+const char* lle_history_interactive_search_get_current_command(void);
+
+/**
+ * Get search state
+ * 
+ * @return Current search state
+ */
+lle_interactive_search_state_t lle_history_interactive_search_get_state(void);
+
+/**
+ * Get search statistics
+ * 
+ * @param searches_performed Number of searches (output, can be NULL)
+ * @param total_time_us Total time in microseconds (output, can be NULL)
+ * @param avg_time_us Average time in microseconds (output, can be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_interactive_search_get_stats(
+    uint64_t *searches_performed,
+    uint64_t *total_time_us,
+    uint64_t *avg_time_us
+);
+
+/**
+ * Print search statistics (for debugging)
+ */
+void lle_history_interactive_search_print_stats(void);
+
+/**
+ * Reset search statistics
+ */
+void lle_history_interactive_search_reset_stats(void);
+
+/* ============================================================================
+ * HISTORY EXPANSION API (Phase 3 Day 10)
+ * ============================================================================ */
+
+/**
+ * Initialize history expansion system
+ * 
+ * Sets up the expansion engine to process bash-compatible history expansions
+ * including !!, !n, !-n, !string, !?string, and ^old^new.
+ * 
+ * @param history_core History core engine for lookups
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_expansion_init(lle_history_core_t *history_core);
+
+/**
+ * Shutdown history expansion system
+ * 
+ * Cleans up expansion engine resources.
+ * 
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_expansion_shutdown(void);
+
+/**
+ * Check if command contains history expansion
+ * 
+ * Detects presence of history expansion markers (!, ^) that need processing.
+ * 
+ * @param command Command line to check
+ * @return true if expansion needed, false otherwise
+ */
+bool lle_history_expansion_needed(const char *command);
+
+/**
+ * Expand history references in command line
+ * 
+ * Performs bash-compatible history expansion:
+ * - !! - Repeat last command
+ * - !n - Repeat command number n
+ * - !-n - Repeat command n positions back  
+ * - !string - Most recent command starting with string
+ * - !?string - Most recent command containing string
+ * - ^old^new - Quick substitution in last command
+ * 
+ * The expanded result is allocated using the memory pool and must be
+ * freed by the caller using lle_pool_free().
+ * 
+ * @param command Original command with history references
+ * @param expanded Output pointer for expanded command (caller must free)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_expand_line(const char *command, char **expanded);
+
+/**
+ * Set whether leading space disables expansion
+ * 
+ * When enabled (default), commands starting with space are not expanded.
+ * This matches bash behavior for privacy (HISTCONTROL=ignorespace).
+ * 
+ * @param enabled true to enable space-disables-expansion
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_expansion_set_space_disables(bool enabled);
+
+/**
+ * Get whether leading space disables expansion
+ * 
+ * @return true if enabled, false otherwise
+ */
+bool lle_history_expansion_get_space_disables(void);
+
+/**
+ * Set whether to verify expansion before execution
+ * 
+ * When enabled, expanded commands are displayed to user before execution.
+ * This matches bash 'shopt -s histverify' option.
+ * 
+ * @param enabled true to enable verification
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_expansion_set_verify(bool enabled);
+
+/**
+ * Get whether verification is enabled
+ * 
+ * @return true if enabled, false otherwise
+ */
+bool lle_history_expansion_get_verify(void);
+
 #endif /* LLE_HISTORY_H */

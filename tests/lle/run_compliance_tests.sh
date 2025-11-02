@@ -391,6 +391,47 @@ else
     echo ""
 fi
 
+# Run Spec 09 compliance tests (History System)
+echo "-------------------------------------------------------------------"
+echo "Spec 09: History System Compliance (Phase 1)"
+echo "-------------------------------------------------------------------"
+echo ""
+
+if [ -f "compliance/spec_09_history_compliance.c" ]; then
+    echo "Compiling spec_09_history_compliance..."
+
+    gcc -o spec_09_compliance \
+        compliance/spec_09_history_compliance.c \
+        ../../src/lle/history_core.c \
+        ../../src/lle/memory_management.c \
+        ../../src/lle/error_handling.c \
+        ../../src/lusush_memory_pool.c \
+        -I../../include \
+        -std=c11 \
+        -D_POSIX_C_SOURCE=200809L \
+        -Wall -Wextra \
+        -pthread \
+        -g
+
+    echo "Compilation successful"
+    echo ""
+
+    # Run the test
+    ./spec_09_compliance
+    SPEC_09_RESULT=$?
+
+    TOTAL_FAILURES=$((TOTAL_FAILURES + SPEC_09_RESULT))
+    TESTS_RUN=$((TESTS_RUN + 1))
+
+    # Cleanup
+    rm -f spec_09_compliance
+
+    echo ""
+else
+    echo "Spec 09 compliance test not found - skipping"
+    echo ""
+fi
+
 # Summary
 echo "==================================================================="
 echo "Compliance Test Summary"

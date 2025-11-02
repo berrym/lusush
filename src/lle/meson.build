@@ -342,6 +342,9 @@ endif
 if fs.exists('history_interactive_search.c')
   lle_sources += files('history_interactive_search.c')
 endif
+if fs.exists('history_expansion.c')
+  lle_sources += files('history_expansion.c')
+endif
 if fs.exists('history_navigation.c')
   lle_sources += files('history_navigation.c')
 endif
