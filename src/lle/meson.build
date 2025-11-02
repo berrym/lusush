@@ -419,6 +419,19 @@ if fs.exists('src/lle/customization.c')
 endif
 
 # ============================================================================
+# CRITICAL GAP SPECS: CROSS-CUTTING INTEGRATIONS
+# ============================================================================
+# These specs integrate multiple core systems together
+
+# Spec 25: Default Keybindings
+# Provides: GNU Readline compatible keybindings, kill ring, keybinding engine
+# Depends on: Spec 03 (Buffer), 04 (Events), 08 (Display), 09 (History)
+# Phase 1: Kill Ring System
+if fs.exists('kill_ring.c')
+  lle_sources += files('kill_ring.c')
+endif
+
+# ============================================================================
 # LLE READLINE - CORE ORCHESTRATION
 # ============================================================================
 # The main readline function that ties all subsystems together

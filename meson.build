@@ -672,6 +672,22 @@ endif
          timeout: 60)
   endif
 
+  # ============================================================================
+  # SPEC 25: DEFAULT KEYBINDINGS TESTS
+  # ============================================================================
+
+  # Kill Ring Unit Tests
+  # Tests GNU Readline compatible kill/yank operations
+  if fs.exists('tests/lle/unit/test_kill_ring.c')
+    test_kill_ring = executable('test_kill_ring',
+                                'tests/lle/unit/test_kill_ring.c',
+                                include_directories: inc,
+                                dependencies: [lle_dep])
+    test('LLE Kill Ring', test_kill_ring,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
 # ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
