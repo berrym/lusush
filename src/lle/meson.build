@@ -430,6 +430,10 @@ endif
 if fs.exists('kill_ring.c')
   lle_sources += files('kill_ring.c')
 endif
+# Phase 2: Keybinding Engine
+if fs.exists('keybinding.c')
+  lle_sources += files('keybinding.c')
+endif
 
 # ============================================================================
 # LLE READLINE - CORE ORCHESTRATION

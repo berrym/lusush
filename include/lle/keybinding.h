@@ -162,8 +162,7 @@ typedef struct {
  * @note Hashtable will grow automatically as bindings are added
  */
 lle_result_t lle_keybinding_manager_create(
-    lle_keybinding_manager_t **manager,
-    lle_memory_pool_t *pool
+    lle_keybinding_manager_t **manager
 );
 
 /**

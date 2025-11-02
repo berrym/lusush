@@ -688,6 +688,18 @@ endif
          timeout: 30)
   endif
 
+  # Keybinding Engine Unit Tests
+  # Tests keybinding manager, key parsing, bind/unbind, mode switching
+  if fs.exists('tests/lle/unit/test_keybinding.c')
+    test_keybinding = executable('test_keybinding',
+                                 'tests/lle/unit/test_keybinding.c',
+                                 include_directories: inc,
+                                 dependencies: [lle_dep])
+    test('LLE Keybinding Engine', test_keybinding,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
 # ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
