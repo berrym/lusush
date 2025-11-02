@@ -130,6 +130,17 @@ struct lle_history_entry {
     uint32_t duration_ms;               /* Execution duration (Phase 4) */
     uint32_t edit_count;                /* Edit count (Phase 4) */
     
+    /* Phase 4 Day 11: Forensic metadata */
+    pid_t process_id;                   /* Process ID when executed */
+    pid_t session_id;                   /* Session ID for command */
+    uid_t user_id;                      /* User ID when executed */
+    gid_t group_id;                     /* Group ID when executed */
+    char *terminal_name;                /* Terminal name (e.g., "/dev/pts/0") */
+    uint64_t start_time_ns;             /* High-precision start time (nanoseconds) */
+    uint64_t end_time_ns;               /* High-precision end time (nanoseconds) */
+    uint32_t usage_count;               /* Number of times this command was used */
+    uint64_t last_access_time;          /* Last time this entry was accessed */
+    
     /* Internal management */
     struct lle_history_entry *next;     /* Linked list next */
     struct lle_history_entry *prev;     /* Linked list prev */
@@ -1311,5 +1322,102 @@ lle_result_t lle_history_expansion_set_verify(bool enabled);
  * @return true if enabled, false otherwise
  */
 bool lle_history_expansion_get_verify(void);
+
+/* ============================================================================
+ * FORENSIC TRACKING API (Phase 4 Day 11)
+ * ============================================================================ */
+
+/**
+ * Forensic context structure for capturing execution metadata
+ */
+typedef struct lle_forensic_context {
+    pid_t process_id;           /* Current process ID */
+    pid_t session_id;           /* Current session ID */
+    uid_t user_id;              /* Current user ID */
+    gid_t group_id;             /* Current group ID */
+    char *terminal_name;        /* Terminal device name */
+    char *working_directory;    /* Current working directory */
+    uint64_t timestamp_ns;      /* High-precision timestamp (nanoseconds) */
+} lle_forensic_context_t;
+
+/**
+ * Capture current forensic context
+ * 
+ * Captures process, user, terminal, and timing information for forensic tracking.
+ * 
+ * @param context Output structure for forensic data
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_capture_context(lle_forensic_context_t *context);
+
+/**
+ * Apply forensic context to history entry
+ * 
+ * Populates forensic metadata fields in a history entry from context.
+ * 
+ * @param entry History entry to populate
+ * @param context Forensic context to apply
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_apply_to_entry(lle_history_entry_t *entry, 
+                                         const lle_forensic_context_t *context);
+
+/**
+ * Record command execution start time
+ * 
+ * Captures high-precision start time for duration calculation.
+ * 
+ * @param entry History entry
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_mark_start(lle_history_entry_t *entry);
+
+/**
+ * Record command execution end time and calculate duration
+ * 
+ * Captures end time and calculates execution duration in milliseconds.
+ * 
+ * @param entry History entry
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_mark_end(lle_history_entry_t *entry);
+
+/**
+ * Increment usage count for history entry
+ * 
+ * Tracks how many times a command has been reused via expansion or recall.
+ * 
+ * @param entry History entry
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_increment_usage(lle_history_entry_t *entry);
+
+/**
+ * Update last access time for history entry
+ * 
+ * Records timestamp when entry was last accessed (searched, expanded, etc.).
+ * 
+ * @param entry History entry
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_forensic_update_access_time(lle_history_entry_t *entry);
+
+/**
+ * Get high-precision timestamp in nanoseconds
+ * 
+ * Uses CLOCK_MONOTONIC for consistent timing measurements.
+ * 
+ * @return Timestamp in nanoseconds since arbitrary epoch
+ */
+uint64_t lle_forensic_get_timestamp_ns(void);
+
+/**
+ * Free forensic context resources
+ * 
+ * Frees allocated strings in forensic context.
+ * 
+ * @param context Forensic context to free
+ */
+void lle_forensic_free_context(lle_forensic_context_t *context);
 
 #endif /* LLE_HISTORY_H */

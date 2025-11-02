@@ -169,6 +169,17 @@ lle_result_t lle_history_entry_create(
     e->duration_ms = 0;
     e->edit_count = 0;
     
+    /* Phase 4 Day 11: Forensic fields - initialize to defaults */
+    e->process_id = 0;
+    e->session_id = 0;
+    e->user_id = 0;
+    e->group_id = 0;
+    e->terminal_name = NULL;
+    e->start_time_ns = 0;
+    e->end_time_ns = 0;
+    e->usage_count = 0;
+    e->last_access_time = 0;
+    
     /* List pointers */
     e->next = NULL;
     e->prev = NULL;
@@ -203,6 +214,11 @@ lle_result_t lle_history_entry_destroy(
     /* Phase 4: Free multiline data if present */
     if (entry->original_multiline) {
         lle_pool_free( entry->original_multiline);
+    }
+    
+    /* Phase 4 Day 11: Free forensic data if present */
+    if (entry->terminal_name) {
+        lle_pool_free( entry->terminal_name);
     }
     
     /* Free entry structure */
@@ -487,6 +503,13 @@ lle_result_t lle_history_add_entry(
     /* Assign entry ID */
     entry->entry_id = core->next_entry_id++;
     entry->exit_code = exit_code;
+    
+    /* Phase 4 Day 11: Capture forensic context */
+    lle_forensic_context_t forensic_ctx;
+    if (lle_forensic_capture_context(&forensic_ctx) == LLE_SUCCESS) {
+        lle_forensic_apply_to_entry(entry, &forensic_ctx);
+        lle_forensic_free_context(&forensic_ctx);
+    }
     
     /* Add to array */
     core->entries[core->entry_count] = entry;
