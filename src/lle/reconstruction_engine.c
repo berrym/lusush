@@ -61,7 +61,7 @@ lle_result_t lle_reconstruction_engine_create(
     lle_multiline_parser_t *parser,
     const lle_reconstruction_options_t *options)
 {
-    if (!engine || !memory_pool || !analyzer || !parser) {
+    if (!engine || !analyzer || !parser) { /* memory_pool can be NULL */
         return LLE_ERROR_INVALID_PARAMETER;
     }
     

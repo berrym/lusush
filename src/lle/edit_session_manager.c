@@ -64,7 +64,7 @@ lle_result_t lle_edit_session_manager_create(
     lle_history_core_t *history_core,
     const lle_session_manager_config_t *config)
 {
-    if (!manager || !memory_pool || !history_core) {
+    if (!manager || !history_core) /* memory_pool can be NULL */ {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     

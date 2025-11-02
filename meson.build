@@ -640,6 +640,18 @@ endif
          timeout: 60)
   endif
 
+  # Validates compliance with Spec 22 requirements
+  if fs.exists('tests/lle/compliance/spec_22_history_buffer_compliance.c')
+    test_spec22_compliance = executable('spec_22_compliance',
+                                        ['tests/lle/compliance/spec_22_history_buffer_compliance.c',
+                                         'tests/lle/functional/test_memory_mock.c'],
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 22 History-Buffer Integration Compliance', test_spec22_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
   # History Phase 4 Complete Tests
   # Tests Phase 4 features: forensics, deduplication, multiline
   # NOTE: Includes input_continuation.c for multiline support

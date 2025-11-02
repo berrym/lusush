@@ -53,9 +53,11 @@ lle_result_t lle_edit_cache_create(
     lle_memory_pool_t *memory_pool,
     const lle_edit_cache_config_t *config)
 {
-    if (!cache || !memory_pool) {
+    if (!cache) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    /* memory_pool can be NULL - will use global pool */
     
     lle_edit_cache_t *new_cache = lle_pool_alloc(sizeof(lle_edit_cache_t));
     if (!new_cache) {
@@ -64,7 +66,7 @@ lle_result_t lle_edit_cache_create(
     
     memset(new_cache, 0, sizeof(lle_edit_cache_t));
     
-    new_cache->memory_pool = memory_pool;
+    new_cache->memory_pool = memory_pool; /* Can be NULL */
     
     if (config) {
         memcpy(&new_cache->config, config, sizeof(lle_edit_cache_config_t));

@@ -77,9 +77,11 @@ lle_result_t lle_structure_analyzer_create(
     lle_memory_pool_t *memory_pool,
     const lle_analyzer_config_t *config)
 {
-    if (!analyzer || !memory_pool) {
+    if (!analyzer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    /* memory_pool can be NULL - will use global pool */
     
     lle_structure_analyzer_t *new_analyzer = 
         lle_pool_alloc(sizeof(lle_structure_analyzer_t));
@@ -87,7 +89,7 @@ lle_result_t lle_structure_analyzer_create(
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     
-    new_analyzer->memory_pool = memory_pool;
+    new_analyzer->memory_pool = memory_pool; /* Can be NULL */
     
     if (config) {
         memcpy(&new_analyzer->config, config, sizeof(lle_analyzer_config_t));

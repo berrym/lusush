@@ -48,7 +48,7 @@ lle_result_t lle_history_buffer_bridge_create(
     lle_multiline_parser_t *parser,
     lle_reconstruction_engine_t *reconstruction)
 {
-    if (!bridge || !memory_pool || !history_core || !parser || !reconstruction) {
+    if (!bridge || !history_core || !parser || !reconstruction) { /* memory_pool can be NULL */
         return LLE_ERROR_INVALID_PARAMETER;
     }
     

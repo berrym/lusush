@@ -51,7 +51,7 @@ lle_result_t lle_multiline_parser_create(
     lle_structure_analyzer_t *analyzer,
     const lle_parser_config_t *config)
 {
-    if (!parser || !memory_pool || !analyzer) {
+    if (!parser || !analyzer) /* memory_pool can be NULL */ {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     

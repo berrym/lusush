@@ -24,9 +24,11 @@ lle_result_t lle_command_structure_create(
     lle_command_structure_t **structure,
     lle_memory_pool_t *memory_pool)
 {
-    if (!structure || !memory_pool) {
+    if (!structure) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    /* memory_pool can be NULL - will use global pool */
     
     lle_command_structure_t *cmd_struct = lle_pool_alloc(sizeof(lle_command_structure_t));
     if (!cmd_struct) {
@@ -34,7 +36,7 @@ lle_result_t lle_command_structure_create(
     }
     
     memset(cmd_struct, 0, sizeof(lle_command_structure_t));
-    cmd_struct->pool = memory_pool;
+    cmd_struct->pool = memory_pool; /* Can be NULL */
     cmd_struct->primary_type = LLE_CONSTRUCT_SIMPLE;
     cmd_struct->is_complete = false;
     cmd_struct->has_syntax_error = false;

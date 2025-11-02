@@ -104,7 +104,7 @@ lle_result_t lle_formatting_engine_create(
     lle_structure_analyzer_t *analyzer,
     const lle_formatting_options_t *options)
 {
-    if (!engine || !memory_pool || !analyzer) {
+    if (!engine || !analyzer) /* memory_pool can be NULL */ {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     

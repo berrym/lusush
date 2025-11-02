@@ -56,7 +56,9 @@ static const lle_integration_config_t DEFAULT_CONFIG = {
  * Initialize stub component (placeholder for Phase 2+)
  */
 static lle_result_t init_stub_component(void **component, lle_memory_pool_t *pool, size_t size) {
-    if (!component || !pool) {
+    (void)pool; /* Unused - uses lle_pool_alloc global pool */
+    
+    if (!component) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -85,9 +87,12 @@ lle_result_t lle_history_buffer_integration_create(
     lle_history_buffer_integration_t *integ = NULL;
     
     /* Validate parameters */
-    if (!integration || !history_core || !memory_pool) {
+    if (!integration || !history_core) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    
+    /* memory_pool can be NULL - will use global pool via lle_pool_alloc */
     
     /* Allocate integration system */
     integ = lle_pool_alloc(sizeof(lle_history_buffer_integration_t));
