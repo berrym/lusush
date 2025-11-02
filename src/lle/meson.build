@@ -352,6 +352,22 @@ endif
 if fs.exists('history_buffer_integration.c')
   lle_sources += files('history_buffer_integration.c')
 endif
+# Spec 22 Phase 2: Multiline Reconstruction Engine
+if fs.exists('command_structure.c')
+  lle_sources += files('command_structure.c')
+endif
+if fs.exists('structure_analyzer.c')
+  lle_sources += files('structure_analyzer.c')
+endif
+if fs.exists('multiline_parser.c')
+  lle_sources += files('multiline_parser.c')
+endif
+if fs.exists('reconstruction_engine.c')
+  lle_sources += files('reconstruction_engine.c')
+endif
+if fs.exists('formatting_engine.c')
+  lle_sources += files('formatting_engine.c')
+endif
 # Phase 4: Advanced features
 if fs.exists('history_forensics.c')
   lle_sources += files('history_forensics.c')
