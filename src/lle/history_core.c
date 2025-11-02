@@ -31,7 +31,9 @@ lle_result_t lle_history_config_create_default(
     lle_history_config_t **config,
     lle_memory_pool_t *memory_pool
 ) {
-    if (!config || !memory_pool) {
+    (void)memory_pool;  /* Unused - we use global pool via lle_pool_alloc */
+    
+    if (!config) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -80,7 +82,9 @@ lle_result_t lle_history_config_destroy(
     lle_history_config_t *config,
     lle_memory_pool_t *memory_pool
 ) {
-    if (!config || !memory_pool) {
+    (void)memory_pool;  /* Unused - we use global pool via lle_pool_free */
+    
+    if (!config) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -107,7 +111,9 @@ lle_result_t lle_history_entry_create(
     const char *command,
     lle_memory_pool_t *memory_pool
 ) {
-    if (!entry || !command || !memory_pool) {
+    (void)memory_pool;  /* Unused - we use global pool via lle_pool_alloc */
+    
+    if (!entry || !command) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -178,7 +184,9 @@ lle_result_t lle_history_entry_destroy(
     lle_history_entry_t *entry,
     lle_memory_pool_t *memory_pool
 ) {
-    if (!entry || !memory_pool) {
+    (void)memory_pool;  /* Unused - we use global pool via lle_pool_free */
+    
+    if (!entry) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -241,7 +249,7 @@ lle_result_t lle_history_core_create(
     lle_memory_pool_t *memory_pool,
     const lle_history_config_t *config
 ) {
-    if (!core || !memory_pool) {
+    if (!core) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -302,8 +310,18 @@ lle_result_t lle_history_core_create(
     c->first_entry = NULL;
     c->last_entry = NULL;
     
-    /* Phase 2: Initialize hashtable indexing (placeholder for now) */
-    c->entry_lookup = NULL;  /* Will be created in Phase 2 Day 2 */
+    /* Phase 1 Day 2: Create hashtable index if enabled */
+    if (c->config->use_indexing) {
+        result = lle_history_index_create(&c->entry_lookup, initial_cap);
+        if (result != LLE_SUCCESS) {
+            lle_pool_free(c->entries);
+            lle_history_config_destroy(c->config, memory_pool);
+            lle_pool_free(c);
+            return result;
+        }
+    } else {
+        c->entry_lookup = NULL;
+    }
     
     /* Initialize statistics */
     memset(&c->stats, 0, sizeof(lle_history_stats_t));
@@ -348,10 +366,9 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
         lle_pool_free( core->entries);
     }
     
-    /* Phase 2: Destroy hashtable if present */
+    /* Phase 1 Day 2: Destroy hashtable index if present */
     if (core->entry_lookup) {
-        /* NOTE: Hashtable indexing not yet implemented in Phase 1 */
-        /* Phase 2 will create hashtable and implement proper destroy */
+        lle_history_index_destroy(core->entry_lookup);
         core->entry_lookup = NULL;
     }
     
@@ -485,6 +502,26 @@ lle_result_t lle_history_add_entry(
     
     core->entry_count++;
     
+    /* Phase 1 Day 2: Add to hashtable index if enabled */
+    if (core->entry_lookup) {
+        result = lle_history_index_insert(core->entry_lookup, entry->entry_id, entry);
+        if (result != LLE_SUCCESS) {
+            /* Rollback: remove from array and linked list */
+            core->entry_count--;
+            core->entries[core->entry_count] = NULL;
+            if (entry->prev) {
+                entry->prev->next = NULL;
+                core->last_entry = entry->prev;
+            } else {
+                core->first_entry = NULL;
+                core->last_entry = NULL;
+            }
+            lle_history_entry_destroy(entry, core->memory_pool);
+            pthread_rwlock_unlock(&core->lock);
+            return result;
+        }
+    }
+    
     /* Update statistics */
     core->stats.total_entries++;
     core->stats.active_entries++;
@@ -577,12 +614,21 @@ lle_result_t lle_history_get_entry_by_id(
     struct timeval start_time;
     gettimeofday(&start_time, NULL);
     
-    /* Phase 1: Linear search (Phase 2 will add hashtable lookup) */
+    /* Phase 1 Day 2: Use hashtable lookup if available, otherwise linear search */
     lle_history_entry_t *found = NULL;
-    for (size_t i = 0; i < core->entry_count; i++) {
-        if (core->entries[i]->entry_id == entry_id) {
-            found = core->entries[i];
-            break;
+    lle_result_t lookup_result;
+    
+    if (core->entry_lookup) {
+        /* O(1) hashtable lookup */
+        lookup_result = lle_history_index_lookup(core->entry_lookup, entry_id, &found);
+        (void)lookup_result;  /* Lookup returns success even if not found (found will be NULL) */
+    } else {
+        /* O(n) linear search fallback */
+        for (size_t i = 0; i < core->entry_count; i++) {
+            if (core->entries[i]->entry_id == entry_id) {
+                found = core->entries[i];
+                break;
+            }
         }
     }
     
@@ -656,6 +702,11 @@ lle_result_t lle_history_clear(lle_history_core_t *core) {
     core->entry_count = 0;
     core->first_entry = NULL;
     core->last_entry = NULL;
+    
+    /* Phase 1 Day 2: Clear hashtable index if present */
+    if (core->entry_lookup) {
+        lle_history_index_clear(core->entry_lookup);
+    }
     
     /* Update statistics */
     core->stats.active_entries = 0;
