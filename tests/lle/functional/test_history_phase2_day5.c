@@ -59,17 +59,12 @@ static int tests_failed = 0;
  * TEST SETUP AND TEARDOWN
  * ============================================================================ */
 
-static lle_memory_pool_t *g_pool = NULL;
 static lle_history_core_t *g_core = NULL;
 static posix_history_manager_t *g_posix = NULL;
 
 static void setup(void) {
-    /* Initialize memory pool */
-    lle_result_t result = lusush_pool_create(&g_pool, "test_pool", 1024 * 1024);
-    ASSERT_SUCCESS(result);
-    
-    /* Create history core */
-    result = lle_history_core_create(&g_core, g_pool, NULL);
+    /* Create history core (no pool - uses malloc) */
+    lle_result_t result = lle_history_core_create(&g_core, NULL, NULL);
     ASSERT_SUCCESS(result);
     
     /* Create POSIX history manager */
@@ -97,12 +92,6 @@ static void teardown(void) {
     if (g_core) {
         lle_history_core_destroy(g_core);
         g_core = NULL;
-    }
-    
-    /* Clean up memory pool */
-    if (g_pool) {
-        lusush_pool_destroy(g_pool);
-        g_pool = NULL;
     }
     
     /* Clear GNU Readline history */

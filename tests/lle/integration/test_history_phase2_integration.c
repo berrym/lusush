@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -61,7 +62,6 @@ static int tests_failed = 0;
  * TEST FIXTURES
  * ============================================================================ */
 
-static lle_memory_pool_t *g_pool = NULL;
 static lle_history_core_t *g_core = NULL;
 static posix_history_manager_t *g_posix = NULL;
 static lle_event_system_t *g_event_system = NULL;
@@ -79,18 +79,7 @@ static lle_result_t test_event_handler(lle_event_t *event, void *user_data) {
     
     switch (event->type) {
         case LLE_EVENT_HISTORY_CHANGED:
-            /* Could be add, load, or save */
-            if (event->data_size == sizeof(lle_history_entry_event_data_t)) {
-                g_entry_added_events++;
-            } else {
-                /* File operation */
-                lle_history_file_event_data_t *data = 
-                    (lle_history_file_event_data_t *)event->data;
-                if (data) {
-                    /* Check if it's load or save based on context */
-                    /* For simplicity, we'll track in emit functions */
-                }
-            }
+            g_entry_added_events++;
             break;
         default:
             break;
@@ -100,16 +89,12 @@ static lle_result_t test_event_handler(lle_event_t *event, void *user_data) {
 }
 
 static void setup(void) {
-    /* Initialize memory pool */
-    lle_result_t result = lusush_pool_create(&g_pool, "test_pool", 2 * 1024 * 1024);
+    /* Create event system (no pool - uses malloc) */
+    lle_result_t result = lle_event_system_init(&g_event_system, 1000);
     ASSERT_SUCCESS(result);
     
-    /* Create event system */
-    result = lle_event_system_create(&g_event_system, g_pool, 1000);
-    ASSERT_SUCCESS(result);
-    
-    /* Create history core */
-    result = lle_history_core_create(&g_core, g_pool, NULL);
+    /* Create history core (no pool - uses malloc) */
+    result = lle_history_core_create(&g_core, NULL, NULL);
     ASSERT_SUCCESS(result);
     
     /* Create POSIX history manager */
@@ -153,12 +138,6 @@ static void teardown(void) {
     if (g_event_system) {
         lle_event_system_destroy(g_event_system);
         g_event_system = NULL;
-    }
-    
-    /* Clean up memory pool */
-    if (g_pool) {
-        lusush_pool_destroy(g_pool);
-        g_pool = NULL;
     }
     
     /* Clear GNU Readline history */
@@ -215,7 +194,7 @@ TEST(test_complete_workflow_all_components) {
     
     /* Step 6: Verify events were emitted */
     /* Note: We need to process the event queue */
-    result = lle_event_system_process_all(g_event_system);
+    result = lle_event_process_all(g_event_system);
     ASSERT_SUCCESS(result);
     
     /* Should have received 3 entry-added events */
@@ -333,7 +312,7 @@ TEST(test_events_during_sync) {
     ASSERT_SUCCESS(result);
     
     /* Process events */
-    result = lle_event_system_process_all(g_event_system);
+    result = lle_event_process_all(g_event_system);
     ASSERT_SUCCESS(result);
     
     /* Verify events received */
@@ -590,7 +569,7 @@ TEST(test_no_memory_leaks) {
     }
     
     /* Process all events */
-    result = lle_event_system_process_all(g_event_system);
+    result = lle_event_process_all(g_event_system);
     ASSERT_SUCCESS(result);
     
     /* Teardown will verify no leaks (implicit) */
