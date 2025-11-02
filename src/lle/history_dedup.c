@@ -133,15 +133,24 @@ static bool commands_equal(
         return true;
     }
     
-    /* Need to normalize for comparison */
-    char norm1[LLE_HISTORY_MAX_COMMAND_LENGTH];
-    char norm2[LLE_HISTORY_MAX_COMMAND_LENGTH];
+    /* Fast path: if both config options are default (case-sensitive, trim whitespace),
+     * we can just do direct strcmp */
+    if (dedup->case_sensitive && !dedup->trim_whitespace) {
+        return strcmp(cmd1, cmd2) == 0;
+    }
     
-    if (normalize_command(dedup, cmd1, norm1, sizeof(norm1)) != LLE_SUCCESS) {
+    /* Slow path: need normalization
+     * Use reasonable stack buffers (4KB each) - commands are typically < 1KB
+     * For very large commands, we'll truncate during normalization */
+    #define NORM_BUFFER_SIZE 4096
+    char norm1[NORM_BUFFER_SIZE];
+    char norm2[NORM_BUFFER_SIZE];
+    
+    if (normalize_command(dedup, cmd1, norm1, NORM_BUFFER_SIZE) != LLE_SUCCESS) {
         return false;
     }
     
-    if (normalize_command(dedup, cmd2, norm2, sizeof(norm2)) != LLE_SUCCESS) {
+    if (normalize_command(dedup, cmd2, norm2, NORM_BUFFER_SIZE) != LLE_SUCCESS) {
         return false;
     }
     
@@ -270,22 +279,25 @@ lle_result_t lle_history_dedup_check(
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* For now, we'll do a linear scan of recent entries
-     * In production, this would use a hash table for O(1) lookup */
-    size_t entry_count = 0;
-    lle_result_t result = lle_history_get_entry_count(core, &entry_count);
-    if (result != LLE_SUCCESS) {
-        return result;
-    }
+    /* CRITICAL: Dedup is called from within add_entry which already holds a write lock.
+     * We MUST NOT call functions that acquire locks (deadlock!).
+     * Instead, directly access core->entries and core->entry_count.
+     * This is safe because the caller (add_entry) holds the write lock.
+     */
+    size_t entry_count = core->entry_count;
     
     /* Scan backwards through recent entries (check last 100 for duplicates) */
     size_t check_limit = (entry_count > 100) ? 100 : entry_count;
     
     for (size_t i = entry_count; i > entry_count - check_limit && i > 0; i--) {
-        lle_history_entry_t *entry = NULL;
-        result = lle_history_get_entry_by_index(core, i - 1, &entry);
+        /* Direct array access - safe because caller holds lock */
+        size_t index = i - 1;
+        if (index >= entry_count) {
+            continue;  /* Safety check */
+        }
         
-        if (result != LLE_SUCCESS || !entry) {
+        lle_history_entry_t *entry = core->entries[index];
+        if (!entry) {
             continue;
         }
         

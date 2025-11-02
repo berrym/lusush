@@ -203,26 +203,30 @@ lle_result_t lle_history_entry_destroy(
     
     /* Free command */
     if (entry->command) {
-        lle_pool_free( entry->command);
+        lle_pool_free(entry->command);
+        entry->command = NULL;
     }
     
     /* Free working directory */
     if (entry->working_directory) {
-        lle_pool_free( entry->working_directory);
+        lle_pool_free(entry->working_directory);
+        entry->working_directory = NULL;
     }
     
     /* Phase 4: Free multiline data if present */
     if (entry->original_multiline) {
-        lle_pool_free( entry->original_multiline);
+        lle_pool_free(entry->original_multiline);
+        entry->original_multiline = NULL;
     }
     
     /* Phase 4 Day 11: Free forensic data if present */
     if (entry->terminal_name) {
-        lle_pool_free( entry->terminal_name);
+        lle_pool_free(entry->terminal_name);
+        entry->terminal_name = NULL;
     }
     
-    /* Free entry structure */
-    lle_pool_free( entry);
+    /* Free entry structure itself last */
+    lle_pool_free(entry);
     
     return LLE_SUCCESS;
 }
@@ -391,6 +395,7 @@ lle_result_t lle_history_core_destroy(lle_history_core_t *core) {
     for (size_t i = 0; i < core->entry_count; i++) {
         if (core->entries[i]) {
             lle_history_entry_destroy(core->entries[i], core->memory_pool);
+            core->entries[i] = NULL;
         }
     }
     
@@ -438,8 +443,14 @@ lle_result_t lle_history_expand_capacity(lle_history_core_t *core) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Calculate new capacity (double it) */
-    size_t new_capacity = core->entry_capacity * 2;
+    /* Calculate new capacity (double it, or use initial minimum if currently 0) */
+    size_t new_capacity;
+    if (core->entry_capacity == 0) {
+        /* Handle case where initial_capacity was set to 0 - use a reasonable minimum */
+        new_capacity = 100;
+    } else {
+        new_capacity = core->entry_capacity * 2;
+    }
     
     /* Check maximum capacity */
     if (new_capacity > core->config->max_entries) {
@@ -616,6 +627,38 @@ lle_result_t lle_history_add_entry(
 }
 
 /**
+ * Internal lock-free version of get_entry_by_index
+ * CRITICAL: Caller MUST hold at least a read lock on core->lock
+ * Used by dedup engine to avoid deadlock when called from add_entry
+ */
+static inline lle_result_t get_entry_by_index_unlocked(
+    lle_history_core_t *core,
+    size_t index,
+    lle_history_entry_t **entry
+) {
+    if (!core || !entry) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    if (!core->initialized) {
+        return LLE_ERROR_NOT_INITIALIZED;
+    }
+    
+    /* Check bounds */
+    if (index >= core->entry_count) {
+        return LLE_ERROR_NOT_FOUND;
+    }
+    
+    /* Return entry directly - no locking */
+    *entry = core->entries[index];
+    
+    /* Update statistics */
+    core->stats.retrieve_count++;
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * Get entry by index
  */
 lle_result_t lle_history_get_entry_by_index(
@@ -720,6 +763,26 @@ lle_result_t lle_history_get_entry_by_id(
     }
     
     *entry = found;
+    return LLE_SUCCESS;
+}
+
+/**
+ * Internal lock-free version of get_entry_count
+ * CRITICAL: Caller MUST hold at least a read lock on core->lock
+ */
+static inline lle_result_t get_entry_count_unlocked(
+    lle_history_core_t *core,
+    size_t *count
+) {
+    if (!core || !count) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    if (!core->initialized) {
+        return LLE_ERROR_NOT_INITIALIZED;
+    }
+    
+    *count = core->entry_count;
     return LLE_SUCCESS;
 }
 
