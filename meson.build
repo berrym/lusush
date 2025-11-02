@@ -670,6 +670,18 @@ endif
          timeout: 60)
   endif
 
+  # Spec 26 Compliance Test (Adaptive Terminal Integration)
+  # Validates compliance with Spec 26 Phases 1-2 requirements
+  if fs.exists('tests/lle/compliance/spec_26_adaptive_terminal_compliance.c')
+    test_spec26_compliance = executable('spec_26_compliance',
+                                        'tests/lle/compliance/spec_26_adaptive_terminal_compliance.c',
+                                        include_directories: inc,
+                                        dependencies: [lle_dep])
+    test('Spec 26 Adaptive Terminal Integration Compliance', test_spec26_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
   # History Phase 4 Complete Tests
   # Tests Phase 4 features: forensics, deduplication, multiline
   # NOTE: Includes input_continuation.c for multiline support
@@ -726,6 +738,18 @@ endif
                                          include_directories: inc,
                                          dependencies: [lle_dep])
     test('LLE Adaptive Detection', test_adaptive_detection,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
+  # Adaptive Terminal Controllers Unit Tests (Spec 26 Phase 2)
+  # Tests all four controllers: native, enhanced, minimal, multiplexer
+  if fs.exists('tests/lle/unit/test_adaptive_controllers.c')
+    test_adaptive_controllers = executable('test_adaptive_controllers',
+                                          'tests/lle/unit/test_adaptive_controllers.c',
+                                          include_directories: inc,
+                                          dependencies: [lle_dep])
+    test('LLE Adaptive Controllers', test_adaptive_controllers,
          suite: 'lle-unit',
          timeout: 30)
   endif

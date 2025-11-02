@@ -441,13 +441,32 @@ endif
 
 # Spec 26: Adaptive Terminal Integration
 # Provides: Universal terminal compatibility, detection/control separation
-# Phases: Detection system, signature database, mode selection
+# Phase 1: Detection system, signature database, mode selection
+# Phase 2: Mode-specific controllers (native, enhanced, minimal, multiplexer)
+# Phase 3: Context initialization and unified interface
 # Depends on: Spec 02, 08, 14, 15, 16
 if fs.exists('adaptive_terminal_detection.c')
   lle_sources += files('adaptive_terminal_detection.c')
 endif
 if fs.exists('terminal_signature_database.c')
   lle_sources += files('terminal_signature_database.c')
+endif
+# Phase 2: Controllers
+if fs.exists('adaptive_native_controller.c')
+  lle_sources += files('adaptive_native_controller.c')
+endif
+if fs.exists('adaptive_display_client_controller.c')
+  lle_sources += files('adaptive_display_client_controller.c')
+endif
+if fs.exists('adaptive_minimal_controller.c')
+  lle_sources += files('adaptive_minimal_controller.c')
+endif
+if fs.exists('adaptive_multiplexer_controller.c')
+  lle_sources += files('adaptive_multiplexer_controller.c')
+endif
+# Phase 3: Context Initialization
+if fs.exists('adaptive_context_initialization.c')
+  lle_sources += files('adaptive_context_initialization.c')
 endif
 
 # ============================================================================
