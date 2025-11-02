@@ -439,6 +439,17 @@ if fs.exists('keybinding_actions.c')
   lle_sources += files('keybinding_actions.c')
 endif
 
+# Spec 26: Adaptive Terminal Integration
+# Provides: Universal terminal compatibility, detection/control separation
+# Phases: Detection system, signature database, mode selection
+# Depends on: Spec 02, 08, 14, 15, 16
+if fs.exists('adaptive_terminal_detection.c')
+  lle_sources += files('adaptive_terminal_detection.c')
+endif
+if fs.exists('terminal_signature_database.c')
+  lle_sources += files('terminal_signature_database.c')
+endif
+
 # ============================================================================
 # LLE READLINE - CORE ORCHESTRATION
 # ============================================================================

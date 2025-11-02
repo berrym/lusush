@@ -718,6 +718,18 @@ endif
          timeout: 30)
   endif
 
+  # Adaptive Terminal Detection Unit Tests (Spec 26 Phase 1)
+  # Tests detection system, signature matching, capability probing
+  if fs.exists('tests/lle/unit/test_adaptive_detection.c')
+    test_adaptive_detection = executable('test_adaptive_detection',
+                                         'tests/lle/unit/test_adaptive_detection.c',
+                                         include_directories: inc,
+                                         dependencies: [lle_dep])
+    test('LLE Adaptive Detection', test_adaptive_detection,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
 # ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
