@@ -920,4 +920,160 @@ lle_result_t lle_history_validate_entry(const lle_history_entry_t *entry);
  */
 lle_result_t lle_history_get_cwd(char *buffer, size_t size);
 
+/* ============================================================================
+ * SEARCH ENGINE API (Phase 3 Day 8)
+ * ============================================================================ */
+
+/**
+ * Search result types
+ */
+typedef enum {
+    LLE_SEARCH_TYPE_EXACT,      /* Exact command match */
+    LLE_SEARCH_TYPE_PREFIX,     /* Command starts with query */
+    LLE_SEARCH_TYPE_SUBSTRING,  /* Command contains query */
+    LLE_SEARCH_TYPE_FUZZY       /* Approximate match (Levenshtein) */
+} lle_search_type_t;
+
+/**
+ * Single search result
+ */
+typedef struct {
+    uint64_t entry_id;          /* History entry ID */
+    size_t entry_index;         /* Index in history */
+    const char *command;        /* Command string (reference) */
+    uint64_t timestamp;         /* Command timestamp */
+    int score;                  /* Relevance score (higher = better) */
+    size_t match_position;      /* Position of match in command */
+    lle_search_type_t match_type; /* Type of match */
+} lle_search_result_t;
+
+/**
+ * Search results container (opaque)
+ */
+typedef struct lle_history_search_results lle_history_search_results_t;
+
+/**
+ * Create search results container
+ * 
+ * @param max_results Maximum results (0 = default 100)
+ * @return Search results or NULL on failure
+ */
+lle_history_search_results_t* lle_history_search_results_create(size_t max_results);
+
+/**
+ * Destroy search results
+ * 
+ * @param results Search results to destroy
+ */
+void lle_history_search_results_destroy(lle_history_search_results_t *results);
+
+/**
+ * Sort search results by score (descending)
+ * 
+ * @param results Search results to sort
+ */
+void lle_history_search_results_sort(lle_history_search_results_t *results);
+
+/**
+ * Get number of results
+ * 
+ * @param results Search results
+ * @return Number of results
+ */
+size_t lle_history_search_results_get_count(const lle_history_search_results_t *results);
+
+/**
+ * Get specific result
+ * 
+ * @param results Search results
+ * @param index Result index
+ * @return Search result or NULL if invalid index
+ */
+const lle_search_result_t* lle_history_search_results_get(
+    const lle_history_search_results_t *results,
+    size_t index
+);
+
+/**
+ * Get search duration in microseconds
+ * 
+ * @param results Search results
+ * @return Search time in microseconds
+ */
+uint64_t lle_history_search_results_get_time_us(
+    const lle_history_search_results_t *results
+);
+
+/**
+ * Print search results (for debugging)
+ * 
+ * @param results Search results to print
+ */
+void lle_history_search_results_print(const lle_history_search_results_t *results);
+
+/**
+ * Search history for exact command match
+ * 
+ * Performance target: <500μs for 10K entries
+ * 
+ * @param history_core History core engine
+ * @param query Search query
+ * @param max_results Maximum results (0 = default 100)
+ * @return Search results or NULL on failure
+ */
+lle_history_search_results_t* lle_history_search_exact(
+    lle_history_core_t *history_core,
+    const char *query,
+    size_t max_results
+);
+
+/**
+ * Search history for commands starting with prefix
+ * 
+ * Performance target: <500μs for 10K entries
+ * 
+ * @param history_core History core engine
+ * @param prefix Prefix to search for
+ * @param max_results Maximum results (0 = default 100)
+ * @return Search results or NULL on failure
+ */
+lle_history_search_results_t* lle_history_search_prefix(
+    lle_history_core_t *history_core,
+    const char *prefix,
+    size_t max_results
+);
+
+/**
+ * Search history for commands containing substring
+ * 
+ * Performance target: <5ms for 10K entries
+ * 
+ * @param history_core History core engine
+ * @param substring Substring to search for
+ * @param max_results Maximum results (0 = default 100)
+ * @return Search results or NULL on failure
+ */
+lle_history_search_results_t* lle_history_search_substring(
+    lle_history_core_t *history_core,
+    const char *substring,
+    size_t max_results
+);
+
+/**
+ * Search history for commands with fuzzy matching
+ * 
+ * Uses Levenshtein distance with max distance of 3.
+ * Performance target: <10ms for 10K entries
+ * 
+ * @param history_core History core engine
+ * @param query Query string
+ * @param max_results Maximum results (0 = default 100)
+ * @return Search results or NULL on failure
+ */
+lle_history_search_results_t* lle_history_search_fuzzy(
+    lle_history_core_t *history_core,
+    const char *query,
+    size_t max_results
+);
+
 #endif /* LLE_HISTORY_H */
