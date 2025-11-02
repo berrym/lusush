@@ -49,7 +49,8 @@ typedef struct lle_completion_system_t lle_completion_system_t;
 typedef struct lle_user_customization_t lle_user_customization_t;
 
 /* External library forward declarations */
-typedef struct lle_hashtable_t lle_hashtable_t;
+typedef struct ht ht_t;
+typedef ht_t lle_hashtable_t;
 
 /* ============================================================================
  * CONSTANTS AND MACROS
