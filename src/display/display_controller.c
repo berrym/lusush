@@ -93,6 +93,87 @@ static uint64_t dc_get_timestamp_us(void) {
     return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
 }
 
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+/**
+ * Handle LAYER_EVENT_REDRAW_NEEDED from command_layer
+ * 
+ * This is the critical event handler that connects command_layer updates
+ * to actual terminal rendering. When LLE updates the command_layer content,
+ * command_layer publishes REDRAW_NEEDED, and this handler renders it.
+ * 
+ * @param event The redraw event
+ * @param user_data Pointer to display_controller_t instance
+ * @return LAYER_EVENTS_SUCCESS on success, error code on failure
+ */
+static layer_events_error_t dc_handle_redraw_needed(
+    const layer_event_t *event,
+    void *user_data) {
+    
+    display_controller_t *controller = (display_controller_t *)user_data;
+    
+    if (!controller || !controller->is_initialized) {
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    DC_DEBUG("Handling REDRAW_NEEDED event from layer %lu", event->source_layer);
+    
+    /* Get the prompt layer for prompt rendering */
+    prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
+    
+    /* Get the command layer that needs redrawing */
+    command_layer_t *cmd_layer = controller->compositor->command_layer;
+    if (!cmd_layer) {
+        DC_ERROR("No command layer available for redraw");
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    /* Get highlighted text from command layer */
+    char command_buffer[COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE];
+    command_layer_error_t cmd_result = command_layer_get_highlighted_text(
+        cmd_layer,
+        command_buffer,
+        sizeof(command_buffer)
+    );
+    
+    if (cmd_result != COMMAND_LAYER_SUCCESS) {
+        DC_ERROR("Failed to get highlighted text: %d", cmd_result);
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    /* Write to terminal via terminal control */
+    if (controller->terminal_ctrl) {
+        /* Move to beginning of line and clear */
+        write(STDOUT_FILENO, "\r\033[K", 4);
+        
+        /* Write the prompt if available */
+        if (prompt_layer) {
+            char prompt_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE];
+            prompt_layer_error_t prompt_result = prompt_layer_get_rendered_content(
+                prompt_layer,
+                prompt_buffer,
+                sizeof(prompt_buffer)
+            );
+            
+            if (prompt_result == PROMPT_LAYER_SUCCESS && prompt_buffer[0] != '\0') {
+                write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+            }
+        }
+        
+        /* Write the highlighted command text */
+        if (command_buffer[0] != '\0') {
+            write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
+        }
+        
+        /* Flush output */
+        fsync(STDOUT_FILENO);
+    }
+    
+    return LAYER_EVENTS_SUCCESS;
+}
+
 /**
  * Calculate time difference in nanoseconds.
  */
@@ -728,6 +809,27 @@ display_controller_error_t display_controller_init(
     controller->is_initialized = true;
     controller->integration_mode_active = controller->config.enable_integration_mode;
     controller->operation_sequence_number = 0;
+    
+    // Subscribe to command layer REDRAW_NEEDED events
+    // This is critical for LLE display integration - connects command_layer updates to terminal
+    if (controller->event_system) {
+        layer_events_error_t subscribe_result = layer_events_subscribe(
+            controller->event_system,
+            LAYER_EVENT_REDRAW_NEEDED,
+            LAYER_ID_DISPLAY_CONTROLLER,  /* subscriber_id */
+            dc_handle_redraw_needed,
+            controller,  /* user_data */
+            LAYER_EVENT_PRIORITY_HIGH
+        );
+        
+        if (subscribe_result != LAYER_EVENTS_SUCCESS) {
+            DC_ERROR("Failed to subscribe to REDRAW_NEEDED events: %s",
+                     layer_events_error_string(subscribe_result));
+            /* Non-fatal - display may still work without events */
+        } else {
+            DC_DEBUG("Successfully subscribed to LAYER_EVENT_REDRAW_NEEDED");
+        }
+    }
     
     // Initialize theme context
     memset(controller->current_theme_name, 0, sizeof(controller->current_theme_name));
