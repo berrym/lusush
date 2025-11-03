@@ -24,7 +24,7 @@ Critical gaps are:
 | **22** | History-Buffer Integration | Spec 09 (History System) | ✅ 100% | ✅ 100% | ✅ COMPLETE |
 | **23** | Interactive Completion Menu | Spec 12 (Completion System) | ✅ 100% | ✅ 100% (Pragmatic) | ✅ COMPLETE |
 | **24** | Advanced Prompt Widget Hooks | Spec 07 (Extensibility Framework) | ✅ 100% | ⚠️ 5% | 🔥 P4 |
-| **25** | Default Keybindings | Spec 13 (User Customization) | ✅ 100% | ⚠️ 10% | 🔥 P2 |
+| **25** | Default Keybindings | Spec 13 (User Customization) | ✅ 100% | ✅ 100% | ✅ COMPLETE |
 | **26** | Adaptive Terminal Integration | Spec 02 (Terminal System) | ⚠️ Partial | ✅ 100% | ✅ COMPLETE |
 | **27** | Fuzzy Matching Library | Multiple (autocorrect, completion, history, search) | ❌ N/A | ❌ N/A | ⏸️ Later |
 
@@ -33,9 +33,10 @@ Critical gaps are:
 **UPDATE (2025-11-02)**: 
 - ✅ **Spec 22 (History-Buffer Integration)**: COMPLETE (5 phases, compliance test passing)
 - ✅ **Spec 23 (Interactive Completion Menu)**: COMPLETE via pragmatic approach (~3600 lines, 189 tests, all passing)
+- ✅ **Spec 25 (Default Keybindings)**: COMPLETE (4 phases: Kill Ring, Keybinding Engine, 44 Actions, compliance test with 62 assertions)
 - ✅ **Spec 26 (Adaptive Terminal Integration)**: COMPLETE (88 tests, graceful fallback system)
 
-**3 of 6 critical gap specs now complete!**
+**4 of 6 critical gap specs now complete!**
 
 See `SPEC_12_PRAGMATIC_APPROACH.md` for details on Spec 23 implementation decision.
 
