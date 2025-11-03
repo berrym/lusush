@@ -36,6 +36,7 @@ src = ['src/builtins/alias.c',
        'src/completion.c',
        'src/completion_types.c',
        'src/completion_menu.c',
+       'src/completion_menu_theme.c',
        'src/rich_completion.c',
        'src/config.c',
        'src/lusush_memory_pool.c',
@@ -804,6 +805,19 @@ if fs.exists('tests/manual/demo_completion_menu.c')
   # NOTE: This is a manual interactive demo - run with: ./builddir/demo_completion_menu
 endif
 
+# Phase 3: Themed Menu Demo (Manual Test)
+# Demonstrates theme integration with completion menu
+if fs.exists('tests/manual/demo_completion_menu_themed.c')
+  demo_completion_menu_themed = executable('demo_completion_menu_themed',
+                                          ['tests/manual/demo_completion_menu_themed.c',
+                                           'src/completion_types.c',
+                                           'src/completion_menu.c',
+                                           'src/completion_menu_theme.c'],
+                                          include_directories: inc,
+                                          dependencies: [readline_dep])
+  # NOTE: This is a manual demo - run with: ./builddir/demo_completion_menu_themed
+endif
+
 # Phase 1: Classification Tests
 # ============================================================================
 
@@ -835,6 +849,25 @@ if fs.exists('tests/unit/test_completion_menu.c')
                                    include_directories: inc,
                                    dependencies: [readline_dep])
   test('Completion Menu', test_completion_menu,
+       suite: 'unit',
+       timeout: 30)
+endif
+
+# Phase 3: Theme Integration Tests
+# ============================================================================
+
+# Completion Menu Theme Integration Unit Tests
+# Tests theme initialization, color/symbol mapping, themed formatting
+# Note: Uses mocks for theme system to test independently
+if fs.exists('tests/unit/test_completion_menu_theme.c')
+  test_completion_menu_theme = executable('test_completion_menu_theme',
+                                         ['tests/unit/test_completion_menu_theme.c',
+                                          'src/completion_types.c',
+                                          'src/completion_menu.c',
+                                          'src/completion_menu_theme.c'],
+                                         include_directories: inc,
+                                         dependencies: [readline_dep])
+  test('Completion Menu Theme', test_completion_menu_theme,
        suite: 'unit',
        timeout: 30)
 endif
