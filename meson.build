@@ -786,3 +786,21 @@ if fs.exists('tests/lle/integration/simple_input_test.c')
   simple_input_test = executable('simple_input_test',
                                   'tests/lle/integration/simple_input_test.c')
 endif
+
+# ============================================================================
+# PRAGMATIC COMPLETION SYSTEM TESTS (Phase 1)
+# ============================================================================
+
+# Completion Type Classification Unit Tests
+# Tests completion type system, item management, classification helpers
+# Note: Uses mocks for builtins/aliases to avoid heavyweight dependencies
+if fs.exists('tests/unit/test_completion_classification.c')
+  test_completion_classification = executable('test_completion_classification',
+                                              ['tests/unit/test_completion_classification.c',
+                                               'src/completion_types.c'],
+                                              include_directories: inc,
+                                              dependencies: [readline_dep])
+  test('Completion Classification', test_completion_classification,
+       suite: 'unit',
+       timeout: 30)
+endif
