@@ -1,4 +1,5 @@
 #include "../include/completion.h"
+#include "../include/completion_types.h"
 
 #include "../include/alias.h"
 #include "../include/builtins.h"
@@ -18,6 +19,9 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+// Global flag to enable/disable typed completions
+static bool g_use_typed_completions = false;
 
 /**
  * Fuzzy matching algorithm for enhanced completion
@@ -953,4 +957,288 @@ void lusush_free_hints_callback(void *hint) {
     if (hint) {
         free(hint);
     }
+}
+
+// ============================================================================
+// TYPED COMPLETION INTEGRATION (Phase 1)
+// ============================================================================
+
+/**
+ * Enable or disable typed completions
+ * When enabled, completions will include type metadata for categorization
+ */
+void completion_set_typed_mode(bool enabled) {
+    g_use_typed_completions = enabled;
+}
+
+/**
+ * Check if typed completions are enabled
+ */
+bool completion_is_typed_mode(void) {
+    return g_use_typed_completions;
+}
+
+/**
+ * Complete builtins with type information
+ */
+static void complete_builtins_typed(const char *text, completion_result_t *result) {
+    if (!text) {
+        return;
+    }
+
+    size_t text_len = strlen(text);
+
+    for (size_t i = 0; i < builtins_count; i++) {
+        if (strncmp(builtins[i].name, text, text_len) == 0) {
+            completion_result_add(result, builtins[i].name, " ", 
+                                 COMPLETION_TYPE_BUILTIN, 900);
+        }
+    }
+}
+
+/**
+ * Complete aliases with type information
+ */
+static void complete_aliases_typed(const char *text, completion_result_t *result) {
+    if (!text) {
+        return;
+    }
+
+    size_t text_len = strlen(text);
+    extern ht_strstr_t *aliases;
+    
+    if (!aliases) {
+        return;
+    }
+
+    ht_enum_t *aliases_e = ht_strstr_enum_create(aliases);
+    if (!aliases_e) {
+        return;
+    }
+
+    const char *alias_name = NULL, *alias_value = NULL;
+    while (ht_strstr_enum_next(aliases_e, &alias_name, &alias_value)) {
+        if (alias_name && strncmp(alias_name, text, text_len) == 0) {
+            completion_result_add(result, alias_name, " ", 
+                                 COMPLETION_TYPE_ALIAS, 950);
+        }
+    }
+
+    ht_strstr_enum_destroy(aliases_e);
+}
+
+/**
+ * Complete commands with type information
+ */
+static void complete_commands_typed(const char *text, completion_result_t *result) {
+    if (!text) {
+        return;
+    }
+
+    char *path_env = getenv("PATH");
+    if (!path_env) {
+        return;
+    }
+
+    char *path = strdup(path_env);
+    if (!path) {
+        return;
+    }
+
+    size_t text_len = strlen(text);
+    char *dir = strtok(path, ":");
+
+    while (dir) {
+        DIR *d = opendir(dir);
+        if (d) {
+            struct dirent *entry;
+            while ((entry = readdir(d)) != NULL) {
+                if (entry->d_name[0] != '.') {
+                    char full_path[strlen(dir) + strlen(entry->d_name) + 2];
+                    snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
+
+                    struct stat st;
+                    if (stat(full_path, &st) == 0 && (st.st_mode & S_IXUSR)) {
+                        if (strncmp(entry->d_name, text, text_len) == 0) {
+                            completion_result_add(result, entry->d_name, " ", 
+                                                 COMPLETION_TYPE_COMMAND, 800);
+                        }
+                    }
+                }
+            }
+            closedir(d);
+        }
+        dir = strtok(NULL, ":");
+    }
+
+    free(path);
+}
+
+/**
+ * Complete files with type information
+ */
+static void complete_files_typed(const char *text, completion_result_t *result) {
+    if (!text) {
+        return;
+    }
+
+    char *dir_path = NULL;
+    char *file_prefix = NULL;
+
+    char *last_slash = strrchr(text, '/');
+    if (last_slash) {
+        dir_path = strndup(text, last_slash - text + 1);
+        file_prefix = strdup(last_slash + 1);
+    } else {
+        dir_path = strdup("./");
+        file_prefix = strdup(text);
+    }
+
+    if (!dir_path || !file_prefix) {
+        free(dir_path);
+        free(file_prefix);
+        return;
+    }
+
+    DIR *d = opendir(dir_path);
+    if (d) {
+        struct dirent *entry;
+        size_t prefix_len = strlen(file_prefix);
+
+        while ((entry = readdir(d)) != NULL) {
+            if (entry->d_name[0] == '.' && file_prefix[0] != '.') {
+                continue;
+            }
+
+            if (strncmp(entry->d_name, file_prefix, prefix_len) == 0) {
+                char *full_completion;
+                if (strcmp(dir_path, "./") == 0) {
+                    full_completion = strdup(entry->d_name);
+                } else {
+                    size_t len = strlen(dir_path) + strlen(entry->d_name) + 1;
+                    full_completion = malloc(len);
+                    if (full_completion) {
+                        snprintf(full_completion, len, "%s%s", dir_path, entry->d_name);
+                    }
+                }
+
+                if (full_completion) {
+                    char check_path[strlen(dir_path) + strlen(entry->d_name) + 1];
+                    snprintf(check_path, sizeof(check_path), "%s%s", dir_path, entry->d_name);
+
+                    struct stat st;
+                    if (stat(check_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+                        completion_result_add(result, full_completion, "/", 
+                                             COMPLETION_TYPE_DIRECTORY, 700);
+                    } else {
+                        completion_result_add(result, full_completion, " ", 
+                                             COMPLETION_TYPE_FILE, 600);
+                    }
+
+                    free(full_completion);
+                }
+            }
+        }
+        closedir(d);
+    }
+
+    free(dir_path);
+    free(file_prefix);
+}
+
+/**
+ * Complete variables with type information
+ */
+static void complete_variables_typed(const char *text, completion_result_t *result) {
+    if (!text || text[0] != '$') {
+        return;
+    }
+
+    const char *var_prefix = text + 1;
+    size_t prefix_len = strlen(var_prefix);
+
+    extern char **environ;
+    for (char **env = environ; *env; env++) {
+        char *eq = strchr(*env, '=');
+        if (eq) {
+            size_t var_len = eq - *env;
+            if (strncmp(*env, var_prefix, prefix_len) == 0) {
+                char var_name[var_len + 2];
+                var_name[0] = '$';
+                strncpy(var_name + 1, *env, var_len);
+                var_name[var_len + 1] = '\0';
+                
+                completion_result_add(result, var_name, "", 
+                                     COMPLETION_TYPE_VARIABLE, 500);
+            }
+        }
+    }
+}
+
+/**
+ * Complete from history with type information
+ */
+static void complete_history_typed(const char *text, completion_result_t *result) {
+    if (!text) {
+        return;
+    }
+
+    size_t text_len = strlen(text);
+    size_t i = 0;
+    const char *line = NULL;
+
+    while ((line = lusush_history_get(i)) != NULL) {
+        if (strncmp(line, text, text_len) == 0) {
+            completion_result_add(result, line, "", 
+                                 COMPLETION_TYPE_HISTORY, 400);
+        }
+        i++;
+    }
+}
+
+/**
+ * Generate typed completions
+ * Creates a completion_result_t with classified items
+ */
+struct completion_result* generate_typed_completions(const char *buf) {
+    if (!buf) {
+        return NULL;
+    }
+
+    int start_pos = 0;
+    char *word = get_completion_word(buf, &start_pos);
+    if (!word) {
+        return NULL;
+    }
+
+    completion_result_t *result = completion_result_create(64);
+    if (!result) {
+        free(word);
+        return NULL;
+    }
+
+    // Determine context and generate appropriate completions
+    if (is_command_position(buf, start_pos)) {
+        // Complete commands
+        complete_builtins_typed(word, result);
+        complete_aliases_typed(word, result);
+        complete_commands_typed(word, result);
+    } else if (word[0] == '$') {
+        // Complete variables
+        complete_variables_typed(word, result);
+    } else {
+        // Complete files/directories
+        complete_files_typed(word, result);
+    }
+
+    // Fallback to history if no completions
+    if (result->count == 0) {
+        complete_history_typed(word, result);
+    }
+
+    // Sort by type and relevance
+    completion_result_sort(result);
+
+    free(word);
+    return result;
 }

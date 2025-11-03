@@ -74,4 +74,32 @@ char *generate_builtin_hint(const char *buf);
 char *get_best_completion_match(const char *text);
 int should_show_hints(const char *buf);
 
+// ============================================================================
+// TYPED COMPLETION SYSTEM (Phase 1)
+// ============================================================================
+
+// Forward declaration (actual typedef and struct definition in completion_types.h)
+// Include completion_types.h to use completion_result_t
+struct completion_result;
+
+/**
+ * Enable or disable typed completions
+ * @param enabled true to enable typed completions with metadata
+ */
+void completion_set_typed_mode(bool enabled);
+
+/**
+ * Check if typed completions are enabled
+ * @return true if typed mode is enabled
+ */
+bool completion_is_typed_mode(void);
+
+/**
+ * Generate typed completions with classification metadata
+ * @param buf buffer text to complete
+ * @return completion result with typed items (must be freed with completion_result_free)
+ * @note Return type uses typedef from completion_types.h
+ */
+struct completion_result* generate_typed_completions(const char *buf);
+
 #endif /* COMPLETION_H */
