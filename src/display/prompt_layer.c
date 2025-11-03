@@ -147,12 +147,25 @@ static void calculate_prompt_metrics(const char *content, prompt_metrics_t *metr
     bool in_ansi_sequence = false;
     
     while (*current) {
+        /* Skip readline's prompt markers: \001 (RL_PROMPT_START_IGNORE) and \002 (RL_PROMPT_END_IGNORE) */
+        if (*current == '\001' || *current == '\002') {
+            /* Don't count these control characters */
+            current++;
+            continue;
+        }
+        
         if (*current == '\033') {
             in_ansi_sequence = true;
             metrics->has_ansi_sequences = true;
-        } else if (in_ansi_sequence && (*current == 'm' || *current == 'K' || *current == 'J')) {
-            in_ansi_sequence = false;
-        } else if (!in_ansi_sequence) {
+        } else if (in_ansi_sequence) {
+            /* While in ANSI sequence, check if this is the terminator */
+            if ((*current >= 'A' && *current <= 'Z') || (*current >= 'a' && *current <= 'z')) {
+                /* ANSI sequences end with a letter (A-Z or a-z) */
+                in_ansi_sequence = false;
+            }
+            /* Don't count ANY characters while in_ansi_sequence (including terminators) */
+        } else {
+            /* Not in ANSI sequence - count this character */
             if (*current == '\n') {
                 metrics->line_count++;
                 if (current_line_width > metrics->max_line_width) {
@@ -188,9 +201,9 @@ static void calculate_prompt_metrics(const char *content, prompt_metrics_t *metr
     metrics->total_visual_width = metrics->max_line_width;
     
     // Estimate command position (best effort)
+    // Command always starts after the LAST line, so use current_line_width
     metrics->estimated_command_row = metrics->line_count;
-    metrics->estimated_command_column = (metrics->is_multiline) ? 
-        current_line_width : metrics->max_line_width;
+    metrics->estimated_command_column = current_line_width + 1;  /* +1 for 1-indexed columns */
 }
 
 /**

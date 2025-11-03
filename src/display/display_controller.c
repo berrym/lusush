@@ -145,6 +145,8 @@ static layer_events_error_t dc_handle_redraw_needed(
     
     /* Write to terminal via terminal control */
     if (controller->terminal_ctrl) {
+        int prompt_column = 0;
+        
         /* Move to beginning of line and clear */
         write(STDOUT_FILENO, "\r\033[K", 4);
         
@@ -159,12 +161,33 @@ static layer_events_error_t dc_handle_redraw_needed(
             
             if (prompt_result == PROMPT_LAYER_SUCCESS && prompt_buffer[0] != '\0') {
                 write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+                
+                /* Get prompt metrics to determine command column */
+                prompt_metrics_t metrics;
+                if (prompt_layer_get_metrics(prompt_layer, &metrics) == PROMPT_LAYER_SUCCESS) {
+                    prompt_column = metrics.estimated_command_column;
+                }
             }
         }
         
         /* Write the highlighted command text */
         if (command_buffer[0] != '\0') {
             write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
+        }
+        
+        /* Position cursor at correct location */
+        /* prompt_column is already 1-indexed and points to where command starts */
+        /* So cursor column = prompt_column + cursor_position */
+        size_t cursor_pos = cmd_layer->cursor_position;
+        int terminal_column = prompt_column + (int)cursor_pos;
+        
+        /* Use ANSI escape code to position cursor: ESC[<col>G */
+        if (terminal_column >= 1) {
+            char cursor_cmd[32];
+            int len = snprintf(cursor_cmd, sizeof(cursor_cmd), "\033[%dG", terminal_column);
+            if (len > 0 && len < (int)sizeof(cursor_cmd)) {
+                write(STDOUT_FILENO, cursor_cmd, len);
+            }
         }
         
         /* Flush output */

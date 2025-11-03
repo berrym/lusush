@@ -15,7 +15,9 @@ LLE display rendering has been **successfully implemented and tested**. The inte
 - ✅ Terminal rendering implementation complete  
 - ✅ Prompt display integration complete
 - ✅ Syntax highlighting working
-- ✅ Cursor positioning correct
+- ✅ Cursor positioning correct (prompt + command)
+- ✅ Arrow key cursor movement working
+- ✅ Home/End key navigation working
 - ✅ Command execution working
 - ✅ Multi-command sessions working
 - ✅ Prompt redisplay after command execution working
@@ -203,6 +205,114 @@ Tested with various input lengths:
 - ✅ Typing after partial deletion works correctly
 - ✅ Empty buffer after full deletion works correctly
 - ✅ Minor cosmetic flicker observed once (non-blocking)
+
+---
+
+## Arrow Key Cursor Positioning Fix (2025-11-03)
+
+### The Problem
+
+After fixing backspace, arrow keys exhibited similar issues:
+- Arrow keys (left/right) updated internal cursor position correctly
+- BUT cursor did not move visually on screen
+- Typing after arrow key movements inserted at correct position (proving internal state was correct)
+- Home/End keys also had no visual effect
+
+### Root Cause Analysis
+
+Two issues identified:
+
+**Issue 1: No cursor positioning after display update**
+
+The display controller's `dc_handle_redraw_needed()` function would:
+1. Write prompt
+2. Write command text
+3. BUT never reposition the cursor
+
+Result: Cursor always ended up at the end of the written text, regardless of actual cursor position.
+
+**Issue 2: Prompt metrics counting invisible characters**
+
+The `calculate_prompt_metrics()` function in prompt_layer.c had faulty ANSI escape sequence detection:
+- Counted visible characters to calculate where command starts
+- Attempted to skip ANSI sequences but logic was broken
+- Also failed to skip readline's `\001` and `\002` prompt ignore markers
+
+Example with prompt `[user@host] ~/path $ `:
+- Visible characters: 65
+- But `estimated_command_column` returned: 77 (12 characters off!)
+- These 12 extra characters were ANSI codes and readline markers being counted
+
+### The Fix
+
+**Fix 1: Add cursor positioning (display_controller.c)**
+
+After writing prompt and command, position cursor using ANSI escape code:
+
+```c
+/* Get cursor position from command_layer */
+size_t cursor_pos = cmd_layer->cursor_position;
+
+/* Get prompt metrics to find where command starts */
+prompt_metrics_t metrics;
+prompt_layer_get_metrics(prompt_layer, &metrics);
+int prompt_column = metrics.estimated_command_column;
+
+/* Calculate terminal column: prompt_column + cursor_position */
+int terminal_column = prompt_column + (int)cursor_pos;
+
+/* Position cursor with ESC[<col>G */
+char cursor_cmd[32];
+snprintf(cursor_cmd, sizeof(cursor_cmd), "\033[%dG", terminal_column);
+write(STDOUT_FILENO, cursor_cmd, strlen(cursor_cmd));
+```
+
+**Fix 2: Correct ANSI sequence skipping (prompt_layer.c lines 147-185)**
+
+Fixed `calculate_prompt_metrics()` to properly skip invisible characters:
+
+```c
+while (*current) {
+    /* Skip readline's prompt ignore markers */
+    if (*current == '\001' || *current == '\002') {
+        current++;
+        continue;
+    }
+    
+    if (*current == '\033') {
+        in_ansi_sequence = true;
+    } else if (in_ansi_sequence) {
+        /* Check if terminator (any letter A-Z or a-z) */
+        if ((*current >= 'A' && *current <= 'Z') || 
+            (*current >= 'a' && *current <= 'z')) {
+            in_ansi_sequence = false;
+        }
+        /* Don't count ANY characters while in ANSI sequence */
+    } else {
+        /* Only count visible characters */
+        current_line_width++;
+    }
+    current++;
+}
+```
+
+Key changes:
+1. Skip `\001` (RL_PROMPT_START_IGNORE) and `\002` (RL_PROMPT_END_IGNORE)
+2. Detect ANSI sequences starting with `\033`
+3. End ANSI sequence on ANY letter (not just `m`, `K`, `J`)
+4. Don't count ANY characters while inside ANSI sequence
+
+### Test Results: SUCCESS ✅
+
+All cursor positioning tests passed:
+- ✅ Cursor appears at correct position after typing
+- ✅ Left arrow moves cursor left visually
+- ✅ Right arrow moves cursor right visually
+- ✅ Home key jumps to beginning (after prompt)
+- ✅ End key jumps to end of input
+- ✅ Typing after cursor movement inserts at correct position
+- ✅ Syntax highlighting continues to work (echo in green)
+- ✅ All operations work smoothly without visual glitches
 
 ---
 
