@@ -760,6 +760,15 @@ terminal_control_t* display_controller_get_terminal_control(const display_contro
  */
 layer_event_system_t* display_controller_get_event_system(const display_controller_t *controller);
 
+/**
+ * Reset prompt display state - call when starting a new input session.
+ * 
+ * This resets internal state tracking that prevents redundant prompt redraws.
+ * Should be called before each readline/input session to ensure the prompt
+ * is drawn fresh for the new command.
+ */
+void dc_reset_prompt_display_state(void);
+
 #ifdef __cplusplus
 }
 #endif

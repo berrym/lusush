@@ -316,6 +316,222 @@ All cursor positioning tests passed:
 
 ---
 
+## Multi-line Prompt Display Fixes (2025-11-03)
+
+### Fix 1: Excessive Prompt Redraws and Display Controller State Management
+
+**The Problem**
+
+Every keystroke triggered a complete prompt redraw with debug spam:
+```
+[METRICS] is_multiline=0, line_count=1, estimated_row=1, estimated_col=63
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *?) $ t[METRICS] ...
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *?) $ th[METRICS] ...
+```
+
+This caused severe display issues with multi-line prompts.
+
+**Root Cause Analysis**
+
+Two critical issues discovered:
+
+1. **refresh_display() marked entire buffer dirty every time**
+   - `src/lle/lle_readline.c` line 148-151 called `lle_dirty_tracker_mark_full()` on every keystroke
+   - Comment said "For now" - this was a TODO never completed
+   - Existing change_tracker and dirty_tracker systems were implemented but not integrated
+
+2. **display_controller always redrew entire prompt**
+   - `dc_handle_redraw_needed()` had no state tracking
+   - Every call resulted in full prompt + command redraw
+   - No differential updates despite having dirty tracking
+
+**The Fix**
+
+**Part 1: Integrate change_tracker in refresh_display()**
+
+Modified `src/lle/lle_readline.c` (lines 148-165) to use existing change tracking:
+
+```c
+/* Mark dirty regions in dirty tracker based on what actually changed
+ * Use change tracking to mark only affected regions for efficient updates
+ */
+if (render_controller->dirty_tracker) {
+    /* Check if we have change tracking information */
+    if (ctx->buffer->change_tracking_enabled && 
+        ctx->buffer->current_sequence &&
+        ctx->buffer->current_sequence->last_op) {
+        
+        /* Get the last operation that was performed */
+        lle_change_operation_t *last_op = ctx->buffer->current_sequence->last_op;
+        
+        /* Mark only the affected region as dirty */
+        lle_dirty_tracker_mark_range(
+            render_controller->dirty_tracker,
+            last_op->start_position,
+            last_op->affected_length
+        );
+    } else {
+        /* No change tracking info - mark entire buffer dirty (first render) */
+        lle_dirty_tracker_mark_full(render_controller->dirty_tracker);
+    }
+}
+```
+
+**Part 2: Add prompt state tracking in display_controller**
+
+Modified `src/display/display_controller.c` (lines 111-260) with two-path rendering:
+
+```c
+/* Static state to track if prompt is already displayed */
+static bool prompt_is_displayed = false;
+static char last_prompt_hash[64] = {0};
+
+/* Determine if we need to redraw the prompt */
+bool redraw_prompt = !prompt_is_displayed || prompt_changed;
+
+if (redraw_prompt) {
+    /* FULL REDRAW: Clear and redraw prompt + command */
+    if (is_multiline && prompt_lines > 1) {
+        write(STDOUT_FILENO, "\r\033[J", 4);  /* Clear everything */
+    } else {
+        write(STDOUT_FILENO, "\r\033[K", 4);  /* Clear line */
+    }
+    write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+    prompt_is_displayed = true;
+} else {
+    /* INCREMENTAL UPDATE: Only update command area */
+    write(STDOUT_FILENO, "\r", 1);  /* Return to column 0 */
+    if (prompt_column > 1) {
+        /* Move to command start column */
+        char move_cmd[32];
+        snprintf(move_cmd, sizeof(move_cmd), "\033[%dG", prompt_column);
+        write(STDOUT_FILENO, move_cmd, strlen(move_cmd));
+    }
+    write(STDOUT_FILENO, "\033[K", 3);  /* Clear from cursor to end */
+}
+```
+
+**Part 3: Reset state between commands**
+
+Added `dc_reset_prompt_display_state()` function and called it at start of each `lle_readline()` call (line 663-668).
+
+**Test Results**: Excessive redraws eliminated, but revealed cursor positioning issues with multi-line prompts.
+
+---
+
+### Fix 2: Multi-line Prompt Cursor Positioning
+
+**The Problem**
+
+With dark theme (2-line prompt), cursor appeared on wrong terminal row entirely (row 2 of terminal instead of bottom row).
+
+**Root Cause**
+
+Used absolute positioning `ESC[<row>;<col>H` with `estimated_row=2`. But `estimated_row` is the row **within the prompt** (2nd line of 2-line prompt), not absolute terminal row. We have no way to know absolute terminal position.
+
+**The Fix**
+
+Removed all absolute positioning. Use ONLY relative positioning:
+- `\r` - move to column 0 of current line
+- `ESC[<col>G` - move to column N of current line
+
+This works because after writing prompt/command, cursor is already on the correct line.
+
+**Test Results**: Cursor now on correct row, but offset ~4 characters to the right.
+
+---
+
+### Fix 3: UTF-8 Character Counting for Cursor Positioning
+
+**The Problem**
+
+With dark theme multi-line prompt, cursor was on correct row but offset ~4 characters to the right.
+
+Dark theme prompt last line: `└─$ ` (4 visible characters)
+Debug showed: `estimated_col=9` (should be 5 = 4+1)
+
+**Root Cause Analysis**
+
+UTF-8 box characters `└` and `─` are 3 bytes each:
+- Code counted every byte: 3+3+1+1 = 8, plus 1 = 9 ❌
+- Should count only characters: 1+1+1+1 = 4, plus 1 = 5 ✅
+
+In `src/display/prompt_layer.c`, `calculate_prompt_metrics()` incremented `current_line_width` for EVERY byte, not just character start bytes.
+
+**The Fix**
+
+Modified `src/display/prompt_layer.c` (lines 167-184) to implement UTF-8-aware character counting:
+
+```c
+} else {
+    /* Not in ANSI sequence - count this character */
+    if (*current == '\n') {
+        metrics->line_count++;
+        if (current_line_width > metrics->max_line_width) {
+            metrics->max_line_width = current_line_width;
+        }
+        current_line_width = 0;
+        line_start = current + 1;
+    } else {
+        /* Only count UTF-8 character start bytes, not continuation bytes */
+        /* UTF-8 continuation bytes have the form 10xxxxxx (0x80-0xBF) */
+        unsigned char byte = (unsigned char)*current;
+        if ((byte & 0xC0) != 0x80) {
+            /* This is a character start byte (ASCII or UTF-8 lead byte) */
+            current_line_width++;
+            
+            // Check for Unicode characters
+            if (byte > 127) {
+                metrics->has_unicode = true;
+            }
+        }
+        /* Skip UTF-8 continuation bytes - don't increment counter */
+    }
+}
+```
+
+**UTF-8 Encoding Details**:
+- UTF-8 continuation bytes: bit pattern `10xxxxxx` (values 0x80-0xBF)
+- Character start bytes: `0xxxxxxx` (ASCII) or `11xxxxxx` (UTF-8 lead)
+- Check `(byte & 0xC0) != 0x80` identifies character start bytes
+- This ensures we count 1 character per UTF-8 sequence regardless of byte length
+
+**Test Results**: SUCCESS ✅
+
+```
+❯ ./build/lusush
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *?) $ display lle enable
+LLE enabled - using Lusush Line Editor for input
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *?) $ echo hello
+hello
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle *?) $ theme set dark
+Theme set to: dark
+┌─[mberry@fedora-xps13.local]─[~/Lab/c/lusush] (feature/lle *?)
+└─$ echo hello
+hello
+┌─[mberry@fedora-xps13.local]─[~/Lab/c/lusush] (feature/lle *?)
+└─$ echo world
+world
+┌─[mberry@fedora-xps13.local]─[~/Lab/c/lusush] (feature/lle *?)
+└─$ exit
+```
+
+**Confirmed Working**:
+- ✅ Dark theme multi-line prompt displays correctly
+- ✅ Cursor positioned exactly after `└─$ ` with no offset
+- ✅ Commands execute successfully
+- ✅ No excessive redrawing on keystroke
+- ✅ Prompt redisplays properly after command execution
+- ✅ Single-line prompts continue to work
+
+**Known Limitations**:
+- Line wrapping not yet tested
+- Very long multi-line prompts not tested
+- Terminal resize not tested
+- History navigation not tested
+
+---
+
 ## Complete Architecture
 
 ### Event-Driven Display Pipeline
@@ -623,10 +839,12 @@ Based on current implementation:
 
 **Branch**: `feature/lle`
 
-**Modified Files (This Session)**:
+**Modified Files (Latest Session - 2025-11-03)**:
 ```
-M  src/lle/lle_readline.c             # Prompt init, always display
-M  src/display/display_controller.c   # Prompt + command output
+M  src/lle/lle_readline.c                    # change_tracker integration, state reset
+M  src/display/display_controller.c          # prompt state tracking, two-path rendering
+M  src/display/prompt_layer.c                # UTF-8 character counting fix
+M  include/display/display_controller.h      # dc_reset_prompt_display_state() export
 ```
 
 **Ready to Commit**: YES ✅

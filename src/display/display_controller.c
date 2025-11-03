@@ -108,6 +108,26 @@ static uint64_t dc_get_timestamp_us(void) {
  * @param user_data Pointer to display_controller_t instance
  * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
+/* Static state to track if prompt is already displayed */
+static bool prompt_is_displayed = false;
+static char last_prompt_hash[64] = {0};
+
+/**
+ * Reset prompt display state - called when starting new input session
+ * This is exported for use by the readline integration layer
+ */
+void dc_reset_prompt_display_state(void) {
+    prompt_is_displayed = false;
+    last_prompt_hash[0] = '\0';
+}
+
+/**
+ * Mark prompt as needing redraw - called when prompt content changes
+ */
+static void dc_invalidate_prompt_cache(void) {
+    prompt_is_displayed = false;
+}
+
 static layer_events_error_t dc_handle_redraw_needed(
     const layer_event_t *event,
     void *user_data) {
@@ -146,13 +166,23 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Write to terminal via terminal control */
     if (controller->terminal_ctrl) {
         int prompt_column = 0;
+        int prompt_row = 1;
+        int prompt_lines = 1;
+        bool is_multiline = false;
+        char prompt_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE] = {0};
+        bool prompt_changed = false;
         
-        /* Move to beginning of line and clear */
-        write(STDOUT_FILENO, "\r\033[K", 4);
-        
-        /* Write the prompt if available */
+        /* Get prompt metrics and content */
         if (prompt_layer) {
-            char prompt_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE];
+            prompt_metrics_t metrics;
+            if (prompt_layer_get_metrics(prompt_layer, &metrics) == PROMPT_LAYER_SUCCESS) {
+                prompt_column = metrics.estimated_command_column;
+                prompt_row = metrics.estimated_command_row;
+                prompt_lines = metrics.line_count;
+                is_multiline = metrics.is_multiline;
+            }
+            
+            /* Get prompt content to check if it changed */
             prompt_layer_error_t prompt_result = prompt_layer_get_rendered_content(
                 prompt_layer,
                 prompt_buffer,
@@ -160,28 +190,70 @@ static layer_events_error_t dc_handle_redraw_needed(
             );
             
             if (prompt_result == PROMPT_LAYER_SUCCESS && prompt_buffer[0] != '\0') {
-                write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+                /* Calculate simple hash of prompt to detect changes */
+                char prompt_hash[64];
+                snprintf(prompt_hash, sizeof(prompt_hash), "%08lx", (unsigned long)strlen(prompt_buffer));
                 
-                /* Get prompt metrics to determine command column */
-                prompt_metrics_t metrics;
-                if (prompt_layer_get_metrics(prompt_layer, &metrics) == PROMPT_LAYER_SUCCESS) {
-                    prompt_column = metrics.estimated_command_column;
+                /* Check if prompt changed since last display */
+                if (strcmp(prompt_hash, last_prompt_hash) != 0) {
+                    prompt_changed = true;
+                    strncpy(last_prompt_hash, prompt_hash, sizeof(last_prompt_hash) - 1);
                 }
             }
         }
         
-        /* Write the highlighted command text */
+        /* Determine if we need to redraw the prompt */
+        bool redraw_prompt = !prompt_is_displayed || prompt_changed;
+        
+        if (redraw_prompt) {
+            /* FULL REDRAW: Clear and redraw prompt + command */
+            
+            /* Clear display area based on prompt line count */
+            if (is_multiline && prompt_lines > 1) {
+                /* Multi-line prompt: Move to beginning and clear everything */
+                write(STDOUT_FILENO, "\r\033[J", 4);
+            } else {
+                /* Single-line prompt: Just clear current line */
+                write(STDOUT_FILENO, "\r\033[K", 4);
+            }
+            
+            /* Write the prompt */
+            if (prompt_buffer[0] != '\0') {
+                write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+            }
+            
+            /* Mark prompt as displayed */
+            prompt_is_displayed = true;
+        } else {
+            /* INCREMENTAL UPDATE: Only update command area */
+            
+            /* Move cursor to command start position using carriage return + column positioning */
+            /* This works because after writing command, cursor is on same line as command */
+            write(STDOUT_FILENO, "\r", 1);  /* Move to beginning of line */
+            
+            /* Move to column where command starts */
+            if (prompt_column > 1) {
+                char move_cmd[32];
+                int len = snprintf(move_cmd, sizeof(move_cmd), "\033[%dG", prompt_column);
+                if (len > 0 && len < (int)sizeof(move_cmd)) {
+                    write(STDOUT_FILENO, move_cmd, len);
+                }
+            }
+            
+            /* Clear from cursor to end of line */
+            write(STDOUT_FILENO, "\033[K", 3);
+        }
+        
+        /* Write the highlighted command text (always) */
         if (command_buffer[0] != '\0') {
             write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
         }
         
-        /* Position cursor at correct location */
-        /* prompt_column is already 1-indexed and points to where command starts */
-        /* So cursor column = prompt_column + cursor_position */
+        /* Position cursor at correct location within command */
         size_t cursor_pos = cmd_layer->cursor_position;
         int terminal_column = prompt_column + (int)cursor_pos;
         
-        /* Use ANSI escape code to position cursor: ESC[<col>G */
+        /* Use column-only positioning - cursor is already on correct line after writing command */
         if (terminal_column >= 1) {
             char cursor_cmd[32];
             int len = snprintf(cursor_cmd, sizeof(cursor_cmd), "\033[%dG", terminal_column);

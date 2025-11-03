@@ -104,6 +104,14 @@ static display_controller_t* create_mock_display_controller(void) {
         return NULL;
     }
     
+    /* Create mock command_layer - required by display_bridge */
+    display->compositor->command_layer = calloc(1, sizeof(command_layer_t));
+    if (!display->compositor->command_layer) {
+        free(display->compositor);
+        free(display);
+        return NULL;
+    }
+    
     /* Initialize minimal compositor state */
     display->compositor->initialized = false;
     
@@ -113,6 +121,9 @@ static display_controller_t* create_mock_display_controller(void) {
 static void destroy_mock_display_controller(display_controller_t *display) {
     if (display) {
         if (display->compositor) {
+            if (display->compositor->command_layer) {
+                free(display->compositor->command_layer);
+            }
             free(display->compositor);
         }
         free(display);
@@ -182,13 +193,14 @@ TEST(bridge_init_null_editor) {
     
     ASSERT_NOT_NULL(display, "Mock display creation failed");
     
-    /* Test NULL editor */
+    /* Test NULL editor - now allowed since editor is set per readline call */
     lle_result_t result = lle_display_bridge_init(&bridge, NULL, display, mock_pool);
     
-    ASSERT_EQ(result, LLE_ERROR_INVALID_PARAMETER, "Should fail with NULL editor");
-    ASSERT_NULL(bridge, "Bridge should not be allocated on failure");
+    ASSERT_EQ(result, LLE_SUCCESS, "Should succeed with NULL editor");
+    ASSERT_NOT_NULL(bridge, "Bridge should be allocated");
     
     /* Cleanup */
+    lle_display_bridge_cleanup(bridge);
     destroy_mock_display_controller(display);
 }
 

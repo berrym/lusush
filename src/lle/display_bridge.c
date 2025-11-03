@@ -63,7 +63,8 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     if (!bridge) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    if (!editor || !display || !memory_pool) {
+    /* Note: editor can be NULL - it will be set later per readline call */
+    if (!display || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -85,9 +86,15 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     /* Get composition engine and event system from display controller */
     br->composition_engine = display->compositor;
     br->layer_events = display_controller_get_event_system(display);
-    br->command_layer = NULL;  /* Will be set when command layer is registered */
     
     if (!br->composition_engine) {
+        lle_pool_free(br);
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    /* Get command_layer from composition_engine */
+    br->command_layer = (void *)br->composition_engine->command_layer;
+    if (!br->command_layer) {
         lle_pool_free(br);
         return LLE_ERROR_INVALID_STATE;
     }

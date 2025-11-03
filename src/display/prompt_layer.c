@@ -174,11 +174,19 @@ static void calculate_prompt_metrics(const char *content, prompt_metrics_t *metr
                 current_line_width = 0;
                 line_start = current + 1;
             } else {
-                current_line_width++;
-                // Check for Unicode characters
-                if ((unsigned char)*current > 127) {
-                    metrics->has_unicode = true;
+                /* Only count UTF-8 character start bytes, not continuation bytes */
+                /* UTF-8 continuation bytes have the form 10xxxxxx (0x80-0xBF) */
+                unsigned char byte = (unsigned char)*current;
+                if ((byte & 0xC0) != 0x80) {
+                    /* This is a character start byte (ASCII or UTF-8 lead byte) */
+                    current_line_width++;
+                    
+                    // Check for Unicode characters
+                    if (byte > 127) {
+                        metrics->has_unicode = true;
+                    }
                 }
+                /* Skip UTF-8 continuation bytes - don't increment counter */
             }
         }
         current++;
