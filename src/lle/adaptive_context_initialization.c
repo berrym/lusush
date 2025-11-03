@@ -506,33 +506,114 @@ bool lle_adaptive_perform_health_check(lle_adaptive_context_t *context) {
 
 /**
  * Try fallback mode if current mode fails.
+ * 
+ * Implements graceful degradation hierarchy:
+ * NATIVE → ENHANCED → MINIMAL
+ * ENHANCED → MINIMAL
+ * MULTIPLEXED → NATIVE → ENHANCED → MINIMAL
+ * MINIMAL → (no fallback available)
  */
 lle_result_t lle_adaptive_try_fallback_mode(lle_adaptive_context_t *context) {
     if (!context) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Fallback hierarchy: NATIVE -> ENHANCED -> MULTIPLEXED -> MINIMAL */
+    /* Determine fallback mode based on current mode */
     lle_adaptive_mode_t fallback_mode;
+    lle_adaptive_mode_t original_mode = context->mode;
     
     switch (context->mode) {
         case LLE_ADAPTIVE_MODE_NATIVE:
             fallback_mode = LLE_ADAPTIVE_MODE_ENHANCED;
             break;
+            
         case LLE_ADAPTIVE_MODE_ENHANCED:
-            fallback_mode = LLE_ADAPTIVE_MODE_MULTIPLEXED;
-            break;
-        case LLE_ADAPTIVE_MODE_MULTIPLEXED:
             fallback_mode = LLE_ADAPTIVE_MODE_MINIMAL;
             break;
+            
+        case LLE_ADAPTIVE_MODE_MULTIPLEXED:
+            /* Multiplexer failure: try native first, then enhanced */
+            fallback_mode = LLE_ADAPTIVE_MODE_NATIVE;
+            break;
+            
         case LLE_ADAPTIVE_MODE_MINIMAL:
-        default:
+            /* Already at minimal - no further fallback */
+            return LLE_ERROR_FEATURE_NOT_AVAILABLE;
+            
+        case LLE_ADAPTIVE_MODE_NONE:
+            /* Non-interactive - cannot fallback */
             return LLE_ERROR_FEATURE_NOT_AVAILABLE;
     }
     
-    /* This would cleanup current controller and reinitialize with fallback mode */
-    /* For now, just update the mode indicator */
+    /* Cleanup current controller before switching */
+    switch (original_mode) {
+        case LLE_ADAPTIVE_MODE_NATIVE:
+            lle_cleanup_native_controller(context->controller.native);
+            context->controller.native = NULL;
+            break;
+            
+        case LLE_ADAPTIVE_MODE_ENHANCED:
+            lle_cleanup_display_client_controller(context->controller.display_client);
+            context->controller.display_client = NULL;
+            break;
+            
+        case LLE_ADAPTIVE_MODE_MULTIPLEXED:
+            lle_cleanup_multiplexer_controller(context->controller.mux);
+            context->controller.mux = NULL;
+            break;
+            
+        case LLE_ADAPTIVE_MODE_MINIMAL:
+            lle_cleanup_minimal_controller(context->controller.minimal);
+            context->controller.minimal = NULL;
+            break;
+            
+        default:
+            break;
+    }
+    
+    /* Update mode */
     context->mode = fallback_mode;
+    
+    /* Initialize new controller */
+    lle_result_t result;
+    switch (fallback_mode) {
+        case LLE_ADAPTIVE_MODE_NATIVE:
+            result = lle_initialize_native_controller(context, context->memory_pool);
+            break;
+            
+        case LLE_ADAPTIVE_MODE_ENHANCED:
+            result = lle_initialize_display_client_controller(context, context->memory_pool);
+            break;
+            
+        case LLE_ADAPTIVE_MODE_MINIMAL:
+            result = lle_initialize_minimal_controller(context, context->memory_pool);
+            break;
+            
+        default:
+            return LLE_ERROR_INVALID_STATE;
+    }
+    
+    if (result != LLE_SUCCESS) {
+        /* Fallback initialization failed */
+        /* If we're not already at minimal, try that as last resort */
+        if (fallback_mode != LLE_ADAPTIVE_MODE_MINIMAL) {
+            context->mode = LLE_ADAPTIVE_MODE_MINIMAL;
+            result = lle_initialize_minimal_controller(context, context->memory_pool);
+            if (result != LLE_SUCCESS) {
+                /* Even minimal failed - mark context as unhealthy */
+                context->healthy = false;
+                return result;
+            }
+        } else {
+            /* Minimal failed - no options left */
+            context->healthy = false;
+            return result;
+        }
+    }
+    
+    /* Reset error count on successful fallback */
+    context->error_count = 0;
+    context->healthy = true;
     
     return LLE_SUCCESS;
 }

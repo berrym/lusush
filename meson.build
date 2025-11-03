@@ -754,6 +754,18 @@ endif
          timeout: 30)
   endif
 
+  # Adaptive Terminal Fallback Unit Tests (Spec 26 Phase 3)
+  # Tests graceful degradation and fallback hierarchy
+  if fs.exists('tests/lle/unit/test_adaptive_fallback.c')
+    test_adaptive_fallback = executable('test_adaptive_fallback',
+                                       'tests/lle/unit/test_adaptive_fallback.c',
+                                       include_directories: inc,
+                                       dependencies: [lle_dep])
+    test('LLE Adaptive Fallback', test_adaptive_fallback,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
 # ============================================================================
 # LLE Manual Integration Test (CRITICAL VERIFICATION)
 # ============================================================================
