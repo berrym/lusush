@@ -21,7 +21,7 @@ Critical gaps are:
 
 | Spec | Title | Primary Integration Target | Doc Status | Implementation | Priority |
 |------|-------|----------------------------|------------|----------------|----------|
-| **22** | History-Buffer Integration | Spec 09 (History System) | ✅ 100% | ❌ 0% | 🔥 P1 |
+| **22** | History-Buffer Integration | Spec 09 (History System) | ✅ 100% | ✅ 100% | ✅ COMPLETE |
 | **23** | Interactive Completion Menu | Spec 12 (Completion System) | ✅ 100% | ✅ 100% (Pragmatic) | ✅ COMPLETE |
 | **24** | Advanced Prompt Widget Hooks | Spec 07 (Extensibility Framework) | ✅ 100% | ⚠️ 5% | 🔥 P4 |
 | **25** | Default Keybindings | Spec 13 (User Customization) | ✅ 100% | ⚠️ 10% | 🔥 P2 |
@@ -31,8 +31,11 @@ Critical gaps are:
 **CRITICAL DISCOVERY (2025-11-02)**: All critical gap specs were integrated into documentation but **NOT implemented in code**. This represents a severe documentation-reality mismatch that must be addressed.
 
 **UPDATE (2025-11-02)**: 
+- ✅ **Spec 22 (History-Buffer Integration)**: COMPLETE (5 phases, compliance test passing)
 - ✅ **Spec 23 (Interactive Completion Menu)**: COMPLETE via pragmatic approach (~3600 lines, 189 tests, all passing)
 - ✅ **Spec 26 (Adaptive Terminal Integration)**: COMPLETE (88 tests, graceful fallback system)
+
+**3 of 6 critical gap specs now complete!**
 
 See `SPEC_12_PRAGMATIC_APPROACH.md` for details on Spec 23 implementation decision.
 
