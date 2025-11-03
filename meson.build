@@ -820,3 +820,21 @@ if fs.exists('tests/unit/test_completion_classification.c')
        suite: 'unit',
        timeout: 30)
 endif
+
+# Phase 2: Interactive Menu Tests
+# ============================================================================
+
+# Completion Menu Unit Tests
+# Tests menu lifecycle, navigation, selection, scrolling, display
+# Note: Uses mocks for builtins/aliases to avoid heavyweight dependencies
+if fs.exists('tests/unit/test_completion_menu.c')
+  test_completion_menu = executable('test_completion_menu',
+                                   ['tests/unit/test_completion_menu.c',
+                                    'src/completion_types.c',
+                                    'src/completion_menu.c'],
+                                   include_directories: inc,
+                                   dependencies: [readline_dep])
+  test('Completion Menu', test_completion_menu,
+       suite: 'unit',
+       timeout: 30)
+endif

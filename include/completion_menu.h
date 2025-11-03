@@ -208,6 +208,27 @@ const char* completion_menu_get_selected_text(const completion_menu_t *menu);
 size_t completion_menu_get_visible_count(const completion_menu_t *menu);
 
 /**
+ * Check if menu is active
+ * @param menu menu to check
+ * @return true if menu is active
+ */
+bool completion_menu_is_active(const completion_menu_t *menu);
+
+/**
+ * Get total item count
+ * @param menu menu to query
+ * @return total number of items
+ */
+size_t completion_menu_get_item_count(const completion_menu_t *menu);
+
+/**
+ * Get selected index
+ * @param menu menu to query
+ * @return selected item index
+ */
+size_t completion_menu_get_selected_index(const completion_menu_t *menu);
+
+/**
  * Check if menu has multiple categories
  * @param menu menu to check
  * @return true if menu has 2+ categories

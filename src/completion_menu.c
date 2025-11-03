@@ -124,6 +124,11 @@ completion_menu_t* completion_menu_create(completion_result_t *result,
         menu->config = completion_menu_get_default_config();
     }
     
+    // Validate and fix config
+    if (menu->config.max_visible_items == 0) {
+        menu->config.max_visible_items = 10;  // Default
+    }
+    
     // Initialize navigation state
     menu->selected_index = 0;
     menu->first_visible = 0;
@@ -197,18 +202,27 @@ bool completion_menu_navigate(completion_menu_t *menu,
             break;
             
         case MENU_NAV_LEFT:
-            // Move to previous category
-            if (menu->category_count > 1 && menu->current_category > 0) {
-                menu->current_category--;
+            // Move to previous category (with wrapping)
+            if (menu->category_count > 1) {
+                if (menu->current_category > 0) {
+                    menu->current_category--;
+                } else {
+                    // Wrap to last category
+                    menu->current_category = menu->category_count - 1;
+                }
                 menu->selected_index = menu->category_positions[menu->current_category];
             }
             break;
             
         case MENU_NAV_RIGHT:
-            // Move to next category
-            if (menu->category_count > 1 && 
-                menu->current_category < menu->category_count - 1) {
-                menu->current_category++;
+            // Move to next category (with wrapping)
+            if (menu->category_count > 1) {
+                if (menu->current_category < menu->category_count - 1) {
+                    menu->current_category++;
+                } else {
+                    // Wrap to first category
+                    menu->current_category = 0;
+                }
                 menu->selected_index = menu->category_positions[menu->current_category];
             }
             break;
@@ -551,4 +565,29 @@ bool completion_menu_should_show(const completion_result_t *result,
     }
     
     return (int)result->count >= min_items;
+}
+
+// ============================================================================
+// Query Functions
+// ============================================================================
+
+bool completion_menu_is_active(const completion_menu_t *menu) {
+    if (!menu) {
+        return false;
+    }
+    return menu->menu_active;
+}
+
+size_t completion_menu_get_item_count(const completion_menu_t *menu) {
+    if (!menu || !menu->result) {
+        return 0;
+    }
+    return menu->result->count;
+}
+
+size_t completion_menu_get_selected_index(const completion_menu_t *menu) {
+    if (!menu) {
+        return 0;
+    }
+    return menu->selected_index;
 }
