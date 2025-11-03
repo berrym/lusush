@@ -706,6 +706,7 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
         }
         
         if (is_partial_render) {
+            render_out->content[bytes_copied] = '\0';  /* CRITICAL: Null-terminate for string functions */
             render_out->content_length = bytes_copied;
         }
     }
@@ -714,6 +715,7 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
     if (!is_partial_render) {
         if (buffer->length > 0) {
             memcpy(render_out->content, buffer->data, buffer->length);
+            render_out->content[buffer->length] = '\0';  /* CRITICAL: Null-terminate for string functions */
             render_out->content_length = buffer->length;
         } else {
             render_out->content[0] = '\0';

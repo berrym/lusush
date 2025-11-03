@@ -19,6 +19,7 @@ LLE display rendering has been **successfully implemented and tested**. The inte
 - ✅ Command execution working
 - ✅ Multi-command sessions working
 - ✅ Prompt redisplay after command execution working
+- ✅ Backspace and character deletion working correctly
 - ✅ Architecture follows industry best practices
 - ✅ **Successfully tested in real TTY**
 
@@ -131,6 +132,77 @@ hello
 - ✅ Prompt redisplays after command
 - ✅ Multi-command sessions work
 - ✅ Clean exit
+
+---
+
+## Latest Fix: Backspace Character Deletion (2025-11-03)
+
+### The Problem
+
+After implementing prompt display, backspace required multiple presses to take effect:
+- Type 'e', press backspace once → 'e' deleted immediately ✓
+- Type 'ec', press backspace once → nothing happens ✗
+- Press backspace again (twice total) → 'ec' deleted immediately ✗
+- Pattern: N characters required N backspaces before visual deletion occurred
+
+### Root Cause Analysis
+
+Debug logging revealed the issue in `src/lle/render_controller.c`:
+
+```
+[BRIDGE] Sending to command_layer: content='ec' (len=1), cursor=1
+[CMD_LAYER] set_command: old='ec', new='ec', cmd_changed=0, cursor_changed=1
+[CMD_LAYER] No change detected, returning early
+```
+
+After first backspace on "ec":
+- Buffer correctly updated: length=1, cursor=1
+- `lle_render_buffer_content()` copied 1 byte correctly: `memcpy(render_out->content, buffer->data, 1)`
+- **BUT**: No null terminator added after the copied byte
+- Memory still contained: `'e', 'c', '\0'` (leftover from previous render)
+- `command_layer_set_command()` received "ec" (reads until null terminator)
+- `strcmp(old="ec", new="ec")` returned 0 → no change detected
+- Display not updated
+
+### The Fix
+
+**File**: `src/lle/render_controller.c` (lines 708, 716)
+
+Added null terminators after `memcpy()` in both render paths:
+
+```c
+/* Full render path */
+if (buffer->length > 0) {
+    memcpy(render_out->content, buffer->data, buffer->length);
+    render_out->content[buffer->length] = '\0';  /* CRITICAL: Null-terminate */
+    render_out->content_length = buffer->length;
+}
+
+/* Partial render path */
+if (is_partial_render) {
+    render_out->content[bytes_copied] = '\0';  /* CRITICAL: Null-terminate */
+    render_out->content_length = bytes_copied;
+}
+```
+
+### Why N Presses Required for N Characters
+
+Each backspace would:
+1. Delete one character from buffer correctly
+2. Copy updated buffer but without null terminating
+3. Command layer would see full old string (due to leftover bytes)
+4. Detect no change, skip redraw
+5. After N presses, buffer empty → comparison finally detected change
+6. All accumulated changes displayed at once
+
+### Test Results: SUCCESS ✅
+
+Tested with various input lengths:
+- ✅ Single character backspace works immediately
+- ✅ Multiple character strings delete one char per backspace
+- ✅ Typing after partial deletion works correctly
+- ✅ Empty buffer after full deletion works correctly
+- ✅ Minor cosmetic flicker observed once (non-blocking)
 
 ---
 
