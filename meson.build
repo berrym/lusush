@@ -789,6 +789,16 @@ if fs.exists('tests/lle/integration/simple_input_test.c')
                                   'tests/lle/integration/simple_input_test.c')
 endif
 
+# Real-world lle_readline() test
+# Interactive REPL to test actual LLE usage
+if fs.exists('tests/manual/test_lle_readline_real.c')
+  test_lle_readline_real = executable('test_lle_readline_real',
+                                      'tests/manual/test_lle_readline_real.c',
+                                      include_directories: inc,
+                                      dependencies: [readline_dep, ncurses_dep, lle_dep])
+  # NOTE: This is an interactive test - run manually with: ./builddir/test_lle_readline_real
+endif
+
 # ============================================================================
 # PRAGMATIC COMPLETION SYSTEM TESTS
 # ============================================================================
