@@ -35,6 +35,7 @@ src = ['src/builtins/alias.c',
        'src/autosuggestions.c',
        'src/completion.c',
        'src/completion_types.c',
+       'src/completion_menu.c',
        'src/rich_completion.c',
        'src/config.c',
        'src/lusush_memory_pool.c',
@@ -788,7 +789,22 @@ if fs.exists('tests/lle/integration/simple_input_test.c')
 endif
 
 # ============================================================================
-# PRAGMATIC COMPLETION SYSTEM TESTS (Phase 1)
+# PRAGMATIC COMPLETION SYSTEM TESTS
+# ============================================================================
+
+# Phase 2: Interactive Menu Demo (Manual Test)
+# Demonstrates interactive completion menu with arrow key navigation
+if fs.exists('tests/manual/demo_completion_menu.c')
+  demo_completion_menu = executable('demo_completion_menu',
+                                   ['tests/manual/demo_completion_menu.c',
+                                    'src/completion_types.c',
+                                    'src/completion_menu.c'],
+                                   include_directories: inc,
+                                   dependencies: [readline_dep])
+  # NOTE: This is a manual interactive demo - run with: ./builddir/demo_completion_menu
+endif
+
+# Phase 1: Classification Tests
 # ============================================================================
 
 # Completion Type Classification Unit Tests
