@@ -217,6 +217,10 @@ endif
 # Spec 08: Display Integration
 # Provides: Display rendering through Lusush, cursor management
 # Depends on: Spec 16, 15, 14, 17, 02, 03, 04
+# Phase 1: Foundation - Core Display Integration
+if fs.exists('display_integration.c')
+  lle_sources += files('display_integration.c')
+endif
 # Phase 1: Foundation - Display Bridge and Event Coordination
 if fs.exists('display_bridge.c')
   lle_sources += files('display_bridge.c')

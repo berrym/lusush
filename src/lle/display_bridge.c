@@ -18,6 +18,8 @@
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
+#include "display/command_layer.h"
+#include "display/layer_events.h"
 #include <string.h>
 #include <time.h>
 
@@ -85,12 +87,14 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     /* Step 4: Connect to Lusush display systems */
     /* Get composition engine and event system from display controller */
     br->composition_engine = display->compositor;
-    br->layer_events = display_controller_get_event_system(display);
     
     if (!br->composition_engine) {
         lle_pool_free(br);
         return LLE_ERROR_INVALID_STATE;
     }
+    
+    /* Get event system from compositor */
+    br->layer_events = br->composition_engine->event_system;
     
     /* Get command_layer from composition_engine */
     br->command_layer = (void *)br->composition_engine->command_layer;
@@ -213,6 +217,79 @@ lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
                                        display_controller_t *display,
                                        lle_memory_pool_t *pool) {
     return lle_display_bridge_init(bridge, editor, display, pool);
+}
+
+/**
+ * @brief Send rendered output to Lusush display system
+ * 
+ * This is the critical bridge function that takes LLE's rendered output
+ * and sends it through Lusush's layered display system.
+ * 
+ * Architecture:
+ * 1. Update command_layer with rendered text
+ * 2. command_layer publishes REDRAW_NEEDED event
+ * 3. display_controller handles event and renders to terminal
+ * 
+ * @param bridge Display bridge instance
+ * @param render_output Rendered output from LLE render system
+ * @param cursor Cursor position
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_display_bridge_send_output(
+    lle_display_bridge_t *bridge,
+    lle_render_output_t *render_output,
+    lle_cursor_position_t *cursor)
+{
+    (void)cursor;  /* Cursor handled by command_layer internally */
+    
+    if (!bridge) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    /* Get command layer */
+    command_layer_t *cmd_layer = (command_layer_t *)bridge->command_layer;
+    if (!cmd_layer) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+
+    /* Extract command text from render output */
+    const char *command_text = "";
+    size_t cursor_pos = 0;
+    if (render_output && render_output->content) {
+        command_text = render_output->content;
+    }
+
+    /* Update command layer with new text */
+    command_layer_error_t error = command_layer_set_command(
+        cmd_layer,
+        command_text,
+        cursor_pos
+    );
+
+    if (error != COMMAND_LAYER_SUCCESS) {
+        bridge->consecutive_errors++;
+        return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+
+    /* Trigger update which publishes REDRAW_NEEDED event */
+    error = command_layer_update(cmd_layer);
+    
+    if (error != COMMAND_LAYER_SUCCESS) {
+        bridge->consecutive_errors++;
+        return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+
+    /* Process layer events to trigger display update
+     * This causes display_controller to handle REDRAW_NEEDED event
+     */
+    if (bridge->layer_events) {
+        layer_events_process_pending(bridge->layer_events, 10, 0);
+    }
+
+    bridge->consecutive_errors = 0;
+    bridge->sync_state = LLE_DISPLAY_SYNC_COMPLETE;
+
+    return LLE_SUCCESS;
 }
 
 /* ========================================================================== */

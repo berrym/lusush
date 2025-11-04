@@ -220,6 +220,7 @@ static layer_events_error_t dc_handle_redraw_needed(
             /* Write the prompt */
             if (prompt_buffer[0] != '\0') {
                 write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+                fsync(STDOUT_FILENO);
             }
             
             /* Mark prompt as displayed */

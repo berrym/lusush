@@ -818,6 +818,7 @@ struct lle_display_integration_t {
  */
 
 /* Core Integration Functions */
+lle_display_integration_t *lle_display_integration_get_global(void);
 lle_result_t lle_display_integration_init(lle_display_integration_t **integration,
                                           void *editor,
                                           display_controller_t *lusush_display,
@@ -830,6 +831,9 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
                                      display_controller_t *display,
                                      lle_memory_pool_t *memory_pool);
 lle_result_t lle_display_bridge_cleanup(lle_display_bridge_t *bridge);
+lle_result_t lle_display_bridge_send_output(lle_display_bridge_t *bridge,
+                                            lle_render_output_t *render_output,
+                                            lle_cursor_position_t *cursor);
 lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
                                        void *editor,
                                        display_controller_t *display,

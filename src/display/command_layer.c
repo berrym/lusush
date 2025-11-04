@@ -1097,12 +1097,17 @@ static command_layer_error_t publish_command_event(command_layer_t *layer, layer
         return COMMAND_LAYER_SUCCESS; // Not an error if no event system
     }
     
+    /* Use HIGH priority for REDRAW_NEEDED events to match display_controller subscription */
+    layer_event_priority_t priority = (event_type == LAYER_EVENT_REDRAW_NEEDED) ? 
+                                      LAYER_EVENT_PRIORITY_HIGH : 
+                                      LAYER_EVENT_PRIORITY_NORMAL;
+    
     layer_events_error_t result = layer_events_publish_simple(
         layer->event_system,
         event_type,
         LAYER_ID_COMMAND_LAYER,
         0,
-        LAYER_EVENT_PRIORITY_NORMAL
+        priority
     );
     
     return (result == LAYER_EVENTS_SUCCESS) ? COMMAND_LAYER_SUCCESS : COMMAND_LAYER_ERROR_EVENT_SYSTEM;

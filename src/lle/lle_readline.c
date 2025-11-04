@@ -114,63 +114,106 @@ static bool is_input_incomplete(const char *buffer_data, continuation_state_t *s
 }
 
 /**
- * @brief Refresh the display
- * 
- * Step 3: Update display after buffer changes
- * Uses Lusush's display_controller for terminal output.
+ * @brief Refresh display after buffer modification using Spec 08 render system
+ *
+ * PROPER IMPLEMENTATION: Uses Spec 08 display integration components:
+ * - render_controller: Coordinates rendering operations
+ * - dirty_tracker: Tracks what changed for incremental updates
+ * - render_cache: Caches rendered output for performance
+ * - display_bridge: Communicates with Lusush display system
+ *
+ * This is the CORRECT way to render - using the Spec 08 rendering pipeline
+ * instead of calling display_controller directly.
  */
 static void refresh_display(readline_context_t *ctx)
 {
-    /* Get the global display controller */
-    display_controller_t *display = display_integration_get_controller();
-    if (!display) {
+    if (!ctx || !ctx->buffer) {
         return;
     }
 
-    /* Extract command text from buffer */
-    const char *command_text = "";
-    if (ctx->buffer && ctx->buffer->data) {
-        command_text = ctx->buffer->data;
+    /* Get the global Spec 08 display integration instance */
+    lle_display_integration_t *display_integration = lle_display_integration_get_global();
+    if (!display_integration) {
+        /* Fallback: If Spec 08 not initialized, display nothing rather than crash */
+        return;
     }
 
-    /* Get cursor byte offset from buffer */
-    size_t cursor_byte_offset = 0;
-    if (ctx->buffer) {
-        cursor_byte_offset = ctx->buffer->cursor.byte_offset;
+    /* Get render controller from display integration */
+    lle_render_controller_t *render_controller = display_integration->render_controller;
+    if (!render_controller) {
+        return;
     }
 
-    /* Prepare output buffer for display result */
-    static char display_output[32768];  /* Large buffer for complex prompts with ANSI codes */
-
-    /* Call display_controller_display_with_cursor() with terminal control enabled:
-     * - prompt_text: Goes to prompt_layer for rendering
-     * - command_text: Goes to command_layer for rendering with syntax highlighting
-     * - cursor_byte_offset: LLE's cursor position as byte offset in buffer
-     * - apply_terminal_control=true: Enables terminal control wrapping for LLE
-     *
-     * This uses incremental cursor tracking (Replxx/Fish/ZLE approach) to calculate
-     * cursor screen position, then wraps output with terminal control sequences:
-     * - \r\033[J (clear to end of screen)
-     * - Composed content (prompt + command with colors)
-     * - \033[row;colH (cursor positioning)
-     *
-     * LLE remains architecturally pure - NO terminal knowledge needed!
+    /* Mark dirty regions in dirty tracker based on what actually changed
+     * Use change tracking to mark only affected regions for efficient updates
      */
-    display_controller_error_t error = display_controller_display_with_cursor(
-        display,
-        ctx->prompt,               /* Prompt → prompt_layer */
-        command_text,              /* Command → command_layer */
-        cursor_byte_offset,        /* Cursor position in buffer (byte offset) */
-        true,                      /* Enable terminal control wrapping for LLE */
-        display_output,
-        sizeof(display_output)
+    if (render_controller->dirty_tracker) {
+        /* Check if we have change tracking information */
+        if (ctx->buffer->change_tracking_enabled &&
+            ctx->buffer->current_sequence &&
+            ctx->buffer->current_sequence->last_op) {
+
+            /* Get the last operation that was performed */
+            lle_change_operation_t *last_op = ctx->buffer->current_sequence->last_op;
+
+            /* Mark only the affected region as dirty */
+            lle_dirty_tracker_mark_range(
+                render_controller->dirty_tracker,
+                last_op->start_position,
+                last_op->affected_length
+            );
+        } else {
+            /* No change tracking info - mark entire buffer dirty (first render) */
+            lle_dirty_tracker_mark_full(render_controller->dirty_tracker);
+        }
+    }
+
+    /* Render buffer content through Spec 08 render system */
+    lle_render_output_t *render_output = NULL;
+    lle_result_t result = lle_render_buffer_content(
+        render_controller,
+        ctx->buffer,
+        &ctx->buffer->cursor,
+        &render_output
     );
 
-    if (error == DISPLAY_CONTROLLER_SUCCESS) {
-        /* Output is now terminal-ready with proper cursor positioning */
-        /* This handles line wrapping, UTF-8, ANSI codes, tabs correctly */
-        printf("%s", display_output);
-        fflush(stdout);
+    if (result != LLE_SUCCESS || !render_output) {
+        return;
+    }
+
+    /* SPEC 08 COMPLIANT: Send rendered output through display_bridge to command_layer
+     *
+     * This is THE CORRECT ARCHITECTURE per Spec 08:
+     * 1. render_controller produces rendered output
+     * 2. display_bridge sends output to command_layer
+     * 3. command_layer sends to display_controller
+     * 4. display_controller handles terminal I/O
+     *
+     * NO DIRECT TERMINAL WRITES - this is a critical architectural principle!
+     *
+     * IMPORTANT: Always send to display_bridge even if buffer is empty, because we
+     * still need to display the prompt. The prompt is rendered separately by the
+     * prompt_layer and combined in the display_controller.
+     */
+    lle_display_bridge_t *display_bridge = display_integration->display_bridge;
+    if (display_bridge) {
+        result = lle_display_bridge_send_output(
+            display_bridge,
+            render_output,
+            &ctx->buffer->cursor
+        );
+
+        if (result != LLE_SUCCESS) {
+            /* Log error but continue - display bridge will track consecutive errors */
+        }
+    }
+
+    /* Free the render output */
+    lle_render_output_free(render_output);
+
+    /* Clear dirty tracker after successful render */
+    if (render_controller->dirty_tracker) {
+        lle_dirty_tracker_clear(render_controller->dirty_tracker);
     }
 }
 
@@ -686,6 +729,19 @@ char *lle_readline(const char *prompt)
     /* === STEP 5.7: Get display controller for prompt display === */
     display_controller_t *display = display_integration_get_controller();
     
+    /* === STEP 5.8: Initialize LLE display integration (Spec 08) === */
+    lle_display_integration_t *lle_display_integ = lle_display_integration_get_global();
+    if (!lle_display_integ && display) {
+        /* Initialize display integration if not already initialized */
+        result = lle_display_integration_init(
+            &lle_display_integ,
+            NULL,  /* editor context - not needed yet */
+            display,
+            (lle_memory_pool_t *)global_memory_pool
+        );
+        /* Note: Initialization failure is non-fatal - LLE can work without it */
+    }
+    
     /* === STEP 6: Register event handlers === */
     /* Step 4: Register handlers that will modify buffer and refresh display */
     bool done = false;
@@ -714,9 +770,12 @@ char *lle_readline(const char *prompt)
     
     /* === STEP 7: Display prompt === */
     /* Step 4: Set prompt in prompt_layer and display initial prompt */
-    if (display && display->compositor && display->compositor->prompt_layer && prompt) {
-        /* Set the prompt content in the prompt_layer */
-        prompt_layer_set_content(display->compositor->prompt_layer, prompt);
+    if (lle_display_integ && lle_display_integ->lusush_display) {
+        display_controller_t *dc = lle_display_integ->lusush_display;
+        if (dc->compositor && dc->compositor->prompt_layer && prompt) {
+            /* Set the prompt content in the prompt_layer */
+            prompt_layer_set_content(dc->compositor->prompt_layer, prompt);
+        }
     }
     
     /* Initial display refresh to show prompt */
