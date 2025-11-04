@@ -174,7 +174,7 @@ $ echo "this is a very long command that wraps to multiple lines and keeps going
 - Display controller now simply uses this calculated position
 - Simple, reliable cursor positioning that works in all cases
 
-**Commit**: [To be created]
+**Commit**: 565674d
 
 ---
 
