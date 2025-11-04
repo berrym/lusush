@@ -79,6 +79,101 @@ this is a very long line of text that should wrap
 - Current approach: full redraw with buffering (simple, reliable, works everywhere)
 - Future optimization: Can add differential updates when needed
 
+**Commit**: 3b83534
+
+---
+
+## CURRENT SESSION SUMMARY (2025-11-04 - Part 4: Arrow Keys Across Line Wraps Fixed!)
+
+### Arrow Key Navigation Across Line Wrap Boundaries - CRITICAL FIX
+
+**Problem**: After fixing line wrapping display (Part 3), arrow keys (LEFT/RIGHT) did not move cursor across line wrap boundaries. Backspace worked across wraps, but arrow keys appeared stuck at line boundaries.
+
+**Investigation**:
+1. **Initial Hypothesis**: Thought arrow key functions (`lle_forward_char`, `lle_backward_char`) were at fault
+2. **Reality**: Arrow keys DO update buffer cursor position correctly
+3. **Root Cause**: Display controller cursor positioning logic couldn't handle wrapped lines
+4. **Key Discovery**: `screen_buffer_render()` calculates correct `cursor_row` and `cursor_col` accounting for wrapping, but display_controller wasn't using this information!
+
+**The Bug** (src/display/display_controller.c:230-275):
+```c
+// OLD CODE: Only moved cursor LEFT within current line
+int chars_since_cursor = 0;
+// ... count characters after cursor ...
+// Move LEFT by N characters
+snprintf(left_seq, sizeof(left_seq), "\033[%dD", chars_since_cursor);
+```
+
+**Problem**: The `ESC[ND` (move LEFT) escape sequence only moves within the current line. It CANNOT move up to a previous line. When cursor needed to be on a wrapped line above, the LEFT movement would stop at column 0 of the current line, leaving cursor in wrong position.
+
+**The Fix**:
+Use the `cursor_row` and `cursor_col` that `screen_buffer_render()` already calculated:
+
+```c
+// NEW CODE: Use screen_buffer's calculated position
+int cursor_row = desired_screen.cursor_row;
+int cursor_col = desired_screen.cursor_col;
+int final_row = desired_screen.num_rows - 1;
+
+// Move UP if cursor is on earlier row
+int rows_to_move_up = final_row - cursor_row;
+if (rows_to_move_up > 0) {
+    snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
+    write(STDOUT_FILENO, up_seq, up_len);
+}
+
+// Move to column 0
+write(STDOUT_FILENO, "\r", 1);
+
+// Move RIGHT to cursor column
+if (cursor_col > 0) {
+    snprintf(right_seq, sizeof(right_seq), "\033[%dC", cursor_col);
+    write(STDOUT_FILENO, right_seq, right_len);
+}
+```
+
+**Why This Works**:
+1. After drawing all content, cursor is at END (last row, last column)
+2. Calculate `rows_to_move_up = final_row - cursor_row`
+3. Move UP by that many rows (handles wrapped lines)
+4. Use `\r` to go to column 0 of that row
+5. Move RIGHT to the exact column
+
+This approach works across ANY number of wrapped lines because:
+- UP movement (`ESC[nA`) correctly moves up N rows
+- Carriage return (`\r`) goes to column 0 of current row
+- RIGHT movement (`ESC[nC`) moves to exact column on current row
+
+**Files Changed**:
+- `src/display/display_controller.c` (complete rewrite of cursor positioning logic)
+
+**Result**:
+- ✅ Arrow keys (LEFT/RIGHT) now work across line wrap boundaries
+- ✅ Cursor positioned correctly on any row when wrapped
+- ✅ Multi-line wrapped commands fully navigable
+- ✅ UTF-8, emoji, wide characters still handled correctly
+- ✅ No visible flicker (terminal buffering still working)
+
+**Testing**:
+```bash
+LLE_ENABLED=1 ./builddir/lusush
+$ echo "this is a very long command that wraps to multiple lines and keeps going"
+# Type past terminal width to wrap
+# Press LEFT arrow multiple times
+# Result: Cursor moves smoothly across wrap boundary from line 2 to line 1
+# Press RIGHT arrow
+# Result: Cursor moves smoothly from line 1 to line 2 across wrap
+```
+
+**Architecture Notes**:
+- `screen_buffer_render()` does the hard work: calculates exact row/col for cursor accounting for:
+  - Prompt width
+  - UTF-8 character widths (wide chars = 2 columns)
+  - Line wrapping at terminal width
+  - ANSI escape sequences (skipped in position calculations)
+- Display controller now simply uses this calculated position
+- Simple, reliable cursor positioning that works in all cases
+
 **Commit**: [To be created]
 
 ---

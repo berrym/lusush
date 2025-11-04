@@ -216,59 +216,44 @@ static layer_events_error_t dc_handle_redraw_needed(
         write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
     }
     
-    /* Draw command - we'll track position as we go */
-    size_t i = 0;
-    size_t text_len = strlen(command_buffer);
-    size_t bytes_written = 0;  // Bytes of raw text (excluding ANSI)
-    int chars_since_cursor = 0;  /* Count characters outputted after cursor position */
-    bool cursor_found = false;
-    
-    while (i < text_len) {
-        unsigned char ch = (unsigned char)command_buffer[i];
-        
-        /* Check if we've reached the cursor position in the raw text */
-        if (!cursor_found && bytes_written == cursor_byte_offset) {
-            cursor_found = true;
-            chars_since_cursor = 0;
-        }
-        
-        /* Handle ANSI escape sequences - output but don't count */
-        if (ch == '\033' || ch == '\x1b') {
-            size_t seq_start = i;
-            i++;
-            if (i < text_len && command_buffer[i] == '[') {
-                i++;
-                while (i < text_len) {
-                    char c = command_buffer[i++];
-                    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
-                        c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G') {
-                        break;
-                    }
-                }
-            }
-            /* Output entire escape sequence */
-            write(STDOUT_FILENO, command_buffer + seq_start, i - seq_start);
-            continue;
-        }
-        
-        /* Output this character */
-        write(STDOUT_FILENO, command_buffer + i, 1);
-        
-        /* Count it */
-        bytes_written++;
-        if (cursor_found) {
-            chars_since_cursor++;
-        }
-        
-        i++;
+    /* Draw command text completely */
+    if (command_buffer[0]) {
+        write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
     }
     
-    /* If we've output characters after the cursor position, move cursor back */
-    if (cursor_found && chars_since_cursor > 0) {
-        char left_seq[32];
-        int left_len = snprintf(left_seq, sizeof(left_seq), "\033[%dD", chars_since_cursor);
-        if (left_len > 0) {
-            write(STDOUT_FILENO, left_seq, left_len);
+    /* Position cursor using row/col from screen_buffer 
+     * The screen_buffer_render() calculated the exact cursor position accounting
+     * for line wrapping, prompt width, and UTF-8 character widths */
+    int cursor_row = desired_screen.cursor_row;
+    int cursor_col = desired_screen.cursor_col;
+    
+    /* We just drew everything, so cursor is at the end
+     * Calculate how to move cursor to the correct position */
+    int final_row = desired_screen.num_rows - 1;  /* Last row of rendered content (0-based) */
+    
+    /* Move cursor to correct position:
+     * 1. If cursor is on an earlier row, move UP
+     * 2. Then move to column 0 with \r
+     * 3. Then move RIGHT to correct column */
+    
+    int rows_to_move_up = final_row - cursor_row;
+    if (rows_to_move_up > 0) {
+        char up_seq[16];
+        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
+        if (up_len > 0) {
+            write(STDOUT_FILENO, up_seq, up_len);
+        }
+    }
+    
+    /* Move to beginning of line */
+    write(STDOUT_FILENO, "\r", 1);
+    
+    /* Move right to cursor column if needed */
+    if (cursor_col > 0) {
+        char right_seq[16];
+        int right_len = snprintf(right_seq, sizeof(right_seq), "\033[%dC", cursor_col);
+        if (right_len > 0) {
+            write(STDOUT_FILENO, right_seq, right_len);
         }
     }
     
