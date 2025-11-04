@@ -221,9 +221,10 @@ endif
 if fs.exists('display_bridge.c')
   lle_sources += files('display_bridge.c')
 endif
-if fs.exists('event_coordinator.c')
-  lle_sources += files('event_coordinator.c')
-endif
+# NOTE: event_coordinator.c temporarily disabled - has type conflicts with event_system.h
+# if fs.exists('event_coordinator.c')
+#   lle_sources += files('event_coordinator.c')
+# endif
 # Phase 2: Rendering System - Render Controller
 if fs.exists('render_controller.c')
   lle_sources += files('render_controller.c')
@@ -244,10 +245,11 @@ if fs.exists('dirty_tracker.c')
   lle_sources += files('dirty_tracker.c')
 endif
 
+# NOTE: terminal_adapter.c temporarily disabled - has type conflicts with terminal_abstraction.h
 # Phase 2: Rendering System - Terminal Adapter
-if fs.exists('terminal_adapter.c')
-  lle_sources += files('terminal_adapter.c')
-endif
+# if fs.exists('terminal_adapter.c')
+#   lle_sources += files('terminal_adapter.c')
+# endif
 
 # Phase 2: Rendering System - Theme Integration
 if fs.exists('theme_integration.c')

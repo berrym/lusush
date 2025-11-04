@@ -43,6 +43,12 @@
 /* libhashtable Integration (Spec 05) - Use LLE wrapper */
 #include "lle/hashtable.h"
 
+/* LLE Event System - Use existing event types */
+#include "lle/event_system.h"
+
+/* LLE Terminal Abstraction - Use existing terminal types */
+#include "lle/terminal_abstraction.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -73,7 +79,7 @@ typedef struct lle_cache_policy_t lle_display_cache_policy_t;
 /* Event structures */
 typedef struct lle_event_translator_t lle_event_translator_t;
 typedef struct lle_event_router_t lle_event_router_t;
-typedef struct lle_event_filter_t lle_event_filter_t;
+/* NOTE: lle_event_filter_t is defined in event_system.h */
 typedef struct lle_coord_queue_t lle_coord_queue_t;  /* Coordinator queue (not core event system) */
 
 /* Memory structures */
@@ -86,7 +92,7 @@ typedef struct lle_cursor_colors_t lle_cursor_colors_t;
 
 /* Terminal structures */
 typedef struct lle_terminal_adapter_t lle_terminal_adapter_t;
-typedef struct lle_terminal_capabilities_t lle_terminal_capabilities_t;
+/* NOTE: lle_terminal_capabilities_t is defined in terminal_abstraction.h */
 typedef struct lle_compatibility_matrix_t lle_compatibility_matrix_t;
 
 /* ========================================================================== */
@@ -133,22 +139,7 @@ typedef enum {
     LLE_DISPLAY_EVENT_CACHE_INVALIDATE  /**< Cache invalidation requested */
 } lle_display_event_type_t;
 
-/**
- * @brief Terminal type identification
- * 
- * Identifies different terminal emulator types for compatibility.
- */
-typedef enum {
-    LLE_TERMINAL_UNKNOWN,               /**< Unknown terminal */
-    LLE_TERMINAL_XTERM,                 /**< xterm or compatible */
-    LLE_TERMINAL_GNOME,                 /**< GNOME Terminal */
-    LLE_TERMINAL_KITTY,                 /**< Kitty terminal */
-    LLE_TERMINAL_ALACRITTY,             /**< Alacritty terminal */
-    LLE_TERMINAL_ITERM2,                /**< iTerm2 (macOS) */
-    LLE_TERMINAL_TMUX,                  /**< tmux multiplexer */
-    LLE_TERMINAL_SCREEN,                /**< GNU Screen */
-    LLE_TERMINAL_CONSOLE                /**< Linux console */
-} lle_terminal_type_t;
+/* NOTE: lle_terminal_type_t is defined in terminal_abstraction.h - using that definition */
 
 /* ========================================================================== */
 /*                      DISPLAY BRIDGE STRUCTURES                             */
@@ -477,18 +468,7 @@ struct lle_render_cache_t {
 /*                      EVENT COORDINATION STRUCTURES                         */
 /* ========================================================================== */
 
-/**
- * @brief Generic event structure
- * 
- * Base structure for all LLE display events.
- */
-typedef struct {
-    lle_display_event_type_t type;              /**< Event type */
-    uint64_t timestamp;                 /**< Event timestamp (microseconds) */
-    uint64_t sequence_number;           /**< Event sequence number */
-    void *data;                         /**< Event-specific data */
-    size_t data_size;                   /**< Data size in bytes */
-} lle_event_t;
+/* NOTE: lle_event_t is defined in event_system.h - using that definition */
 
 /**
  * @brief Buffer change event
@@ -516,12 +496,7 @@ typedef struct {
     lle_cursor_position_t new_position; /**< New cursor position */
 } lle_cursor_move_event_t;
 
-/**
- * @brief Event handler function type
- * 
- * Function signature for event handlers.
- */
-typedef lle_result_t (*lle_event_handler_fn)(lle_event_t *event, void *user_data);
+/* NOTE: lle_event_handler_fn is defined in event_system.h - using that definition */
 
 /**
  * @brief Event route
