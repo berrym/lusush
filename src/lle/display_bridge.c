@@ -240,8 +240,6 @@ lle_result_t lle_display_bridge_send_output(
     lle_render_output_t *render_output,
     lle_cursor_position_t *cursor)
 {
-    (void)cursor;  /* Cursor handled by command_layer internally */
-    
     if (!bridge) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -252,14 +250,34 @@ lle_result_t lle_display_bridge_send_output(
         return LLE_ERROR_INVALID_STATE;
     }
 
-    /* Extract command text from render output */
+    /* Extract command text and cursor position from render output */
     const char *command_text = "";
     size_t cursor_pos = 0;
+    
     if (render_output && render_output->content) {
         command_text = render_output->content;
     }
+    
+    /* Calculate RELATIVE cursor position within rendered command text
+     * 
+     * The command_layer expects cursor position as byte offset within the
+     * command text string, NOT absolute buffer position.
+     * 
+     * For single-line input: cursor_pos = byte_offset
+     * For multi-line input: Need to find line start and calculate offset from there
+     * 
+     * Since we're rendering the full buffer content, and for single-line mode
+     * the entire buffer IS the command, we can use byte_offset directly.
+     * 
+     * TODO: For multi-line support, calculate position relative to current line.
+     */
+    if (cursor && cursor->position_valid) {
+        /* For now, use byte_offset directly since we render the whole buffer
+         * and command_layer displays it as a single line */
+        cursor_pos = cursor->byte_offset;
+    }
 
-    /* Update command layer with new text */
+    /* Update command layer with new text and cursor position */
     command_layer_error_t error = command_layer_set_command(
         cmd_layer,
         command_text,
