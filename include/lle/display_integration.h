@@ -201,6 +201,7 @@ struct lle_display_bridge_t {
     void *command_layer;                /**< Lusush command display layer (opaque) */
     composition_engine_t *composition_engine; /**< Lusush composition engine */
     layer_event_system_t *layer_events; /**< Lusush layer event system */
+    display_controller_t *display_controller; /**< Display controller for terminal info */
     
     /* Bridge state management */
     lle_display_sync_state_t sync_state; /**< Synchronization state tracking */
@@ -239,6 +240,11 @@ typedef struct {
  * @brief Render output structure
  * 
  * Contains the rendered display content ready for display system.
+ * 
+ * CRITICAL: Per MODERN_EDITOR_WRAPPING_RESEARCH.md, this structure now includes
+ * the cursor screen coordinates calculated during rendering using incremental
+ * tracking (like Replxx, Fish, ZLE). The display system should use these
+ * coordinates directly, NOT recalculate them.
  */
 struct lle_render_output_t {
     char *content;                      /**< Rendered content string */
@@ -248,6 +254,11 @@ struct lle_render_output_t {
     size_t attribute_count;             /**< Number of attributes */
     uint64_t render_hash;               /**< Hash of this render output */
     uint64_t timestamp;                 /**< Render timestamp (microseconds) */
+    
+    /* Cursor screen position (calculated during rendering) */
+    size_t cursor_screen_row;           /**< Cursor row (0-based) on screen */
+    size_t cursor_screen_column;        /**< Cursor column (0-based) on screen */
+    bool cursor_position_valid;         /**< True if cursor position was calculated */
 };
 
 /**

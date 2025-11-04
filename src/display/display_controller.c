@@ -44,8 +44,10 @@
 #include "display/base_terminal.h"
 #include "display/prompt_layer.h"
 #include "display/command_layer.h"
+#include "display/screen_buffer.h"
 #include "display_integration.h"
 #include "lusush_memory_pool.h"
+#include "lle/utf8_support.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +70,7 @@
 #define DC_ADAPTIVE_OPTIMIZATION_THRESHOLD 5
 
 // Debugging and logging macros
-#ifdef DEBUG
+#if 0  // DC_DEBUG disabled - interferes with display
 #define DC_DEBUG(fmt, ...) \
     fprintf(stderr, "[DC_DEBUG] %s:%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__)
 #else
@@ -108,165 +110,173 @@ static uint64_t dc_get_timestamp_us(void) {
  * @param user_data Pointer to display_controller_t instance
  * @return LAYER_EVENTS_SUCCESS on success, error code on failure
  */
-/* Static state to track if prompt is already displayed */
-static bool prompt_is_displayed = false;
-static char last_prompt_hash[64] = {0};
+/* SCREEN BUFFER SYSTEM - The proper way to handle terminal updates
+ * 
+ * Instead of trying to move cursor back and redraw (which is unreliable),
+ * we maintain virtual screen buffers representing what's on the terminal.
+ * On each update, we diff old vs new and apply only the changes.
+ * 
+ * This is the proven approach used by ZLE, Fish, and Replxx.
+ */
+static screen_buffer_t current_screen;
+static screen_buffer_t desired_screen;
+static bool screen_buffer_initialized = false;
+static bool prompt_rendered = false;
 
 /**
- * Reset prompt display state - called when starting new input session
- * This is exported for use by the readline integration layer
+ * Reset display state - called when starting new input session
+ * 
+ * Clears screen buffers so next render starts fresh.
  */
 void dc_reset_prompt_display_state(void) {
-    prompt_is_displayed = false;
-    last_prompt_hash[0] = '\0';
+    prompt_rendered = false;
+    if (screen_buffer_initialized) {
+        screen_buffer_clear(&current_screen);
+        screen_buffer_clear(&desired_screen);
+    }
 }
 
 /**
  * Mark prompt as needing redraw - called when prompt content changes
+ * (No longer needed with always-redraw approach, kept for API compatibility)
  */
 static void dc_invalidate_prompt_cache(void) {
-    prompt_is_displayed = false;
+    /* No-op: we always redraw everything now */
 }
 
 static layer_events_error_t dc_handle_redraw_needed(
     const layer_event_t *event,
     void *user_data) {
     
+    (void)event;
     display_controller_t *controller = (display_controller_t *)user_data;
     
     if (!controller || !controller->is_initialized) {
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
     
-    DC_DEBUG("Handling REDRAW_NEEDED event from layer %lu", event->source_layer);
-    
-    /* Get the prompt layer for prompt rendering */
-    prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
-    
-    /* Get the command layer that needs redrawing */
     command_layer_t *cmd_layer = controller->compositor->command_layer;
     if (!cmd_layer) {
-        DC_ERROR("No command layer available for redraw");
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
-    
-    /* Get highlighted text from command layer */
+
+    int term_width = 80;
+    if (controller->terminal_ctrl && controller->terminal_ctrl->capabilities.terminal_width > 0) {
+        term_width = controller->terminal_ctrl->capabilities.terminal_width;
+    }
+
+    if (!screen_buffer_initialized) {
+        screen_buffer_init(&current_screen, term_width);
+        screen_buffer_init(&desired_screen, term_width);
+        screen_buffer_initialized = true;
+    } else {
+        current_screen.terminal_width = term_width;
+        desired_screen.terminal_width = term_width;
+    }
+
+    prompt_layer_t *prompt_layer = controller->compositor->prompt_layer;
+    char prompt_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE] = {0};
+    if (prompt_layer) {
+        prompt_layer_get_rendered_content(prompt_layer, prompt_buffer, sizeof(prompt_buffer));
+    }
+
     char command_buffer[COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE];
     command_layer_error_t cmd_result = command_layer_get_highlighted_text(
-        cmd_layer,
-        command_buffer,
-        sizeof(command_buffer)
-    );
+        cmd_layer, command_buffer, sizeof(command_buffer));
     
     if (cmd_result != COMMAND_LAYER_SUCCESS) {
-        DC_ERROR("Failed to get highlighted text: %d", cmd_result);
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
+
+    size_t cursor_byte_offset = cmd_layer->cursor_position;
+    screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
+
+    /* Use clear and redraw approach with cursor tracking
+     * We'll output everything, track where cursor should be, then reposition */
     
-    /* Write to terminal via terminal control */
-    if (controller->terminal_ctrl) {
-        int prompt_column = 0;
-        int prompt_row = 1;
-        int prompt_lines = 1;
-        bool is_multiline = false;
-        char prompt_buffer[PROMPT_LAYER_MAX_CONTENT_SIZE] = {0};
-        bool prompt_changed = false;
-        
-        /* Get prompt metrics and content */
-        if (prompt_layer) {
-            prompt_metrics_t metrics;
-            if (prompt_layer_get_metrics(prompt_layer, &metrics) == PROMPT_LAYER_SUCCESS) {
-                prompt_column = metrics.estimated_command_column;
-                prompt_row = metrics.estimated_command_row;
-                prompt_lines = metrics.line_count;
-                is_multiline = metrics.is_multiline;
-            }
-            
-            /* Get prompt content to check if it changed */
-            prompt_layer_error_t prompt_result = prompt_layer_get_rendered_content(
-                prompt_layer,
-                prompt_buffer,
-                sizeof(prompt_buffer)
-            );
-            
-            if (prompt_result == PROMPT_LAYER_SUCCESS && prompt_buffer[0] != '\0') {
-                /* Calculate simple hash of prompt to detect changes */
-                char prompt_hash[64];
-                snprintf(prompt_hash, sizeof(prompt_hash), "%08lx", (unsigned long)strlen(prompt_buffer));
-                
-                /* Check if prompt changed since last display */
-                if (strcmp(prompt_hash, last_prompt_hash) != 0) {
-                    prompt_changed = true;
-                    strncpy(last_prompt_hash, prompt_hash, sizeof(last_prompt_hash) - 1);
-                }
-            }
+    /* If we have previous screen state, move cursor to start of that content first
+     * This handles the case where text has wrapped to multiple lines */
+    if (prompt_rendered && current_screen.num_rows > 1) {
+        /* Move up to first line of previous render */
+        char up_seq[16];
+        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", current_screen.num_rows - 1);
+        if (up_len > 0) {
+            write(STDOUT_FILENO, up_seq, up_len);
         }
-        
-        /* Determine if we need to redraw the prompt */
-        bool redraw_prompt = !prompt_is_displayed || prompt_changed;
-        
-        if (redraw_prompt) {
-            /* FULL REDRAW: Clear and redraw prompt + command */
-            
-            /* Clear display area based on prompt line count */
-            if (is_multiline && prompt_lines > 1) {
-                /* Multi-line prompt: Move to beginning and clear everything */
-                write(STDOUT_FILENO, "\r\033[J", 4);
-            } else {
-                /* Single-line prompt: Just clear current line */
-                write(STDOUT_FILENO, "\r\033[K", 4);
-            }
-            
-            /* Write the prompt */
-            if (prompt_buffer[0] != '\0') {
-                write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
-                fsync(STDOUT_FILENO);
-            }
-            
-            /* Mark prompt as displayed */
-            prompt_is_displayed = true;
-        } else {
-            /* INCREMENTAL UPDATE: Only update command area */
-            
-            /* Move cursor to command start position using carriage return + column positioning */
-            /* This works because after writing command, cursor is on same line as command */
-            write(STDOUT_FILENO, "\r", 1);  /* Move to beginning of line */
-            
-            /* Move to column where command starts */
-            if (prompt_column > 1) {
-                char move_cmd[32];
-                int len = snprintf(move_cmd, sizeof(move_cmd), "\033[%dG", prompt_column);
-                if (len > 0 && len < (int)sizeof(move_cmd)) {
-                    write(STDOUT_FILENO, move_cmd, len);
-                }
-            }
-            
-            /* Clear from cursor to end of line */
-            write(STDOUT_FILENO, "\033[K", 3);
-        }
-        
-        /* Write the highlighted command text (always) */
-        if (command_buffer[0] != '\0') {
-            write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
-        }
-        
-        /* Position cursor at correct location within command */
-        size_t cursor_pos = cmd_layer->cursor_position;
-        int terminal_column = prompt_column + (int)cursor_pos;
-        
-        /* Use column-only positioning - cursor is already on correct line after writing command */
-        if (terminal_column >= 1) {
-            char cursor_cmd[32];
-            int len = snprintf(cursor_cmd, sizeof(cursor_cmd), "\033[%dG", terminal_column);
-            if (len > 0 && len < (int)sizeof(cursor_cmd)) {
-                write(STDOUT_FILENO, cursor_cmd, len);
-            }
-        }
-        
-        /* Flush output */
-        fsync(STDOUT_FILENO);
     }
     
+    /* Move to beginning of line */
+    write(STDOUT_FILENO, "\r", 1);
+    
+    /* Clear from cursor to end of screen (clears current line and any wrapped lines below) */
+    write(STDOUT_FILENO, "\033[J", 3);
+    
+    /* Draw prompt */
+    if (prompt_buffer[0]) {
+        write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+    }
+    
+    /* Draw command - we'll track position as we go */
+    size_t i = 0;
+    size_t text_len = strlen(command_buffer);
+    size_t bytes_written = 0;  // Bytes of raw text (excluding ANSI)
+    int chars_since_cursor = 0;  /* Count characters outputted after cursor position */
+    bool cursor_found = false;
+    
+    while (i < text_len) {
+        unsigned char ch = (unsigned char)command_buffer[i];
+        
+        /* Check if we've reached the cursor position in the raw text */
+        if (!cursor_found && bytes_written == cursor_byte_offset) {
+            cursor_found = true;
+            chars_since_cursor = 0;
+        }
+        
+        /* Handle ANSI escape sequences - output but don't count */
+        if (ch == '\033' || ch == '\x1b') {
+            size_t seq_start = i;
+            i++;
+            if (i < text_len && command_buffer[i] == '[') {
+                i++;
+                while (i < text_len) {
+                    char c = command_buffer[i++];
+                    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                        c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G') {
+                        break;
+                    }
+                }
+            }
+            /* Output entire escape sequence */
+            write(STDOUT_FILENO, command_buffer + seq_start, i - seq_start);
+            continue;
+        }
+        
+        /* Output this character */
+        write(STDOUT_FILENO, command_buffer + i, 1);
+        
+        /* Count it */
+        bytes_written++;
+        if (cursor_found) {
+            chars_since_cursor++;
+        }
+        
+        i++;
+    }
+    
+    /* If we've output characters after the cursor position, move cursor back */
+    if (cursor_found && chars_since_cursor > 0) {
+        char left_seq[32];
+        int left_len = snprintf(left_seq, sizeof(left_seq), "\033[%dD", chars_since_cursor);
+        if (left_len > 0) {
+            write(STDOUT_FILENO, left_seq, left_len);
+        }
+    }
+    
+    screen_buffer_copy(&current_screen, &desired_screen);
+    prompt_rendered = true;
+
+    /* Don't fsync - let the terminal buffer output to reduce flicker */
+    /* The terminal will naturally flush when waiting for input */
     return LAYER_EVENTS_SUCCESS;
 }
 
@@ -789,6 +799,22 @@ display_controller_error_t display_controller_init(
         controller->compositor = NULL;
         return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
     }
+    
+    // CRITICAL: Initialize base_terminal BEFORE creating terminal_control
+    // This sets up FDs and detects terminal capabilities
+    // Only initialize if stdout is a TTY (won't work with pipes/redirects)
+    if (isatty(STDOUT_FILENO)) {
+        base_terminal_error_t bt_result = base_terminal_init(base_terminal);
+        if (bt_result != BASE_TERMINAL_SUCCESS) {
+            DC_ERROR("Failed to initialize base terminal (error %d) - using defaults", bt_result);
+            // Non-fatal - will use default 80x24
+        } else {
+            DC_DEBUG("Base terminal initialized successfully");
+        }
+    } else {
+        DC_DEBUG("stdout is not a TTY, skipping base_terminal initialization");
+        // Will use default 80x24 when output is redirected
+    }
 
     // Create terminal control context
     controller->terminal_ctrl = terminal_control_create(base_terminal);
@@ -798,6 +824,13 @@ display_controller_error_t display_controller_init(
         composition_engine_destroy(controller->compositor);
         controller->compositor = NULL;
         return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
+    }
+    
+    // Initialize terminal control to detect actual terminal capabilities
+    terminal_control_error_t tc_result = terminal_control_init(controller->terminal_ctrl);
+    if (tc_result != TERMINAL_CONTROL_SUCCESS) {
+        DC_ERROR("Failed to initialize terminal control (error %d) - using defaults", tc_result);
+        // Non-fatal - will use default 80x24
     }
     
     // Initialize caching system
@@ -1420,7 +1453,7 @@ display_controller_error_t display_controller_display_with_cursor(
         return DISPLAY_CONTROLLER_ERROR_COMPOSITION_FAILED;
     }
     
-    // Step 2: Build output: clear + content + cursor positioning
+    // Step 2: Build output: clear + content with line wrapping
     size_t offset = 0;
     
     // Add clear sequence
@@ -1430,13 +1463,57 @@ display_controller_error_t display_controller_display_with_cursor(
     memcpy(output + offset, clear_seq, clear_len);
     offset += clear_len;
     
-    // Add composed content
-    size_t content_len = strlen(comp_result.composed_output);
-    if (offset + content_len >= output_size) {
-        return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+    // Add composed content WITH line wrapping:
+    // Walk through composed output character-by-character and insert newlines when wrapping
+    const char *composed = comp_result.composed_output;
+    size_t composed_len = strlen(composed);
+    int visual_col = 0;
+    bool in_escape = false;
+    
+    for (size_t i = 0; i < composed_len; i++) {
+        char ch = composed[i];
+        
+        // Track ANSI escape sequences (they don't consume visual space)
+        if (ch == '\033' || ch == '\x1b') {
+            in_escape = true;
+        }
+        
+        // Check if we need to wrap BEFORE writing this character
+        // (Only if not in escape sequence and not already a newline)
+        if (!in_escape && ch != '\n' && ch != '\r' && visual_col >= terminal_width) {
+            // Insert newline to wrap to next line at column 0
+            if (offset + 1 >= output_size) {
+                return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+            }
+            output[offset++] = '\n';
+            visual_col = 0;
+        }
+        
+        // Write the character
+        if (offset + 1 >= output_size) {
+            return DISPLAY_CONTROLLER_ERROR_BUFFER_TOO_SMALL;
+        }
+        output[offset++] = ch;
+        
+        // Update visual column position
+        if (in_escape) {
+            // Check for end of escape sequence
+            if (ch == 'm' || ch == 'K' || ch == 'J' || ch == 'H' || 
+                ch == 'A' || ch == 'B' || ch == 'C' || ch == 'D' || ch == 'G') {
+                in_escape = false;
+            }
+            // Escape sequences don't advance visual column
+        } else if (ch == '\n' || ch == '\r') {
+            visual_col = 0;
+        } else if (ch == '\t') {
+            // Tab advances to next multiple of 8
+            visual_col += 8 - (visual_col % 8);
+        } else if ((unsigned char)ch >= 32) {
+            // Printable character advances by 1
+            // TODO: Handle wide characters (CJK) which advance by 2
+            visual_col++;
+        }
     }
-    memcpy(output + offset, comp_result.composed_output, content_len);
-    offset += content_len;
     
     // Step 3: Add cursor positioning
     // Convert from 0-based (composition) to 1-based (ANSI)

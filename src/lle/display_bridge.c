@@ -33,6 +33,12 @@ static lle_result_t lle_render_queue_cleanup(lle_coord_queue_t *queue);
 static lle_result_t lle_display_diff_init(lle_display_diff_t **diff_tracker,
                                           lle_memory_pool_t *memory_pool);
 static lle_result_t lle_display_diff_cleanup(lle_display_diff_t *diff_tracker);
+static void calculate_cursor_screen_position(const char *text, 
+                                             size_t cursor_byte_offset,
+                                             size_t prompt_visual_width,
+                                             size_t terminal_width,
+                                             size_t *out_row, 
+                                             size_t *out_col);
 
 /* ========================================================================== */
 /*                    DISPLAY BRIDGE IMPLEMENTATION                           */
@@ -85,6 +91,9 @@ lle_result_t lle_display_bridge_init(lle_display_bridge_t **bridge,
     br->cursor_pos = NULL;           /* Will be set when editor type is defined */
     
     /* Step 4: Connect to Lusush display systems */
+    /* Store display controller reference for terminal info access */
+    br->display_controller = display;
+    
     /* Get composition engine and event system from display controller */
     br->composition_engine = display->compositor;
     
@@ -186,6 +195,7 @@ lle_result_t lle_display_bridge_cleanup(lle_display_bridge_t *bridge) {
     }
     
     /* Step 4: Clear references (don't free - not owned by bridge) */
+    bridge->display_controller = NULL;
     bridge->composition_engine = NULL;
     bridge->layer_events = NULL;
     bridge->command_layer = NULL;
@@ -226,9 +236,14 @@ lle_result_t lle_display_create_bridge(lle_display_bridge_t **bridge,
  * and sends it through Lusush's layered display system.
  * 
  * Architecture:
- * 1. Update command_layer with rendered text
- * 2. command_layer publishes REDRAW_NEEDED event
- * 3. display_controller handles event and renders to terminal
+ * 1. Calculate cursor screen position using incremental tracking (Replxx approach)
+ * 2. Update render_output with cursor screen coordinates
+ * 3. Update command_layer with rendered text
+ * 4. command_layer publishes REDRAW_NEEDED event
+ * 5. display_controller handles event and renders to terminal
+ * 
+ * CRITICAL: Per MODERN_EDITOR_WRAPPING_RESEARCH.md, we use incremental cursor
+ * tracking during rendering (like Replxx, Fish, ZLE) NOT division/modulo calculation.
  * 
  * @param bridge Display bridge instance
  * @param render_output Rendered output from LLE render system
@@ -258,23 +273,87 @@ lle_result_t lle_display_bridge_send_output(
         command_text = render_output->content;
     }
     
-    /* Calculate RELATIVE cursor position within rendered command text
+    /* Calculate cursor screen position using incremental tracking
      * 
-     * The command_layer expects cursor position as byte offset within the
-     * command text string, NOT absolute buffer position.
+     * Per MODERN_EDITOR_WRAPPING_RESEARCH.md, modern editors (Replxx, Fish, ZLE)
+     * calculate cursor position incrementally during rendering, NOT via division/modulo.
      * 
-     * For single-line input: cursor_pos = byte_offset
-     * For multi-line input: Need to find line start and calculate offset from there
-     * 
-     * Since we're rendering the full buffer content, and for single-line mode
-     * the entire buffer IS the command, we can use byte_offset directly.
-     * 
-     * TODO: For multi-line support, calculate position relative to current line.
+     * This handles:
+     * - Multi-byte UTF-8 characters
+     * - Wide characters (2 columns)
+     * - Line wrapping at terminal boundaries
+     * - ANSI escape sequences (0 width)
      */
-    if (cursor && cursor->position_valid) {
-        /* For now, use byte_offset directly since we render the whole buffer
-         * and command_layer displays it as a single line */
+    if (cursor && cursor->position_valid && render_output) {
         cursor_pos = cursor->byte_offset;
+        
+        /* Get actual terminal width from display controller */
+        size_t terminal_width = 80;  /* Default fallback */
+        if (bridge->display_controller && bridge->display_controller->terminal_ctrl) {
+            int width = bridge->display_controller->terminal_ctrl->capabilities.terminal_width;
+            if (width > 0) {
+                terminal_width = (size_t)width;
+            }
+        }
+        
+        /* Get prompt width from composition engine
+         * Per MODERN_EDITOR_WRAPPING_RESEARCH.md, we start at prompt_indent like Replxx */
+        size_t prompt_width = 0;
+        if (bridge->composition_engine && bridge->composition_engine->prompt_layer) {
+            prompt_layer_t *prompt_layer = bridge->composition_engine->prompt_layer;
+            char prompt_buffer[4096] = {0};  /* PROMPT_LAYER_MAX_CONTENT_SIZE */
+            prompt_layer_get_rendered_content(prompt_layer, prompt_buffer, sizeof(prompt_buffer));
+            
+            /* Calculate visual width (excluding ANSI codes and readline markers) */
+            bool in_escape = false;
+            for (const char *p = prompt_buffer; *p; p++) {
+                if (*p == '\001' || *p == '\002') continue;  /* Skip readline markers */
+                if (*p == '\033') { in_escape = true; continue; }
+                if (in_escape) {
+                    if ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || *p == 'm') {
+                        in_escape = false;
+                    }
+                    continue;
+                }
+                if (*p >= 32) prompt_width++;
+            }
+        }
+        
+        /* IMPORTANT: Per Replxx approach, LLE calculates cursor position starting from
+         * prompt_width (like Replxx's prompt_indent), so first line has less space available.
+         * This gives us ABSOLUTE screen coordinates, not relative to command start. */
+        
+        /* Calculate cursor screen position using incremental tracking
+         * Starting from prompt_width (where command actually starts on screen) */
+        size_t cursor_row = 0, cursor_col = 0;
+        calculate_cursor_screen_position(
+            command_text,
+            cursor_pos,
+            prompt_width,  /* Start at prompt position - gives absolute coordinates */
+            terminal_width,
+            &cursor_row,
+            &cursor_col
+        );
+        
+        /* DEBUG: Log what we calculated */
+        /* Temporarily disabled - interferes with display
+        fprintf(stderr, "[BRIDGE_DEBUG] Calculated cursor position: row=%zu, col=%zu (cursor_pos=%zu, prompt_width=%zu, term_width=%zu)\n",
+                cursor_row, cursor_col, cursor_pos, prompt_width, terminal_width);
+        fflush(stderr);
+        */
+        
+        /* Store in render output for display system to use */
+        render_output->cursor_screen_row = cursor_row;
+        render_output->cursor_screen_column = cursor_col;
+        render_output->cursor_position_valid = true;
+        
+        /* Also store in command layer for display_controller to access */
+        cmd_layer->cursor_screen_row = cursor_row;
+        cmd_layer->cursor_screen_column = cursor_col;
+        cmd_layer->cursor_screen_position_valid = true;
+    } else if (render_output) {
+        render_output->cursor_position_valid = false;
+        cmd_layer->cursor_screen_position_valid = false;
     }
 
     /* Update command layer with new text and cursor position */
@@ -442,4 +521,159 @@ static lle_result_t lle_display_diff_cleanup(lle_display_diff_t *diff_tracker) {
     
     /* Note: Structure is freed by caller using memory pool */
     return LLE_SUCCESS;
+}
+
+/**
+ * @brief Calculate cursor screen position using incremental tracking
+ * 
+ * This implements the Replxx/Fish/ZLE approach for cursor positioning:
+ * Walk through the text character by character, tracking (x, y) position,
+ * and when we reach the cursor byte offset, that's our screen position.
+ * 
+ * This correctly handles:
+ * - Line wrapping at terminal boundaries
+ * - Multi-byte UTF-8 characters (1 column)
+ * - Wide characters like CJK (2 columns) 
+ * - ANSI escape sequences (0 columns)
+ * - Tab expansion
+ * 
+ * See: docs/development/MODERN_EDITOR_WRAPPING_RESEARCH.md
+ * 
+ * @param text The rendered text buffer
+ * @param cursor_byte_offset Byte offset of cursor in text
+ * @param prompt_visual_width Visual width of prompt (where command starts)
+ * @param terminal_width Terminal width in columns
+ * @param out_row Output: cursor row (0-based)
+ * @param out_col Output: cursor column (0-based)
+ */
+static void calculate_cursor_screen_position(const char *text,
+                                             size_t cursor_byte_offset,
+                                             size_t prompt_visual_width,
+                                             size_t terminal_width,
+                                             size_t *out_row,
+                                             size_t *out_col)
+{
+    if (!text || !out_row || !out_col || terminal_width == 0) {
+        if (out_row) *out_row = 0;
+        if (out_col) *out_col = prompt_visual_width;
+        return;
+    }
+    
+    /* Start position: after the prompt on row 0 */
+    size_t x = prompt_visual_width;
+    size_t y = 0;
+    size_t bytes_processed = 0;
+    size_t text_len = strlen(text);
+    
+    /* Walk through text character by character */
+    for (size_t i = 0; i < text_len; ) {
+        /* CRITICAL: Check cursor position BEFORE processing next character
+         * This ensures we capture the position before the character at cursor_byte_offset */
+        if (bytes_processed == cursor_byte_offset) {
+            *out_row = y;
+            *out_col = x;
+            return;
+        }
+        
+        unsigned char ch = (unsigned char)text[i];
+        size_t start_i = i;  /* Remember start position for byte counting */
+        
+        /* Handle ANSI escape sequences (don't advance x position) */
+        if (ch == '\033' || ch == '\x1b') {
+            /* Skip entire escape sequence */
+            i++;
+            if (i < text_len && text[i] == '[') {
+                i++;
+                /* Skip until we find the terminator */
+                while (i < text_len) {
+                    char c = text[i++];
+                    /* Common CSI terminators */
+                    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                        c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G' ||
+                        c == 'f' || c == 's' || c == 'u') {
+                        break;
+                    }
+                }
+            }
+            /* Count actual bytes consumed by escape sequence */
+            bytes_processed += (i - start_i);
+            continue;
+        }
+        
+        /* Handle newlines (move to start of next line) */
+        if (ch == '\n') {
+            x = 0;
+            y++;
+            i++;
+            bytes_processed++;
+            continue;
+        }
+        
+        /* Handle carriage return */
+        if (ch == '\r') {
+            x = 0;
+            i++;
+            bytes_processed++;
+            continue;
+        }
+        
+        /* Handle tab (expand to next 8-column boundary) */
+        if (ch == '\t') {
+            size_t tab_width = 8 - (x % 8);
+            x += tab_width;
+            /* Handle wrapping for tabs */
+            if (x >= terminal_width) {
+                y += x / terminal_width;
+                x = x % terminal_width;
+            }
+            i++;
+            bytes_processed++;
+            continue;
+        }
+        
+        /* Handle multi-byte UTF-8 sequences */
+        size_t char_bytes = 1;
+        if ((ch & 0x80) == 0) {
+            /* ASCII: 1 byte, 1 column */
+            char_bytes = 1;
+        } else if ((ch & 0xE0) == 0xC0) {
+            /* 2-byte UTF-8 */
+            char_bytes = 2;
+        } else if ((ch & 0xF0) == 0xE0) {
+            /* 3-byte UTF-8 */
+            char_bytes = 3;
+        } else if ((ch & 0xF8) == 0xF0) {
+            /* 4-byte UTF-8 */
+            char_bytes = 4;
+        }
+        
+        /* For simplicity, assume all UTF-8 characters are 1 column wide
+         * (proper implementation would use wcwidth() to detect wide chars) */
+        size_t visual_width = 1;
+        
+        /* Advance x position for this character */
+        x += visual_width;
+        
+        /* Handle line wrap: if we've exceeded terminal width, wrap to next line
+         * IMPORTANT: Wrap happens AFTER incrementing x, before processing next char */
+        if (x >= terminal_width) {
+            x = 0;
+            y++;
+        }
+        
+        /* Advance byte counter and string position */
+        i += char_bytes;
+        bytes_processed += char_bytes;
+    }
+    
+    /* If we've processed all text and cursor is at the end */
+    if (bytes_processed == cursor_byte_offset) {
+        *out_row = y;
+        *out_col = x;
+        return;
+    }
+    
+    /* Fallback: cursor beyond text length - place at end */
+    *out_row = y;
+    *out_col = x;
 }

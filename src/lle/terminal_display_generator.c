@@ -14,6 +14,7 @@
  */
 
 #include "lle/terminal_abstraction.h"
+#include "lle/utf8_support.h"
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -219,16 +220,30 @@ static size_t calculate_display_lines(const char *buffer,
     size_t line_count = 1;
     size_t current_column = prompt_width;
     
-    for (size_t i = 0; i < buffer_length; i++) {
+    for (size_t i = 0; i < buffer_length; ) {
         char c = buffer[i];
         
         if (c == '\n') {
             line_count++;
             current_column = 0;
+            i++;
         } else if (c == '\t') {
             current_column += 8 - (current_column % 8);
+            i++;
         } else {
-            current_column++;
+            /* Decode UTF-8 codepoint and get its display width */
+            uint32_t codepoint = 0;
+            int bytes_in_char = lle_utf8_decode_codepoint(&buffer[i], buffer_length - i, &codepoint);
+            
+            if (bytes_in_char > 0) {
+                int char_width = lle_utf8_codepoint_width(codepoint);
+                current_column += char_width;
+                i += bytes_in_char;
+            } else {
+                /* Invalid UTF-8 - treat as single column */
+                current_column++;
+                i++;
+            }
         }
         
         /* Line wrap */
@@ -296,6 +311,7 @@ lle_result_t lle_display_generator_generate_content(lle_display_generator_t *gen
             /* Newline - advance to next line */
             current_line++;
             current_column = 0;
+            buffer_pos++;
             
             if (current_line < required_lines + 5) {
                 new_content->lines[current_line].length = 0;
@@ -311,14 +327,40 @@ lle_result_t lle_display_generator_generate_content(lle_display_generator_t *gen
                 }
                 current_column++;
             }
+            buffer_pos++;
         } else {
-            /* Regular character - append to current line */
-            result = append_to_line(&new_content->lines[current_line], &c, 1);
-            if (result != LLE_SUCCESS) {
-                lle_display_content_destroy(new_content);
-                return result;
+            /* Regular character - decode UTF-8 and get display width */
+            uint32_t codepoint = 0;
+            int bytes_in_char = lle_utf8_decode_codepoint(
+                &state->command_buffer->data[buffer_pos],
+                state->command_buffer->length - buffer_pos,
+                &codepoint
+            );
+            
+            if (bytes_in_char > 0) {
+                /* Append complete UTF-8 sequence to line */
+                result = append_to_line(&new_content->lines[current_line], 
+                                       &state->command_buffer->data[buffer_pos],
+                                       bytes_in_char);
+                if (result != LLE_SUCCESS) {
+                    lle_display_content_destroy(new_content);
+                    return result;
+                }
+                
+                /* Update column with actual display width */
+                int char_width = lle_utf8_codepoint_width(codepoint);
+                current_column += char_width;
+                buffer_pos += bytes_in_char;
+            } else {
+                /* Invalid UTF-8 - treat as single byte */
+                result = append_to_line(&new_content->lines[current_line], &c, 1);
+                if (result != LLE_SUCCESS) {
+                    lle_display_content_destroy(new_content);
+                    return result;
+                }
+                current_column++;
+                buffer_pos++;
             }
-            current_column++;
         }
         
         /* Handle line wrapping */
@@ -330,8 +372,6 @@ lle_result_t lle_display_generator_generate_content(lle_display_generator_t *gen
                 new_content->lines[current_line].length = 0;
             }
         }
-        
-        buffer_pos++;
     }
     
     /* Handle cursor at end of buffer */

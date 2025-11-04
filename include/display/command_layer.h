@@ -230,7 +230,12 @@ typedef struct command_layer_s {
     // Command content management
     char command_text[COMMAND_LAYER_MAX_COMMAND_SIZE];          // Current command
     char highlighted_text[COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE];  // Highlighted output
-    size_t cursor_position;                     // Current cursor position
+    size_t cursor_position;                     // Current cursor position (byte offset)
+    
+    // Cursor screen coordinates (calculated by LLE using incremental tracking)
+    size_t cursor_screen_row;                   // Cursor row on screen (0-based)
+    size_t cursor_screen_column;                // Cursor column on screen (0-based)
+    bool cursor_screen_position_valid;          // True if screen position is valid
     
     // Syntax highlighting state
     command_highlight_region_t highlight_regions[COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS];

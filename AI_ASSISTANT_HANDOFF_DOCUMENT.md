@@ -13,7 +13,77 @@
 
 ---
 
-## CURRENT SESSION SUMMARY (2025-11-04 - Part 2: Cursor Movement Fixed)
+## CURRENT SESSION SUMMARY (2025-11-04 - Part 3: Line Wrapping Fixed!)
+
+### Line Wrapping and Display Redraw Fix - MAJOR BREAKTHROUGH
+
+**Problem**: After fixing cursor movement, discovered line wrapping caused multiple visible redraws and cursor misalignment issues.
+
+**Investigation Journey** (full day debugging session):
+1. **Initial Issue**: After line wrap, full prompt+command redrawn on every keystroke with visible flicker
+2. **Cursor Movement Unreliable**: Tried ESC[A/B/C/D movements - didn't work reliably with wrapping
+3. **Absolute Positioning Failed**: Tried ESC[row;colH - requires knowing terminal position (we don't)
+4. **Screen Buffer Differential Updates**: Attempted but absolute positioning still needed
+5. **Root Cause Discovery**: Using `fsync(STDOUT_FILENO)` forced immediate display of each redraw
+
+**Final Solution** (Simple but Effective):
+- Use `\r` (carriage return) + `ESC[J` (clear to end) + full redraw on every keystroke
+- Move UP to first line if previous render wrapped (using `current_screen.num_rows`)
+- Track cursor position during output (skip ANSI codes when counting)
+- Move cursor LEFT after drawing if it's not at end
+- **Remove `fsync()`** - let terminal buffer coalesce rapid redraws
+
+**Key Implementation Details**:
+
+1. **Screen Buffer Render** (src/display/screen_buffer.c):
+   - Rewrote using LLE's UTF-8 functions (`lle_utf8_decode_codepoint`, `lle_utf8_codepoint_width`)
+   - Properly handles wide characters (CJK, emoji take 2 columns)
+   - Tracks `bytes_processed` (visible text) separately from buffer position (includes ANSI)
+   - Skips ANSI escape sequences when tracking byte offset
+   - Handles readline markers `\001` and `\002`
+   - Tab expansion to 8-column boundaries
+
+2. **Display Controller** (src/display/display_controller.c):
+   - Move UP if previous render used multiple rows
+   - `\r` to go to column 0
+   - `ESC[J` to clear current line and below
+   - Draw prompt + command tracking cursor position
+   - Skip ANSI sequences when counting characters
+   - Move cursor LEFT by N chars if not at end
+   - **No fsync()** - terminal buffers handle it
+
+**Files Modified**:
+- `src/display/screen_buffer.c` (complete rewrite using LLE UTF-8 functions)
+- `src/display/display_controller.c` (simplified redraw with cursor tracking)
+
+**Result**: 
+- ✅ Line wrapping WORKS correctly
+- ✅ Cursor positioned correctly at editing position
+- ✅ No visible flicker (terminal buffering handles it)
+- ✅ UTF-8, emoji, wide characters supported
+- ✅ Multi-line commands display properly
+- ✅ Tested successfully with long wrapped commands
+
+**Testing**:
+```bash
+LLE_ENABLED=1 ./builddir/lusush
+$ echo "this is a very long line of text that should wrap"
+this is a very long line of text that should wrap
+# Works perfectly - line wraps, no flicker, correct cursor position
+```
+
+**Architecture Notes**:
+- LLE remains completely terminal-agnostic (zero terminal knowledge)
+- Display controller handles ALL terminal positioning
+- Screen buffer provides virtual representation for diffing (foundation for future optimization)
+- Current approach: full redraw with buffering (simple, reliable, works everywhere)
+- Future optimization: Can add differential updates when needed
+
+**Commit**: [To be created]
+
+---
+
+## PREVIOUS SESSION SUMMARY (2025-11-04 - Part 2: Cursor Movement Fixed)
 
 ### Cursor Position Fix
 

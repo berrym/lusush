@@ -1328,7 +1328,8 @@ composition_engine_error_t composition_engine_calculate_hash(
 // ============================================================================
 
 /**
- * Calculate visual width of a text string, stripping ANSI escape sequences.
+ * Calculate visual width of a text string, stripping ANSI escape sequences
+ * and GNU Readline markers (\001 and \002).
  * This is needed to calculate the prompt width correctly.
  */
 static size_t calculate_visual_width(const char *text) {
@@ -1338,6 +1339,11 @@ static size_t calculate_visual_width(const char *text) {
     bool in_escape = false;
     
     for (const char *p = text; *p; p++) {
+        // Skip GNU Readline prompt markers (irrelevant for LLE)
+        if (*p == '\001' || *p == '\002') {
+            continue;
+        }
+        
         if (*p == '\033' || *p == '\x1b') {
             in_escape = true;
             continue;
@@ -1430,7 +1436,8 @@ composition_engine_error_t composition_engine_compose_with_cursor(
     
     // Walk through command buffer character by character
     for (size_t i = 0; i < cmd_len; ) {
-        // Check if we've reached cursor position
+        // Check if cursor is at this position BEFORE processing the character
+        // cursor_byte_offset represents the position before the character at that offset
         if (bytes_processed == cursor_byte_offset && !result->cursor_found) {
             result->cursor_screen_row = y;
             result->cursor_screen_column = x;
@@ -1475,9 +1482,16 @@ composition_engine_error_t composition_engine_compose_with_cursor(
         // Advance through buffer
         i += bytes_consumed;
         bytes_processed += bytes_consumed;
+        
+        // Check AGAIN after advancing - cursor might be after this character
+        if (bytes_processed == cursor_byte_offset && !result->cursor_found) {
+            result->cursor_screen_row = y;
+            result->cursor_screen_column = x;
+            result->cursor_found = true;
+        }
     }
     
-    // If cursor is at end of buffer and not found yet
+    // If cursor is at end of buffer and not found yet (redundant with check above, but kept for safety)
     if (bytes_processed == cursor_byte_offset && !result->cursor_found) {
         result->cursor_screen_row = y;
         result->cursor_screen_column = x;
