@@ -88,7 +88,7 @@ $ echo "long command that wraps to multiple lines keeps going..."
 # Result: Cursor moves smoothly, display STABLE, no scrolling!
 ```
 
-**Commit**: [To be created]
+**Commit**: f0c7be0
 
 ---
 
