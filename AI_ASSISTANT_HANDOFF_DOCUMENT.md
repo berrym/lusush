@@ -13,7 +13,86 @@
 
 ---
 
-## CURRENT SESSION SUMMARY (2025-11-04 - Part 3: Line Wrapping Fixed!)
+## CURRENT SESSION SUMMARY (2025-11-04 - Part 5: Display Scrolling Bug FIXED!)
+
+### Critical Bug: Display Scrolling Up on Every Arrow Key Press - FIXED
+
+**Problem**: After implementing arrow key navigation across line wraps (Part 4), a critical bug appeared: pressing arrow keys on wrapped input caused the display to scroll up one row on EVERY keypress, overwriting previous terminal output lines above the prompt.
+
+**Investigation**:
+The display_controller was performing TWO UP movements on each redraw:
+1. **First UP**: Move up by `current_screen.num_rows - 1` to "start of previous content"
+2. **Second UP**: Move up by `final_row - cursor_row` to position cursor
+
+**Root Cause - The Fatal Assumption**:
+The code assumed that before starting a redraw, the cursor was always at the LAST ROW of the previous content. This was WRONG!
+
+**Reality**:
+- After first render: cursor positioned at `current_screen.cursor_row` (could be row 0, 1, etc.)
+- On second render: code moved UP by `current_screen.num_rows - 1` from THAT position
+- If cursor was on row 0, moving UP by 1 put us ABOVE the content area
+- This caused scrolling and overwriting previous terminal output
+
+**Example of the Bug**:
+```
+Scenario: 2-line wrapped command, cursor on row 0
+1. Previous redraw positioned cursor at row 0
+2. New redraw: Move UP by (num_rows - 1) = (2 - 1) = 1
+3. Now we're 1 row ABOVE where prompt starts
+4. Draw prompt+command overwrites previous terminal output
+5. Happens on EVERY arrow key press → continuous scrolling
+```
+
+**The Fix**:
+Move UP from the ACTUAL current cursor position, not from an assumed position:
+
+```c
+// BEFORE (broken):
+if (prompt_rendered && current_screen.num_rows > 1) {
+    /* Move up to first line of previous render */
+    /* WRONG: Assumes cursor is at bottom row */
+    int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", 
+                          current_screen.num_rows - 1);
+}
+
+// AFTER (fixed):
+if (prompt_rendered) {
+    /* Move up from ACTUAL current cursor row to row 0 */
+    if (current_screen.cursor_row > 0) {
+        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", 
+                              current_screen.cursor_row);
+    }
+}
+```
+
+**Why This Works**:
+- `current_screen.cursor_row` tells us EXACTLY where cursor is now
+- Move UP by that amount to reach row 0 (start of prompt)
+- This works regardless of where the cursor was positioned in previous redraw
+- No assumptions, just use the tracked position
+
+**Files Changed**:
+- `src/display/display_controller.c` (lines 196-207: fixed UP movement calculation)
+
+**Result**:
+- ✅ Arrow keys work across line wraps WITHOUT scrolling
+- ✅ Display stays stable, no overwriting of previous terminal output
+- ✅ Cursor positioning still correct on wrapped lines
+- ✅ Works with any number of wrapped lines
+
+**Testing**:
+```bash
+LLE_ENABLED=1 ./builddir/lusush
+$ echo "long command that wraps to multiple lines keeps going..."
+# Press LEFT/RIGHT arrow keys multiple times
+# Result: Cursor moves smoothly, display STABLE, no scrolling!
+```
+
+**Commit**: [To be created]
+
+---
+
+## PREVIOUS SESSION SUMMARY (2025-11-04 - Part 3: Line Wrapping Fixed!)
 
 ### Line Wrapping and Display Redraw Fix - MAJOR BREAKTHROUGH
 

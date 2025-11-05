@@ -194,14 +194,17 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Use clear and redraw approach with cursor tracking
      * We'll output everything, track where cursor should be, then reposition */
     
-    /* If we have previous screen state, move cursor to start of that content first
-     * This handles the case where text has wrapped to multiple lines */
-    if (prompt_rendered && current_screen.num_rows > 1) {
-        /* Move up to first line of previous render */
-        char up_seq[16];
-        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", current_screen.num_rows - 1);
-        if (up_len > 0) {
-            write(STDOUT_FILENO, up_seq, up_len);
+    /* Move cursor to start of content for redraw
+     * After previous redraw, cursor is at (current_screen.cursor_row, current_screen.cursor_col)
+     * We need to move to row 0 (start of prompt) to begin redrawing */
+    if (prompt_rendered) {
+        /* Move up from current cursor row to row 0 */
+        if (current_screen.cursor_row > 0) {
+            char up_seq[16];
+            int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", current_screen.cursor_row);
+            if (up_len > 0) {
+                write(STDOUT_FILENO, up_seq, up_len);
+            }
         }
     }
     
