@@ -189,6 +189,7 @@ endif
 #   - utf8_index.c: Fast O(1) UTF-8 position mapping (byte/codepoint/grapheme)
 #   - buffer_validator.c: Buffer integrity validation (UTF-8, bounds, structure)
 #   - buffer_management.c: Complete buffer system with all subsystems
+#   - lle_editor.c: Editor lifecycle management (create, destroy, reset)
 if fs.exists('utf8_support.c')
   lle_sources += files('utf8_support.c')
 endif
@@ -212,6 +213,9 @@ if fs.exists('buffer_management.c')
 endif
 if fs.exists('multiline_manager.c')
   lle_sources += files('multiline_manager.c')
+endif
+if fs.exists('lle_editor.c')
+  lle_sources += files('lle_editor.c')
 endif
 
 # Spec 08: Display Integration

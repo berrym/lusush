@@ -387,6 +387,14 @@ void* lle_pool_allocate_aligned(lle_memory_pool_t *pool, size_t size, size_t ali
 void* lle_pool_allocate_fast(lle_memory_pool_t *pool, size_t size);
 void lle_pool_free_fast(lle_memory_pool_t *pool, void *ptr);
 
+/* Lusush Memory Pool Integration Bridge */
+lle_result_t lle_memory_pool_create_from_lusush(
+    lle_memory_pool_t **lle_pool,
+    lusush_memory_pool_t *lusush_pool,
+    lle_memory_pool_type_t pool_type
+);
+void lle_memory_pool_destroy(lle_memory_pool_t *pool);
+
 /* Memory State Management */
 lle_result_t lle_memory_transition_state(lle_memory_manager_t *manager, lle_memory_state_t new_state);
 bool lle_memory_is_valid_transition(lle_memory_state_t old_state, lle_memory_state_t new_state);

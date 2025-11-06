@@ -28,6 +28,7 @@
 #include "lle/buffer_management.h"
 #include "lle/utf8_support.h"
 #include "lle/unicode_grapheme.h"
+#include "lle/secure_memory.h"
 #include <string.h>
 #include <time.h>
 #include <sys/types.h>
@@ -201,6 +202,16 @@ lle_result_t lle_buffer_destroy(lle_buffer_t *buffer) {
         return LLE_ERROR_NULL_POINTER;
     }
     
+    /* Securely wipe data if secure mode is enabled */
+    if (buffer->data && buffer->secure_mode_enabled) {
+        lle_secure_wipe(buffer->data, buffer->capacity);
+        
+        /* Unlock memory if it was locked */
+        if (buffer->memory_locked) {
+            lle_memory_unlock(buffer->data, buffer->capacity);
+        }
+    }
+    
     /* Free data array if allocated */
     if (buffer->data) {
         lle_pool_free(buffer->data);
@@ -310,6 +321,131 @@ lle_result_t lle_buffer_clear(lle_buffer_t *buffer) {
                        LLE_BUFFER_FLAG_UTF8_DIRTY | 
                        LLE_BUFFER_FLAG_LINE_DIRTY |
                        LLE_BUFFER_FLAG_CACHE_DIRTY);
+    
+    return LLE_SUCCESS;
+}
+
+/* ============================================================================
+ * SECURE MODE FUNCTIONS (Spec 15 Minimal Secure Mode)
+ * ============================================================================ */
+
+/**
+ * @brief Enable secure mode for sensitive data
+ *
+ * Activates secure mode which locks buffer memory to prevent swapping to disk
+ * and marks the buffer for secure wiping on destroy/clear operations.
+ *
+ * Use this for buffers that will contain sensitive data like passwords.
+ */
+lle_result_t lle_buffer_enable_secure_mode(lle_buffer_t *buffer) {
+    if (!buffer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (!buffer->data) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    /* Attempt to lock buffer memory to prevent swapping */
+    bool lock_success = lle_memory_lock(buffer->data, buffer->capacity);
+    
+    /* Note: mlock may fail due to:
+     * - Insufficient privileges (need CAP_IPC_LOCK on Linux)
+     * - Exceeding RLIMIT_MEMLOCK
+     * - Platform doesn't support mlock
+     * 
+     * This is not a fatal error - the buffer can still be used,
+     * just without the anti-swap protection.
+     */
+    buffer->memory_locked = lock_success;
+    buffer->secure_mode_enabled = true;
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Securely clear buffer contents
+ *
+ * Wipes buffer data using secure memory wipe that cannot be optimized
+ * away by the compiler. Uses explicit_bzero if available, falls back
+ * to volatile pointer trick.
+ */
+lle_result_t lle_buffer_secure_clear(lle_buffer_t *buffer) {
+    if (!buffer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (!buffer->data) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    /* Securely wipe buffer contents */
+    lle_secure_wipe(buffer->data, buffer->capacity);
+    
+    /* Reset all buffer metadata (same as lle_buffer_clear) */
+    buffer->length = 0;
+    buffer->used = 0;
+    buffer->last_modified_time = get_timestamp_us();
+    buffer->modification_count++;
+    
+    /* Reset UTF-8 and Unicode metadata */
+    buffer->codepoint_count = 0;
+    buffer->grapheme_count = 0;
+    buffer->utf8_index_valid = false;
+    
+    /* Reset line structure */
+    buffer->line_count = 0;
+    buffer->multiline_active = false;
+    
+    /* Reset cursor to beginning */
+    memset(&buffer->cursor, 0, sizeof(lle_cursor_position_t));
+    buffer->cursor.position_valid = true;
+    buffer->cursor.buffer_version = buffer->modification_count;
+    
+    /* Clear selection */
+    buffer->selection_active = false;
+    
+    /* Reset change tracking */
+    buffer->sequence_number = 0;
+    
+    /* Invalidate cache */
+    buffer->cache_dirty = true;
+    buffer->cache_version++;
+    
+    /* Update integrity */
+    buffer->checksum = 0;
+    buffer->integrity_valid = true;
+    
+    /* Clear dirty flags */
+    buffer->flags &= ~(LLE_BUFFER_FLAG_MODIFIED | 
+                       LLE_BUFFER_FLAG_UTF8_DIRTY | 
+                       LLE_BUFFER_FLAG_LINE_DIRTY |
+                       LLE_BUFFER_FLAG_CACHE_DIRTY);
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Disable secure mode
+ *
+ * Deactivates secure mode and unlocks buffer memory.
+ */
+lle_result_t lle_buffer_disable_secure_mode(lle_buffer_t *buffer) {
+    if (!buffer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    if (!buffer->data) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    /* Unlock buffer memory if it was locked */
+    if (buffer->memory_locked) {
+        lle_memory_unlock(buffer->data, buffer->capacity);
+        buffer->memory_locked = false;
+    }
+    
+    buffer->secure_mode_enabled = false;
     
     return LLE_SUCCESS;
 }

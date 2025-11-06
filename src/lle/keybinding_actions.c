@@ -147,62 +147,48 @@ lle_result_t lle_end_of_line(lle_editor_t *editor) {
 }
 
 lle_result_t lle_forward_char(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    if (editor->buffer->cursor.byte_offset < editor->buffer->length) {
-        editor->buffer->cursor.byte_offset++;
-        editor->buffer->cursor.codepoint_index++;
-        editor->buffer->cursor.grapheme_index++;
-    }
-    
-    return LLE_SUCCESS;
+    /* Use cursor_manager to move forward by one grapheme cluster */
+    return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, 1);
 }
 
 lle_result_t lle_backward_char(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    if (editor->buffer->cursor.byte_offset > 0) {
-        editor->buffer->cursor.byte_offset--;
-        editor->buffer->cursor.codepoint_index--;
-        editor->buffer->cursor.grapheme_index--;
-    }
-    
-    return LLE_SUCCESS;
+    /* Use cursor_manager to move backward by one grapheme cluster */
+    return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
 }
 
 lle_result_t lle_forward_word(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Find the end of the current word */
     size_t new_pos = find_word_end(editor->buffer->data, 
                                     editor->buffer->length,
                                     editor->buffer->cursor.byte_offset);
     
-    editor->buffer->cursor.byte_offset = new_pos;
-    editor->buffer->cursor.codepoint_index = new_pos;
-    editor->buffer->cursor.grapheme_index = new_pos;
-    
-    return LLE_SUCCESS;
+    /* Use cursor_manager to move to the calculated position */
+    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
 }
 
 lle_result_t lle_backward_word(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Find the start of the current/previous word */
     size_t new_pos = find_word_start(editor->buffer->data,
                                       editor->buffer->cursor.byte_offset);
     
-    editor->buffer->cursor.byte_offset = new_pos;
-    editor->buffer->cursor.codepoint_index = new_pos;
-    editor->buffer->cursor.grapheme_index = new_pos;
-    
-    return LLE_SUCCESS;
+    /* Use cursor_manager to move to the calculated position */
+    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
 }
 
 /* ============================================================================

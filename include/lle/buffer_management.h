@@ -351,6 +351,10 @@ struct lle_buffer_t {
     /* Memory management */
     lle_buffer_pool_t *pool;                       /* Associated buffer pool */
     lusush_memory_pool_t *memory_pool;             /* Lusush memory pool reference */
+    
+    /* Security - Minimal Secure Mode (Spec 15 Phase 1) */
+    bool secure_mode_enabled;                      /* Secure mode active flag */
+    bool memory_locked;                            /* Memory mlock status */
 };
 
 /**
@@ -567,6 +571,49 @@ lle_result_t lle_buffer_destroy(lle_buffer_t *buffer);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_buffer_clear(lle_buffer_t *buffer);
+
+/* ============================================================================
+ * SECURE MODE FUNCTIONS (Spec 15 Minimal Secure Mode)
+ * ============================================================================ */
+
+/**
+ * @brief Enable secure mode for sensitive data
+ *
+ * Activates secure mode which:
+ * - Locks buffer memory with mlock() to prevent swapping
+ * - Marks buffer for secure wiping on destroy
+ *
+ * Use for buffers containing passwords or other sensitive data.
+ *
+ * @param buffer Buffer to protect
+ * @return LLE_SUCCESS or error code
+ * @note mlock may fail due to privileges - buffer remains usable
+ */
+lle_result_t lle_buffer_enable_secure_mode(lle_buffer_t *buffer);
+
+/**
+ * @brief Securely clear buffer contents
+ *
+ * Wipes buffer data using secure memory wipe that cannot be
+ * optimized away by the compiler. Uses explicit_bzero if available,
+ * falls back to volatile pointer trick.
+ *
+ * @param buffer Buffer to wipe
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_secure_clear(lle_buffer_t *buffer);
+
+/**
+ * @brief Disable secure mode
+ *
+ * Deactivates secure mode:
+ * - Unlocks buffer memory with munlock()
+ * - Clears secure mode flag
+ *
+ * @param buffer Buffer to unprotect
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_buffer_disable_secure_mode(lle_buffer_t *buffer);
 
 /**
  * @brief Validate buffer integrity

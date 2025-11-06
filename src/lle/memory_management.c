@@ -48,6 +48,10 @@ struct lle_memory_pool_t {
     size_t max_size;
     bool allow_resize;
     
+    /* Lusush integration support */
+    bool uses_external_allocator;           /* True if wrapping lusush_pool */
+    void *external_allocator_context;       /* Pointer to lusush_memory_pool_t */
+    
     /* Free block tracking */
     struct {
         void *address;
@@ -750,6 +754,91 @@ void lle_update_average_time(struct timespec *average, struct timespec new_sampl
     avg_ns = ((avg_ns * (sample_count - 1)) + new_ns) / sample_count;
     average->tv_sec = avg_ns / 1000000000L;
     average->tv_nsec = avg_ns % 1000000000L;
+}
+
+/* ============================================================================
+ * LUSUSH MEMORY POOL INTEGRATION BRIDGE
+ * ============================================================================ */
+
+/**
+ * Create an LLE memory pool that wraps a Lusush memory pool
+ * 
+ * This provides a bridge between the old lusush_memory_pool_t system
+ * and the new lle_memory_pool_t system, allowing unified memory management.
+ */
+lle_result_t lle_memory_pool_create_from_lusush(
+    lle_memory_pool_t **lle_pool,
+    lusush_memory_pool_t *lusush_pool,
+    lle_memory_pool_type_t pool_type
+) {
+    if (!lle_pool) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    /* Allocate LLE pool structure */
+    lle_memory_pool_t *pool = (lle_memory_pool_t *)calloc(1, sizeof(lle_memory_pool_t));
+    if (!pool) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    /* Initialize pool metadata */
+    pool->type = pool_type;
+    pool->alignment = 16;  /* Default alignment */
+    pool->size = 0;        /* Size tracked by lusush_pool */
+    pool->used = 0;
+    pool->free = 0;
+    pool->max_size = 1024 * 1024;  /* 1MB default max */
+    pool->allow_resize = true;
+    pool->total_allocations = 0;
+    pool->total_deallocations = 0;
+    pool->peak_usage = 0;
+    
+    /* Initialize mutex */
+    if (pthread_mutex_init(&pool->lock, NULL) != 0) {
+        free(pool);
+        return LLE_ERROR_INITIALIZATION_FAILED;
+    }
+    
+    /* Set creation time */
+    clock_gettime(CLOCK_MONOTONIC, &pool->creation_time);
+    pool->last_resize_time = pool->creation_time;
+    
+    /* Initialize free blocks tracking */
+    memset(pool->free_blocks, 0, sizeof(pool->free_blocks));
+    pool->free_block_count = 0;
+    
+    /* Note: We don't allocate memory_region here because lusush_pool handles it
+     * The lusush_pool pointer is passed in and allocations go through it
+     * This pool structure is just for tracking and coordination */
+    pool->memory_region = NULL;  /* Managed externally by lusush_pool */
+    
+    /* Mark that this pool uses external (Lusush) allocation */
+    pool->uses_external_allocator = true;
+    pool->external_allocator_context = lusush_pool;
+    
+    *lle_pool = pool;
+    return LLE_SUCCESS;
+}
+
+/**
+ * Destroy an LLE memory pool
+ * 
+ * Note: This only destroys the LLE wrapper structure, not the underlying
+ * Lusush pool which is managed separately.
+ */
+void lle_memory_pool_destroy(lle_memory_pool_t *pool) {
+    if (!pool) {
+        return;
+    }
+    
+    /* Destroy mutex */
+    pthread_mutex_destroy(&pool->lock);
+    
+    /* Note: We don't free pool->memory_region because it's managed by lusush_pool
+     * We also don't free allocations because they're tracked by lusush_pool */
+    
+    /* Free the pool structure itself */
+    free(pool);
 }
 
 /* ============================================================================

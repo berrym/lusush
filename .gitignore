@@ -3,6 +3,11 @@ builddir/
 build/
 buildDir/
 
+# Language server and IDE cache
+.cache/
+.clangd/
+compile_commands.json
+
 # IDE and editor files
 .vscode/
 .idea/

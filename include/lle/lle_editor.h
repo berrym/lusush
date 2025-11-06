@@ -30,6 +30,7 @@ typedef struct lle_completion_system_t lle_completion_system_t;
 typedef struct lle_plugin_manager lle_plugin_manager_t;
 typedef struct lle_script_integration lle_script_integration_t;
 typedef struct lle_history_buffer_integration lle_history_buffer_integration_t;
+/* lle_cursor_manager_t is already defined in buffer_management.h */
 
 /* ============================================================================
  * EDITOR STRUCTURE
@@ -76,6 +77,7 @@ typedef struct {
 typedef struct lle_editor {
     /* Core editing subsystems */
     lle_buffer_t *buffer;                              /* Text buffer */
+    lle_cursor_manager_t *cursor_manager;              /* Cursor position management */
     lle_kill_ring_t *kill_ring;                        /* Kill/yank ring */
     lle_keybinding_manager_t *keybinding_manager;      /* Key bindings */
     
@@ -105,7 +107,8 @@ typedef struct lle_editor {
     void *history_edit_callbacks;                      /* History edit callbacks (opaque) */
     
     /* Memory management */
-    lusush_memory_pool_t *memory_pool;                 /* Memory pool for allocations */
+    lusush_memory_pool_t *lusush_pool;                 /* Lusush memory pool (source) */
+    lle_memory_pool_t *lle_pool;                       /* LLE memory pool (wrapper) */
     
     /* Editor statistics */
     uint64_t total_keystrokes;                         /* Total keys processed */
