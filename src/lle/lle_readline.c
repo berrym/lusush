@@ -279,7 +279,7 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Step 6: Check for incomplete input using shared continuation parser */
+    /* Check for incomplete input using shared continuation parser */
     if (is_input_incomplete(ctx->buffer->data, ctx->continuation_state)) {
         /* Input incomplete - insert newline and continue */
         lle_result_t result = lle_buffer_insert_text(
@@ -296,7 +296,7 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
         return result;
     }
     
-    /* Line complete */
+    /* Line complete - accept entire buffer regardless of cursor position */
     *ctx->done = true;
     *ctx->final_line = ctx->buffer->data ? strdup(ctx->buffer->data) : strdup("");
     
@@ -329,27 +329,19 @@ static lle_result_t handle_eof(lle_event_t *event, void *user_data)
 
 /**
  * @brief Event handler for Ctrl-G (abort/cancel line)
- * Step 5 enhancement: Clear buffer and reset to empty prompt
+ * Step 5 enhancement: Abort readline and return empty line to shell
+ * 
+ * This is the Emacs-style abort - it cancels the current input
+ * and returns an empty line, causing the shell to display a fresh prompt.
  */
 static lle_result_t handle_abort(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Clear the entire buffer */
-    if (ctx->buffer->length > 0) {
-        lle_result_t result = lle_buffer_delete_text(
-            ctx->buffer,
-            0,
-            ctx->buffer->length
-        );
-        
-        if (result == LLE_SUCCESS) {
-            refresh_display(ctx);
-        }
-        
-        return result;
-    }
+    /* Signal done with empty result - this aborts the readline */
+    *ctx->done = true;
+    *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
     
     return LLE_SUCCESS;
 }
@@ -995,13 +987,20 @@ char *lle_readline(const char *prompt)
         /* Event processed - in Step 1 we don't free events (managed by input processor) */
     }
     
-    /* === STEP 10: Exit raw mode === */
-    /* If we got a line (not EOF/error), print newline to move to next line */
-    if (final_line) {
-        write(STDOUT_FILENO, "\n", 1);
-    }
+    /* === STEP 10: Finalize input and exit raw mode === */
+    /* If we got a line (not EOF/error), we need to move to next line
+     * BEFORE exiting raw mode so the command output appears on a fresh line.
+     * We must do this AFTER exiting raw mode because the display system
+     * expects cooked mode for regular output.
+     */
     
     lle_unix_interface_exit_raw_mode(unix_iface);
+    
+    /* Move to next line after accepting input */
+    if (final_line) {
+        /* Write newline to move cursor to next line for command output */
+        write(STDOUT_FILENO, "\n", 1);
+    }
     
     /* === STEP 11: Cleanup and return === */
     /* Step 5 enhancement: Free kill buffer */

@@ -3,13 +3,63 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-06  
 **Branch**: feature/lle  
-**Status**: 🔍 **UTF-8 MOVEMENT TESTING COMPLETE** - Tests created, bug discovered in cursor_manager  
-**Last Action**: Created comprehensive UTF-8 movement test suite - found critical bug in cursor_manager  
-**Next**: Fix cursor_manager UTF-8 bug in grapheme_index_to_byte_offset(), then continue keybinding testing  
-**Current Reality**: Tests working perfectly - revealed cursor_manager has UTF-8 sequence length bug  
-**Tests**: 5/10 UTF-8 tests passing (word movement works, char-by-char movement broken for multi-byte UTF-8)  
-**Bug Found**: cursor_manager.c:122 - uses ptr+1 instead of UTF-8 sequence length for grapheme boundaries  
-**Critical Issue**: BLOCKER - Character movement through multi-byte UTF-8 stops mid-sequence (byte 4 instead of 5 for 'é')
+**Status**: ✅ **DISPLAY REGRESSION FIXED** - Enter key and Ctrl+G working correctly  
+**Last Action**: Fixed display regression where command output overwrote wrapped input lines  
+**Next**: Continue systematic keybinding function testing (44 functions remaining)  
+**Current Reality**: Core input functionality working - wrapped lines, cursor positioning, Enter handling all correct  
+**Tests**: 10/10 UTF-8 movement tests passing, display rendering correct for wrapped lines  
+**Bug Fixed**: lle_readline.c - added newline after raw mode exit to position output correctly  
+**Working**: Enter accepts full line regardless of cursor position, output appears on fresh line below input
+
+---
+
+## ✅ DISPLAY REGRESSION FIX - Enter Key with Wrapped Lines (2025-11-06)
+
+### Problem
+After implementing the screen_buffer with wrapped lines, a regression appeared:
+- User types a long line that wraps
+- Uses arrow keys to move cursor to middle of line
+- Inserts text (e.g., "really")
+- Presses Enter **with cursor still in middle of line**
+- Expected: Command executes, output appears on fresh line below
+- **Actual**: Command output appeared at cursor position, overwriting the wrapped input
+
+### Root Cause
+When lle_readline() accepted input and exited, it was not moving the cursor to a new line before returning to the shell. The previous fix that removed the direct `write("\n")` (to avoid breaking screen_buffer state) was correct for preventing state corruption, but it left the cursor positioned in the middle of the wrapped line.
+
+### Solution
+**File**: `src/lle/lle_readline.c`  
+**Change**: Write newline AFTER exiting raw mode but BEFORE returning to shell
+
+```c
+/* Exit raw mode first */
+lle_unix_interface_exit_raw_mode(unix_iface);
+
+/* Move to next line after accepting input */
+if (final_line) {
+    write(STDOUT_FILENO, "\n", 1);
+}
+```
+
+The sequence is critical:
+1. Exit raw mode (restore terminal settings)
+2. Write newline (move cursor to fresh line)
+3. Return input to shell (shell executes command on new line)
+
+### Additional Fix: Ctrl+G Abort
+Also fixed `handle_abort()` to properly exit readline when Ctrl+G is pressed:
+- Before: Just cleared the buffer, stayed in readline loop
+- After: Sets `done = true` and returns empty string, exiting readline
+- This matches Emacs behavior and provides escape from incomplete input (unclosed quotes, etc.)
+
+### Testing
+Verified that Enter now works correctly when pressed with cursor at:
+- End of line (already worked)
+- Beginning of line (now works)
+- Middle of line (regression fixed)
+- Middle of wrapped line (regression fixed)
+
+All scenarios now correctly execute the full command and display output on a fresh line.
 
 ---
 
