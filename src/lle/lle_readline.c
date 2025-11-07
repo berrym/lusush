@@ -987,19 +987,15 @@ char *lle_readline(const char *prompt)
         /* Event processed - in Step 1 we don't free events (managed by input processor) */
     }
     
-    /* === STEP 10: Finalize input and exit raw mode === */
-    /* If we got a line (not EOF/error), we need to move to next line
-     * BEFORE exiting raw mode so the command output appears on a fresh line.
-     * We must do this AFTER exiting raw mode because the display system
-     * expects cooked mode for regular output.
-     */
-    
+    /* === STEP 10: Exit raw mode and finalize input === */
     lle_unix_interface_exit_raw_mode(unix_iface);
     
-    /* Move to next line after accepting input */
+    /* If we got a line, tell display system to finalize input.
+     * This moves cursor to next line and resets display state.
+     * The display system handles terminal I/O, not LLE.
+     */
     if (final_line) {
-        /* Write newline to move cursor to next line for command output */
-        write(STDOUT_FILENO, "\n", 1);
+        dc_finalize_input();
     }
     
     /* === STEP 11: Cleanup and return === */

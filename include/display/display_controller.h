@@ -769,6 +769,17 @@ layer_event_system_t* display_controller_get_event_system(const display_controll
  */
 void dc_reset_prompt_display_state(void);
 
+/**
+ * @brief Finalize input and prepare for command output
+ * 
+ * Called when user presses Enter to accept input. Moves cursor to next line
+ * so command output appears below the input, then resets display state.
+ * 
+ * This ensures proper separation between input and output, and clears any
+ * accumulated state from wrapped lines or cursor movements during editing.
+ */
+void dc_finalize_input(void);
+
 #ifdef __cplusplus
 }
 #endif

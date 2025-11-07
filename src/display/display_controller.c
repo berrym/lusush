@@ -137,6 +137,20 @@ void dc_reset_prompt_display_state(void) {
 }
 
 /**
+ * Finalize input and prepare for command output
+ * 
+ * Writes newline to terminal to move cursor below the input, then
+ * resets display state for the next prompt.
+ */
+void dc_finalize_input(void) {
+    /* Write newline to move cursor to next line for command output */
+    write(STDOUT_FILENO, "\n", 1);
+    
+    /* Reset display state for next prompt */
+    dc_reset_prompt_display_state();
+}
+
+/**
  * Mark prompt as needing redraw - called when prompt content changes
  * (No longer needed with always-redraw approach, kept for API compatibility)
  */
