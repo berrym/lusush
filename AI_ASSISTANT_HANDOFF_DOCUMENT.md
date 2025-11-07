@@ -3,13 +3,110 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-06  
 **Branch**: feature/lle  
-**Status**: ✅ **MEMORY MANAGEMENT FOUNDATION COMPLETE** - Cursor manager integrated, unified memory pools, secure mode implemented  
-**Last Action**: Completed memory management foundation: cursor_manager integration, memory pool bridge, minimal secure mode  
-**Next**: Test UTF-8 movement functions, then create systematic test plan for all 44 keybinding functions  
-**Current Reality**: Solid architectural foundation in place - cursor manager for UTF-8, unified memory pools, secure mode for sensitive data  
-**Tests**: Build successful, 84 LLE modules compile, all foundational systems integrated  
-**Automation**: Pre-commit hooks enforced - zero-tolerance policy active  
-**Critical Achievements**: Proper cursor_manager integration, memory pool architecture, portable secure memory operations
+**Status**: 🔍 **UTF-8 MOVEMENT TESTING COMPLETE** - Tests created, bug discovered in cursor_manager  
+**Last Action**: Created comprehensive UTF-8 movement test suite - found critical bug in cursor_manager  
+**Next**: Fix cursor_manager UTF-8 bug in grapheme_index_to_byte_offset(), then continue keybinding testing  
+**Current Reality**: Tests working perfectly - revealed cursor_manager has UTF-8 sequence length bug  
+**Tests**: 5/10 UTF-8 tests passing (word movement works, char-by-char movement broken for multi-byte UTF-8)  
+**Bug Found**: cursor_manager.c:122 - uses ptr+1 instead of UTF-8 sequence length for grapheme boundaries  
+**Critical Issue**: BLOCKER - Character movement through multi-byte UTF-8 stops mid-sequence (byte 4 instead of 5 for 'é')
+
+---
+
+## 🐛 CRITICAL BUG DISCOVERED - UTF-8 Movement (2025-11-06)
+
+### Bug Report: cursor_manager UTF-8 Sequence Length
+
+**Test Suite**: `tests/lle/test_utf8_movement.c` (10 tests created)  
+**Results**: 5 PASSING / 5 FAILING  
+**Severity**: BLOCKER - Character movement through UTF-8 text is broken
+
+#### What Works ✓
+- ASCII character movement (lle_forward_char, lle_backward_char)
+- Word movement with UTF-8 (lle_forward_word, lle_backward_word) 
+- All word-based navigation functions
+
+#### What's Broken ✗
+- Character-by-character forward movement through multi-byte UTF-8
+- Character-by-character backward movement through multi-byte UTF-8
+- Fails on: 2-byte (é), 3-byte (中), 4-byte (🔥) characters
+
+#### Bug Location
+**File**: `src/lle/cursor_manager.c`  
+**Function**: `grapheme_index_to_byte_offset()` (line 100-133)  
+**Bug Line**: 122
+
+**Buggy Code**:
+```c
+while (offset < buffer->length && current_grapheme < grapheme_index) {
+    const char *ptr = data + offset;
+    
+    /* Find next grapheme boundary */
+    const char *next = ptr + 1;  // ← BUG: Assumes 1 byte!
+    while (next < end && !lle_is_grapheme_boundary(next, data, end)) {
+        next++;
+    }
+    
+    offset = next - data;
+    current_grapheme++;
+}
+```
+
+#### Concrete Example
+**Test Input**: "café" (bytes: c=0, a=1, f=2, é=3-4, total=5)
+
+**Expected Behavior**:
+```
+Start: byte_offset=0, grapheme=0
+After 1 forward: byte_offset=1, grapheme=1  ✓ (correct)
+After 2 forwards: byte_offset=2, grapheme=2  ✓ (correct)
+After 3 forwards: byte_offset=3, grapheme=3  ✓ (correct - at 'é' start)
+After 4 forwards: byte_offset=5, grapheme=4  ✗ (WRONG - got byte=4)
+```
+
+**Actual Behavior**:
+- Stops at byte 4 (middle of 'é' UTF-8 sequence)
+- Should be at byte 5 (after 'é')
+
+#### Root Cause Analysis
+1. Line 122 starts searching from `ptr + 1` (assumes single byte)
+2. For 'é' at byte 3: `ptr=3`, `next=4`
+3. Checks if byte 4 is a grapheme boundary
+4. Since it's checking the SECOND byte of 'é', not the START of next grapheme
+5. Stops at byte 4 instead of byte 5
+
+#### Correct Fix Strategy
+Replace naive `ptr + 1` with proper UTF-8 sequence length:
+
+```c
+/* Get UTF-8 sequence length for current character */
+int seq_len = lle_utf8_sequence_length(*ptr);
+if (seq_len == 0 || ptr + seq_len > end) {
+    return LLE_ERROR_INVALID_UTF8;
+}
+
+/* Move to start of next character */
+const char *next = ptr + seq_len;
+
+/* Then find next grapheme boundary (for combining sequences) */
+while (next < end && !lle_is_grapheme_boundary(next, data, end)) {
+    seq_len = lle_utf8_sequence_length(*next);
+    if (seq_len == 0) break;
+    next += seq_len;
+}
+```
+
+#### Impact
+- **Blocker** for UTF-8 text editing
+- Character navigation unusable for non-ASCII text
+- Affects: lle_forward_char, lle_backward_char, any grapheme-based cursor movement
+- Word movement unaffected (uses different code path)
+
+#### Test Evidence
+**Test File**: `tests/lle/test_utf8_movement.c`  
+**Build**: ✓ Compiles successfully  
+**Run**: `./builddir/test_utf8_movement`  
+**Added to**: `meson.build:738-751` as `test_utf8_movement`
 
 ---
 

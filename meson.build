@@ -736,6 +736,21 @@ endif
          timeout: 30)
   endif
 
+  # UTF-8 Movement Functions Test
+  # Tests cursor_manager integration for UTF-8 character movement
+  # Tests: lle_forward_char, lle_backward_char, lle_forward_word, lle_backward_word
+  # Coverage: ASCII, 2-byte (Latin), 3-byte (CJK), 4-byte (Emoji), mixed content
+  # Uses real LLE library (not mocked) - provides global_memory_pool stub
+  if fs.exists('tests/lle/test_utf8_movement.c')
+    test_utf8_movement = executable('test_utf8_movement',
+                                    'tests/lle/test_utf8_movement.c',
+                                    include_directories: inc,
+                                    dependencies: [lle_dep])
+    test('LLE UTF-8 Movement Functions', test_utf8_movement,
+         suite: 'lle-functional',
+         timeout: 30)
+  endif
+
   # Adaptive Terminal Detection Unit Tests (Spec 26 Phase 1)
   # Tests detection system, signature matching, capability probing
   if fs.exists('tests/lle/unit/test_adaptive_detection.c')
