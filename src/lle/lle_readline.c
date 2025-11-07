@@ -319,8 +319,13 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
 }
 
 /**
- * @brief Event handler for Ctrl-D (EOF)
- * Step 3: Handler signals EOF
+ * @brief Event handler for Ctrl-D (EOF/delete-char)
+ * Step 3: Handler signals EOF on empty line
+ * Step 5 enhancement: Delete character at cursor when line is non-empty
+ * 
+ * Ctrl-D has dual behavior in readline:
+ * - Empty line: Signals EOF (exits shell)
+ * - Non-empty line: Deletes character at cursor (same as Delete key)
  */
 static lle_result_t handle_eof(lle_event_t *event, void *user_data)
 {
@@ -328,9 +333,37 @@ static lle_result_t handle_eof(lle_event_t *event, void *user_data)
     readline_context_t *ctx = (readline_context_t *)user_data;
     
     if (ctx->buffer->length == 0) {
-        /* EOF on empty line */
+        /* EOF on empty line - exit shell */
         *ctx->done = true;
         *ctx->final_line = NULL;
+    } else {
+        /* Non-empty line - delete character at cursor (same as Delete key) */
+        if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
+            /* Calculate UTF-8 character length at cursor position */
+            size_t char_start = ctx->buffer->cursor.byte_offset;
+            size_t char_end = char_start + 1;
+            
+            /* Scan forward past UTF-8 continuation bytes (10xxxxxx pattern) */
+            while (char_end < ctx->buffer->length && 
+                   (ctx->buffer->data[char_end] & 0xC0) == 0x80) {
+                char_end++;
+            }
+            
+            size_t char_length = char_end - char_start;
+            
+            /* Delete the entire UTF-8 character */
+            lle_result_t result = lle_buffer_delete_text(
+                ctx->buffer, 
+                ctx->buffer->cursor.byte_offset, 
+                char_length
+            );
+            
+            if (result == LLE_SUCCESS) {
+                refresh_display(ctx);
+            }
+            
+            return result;
+        }
     }
     
     return LLE_SUCCESS;
@@ -485,8 +518,21 @@ static lle_result_t handle_arrow_left(lle_event_t *event, void *user_data)
     
     /* Move cursor left if not at beginning */
     if (ctx->buffer->cursor.byte_offset > 0) {
-        /* Move back one byte (Step 5: simple byte-based, UTF-8 grapheme in future) */
-        ctx->buffer->cursor.byte_offset--;
+        /* Move back one UTF-8 character by scanning for character boundary */
+        size_t new_offset = ctx->buffer->cursor.byte_offset - 1;
+        
+        /* Scan backward to find start of UTF-8 character
+         * UTF-8 continuation bytes have pattern 10xxxxxx (0x80-0xBF)
+         * Character start bytes are either:
+         * - 0xxxxxxx (ASCII, 0x00-0x7F)
+         * - 11xxxxxx (multi-byte start, 0xC0-0xFF)
+         */
+        while (new_offset > 0 && 
+               (ctx->buffer->data[new_offset] & 0xC0) == 0x80) {
+            new_offset--;
+        }
+        
+        ctx->buffer->cursor.byte_offset = new_offset;
         refresh_display(ctx);
     }
     
@@ -504,8 +550,20 @@ static lle_result_t handle_arrow_right(lle_event_t *event, void *user_data)
     
     /* Move cursor right if not at end */
     if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
-        /* Move forward one byte (Step 5: simple byte-based, UTF-8 grapheme in future) */
-        ctx->buffer->cursor.byte_offset++;
+        /* Move forward one UTF-8 character by scanning for next character boundary */
+        size_t new_offset = ctx->buffer->cursor.byte_offset + 1;
+        
+        /* Skip UTF-8 continuation bytes (10xxxxxx pattern)
+         * Stop at next character start byte:
+         * - 0xxxxxxx (ASCII, 0x00-0x7F)
+         * - 11xxxxxx (multi-byte start, 0xC0-0xFF)
+         */
+        while (new_offset < ctx->buffer->length && 
+               (ctx->buffer->data[new_offset] & 0xC0) == 0x80) {
+            new_offset++;
+        }
+        
+        ctx->buffer->cursor.byte_offset = new_offset;
         refresh_display(ctx);
     }
     
@@ -555,11 +613,23 @@ static lle_result_t handle_delete(lle_event_t *event, void *user_data)
     
     /* Delete character at cursor if not at end */
     if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
-        /* Delete one byte at cursor (Step 5: simple byte-based, UTF-8 grapheme in future) */
+        /* Calculate UTF-8 character length at cursor position */
+        size_t char_start = ctx->buffer->cursor.byte_offset;
+        size_t char_end = char_start + 1;
+        
+        /* Scan forward past UTF-8 continuation bytes (10xxxxxx pattern) */
+        while (char_end < ctx->buffer->length && 
+               (ctx->buffer->data[char_end] & 0xC0) == 0x80) {
+            char_end++;
+        }
+        
+        size_t char_length = char_end - char_start;
+        
+        /* Delete the entire UTF-8 character */
         lle_result_t result = lle_buffer_delete_text(
             ctx->buffer, 
             ctx->buffer->cursor.byte_offset, 
-            1
+            char_length
         );
         
         if (result == LLE_SUCCESS) {
@@ -628,30 +698,32 @@ static lle_result_t handle_kill_line(lle_event_t *event, void *user_data)
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Delete entire buffer contents */
-    if (ctx->buffer->length > 0) {
+    /* Ctrl-U: Kill from beginning of line to cursor (backward-kill-line) */
+    size_t kill_length = ctx->buffer->cursor.byte_offset;
+    
+    if (kill_length > 0) {
         /* Save killed text to kill buffer */
-        if (ctx->kill_buffer_size < ctx->buffer->length + 1) {
-            char *new_buf = realloc(ctx->kill_buffer, ctx->buffer->length + 1);
+        if (ctx->kill_buffer_size < kill_length + 1) {
+            char *new_buf = realloc(ctx->kill_buffer, kill_length + 1);
             if (new_buf) {
                 ctx->kill_buffer = new_buf;
-                ctx->kill_buffer_size = ctx->buffer->length + 1;
+                ctx->kill_buffer_size = kill_length + 1;
             }
         }
         
-        if (ctx->kill_buffer && ctx->kill_buffer_size >= ctx->buffer->length + 1) {
-            memcpy(ctx->kill_buffer, ctx->buffer->data, ctx->buffer->length);
-            ctx->kill_buffer[ctx->buffer->length] = '\0';
+        if (ctx->kill_buffer && ctx->kill_buffer_size >= kill_length + 1) {
+            memcpy(ctx->kill_buffer, ctx->buffer->data, kill_length);
+            ctx->kill_buffer[kill_length] = '\0';
         }
         
         lle_result_t result = lle_buffer_delete_text(
             ctx->buffer,
             0,
-            ctx->buffer->length
+            kill_length
         );
         
         if (result == LLE_SUCCESS) {
-            /* Cursor automatically moves to position 0 after deleting all content */
+            /* Cursor automatically moves to position 0 after deleting from start */
             refresh_display(ctx);
         }
         
