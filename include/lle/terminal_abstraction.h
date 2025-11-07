@@ -399,8 +399,9 @@ typedef struct lle_input_event_t {
         
         /* Special key input */
         struct {
-            lle_special_key_t key;
-            lle_key_modifier_t modifiers;
+            lle_special_key_t key;       /* Special key enum (arrows, F-keys, etc.) */
+            lle_key_modifier_t modifiers; /* Modifier flags (Ctrl, Alt, Shift) */
+            uint32_t keycode;            /* Raw keycode for letters (e.g., 'A'=65 with Ctrl modifier) */
         } special_key;
         
         /* Window resize event */

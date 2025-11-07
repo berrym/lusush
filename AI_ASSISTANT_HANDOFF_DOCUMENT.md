@@ -3,17 +3,100 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-07  
 **Branch**: feature/lle  
-**Status**: ✅ **DISPLAY REGRESSION FIXED** - Proper architectural solution implemented  
-**Last Action**: Created dc_finalize_input() in display system to properly handle input completion  
-**Next**: Continue systematic keybinding function testing (44 functions remaining)  
-**Current Reality**: Core input functionality solid - complex operation sequences work correctly  
-**Tests**: 10/10 UTF-8 movement tests passing, display rendering correct for wrapped lines and complex edits  
-**Architecture**: Display system now properly owns terminal I/O, LLE has no direct terminal access  
-**Working**: Enter accepts full line regardless of cursor position, output always on fresh line below input
+**Status**: ✅ **CTRL+KEY ARCHITECTURE REFACTORED** - All Ctrl+key bindings working  
+**Last Action**: Fixed critical bugs and refactored Ctrl+key handling per LLE specification  
+**Next**: Continue Tier 1 keybinding tests (37 tests remaining: 4.1-17.2)  
+**Current Reality**: Core input, UTF-8, Ctrl+keys all working correctly through proper architecture  
+**Tests**: 10/47 keybinding tests complete (10 passed, 0 failed)  
+**Architecture**: Ctrl+keys now SPECIAL_KEY events with keycode+modifiers (spec-compliant)  
+**Working**: All basic input, UTF-8 handling, backspace, Enter, and all Ctrl+key combinations (A, E, G, K, L, U, W, Y)
 
 ---
 
-## ✅ DISPLAY REGRESSION FIX - Enter Key with Wrapped Lines (2025-11-07)
+## ✅ CTRL+KEY ARCHITECTURE REFACTOR (2025-11-07)
+
+### Critical Bugs Fixed
+
+**1. UTF-8 Backspace Bug (Test 2.2)**
+- **Problem**: Backspace deleted only 1 byte of multi-byte UTF-8 character (é = 2 bytes), leaving corrupted � character
+- **Root Cause**: `handle_backspace()` decremented cursor by 1 byte instead of scanning for UTF-8 character boundary
+- **Solution**: Modified to scan backward checking UTF-8 continuation byte pattern (0x80-0xBF) to find character start
+- **File**: `src/lle/lle_readline.c`
+- **Result**: Backspace now correctly deletes entire UTF-8 characters
+
+**2. Ctrl+Key Events Not Working (Test 3.2 + All Ctrl+keys)**
+- **Problem**: All Ctrl+key combinations (A, E, G, K, etc.) had no effect when pressed
+- **Root Causes** (Multi-layered bug):
+  1. Sequence parser was consuming control characters
+  2. Enter (0x0D) incorrectly converted to Ctrl-M
+  3. Event validator rejected `LLE_KEY_UNKNOWN` events
+- **Solutions**:
+  1. Changed parser to only process ESC or accumulating sequences (`terminal_unix_interface.c:952`)
+  2. Excluded Tab/Enter/Newline from Ctrl+key conversion (`terminal_unix_interface.c:1132`)
+  3. Updated validator to allow `LLE_KEY_UNKNOWN` with valid `keycode` (`terminal_input_processor.c:87`)
+- **Files**: `src/lle/terminal_unix_interface.c`, `src/lle/terminal_input_processor.c`
+- **Result**: All Ctrl+key bindings now work correctly
+
+**3. Ctrl-L Clear Screen Not Working**
+- **Problem**: Ctrl-L had no effect (screen not cleared)
+- **Root Cause**: `handle_clear_screen()` only called `refresh_display()` without actually clearing screen
+- **Solution**: Added `display_controller_clear_screen()` function that calls `terminal_control_clear_screen()`
+- **Files**: `include/display/display_controller.h`, `src/display/display_controller.c`, `src/lle/lle_readline.c`
+- **Result**: Ctrl-L now clears screen through proper display architecture
+
+### Architectural Refactor: Ctrl+Key Handling
+
+**Before:**
+- Ctrl+keys were CHARACTER events with codepoints 0x01-0x1A
+- Handled inconsistently in CHARACTER case
+- Different code path than Home/End keys
+
+**After** (Per LLE Specification):
+- Ctrl+keys are SPECIAL_KEY events
+- Use `keycode` field ('A'-'Z') with `LLE_MOD_CTRL` modifier
+- Added `keycode` field to `special_key` struct in `terminal_abstraction.h`
+- All Ctrl+key handlers moved to SPECIAL_KEY case
+- **Benefit**: Ctrl-A and Home now use identical code path (architecturally correct)
+
+**Files Modified:**
+- `include/lle/terminal_abstraction.h` - Added `keycode` field to `special_key` struct
+- `src/lle/terminal_unix_interface.c` - Convert Ctrl+letter to SPECIAL_KEY with keycode
+- `src/lle/terminal_input_processor.c` - Updated validator to allow `LLE_KEY_UNKNOWN` with keycode
+- `src/lle/lle_readline.c` - Moved all Ctrl+key handlers to SPECIAL_KEY case
+
+### Display Controller Enhancement
+
+**Added Public API**: `display_controller_clear_screen()`
+- **Flow**: LLE → display_integration → display_controller → terminal_control → terminal
+- **Benefit**: LLE can clear screen without writing ANSI sequences directly
+- **Maintains**: Proper architectural layer separation
+
+### Testing Results
+
+**Keybinding Tests**: 10/47 complete (10 passed, 0 failed)
+- ✅ Tests 1.1-1.3: Basic character input (ASCII, UTF-8, wrapping)
+- ✅ Tests 2.1-2.4: Backspace (ASCII, UTF-8, boundaries, wrap)
+- ✅ Test 3.1: Enter at end
+- ✅ Test 3.2: Enter at beginning (was failing, now fixed)
+
+**All Ctrl+Key Bindings Verified Working:**
+- Ctrl-A (beginning of line)
+- Ctrl-E (end of line)
+- Ctrl-B (back character)
+- Ctrl-F (forward character)
+- Ctrl-K (kill to end)
+- Ctrl-U (kill line)
+- Ctrl-W (kill word)
+- Ctrl-Y (yank)
+- Ctrl-G (abort)
+- Ctrl-D (EOF)
+- Ctrl-L (clear screen)
+
+**Test Documentation**: `docs/lle_implementation/KEYBINDING_TEST_TRACKER.md`
+
+---
+
+## ✅ DISPLAY REGRESSION FIX - Enter Key with Wrapped Lines (2025-11-07 - Earlier)
 
 ### Problem
 After implementing the screen_buffer with wrapped lines, a regression appeared:

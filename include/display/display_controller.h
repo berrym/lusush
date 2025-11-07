@@ -420,6 +420,17 @@ display_controller_error_t display_controller_refresh(
 display_controller_error_t display_controller_cleanup(display_controller_t *controller);
 
 /**
+ * Clear the terminal screen.
+ * 
+ * Clears the entire terminal screen and repositions the cursor to the home position.
+ * This function goes through the terminal_control layer for proper abstraction.
+ * 
+ * @param controller The display controller instance
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t display_controller_clear_screen(display_controller_t *controller);
+
+/**
  * Destroy display controller instance.
  * 
  * Completely destroys the display controller instance, freeing all memory and

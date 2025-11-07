@@ -83,9 +83,12 @@ static bool validate_event(lle_input_event_t *event) {
             break;
             
         case LLE_INPUT_TYPE_SPECIAL_KEY:
-            /* Validate key code */
+            /* Validate key code - allow LLE_KEY_UNKNOWN if it has a valid keycode (for Ctrl+letter) */
             if (event->data.special_key.key == LLE_KEY_UNKNOWN) {
-                return false;
+                /* LLE_KEY_UNKNOWN is valid if keycode is set (e.g., Ctrl+A has keycode='A') */
+                if (event->data.special_key.keycode == 0) {
+                    return false;  /* Invalid: UNKNOWN key with no keycode */
+                }
             }
             break;
             

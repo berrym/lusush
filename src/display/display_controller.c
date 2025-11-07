@@ -56,6 +56,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/time.h>
+#include <termios.h>
 #include <time.h>
 
 // ============================================================================
@@ -277,8 +278,9 @@ static layer_events_error_t dc_handle_redraw_needed(
     screen_buffer_copy(&current_screen, &desired_screen);
     prompt_rendered = true;
 
-    /* Don't fsync - let the terminal buffer output to reduce flicker */
-    /* The terminal will naturally flush when waiting for input */
+    /* NOTE: fsync() was causing input timeouts after cursor positioning - removed
+     * stdout is line-buffered by default and terminal I/O doesn't need fsync */
+    
     return LAYER_EVENTS_SUCCESS;
 }
 
@@ -1603,6 +1605,28 @@ display_controller_error_t display_controller_refresh(
     
     // Perform fresh display operation
     return display_controller_display(controller, NULL, NULL, output, output_size);
+}
+
+display_controller_error_t display_controller_clear_screen(display_controller_t *controller) {
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+    
+    if (!controller->terminal_ctrl) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+    
+    DC_DEBUG("Clearing screen");
+    
+    /* Clear the screen through terminal_control */
+    terminal_control_error_t result = terminal_control_clear_screen(controller->terminal_ctrl);
+    
+    if (result != TERMINAL_CONTROL_SUCCESS) {
+        DC_ERROR("Failed to clear screen: %d", result);
+        return DISPLAY_CONTROLLER_ERROR_SYSTEM_RESOURCE;
+    }
+    
+    return DISPLAY_CONTROLLER_SUCCESS;
 }
 
 display_controller_error_t display_controller_cleanup(display_controller_t *controller) {

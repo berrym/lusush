@@ -917,10 +917,13 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
     
     /* Use comprehensive sequence parser if available */
     if (interface->sequence_parser) {
-        /* Check if parser is accumulating a sequence or if this is ESC/control char */
+        /* Check if parser is accumulating a sequence or if this is ESC/control char 
+         * IMPORTANT: Don't send standalone control chars (Ctrl-A through Ctrl-Z, Enter, etc.) 
+         * to parser unless we're already accumulating an escape sequence.
+         * Only ESC (0x1B) should initiate parsing. */
         lle_parser_state_t parser_state = lle_sequence_parser_get_state(interface->sequence_parser);
         bool parser_accumulating = (parser_state != LLE_PARSER_STATE_NORMAL);
-        bool should_parse = parser_accumulating || (first_byte == 0x1B) || (first_byte < 0x20);
+        bool should_parse = parser_accumulating || (first_byte == 0x1B);
         
         if (should_parse) {
             /* Feed byte to comprehensive parser */
@@ -1118,6 +1121,24 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
                 sizeof(event->data.error.error_message),
                 "UTF-8 decoding failed");
         return decode_result;
+    }
+    
+    /* Check if this is a Ctrl+letter combination (0x01-0x1A = Ctrl-A through Ctrl-Z)
+     * According to spec, these should be SPECIAL_KEY events with keycode and modifiers 
+     * EXCEPT for special control characters that have their own meaning:
+     * - 0x09 (Tab / Ctrl-I)
+     * - 0x0A (Newline / Ctrl-J)
+     * - 0x0D (Enter / Ctrl-M)
+     */
+    if (codepoint >= 0x01 && codepoint <= 0x1A && 
+        codepoint != 0x09 && codepoint != 0x0A && codepoint != 0x0D) {
+        /* Ctrl+letter: Convert to SPECIAL_KEY event with keycode and LLE_MOD_CTRL */
+        event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
+        event->timestamp = lle_get_current_time_microseconds();
+        event->data.special_key.key = LLE_KEY_UNKNOWN;  /* Not a special key like arrow/F-key */
+        event->data.special_key.modifiers = LLE_MOD_CTRL;
+        event->data.special_key.keycode = codepoint + 0x40;  /* 0x01->0x41='A', 0x02->0x42='B', etc. */
+        return LLE_SUCCESS;
     }
     
     /* Populate character event */

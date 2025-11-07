@@ -55,6 +55,7 @@
 #include "lle/event_system.h"
 #include "lle/error_handling.h"
 #include "lle/display_integration.h"  /* Spec 08: Complete display integration */
+#include "lle/utf8_support.h"         /* UTF-8 support for proper character deletion */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -255,9 +256,21 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
     readline_context_t *ctx = (readline_context_t *)user_data;
     
     if (ctx->buffer->cursor.byte_offset > 0) {
-        /* Delete one byte before cursor (Step 5 will improve to grapheme) */
-        size_t delete_pos = ctx->buffer->cursor.byte_offset - 1;
-        lle_result_t result = lle_buffer_delete_text(ctx->buffer, delete_pos, 1);
+        /* Find the start of the previous UTF-8 character by scanning backward */
+        const char *data = ctx->buffer->data;
+        size_t pos = ctx->buffer->cursor.byte_offset;
+        size_t char_start = pos - 1;
+        
+        /* Scan backward to find UTF-8 character start (byte not starting with 10xxxxxx) */
+        while (char_start > 0 && (data[char_start] & 0xC0) == 0x80) {
+            char_start--;
+        }
+        
+        /* Calculate how many bytes to delete (entire UTF-8 character) */
+        size_t delete_len = pos - char_start;
+        
+        /* Delete the entire UTF-8 character */
+        lle_result_t result = lle_buffer_delete_text(ctx->buffer, char_start, delete_len);
         
         /* Refresh display after buffer modification */
         if (result == LLE_SUCCESS) {
@@ -280,7 +293,9 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
     readline_context_t *ctx = (readline_context_t *)user_data;
     
     /* Check for incomplete input using shared continuation parser */
-    if (is_input_incomplete(ctx->buffer->data, ctx->continuation_state)) {
+    bool incomplete = is_input_incomplete(ctx->buffer->data, ctx->continuation_state);
+    
+    if (incomplete) {
         /* Input incomplete - insert newline and continue */
         lle_result_t result = lle_buffer_insert_text(
             ctx->buffer,
@@ -355,7 +370,19 @@ static lle_result_t handle_clear_screen(lle_event_t *event, void *user_data)
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Trigger display refresh which should clear and redraw */
+    /* Get the global display integration instance */
+    lle_display_integration_t *display_integration = lle_display_integration_get_global();
+    if (!display_integration || !display_integration->lusush_display) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    /* Clear screen through display controller */
+    display_controller_error_t result = display_controller_clear_screen(display_integration->lusush_display);
+    if (result != DISPLAY_CONTROLLER_SUCCESS) {
+        return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+    
+    /* Refresh display to redraw the prompt and current input */
     refresh_display(ctx);
     
     return LLE_SUCCESS;
@@ -805,6 +832,7 @@ char *lle_readline(const char *prompt)
         
         /* === STEP 9: Convert input event to LLE event and dispatch === */
         /* Step 3: Use event system instead of direct buffer manipulation */
+        
         switch (event->type) {
             case LLE_INPUT_TYPE_CHARACTER: {
                 /* Regular character input */
@@ -816,81 +844,13 @@ char *lle_readline(const char *prompt)
                     break;
                 }
                 
-                /* Check for Ctrl-D (EOF) */
-                if (codepoint == 4) {  /* ASCII EOT */
-                    handle_eof(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-A (beginning of line) */
-                if (codepoint == 1) {  /* ASCII SOH */
-                    handle_home(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-B (back one character) */
-                if (codepoint == 2) {  /* ASCII STX */
-                    handle_arrow_left(NULL, &ctx);
-                    break;
-                }
-                
-                /* NOTE: Ctrl-C (codepoint == 3) is handled via SIGINT signal (src/signals.c)
-                 * With ISIG enabled in raw mode, Ctrl-C generates SIGINT instead of character input.
-                 * Lusush's sigint_handler() manages child process killing and line clearing.
-                 * We should NOT see codepoint==3 here anymore.
-                 */
-                
-                /* Check for Ctrl-E (end of line) */
-                if (codepoint == 5) {  /* ASCII ENQ */
-                    handle_end(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-F (forward one character) */
-                if (codepoint == 6) {  /* ASCII ACK */
-                    handle_arrow_right(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-G (abort/cancel line) */
-                if (codepoint == 7) {  /* ASCII BEL */
-                    handle_abort(NULL, &ctx);
-                    break;
-                }
+                /* NOTE: Ctrl-A through Ctrl-Z are now handled as SPECIAL_KEY events with modifiers
+                 * See SPECIAL_KEY case below for Ctrl+letter handling.
+                 * Ctrl-C (codepoint == 3) is still handled via SIGINT signal (src/signals.c). */
                 
                 /* Check for backspace */
                 if (codepoint == 127 || codepoint == 8) {  /* DEL or BS */
                     handle_backspace(NULL, &ctx);
-                    break;
-                }
-                
-                /* Step 5: Check for Ctrl-K (kill to end of line) */
-                if (codepoint == 11) {  /* ASCII VT (Ctrl-K) */
-                    handle_kill_to_end(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-L (clear screen) */
-                if (codepoint == 12) {  /* ASCII FF */
-                    handle_clear_screen(NULL, &ctx);
-                    break;
-                }
-                
-                /* Step 5: Check for Ctrl-U (kill entire line) */
-                if (codepoint == 21) {  /* ASCII NAK (Ctrl-U) */
-                    handle_kill_line(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-W (kill word backwards) */
-                if (codepoint == 23) {  /* ASCII ETB */
-                    handle_kill_word(NULL, &ctx);
-                    break;
-                }
-                
-                /* Check for Ctrl-Y (yank) */
-                if (codepoint == 25) {  /* ASCII EM */
-                    handle_yank(NULL, &ctx);
                     break;
                 }
                 
@@ -940,6 +900,50 @@ char *lle_readline(const char *prompt)
                 /* Step 5: Delete key */
                 else if (event->data.special_key.key == LLE_KEY_DELETE) {
                     handle_delete(NULL, &ctx);
+                }
+                /* Handle Ctrl+letter combinations (now SPECIAL_KEY events with keycode) */
+                else if (event->data.special_key.key == LLE_KEY_UNKNOWN && 
+                         (event->data.special_key.modifiers & LLE_MOD_CTRL)) {
+                    uint32_t keycode = event->data.special_key.keycode;
+                    
+                    switch (keycode) {
+                        case 'A':  /* Ctrl-A: Beginning of line */
+                            handle_home(NULL, &ctx);
+                            break;
+                        case 'B':  /* Ctrl-B: Back one character */
+                            handle_arrow_left(NULL, &ctx);
+                            break;
+                        case 'D':  /* Ctrl-D: EOF */
+                            handle_eof(NULL, &ctx);
+                            break;
+                        case 'E':  /* Ctrl-E: End of line */
+                            handle_end(NULL, &ctx);
+                            break;
+                        case 'F':  /* Ctrl-F: Forward one character */
+                            handle_arrow_right(NULL, &ctx);
+                            break;
+                        case 'G':  /* Ctrl-G: Abort/cancel line */
+                            handle_abort(NULL, &ctx);
+                            break;
+                        case 'K':  /* Ctrl-K: Kill to end of line */
+                            handle_kill_to_end(NULL, &ctx);
+                            break;
+                        case 'L':  /* Ctrl-L: Clear screen */
+                            handle_clear_screen(NULL, &ctx);
+                            break;
+                        case 'U':  /* Ctrl-U: Kill entire line */
+                            handle_kill_line(NULL, &ctx);
+                            break;
+                        case 'W':  /* Ctrl-W: Kill word backwards */
+                            handle_kill_word(NULL, &ctx);
+                            break;
+                        case 'Y':  /* Ctrl-Y: Yank */
+                            handle_yank(NULL, &ctx);
+                            break;
+                        default:
+                            /* Unknown Ctrl+letter - ignore */
+                            break;
+                    }
                 }
                 /* Other special keys ignored */
                 break;
