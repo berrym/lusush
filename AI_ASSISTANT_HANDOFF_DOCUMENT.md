@@ -244,8 +244,14 @@ config set lle.enable_forensic_tracking true
 - ✅ History auto-initializes when LLE enabled
 - ✅ Save/load working
 - ✅ Import command implemented
+- ✅ **BUGFIX**: DOWN arrow navigation now works (shared g_history_pos variable)
 - ⏳ Needs manual testing with multiline commands
-- ⏳ Needs testing of UP/DOWN arrow navigation
+
+### Bug Fixed: DOWN Arrow Navigation (2025-11-07)
+**Issue**: UP arrow recalled history, but DOWN arrow did nothing  
+**Root Cause**: `lle_history_previous()` and `lle_history_next()` had separate `static size_t history_pos` variables  
+**Fix**: Created shared module-level `g_history_pos` variable  
+**Result**: Bidirectional navigation now works - UP goes to older entries, DOWN returns to newer/current line
 
 ---
 

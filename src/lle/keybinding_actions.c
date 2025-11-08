@@ -23,6 +23,9 @@
  * HELPER FUNCTIONS
  * ============================================================================ */
 
+/* Shared history navigation position (must be shared between previous/next) */
+static size_t g_history_pos = 0;
+
 /**
  * Check if character is a word boundary (whitespace or shell metacharacter)
  */
@@ -608,18 +611,15 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Get current history position or start from end */
-    static size_t history_pos = 0;
-    
     size_t entry_count = 0;
     lle_result_t result = lle_history_get_entry_count(editor->history_system, &entry_count);
     if (result != LLE_SUCCESS || entry_count == 0) {
         return LLE_SUCCESS;  /* No history */
     }
     
-    /* Move backward in history */
-    if (history_pos < entry_count) {
-        size_t idx = entry_count - 1 - history_pos;
+    /* Move backward in history (toward older entries) */
+    if (g_history_pos < entry_count) {
+        size_t idx = entry_count - 1 - g_history_pos;
         lle_history_entry_t *entry = NULL;
         result = lle_history_get_entry_by_index(editor->history_system, idx, &entry);
         
@@ -630,7 +630,7 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
             editor->buffer->cursor.byte_offset = editor->buffer->length;
             editor->buffer->cursor.codepoint_index = editor->buffer->length;
             editor->buffer->cursor.grapheme_index = editor->buffer->length;
-            history_pos++;
+            g_history_pos++;
         }
     }
     
@@ -642,22 +642,20 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    static size_t history_pos = 0;
-    
     size_t entry_count = 0;
     lle_result_t result = lle_history_get_entry_count(editor->history_system, &entry_count);
-    if (result != LLE_SUCCESS || entry_count == 0 || history_pos == 0) {
-        return LLE_SUCCESS;  /* No history or at beginning */
+    if (result != LLE_SUCCESS || entry_count == 0 || g_history_pos == 0) {
+        return LLE_SUCCESS;  /* No history or already at current line */
     }
     
-    /* Move forward in history */
-    history_pos--;
+    /* Move forward in history (toward newer entries) */
+    g_history_pos--;
     
-    if (history_pos == 0) {
-        /* Clear buffer (back to current line) */
+    if (g_history_pos == 0) {
+        /* Back to current line - clear buffer */
         lle_buffer_clear(editor->buffer);
     } else {
-        size_t idx = entry_count - history_pos;
+        size_t idx = entry_count - g_history_pos;
         lle_history_entry_t *entry = NULL;
         result = lle_history_get_entry_by_index(editor->history_system, idx, &entry);
         
