@@ -84,6 +84,7 @@ typedef struct lle_editor {
     /* History and search */
     lle_history_core_t *history_system;                /* Command history */
     lle_history_buffer_integration_t *history_buffer_integration;  /* History<->buffer bridge */
+    size_t history_navigation_pos;                     /* Current position in history navigation (0 = current line) */
     bool history_search_active;                        /* Interactive search active */
     int history_search_direction;                      /* 1=forward, -1=reverse */
     
