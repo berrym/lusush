@@ -56,6 +56,9 @@
 #include "lle/error_handling.h"
 #include "lle/display_integration.h"  /* Spec 08: Complete display integration */
 #include "lle/utf8_support.h"         /* UTF-8 support for proper character deletion */
+#include "lle/history.h"              /* History system for UP/DOWN navigation */
+#include "lle/lle_editor.h"           /* Proper LLE editor architecture */
+#include "lle/keybinding_actions.h"   /* Action functions like lle_history_previous/next */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -70,6 +73,9 @@
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
 
+/* Global LLE editor instance (proper architecture) */
+static lle_editor_t *global_lle_editor = NULL;
+
 /* Event handler context for Step 6 */
 typedef struct {
     lle_buffer_t *buffer;
@@ -80,6 +86,9 @@ typedef struct {
     continuation_state_t *continuation_state;  /* Step 6: Shared multiline parser state */
     char *kill_buffer;  /* Step 5 enhancement: Simple kill buffer for yank */
     size_t kill_buffer_size;  /* Allocated size of kill buffer */
+    
+    /* LLE Editor - proper architecture */
+    lle_editor_t *editor;                       /* Full LLE editor context */
 } readline_context_t;
 
 /**
@@ -734,6 +743,56 @@ static lle_result_t handle_kill_line(lle_event_t *event, void *user_data)
 }
 
 /**
+ * @brief Handle UP arrow - navigate to previous history entry
+ * Proper architecture: delegates to lle_history_previous() action function
+ */
+static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Check if editor is available */
+    if (!ctx->editor) {
+        return LLE_SUCCESS;  /* No editor available */
+    }
+    
+    /* Call the proper LLE action function */
+    lle_result_t result = lle_history_previous(ctx->editor);
+    
+    /* Refresh display after history navigation */
+    if (result == LLE_SUCCESS) {
+        refresh_display(ctx);
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Handle DOWN arrow - navigate to next history entry
+ * Proper architecture: delegates to lle_history_next() action function
+ */
+static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Check if editor is available */
+    if (!ctx->editor) {
+        return LLE_SUCCESS;  /* No editor available */
+    }
+    
+    /* Call the proper LLE action function */
+    lle_result_t result = lle_history_next(ctx->editor);
+    
+    /* Refresh display after history navigation */
+    if (result == LLE_SUCCESS) {
+        refresh_display(ctx);
+    }
+    
+    return result;
+}
+
+/**
  * @brief Read a line of input from the user with line editing
  * 
  * This is the core readline function that replaces GNU readline when LLE is enabled.
@@ -837,6 +896,24 @@ char *lle_readline(const char *prompt)
     /* Step 4: Register handlers that will modify buffer and refresh display */
     bool done = false;
     char *final_line = NULL;
+    /* === STEP 6.5: Initialize LLE editor (proper architecture) === */
+    /* Create global editor instance if it doesn't exist */
+    if (!global_lle_editor) {
+        result = lle_editor_create(&global_lle_editor, global_memory_pool);
+        if (result != LLE_SUCCESS || !global_lle_editor) {
+            /* Failed to create editor - non-fatal, history won't work */
+            global_lle_editor = NULL;
+        } else {
+            /* Initialize history subsystem */
+            lle_editor_init_subsystem(global_lle_editor, "history");
+        }
+    }
+    
+    /* Set buffer in editor if editor exists */
+    if (global_lle_editor) {
+        global_lle_editor->buffer = buffer;
+    }
+    
     readline_context_t ctx = {
         .buffer = buffer,
         .done = &done,
@@ -845,7 +922,10 @@ char *lle_readline(const char *prompt)
         .prompt = prompt,
         .continuation_state = &continuation_state,
         .kill_buffer = kill_buffer,
-        .kill_buffer_size = kill_buffer_size
+        .kill_buffer_size = kill_buffer_size,
+        
+        /* LLE Editor - proper architecture */
+        .editor = global_lle_editor
     };
     
     /* Register handler for character input */
@@ -961,6 +1041,13 @@ char *lle_readline(const char *prompt)
                 }
                 else if (event->data.special_key.key == LLE_KEY_RIGHT) {
                     handle_arrow_right(NULL, &ctx);
+                }
+                /* History navigation with UP/DOWN arrows */
+                else if (event->data.special_key.key == LLE_KEY_UP) {
+                    handle_arrow_up(NULL, &ctx);
+                }
+                else if (event->data.special_key.key == LLE_KEY_DOWN) {
+                    handle_arrow_down(NULL, &ctx);
                 }
                 /* Step 5: Home/End keys */
                 else if (event->data.special_key.key == LLE_KEY_HOME) {
