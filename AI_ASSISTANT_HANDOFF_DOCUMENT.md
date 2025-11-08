@@ -3,17 +3,207 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-08  
 **Branch**: feature/lle  
-**Status**: ⚠️ **CONTINUATION PROMPTS DEFERRED** - Architectural limitation documented  
-**Last Action**: Investigated continuation prompts - requires major display system enhancement  
-**Next**: Accept limitation and focus on other LLE features, or design display architecture  
+**Status**: 🚀 **CONTINUATION PROMPTS: HYBRID APPROACH APPROVED** - Design phase starting  
+**Last Action**: Brainstormed display layer architectures, user approved hybrid approach  
+**Next**: Phase 1 - Detailed design of continuation_prompt_layer and screen_buffer enhancement  
 **Current Reality**: LLE fully functional when enabled, GNU Readline stable default  
 **Tests**: Build successful, 44/49 keybinding tests complete  
-**Architecture**: Single-buffer model, dual history files, editor context state  
-**Working**: Bidirectional history navigation, multiline editing (no visual prompts), UTF-8, keybindings  
-**Known Limitation**: No continuation prompts (loop>, if>, etc.) - display architecture constraint
+**Architecture**: Layered display system, dual history files, editor context state  
+**Working**: Bidirectional history navigation, multiline editing, UTF-8, keybindings  
+**In Progress**: Continuation prompt layer + screen_buffer enhancement (8-10 days estimated)
 
 ---
-## ⚠️ ARCHITECTURAL LIMITATION: Continuation Prompts Not Yet Supported (2025-11-08)
+
+## 🚀 APPROVED: Hybrid Approach for Continuation Prompts (2025-11-08)
+
+### Decision Summary
+
+**APPROVED FOR IMPLEMENTATION**: Continuation prompt support via hybrid architecture:
+- New `continuation_prompt_layer` in display controller
+- Enhanced `screen_buffer` with prefix support
+- Natural extension of proven layered architecture
+
+### Why This Approach
+
+**User Decision**: "clearly correct engineering approach especially at this point in lle development"
+
+**Key Factors**:
+1. ✅ Natural extension of existing layer model (prompt_layer, command_layer, status_line_layer)
+2. ✅ Leverages screen_buffer breakthrough (double buffering, dirty tracking)
+3. ✅ Establishes foundation for autosuggestions (spec expects `lle_autosuggestion_layer_t`)
+4. ✅ No throwaway work - final architecture, not temporary solution
+5. ✅ Proper separation of concerns
+6. ✅ Experimental branch - perfect time for architectural enhancements
+
+**Philosophy Alignment**: "design thoroughly then implement" approach
+
+### Implementation Phases
+
+**Total Estimated Effort**: 8-10 days of focused work
+
+#### Phase 1: Design & Documentation (2 days)
+**Status**: NEXT - Starting now
+
+**Deliverables**:
+1. Detailed continuation_prompt_layer API design
+2. Enhanced screen_buffer_line_t structure design
+3. Composition engine coordination design
+4. Cursor position translation algorithm specification
+5. Implementation checklist
+6. Unit test plans
+
+**Key Designs**:
+```c
+// Continuation prompt layer
+- continuation_prompt_layer_create()
+- continuation_prompt_layer_set_mode()  // simple vs context-aware
+- continuation_prompt_layer_get_prompt_for_line()
+- continuation_prompt_layer_update_state()
+
+// Screen buffer enhancement
+typedef struct screen_buffer_line_t {
+    char *prefix;          // Continuation prompt
+    char *content;         // Command content
+    bool prefix_dirty;     // Independent dirty tracking
+    bool content_dirty;
+} screen_buffer_line_t;
+
+- screen_buffer_set_line_with_prefix()
+- screen_buffer_get_display_cursor_position()
+```
+
+#### Phase 2: Screen Buffer Enhancement (2 days)
+**Status**: Pending Phase 1 completion
+
+**Tasks**:
+- Modify screen_buffer_line_t structure
+- Implement prefix support functions
+- Add separate dirty tracking for prefix vs content
+- Implement cursor position translation
+- Update rendering logic
+- Write unit tests
+- Verify backward compatibility
+
+**Benefits**:
+- Efficient rendering (only update changed components)
+- Natural cursor handling (prefix_len + content_offset)
+- Reusable for autosuggestions layer
+
+#### Phase 3: Continuation Prompt Layer (2 days)
+**Status**: Pending Phase 2 completion
+
+**Tasks**:
+- Create src/display/continuation_prompt_layer.c
+- Implement simple mode (fixed "> " prompt)
+- Implement context-aware mode (loop>, if>, quote>, etc.)
+- Integrate with input_continuation.c parser
+- Configuration support (PS2, colors, ANSI)
+- Write unit tests
+
+**Modes**:
+- Simple: Fixed PS2 prompt ("> ") - ZSH style
+- Context-aware: Dynamic prompts (loop>, if>, case>, function>, quote>) - GNU Readline style
+
+#### Phase 4: Composition Engine Integration (1 day)
+**Status**: Pending Phase 3 completion
+
+**Tasks**:
+- Create continuation_prompt_layer in compositor
+- Update composition_engine_compose() to coordinate layers
+- Split command by lines, request prompts
+- Pass to screen_buffer with prefixes
+- Implement cursor position translation
+- Write integration tests
+
+#### Phase 5: Testing & Refinement (1-2 days)
+**Status**: Pending Phase 4 completion
+
+**Testing Coverage**:
+- Manual testing with multiline constructs (for, if, while, case, function)
+- Cursor movement across newlines (LEFT, RIGHT, UP, DOWN, HOME, END)
+- Editing operations (insert, delete, backspace at boundaries)
+- Unicode/emoji in multiline commands
+- Long lines with terminal wrapping
+- Empty lines in multiline input
+- Performance profiling
+- Bug fixes and refinements
+
+### Documentation Created
+
+**Planning Documents** (in docs/development/):
+1. `lle_continuation_prompt_strategy.md` - Middle ground translation approach
+2. `lle_continuation_prompt_display_layer_architecture.md` - Layer-based architectures
+
+**Key Insights Documented**:
+- Why simple solutions don't work (shell parsing breakage)
+- GNU Readline vs ZSH vs LLE architectural comparison
+- Four architectural approaches with complexity analysis
+- Screen buffer enhancement benefits
+- Cursor position translation challenge and solutions
+- Open questions and edge cases
+
+### Benefits Beyond Continuation Prompts
+
+**Foundation for Autosuggestions**:
+- Autosuggestions spec expects dedicated layer (`lle_autosuggestion_layer_t`)
+- Screen buffer prefix support reusable for inline ghost text
+- Cursor positioning logic applicable to overlay content
+- Validates layer pattern for complex display needs
+
+**Architectural Precedent**:
+- Establishes pattern for dedicated layers with special display needs
+- Proves screen_buffer enhancement approach
+- Solves overlay content + cursor interaction challenge
+
+### Integration with Autosuggestions
+
+From `docs/lle_specification/10_autosuggestions_complete.md`:
+```c
+typedef struct lle_suggestion_renderer {
+    lle_display_coordinator_t *display_coordinator;
+    lle_autosuggestion_layer_t *suggestion_layer;  // ← Dedicated layer expected
+    // ...
+} lle_suggestion_renderer_t;
+```
+
+**Synergy**: Continuation prompts solve simpler version of same problem (overlay content not in buffer)
+
+### Next Immediate Steps
+
+1. ✅ Update handoff document with decision (this section)
+2. ✅ Commit all documentation
+3. ⏳ Begin Phase 1: Detailed API design
+4. ⏳ Create design document for continuation_prompt_layer
+5. ⏳ Create design document for screen_buffer enhancement
+6. ⏳ Design cursor position translation algorithm
+7. ⏳ Create implementation checklist
+
+### Success Criteria
+
+**Functional**:
+- ✅ Continuation prompts display on multiline input
+- ✅ Simple mode ("> ") works
+- ✅ Context-aware mode (loop>, if>, etc.) works
+- ✅ Cursor moves correctly across lines
+- ✅ Editing works at line boundaries
+- ✅ History navigation preserves multiline display
+
+**Technical**:
+- ✅ Clean separation of concerns (layer, buffer, composition)
+- ✅ Efficient rendering (dirty tracking works)
+- ✅ No buffer pollution (prompts not in command content)
+- ✅ Backward compatible (existing code unaffected)
+- ✅ Well tested (unit + integration tests)
+
+**Architectural**:
+- ✅ Natural extension of existing systems
+- ✅ Reusable patterns for autosuggestions
+- ✅ No technical debt
+- ✅ Properly documented
+
+---
+
+## ⚠️ ARCHITECTURAL INVESTIGATION: Continuation Prompts (2025-11-08 - SUPERSEDED)
 
 ### Problem Identified by User
 **Missing Continuation Prompts**: LLE has no continuation prompts when entering multiline commands. User reported:
