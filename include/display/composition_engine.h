@@ -195,6 +195,10 @@ typedef struct {
     command_layer_t *command_layer;             // Command layer instance
     layer_event_system_t *event_system;        // Event system instance
     
+    // Continuation prompt support (Phase 2-4)
+    struct continuation_prompt_layer_t *continuation_prompt_layer; // Continuation prompt layer
+    bool continuation_prompts_enabled;          // Enable continuation prompts
+    
     // Current composition state
     char *composed_output;                      // Current composed output
     size_t composed_output_size;                // Size of composed output
@@ -427,6 +431,42 @@ composition_engine_error_t composition_engine_set_cache_max_age(
  * @return COMPOSITION_ENGINE_SUCCESS on success, error code on failure
  */
 composition_engine_error_t composition_engine_clear_cache(composition_engine_t *engine);
+
+// ============================================================================
+// CONTINUATION PROMPT SUPPORT (Phase 4)
+// ============================================================================
+
+/**
+ * Set continuation prompt layer.
+ * 
+ * Associates a continuation prompt layer with the composition engine.
+ * The layer will be used to generate continuation prompts for multiline
+ * commands when continuation_prompts_enabled is true.
+ * 
+ * @param engine The composition engine
+ * @param continuation_layer The continuation prompt layer instance
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code on failure
+ */
+composition_engine_error_t composition_engine_set_continuation_layer(
+    composition_engine_t *engine,
+    struct continuation_prompt_layer_t *continuation_layer
+);
+
+/**
+ * Enable or disable continuation prompts.
+ * 
+ * When enabled, the composition engine will use the continuation_prompt_layer
+ * to generate appropriate prompts for multiline commands. When disabled,
+ * commands are rendered without continuation prompts (existing behavior).
+ * 
+ * @param engine The composition engine
+ * @param enable True to enable continuation prompts, false to disable
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code on failure
+ */
+composition_engine_error_t composition_engine_enable_continuation_prompts(
+    composition_engine_t *engine,
+    bool enable
+);
 
 // ============================================================================
 // ANALYSIS AND DEBUGGING FUNCTIONS

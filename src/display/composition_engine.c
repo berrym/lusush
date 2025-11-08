@@ -39,6 +39,7 @@
  */
 
 #include "display/composition_engine.h"
+#include "display/continuation_prompt_layer.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
 #include "display_integration.h"
@@ -723,6 +724,10 @@ composition_engine_error_t composition_engine_init(
     engine->prompt_layer = prompt_layer;
     engine->command_layer = command_layer;
     engine->event_system = event_system;
+    
+    // Initialize continuation prompt support (Phase 4)
+    engine->continuation_prompt_layer = NULL;
+    engine->continuation_prompts_enabled = false;
     
     // Subscribe to relevant events
     if (engine->event_system) {
@@ -1503,6 +1508,43 @@ composition_engine_error_t composition_engine_compose_with_cursor(
         result->cursor_screen_row = y;
         result->cursor_screen_column = x;
         result->cursor_found = true;
+    }
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+// ============================================================================
+// CONTINUATION PROMPT SUPPORT (Phase 4)
+// ============================================================================
+
+composition_engine_error_t composition_engine_set_continuation_layer(
+    composition_engine_t *engine,
+    continuation_prompt_layer_t *continuation_layer
+) {
+    if (!engine) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    engine->continuation_prompt_layer = continuation_layer;
+    
+    // Invalidate cache when continuation layer changes
+    composition_engine_clear_cache(engine);
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+composition_engine_error_t composition_engine_enable_continuation_prompts(
+    composition_engine_t *engine,
+    bool enable
+) {
+    if (!engine) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    if (engine->continuation_prompts_enabled != enable) {
+        engine->continuation_prompts_enabled = enable;
+        
+        // Invalidate cache when setting changes
+        composition_engine_clear_cache(engine);
     }
     
     return COMPOSITION_ENGINE_SUCCESS;
