@@ -1,15 +1,135 @@
 # LLE Implementation - AI Assistant Handoff Document
 
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
-**Date**: 2025-11-07  
+**Date**: 2025-11-08  
 **Branch**: feature/lle  
-**Status**: ✅ **LLE HISTORY NAVIGATION ARCHITECTURE COMPLETE** - Editor context refactoring done  
-**Last Action**: Refactored history navigation position from module static to editor context  
-**Next**: Manual testing of bidirectional history navigation (UP/DOWN arrows)  
+**Status**: ⚠️ **CONTINUATION PROMPTS DEFERRED** - Architectural limitation documented  
+**Last Action**: Investigated continuation prompts - requires major display system enhancement  
+**Next**: Accept limitation and focus on other LLE features, or design display architecture  
 **Current Reality**: LLE fully functional when enabled, GNU Readline stable default  
 **Tests**: Build successful, 44/49 keybinding tests complete  
-**Architecture**: Dual history files, editor context state management, proper OOP encapsulation  
-**Working**: All keybindings, UTF-8 support, LLE history auto-init, import command, save/load
+**Architecture**: Single-buffer model, dual history files, editor context state  
+**Working**: Bidirectional history navigation, multiline editing (no visual prompts), UTF-8, keybindings  
+**Known Limitation**: No continuation prompts (loop>, if>, etc.) - display architecture constraint
+
+---
+## ⚠️ ARCHITECTURAL LIMITATION: Continuation Prompts Not Yet Supported (2025-11-08)
+
+### Problem Identified by User
+**Missing Continuation Prompts**: LLE has no continuation prompts when entering multiline commands. User reported:
+```bash
+for i in 1 2 3; do
+echo "$i"
+done
+```
+Should display continuation prompts like `loop>` after each incomplete line, matching v1.3.0 GNU Readline behavior. Currently shows no prompts on continuation lines.
+
+### Investigation Summary
+Attempted to implement continuation prompts by updating `prompt_layer` when Enter is pressed on incomplete input. However, user verified prompts still don't appear.
+
+### Root Cause: Fundamental Architectural Mismatch
+
+**GNU Readline Architecture** (multi-call model):
+```c
+while (incomplete) {
+    prompt = first_line ? "$ " : "loop>";
+    line = readline(prompt);  // NEW call for each line
+    accumulate(line);
+    check_if_complete();
+}
+// Returns: "for i in 1 2 3; do\necho $i\ndone"
+```
+- Multiple `readline()` calls
+- Each call displays its own prompt OUTSIDE the returned text
+- Prompt never part of command content
+- Shell accumulates separate lines
+
+**LLE Architecture** (single-buffer model):
+```c
+buffer = create_buffer();
+while (!complete) {
+    key = read_key();
+    if (key == ENTER && incomplete) {
+        buffer_insert(buffer, "\n");  // Add newline to SAME buffer
+    }
+}
+// Returns: "for i in 1 2 3; do\necho $i\ndone"
+```
+- Single `lle_readline()` call for entire multiline command
+- Buffer contains actual command with embedded `\n` characters
+- Prompt displayed once at start
+- One unified editing session
+
+### Why Simple Solutions Don't Work
+
+**Option 1: Inject prompts into buffer**
+```
+Buffer: "for i in 1 2 3; do\nloop> echo $i\nloop> done"
+```
+❌ **BREAKS SHELL PARSING**: Prompts become part of command, not valid POSIX syntax
+
+**Option 2: Update prompt_layer on each Enter**
+```c
+prompt_layer_set_content(prompt_layer, "loop>");
+```
+❌ **WRONG DISPLAY MODEL**: Prompt renders once at beginning, not per-line within buffer
+
+**Option 3: Split buffer at newlines for display**
+- Requires composition_engine to parse command content
+- Insert continuation prompts in DISPLAY output (not buffer)
+- Track cursor position across injected prompts
+- Major display system refactoring
+
+### Proper Solution: Display System Enhancement
+
+To support continuation prompts properly, the **composition engine** needs to:
+
+1. **Parse command content** for newlines during composition
+2. **Inject continuation prompts** in rendered OUTPUT only (not in buffer)
+3. **Maintain separation**: Display shows `loop>` but buffer contains only `\n`
+4. **Track cursor correctly**: Account for injected prompts in cursor positioning
+5. **Update dynamically**: Prompt type changes as user types (if/loop/case/function)
+
+This requires:
+- New `composition_with_continuation_prompts()` function
+- Continuation state passed to composition engine
+- Per-line prompt rendering in `compose_multiline_strategy()`
+- Cursor position translation (buffer offset ↔ display position)
+- Display invalidation when continuation state changes
+
+**Estimated Complexity**: Medium-large feature requiring careful display system design.
+
+### Current Status
+
+**Multiline editing works correctly**:
+- ✅ Detects incomplete commands (shared continuation parser)
+- ✅ Inserts newlines in buffer on Enter
+- ✅ Allows editing multiline commands
+- ✅ Executes commands correctly
+- ✅ History navigation preserves multiline structure
+- ❌ NO visual continuation prompts (architectural limitation)
+
+**User Experience Impact**:
+- Multiline commands functional but lack visual feedback
+- Users must know when command is incomplete (no prompt clues)
+- Minor UX degradation vs GNU Readline
+- Acceptable for experimental LLE status
+
+### Decision: Defer to Future Work
+
+**Accepted as Known Limitation** for current LLE implementation:
+1. Multiline editing is functional (core requirement met)
+2. Continuation prompts are visual polish (not blocking)
+3. Proper solution requires significant display architecture work
+4. GNU Readline remains default with full continuation prompt support
+
+**Documentation**:
+- Added detailed comment in `handle_enter()` explaining limitation
+- Marked as future work requiring composition engine enhancement
+- User aware this is architectural constraint, not simple bug
+
+### Files Modified
+- `src/lle/lle_readline.c`: Added architectural limitation comment in `handle_enter()`
 
 ---
 

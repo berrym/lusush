@@ -372,16 +372,23 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
         );
         
         if (result == LLE_SUCCESS) {
-            /* Update prompt to continuation prompt for next line */
-            lle_display_integration_t *display_integ = lle_display_integration_get_global();
-            if (display_integ && display_integ->lusush_display) {
-                display_controller_t *dc = display_integ->lusush_display;
-                if (dc->compositor && dc->compositor->prompt_layer) {
-                    /* Get appropriate continuation prompt based on parser state */
-                    const char *cont_prompt = continuation_get_prompt(ctx->continuation_state);
-                    prompt_layer_set_content(dc->compositor->prompt_layer, cont_prompt);
-                }
-            }
+            /* NOTE: Continuation prompts not yet supported in LLE
+             * 
+             * ARCHITECTURAL LIMITATION: LLE uses single-buffer model where entire
+             * multiline command is edited in one buffer with embedded newlines.
+             * Continuation prompts (loop>, if>, etc.) cannot be injected into
+             * buffer (would break shell parsing) or easily displayed per-line
+             * without major display system enhancements.
+             * 
+             * GNU Readline calls readline() multiple times with different prompts,
+             * so each line naturally gets its own prompt. LLE would need display
+             * system to parse buffer at newlines and inject prompts in rendered
+             * output (not in buffer) - requires significant composition engine work.
+             * 
+             * FUTURE WORK: Enhance composition_engine to support per-line prompt
+             * injection in display output without modifying command buffer content.
+             * See: docs/lle_specification/future/continuation_prompts.md
+             */
             
             refresh_display(ctx);
         }
