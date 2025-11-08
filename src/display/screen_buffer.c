@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // ============================================================================
 // INITIALIZATION AND CLEANUP
@@ -36,6 +37,12 @@ void screen_buffer_init(screen_buffer_t *buffer, int terminal_width) {
     buffer->num_rows = 0;
     buffer->cursor_row = 0;
     buffer->cursor_col = 0;
+    
+    // Initialize all prefix pointers to NULL
+    for (int i = 0; i < SCREEN_BUFFER_MAX_ROWS; i++) {
+        buffer->lines[i].prefix = NULL;
+        buffer->lines[i].prefix_dirty = false;
+    }
 }
 
 void screen_buffer_clear(screen_buffer_t *buffer) {
@@ -45,10 +52,25 @@ void screen_buffer_clear(screen_buffer_t *buffer) {
         buffer->lines[i].length = 0;
         buffer->lines[i].dirty = false;
         memset(buffer->lines[i].cells, 0, sizeof(buffer->lines[i].cells));
+        
+        // Note: We do NOT free prefixes here - they persist across clears
+        // Use screen_buffer_clear_line_prefix() to explicitly remove prefixes
     }
     buffer->num_rows = 0;
     buffer->cursor_row = 0;
     buffer->cursor_col = 0;
+}
+
+void screen_buffer_cleanup(screen_buffer_t *buffer) {
+    if (!buffer) return;
+    
+    // Free all line prefixes
+    for (int i = 0; i < SCREEN_BUFFER_MAX_ROWS; i++) {
+        screen_buffer_clear_line_prefix(buffer, i);
+    }
+    
+    // Clear the buffer
+    screen_buffer_clear(buffer);
 }
 
 void screen_buffer_copy(screen_buffer_t *dest, const screen_buffer_t *src) {
@@ -481,4 +503,314 @@ void screen_buffer_apply_diff(const screen_diff_t *diff, int fd) {
     }
     
     fsync(fd);
+}
+
+// ============================================================================
+// PREFIX SUPPORT FUNCTIONS (Phase 2: Continuation Prompts)
+// ============================================================================
+
+bool screen_buffer_set_line_prefix(
+    screen_buffer_t *buffer,
+    int line_num,
+    const char *prefix_text
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return false;
+    }
+    
+    if (!prefix_text) {
+        // NULL text means clear prefix
+        return screen_buffer_clear_line_prefix(buffer, line_num);
+    }
+    
+    screen_line_t *line = &buffer->lines[line_num];
+    
+    // Allocate or reuse prefix structure
+    if (!line->prefix) {
+        line->prefix = (screen_line_prefix_t *)malloc(sizeof(screen_line_prefix_t));
+        if (!line->prefix) {
+            return false;  // Allocation failed
+        }
+        line->prefix->text = NULL;
+    }
+    
+    // Free old text if present
+    if (line->prefix->text) {
+        free(line->prefix->text);
+    }
+    
+    // Copy prefix text
+    line->prefix->text = strdup(prefix_text);
+    if (!line->prefix->text) {
+        free(line->prefix);
+        line->prefix = NULL;
+        return false;  // Allocation failed
+    }
+    
+    // Calculate properties
+    line->prefix->length = strlen(prefix_text);
+    line->prefix->visual_width = screen_buffer_calculate_visual_width(prefix_text, 0);
+    line->prefix->contains_ansi = (strchr(prefix_text, '\033') != NULL);
+    line->prefix->dirty = true;
+    line->prefix_dirty = true;
+    
+    return true;
+}
+
+bool screen_buffer_clear_line_prefix(screen_buffer_t *buffer, int line_num) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return false;
+    }
+    
+    screen_line_t *line = &buffer->lines[line_num];
+    
+    if (line->prefix) {
+        if (line->prefix->text) {
+            free(line->prefix->text);
+        }
+        free(line->prefix);
+        line->prefix = NULL;
+    }
+    
+    line->prefix_dirty = true;  // Mark as changed (prefix removed)
+    
+    return true;
+}
+
+const char *screen_buffer_get_line_prefix(
+    const screen_buffer_t *buffer,
+    int line_num
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return NULL;
+    }
+    
+    const screen_line_t *line = &buffer->lines[line_num];
+    
+    if (line->prefix && line->prefix->text) {
+        return line->prefix->text;
+    }
+    
+    return NULL;
+}
+
+size_t screen_buffer_get_line_prefix_visual_width(
+    const screen_buffer_t *buffer,
+    int line_num
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return 0;
+    }
+    
+    const screen_line_t *line = &buffer->lines[line_num];
+    
+    if (line->prefix) {
+        return line->prefix->visual_width;
+    }
+    
+    return 0;
+}
+
+bool screen_buffer_is_line_prefix_dirty(
+    const screen_buffer_t *buffer,
+    int line_num
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return false;
+    }
+    
+    return buffer->lines[line_num].prefix_dirty;
+}
+
+void screen_buffer_clear_line_prefix_dirty(screen_buffer_t *buffer, int line_num) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return;
+    }
+    
+    buffer->lines[line_num].prefix_dirty = false;
+}
+
+int screen_buffer_translate_buffer_to_display_col(
+    const screen_buffer_t *buffer,
+    int line_num,
+    int buffer_col
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS || buffer_col < 0) {
+        return -1;
+    }
+    
+    size_t prefix_width = screen_buffer_get_line_prefix_visual_width(buffer, line_num);
+    
+    return (int)prefix_width + buffer_col;
+}
+
+int screen_buffer_translate_display_to_buffer_col(
+    const screen_buffer_t *buffer,
+    int line_num,
+    int display_col
+) {
+    if (!buffer || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS || display_col < 0) {
+        return -1;
+    }
+    
+    size_t prefix_width = screen_buffer_get_line_prefix_visual_width(buffer, line_num);
+    
+    // If display column is within prefix area, return 0 (start of content)
+    if ((size_t)display_col < prefix_width) {
+        return 0;
+    }
+    
+    return display_col - (int)prefix_width;
+}
+
+bool screen_buffer_render_line_with_prefix(
+    const screen_buffer_t *buffer,
+    int line_num,
+    char *output,
+    size_t output_size
+) {
+    if (!buffer || !output || line_num < 0 || line_num >= SCREEN_BUFFER_MAX_ROWS) {
+        return false;
+    }
+    
+    const screen_line_t *line = &buffer->lines[line_num];
+    size_t pos = 0;
+    
+    // Add prefix if present
+    if (line->prefix && line->prefix->text) {
+        size_t prefix_len = line->prefix->length;
+        if (pos + prefix_len >= output_size) {
+            return false;  // Buffer too small
+        }
+        memcpy(output + pos, line->prefix->text, prefix_len);
+        pos += prefix_len;
+    }
+    
+    // Add line content
+    for (int i = 0; i < line->length && pos < output_size - 1; i++) {
+        output[pos++] = line->cells[i].ch;
+    }
+    
+    output[pos] = '\0';
+    return true;
+}
+
+bool screen_buffer_render_multiline_with_prefixes(
+    const screen_buffer_t *buffer,
+    int start_line,
+    int num_lines,
+    char *output,
+    size_t output_size
+) {
+    if (!buffer || !output || start_line < 0 || num_lines <= 0) {
+        return false;
+    }
+    
+    if (start_line + num_lines > SCREEN_BUFFER_MAX_ROWS) {
+        return false;  // Invalid range
+    }
+    
+    size_t pos = 0;
+    
+    for (int i = 0; i < num_lines; i++) {
+        int line_num = start_line + i;
+        
+        // Render line with prefix
+        char line_buffer[SCREEN_BUFFER_MAX_COLS * 2];
+        if (!screen_buffer_render_line_with_prefix(buffer, line_num, 
+                                                     line_buffer, sizeof(line_buffer))) {
+            return false;
+        }
+        
+        // Add to output
+        size_t line_len = strlen(line_buffer);
+        if (pos + line_len + 1 >= output_size) {
+            return false;  // Buffer too small
+        }
+        
+        memcpy(output + pos, line_buffer, line_len);
+        pos += line_len;
+        
+        // Add newline between lines (except after last line)
+        if (i < num_lines - 1) {
+            output[pos++] = '\n';
+        }
+    }
+    
+    output[pos] = '\0';
+    return true;
+}
+
+size_t screen_buffer_calculate_visual_width(const char *text, size_t start_col) {
+    if (!text) return 0;
+    
+    size_t visual_width = 0;
+    size_t col = start_col;
+    size_t i = 0;
+    bool in_escape = false;
+    
+    while (text[i]) {
+        unsigned char ch = (unsigned char)text[i];
+        
+        // Handle ANSI escape sequences (they take 0 columns)
+        if (ch == '\033' || ch == '\x1b') {
+            in_escape = true;
+            i++;
+            continue;
+        }
+        
+        if (in_escape) {
+            i++;
+            // Check for escape sequence terminator
+            if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || 
+                ch == 'm' || ch == 'H' || ch == 'J' || ch == 'K' || ch == 'G') {
+                in_escape = false;
+            }
+            continue;
+        }
+        
+        // Skip readline markers \001 and \002
+        if (ch == '\001' || ch == '\002') {
+            i++;
+            continue;
+        }
+        
+        // Handle tab expansion
+        if (ch == '\t') {
+            size_t tab_width = 8 - (col % 8);
+            visual_width += tab_width;
+            col += tab_width;
+            i++;
+            continue;
+        }
+        
+        // Handle UTF-8 multi-byte sequences
+        if ((ch & 0x80) == 0) {
+            // ASCII: 1 byte, 1 column
+            visual_width++;
+            col++;
+            i++;
+        } else if ((ch & 0xE0) == 0xC0) {
+            // 2-byte UTF-8
+            visual_width++;
+            col++;
+            i += 2;
+        } else if ((ch & 0xF0) == 0xE0) {
+            // 3-byte UTF-8 - check if wide character
+            // For now, assume 1 column (proper impl would use wcwidth)
+            visual_width++;
+            col++;
+            i += 3;
+        } else if ((ch & 0xF8) == 0xF0) {
+            // 4-byte UTF-8
+            visual_width++;
+            col++;
+            i += 4;
+        } else {
+            // Invalid UTF-8, skip
+            i++;
+        }
+    }
+    
+    return visual_width;
 }

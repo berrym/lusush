@@ -56,12 +56,30 @@ typedef struct {
 } screen_cell_t;
 
 /**
+ * Represents a line prefix (e.g., continuation prompt)
+ * 
+ * Prefixes are rendered before line content and tracked separately for
+ * efficient updates. Used for continuation prompts and future features
+ * like autosuggestions.
+ */
+typedef struct {
+    char *text;              // Prefix text (e.g., "> ", "loop> ")
+    size_t length;           // Length in bytes
+    size_t visual_width;     // Visual width in columns (excluding ANSI codes)
+    bool contains_ansi;      // True if prefix contains ANSI escape codes
+    bool dirty;              // True if prefix changed since last render
+} screen_line_prefix_t;
+
+/**
  * Represents one line in the virtual screen
  */
 typedef struct {
     screen_cell_t cells[SCREEN_BUFFER_MAX_COLS];
-    int length;           // Number of characters in this line
-    bool dirty;           // True if this line changed since last render
+    int length;              // Number of characters in this line
+    bool dirty;              // True if line content changed since last render
+    
+    screen_line_prefix_t *prefix;  // Optional prefix (NULL if none)
+    bool prefix_dirty;       // True if prefix changed since last render
 } screen_line_t;
 
 /**
@@ -117,9 +135,22 @@ void screen_buffer_init(screen_buffer_t *buffer, int terminal_width);
 /**
  * Clear screen buffer (reset to empty state)
  * 
+ * Note: This does NOT free line prefixes. Prefixes persist across clears.
+ * Use screen_buffer_cleanup() to free all resources.
+ * 
  * @param buffer Buffer to clear
  */
 void screen_buffer_clear(screen_buffer_t *buffer);
+
+/**
+ * Cleanup screen buffer and free all resources
+ * 
+ * Frees all line prefixes and resets the buffer to empty state.
+ * The buffer can be reused after calling screen_buffer_init() again.
+ * 
+ * @param buffer Buffer to cleanup
+ */
+void screen_buffer_cleanup(screen_buffer_t *buffer);
 
 /**
  * Render prompt and command into screen buffer
@@ -176,6 +207,184 @@ void screen_buffer_apply_diff(const screen_diff_t *diff, int fd);
  * @param src Source buffer
  */
 void screen_buffer_copy(screen_buffer_t *dest, const screen_buffer_t *src);
+
+// ============================================================================
+// PREFIX SUPPORT FUNCTIONS (Phase 2: Continuation Prompts)
+// ============================================================================
+
+/**
+ * Set prefix for a line (e.g., continuation prompt)
+ * 
+ * The prefix is rendered before the line content. Prefixes are tracked
+ * separately from content for efficient updates (independent dirty tracking).
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @param prefix_text Prefix text (will be copied, can be freed after call)
+ * @return true on success, false on error (invalid line, allocation failure)
+ */
+bool screen_buffer_set_line_prefix(
+    screen_buffer_t *buffer,
+    int line_num,
+    const char *prefix_text
+);
+
+/**
+ * Clear prefix for a line
+ * 
+ * Removes and frees the prefix for the specified line.
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @return true on success, false on error (invalid line)
+ */
+bool screen_buffer_clear_line_prefix(screen_buffer_t *buffer, int line_num);
+
+/**
+ * Get prefix text for a line
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @return Prefix text (NULL if no prefix or invalid line)
+ */
+const char *screen_buffer_get_line_prefix(
+    const screen_buffer_t *buffer,
+    int line_num
+);
+
+/**
+ * Get visual width of line prefix
+ * 
+ * Returns the visual width of the prefix in columns, accounting for
+ * ANSI escape sequences, UTF-8, wide characters, and tabs.
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @return Visual width in columns (0 if no prefix or invalid line)
+ */
+size_t screen_buffer_get_line_prefix_visual_width(
+    const screen_buffer_t *buffer,
+    int line_num
+);
+
+/**
+ * Check if line prefix is dirty
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @return true if prefix changed since last render, false otherwise
+ */
+bool screen_buffer_is_line_prefix_dirty(
+    const screen_buffer_t *buffer,
+    int line_num
+);
+
+/**
+ * Clear line prefix dirty flag
+ * 
+ * Marks the prefix as clean (rendered). Note: This does NOT clear the
+ * content dirty flag - they are tracked independently.
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ */
+void screen_buffer_clear_line_prefix_dirty(screen_buffer_t *buffer, int line_num);
+
+/**
+ * Translate buffer column to display column
+ * 
+ * Translates a column position in the line content (buffer space) to
+ * the corresponding column position on the display (display space),
+ * accounting for the prefix width.
+ * 
+ * Example: If prefix is "loop> " (6 columns), buffer column 5 maps to
+ *          display column 11.
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @param buffer_col Column in buffer space (0-based)
+ * @return Column in display space, or -1 on error
+ */
+int screen_buffer_translate_buffer_to_display_col(
+    const screen_buffer_t *buffer,
+    int line_num,
+    int buffer_col
+);
+
+/**
+ * Translate display column to buffer column
+ * 
+ * Translates a column position on the display (display space) to the
+ * corresponding column position in the line content (buffer space),
+ * accounting for the prefix width.
+ * 
+ * If the display column is within the prefix area, returns 0 (start of content).
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @param display_col Column in display space (0-based)
+ * @return Column in buffer space, or -1 on error
+ */
+int screen_buffer_translate_display_to_buffer_col(
+    const screen_buffer_t *buffer,
+    int line_num,
+    int display_col
+);
+
+/**
+ * Render a single line with prefix into a string
+ * 
+ * Renders the prefix (if present) followed by the line content into
+ * the provided output buffer.
+ * 
+ * @param buffer Screen buffer
+ * @param line_num Line number (0-based)
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @return true on success, false on error (buffer too small, invalid line)
+ */
+bool screen_buffer_render_line_with_prefix(
+    const screen_buffer_t *buffer,
+    int line_num,
+    char *output,
+    size_t output_size
+);
+
+/**
+ * Render multiple lines with prefixes into a string
+ * 
+ * Renders a range of lines (each with prefix if present) into the
+ * provided output buffer, separated by newlines.
+ * 
+ * @param buffer Screen buffer
+ * @param start_line First line to render (0-based, inclusive)
+ * @param num_lines Number of lines to render
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @return true on success, false on error (buffer too small, invalid range)
+ */
+bool screen_buffer_render_multiline_with_prefixes(
+    const screen_buffer_t *buffer,
+    int start_line,
+    int num_lines,
+    char *output,
+    size_t output_size
+);
+
+/**
+ * Calculate visual width of text with ANSI, UTF-8, wide chars, and tabs
+ * 
+ * This is an enhanced version of screen_buffer_visual_width() that also
+ * handles tab expansion.
+ * 
+ * @param text Text to measure
+ * @param start_col Starting column position (for tab expansion)
+ * @return Visual width in columns
+ */
+size_t screen_buffer_calculate_visual_width(
+    const char *text,
+    size_t start_col
+);
 
 #ifdef __cplusplus
 }
