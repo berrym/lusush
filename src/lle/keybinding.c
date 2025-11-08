@@ -151,9 +151,9 @@ static lle_result_t parse_special_key(const char *name, lle_special_key_t *key_o
     } else if (strcmp(name, "END") == 0) {
         *key_out = LLE_KEY_END;
     } else if (strcmp(name, "PAGEUP") == 0 || strcmp(name, "PGUP") == 0) {
-        *key_out = LLE_KEY_PAGEUP;
+        *key_out = LLE_KEY_PAGE_UP;
     } else if (strcmp(name, "PAGEDOWN") == 0 || strcmp(name, "PGDN") == 0) {
-        *key_out = LLE_KEY_PAGEDOWN;
+        *key_out = LLE_KEY_PAGE_DOWN;
     } else if (strcmp(name, "INSERT") == 0 || strcmp(name, "INS") == 0) {
         *key_out = LLE_KEY_INSERT;
     } else if (strcmp(name, "ESC") == 0 || strcmp(name, "ESCAPE") == 0) {
@@ -359,8 +359,8 @@ lle_result_t lle_key_event_to_string(
             case LLE_KEY_RIGHT: name = "RIGHT"; break;
             case LLE_KEY_HOME: name = "HOME"; break;
             case LLE_KEY_END: name = "END"; break;
-            case LLE_KEY_PAGEUP: name = "PAGEUP"; break;
-            case LLE_KEY_PAGEDOWN: name = "PAGEDOWN"; break;
+            case LLE_KEY_PAGE_UP: name = "PAGEUP"; break;
+            case LLE_KEY_PAGE_DOWN: name = "PAGEDOWN"; break;
             case LLE_KEY_INSERT: name = "INSERT"; break;
             case LLE_KEY_ESCAPE: name = "ESC"; break;
             default:

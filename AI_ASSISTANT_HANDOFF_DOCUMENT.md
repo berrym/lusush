@@ -3,13 +3,60 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-07  
 **Branch**: feature/lle  
-**Status**: ✅ **HISTORY NAVIGATION PHASE 2 COMPLETE** - UP/DOWN arrow history working with proper LLE editor architecture  
-**Last Action**: Implemented UP/DOWN arrow history navigation using proper lle_editor_t architecture  
-**Next**: Test history navigation manually, then Phase 3 (context-aware multiline) or commit and test  
-**Current Reality**: LLE has full keybinding support + basic history navigation  
-**Tests**: 44/49 keybinding tests complete, Phase 2 history ready for testing  
-**Architecture**: Proper lle_editor_t integration - no hacks, using existing action functions  
-**Working**: All keybindings, UTF-8 support, UP/DOWN history navigation (untested)
+**Status**: ✅ **ARCHITECTURE FIX** - Resolved duplicate lle_special_key_t enum definition  
+**Last Action**: Fixed enum redeclaration by establishing terminal_abstraction.h as canonical source  
+**Next**: Complete history navigation implementation (add history on ENTER, test)  
+**Current Reality**: LLE has clean architecture with proper header dependencies  
+**Tests**: Build successful, 44/49 keybinding tests complete  
+**Architecture**: Single source of truth for lle_special_key_t (terminal_abstraction.h)  
+**Working**: All keybindings, UTF-8 support, enum conflicts resolved
+
+---
+
+## 🔧 ARCHITECTURE FIX: Duplicate Enum Elimination (2025-11-07)
+
+### Problem
+**Duplicate Definition**: Both `terminal_abstraction.h` and `keybinding.h` defined `lle_special_key_t` enum, causing:
+- Compilation errors when both headers were included together
+- "redeclaration of enumerator 'LLE_KEY_ENTER'" errors for all 25+ enum values
+- Blocked lle_editor.h inclusion in lle_readline.c (needed for history navigation)
+
+### Root Cause
+**Architectural Violation**: `keybinding.h` was redefining a type from a lower abstraction layer:
+- `terminal_abstraction.h` (Spec 02): Terminal I/O layer - detects keys, defines key codes
+- `keybinding.h` (Spec 25): Keybinding layer - maps keys to actions, should **consume** key codes
+
+### Solution Applied
+**Canonical Source Established**: Removed duplicate, designated terminal_abstraction.h as authority:
+
+1. **Removed duplicate enum** from `include/lle/keybinding.h`:
+   - Deleted 30-line `lle_special_key_t` enum definition
+   - Added comment: "Special key codes - defined in terminal_abstraction.h"
+
+2. **Added proper include** to `include/lle/keybinding.h`:
+   ```c
+   #include "lle/terminal_abstraction.h"  /* For lle_special_key_t definition */
+   ```
+
+3. **Fixed naming mismatches** in `src/lle/keybinding.c`:
+   - `LLE_KEY_PAGEUP` → `LLE_KEY_PAGE_UP` (canonical form with underscore)
+   - `LLE_KEY_PAGEDOWN` → `LLE_KEY_PAGE_DOWN`
+
+### Benefits
+- ✅ **Eliminates all enum redeclaration errors** - clean compilation
+- ✅ **Single source of truth** - terminal_abstraction.h owns key code definitions
+- ✅ **Proper layering** - keybinding layer now correctly depends on terminal layer
+- ✅ **Enables integration** - lle_editor.h can now be included in lle_readline.c
+- ✅ **Future-proof** - any key code additions only need terminal_abstraction.h update
+
+### Files Modified
+- `include/lle/keybinding.h`: Remove enum, add include
+- `src/lle/keybinding.c`: Fix PAGEUP/PAGEDOWN naming
+- `src/lle/lle_readline.c`: Can now include lle_editor.h without conflicts
+
+### Impact
+**Unblocks**: History navigation implementation (needs lle_editor_t for history subsystem access)
+**Validates**: Proper LLE architecture layering per specifications
 
 ---
 

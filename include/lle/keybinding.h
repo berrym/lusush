@@ -28,6 +28,7 @@
 
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
+#include "lle/terminal_abstraction.h"  /* For lle_special_key_t definition */
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -104,37 +105,9 @@ typedef struct {
 } lle_key_event_t;
 
 /**
- * Special key codes
+ * Special key codes - defined in terminal_abstraction.h
+ * (Removed duplicate definition - using canonical definition from Spec 02)
  */
-typedef enum {
-    LLE_KEY_NONE = 0,
-    LLE_KEY_ENTER,
-    LLE_KEY_TAB,
-    LLE_KEY_BACKSPACE,
-    LLE_KEY_DELETE,
-    LLE_KEY_UP,
-    LLE_KEY_DOWN,
-    LLE_KEY_LEFT,
-    LLE_KEY_RIGHT,
-    LLE_KEY_HOME,
-    LLE_KEY_END,
-    LLE_KEY_PAGEUP,
-    LLE_KEY_PAGEDOWN,
-    LLE_KEY_INSERT,
-    LLE_KEY_ESCAPE,
-    LLE_KEY_F1,
-    LLE_KEY_F2,
-    LLE_KEY_F3,
-    LLE_KEY_F4,
-    LLE_KEY_F5,
-    LLE_KEY_F6,
-    LLE_KEY_F7,
-    LLE_KEY_F8,
-    LLE_KEY_F9,
-    LLE_KEY_F10,
-    LLE_KEY_F11,
-    LLE_KEY_F12
-} lle_special_key_t;
 
 /**
  * Keybinding information structure
