@@ -3,13 +3,13 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-07  
 **Branch**: feature/lle  
-**Status**: ✅ **ARCHITECTURE FIX** - Resolved duplicate lle_special_key_t enum definition  
-**Last Action**: Fixed enum redeclaration by establishing terminal_abstraction.h as canonical source  
-**Next**: Complete history navigation implementation (add history on ENTER, test)  
-**Current Reality**: LLE has clean architecture with proper header dependencies  
+**Status**: ⚠️ **HISTORY FOUNDATION READY** - Code in place but history system not initialized  
+**Last Action**: Added history integration points (save on ENTER, UP/DOWN handlers) but left dormant  
+**Next**: Initialize LLE history subsystem with lle_history_core_create() when LLE becomes default  
+**Current Reality**: GNU Readline remains default, LLE history infrastructure ready but inactive  
 **Tests**: Build successful, 44/49 keybinding tests complete  
-**Architecture**: Single source of truth for lle_special_key_t (terminal_abstraction.h)  
-**Working**: All keybindings, UTF-8 support, enum conflicts resolved
+**Architecture**: Clean separation - history code dormant until LLE activation  
+**Working**: All keybindings, UTF-8 support, enum conflicts resolved, history hooks in place
 
 ---
 
@@ -57,6 +57,79 @@
 ### Impact
 **Unblocks**: History navigation implementation (needs lle_editor_t for history subsystem access)
 **Validates**: Proper LLE architecture layering per specifications
+
+---
+
+## ⚠️ LLE HISTORY NAVIGATION FOUNDATION (2025-11-07)
+
+### Current State: Infrastructure Ready, System Dormant
+
+**Design Decision**: Per user guidance, GNU Readline remains the default and proven shell interface. LLE history infrastructure has been implemented but remains dormant until LLE reaches "rock solid reliable status" and becomes superior to GNU Readline.
+
+### What's Implemented
+
+**1. History Integration Points in lle_readline.c**:
+- `handle_enter()`: Saves commands to LLE history on ENTER (line 335-338)
+  - Checks: `ctx->editor && ctx->editor->history_system && ctx->buffer->data && ctx->buffer->data[0] != '\0'`
+  - Calls: `lle_history_add_entry(editor->history_system, line, 0, NULL)`
+  
+- `handle_arrow_up()`: Delegates to `lle_history_previous()` (line 766-783)
+  - Proper architecture: calls existing keybinding action function
+  - Updates buffer and refreshes display on success
+  
+- `handle_arrow_down()`: Delegates to `lle_history_next()` (line 791-808)
+  - Mirrors UP arrow architecture
+  - Clean separation of concerns
+
+**2. Editor Infrastructure**:
+- Global `lle_editor_t *global_lle_editor` created on first lle_readline() call
+- `lle_get_global_editor()` accessor function for external access
+- Editor contains buffer reference and (uninitialized) history_system pointer
+- UP/DOWN keys wired to call history handlers in event loop (line 1062-1066)
+
+**3. Forward Declarations**:
+- `lle_history_previous(lle_editor_t *editor)` - avoids include conflicts
+- `lle_history_next(lle_editor_t *editor)` - keybinding action functions
+
+### Why History Doesn't Work Yet
+
+**Critical Missing Piece**: `editor->history_system` is `NULL`
+
+```c
+/* From lle_editor_create() in src/lle/lle_editor.c */
+ed->history_system = NULL;  // Initialized to NULL
+```
+
+The TODO at line 924 in lle_readline.c notes:
+```c
+/* TODO: Initialize history subsystem with lle_history_core_create */
+```
+
+**Why It's Not Initialized**: 
+- Proper initialization requires `lle_history_core_create(&core, memory_pool, config)`
+- Needs `lle_history_config_t` with 23 configuration options (from Phase 1)
+- Should only be initialized when user explicitly switches to LLE
+- GNU Readline history remains the working default
+
+### When to Activate
+
+**Activation Checklist**:
+1. ✅ LLE proven stable through extensive testing
+2. ✅ LLE demonstrates superiority over GNU Readline
+3. ✅ User explicitly switches to LLE mode
+4. ⏳ Initialize history with: `lle_history_core_create(&editor->history_system, pool, &config)`
+5. ⏳ Populate config from Lusush's config system (23 options from config.h)
+
+### Benefits of Current Approach
+
+- **Zero Risk**: Dormant code can't break existing GNU Readline functionality
+- **Ready to Activate**: Single initialization call enables full history system
+- **Clean Architecture**: Proper separation between LLE and GNU Readline
+- **Future-Proof**: Infrastructure ready for when LLE becomes default
+
+### Files Modified (Dormant Infrastructure)
+- `src/lle/lle_readline.c`: History save/navigation hooks (inactive due to NULL history_system)
+- Architecture is sound, just needs initialization trigger
 
 ---
 

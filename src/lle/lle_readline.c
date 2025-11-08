@@ -58,11 +58,14 @@
 #include "lle/utf8_support.h"         /* UTF-8 support for proper character deletion */
 #include "lle/history.h"              /* History system for UP/DOWN navigation */
 #include "lle/lle_editor.h"           /* Proper LLE editor architecture */
-#include "lle/keybinding_actions.h"   /* Action functions like lle_history_previous/next */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
 #include "display/prompt_layer.h"
+
+/* Forward declarations for history action functions */
+lle_result_t lle_history_previous(lle_editor_t *editor);
+lle_result_t lle_history_next(lle_editor_t *editor);
 
 #include <stdlib.h>
 #include <string.h>
@@ -75,6 +78,14 @@ extern lusush_memory_pool_t *global_memory_pool;
 
 /* Global LLE editor instance (proper architecture) */
 static lle_editor_t *global_lle_editor = NULL;
+
+/**
+ * @brief Get the global LLE editor instance
+ * Allows other modules to access the editor for adding history, etc.
+ */
+lle_editor_t *lle_get_global_editor(void) {
+    return global_lle_editor;
+}
 
 /* Event handler context for Step 6 */
 typedef struct {
@@ -321,6 +332,12 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
     }
     
     /* Line complete - accept entire buffer regardless of cursor position */
+    
+    /* Add to LLE history before completing */
+    if (ctx->editor && ctx->editor->history_system && ctx->buffer->data && ctx->buffer->data[0] != '\0') {
+        lle_history_add_entry(ctx->editor->history_system, ctx->buffer->data, 0, NULL);
+    }
+    
     *ctx->done = true;
     *ctx->final_line = ctx->buffer->data ? strdup(ctx->buffer->data) : strdup("");
     
@@ -903,10 +920,10 @@ char *lle_readline(const char *prompt)
         if (result != LLE_SUCCESS || !global_lle_editor) {
             /* Failed to create editor - non-fatal, history won't work */
             global_lle_editor = NULL;
-        } else {
-            /* Initialize history subsystem */
-            lle_editor_init_subsystem(global_lle_editor, "history");
         }
+        /* History subsystem intentionally left uninitialized (NULL).
+         * Will be initialized with lle_history_core_create() when user
+         * switches to LLE mode. GNU Readline remains default until then. */
     }
     
     /* Set buffer in editor if editor exists */
