@@ -372,6 +372,17 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
         );
         
         if (result == LLE_SUCCESS) {
+            /* Update prompt to continuation prompt for next line */
+            lle_display_integration_t *display_integ = lle_display_integration_get_global();
+            if (display_integ && display_integ->lusush_display) {
+                display_controller_t *dc = display_integ->lusush_display;
+                if (dc->compositor && dc->compositor->prompt_layer) {
+                    /* Get appropriate continuation prompt based on parser state */
+                    const char *cont_prompt = continuation_get_prompt(ctx->continuation_state);
+                    prompt_layer_set_content(dc->compositor->prompt_layer, cont_prompt);
+                }
+            }
+            
             refresh_display(ctx);
         }
         
