@@ -62,6 +62,7 @@
 #include "layer_events.h"
 #include "prompt_layer.h"
 #include "command_layer.h"
+#include "screen_buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -194,6 +195,7 @@ typedef struct {
     prompt_layer_t *prompt_layer;               // Prompt layer instance
     command_layer_t *command_layer;             // Command layer instance
     layer_event_system_t *event_system;        // Event system instance
+    screen_buffer_t *screen_buffer;            // Screen buffer for rendering
     
     // Continuation prompt support (Phase 2-4)
     struct continuation_prompt_layer_t *continuation_prompt_layer; // Continuation prompt layer
@@ -435,6 +437,21 @@ composition_engine_error_t composition_engine_clear_cache(composition_engine_t *
 // ============================================================================
 // CONTINUATION PROMPT SUPPORT (Phase 4)
 // ============================================================================
+
+/**
+ * Set screen buffer.
+ * 
+ * Associates a screen buffer with the composition engine for multiline
+ * rendering with continuation prompts.
+ * 
+ * @param engine The composition engine
+ * @param buffer The screen buffer instance
+ * @return COMPOSITION_ENGINE_SUCCESS on success, error code on failure
+ */
+composition_engine_error_t composition_engine_set_screen_buffer(
+    composition_engine_t *engine,
+    screen_buffer_t *buffer
+);
 
 /**
  * Set continuation prompt layer.
