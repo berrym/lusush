@@ -585,6 +585,12 @@ static void add_to_history_cache(const char *line) {
 void lusush_history_add(const char *line) {
     if (!line || !*line) return;
     
+    /* When LLE is enabled, it manages its own history - do not use GNU Readline history */
+    extern config_values_t config;
+    if (config.use_lle) {
+        return;
+    }
+    
     // Skip whitespace-only lines
     const char *trimmed = line;
     while (*trimmed && isspace(*trimmed)) trimmed++;

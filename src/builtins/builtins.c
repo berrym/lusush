@@ -20,6 +20,8 @@
 #include "../../include/autosuggestions.h"
 #include "../../include/input.h"
 #include "../../include/lusush_memory_pool.h"
+#include "../../include/lle/lle_editor.h"
+#include "../../include/lle/history.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -4349,11 +4351,16 @@ int bin_display(int argc, char **argv) {
             printf("LLE (Lusush Line Editor) Commands\n");
             printf("Usage: display lle <command> [options]\n");
             printf("\nCommands:\n");
-            printf("  enable      - Enable LLE for this session\n");
-            printf("  disable     - Disable LLE for this session\n");
-            printf("  status      - Show LLE status\n");
-            printf("\nNote: Changes apply to current session. Use 'config set editor.use_lle true' \n");
+            printf("  enable         - Enable LLE for this session (takes effect immediately)\n");
+            printf("  disable        - Disable LLE for this session (takes effect immediately)\n");
+            printf("  status         - Show LLE status and history info\n");
+            printf("  history-import - Import GNU Readline history into LLE\n");
+            printf("\nNote: Changes apply immediately. Use 'config set editor.use_lle true'\n");
             printf("      and 'config save' to persist across sessions.\n");
+            printf("\nHistory:\n");
+            printf("  LLE uses separate history file: ~/.lusush_history_lle\n");
+            printf("  GNU Readline uses: ~/.lusush_history\n");
+            printf("  Use 'history-import' to copy commands from Readline to LLE (one-time)\n");
             return 0;
         }
         
@@ -4362,24 +4369,79 @@ int bin_display(int argc, char **argv) {
         if (strcmp(lle_cmd, "enable") == 0) {
             extern config_values_t config;
             config.use_lle = true;
-            printf("LLE enabled for this session (requires shell restart to take effect)\n");
-            printf("To persist: config set editor.use_lle true && config save\n");
+            printf("✓ LLE enabled for this session (takes effect immediately)\n");
+            printf("  Next prompt will use LLE line editor\n");
+            printf("  To persist: config set editor.use_lle true && config save\n");
             return 0;
             
         } else if (strcmp(lle_cmd, "disable") == 0) {
             extern config_values_t config;
             config.use_lle = false;
-            printf("LLE disabled for this session (requires shell restart to take effect)\n");
-            printf("To persist: config set editor.use_lle false && config save\n");
+            printf("✓ LLE disabled for this session (takes effect immediately)\n");
+            printf("  Next prompt will use GNU Readline\n");
+            printf("  To persist: config set editor.use_lle false && config save\n");
             return 0;
             
         } else if (strcmp(lle_cmd, "status") == 0) {
             extern config_values_t config;
             printf("LLE Status:\n");
-            printf("  Current session setting: %s\n", config.use_lle ? "enabled" : "disabled");
-            printf("  Active line editor: %s\n", config.use_lle ? "LLE" : "GNU readline");
-            printf("  Note: Changes require shell restart to take effect\n");
+            printf("  Mode: %s\n", config.use_lle ? "LLE (enabled)" : "GNU Readline (default)");
+            printf("  History file: %s\n", config.use_lle ? "~/.lusush_history_lle" : "~/.lusush_history");
+            
+            if (config.use_lle) {
+                printf("\nLLE Features:\n");
+                printf("  Multi-line editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
+                printf("  History deduplication: %s\n", config.lle_enable_deduplication ? "enabled" : "disabled");
+                printf("  Forensic tracking: %s\n", config.lle_enable_forensic_tracking ? "enabled" : "disabled");
+            }
             return 0;
+            
+        } else if (strcmp(lle_cmd, "history-import") == 0) {
+            extern config_values_t config;
+            
+            if (!config.use_lle) {
+                fprintf(stderr, "Error: LLE must be enabled to import history\n");
+                fprintf(stderr, "Run: display lle enable\n");
+                return 1;
+            }
+            
+            /* Get the global LLE editor */
+            extern lle_editor_t *lle_get_global_editor(void);
+            lle_editor_t *editor = lle_get_global_editor();
+            
+            if (!editor || !editor->history_system) {
+                fprintf(stderr, "Error: LLE history system not initialized\n");
+                fprintf(stderr, "This shouldn't happen - please report this bug\n");
+                return 1;
+            }
+            
+            /* Import from GNU Readline history using bridge */
+            printf("Importing GNU Readline history into LLE...\n");
+            lle_result_t result = lle_history_bridge_import_from_readline();
+            
+            if (result == LLE_SUCCESS) {
+                /* Get entry count */
+                size_t count = 0;
+                lle_history_get_entry_count(editor->history_system, &count);
+                
+                printf("✓ Successfully imported history from ~/.lusush_history\n");
+                printf("  Total entries in LLE history: %zu\n", count);
+                
+                /* Save to LLE history file */
+                const char *home = getenv("HOME");
+                if (home) {
+                    char history_path[1024];
+                    snprintf(history_path, sizeof(history_path), "%s/.lusush_history_lle", home);
+                    lle_history_save_to_file(editor->history_system, history_path);
+                    printf("  Saved to: %s\n", history_path);
+                }
+                
+                return 0;
+            } else {
+                fprintf(stderr, "Error: Failed to import history (error code: %d)\n", result);
+                return 1;
+            }
+
             
         } else {
             fprintf(stderr, "display lle: Unknown command '%s'\n", lle_cmd);

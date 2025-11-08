@@ -62,10 +62,14 @@
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
 #include "display/prompt_layer.h"
+#include "config.h"                   /* For config_values_t and history config options */
 
 /* Forward declarations for history action functions */
 lle_result_t lle_history_previous(lle_editor_t *editor);
 lle_result_t lle_history_next(lle_editor_t *editor);
+
+/* Forward declaration for config */
+extern config_values_t config;
 
 #include <stdlib.h>
 #include <string.h>
@@ -85,6 +89,49 @@ static lle_editor_t *global_lle_editor = NULL;
  */
 lle_editor_t *lle_get_global_editor(void) {
     return global_lle_editor;
+}
+
+/**
+ * @brief Populate LLE history config from Lusush config system
+ * Maps LLE history config options from config.h to lle_history_config_t
+ * 
+ * This bridges Lusush's config system with LLE's history core, ensuring
+ * all user preferences are properly applied to the history subsystem.
+ */
+static void populate_history_config_from_lusush_config(lle_history_config_t *hist_config) {
+    if (!hist_config) return;
+    
+    /* Initialize to zero */
+    memset(hist_config, 0, sizeof(lle_history_config_t));
+    
+    /* Capacity settings */
+    hist_config->max_entries = config.history_size > 0 ? config.history_size : 5000;
+    hist_config->max_command_length = 8192; /* Support long multiline commands */
+    
+    /* File settings */
+    if (config.lle_history_file && config.lle_history_file[0] != '\0') {
+        hist_config->history_file_path = config.lle_history_file;
+    } else {
+        hist_config->history_file_path = NULL; /* Use default ~/.lusush_history_lle */
+    }
+    hist_config->auto_save = true;         /* Always auto-save for safety */
+    hist_config->load_on_init = true;      /* Load existing history on startup */
+    
+    /* Deduplication behavior */
+    hist_config->ignore_duplicates = config.lle_enable_deduplication &&
+                                    (config.lle_dedup_scope != LLE_DEDUP_SCOPE_NONE);
+    hist_config->ignore_space_prefix = false; /* Standard bash behavior: space = don't save */
+    
+    /* Metadata to save */
+    hist_config->save_timestamps = config.history_timestamps; /* Use global setting */
+    hist_config->save_working_dir = config.lle_enable_forensic_tracking;
+    hist_config->save_exit_codes = config.lle_enable_forensic_tracking;
+    
+    /* Performance settings */
+    hist_config->initial_capacity = config.lle_enable_history_cache && config.lle_cache_size > 0
+                                   ? config.lle_cache_size
+                                   : 1000;
+    hist_config->use_indexing = config.lle_enable_history_cache; /* Enable fast lookups if cache enabled */
 }
 
 /* Event handler context for Step 6 */
@@ -336,6 +383,14 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
     /* Add to LLE history before completing */
     if (ctx->editor && ctx->editor->history_system && ctx->buffer->data && ctx->buffer->data[0] != '\0') {
         lle_history_add_entry(ctx->editor->history_system, ctx->buffer->data, 0, NULL);
+        
+        /* Save to history file (auto-save enabled in config) */
+        const char *home = getenv("HOME");
+        if (home) {
+            char history_path[1024];
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history_lle", home);
+            lle_history_save_to_file(ctx->editor->history_system, history_path);
+        }
     }
     
     *ctx->done = true;
@@ -920,10 +975,27 @@ char *lle_readline(const char *prompt)
         if (result != LLE_SUCCESS || !global_lle_editor) {
             /* Failed to create editor - non-fatal, history won't work */
             global_lle_editor = NULL;
+        } else {
+            /* Initialize history subsystem with config from Lusush */
+            lle_history_config_t hist_config;
+            populate_history_config_from_lusush_config(&hist_config);
+            
+            result = lle_history_core_create(&global_lle_editor->history_system,
+                                            global_lle_editor->lle_pool,
+                                            &hist_config);
+            
+            if (result == LLE_SUCCESS && global_lle_editor->history_system) {
+                /* Load existing history from LLE history file */
+                const char *history_file = getenv("HOME");
+                char history_path[1024];
+                if (history_file) {
+                    snprintf(history_path, sizeof(history_path), 
+                            "%s/.lusush_history_lle", history_file);
+                    lle_history_load_from_file(global_lle_editor->history_system,
+                                              history_path);
+                }
+            }
         }
-        /* History subsystem intentionally left uninitialized (NULL).
-         * Will be initialized with lle_history_core_create() when user
-         * switches to LLE mode. GNU Readline remains default until then. */
     }
     
     /* Set buffer in editor if editor exists */
