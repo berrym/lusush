@@ -49,6 +49,47 @@ static config_option_t config_options[] = {
     {                  "history.file", CONFIG_TYPE_STRING,    CONFIG_SECTION_HISTORY,
      &config.history_file,                             "History file path",       config_validate_string       },
 
+    // LLE History Configuration
+    {"lle.arrow_key_mode", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
+     &config.lle_arrow_key_mode, "Arrow key behavior mode", config_validate_lle_arrow_mode},
+    {"lle.enable_multiline_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_multiline_navigation, "Enable vertical cursor navigation in multiline", config_validate_bool},
+    {"lle.wrap_history_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_wrap_history_navigation, "Wrap around at history boundaries", config_validate_bool},
+    {"lle.save_line_on_history_nav", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_save_line_on_history_nav, "Save current line when navigating history", config_validate_bool},
+    {"lle.preserve_multiline_structure", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_preserve_multiline_structure, "Preserve multiline structure in history", config_validate_bool},
+    {"lle.enable_multiline_editing", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_multiline_editing, "Enable editing of recalled multiline commands", config_validate_bool},
+    {"lle.show_multiline_indicators", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_show_multiline_indicators, "Show visual indicators for multiline", config_validate_bool},
+    {"lle.enable_interactive_search", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_interactive_search, "Enable Ctrl-R interactive search", config_validate_bool},
+    {"lle.search_fuzzy_matching", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_search_fuzzy_matching, "Use fuzzy matching in search", config_validate_bool},
+    {"lle.search_case_sensitive", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_search_case_sensitive, "Case sensitive history search", config_validate_bool},
+    {"lle.storage_mode", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
+     &config.lle_storage_mode, "History storage mode", config_validate_lle_storage_mode},
+    {"lle.history_file", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
+     &config.lle_history_file, "LLE history file path", config_validate_string},
+    {"lle.sync_with_readline", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_sync_with_readline, "Sync LLE history with GNU Readline", config_validate_bool},
+    {"lle.export_to_bash_history", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_export_to_bash_history, "Export to .bash_history format", config_validate_bool},
+    {"lle.enable_forensic_tracking", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_forensic_tracking, "Track metadata (timestamps, exit codes, cwd)", config_validate_bool},
+    {"lle.enable_deduplication", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_deduplication, "Enable history deduplication", config_validate_bool},
+    {"lle.dedup_scope", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_scope, "Deduplication scope", config_validate_lle_dedup_scope},
+    {"lle.enable_history_cache", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_enable_history_cache, "Enable history caching for performance", config_validate_bool},
+    {"lle.cache_size", CONFIG_TYPE_INT, CONFIG_SECTION_HISTORY,
+     &config.lle_cache_size, "History cache size", config_validate_int},
+    {"lle.readline_compatible_mode", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_readline_compatible_mode, "GNU Readline compatibility mode", config_validate_bool},
 
     // Completion settings
     {            "completion.enabled",   CONFIG_TYPE_BOOL, CONFIG_SECTION_COMPLETION,
@@ -814,6 +855,31 @@ const char *CONFIG_FILE_TEMPLATE =
     "history_timestamps = false\n"
     "# history_file = ~/.lusush_history\n"
     "\n"
+    "# LLE History Configuration\n"
+    "# Arrow key behavior: context-aware, classic, always-history, multiline-first\n"
+    "lle_arrow_key_mode = context-aware\n"
+    "lle_enable_multiline_navigation = true\n"
+    "lle_wrap_history_navigation = false\n"
+    "lle_save_line_on_history_nav = true\n"
+    "lle_preserve_multiline_structure = true\n"
+    "lle_enable_multiline_editing = true\n"
+    "lle_show_multiline_indicators = true\n"
+    "lle_enable_interactive_search = true\n"
+    "lle_search_fuzzy_matching = false\n"
+    "lle_search_case_sensitive = false\n"
+    "# Storage mode: lle-only, bash-only, dual, readline-compat\n"
+    "lle_storage_mode = dual\n"
+    "# lle_history_file = ~/.lle_history\n"
+    "lle_sync_with_readline = true\n"
+    "lle_export_to_bash_history = true\n"
+    "lle_enable_forensic_tracking = true\n"
+    "lle_enable_deduplication = true\n"
+    "# Dedup scope: none, session, recent, global\n"
+    "lle_dedup_scope = session\n"
+    "lle_enable_history_cache = true\n"
+    "lle_cache_size = 100\n"
+    "lle_readline_compatible_mode = false\n"
+    "\n"
     "[completion]\n"
     "completion_enabled = true\n"
     "fuzzy_completion = true\n"
@@ -928,6 +994,27 @@ void config_set_defaults(void) {
     config.history_timestamps = false;
     config.history_file = NULL;
 
+    // LLE History defaults
+    config.lle_arrow_key_mode = LLE_ARROW_MODE_CONTEXT_AWARE;
+    config.lle_enable_multiline_navigation = true;
+    config.lle_wrap_history_navigation = false;
+    config.lle_save_line_on_history_nav = true;
+    config.lle_preserve_multiline_structure = true;
+    config.lle_enable_multiline_editing = true;
+    config.lle_show_multiline_indicators = true;
+    config.lle_enable_interactive_search = true;
+    config.lle_search_fuzzy_matching = false;
+    config.lle_search_case_sensitive = false;
+    config.lle_storage_mode = LLE_STORAGE_MODE_DUAL;
+    config.lle_history_file = NULL;  // Will default to ~/.lle_history
+    config.lle_sync_with_readline = true;
+    config.lle_export_to_bash_history = true;
+    config.lle_enable_forensic_tracking = true;
+    config.lle_enable_deduplication = true;
+    config.lle_dedup_scope = LLE_DEDUP_SCOPE_SESSION;
+    config.lle_enable_history_cache = true;
+    config.lle_cache_size = 100;
+    config.lle_readline_compatible_mode = false;
 
     // Completion defaults
     config.completion_enabled = true;
@@ -1465,6 +1552,27 @@ bool config_validate_optimization_level(const char *value) {
     char *endptr;
     long level = strtol(value, &endptr, 10);
     return (*endptr == '\0' && level >= 0 && level <= 4);
+}
+
+bool config_validate_lle_arrow_mode(const char *value) {
+    return (strcmp(value, "context-aware") == 0 ||
+            strcmp(value, "classic") == 0 ||
+            strcmp(value, "always-history") == 0 ||
+            strcmp(value, "multiline-first") == 0);
+}
+
+bool config_validate_lle_storage_mode(const char *value) {
+    return (strcmp(value, "lle-only") == 0 ||
+            strcmp(value, "bash-only") == 0 ||
+            strcmp(value, "dual") == 0 ||
+            strcmp(value, "readline-compat") == 0);
+}
+
+bool config_validate_lle_dedup_scope(const char *value) {
+    return (strcmp(value, "none") == 0 ||
+            strcmp(value, "session") == 0 ||
+            strcmp(value, "recent") == 0 ||
+            strcmp(value, "global") == 0);
 }
 
 /**

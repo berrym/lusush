@@ -34,6 +34,30 @@ typedef enum {
     CONFIG_TYPE_COLOR
 } config_type_t;
 
+// LLE History - Arrow key behavior modes
+typedef enum {
+    LLE_ARROW_MODE_CONTEXT_AWARE,    // Smart: multiline navigation when in multiline
+    LLE_ARROW_MODE_CLASSIC,          // GNU Readline: always history navigation
+    LLE_ARROW_MODE_ALWAYS_HISTORY,   // Always history, use Ctrl-P/N only
+    LLE_ARROW_MODE_MULTILINE_FIRST   // Prioritize multiline navigation
+} lle_arrow_key_mode_t;
+
+// LLE History - Storage modes
+typedef enum {
+    LLE_STORAGE_MODE_LLE_ONLY,       // Store only in LLE format
+    LLE_STORAGE_MODE_BASH_ONLY,      // Store only in bash format
+    LLE_STORAGE_MODE_DUAL,           // Store in both formats (recommended)
+    LLE_STORAGE_MODE_READLINE_COMPAT // Use GNU Readline's storage
+} lle_history_storage_mode_t;
+
+// LLE History - Deduplication scope
+typedef enum {
+    LLE_DEDUP_SCOPE_NONE,            // No deduplication
+    LLE_DEDUP_SCOPE_SESSION,         // Within current session
+    LLE_DEDUP_SCOPE_RECENT,          // Last N entries
+    LLE_DEDUP_SCOPE_GLOBAL           // Entire history
+} lle_dedup_scope_t;
+
 // Configuration option structure
 typedef struct {
     const char *name;
@@ -62,6 +86,43 @@ typedef struct {
     bool history_no_dups;
     bool history_timestamps;
     char *history_file;
+
+    // LLE History Configuration
+    // Arrow key behavior
+    lle_arrow_key_mode_t lle_arrow_key_mode;
+    bool lle_enable_multiline_navigation;
+
+    // History navigation
+    bool lle_wrap_history_navigation;
+    bool lle_save_line_on_history_nav;
+
+    // Multiline support
+    bool lle_preserve_multiline_structure;
+    bool lle_enable_multiline_editing;
+    bool lle_show_multiline_indicators;
+
+    // Search behavior
+    bool lle_enable_interactive_search;
+    bool lle_search_fuzzy_matching;
+    bool lle_search_case_sensitive;
+
+    // File format and storage
+    lle_history_storage_mode_t lle_storage_mode;
+    char *lle_history_file;
+    bool lle_sync_with_readline;
+    bool lle_export_to_bash_history;
+
+    // Advanced features
+    bool lle_enable_forensic_tracking;
+    bool lle_enable_deduplication;
+    lle_dedup_scope_t lle_dedup_scope;
+
+    // Performance
+    bool lle_enable_history_cache;
+    int lle_cache_size;
+
+    // Compatibility mode
+    bool lle_readline_compatible_mode;
 
     // Completion settings
     bool completion_enabled;
@@ -178,6 +239,9 @@ bool config_validate_shell_option(const char *value);
 bool config_validate_display_mode(const char *value);
 bool config_validate_optimization_level(const char *value);
 bool config_validate_color_scheme(const char *value);
+bool config_validate_lle_arrow_mode(const char *value);
+bool config_validate_lle_storage_mode(const char *value);
+bool config_validate_lle_dedup_scope(const char *value);
 
 // Configuration value setters and getters
 int config_set_bool(const char *key, bool value);
