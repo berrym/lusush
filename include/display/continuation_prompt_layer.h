@@ -40,6 +40,9 @@
 extern "C" {
 #endif
 
+// Forward declaration for event system
+typedef struct layer_event_system layer_event_system_t;
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -110,14 +113,17 @@ continuation_prompt_layer_t *continuation_prompt_layer_create(void);
 /**
  * Initialize the continuation prompt layer
  * 
- * Initializes the layer with default settings. Must be called before
+ * Initializes the layer with default settings and connects it to the
+ * event system for active layer participation. Must be called before
  * using the layer.
  * 
  * @param layer The layer to initialize
+ * @param events Event system for layer communication
  * @return SUCCESS on success, error code on failure
  */
 continuation_prompt_error_t continuation_prompt_layer_init(
-    continuation_prompt_layer_t *layer
+    continuation_prompt_layer_t *layer,
+    layer_event_system_t *events
 );
 
 /**

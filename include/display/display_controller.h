@@ -230,11 +230,15 @@ typedef struct {
  * configuration. It serves as the central coordination point for the entire
  * layered display architecture.
  */
+// Forward declaration for continuation_prompt_layer
+typedef struct continuation_prompt_layer_t continuation_prompt_layer_t;
+
 typedef struct {
     // Core layer management
     composition_engine_t *compositor;           // Composition engine instance
     terminal_control_t *terminal_ctrl;          // Terminal control context
     layer_event_system_t *event_system;        // Event system instance
+    continuation_prompt_layer_t *continuation_layer; // Continuation prompt layer
     
     // Display state management
     char *last_display_state;                  // Last complete display state

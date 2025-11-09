@@ -8,6 +8,7 @@
  */
 
 #include "display/continuation_prompt_layer.h"
+#include "display/layer_events.h"
 #include "input_continuation.h"
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +37,9 @@ struct continuation_prompt_layer_t {
     // Configuration
     continuation_prompt_mode_t mode;            // Current mode
     bool initialized;                           // Layer is initialized
+    
+    // Event system integration
+    layer_event_system_t *event_system;         // Event system reference
     
     // Caching
     prompt_cache_entry_t cache[CONTINUATION_PROMPT_CACHE_SIZE];
@@ -154,12 +158,52 @@ continuation_prompt_layer_t *continuation_prompt_layer_create(void) {
     return layer;
 }
 
+/**
+ * Event handler for command content changes
+ */
+static layer_events_error_t continuation_prompt_handle_command_changed(
+    const layer_event_t *event,
+    void *user_data
+) {
+    (void)event;  // Event data not needed currently
+    continuation_prompt_layer_t *layer = (continuation_prompt_layer_t *)user_data;
+    
+    if (!layer || !layer->initialized) {
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    // Invalidate cache when command changes
+    memset(layer->cache, 0, sizeof(layer->cache));
+    layer->cache_next_slot = 0;
+    
+    // Publish redraw needed event
+    if (layer->event_system) {
+        layer_events_publish_simple(
+            layer->event_system,
+            LAYER_EVENT_REDRAW_NEEDED,
+            LAYER_ID_CONTINUATION_PROMPTS,
+            LAYER_ID_DISPLAY_CONTROLLER,
+            LAYER_EVENT_PRIORITY_NORMAL
+        );
+    }
+    
+    return LAYER_EVENTS_SUCCESS;
+}
+
 continuation_prompt_error_t continuation_prompt_layer_init(
-    continuation_prompt_layer_t *layer
+    continuation_prompt_layer_t *layer,
+    layer_event_system_t *events
 ) {
     if (!layer) {
         return CONTINUATION_PROMPT_ERROR_NULL_POINTER;
     }
+    
+    if (!events) {
+        return CONTINUATION_PROMPT_ERROR_INVALID_PARAM;
+    }
+    
+    // Store event system reference
+    layer->event_system = events;
     
     // Clear cache
     memset(layer->cache, 0, sizeof(layer->cache));
@@ -173,6 +217,20 @@ continuation_prompt_error_t continuation_prompt_layer_init(
     layer->max_time_ns = 0;
     layer->min_time_ns = UINT64_MAX;
     
+    // Subscribe to command layer content changes
+    layer_events_error_t subscribe_result = layer_events_subscribe(
+        events,
+        LAYER_EVENT_CONTENT_CHANGED,
+        LAYER_ID_CONTINUATION_PROMPTS,
+        continuation_prompt_handle_command_changed,
+        layer,
+        LAYER_EVENT_PRIORITY_NORMAL
+    );
+    
+    if (subscribe_result != LAYER_EVENTS_SUCCESS) {
+        return CONTINUATION_PROMPT_ERROR_ALLOCATION_FAILED;
+    }
+    
     layer->initialized = true;
     
     return CONTINUATION_PROMPT_SUCCESS;
@@ -185,10 +243,16 @@ continuation_prompt_error_t continuation_prompt_layer_cleanup(
         return CONTINUATION_PROMPT_ERROR_NULL_POINTER;
     }
     
+    // Unsubscribe from events
+    if (layer->event_system) {
+        layer_events_unsubscribe_all(layer->event_system, LAYER_ID_CONTINUATION_PROMPTS);
+    }
+    
     // Clear cache
     memset(layer->cache, 0, sizeof(layer->cache));
     layer->cache_next_slot = 0;
     
+    layer->event_system = NULL;
     layer->initialized = false;
     
     return CONTINUATION_PROMPT_SUCCESS;
