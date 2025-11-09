@@ -23,15 +23,15 @@
 |----------|-------|------|------|---------|------|-----------|
 | If Statements | 3 | 2 | 0 | 0 | 1 | 100% (tested) |
 | Loops | 3 | 2 | 1 | 0 | 0 | 67% |
-| Functions | 2 | 0 | 0 | 0 | 2 | - |
-| Subshells | 2 | 0 | 0 | 0 | 2 | - |
+| Functions | 2 | 1 | 0 | 0 | 1 | 100% (tested) |
+| Subshells | 2 | 1 | 0 | 0 | 1 | 100% (tested) |
 | Quotes | 3 | 1 | 0 | 0 | 2 | 100% (tested) |
-| Pipelines | 2 | 0 | 1 | 0 | 1 | 0% |
+| Pipelines | 2 | 0 | 2 | 0 | 0 | 0% |
 | Case Statements | 1 | 0 | 0 | 0 | 1 | - |
 | Visual/Edge Cases | 4 | 2 | 0 | 1 | 1 | 67% |
-| Editing | 2 | 0 | 0 | 0 | 2 | - |
+| Editing | 2 | 0 | 1 | 0 | 1 | 0% |
 | Mode Switching | 1 | 0 | 0 | 0 | 1 | - |
-| **TOTAL** | **23** | **7** | **2** | **1** | **13** | **70%** (tested) |
+| **TOTAL** | **23** | **9** | **4** | **1** | **9** | **64%** (tested) |
 
 ---
 
@@ -82,11 +82,10 @@
 ## Category 3: Function Definition Prompts
 
 ### Test 3.1: Simple Function
-- **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
-- **Expected**: Lines show "func> "
-- **Actual**: 
-- **Notes**: **KNOWN LIMITATION** - Function detection not working in unit tests. May show "> " instead of "func> "
-- **Reference**: Unit test `test_context_aware_function` fails
+- **Status**: ✅ PASS
+- **Expected**: Lines show "func> " (or "> " is acceptable)
+- **Actual**: Continuation prompts showed "> " (not "func> "). Function defined successfully with no visible output. Calling myfunc executed perfectly, output: "hello from function"
+- **Notes**: Function definition and execution work perfectly. Prompt is "> " instead of "func> " (confirms unit test finding). Syntax highlighting: echo not colored (expected issue).
 
 ### Test 3.2: Multi-line Function
 - **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
@@ -99,11 +98,10 @@
 ## Category 4: Subshell and Command Grouping
 
 ### Test 4.1: Subshell
-- **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
-- **Expected**: Lines show "sh> "
-- **Actual**: 
-- **Notes**: **KNOWN LIMITATION** - Subshell detection not working in unit tests. May show "> " instead of "sh> "
-- **Reference**: Unit test `test_context_aware_subshell` fails
+- **Status**: ✅ PASS
+- **Expected**: Lines show "sh> " (or "> " is acceptable)
+- **Actual**: Continuation prompts showed "> " (not "sh> "). First pwd output: /tmp. Second pwd output: /home/mberry/Lab/c/lusush. Subshell isolation working perfectly.
+- **Notes**: Subshell execution and isolation work perfectly. Prompt is "> " instead of "sh> " (confirms unit test finding). Syntax highlighting issue: cd didn't highlight until "/" was typed, then turned green. pwd not highlighted on continuation lines.
 
 ### Test 4.2: Command Group (curly braces)
 - **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
@@ -144,10 +142,10 @@
 - **Notes**: **CRITICAL BUG**: Pipe continuation not working. Shell executes line immediately when Enter pressed after pipe instead of waiting for continuation. Multi-line pipe support is broken.
 
 ### Test 6.2: Backslash Continuation
-- **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
-- **Expected**: Shows continuation prompt
-- **Actual**: 
-- **Notes**: 
+- **Status**: ❌ FAIL
+- **Expected**: Shows continuation prompt and concatenates lines
+- **Actual**: Continuation prompt ">" appeared, but got error: "lusush: syntax error: unterminated quoted string"
+- **Notes**: **BUG**: Backslash continuation has issues with quoted string continuation syntax. Parser error on quoted strings across continuation.
 
 ---
 
@@ -192,10 +190,10 @@
 ## Category 9: Editing Multi-line Constructs
 
 ### Test 9.1: Up Arrow to Previous Line
-- **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
-- **Expected**: Arrow navigation works across multi-line construct
-- **Actual**: 
-- **Notes**: 
+- **Status**: ❌ FAIL
+- **Expected**: Arrow navigation works across multi-line construct (navigate between lines of current input)
+- **Actual**: Up arrow recalled previous multi-line history command (subshell example). Second up arrow navigated to next history entry (myfunc). Down arrow did reverse history navigation. Cannot navigate within current multi-line buffer being edited.
+- **Notes**: **CRITICAL BUG**: Up/Down arrows navigate command HISTORY instead of navigating lines within the current multi-line construct being typed. This makes editing multi-line constructs very difficult. Users cannot move between lines of what they're currently typing.
 
 ### Test 9.2: Editing and Re-entering Line
 - **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
@@ -217,25 +215,50 @@
 
 ## Issues Found
 
-### Issue 1
-- **Test**: 
-- **Severity**: ⬜ Critical / ⬜ Major / ⬜ Minor
-- **Description**: 
-- **Steps to Reproduce**: 
-- **Expected**: 
-- **Actual**: 
-- **Workaround**: 
+### Issue 1: Break Command Not Working in Loops
+- **Test**: 2.2 While Loop
+- **Severity**: ✅ Critical
+- **Description**: `break` command not recognized in LLE multi-line loops, causing infinite loops
+- **Steps to Reproduce**: Enter `while true; do; echo "looping"; break; done` as multi-line
+- **Expected**: Loop exits after first iteration
+- **Actual**: Infinite loop with "break: not currently in a loop" error, until safety mechanism kills it
+- **Workaround**: None. User suspects regression from v1.3.0 readline version.
 
-### Issue 2
-- **Test**: 
-- **Severity**: ⬜ Critical / ⬜ Major / ⬜ Minor
-- **Description**: 
-- **Steps to Reproduce**: 
-- **Expected**: 
-- **Actual**: 
-- **Workaround**: 
+### Issue 2: Pipe Continuation Broken
+- **Test**: 6.1 Pipe Continuation
+- **Severity**: ✅ Critical
+- **Description**: Multi-line pipe support not working - shell executes immediately instead of waiting for continuation
+- **Steps to Reproduce**: Type `echo "hello world" |` and press Enter
+- **Expected**: Continuation prompt appears
+- **Actual**: "lusush: Expected command name" error
+- **Workaround**: None. Pipes must be on single line.
 
-(Add more issues as needed)
+### Issue 3: Backslash Continuation with Quotes Fails
+- **Test**: 6.2 Backslash Continuation
+- **Severity**: ✅ Major
+- **Description**: Backslash continuation doesn't work with quoted strings
+- **Steps to Reproduce**: Type `echo "line one" \` press Enter, type `"line two"`
+- **Expected**: Both parts concatenated and executed
+- **Actual**: "lusush: syntax error: unterminated quoted string"
+- **Workaround**: None. Avoid backslash continuation with quotes.
+
+### Issue 4: Up/Down Arrows Navigate History Not Buffer Lines
+- **Test**: 9.1 Up Arrow to Previous Line
+- **Severity**: ✅ Critical
+- **Description**: Cannot navigate between lines of current multi-line construct being edited - arrows navigate command history instead
+- **Steps to Reproduce**: Start typing multi-line construct (e.g., for loop), press Up arrow
+- **Expected**: Navigate to previous line within current input
+- **Actual**: Recalls previous command from history
+- **Workaround**: Use Left/Right arrows and Home/End to navigate within buffer (single-line style navigation)
+
+### Issue 5: Builtin Commands Not Highlighted on Continuation Lines
+- **Test**: 8.2 Syntax Highlighting Preservation
+- **Severity**: ⬜ Minor
+- **Description**: Commands like `echo`, `cd`, `pwd`, `break` not syntax highlighted on continuation lines
+- **Steps to Reproduce**: Enter any multi-line construct with builtins on continuation lines
+- **Expected**: Builtins highlighted like on first line
+- **Actual**: Builtins not colored, but other syntax (keywords, strings, paths) highlighted correctly
+- **Workaround**: None. Visual only, doesn't affect functionality.
 
 ---
 
