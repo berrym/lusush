@@ -190,6 +190,74 @@ static layer_events_error_t continuation_prompt_handle_command_changed(
     return LAYER_EVENTS_SUCCESS;
 }
 
+/**
+ * Event handler for cursor movement
+ * 
+ * When cursor moves between lines, we might need to update the display
+ * to show the appropriate continuation prompt for the current line.
+ */
+static layer_events_error_t continuation_prompt_handle_cursor_moved(
+    const layer_event_t *event,
+    void *user_data
+) {
+    (void)event;  // Event data not used currently
+    continuation_prompt_layer_t *layer = (continuation_prompt_layer_t *)user_data;
+    
+    if (!layer || !layer->initialized) {
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    // Cursor movement doesn't invalidate prompt cache, but may need redraw
+    // Only publish redraw if cursor moved to a different line
+    // For now, publish redraw to be safe - optimization can come later
+    if (layer->event_system) {
+        layer_events_publish_simple(
+            layer->event_system,
+            LAYER_EVENT_REDRAW_NEEDED,
+            LAYER_ID_CONTINUATION_PROMPTS,
+            LAYER_ID_DISPLAY_CONTROLLER,
+            LAYER_EVENT_PRIORITY_NORMAL
+        );
+    }
+    
+    return LAYER_EVENTS_SUCCESS;
+}
+
+/**
+ * Event handler for terminal size changes
+ * 
+ * When terminal is resized, line wrapping changes, which affects which
+ * lines need continuation prompts and what prompts to show.
+ */
+static layer_events_error_t continuation_prompt_handle_size_changed(
+    const layer_event_t *event,
+    void *user_data
+) {
+    (void)event;  // Event data not used currently
+    continuation_prompt_layer_t *layer = (continuation_prompt_layer_t *)user_data;
+    
+    if (!layer || !layer->initialized) {
+        return LAYER_EVENTS_ERROR_INVALID_PARAM;
+    }
+    
+    // Terminal resize changes line wrapping, so invalidate cache
+    memset(layer->cache, 0, sizeof(layer->cache));
+    layer->cache_next_slot = 0;
+    
+    // Publish redraw needed event
+    if (layer->event_system) {
+        layer_events_publish_simple(
+            layer->event_system,
+            LAYER_EVENT_REDRAW_NEEDED,
+            LAYER_ID_CONTINUATION_PROMPTS,
+            LAYER_ID_DISPLAY_CONTROLLER,
+            LAYER_EVENT_PRIORITY_NORMAL
+        );
+    }
+    
+    return LAYER_EVENTS_SUCCESS;
+}
+
 continuation_prompt_error_t continuation_prompt_layer_init(
     continuation_prompt_layer_t *layer,
     layer_event_system_t *events
@@ -228,6 +296,38 @@ continuation_prompt_error_t continuation_prompt_layer_init(
     );
     
     if (subscribe_result != LAYER_EVENTS_SUCCESS) {
+        return CONTINUATION_PROMPT_ERROR_ALLOCATION_FAILED;
+    }
+    
+    // Subscribe to cursor movement events
+    subscribe_result = layer_events_subscribe(
+        events,
+        LAYER_EVENT_CURSOR_MOVED,
+        LAYER_ID_CONTINUATION_PROMPTS,
+        continuation_prompt_handle_cursor_moved,
+        layer,
+        LAYER_EVENT_PRIORITY_NORMAL
+    );
+    
+    if (subscribe_result != LAYER_EVENTS_SUCCESS) {
+        // Cleanup previous subscription
+        layer_events_unsubscribe_all(events, LAYER_ID_CONTINUATION_PROMPTS);
+        return CONTINUATION_PROMPT_ERROR_ALLOCATION_FAILED;
+    }
+    
+    // Subscribe to terminal size change events
+    subscribe_result = layer_events_subscribe(
+        events,
+        LAYER_EVENT_SIZE_CHANGED,
+        LAYER_ID_CONTINUATION_PROMPTS,
+        continuation_prompt_handle_size_changed,
+        layer,
+        LAYER_EVENT_PRIORITY_NORMAL
+    );
+    
+    if (subscribe_result != LAYER_EVENTS_SUCCESS) {
+        // Cleanup previous subscriptions
+        layer_events_unsubscribe_all(events, LAYER_ID_CONTINUATION_PROMPTS);
         return CONTINUATION_PROMPT_ERROR_ALLOCATION_FAILED;
     }
     
