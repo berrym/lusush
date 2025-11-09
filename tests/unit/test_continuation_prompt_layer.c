@@ -97,6 +97,7 @@ TEST(test_init_with_event_system) {
     
     layer_event_system_t *events = layer_events_create(NULL);
     ASSERT(events != NULL);
+    layer_events_init(events);
     
     continuation_prompt_error_t result = continuation_prompt_layer_init(layer, events);
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
@@ -109,6 +110,7 @@ TEST(test_init_with_event_system) {
 TEST(test_double_cleanup) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     
     continuation_prompt_layer_init(layer, events);
     
@@ -131,6 +133,7 @@ TEST(test_double_cleanup) {
 TEST(test_simple_mode_default) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     // Default mode should be SIMPLE
@@ -145,6 +148,7 @@ TEST(test_simple_mode_default) {
 TEST(test_simple_mode_all_lines_same) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_SIMPLE);
@@ -179,6 +183,7 @@ TEST(test_simple_mode_all_lines_same) {
 TEST(test_context_aware_if_statement) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -201,6 +206,7 @@ TEST(test_context_aware_if_statement) {
 TEST(test_context_aware_for_loop) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -223,6 +229,7 @@ TEST(test_context_aware_for_loop) {
 TEST(test_context_aware_while_loop) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -245,6 +252,7 @@ TEST(test_context_aware_while_loop) {
 TEST(test_context_aware_function) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -267,6 +275,7 @@ TEST(test_context_aware_function) {
 TEST(test_context_aware_subshell) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -289,6 +298,7 @@ TEST(test_context_aware_subshell) {
 TEST(test_context_aware_quotes) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
@@ -325,6 +335,7 @@ TEST(test_null_layer) {
 TEST(test_null_command) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     char prompt[64];
@@ -342,6 +353,7 @@ TEST(test_null_command) {
 TEST(test_null_output_buffer) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     const char *command = "test";
@@ -359,6 +371,7 @@ TEST(test_null_output_buffer) {
 TEST(test_buffer_too_small) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     char prompt[2];  // Too small for "> "
@@ -381,6 +394,7 @@ TEST(test_buffer_too_small) {
 TEST(test_mode_switching) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
+    layer_events_init(events);
     continuation_prompt_layer_init(layer, events);
     
     // Default is SIMPLE

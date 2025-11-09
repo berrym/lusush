@@ -927,3 +927,24 @@ if fs.exists('tests/unit/test_completion_menu_theme.c')
        suite: 'unit',
        timeout: 30)
 endif
+
+# Phase 4: Continuation Prompt Tests
+# ============================================================================
+
+# Continuation Prompt Layer Unit Tests
+# Tests layer lifecycle, event handling, prompt generation modes
+# Tests simple mode, context-aware mode, error handling
+if fs.exists('tests/unit/test_continuation_prompt_layer.c')
+  test_continuation_prompt = executable('test_continuation_prompt_layer',
+                                       ['tests/unit/test_continuation_prompt_layer.c',
+                                        'tests/unit/test_lusush_stubs.c',
+                                        'src/display/continuation_prompt_layer.c',
+                                        'src/display/layer_events.c',
+                                        'src/input_continuation.c',
+                                        'src/symtable.c'],
+                                       include_directories: inc,
+                                       dependencies: [readline_dep])
+  test('Continuation Prompt Layer', test_continuation_prompt,
+       suite: 'unit',
+       timeout: 30)
+endif
