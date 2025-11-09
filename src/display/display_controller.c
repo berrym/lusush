@@ -333,8 +333,13 @@ static layer_events_error_t dc_handle_redraw_needed(
         );
         
         if (cont_result == CONTINUATION_PROMPT_SUCCESS) {
-            /* Add the visual width of the continuation prompt */
-            cursor_col += strlen(prefix);  // Simple strlen for now, should use visual width
+            /* Add the visual width of the continuation prompt 
+             * Use screen_buffer_calculate_visual_width() to properly account for:
+             * - ANSI escape codes (color/formatting)
+             * - Wide Unicode characters
+             * - Tab characters */
+            size_t prefix_visual_width = screen_buffer_calculate_visual_width(prefix, 0);
+            cursor_col += (int)prefix_visual_width;
         }
     }
     
