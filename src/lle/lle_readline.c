@@ -58,6 +58,7 @@
 #include "lle/utf8_support.h"         /* UTF-8 support for proper character deletion */
 #include "lle/history.h"              /* History system for UP/DOWN navigation */
 #include "lle/lle_editor.h"           /* Proper LLE editor architecture */
+#include "lle/keybinding_actions.h"   /* Smart arrow navigation functions */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -833,8 +834,10 @@ static lle_result_t handle_kill_line(lle_event_t *event, void *user_data)
 }
 
 /**
- * @brief Handle UP arrow - navigate to previous history entry
- * Proper architecture: delegates to lle_history_previous() action function
+ * @brief Handle UP arrow - smart context-aware navigation
+ * Single-line mode: Navigate history
+ * Multi-line mode: Navigate to previous line in buffer
+ * Proper architecture: delegates to lle_smart_up_arrow() action function
  */
 static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data)
 {
@@ -846,10 +849,10 @@ static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data)
         return LLE_SUCCESS;  /* No editor available */
     }
     
-    /* Call the proper LLE action function */
-    lle_result_t result = lle_history_previous(ctx->editor);
+    /* Call the smart arrow function (context-aware) */
+    lle_result_t result = lle_smart_up_arrow(ctx->editor);
     
-    /* Refresh display after history navigation */
+    /* Refresh display after navigation */
     if (result == LLE_SUCCESS) {
         refresh_display(ctx);
     }
@@ -858,8 +861,10 @@ static lle_result_t handle_arrow_up(lle_event_t *event, void *user_data)
 }
 
 /**
- * @brief Handle DOWN arrow - navigate to next history entry
- * Proper architecture: delegates to lle_history_next() action function
+ * @brief Handle DOWN arrow - smart context-aware navigation
+ * Single-line mode: Navigate history
+ * Multi-line mode: Navigate to next line in buffer
+ * Proper architecture: delegates to lle_smart_down_arrow() action function
  */
 static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data)
 {
@@ -871,10 +876,10 @@ static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data)
         return LLE_SUCCESS;  /* No editor available */
     }
     
-    /* Call the proper LLE action function */
-    lle_result_t result = lle_history_next(ctx->editor);
+    /* Call the smart arrow function (context-aware) */
+    lle_result_t result = lle_smart_down_arrow(ctx->editor);
     
-    /* Refresh display after history navigation */
+    /* Refresh display after navigation */
     if (result == LLE_SUCCESS) {
         refresh_display(ctx);
     }
@@ -1019,6 +1024,11 @@ char *lle_readline(const char *prompt)
     /* Set buffer in editor if editor exists */
     if (global_lle_editor) {
         global_lle_editor->buffer = buffer;
+        
+        /* Update cursor_manager's buffer reference to stay synchronized */
+        if (global_lle_editor->cursor_manager) {
+            global_lle_editor->cursor_manager->buffer = buffer;
+        }
     }
     
     readline_context_t ctx = {
@@ -1196,6 +1206,22 @@ char *lle_readline(const char *prompt)
                             break;
                         case 'L':  /* Ctrl-L: Clear screen */
                             handle_clear_screen(NULL, &ctx);
+                            break;
+                        case 'N':  /* Ctrl-N: Next history (always navigate history) */
+                            if (ctx.editor) {
+                                lle_result_t result = lle_history_next(ctx.editor);
+                                if (result == LLE_SUCCESS) {
+                                    refresh_display(&ctx);
+                                }
+                            }
+                            break;
+                        case 'P':  /* Ctrl-P: Previous history (always navigate history) */
+                            if (ctx.editor) {
+                                lle_result_t result = lle_history_previous(ctx.editor);
+                                if (result == LLE_SUCCESS) {
+                                    refresh_display(&ctx);
+                                }
+                            }
                             break;
                         case 'U':  /* Ctrl-U: Kill entire line */
                             handle_kill_line(NULL, &ctx);

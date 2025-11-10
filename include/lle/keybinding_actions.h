@@ -200,6 +200,52 @@ lle_result_t lle_history_search_backward(lle_editor_t *editor);
 lle_result_t lle_history_search_forward(lle_editor_t *editor);
 
 /* ============================================================================
+ * LINE AND BUFFER NAVIGATION
+ * ============================================================================ */
+
+/**
+ * Previous line (multiline buffer navigation)
+ * Moves cursor up one line while preserving column position via sticky_column
+ * Returns success with no-op if already on first line
+ */
+lle_result_t lle_previous_line(lle_editor_t *editor);
+
+/**
+ * Next line (multiline buffer navigation)
+ * Moves cursor down one line while preserving column position via sticky_column
+ * Returns success with no-op if already on last line
+ */
+lle_result_t lle_next_line(lle_editor_t *editor);
+
+/**
+ * Beginning of buffer (Alt-<)
+ * Moves cursor to position 0 (start of entire buffer)
+ * Clears sticky column
+ */
+lle_result_t lle_beginning_of_buffer(lle_editor_t *editor);
+
+/**
+ * End of buffer (Alt->)
+ * Moves cursor to end of entire buffer
+ * Clears sticky column
+ */
+lle_result_t lle_end_of_buffer(lle_editor_t *editor);
+
+/**
+ * Smart up arrow (context-aware navigation)
+ * Single-line mode: Navigate history backward (like Ctrl-P)
+ * Multi-line mode: Navigate to previous line in buffer
+ */
+lle_result_t lle_smart_up_arrow(lle_editor_t *editor);
+
+/**
+ * Smart down arrow (context-aware navigation)
+ * Single-line mode: Navigate history forward (like Ctrl-N)
+ * Multi-line mode: Navigate to next line in buffer
+ */
+lle_result_t lle_smart_down_arrow(lle_editor_t *editor);
+
+/* ============================================================================
  * COMPLETION ACTIONS
  * ============================================================================ */
 

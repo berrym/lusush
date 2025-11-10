@@ -187,7 +187,7 @@ lle_result_t lle_cursor_manager_init(lle_cursor_manager_t **manager,
     memset(mgr, 0, sizeof(lle_cursor_manager_t));
     
     mgr->buffer = buffer;
-    mgr->sticky_column = true;
+    mgr->sticky_column = false;  /* Start false - set on first vertical movement */
     mgr->preferred_visual_column = 0;
     
     /* Initialize position to start of buffer */

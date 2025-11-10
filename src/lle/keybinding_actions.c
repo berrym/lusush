@@ -109,6 +109,11 @@ lle_result_t lle_beginning_of_line(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Clear sticky column on horizontal movement */
+    if (editor->cursor_manager) {
+        editor->cursor_manager->sticky_column = false;
+    }
+    
     /* For multiline: move to beginning of current logical line */
     if (editor->buffer->length > 0 && strchr(editor->buffer->data, '\n')) {
         size_t line_start, line_end;
@@ -129,6 +134,11 @@ lle_result_t lle_beginning_of_line(lle_editor_t *editor) {
 lle_result_t lle_end_of_line(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Clear sticky column on horizontal movement */
+    if (editor->cursor_manager) {
+        editor->cursor_manager->sticky_column = false;
     }
     
     /* For multiline: move to end of current logical line */
@@ -153,6 +163,9 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Clear sticky column on horizontal movement */
+    editor->cursor_manager->sticky_column = false;
+    
     /* Use cursor_manager to move forward by one grapheme cluster */
     return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, 1);
 }
@@ -162,6 +175,9 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Clear sticky column on horizontal movement */
+    editor->cursor_manager->sticky_column = false;
+    
     /* Use cursor_manager to move backward by one grapheme cluster */
     return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
 }
@@ -170,6 +186,9 @@ lle_result_t lle_forward_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    /* Clear sticky column on horizontal movement */
+    editor->cursor_manager->sticky_column = false;
     
     /* Find the end of the current word */
     size_t new_pos = find_word_end(editor->buffer->data, 
@@ -185,12 +204,252 @@ lle_result_t lle_backward_word(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Clear sticky column on horizontal movement */
+    editor->cursor_manager->sticky_column = false;
+    
     /* Find the start of the current/previous word */
     size_t new_pos = find_word_start(editor->buffer->data,
                                       editor->buffer->cursor.byte_offset);
     
     /* Use cursor_manager to move to the calculated position */
     return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+}
+
+/* ============================================================================
+ * LINE AND BUFFER NAVIGATION
+ * ============================================================================ */
+
+/**
+ * Move cursor to beginning of buffer (Alt-<)
+ * Always moves to position 0, regardless of lines
+ * Clears sticky column since this is a deliberate jump
+ */
+lle_result_t lle_beginning_of_buffer(lle_editor_t *editor) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Clear sticky column - deliberate jump to buffer start */
+    editor->cursor_manager->sticky_column = false;
+    
+    /* Move to byte offset 0 using cursor manager */
+    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
+}
+
+/**
+ * Move cursor to end of buffer (Alt->)
+ * Always moves to buffer length, regardless of lines
+ * Clears sticky column since this is a deliberate jump
+ */
+lle_result_t lle_end_of_buffer(lle_editor_t *editor) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Clear sticky column - deliberate jump to buffer end */
+    editor->cursor_manager->sticky_column = false;
+    
+    /* Move to end of buffer using cursor manager */
+    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                                   editor->buffer->length);
+}
+
+/**
+ * Move cursor to previous line (up arrow in multiline mode)
+ * Preserves horizontal column position using sticky_column
+ */
+lle_result_t lle_previous_line(lle_editor_t *editor) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    const char *data = editor->buffer->data;
+    size_t cursor = editor->buffer->cursor.byte_offset;
+    
+    /* Get current line boundaries */
+    size_t curr_line_start, curr_line_end;
+    get_current_line_bounds(editor->buffer, &curr_line_start, &curr_line_end);
+    
+    /* If we're on the first line, can't move up */
+    if (curr_line_start == 0) {
+        return LLE_SUCCESS;  /* No-op, stay on first line */
+    }
+    
+    /* Find previous line boundaries */
+    /* curr_line_start points to first char of current line (after the '\n') */
+    /* So curr_line_start - 1 is the '\n', and we need to go back from there */
+    size_t prev_line_end = curr_line_start - 1;  /* Points to '\n' between lines */
+    
+    /* If prev_line_end points to newline, the actual line content ends before it */
+    if (prev_line_end > 0 && data[prev_line_end] == '\n') {
+        prev_line_end--;  /* Now points to last char of previous line content */
+    }
+    
+    size_t prev_line_start = prev_line_end;
+    
+    /* Find start of previous line */
+    while (prev_line_start > 0 && data[prev_line_start - 1] != '\n') {
+        prev_line_start--;
+    }
+    
+    /* Calculate or retrieve preferred column */
+    size_t target_column;
+    if (editor->cursor_manager->sticky_column) {
+        /* Use saved preferred column */
+        target_column = editor->cursor_manager->preferred_visual_column;
+    } else {
+        /* First vertical movement - save current column */
+        target_column = cursor - curr_line_start;
+        editor->cursor_manager->preferred_visual_column = target_column;
+        editor->cursor_manager->sticky_column = true;
+    }
+    
+    /* Calculate new cursor position on previous line */
+    /* prev_line_end points to last character of line content (after adjustment above) */
+    /* prev_line_start points to first character */
+    /* Line length is the number of characters, cursor can be 0..length (length positions cursor after last char) */
+    size_t prev_line_length = prev_line_end - prev_line_start + 1;
+    size_t new_cursor = prev_line_start + target_column;
+    
+    /* Clamp to end of previous line if column is too far right */
+    if (target_column > prev_line_length) {
+        new_cursor = prev_line_end + 1;  /* Position cursor after last character */
+    }
+    
+    /* Temporarily disable sticky_column to prevent move_to_byte_offset from overwriting preferred_visual_column */
+    bool was_sticky = editor->cursor_manager->sticky_column;
+    size_t saved_preferred = editor->cursor_manager->preferred_visual_column;
+    editor->cursor_manager->sticky_column = false;
+    
+    /* Use cursor_manager to move (updates all fields properly) */
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+    
+    /* Restore sticky_column state */
+    editor->cursor_manager->sticky_column = was_sticky;
+    editor->cursor_manager->preferred_visual_column = saved_preferred;
+    
+    return result;
+}
+
+/**
+ * Move cursor to next line (down arrow in multiline mode)
+ * Preserves horizontal column position using sticky_column
+ */
+lle_result_t lle_next_line(lle_editor_t *editor) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    const char *data = editor->buffer->data;
+    size_t cursor = editor->buffer->cursor.byte_offset;
+    size_t len = editor->buffer->length;
+    
+    /* Get current line boundaries */
+    size_t curr_line_start, curr_line_end;
+    get_current_line_bounds(editor->buffer, &curr_line_start, &curr_line_end);
+    
+    /* If we're on the last line, can't move down */
+    if (curr_line_end >= len || data[curr_line_end] != '\n') {
+        return LLE_SUCCESS;  /* No-op, stay on last line */
+    }
+    
+    /* Find next line boundaries */
+    size_t next_line_start = curr_line_end + 1;  /* Skip the '\n' */
+    size_t next_line_end = next_line_start;
+    
+    while (next_line_end < len && data[next_line_end] != '\n') {
+        next_line_end++;
+    }
+    
+    /* Calculate or retrieve preferred column */
+    size_t target_column;
+    if (editor->cursor_manager->sticky_column) {
+        /* Use saved preferred column */
+        target_column = editor->cursor_manager->preferred_visual_column;
+    } else {
+        /* First vertical movement - save current column */
+        target_column = cursor - curr_line_start;
+        editor->cursor_manager->preferred_visual_column = target_column;
+        editor->cursor_manager->sticky_column = true;
+    }
+    
+    /* Calculate new cursor position on next line */
+    /* next_line_end points to newline at end of line (or buffer end) */
+    /* next_line_start points to first character */
+    /* Line length is distance between them, cursor at next_line_end positions after last char */
+    size_t next_line_length = next_line_end - next_line_start;
+    size_t new_cursor = next_line_start + target_column;
+    
+    /* Clamp to end of next line if column is too far right */
+    if (target_column > next_line_length) {
+        new_cursor = next_line_end;  /* Position cursor at/after last character */
+    }
+    
+    /* Temporarily disable sticky_column to prevent move_to_byte_offset from overwriting preferred_visual_column */
+    bool was_sticky = editor->cursor_manager->sticky_column;
+    size_t saved_preferred = editor->cursor_manager->preferred_visual_column;
+    editor->cursor_manager->sticky_column = false;
+    
+    /* Use cursor_manager to move (updates all fields properly) */
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+    
+    /* Restore sticky_column state */
+    editor->cursor_manager->sticky_column = was_sticky;
+    editor->cursor_manager->preferred_visual_column = saved_preferred;
+    
+    return result;
+}
+
+/**
+ * Smart up arrow: Navigate buffer lines in multiline mode, history otherwise
+ * 
+ * Behavior:
+ * - Single-line mode: Navigate command history (backward)
+ * - Multi-line mode: Navigate to previous line in buffer
+ * 
+ * This prevents accidental history navigation while editing multi-line constructs.
+ */
+lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
+    if (!editor || !editor->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check if buffer is multiline (contains newline) */
+    bool is_multiline = (editor->buffer->length > 0 && 
+                         memchr(editor->buffer->data, '\n', editor->buffer->length) != NULL);
+    
+    if (is_multiline) {
+        /* Multi-line mode: navigate within buffer */
+        return lle_previous_line(editor);
+    } else {
+        /* Single-line mode: navigate history */
+        return lle_history_previous(editor);
+    }
+}
+
+/**
+ * Smart down arrow: Navigate buffer lines in multiline mode, history otherwise
+ * 
+ * Behavior:
+ * - Single-line mode: Navigate command history (forward)
+ * - Multi-line mode: Navigate to next line in buffer
+ */
+lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
+    if (!editor || !editor->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check if buffer is multiline (contains newline) */
+    bool is_multiline = (editor->buffer->length > 0 && 
+                         memchr(editor->buffer->data, '\n', editor->buffer->length) != NULL);
+    
+    if (is_multiline) {
+        /* Multi-line mode: navigate within buffer */
+        return lle_next_line(editor);
+    } else {
+        /* Single-line mode: navigate history */
+        return lle_history_next(editor);
+    }
 }
 
 /* ============================================================================
@@ -1066,13 +1325,25 @@ lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     
     lle_keybinding_manager_t *mgr = editor->keybinding_manager;
     
-    /* Movement */
-    lle_keybinding_manager_bind(mgr, "C-a", lle_beginning_of_line, "beginning-of-line");
-    lle_keybinding_manager_bind(mgr, "C-e", lle_end_of_line, "end-of-line");
+    /* Movement - Character level */
     lle_keybinding_manager_bind(mgr, "C-f", lle_forward_char, "forward-char");
     lle_keybinding_manager_bind(mgr, "C-b", lle_backward_char, "backward-char");
+    lle_keybinding_manager_bind(mgr, "LEFT", lle_backward_char, "backward-char");
+    lle_keybinding_manager_bind(mgr, "RIGHT", lle_forward_char, "forward-char");
+    
+    /* Movement - Line level */
+    lle_keybinding_manager_bind(mgr, "C-a", lle_beginning_of_line, "beginning-of-line");
+    lle_keybinding_manager_bind(mgr, "C-e", lle_end_of_line, "end-of-line");
+    lle_keybinding_manager_bind(mgr, "HOME", lle_beginning_of_line, "beginning-of-line");
+    lle_keybinding_manager_bind(mgr, "END", lle_end_of_line, "end-of-line");
+    
+    /* Movement - Word level */
     lle_keybinding_manager_bind(mgr, "M-f", lle_forward_word, "forward-word");
     lle_keybinding_manager_bind(mgr, "M-b", lle_backward_word, "backward-word");
+    
+    /* Movement - Buffer level */
+    lle_keybinding_manager_bind(mgr, "M-<", lle_beginning_of_buffer, "beginning-of-buffer");
+    lle_keybinding_manager_bind(mgr, "M->", lle_end_of_buffer, "end-of-buffer");
     
     /* Editing */
     lle_keybinding_manager_bind(mgr, "C-d", lle_delete_char, "delete-char");
@@ -1092,13 +1363,17 @@ lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     lle_keybinding_manager_bind(mgr, "M-l", lle_downcase_word, "downcase-word");
     lle_keybinding_manager_bind(mgr, "M-c", lle_capitalize_word, "capitalize-word");
     
-    /* History */
+    /* History - Always navigate history (Ctrl-P/N) */
     lle_keybinding_manager_bind(mgr, "C-p", lle_history_previous, "previous-history");
     lle_keybinding_manager_bind(mgr, "C-n", lle_history_next, "next-history");
     lle_keybinding_manager_bind(mgr, "C-r", lle_reverse_search_history, "reverse-search-history");
     lle_keybinding_manager_bind(mgr, "C-s", lle_forward_search_history, "forward-search-history");
     lle_keybinding_manager_bind(mgr, "M-p", lle_history_search_backward, "history-search-backward");
     lle_keybinding_manager_bind(mgr, "M-n", lle_history_search_forward, "history-search-forward");
+    
+    /* Navigation - Smart arrows (context-aware: buffer lines in multiline, history in single-line) */
+    lle_keybinding_manager_bind(mgr, "UP", lle_smart_up_arrow, "smart-up-arrow");
+    lle_keybinding_manager_bind(mgr, "DOWN", lle_smart_down_arrow, "smart-down-arrow");
     
     /* Completion */
     lle_keybinding_manager_bind(mgr, "TAB", lle_complete, "complete");
@@ -1118,12 +1393,6 @@ lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     lle_keybinding_manager_bind(mgr, "M-\\", lle_delete_horizontal_space, "delete-horizontal-space");
     lle_keybinding_manager_bind(mgr, "C-j", lle_newline, "newline");
     lle_keybinding_manager_bind(mgr, "M-TAB", lle_tab_insert, "tab-insert");
-    
-    /* Arrow keys */
-    lle_keybinding_manager_bind(mgr, "UP", lle_history_previous, "previous-history");
-    lle_keybinding_manager_bind(mgr, "DOWN", lle_history_next, "next-history");
-    lle_keybinding_manager_bind(mgr, "LEFT", lle_backward_char, "backward-char");
-    lle_keybinding_manager_bind(mgr, "RIGHT", lle_forward_char, "forward-char");
     
     return LLE_SUCCESS;
 }

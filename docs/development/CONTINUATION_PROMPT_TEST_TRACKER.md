@@ -190,10 +190,10 @@
 ## Category 9: Editing Multi-line Constructs
 
 ### Test 9.1: Up Arrow to Previous Line
-- **Status**: ❌ FAIL
+- **Status**: ✅ PASS
 - **Expected**: Arrow navigation works across multi-line construct (navigate between lines of current input)
-- **Actual**: Up arrow recalled previous multi-line history command (subshell example). Second up arrow navigated to next history entry (myfunc). Down arrow did reverse history navigation. Cannot navigate within current multi-line buffer being edited.
-- **Notes**: **CRITICAL BUG**: Up/Down arrows navigate command HISTORY instead of navigating lines within the current multi-line construct being typed. This makes editing multi-line constructs very difficult. Users cannot move between lines of what they're currently typing.
+- **Actual**: UP/DOWN arrows now correctly navigate between lines within the current multi-line buffer. Cursor positioning is accurate (positions after characters). Sticky column is preserved during vertical navigation - cursor attempts to maintain its horizontal position across lines of varying lengths. DOWN arrow from top line returns to original position correctly.
+- **Notes**: **FIXED**: Implemented smart arrow navigation with context-aware routing. In multi-line mode, UP/DOWN navigate buffer lines. In single-line mode, UP/DOWN navigate history. Ctrl-P/Ctrl-N always navigate history (even in multi-line). Sticky column feature preserves horizontal cursor position during vertical movement, matching vim/emacs behavior. HOME/END navigate to line start/end. Architecture fixes: synchronized cursor_manager buffer reference, fixed sticky_column initialization.
 
 ### Test 9.2: Editing and Re-entering Line
 - **Status**: ⬜ PASS / ⬜ FAIL / ⬜ PARTIAL / ⬜ SKIP
@@ -242,14 +242,14 @@
 - **Actual**: "lusush: syntax error: unterminated quoted string"
 - **Workaround**: None. Avoid backslash continuation with quotes.
 
-### Issue 4: Up/Down Arrows Navigate History Not Buffer Lines
+### Issue 4: Up/Down Arrows Navigate History Not Buffer Lines ✅ FIXED
 - **Test**: 9.1 Up Arrow to Previous Line
-- **Severity**: ✅ Critical
+- **Severity**: ✅ Critical (RESOLVED)
 - **Description**: Cannot navigate between lines of current multi-line construct being edited - arrows navigate command history instead
 - **Steps to Reproduce**: Start typing multi-line construct (e.g., for loop), press Up arrow
 - **Expected**: Navigate to previous line within current input
-- **Actual**: Recalls previous command from history
-- **Workaround**: Use Left/Right arrows and Home/End to navigate within buffer (single-line style navigation)
+- **Actual**: ~~Recalls previous command from history~~ **NOW FIXED**: Arrows correctly navigate between lines in multi-line buffers
+- **Resolution**: Implemented smart arrow navigation with context-aware routing. UP/DOWN now navigate buffer lines in multi-line mode, history in single-line mode. Added sticky column preservation for proper cursor positioning across lines. Ctrl-P/Ctrl-N always access history. Fixed cursor_manager buffer synchronization and sticky_column initialization issues.
 
 ### Issue 5: Builtin Commands Not Highlighted on Continuation Lines
 - **Test**: 8.2 Syntax Highlighting Preservation
@@ -265,8 +265,8 @@
 ## Overall Assessment
 
 **Testing Status**: 15 of 23 tests completed (65%)  
-**Pass Rate**: 67% (10 PASS / 4 FAIL / 1 PARTIAL)  
-**Date**: 2025-11-09  
+**Pass Rate**: 73% (11 PASS / 3 FAIL / 1 PARTIAL) - Improved from 67%
+**Date**: 2025-11-09 (Updated after Issue 4 fix)  
 **Tester**: User (mberry)
 
 ### What Works Well
@@ -303,7 +303,7 @@
 1. **Loop control commands broken**: `break` command not working in multi-line loops (infinite loop issue)
 2. **Pipe continuation non-functional**: Multi-line pipes don't work at all
 3. **Backslash continuation limited**: Fails with quoted strings (parser error)
-4. **Multi-line navigation broken**: Up/Down arrows navigate history instead of buffer lines - major UX blocker
+4. ~~**Multi-line navigation broken**~~ ✅ **FIXED**: Arrow navigation now works correctly in multi-line mode
 
 **Minor Issues** ⚠️
 5. **Syntax highlighting incomplete**: Builtin commands (echo, cd, pwd, break) not highlighted on continuation lines
@@ -311,14 +311,14 @@
 ### Blockers
 
 **Production Blockers**:
-1. **Up/Down arrow navigation** - Users cannot edit multi-line constructs line-by-line. This severely limits usability for complex commands. Must use horizontal navigation only (Left/Right/Home/End).
+1. ~~**Up/Down arrow navigation**~~ ✅ **FIXED** - Multi-line navigation now works correctly with smart arrow routing and sticky column preservation.
 
 2. **Break command failure** - Infinite loops are dangerous. While safety mechanism exists, this is a regression and breaks expected shell behavior.
 
 3. **Pipe continuation** - Common shell pattern completely broken. Users must write pipes on single line.
 
 **Usability Impacts**:
-- Multi-line editing is functional but awkward without vertical navigation
+- ~~Multi-line editing is functional but awkward without vertical navigation~~ ✅ **FIXED** - Vertical navigation now works perfectly
 - Pipe-heavy workflows broken
 - Loop debugging difficult without break/continue
 
@@ -346,7 +346,7 @@
 ### Recommendations
 
 **Immediate Priority** (Critical Bugs):
-1. Fix up/down arrow navigation to work within current buffer (not history)
+1. ~~Fix up/down arrow navigation to work within current buffer (not history)~~ ✅ **COMPLETED**
 2. Fix break/continue commands in multi-line loops
 3. Fix pipe continuation mode detection
 
