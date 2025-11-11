@@ -18,7 +18,11 @@
 
 **When resuming this session:**
 
-Run Tests 2-7 to validate that the Session 12 bug fixes resolved all UTF-8/grapheme issues. Test 1 shows complete success, expecting 7/7 PASS rate.
+1. **Complete LLE Tests 3-7** (Test 2 already PASSED)
+2. **CRITICAL**: Shell parser UTF-8 bug discovered - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
+   - LLE works perfectly (editing UTF-8 text)
+   - Parser fails when executing commands with UTF-8 (returns "unterminated quoted string")
+   - This is **separate work** from LLE, needs UTF-8 aware tokenizer rewrite
 
 ---
 
