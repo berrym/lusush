@@ -193,6 +193,12 @@ endif
 if fs.exists('utf8_support.c')
   lle_sources += files('utf8_support.c')
 endif
+if fs.exists('grapheme_detector.c')
+  lle_sources += files('grapheme_detector.c')
+endif
+if fs.exists('char_width.c')
+  lle_sources += files('char_width.c')
+endif
 if fs.exists('unicode_grapheme.c')
   lle_sources += files('unicode_grapheme.c')
 endif

@@ -167,7 +167,14 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
     editor->cursor_manager->sticky_column = false;
     
     /* Use cursor_manager to move forward by one grapheme cluster */
-    return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, 1);
+    lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, 1);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 lle_result_t lle_backward_char(lle_editor_t *editor) {
@@ -179,7 +186,14 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
     editor->cursor_manager->sticky_column = false;
     
     /* Use cursor_manager to move backward by one grapheme cluster */
-    return lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
+    lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 lle_result_t lle_forward_word(lle_editor_t *editor) {
@@ -196,7 +210,14 @@ lle_result_t lle_forward_word(lle_editor_t *editor) {
                                     editor->buffer->cursor.byte_offset);
     
     /* Use cursor_manager to move to the calculated position */
-    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 lle_result_t lle_backward_word(lle_editor_t *editor) {
@@ -212,7 +233,14 @@ lle_result_t lle_backward_word(lle_editor_t *editor) {
                                       editor->buffer->cursor.byte_offset);
     
     /* Use cursor_manager to move to the calculated position */
-    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 /* ============================================================================
@@ -233,7 +261,14 @@ lle_result_t lle_beginning_of_buffer(lle_editor_t *editor) {
     editor->cursor_manager->sticky_column = false;
     
     /* Move to byte offset 0 using cursor manager */
-    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 /**
@@ -250,8 +285,15 @@ lle_result_t lle_end_of_buffer(lle_editor_t *editor) {
     editor->cursor_manager->sticky_column = false;
     
     /* Move to end of buffer using cursor manager */
-    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
-                                                   editor->buffer->length);
+    lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                                                  editor->buffer->length);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return result;
 }
 
 /**
@@ -324,6 +366,11 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
     /* Use cursor_manager to move (updates all fields properly) */
     lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
     
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
     /* Restore sticky_column state */
     editor->cursor_manager->sticky_column = was_sticky;
     editor->cursor_manager->preferred_visual_column = saved_preferred;
@@ -392,6 +439,11 @@ lle_result_t lle_next_line(lle_editor_t *editor) {
     
     /* Use cursor_manager to move (updates all fields properly) */
     lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+    
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
     
     /* Restore sticky_column state */
     editor->cursor_manager->sticky_column = was_sticky;

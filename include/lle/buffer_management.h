@@ -224,20 +224,23 @@ struct lle_utf8_index_t {
     size_t *codepoint_to_byte;                     /* Codepoint index to byte offset */
     size_t *grapheme_to_codepoint;                 /* Grapheme cluster to codepoint index */
     size_t *codepoint_to_grapheme;                 /* Codepoint to grapheme cluster index */
+    size_t *grapheme_to_display;                   /* Grapheme cluster to display column */
+    size_t *display_to_grapheme;                   /* Display column to grapheme cluster */
     
     /* Index metadata */
     size_t byte_count;                             /* Total bytes indexed */
     size_t codepoint_count;                        /* Total codepoints indexed */
     size_t grapheme_count;                         /* Total grapheme clusters indexed */
+    size_t display_width;                          /* Total display columns */
     
     /* Index validity and versioning */
     bool index_valid;                              /* Index validity flag */
     uint32_t buffer_version;                       /* Associated buffer version */
     uint64_t last_update_time;                     /* Last index update time */
     
-    /* Performance optimization */
-    size_t cache_hit_count;                        /* Cache hit statistics */
-    size_t cache_miss_count;                       /* Cache miss statistics */
+    /* Performance tracking */
+    size_t rebuild_count;                          /* Number of index rebuilds */
+    uint64_t total_rebuild_time_ns;                /* Total time spent rebuilding (nanoseconds) */
 };
 
 /**
@@ -848,21 +851,20 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
  */
 
 /**
- * @brief Initialize UTF-8 index
+ * @brief Initialize UTF-8 index structure
  * Spec Reference: Spec 03, Section 4.2
  * 
- * @param index Pointer to receive initialized UTF-8 index
+ * @param index Pointer to index structure to initialize
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_utf8_index_init(lle_utf8_index_t **index);
+lle_result_t lle_utf8_index_init(lle_utf8_index_t *index);
 
 /**
- * @brief Destroy UTF-8 index
+ * @brief Clean up UTF-8 index structure
  * 
- * @param index UTF-8 index to destroy
- * @return LLE_SUCCESS or error code
+ * @param index Pointer to index structure to clean up
  */
-lle_result_t lle_utf8_index_destroy(lle_utf8_index_t *index);
+void lle_utf8_index_cleanup(lle_utf8_index_t *index);
 
 /**
  * @brief Rebuild UTF-8 index from text
@@ -936,14 +938,43 @@ lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
                                                   size_t *codepoint_index);
 
 /**
- * @brief Invalidate UTF-8 index
+ * @brief Convert grapheme cluster index to display column
  * 
- * Marks index as invalid (requires rebuild before next use).
- * 
- * @param index UTF-8 index to invalidate
+ * @param index UTF-8 index
+ * @param grapheme_index Grapheme cluster index
+ * @param display_column Output: display column
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_utf8_index_invalidate(lle_utf8_index_t *index);
+lle_result_t lle_utf8_index_grapheme_to_display(const lle_utf8_index_t *index,
+                                                 size_t grapheme_index,
+                                                 size_t *display_column);
+
+/**
+ * @brief Convert display column to grapheme cluster index
+ * 
+ * @param index UTF-8 index
+ * @param display_column Display column
+ * @param grapheme_index Output: grapheme cluster index
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_utf8_index_display_to_grapheme(const lle_utf8_index_t *index,
+                                                 size_t display_column,
+                                                 size_t *grapheme_index);
+
+/**
+ * @brief Invalidate index (mark as needing rebuild)
+ * 
+ * @param index Index to invalidate
+ */
+void lle_utf8_index_invalidate(lle_utf8_index_t *index);
+
+/**
+ * @brief Check if index is valid
+ * 
+ * @param index Index to check
+ * @return true if valid, false if needs rebuild
+ */
+bool lle_utf8_index_is_valid(const lle_utf8_index_t *index);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - BUFFER VALIDATOR

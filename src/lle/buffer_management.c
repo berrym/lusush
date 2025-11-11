@@ -617,10 +617,18 @@ lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer,
     buffer->last_modified_time = get_timestamp_us();
     buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
     
-    /* Step 7: Update UTF-8 counts and mark index as valid */
+    /* Step 7: Update UTF-8 counts and invalidate position index */
     buffer->codepoint_count += lle_utf8_count_codepoints(text, text_length);
     buffer->grapheme_count += lle_utf8_count_graphemes(text, text_length);
-    buffer->utf8_index_valid = true; /* Counts are current */
+    
+    /* Invalidate UTF-8 position index - position mappings need rebuild */
+    if (buffer->utf8_index) {
+        lle_utf8_index_invalidate(buffer->utf8_index);
+    }
+    buffer->utf8_index_valid = false;
+    
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
     
     /* Step 8: Update cursor if after insertion point */
     if (buffer->cursor.byte_offset >= position) {
@@ -719,10 +727,18 @@ lle_result_t lle_buffer_delete_text(lle_buffer_t *buffer,
     buffer->last_modified_time = get_timestamp_us();
     buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
     
-    /* Step 5: Update UTF-8 counts and mark index as valid */
+    /* Step 5: Update UTF-8 counts and invalidate position index */
     buffer->codepoint_count -= deleted_codepoints;
     buffer->grapheme_count -= deleted_graphemes;
-    buffer->utf8_index_valid = true; /* Counts are current */
+    
+    /* Invalidate UTF-8 position index - position mappings need rebuild */
+    if (buffer->utf8_index) {
+        lle_utf8_index_invalidate(buffer->utf8_index);
+    }
+    buffer->utf8_index_valid = false;
+    
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
     
     /* Step 6: Update cursor if affected */
     if (buffer->cursor.byte_offset > start_position) {
@@ -868,10 +884,18 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
     buffer->last_modified_time = get_timestamp_us();
     buffer->flags |= LLE_BUFFER_FLAG_MODIFIED;
     
-    /* Step 6: Update UTF-8 counts and mark index as valid */
+    /* Step 6: Update UTF-8 counts and invalidate position index */
     buffer->codepoint_count = buffer->codepoint_count - deleted_codepoints + inserted_codepoints;
     buffer->grapheme_count = buffer->grapheme_count - deleted_graphemes + inserted_graphemes;
-    buffer->utf8_index_valid = true; /* Counts are current */
+    
+    /* Invalidate UTF-8 position index - position mappings need rebuild */
+    if (buffer->utf8_index) {
+        lle_utf8_index_invalidate(buffer->utf8_index);
+    }
+    buffer->utf8_index_valid = false;
+    
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
     
     /* Step 7: Update cursor if affected */
     if (buffer->cursor.byte_offset > start_position) {
