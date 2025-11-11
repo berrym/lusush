@@ -3,16 +3,16 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
 **Branch**: feature/lle  
-**Status**: ✅ **STEP 5 COMPLETE** - UTF-8 index integrated into cursor manager with O(1) lookups  
-**Last Action**: Completed API alignment and cursor manager integration (Step 5)  
-**Next**: Continue with Step 6 (buffer modification operations integration)  
-**Current Reality**: Cursor manager now uses fast O(1) index lookups with graceful fallback to O(n) scanning  
-**Implementation**: API signatures aligned, structure definitions unified, cursor position calculations optimized  
-**Verified**: liblle.a and lusush compile successfully with integrated UTF-8 index  
-**Working**: Fast cursor position tracking via byte→codepoint→grapheme conversions, column calculations  
-**Foundation**: Phase 1 Steps 2-5 complete, ready for buffer modification integration (Step 6)  
-**Commits**: Step 5 API alignment and cursor manager integration (pending commit)  
-**Architecture**: Single source of truth for structure definitions, proper include dependencies
+**Status**: ✅ **STEP 6 COMPLETE** - UTF-8 index invalidation integrated into buffer modifications  
+**Last Action**: Completed buffer modification integration with automatic index invalidation (Step 6)  
+**Next**: Continue with Step 7 (line structure tracking integration)  
+**Current Reality**: Buffer modifications now properly invalidate UTF-8 index for rebuild on next access  
+**Implementation**: All three buffer modification functions (insert/delete/replace) invalidate index  
+**Verified**: liblle.a and lusush compile successfully with index invalidation  
+**Working**: Index stays synchronized with buffer state, automatic invalidation on content changes  
+**Foundation**: Phase 1 Steps 2-6 complete, ready for line structure tracking (Step 7)  
+**Commits**: Step 5 (07a86ae), Step 6 (pending commit)  
+**Architecture**: Proper index lifecycle management with invalidation on modifications
 
 ---
 
@@ -20,24 +20,24 @@
 
 **When resuming this session:**
 
-Step 5 is COMPLETE. Next up is Step 6: Buffer modification operations integration.
+Step 6 is COMPLETE. Next up is Step 7: Line structure tracking integration.
 
-**Step 6 Overview** (from Phase 1 plan):
-- Integrate UTF-8 index into buffer insert/delete operations
-- Add automatic index invalidation on buffer changes
-- Add index rebuild triggers in buffer management
-- Update buffer_insert(), buffer_delete(), buffer_replace()
-- Ensure index stays synchronized with buffer state
+**Step 7 Overview** (from Phase 1 plan):
+- Integrate UTF-8 index with line structure tracking
+- Add line-aware position conversions
+- Update line boundary detection to use grapheme boundaries
+- Ensure line metadata stays synchronized with UTF-8 index
+- Test multiline buffer operations
 
 **Approach**:
-1. Review buffer modification functions in src/lle/buffer_management.c
-2. Add index invalidation calls after any buffer content changes
-3. Consider adding rebuild strategy (immediate vs deferred)
-4. Test with simple insert/delete operations
-5. Verify index validity tracking works correctly
+1. Review line structure tracking in src/lle/buffer_management.c
+2. Update line boundary functions to use UTF-8 index
+3. Add line-to-position and position-to-line conversions
+4. Ensure line count stays synchronized
+5. Test with multiline content
 
 **Estimated time**: 45-60 minutes  
-**Complexity**: Medium - straightforward invalidation logic, need careful placement
+**Complexity**: Medium - need to coordinate line tracking with index invalidation
 
 ---
 
