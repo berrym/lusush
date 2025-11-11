@@ -3,16 +3,38 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
 **Branch**: feature/lle-utf8-grapheme  
-**Status**: ✅ **PROMPT-ONCE ARCHITECTURE: IMPLEMENTED** - Research-compliant rendering now in place  
-**Last Action**: Implemented proper prompt-once architecture per MODERN_EDITOR_WRAPPING_RESEARCH.md  
-**Next**: Continue testing, implement continuation prompts with proper newline detection  
-**Current Reality**: Correct architectural foundation - prompt drawn once, absolute positioning, research-compliant  
-**Architecture**: Follows Replxx/Fish/ZLE pattern - prompt never redrawn, no \r usage, \033[{n}G positioning  
-**Verified**: Basic line wrapping works correctly with proper architecture  
-**Working**: Prompt-once rendering, line wrapping, cursor positioning, all ANSI sequences per research  
-**Foundation**: Ready for continuation prompts to be re-implemented with proper wrapped vs newline detection  
-**Commits**: 4322e58 (restore working code), 34ba284 (implement prompt-once architecture)  
-**See**: Session 8 in this document for complete investigation and solution history
+**Status**: ✅ **UTF-8 INDEX FOUNDATION COMPLETE** - Phase 1 Steps 2-4 implemented and committed  
+**Last Action**: Completed UTF-8 index system (grapheme detection, char width, position mappings)  
+**Next**: API alignment work for Step 5 cursor manager integration  
+**Current Reality**: Core UTF-8/grapheme infrastructure ready, API contracts need alignment  
+**Implementation**: Complete 5-phase rebuild algorithm, UAX #29 grapheme detection, East Asian Width  
+**Verified**: liblle.a and lusush compile successfully with new UTF-8 index code  
+**Working**: Fast O(1) position conversions, grapheme boundary detection, display width calculation  
+**Foundation**: Ready for cursor manager integration once API signatures aligned  
+**Commits**: 7084ca1 (Steps 2-4 implementation), 510711e (API alignment documentation)  
+**See**: docs/development/UTF8_INDEX_API_ALIGNMENT.md for integration roadmap
+
+---
+
+## ⚡ IMMEDIATE CONTINUATION ACTION
+
+**When resuming this session:**
+
+1. Read `docs/development/UTF8_INDEX_API_ALIGNMENT.md` in full
+2. Execute Step 5 exactly as documented:
+   - Update buffer_management.h structure (lines 221-241)
+   - Update buffer_management.h function declarations (lines 857-949)
+   - Update utf8_index.h (remove duplicate structure)
+   - Verify compilation: `meson compile -C builddir lle`
+   - Integrate into cursor_manager.c (all code provided in document)
+   - Verify compilation: `meson compile -C builddir lle lusush`
+   - Commit with "LLE Phase 1 Step 5:" prefix
+3. Continue to Step 6 if time permits
+
+**Estimated time**: 30-45 minutes  
+**No planning needed**: All changes documented with exact line numbers and complete code blocks  
+**No discovery needed**: All conflicts analyzed and solutions provided  
+**Just execute**: The document is the complete implementation plan
 
 ---
 
