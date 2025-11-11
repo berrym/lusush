@@ -3,15 +3,16 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-10  
 **Branch**: feature/lle  
-**Status**: ✅ **LINE WRAP CURSOR POSITIONING: FIXED** - Restored working code from commit 31dd662  
-**Last Action**: Fixed cursor wrap bug by restoring all display files from last working commit  
-**Next**: Continue manual testing, verify all basic editing works with restored code  
-**Current Reality**: Basic line wrapping works correctly - cursor positioning accurate, no line consumption  
-**Problem Solved**: Commits after 31dd662 broke line wrap by adding continuation prompt logic that incorrectly triggered on wrapped lines  
-**Solution**: Restored entire display subsystem from commit 31dd662 (composition_engine, display_controller, continuation_prompt_layer)  
-**Working**: Basic input, line wrapping at terminal edge, cursor positioning on wrapped lines  
-**Architecture**: Using proven working implementation - continuation prompts disabled until proper newline detection  
-**See**: Session 8 findings in this document for detailed investigation history
+**Status**: ✅ **PROMPT-ONCE ARCHITECTURE: IMPLEMENTED** - Research-compliant rendering now in place  
+**Last Action**: Implemented proper prompt-once architecture per MODERN_EDITOR_WRAPPING_RESEARCH.md  
+**Next**: Continue testing, implement continuation prompts with proper newline detection  
+**Current Reality**: Correct architectural foundation - prompt drawn once, absolute positioning, research-compliant  
+**Architecture**: Follows Replxx/Fish/ZLE pattern - prompt never redrawn, no \r usage, \033[{n}G positioning  
+**Verified**: Basic line wrapping works correctly with proper architecture  
+**Working**: Prompt-once rendering, line wrapping, cursor positioning, all ANSI sequences per research  
+**Foundation**: Ready for continuation prompts to be re-implemented with proper wrapped vs newline detection  
+**Commits**: 4322e58 (restore working code), 34ba284 (implement prompt-once architecture)  
+**See**: Session 8 in this document for complete investigation and solution history
 
 ---
 
