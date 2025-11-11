@@ -1,101 +1,70 @@
-/**
- * @file utf8_index.c
- * @brief UTF-8 Index System Implementation
- * 
- * Spec Reference: Spec 03 Section 4 - UTF-8 Unicode Support
- * 
- * Provides fast O(1) position lookups for UTF-8 buffers by maintaining
- * mapping arrays between byte offsets, codepoint indices, and grapheme
- * cluster indices.
- */
-
-#include "../../include/lle/buffer_management.h"
-#include "../../include/lle/error_handling.h"
-#include "../../include/lle/memory_management.h"
-#include "../../include/lle/performance.h"
+#include "lle/utf8_index.h"
+#include "lle/utf8_support.h"
+#include "lle/grapheme_detector.h"
+#include "lle/char_width.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-/* External UTF-8 helper functions from utf8_support.c */
-extern int lle_utf8_sequence_length(unsigned char first_byte);
-extern bool lle_utf8_is_valid_sequence(const char *ptr, int length);
-extern size_t lle_utf8_count_codepoints(const char *text, size_t length);
-extern size_t lle_utf8_count_graphemes(const char *text, size_t length);
-extern bool lle_is_grapheme_boundary(const char *ptr, const char *start, const char *end);
-
-/**
- * @brief Get current time in microseconds
- * 
- * @return Current time in microseconds
- */
-static uint64_t lle_get_current_time_us(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000ULL;
-}
-
-/**
- * @brief Initialize UTF-8 index
- * 
- * @param index Pointer to receive initialized UTF-8 index
- * @return LLE_SUCCESS or error code
- */
-lle_result_t lle_utf8_index_init(lle_utf8_index_t **index) {
+lle_result_t lle_utf8_index_init(lle_utf8_index_t *index) {
     if (!index) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Allocate index structure */
-    lle_utf8_index_t *idx = calloc(1, sizeof(lle_utf8_index_t));
-    if (!idx) {
-        return LLE_ERROR_OUT_OF_MEMORY;
-    }
+    memset(index, 0, sizeof(lle_utf8_index_t));
+    index->index_valid = false;
     
-    /* Initialize fields to zero (already done by calloc) */
-    idx->index_valid = false;
-    idx->buffer_version = 0;
-    idx->last_update_time = 0;
-    idx->cache_hit_count = 0;
-    idx->cache_miss_count = 0;
-    
-    *index = idx;
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Destroy UTF-8 index
- * 
- * @param index UTF-8 index to destroy
- * @return LLE_SUCCESS or error code
- */
-lle_result_t lle_utf8_index_destroy(lle_utf8_index_t *index) {
-    if (!index) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
+void lle_utf8_index_cleanup(lle_utf8_index_t *index) {
+    if (!index) return;
     
-    /* Free all mapping arrays */
     free(index->byte_to_codepoint);
     free(index->codepoint_to_byte);
     free(index->grapheme_to_codepoint);
     free(index->codepoint_to_grapheme);
+    free(index->grapheme_to_display);
+    free(index->display_to_grapheme);
     
-    /* Free index structure */
-    free(index);
-    
-    return LLE_SUCCESS;
+    memset(index, 0, sizeof(lle_utf8_index_t));
 }
 
 /**
- * @brief Rebuild UTF-8 index from text
- * 
- * Spec Reference: Spec 03, Section 4.2
- * 
- * @param index UTF-8 index to rebuild
- * @param text Text to index
- * @param text_length Length of text in bytes
- * @return LLE_SUCCESS or error code
+ * Validate UTF-8 sequence
  */
+static bool is_valid_utf8_sequence(const char *ptr, int length) {
+    if (!ptr || length < 1 || length > 4) {
+        return false;
+    }
+    
+    unsigned char byte1 = (unsigned char)ptr[0];
+    
+    /* Validate first byte matches expected length */
+    if (length == 1 && (byte1 & 0x80) != 0x00) return false;  /* 0xxxxxxx */
+    if (length == 2 && (byte1 & 0xE0) != 0xC0) return false;  /* 110xxxxx */
+    if (length == 3 && (byte1 & 0xF0) != 0xE0) return false;  /* 1110xxxx */
+    if (length == 4 && (byte1 & 0xF8) != 0xF0) return false;  /* 11110xxx */
+    
+    /* Validate continuation bytes (10xxxxxx) */
+    for (int i = 1; i < length; i++) {
+        unsigned char byte = (unsigned char)ptr[i];
+        if ((byte & 0xC0) != 0x80) {
+            return false;
+        }
+    }
+    
+    /* Check for overlong encodings */
+    if (length == 2 && (byte1 & 0xFE) == 0xC0) return false;
+    if (length == 3 && byte1 == 0xE0 && ((unsigned char)ptr[1] & 0xE0) == 0x80) return false;
+    if (length == 4 && byte1 == 0xF0 && ((unsigned char)ptr[1] & 0xF0) == 0x80) return false;
+    
+    /* Check for surrogate pairs (invalid in UTF-8) */
+    if (length == 3 && byte1 == 0xED && ((unsigned char)ptr[1] & 0xE0) == 0xA0) return false;
+    
+    return true;
+}
+
 lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index,
                                     const char *text,
                                     size_t text_length) {
@@ -103,61 +72,100 @@ lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index,
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* Start timing for performance tracking */
+    struct timespec start_time, end_time;
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+    
+    lle_result_t result = LLE_SUCCESS;
+    
+    /* === PHASE 1: Count codepoints and grapheme clusters === */
+    
     size_t codepoint_count = 0;
     size_t grapheme_count = 0;
+    size_t display_width_total = 0;
     
-    /* Step 1: Count codepoints and grapheme clusters */
     const char *ptr = text;
     const char *end = text + text_length;
     
     while (ptr < end) {
-        /* Validate UTF-8 sequence */
-        int sequence_length = lle_utf8_sequence_length((unsigned char)*ptr);
+        /* Get UTF-8 sequence length */
+        int sequence_length = lle_utf8_sequence_length(*ptr);
+        
+        /* Validate sequence length */
         if (sequence_length == 0 || ptr + sequence_length > end) {
             return LLE_ERROR_INVALID_ENCODING;
         }
         
         /* Validate complete UTF-8 sequence */
-        if (!lle_utf8_is_valid_sequence(ptr, sequence_length)) {
+        if (!is_valid_utf8_sequence(ptr, sequence_length)) {
             return LLE_ERROR_INVALID_ENCODING;
         }
         
         codepoint_count++;
         
         /* Check if this starts a new grapheme cluster */
-        if (lle_is_grapheme_boundary(ptr, text, end)) {
+        if (is_grapheme_boundary_at_position(ptr, text, end)) {
             grapheme_count++;
+            
+            /* Decode codepoint to get its width */
+            uint32_t codepoint;
+            lle_utf8_decode_codepoint(ptr, sequence_length, &codepoint);
+            int width = lle_codepoint_width(codepoint);
+            if (width < 0) width = 1;  /* Treat invalid as normal width */
+            display_width_total += width;
         }
         
         ptr += sequence_length;
     }
     
-    /* Step 2: Allocate index arrays */
-    size_t *new_byte_to_codepoint = calloc(text_length + 1, sizeof(size_t));
-    size_t *new_codepoint_to_byte = calloc(codepoint_count + 1, sizeof(size_t));
-    size_t *new_grapheme_to_codepoint = calloc(grapheme_count + 1, sizeof(size_t));
-    size_t *new_codepoint_to_grapheme = calloc(codepoint_count + 1, sizeof(size_t));
+    /* === PHASE 2: Allocate index arrays === */
     
-    if (!new_byte_to_codepoint || !new_codepoint_to_byte ||
-        !new_grapheme_to_codepoint || !new_codepoint_to_grapheme) {
-        free(new_byte_to_codepoint);
-        free(new_codepoint_to_byte);
-        free(new_grapheme_to_codepoint);
-        free(new_codepoint_to_grapheme);
-        return LLE_ERROR_OUT_OF_MEMORY;
+    size_t *new_byte_to_codepoint = NULL;
+    size_t *new_codepoint_to_byte = NULL;
+    size_t *new_grapheme_to_codepoint = NULL;
+    size_t *new_codepoint_to_grapheme = NULL;
+    size_t *new_grapheme_to_display = NULL;
+    size_t *new_display_to_grapheme = NULL;
+    
+    /* Allocate byte_to_codepoint (one entry per byte) */
+    new_byte_to_codepoint = calloc(text_length + 1, sizeof(size_t));
+    if (!new_byte_to_codepoint) {
+        result = LLE_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
     }
     
-    /* Step 3: Build index mappings */
+    /* Allocate codepoint_to_byte (one entry per codepoint) */
+    new_codepoint_to_byte = calloc(codepoint_count + 1, sizeof(size_t));
+    if (!new_codepoint_to_byte) {
+        result = LLE_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+    
+    /* Allocate grapheme arrays */
+    new_grapheme_to_codepoint = calloc(grapheme_count + 1, sizeof(size_t));
+    new_codepoint_to_grapheme = calloc(codepoint_count + 1, sizeof(size_t));
+    new_grapheme_to_display = calloc(grapheme_count + 1, sizeof(size_t));
+    new_display_to_grapheme = calloc(display_width_total + 1, sizeof(size_t));
+    
+    if (!new_grapheme_to_codepoint || !new_codepoint_to_grapheme ||
+        !new_grapheme_to_display || !new_display_to_grapheme) {
+        result = LLE_ERROR_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+    
+    /* === PHASE 3: Build index mappings === */
+    
     ptr = text;
     size_t byte_pos = 0;
     size_t codepoint_pos = 0;
     size_t grapheme_pos = 0;
-    size_t current_grapheme_start = 0;
+    size_t display_col = 0;
+    size_t current_grapheme_start_codepoint = 0;
     
     while (ptr < end) {
-        int sequence_length = lle_utf8_sequence_length((unsigned char)*ptr);
+        int sequence_length = lle_utf8_sequence_length(*ptr);
         
-        /* Update byte-to-codepoint mapping */
+        /* Update byte-to-codepoint mapping (all bytes in sequence map to same codepoint) */
         for (int i = 0; i < sequence_length; i++) {
             new_byte_to_codepoint[byte_pos + i] = codepoint_pos;
         }
@@ -165,16 +173,32 @@ lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index,
         /* Update codepoint-to-byte mapping */
         new_codepoint_to_byte[codepoint_pos] = byte_pos;
         
-        /* Update grapheme cluster mappings */
-        if (lle_is_grapheme_boundary(ptr, text, end)) {
+        /* Check for grapheme boundary */
+        if (is_grapheme_boundary_at_position(ptr, text, end)) {
             if (grapheme_pos > 0) {
                 /* Complete previous grapheme cluster */
-                for (size_t i = current_grapheme_start; i < codepoint_pos; i++) {
+                for (size_t i = current_grapheme_start_codepoint; i < codepoint_pos; i++) {
                     new_codepoint_to_grapheme[i] = grapheme_pos - 1;
                 }
             }
+            
+            /* Start new grapheme cluster */
             new_grapheme_to_codepoint[grapheme_pos] = codepoint_pos;
-            current_grapheme_start = codepoint_pos;
+            new_grapheme_to_display[grapheme_pos] = display_col;
+            current_grapheme_start_codepoint = codepoint_pos;
+            
+            /* Update display column mapping */
+            uint32_t codepoint;
+            lle_utf8_decode_codepoint(ptr, sequence_length, &codepoint);
+            int width = lle_codepoint_width(codepoint);
+            if (width < 0) width = 1;
+            
+            /* Fill display_to_grapheme for all columns this grapheme occupies */
+            for (int w = 0; w < width; w++) {
+                new_display_to_grapheme[display_col + w] = grapheme_pos;
+            }
+            
+            display_col += width;
             grapheme_pos++;
         }
         
@@ -183,170 +207,180 @@ lle_result_t lle_utf8_index_rebuild(lle_utf8_index_t *index,
         ptr += sequence_length;
     }
     
-    /* Step 4: Complete final grapheme cluster */
-    if (codepoint_count > 0 && current_grapheme_start < codepoint_count) {
-        for (size_t i = current_grapheme_start; i < codepoint_count; i++) {
+    /* === PHASE 4: Complete final grapheme cluster === */
+    
+    if (codepoint_count > 0 && current_grapheme_start_codepoint < codepoint_count) {
+        for (size_t i = current_grapheme_start_codepoint; i < codepoint_count; i++) {
             new_codepoint_to_grapheme[i] = grapheme_pos - 1;
         }
     }
     
-    /* Step 5: Replace old index arrays with new ones */
+    /* === PHASE 5: Replace old arrays with new ones === */
+    
     free(index->byte_to_codepoint);
     free(index->codepoint_to_byte);
     free(index->grapheme_to_codepoint);
     free(index->codepoint_to_grapheme);
+    free(index->grapheme_to_display);
+    free(index->display_to_grapheme);
     
     index->byte_to_codepoint = new_byte_to_codepoint;
     index->codepoint_to_byte = new_codepoint_to_byte;
     index->grapheme_to_codepoint = new_grapheme_to_codepoint;
     index->codepoint_to_grapheme = new_codepoint_to_grapheme;
+    index->grapheme_to_display = new_grapheme_to_display;
+    index->display_to_grapheme = new_display_to_grapheme;
     
-    /* Step 6: Update index metadata */
+    /* Update metadata */
     index->byte_count = text_length;
     index->codepoint_count = codepoint_count;
     index->grapheme_count = grapheme_count;
+    index->display_width = display_width_total;
     index->index_valid = true;
-    index->last_update_time = lle_get_current_time_us();
+    index->rebuild_count++;
+    
+    /* Update timing */
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    uint64_t elapsed_ns = (end_time.tv_sec - start_time.tv_sec) * 1000000000ULL +
+                          (end_time.tv_nsec - start_time.tv_nsec);
+    index->total_rebuild_time_ns += elapsed_ns;
+    index->last_update_time = elapsed_ns;
     
     return LLE_SUCCESS;
+    
+cleanup:
+    free(new_byte_to_codepoint);
+    free(new_codepoint_to_byte);
+    free(new_grapheme_to_codepoint);
+    free(new_codepoint_to_grapheme);
+    free(new_grapheme_to_display);
+    free(new_display_to_grapheme);
+    
+    return result;
 }
 
-/**
- * @brief Get codepoint index from byte offset
- * 
- * @param index UTF-8 index
- * @param byte_offset Byte offset in text
- * @param codepoint_index Pointer to receive codepoint index
- * @return LLE_SUCCESS or error code
- */
+// Conversion functions - implement after rebuild works
+
 lle_result_t lle_utf8_index_byte_to_codepoint(const lle_utf8_index_t *index,
-                                              size_t byte_offset,
-                                              size_t *codepoint_index) {
+                                               size_t byte_offset,
+                                               size_t *codepoint_index) {
     if (!index || !codepoint_index) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Check index validity */
     if (!index->index_valid) {
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* Check bounds */
-    if (byte_offset > index->byte_count) {
-        return LLE_ERROR_INVALID_PARAMETER;
+    if (byte_offset >= index->byte_count) {
+        return LLE_ERROR_INVALID_RANGE;
     }
     
-    /* O(1) lookup */
     *codepoint_index = index->byte_to_codepoint[byte_offset];
-    
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Get byte offset from codepoint index
- * 
- * @param index UTF-8 index
- * @param codepoint_index Codepoint index
- * @param byte_offset Pointer to receive byte offset
- * @return LLE_SUCCESS or error code
- */
 lle_result_t lle_utf8_index_codepoint_to_byte(const lle_utf8_index_t *index,
-                                              size_t codepoint_index,
-                                              size_t *byte_offset) {
+                                               size_t codepoint_index,
+                                               size_t *byte_offset) {
     if (!index || !byte_offset) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Check index validity */
     if (!index->index_valid) {
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* Check bounds */
-    if (codepoint_index > index->codepoint_count) {
-        return LLE_ERROR_INVALID_PARAMETER;
+    if (codepoint_index >= index->codepoint_count) {
+        return LLE_ERROR_INVALID_RANGE;
     }
     
-    /* O(1) lookup */
     *byte_offset = index->codepoint_to_byte[codepoint_index];
-    
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Get grapheme index from codepoint index
- * 
- * @param index UTF-8 index
- * @param codepoint_index Codepoint index
- * @param grapheme_index Pointer to receive grapheme index
- * @return LLE_SUCCESS or error code
- */
 lle_result_t lle_utf8_index_codepoint_to_grapheme(const lle_utf8_index_t *index,
-                                                  size_t codepoint_index,
-                                                  size_t *grapheme_index) {
+                                                   size_t codepoint_index,
+                                                   size_t *grapheme_index) {
     if (!index || !grapheme_index) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Check index validity */
     if (!index->index_valid) {
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* Check bounds */
-    if (codepoint_index > index->codepoint_count) {
-        return LLE_ERROR_INVALID_PARAMETER;
+    if (codepoint_index >= index->codepoint_count) {
+        return LLE_ERROR_INVALID_RANGE;
     }
     
-    /* O(1) lookup */
     *grapheme_index = index->codepoint_to_grapheme[codepoint_index];
-    
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Get codepoint index from grapheme index
- * 
- * @param index UTF-8 index
- * @param grapheme_index Grapheme cluster index
- * @param codepoint_index Pointer to receive codepoint index
- * @return LLE_SUCCESS or error code
- */
 lle_result_t lle_utf8_index_grapheme_to_codepoint(const lle_utf8_index_t *index,
-                                                  size_t grapheme_index,
-                                                  size_t *codepoint_index) {
+                                                   size_t grapheme_index,
+                                                   size_t *codepoint_index) {
     if (!index || !codepoint_index) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Check index validity */
     if (!index->index_valid) {
         return LLE_ERROR_INVALID_STATE;
     }
     
-    /* Check bounds */
     if (grapheme_index >= index->grapheme_count) {
-        return LLE_ERROR_INVALID_PARAMETER;
+        return LLE_ERROR_INVALID_RANGE;
     }
     
-    /* O(1) lookup */
     *codepoint_index = index->grapheme_to_codepoint[grapheme_index];
-    
     return LLE_SUCCESS;
 }
 
-/**
- * @brief Invalidate UTF-8 index
- * 
- * @param index UTF-8 index to invalidate
- * @return LLE_SUCCESS or error code
- */
-lle_result_t lle_utf8_index_invalidate(lle_utf8_index_t *index) {
-    if (!index) {
+lle_result_t lle_utf8_index_grapheme_to_display(const lle_utf8_index_t *index,
+                                                 size_t grapheme_index,
+                                                 size_t *display_column) {
+    if (!index || !display_column) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    index->index_valid = false;
+    if (!index->index_valid) {
+        return LLE_ERROR_INVALID_STATE;
+    }
     
+    if (grapheme_index >= index->grapheme_count) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    *display_column = index->grapheme_to_display[grapheme_index];
     return LLE_SUCCESS;
+}
+
+lle_result_t lle_utf8_index_display_to_grapheme(const lle_utf8_index_t *index,
+                                                 size_t display_column,
+                                                 size_t *grapheme_index) {
+    if (!index || !grapheme_index) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    if (!index->index_valid) {
+        return LLE_ERROR_INVALID_STATE;
+    }
+    
+    if (display_column >= index->display_width) {
+        return LLE_ERROR_INVALID_RANGE;
+    }
+    
+    *grapheme_index = index->display_to_grapheme[display_column];
+    return LLE_SUCCESS;
+}
+
+void lle_utf8_index_invalidate(lle_utf8_index_t *index) {
+    if (index) {
+        index->index_valid = false;
+    }
+}
+
+bool lle_utf8_index_is_valid(const lle_utf8_index_t *index) {
+    return index && index->index_valid;
 }
