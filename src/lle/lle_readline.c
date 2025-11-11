@@ -306,6 +306,14 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         char_len
     );
     
+    /* Synchronize cursor fields after insert (PHASE 2 STEP 0 FIX) */
+    if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(
+            ctx->editor->cursor_manager,
+            ctx->buffer->cursor.byte_offset
+        );
+    }
+    
     /* Refresh display after buffer modification */
     if (result == LLE_SUCCESS) {
         refresh_display(ctx);
@@ -371,6 +379,14 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
             "\n",
             1
         );
+        
+        /* Synchronize cursor fields after insert (PHASE 2 STEP 0 FIX) */
+        if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
         
         if (result == LLE_SUCCESS) {
             /* NOTE: Continuation prompts not yet supported in LLE
@@ -596,6 +612,14 @@ static lle_result_t handle_yank(lle_event_t *event, void *user_data)
             ctx->kill_buffer,
             kill_len
         );
+        
+        /* Synchronize cursor fields after insert (PHASE 2 STEP 0 FIX) */
+        if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
         
         if (result == LLE_SUCCESS) {
             refresh_display(ctx);
