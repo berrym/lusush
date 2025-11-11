@@ -39,6 +39,8 @@
  */
 
 #include "display/composition_engine.h"
+#include "display/continuation_prompt_layer.h"
+#include "display/screen_buffer.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
 #include "display_integration.h"
@@ -50,6 +52,56 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <ctype.h>
+
+// ============================================================================
+// FORWARD DECLARATIONS (Phase 4B Multiline Support)
+// ============================================================================
+
+/**
+ * Represents a single line in a multiline command
+ */
+typedef struct {
+    const char *content;    // Pointer to start of line content
+    size_t length;          // Length in bytes (not including \n)
+    size_t byte_offset;     // Byte offset from start of command
+} command_line_info_t;
+
+// Forward declarations for multiline composition helpers
+static size_t split_command_lines(
+    const char *command_text,
+    command_line_info_t *lines,
+    size_t max_lines
+);
+
+static composition_engine_error_t build_continuation_prompts(
+    composition_engine_t *engine,
+    const char *primary_prompt,
+    const char *command_text,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    size_t prompt_size
+);
+
+static composition_engine_error_t coordinate_screen_buffer_rendering(
+    composition_engine_t *engine,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    char *output,
+    size_t output_size
+);
+
+static composition_engine_error_t translate_cursor_to_screen_position(
+    const char *command_text,
+    size_t cursor_byte_offset,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    int terminal_width,
+    size_t *out_line,
+    size_t *out_column
+);
 
 // ============================================================================
 // INTERNAL HELPER FUNCTIONS
@@ -724,6 +776,10 @@ composition_engine_error_t composition_engine_init(
     engine->command_layer = command_layer;
     engine->event_system = event_system;
     
+    // Initialize continuation prompt support (Phase 4)
+    engine->continuation_prompt_layer = NULL;
+    engine->continuation_prompts_enabled = false;
+    
     // Subscribe to relevant events
     if (engine->event_system) {
         layer_events_subscribe(
@@ -849,39 +905,131 @@ composition_engine_error_t composition_engine_compose(composition_engine_t *engi
     // Enhanced Performance Monitoring: Record cache miss
     display_integration_record_layer_cache_operation("composition_engine", false);
     
-    // Analyze prompt structure
-    uint64_t analysis_start = get_timestamp_ns();
-    result = analyze_prompt_structure(engine, prompt_content, &engine->current_analysis);
-    if (result != COMPOSITION_ENGINE_SUCCESS) {
-        return result;
-    }
+    // ========================================================================
+    // PHASE 4: MULTILINE DETECTION AND PATH SELECTION
+    // ========================================================================
     
-    uint64_t analysis_end = get_timestamp_ns();
-    if (engine->performance_monitoring) {
-        engine->performance.analysis_time_ns = analysis_end - analysis_start;
-    }
+    // Detect if command contains newlines (multiline command)
+    bool is_multiline = strchr(command_content, '\n') != NULL;
     
-    // Calculate optimal positioning
-    result = calculate_optimal_positioning(
-        engine, &engine->current_analysis, &engine->current_positioning
-    );
-    if (result != COMPOSITION_ENGINE_SUCCESS) {
-        return result;
-    }
+    // Check if we should use the multiline path
+    bool use_multiline_path = is_multiline && 
+                              engine->continuation_prompts_enabled &&
+                              engine->screen_buffer != NULL;
     
-    // Perform layer composition
-    uint64_t composition_start = get_timestamp_ns();
-    result = compose_layers(
-        engine, prompt_content, command_content,
-        &engine->current_analysis, &engine->current_positioning
-    );
-    if (result != COMPOSITION_ENGINE_SUCCESS) {
-        return result;
-    }
-    
-    uint64_t composition_end = get_timestamp_ns();
-    if (engine->performance_monitoring) {
-        engine->performance.combination_time_ns = composition_end - composition_start;
+    if (use_multiline_path) {
+        // ====================================================================
+        // MULTILINE PATH: Use continuation prompts with screen_buffer
+        // ====================================================================
+        
+        uint64_t composition_start = get_timestamp_ns();
+        
+        // Allocate output buffer if needed
+        if (!engine->composed_output) {
+            engine->composed_output = malloc(COMPOSITION_ENGINE_MAX_OUTPUT_SIZE);
+            if (!engine->composed_output) {
+                return COMPOSITION_ENGINE_ERROR_MEMORY_ALLOCATION;
+            }
+            engine->composed_output_size = COMPOSITION_ENGINE_MAX_OUTPUT_SIZE;
+        }
+        
+        // Split command into lines
+        #define MAX_COMMAND_LINES 100
+        command_line_info_t lines[MAX_COMMAND_LINES];
+        size_t line_count = split_command_lines(command_content, lines, MAX_COMMAND_LINES);
+        
+        if (line_count == 0) {
+            // Empty command - use regular path
+            use_multiline_path = false;
+            goto regular_composition_path;
+        }
+        
+        // Build continuation prompts for all lines
+        char prompts[MAX_COMMAND_LINES][256];
+        result = build_continuation_prompts(
+            engine, 
+            prompt_content, 
+            command_content,
+            lines, 
+            line_count, 
+            prompts,
+            256
+        );
+        
+        if (result != COMPOSITION_ENGINE_SUCCESS) {
+            return result;
+        }
+        
+        // Coordinate with screen_buffer to render
+        result = coordinate_screen_buffer_rendering(
+            engine,
+            lines,
+            line_count,
+            prompts,
+            engine->composed_output,
+            engine->composed_output_size
+        );
+        
+        if (result != COMPOSITION_ENGINE_SUCCESS) {
+            return result;
+        }
+        
+        uint64_t composition_end = get_timestamp_ns();
+        if (engine->performance_monitoring) {
+            engine->performance.combination_time_ns = composition_end - composition_start;
+        }
+        
+        // Update analysis to reflect multiline composition
+        memset(&engine->current_analysis, 0, sizeof(engine->current_analysis));
+        engine->current_analysis.is_multiline = true;
+        engine->current_analysis.line_count = line_count;
+        
+        // Update positioning to reflect multiline layout
+        memset(&engine->current_positioning, 0, sizeof(engine->current_positioning));
+        engine->current_positioning.total_lines = line_count;
+        engine->current_positioning.command_on_same_line = false;
+        
+    } else {
+        // ====================================================================
+        // REGULAR PATH: Single-line or continuation prompts disabled
+        // ====================================================================
+        
+regular_composition_path:
+        
+        // Analyze prompt structure
+        uint64_t analysis_start = get_timestamp_ns();
+        result = analyze_prompt_structure(engine, prompt_content, &engine->current_analysis);
+        if (result != COMPOSITION_ENGINE_SUCCESS) {
+            return result;
+        }
+        
+        uint64_t analysis_end = get_timestamp_ns();
+        if (engine->performance_monitoring) {
+            engine->performance.analysis_time_ns = analysis_end - analysis_start;
+        }
+        
+        // Calculate optimal positioning
+        result = calculate_optimal_positioning(
+            engine, &engine->current_analysis, &engine->current_positioning
+        );
+        if (result != COMPOSITION_ENGINE_SUCCESS) {
+            return result;
+        }
+        
+        // Perform layer composition
+        uint64_t composition_start = get_timestamp_ns();
+        result = compose_layers(
+            engine, prompt_content, command_content,
+            &engine->current_analysis, &engine->current_positioning
+        );
+        if (result != COMPOSITION_ENGINE_SUCCESS) {
+            return result;
+        }
+        
+        uint64_t composition_end = get_timestamp_ns();
+        if (engine->performance_monitoring) {
+            engine->performance.combination_time_ns = composition_end - composition_start;
+        }
     }
     
     // Store in cache
@@ -1504,6 +1652,363 @@ composition_engine_error_t composition_engine_compose_with_cursor(
         result->cursor_screen_column = x;
         result->cursor_found = true;
     }
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+// ============================================================================
+// CONTINUATION PROMPT SUPPORT (Phase 4)
+// ============================================================================
+
+composition_engine_error_t composition_engine_set_continuation_layer(
+    composition_engine_t *engine,
+    continuation_prompt_layer_t *continuation_layer
+) {
+    if (!engine) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    engine->continuation_prompt_layer = continuation_layer;
+    
+    // Invalidate cache when continuation layer changes
+    composition_engine_clear_cache(engine);
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+composition_engine_error_t composition_engine_enable_continuation_prompts(
+    composition_engine_t *engine,
+    bool enable
+) {
+    if (!engine) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    if (engine->continuation_prompts_enabled != enable) {
+        engine->continuation_prompts_enabled = enable;
+        
+        // Invalidate cache when setting changes
+        composition_engine_clear_cache(engine);
+    }
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+composition_engine_error_t composition_engine_set_screen_buffer(
+    composition_engine_t *engine,
+    screen_buffer_t *buffer
+) {
+    if (!engine) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    engine->screen_buffer = buffer;
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+// ============================================================================
+// MULTILINE COMPOSITION HELPERS (Phase 4B)
+// ============================================================================
+
+/**
+ * Split command content by newlines
+ * 
+ * This implements the line splitting logic from Phase 1 design:
+ * - Track byte offsets for each line
+ * - Track length of each line
+ * - Handle empty lines
+ * - Handle last line without trailing \n
+ * 
+ * @param command_text Full command text
+ * @param lines Output array for line info
+ * @param max_lines Maximum number of lines to store
+ * @return Number of lines found (0 if empty or error)
+ */
+static size_t split_command_lines(
+    const char *command_text,
+    command_line_info_t *lines,
+    size_t max_lines
+) {
+    if (!command_text || !lines || max_lines == 0) {
+        return 0;
+    }
+    
+    size_t line_count = 0;
+    const char *line_start = command_text;
+    const char *ptr = command_text;
+    size_t byte_offset = 0;
+    
+    while (*ptr && line_count < max_lines) {
+        if (*ptr == '\n') {
+            // Found end of line
+            lines[line_count].content = line_start;
+            lines[line_count].length = ptr - line_start;
+            lines[line_count].byte_offset = byte_offset;
+            line_count++;
+            
+            // Move to next line
+            ptr++;
+            line_start = ptr;
+            byte_offset = ptr - command_text;
+        } else {
+            ptr++;
+        }
+    }
+    
+    // Handle last line (without trailing \n)
+    if (line_count < max_lines && (line_start < ptr || *line_start != '\0')) {
+        lines[line_count].content = line_start;
+        lines[line_count].length = ptr - line_start;
+        lines[line_count].byte_offset = byte_offset;
+        line_count++;
+    }
+    
+    return line_count;
+}
+
+/**
+ * Build continuation prompts for all lines
+ * 
+ * This implements the prompt coordination logic from Phase 1 design:
+ * - Use primary prompt for line 0
+ * - Request from continuation_prompt_layer for lines 1+
+ * - Handle fallback to "> " on error
+ * 
+ * @param engine Composition engine
+ * @param primary_prompt Primary prompt (for first line)
+ * @param command_text Full command text
+ * @param lines Array of line info
+ * @param line_count Number of lines
+ * @param prompts Output array for prompts (must have line_count entries)
+ * @param prompt_size Size of each prompt buffer
+ * @return COMPOSITION_ENGINE_SUCCESS or error code
+ */
+static composition_engine_error_t build_continuation_prompts(
+    composition_engine_t *engine,
+    const char *primary_prompt,
+    const char *command_text,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    size_t prompt_size
+) {
+    if (!engine || !primary_prompt || !command_text || !lines || !prompts || line_count == 0) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    // Line 0: Use primary prompt
+    strncpy(prompts[0], primary_prompt, prompt_size - 1);
+    prompts[0][prompt_size - 1] = '\0';
+    
+    // Lines 1+: Request from continuation_prompt_layer
+    for (size_t i = 1; i < line_count; i++) {
+        if (engine->continuation_prompt_layer) {
+            continuation_prompt_error_t cont_error = 
+                continuation_prompt_layer_get_prompt_for_line(
+                    engine->continuation_prompt_layer,
+                    i,  // line_number (1-based for continuation lines)
+                    command_text,
+                    prompts[i],
+                    prompt_size
+                );
+            
+            if (cont_error != CONTINUATION_PROMPT_SUCCESS) {
+                // Fallback to simple "> " on error
+                strncpy(prompts[i], "> ", prompt_size - 1);
+                prompts[i][prompt_size - 1] = '\0';
+            }
+        } else {
+            // No continuation layer - use simple fallback
+            strncpy(prompts[i], "> ", prompt_size - 1);
+            prompts[i][prompt_size - 1] = '\0';
+        }
+    }
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+/**
+ * Coordinate with screen_buffer to render multiline with prefixes
+ * 
+ * This implements the screen buffer coordination from Phase 1 design:
+ * - Call screen_buffer_set_line_prefix() for each line
+ * - Call screen_buffer_render_multiline_with_prefixes()
+ * 
+ * Note: This function does NOT render line content. It only sets prefixes
+ * and renders the combined output. The screen_buffer is responsible for
+ * managing the actual line content separately.
+ * 
+ * @param engine Composition engine
+ * @param lines Array of line info
+ * @param line_count Number of lines
+ * @param prompts Array of prompts for each line
+ * @param output Output buffer
+ * @param output_size Size of output buffer
+ * @return COMPOSITION_ENGINE_SUCCESS or error code
+ */
+static composition_engine_error_t coordinate_screen_buffer_rendering(
+    composition_engine_t *engine,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    char *output,
+    size_t output_size
+) {
+    if (!engine || !engine->screen_buffer || !lines || !prompts || !output) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    screen_buffer_t *sb = engine->screen_buffer;
+    
+    // Set prefix for each line
+    for (size_t i = 0; i < line_count; i++) {
+        bool result = screen_buffer_set_line_prefix(sb, (int)i, prompts[i]);
+        if (!result) {
+            return COMPOSITION_ENGINE_ERROR_COMPOSITION_FAILED;
+        }
+    }
+    
+    // Render all lines with prefixes
+    bool render_result = screen_buffer_render_multiline_with_prefixes(
+        sb,
+        0,              // start_line
+        (int)line_count, // num_lines
+        output,
+        output_size
+    );
+    
+    if (!render_result) {
+        return COMPOSITION_ENGINE_ERROR_BUFFER_TOO_SMALL;
+    }
+    
+    return COMPOSITION_ENGINE_SUCCESS;
+}
+
+/**
+ * Translate cursor byte offset to screen position in multiline command
+ * 
+ * This implements the cursor translation logic from Phase 1 design using
+ * incremental character-by-character tracking (the proven approach from
+ * Replxx/Fish/ZLE).
+ * 
+ * Key principles:
+ * - Walk through buffer character by character
+ * - Track (line, column) position accounting for continuation prompts
+ * - Handle UTF-8, wide characters, ANSI codes, tabs
+ * - Record position when reaching cursor byte offset
+ * 
+ * @param command_text Full command text
+ * @param cursor_byte_offset Cursor position in command (byte offset)
+ * @param lines Array of line info
+ * @param line_count Number of lines
+ * @param prompts Array of prompts for each line
+ * @param terminal_width Terminal width in columns
+ * @param out_line Output: cursor line number (0-based)
+ * @param out_column Output: cursor column number (0-based, includes prompt width)
+ * @return COMPOSITION_ENGINE_SUCCESS or error code
+ */
+static composition_engine_error_t translate_cursor_to_screen_position(
+    const char *command_text,
+    size_t cursor_byte_offset,
+    const command_line_info_t *lines,
+    size_t line_count,
+    char (*prompts)[256],
+    int terminal_width,
+    size_t *out_line,
+    size_t *out_column
+) {
+    if (!command_text || !lines || !prompts || !out_line || !out_column || line_count == 0) {
+        return COMPOSITION_ENGINE_ERROR_INVALID_PARAM;
+    }
+    
+    if (terminal_width <= 0) {
+        terminal_width = 80;  // Fallback
+    }
+    
+    // Find which line the cursor is on
+    size_t cursor_line = 0;
+    size_t cursor_offset_in_line = cursor_byte_offset;
+    
+    for (size_t i = 0; i < line_count; i++) {
+        size_t line_end_offset = lines[i].byte_offset + lines[i].length;
+        
+        // Check if cursor is on this line
+        if (cursor_byte_offset >= lines[i].byte_offset && cursor_byte_offset <= line_end_offset) {
+            cursor_line = i;
+            cursor_offset_in_line = cursor_byte_offset - lines[i].byte_offset;
+            break;
+        }
+        
+        // If cursor is at the newline after this line
+        if (i + 1 < line_count && cursor_byte_offset == lines[i + 1].byte_offset - 1) {
+            cursor_line = i;
+            cursor_offset_in_line = lines[i].length;  // At end of line
+            break;
+        }
+    }
+    
+    // If cursor is beyond all lines, place at end
+    if (cursor_line >= line_count) {
+        cursor_line = line_count - 1;
+        cursor_offset_in_line = lines[cursor_line].length;
+    }
+    
+    // Calculate visual width of prompt for this line (strip ANSI codes)
+    size_t prompt_width = screen_buffer_calculate_visual_width(prompts[cursor_line], 0);
+    
+    // Walk through the line content character by character
+    size_t column = prompt_width;  // Start after prompt
+    size_t bytes_processed = 0;
+    const char *line_text = lines[cursor_line].content;
+    
+    while (bytes_processed < cursor_offset_in_line && bytes_processed < lines[cursor_line].length) {
+        unsigned char ch = line_text[bytes_processed];
+        
+        // Determine character width
+        int char_width = 0;
+        int bytes_consumed = 1;
+        
+        if (ch == '\t') {
+            // Tab character - expand to next multiple of 8
+            char_width = 8 - (column % 8);
+        } else if (ch == '\033') {
+            // ANSI escape sequence - skip without adding width
+            bytes_consumed = 1;
+            while (bytes_processed + bytes_consumed < lines[cursor_line].length) {
+                unsigned char esc_ch = line_text[bytes_processed + bytes_consumed];
+                bytes_consumed++;
+                if (esc_ch == 'm' || esc_ch == 'K' || esc_ch == 'J' || 
+                    esc_ch == 'H' || esc_ch == 'A' || esc_ch == 'B' || 
+                    esc_ch == 'C' || esc_ch == 'D' || esc_ch == 'G' || 
+                    esc_ch == 'f' || esc_ch == 's' || esc_ch == 'u') {
+                    break;
+                }
+            }
+            char_width = 0;  // ANSI codes have no visual width
+        } else if ((ch & 0x80) == 0) {
+            // ASCII character (single byte, width 1)
+            char_width = 1;
+        } else {
+            // Multi-byte UTF-8 character
+            if ((ch & 0xE0) == 0xC0) {
+                bytes_consumed = 2;  // 2-byte UTF-8
+            } else if ((ch & 0xF0) == 0xE0) {
+                bytes_consumed = 3;  // 3-byte UTF-8
+            } else if ((ch & 0xF8) == 0xF0) {
+                bytes_consumed = 4;  // 4-byte UTF-8
+            }
+            
+            // For now, assume width 1 (proper wcwidth() would check Unicode range)
+            // TODO: Implement proper wide character detection for CJK (width 2)
+            char_width = 1;
+        }
+        
+        column += char_width;
+        bytes_processed += bytes_consumed;
+    }
+    
+    *out_line = cursor_line;
+    *out_column = column;
     
     return COMPOSITION_ENGINE_SUCCESS;
 }

@@ -44,7 +44,6 @@
 #include "display/base_terminal.h"
 #include "display/prompt_layer.h"
 #include "display/command_layer.h"
-#include "display/continuation_prompt_layer.h"
 #include "display/screen_buffer.h"
 #include "display_integration.h"
 #include "lusush_memory_pool.h"
@@ -207,28 +206,6 @@ static layer_events_error_t dc_handle_redraw_needed(
     size_t cursor_byte_offset = cmd_layer->cursor_position;
     screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
 
-    /* Apply continuation prompts to screen buffer lines (line 1+) */
-    if (controller->continuation_layer && desired_screen.num_rows > 1) {
-        /* Get the full command text from the command layer */
-        const char *full_command = cmd_layer->command_text;
-        
-        /* Set prefix for each continuation line (skip line 0, which is the primary prompt) */
-        for (int line = 1; line < desired_screen.num_rows; line++) {
-            char prefix[CONTINUATION_PROMPT_MAX_LENGTH];
-            continuation_prompt_error_t cont_result = continuation_prompt_layer_get_prompt_for_line(
-                controller->continuation_layer,
-                line,  /* line_number (1-based for continuation lines) */
-                full_command,
-                prefix,
-                sizeof(prefix)
-            );
-            
-            if (cont_result == CONTINUATION_PROMPT_SUCCESS) {
-                screen_buffer_set_line_prefix(&desired_screen, line, prefix);
-            }
-        }
-    }
-
     /* Use clear and redraw approach with cursor tracking
      * We'll output everything, track where cursor should be, then reposition */
     
@@ -252,96 +229,21 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Clear from cursor to end of screen (clears current line and any wrapped lines below) */
     write(STDOUT_FILENO, "\033[J", 3);
     
-    /* For single-line or simple rendering, use original approach */
-    if (desired_screen.num_rows == 1 || !controller->continuation_layer) {
-        /* Draw prompt */
-        if (prompt_buffer[0]) {
-            write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
-        }
-        
-        /* Draw command text completely */
-        if (command_buffer[0]) {
-            write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
-        }
-    } else {
-        /* Multi-line with continuation prompts: manually split and insert prefixes */
-        /* First line: prompt + start of command up to first \n */
-        if (prompt_buffer[0]) {
-            write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
-        }
-        
-        /* Split command_buffer by newlines and insert continuation prompts */
-        const char *line_start = command_buffer;
-        const char *line_end;
-        int line_num = 0;
-        
-        while (*line_start) {
-            line_end = strchr(line_start, '\n');
-            
-            if (line_end) {
-                /* Write this line */
-                write(STDOUT_FILENO, line_start, line_end - line_start);
-                write(STDOUT_FILENO, "\n", 1);
-                
-                line_num++;
-                line_start = line_end + 1;
-                
-                /* Insert continuation prompt for next line
-                 * NOTE: We need to show the prompt even if the line is empty (*line_start == 0)
-                 * because the user needs to see where to type on continuation lines */
-                if (controller->continuation_layer && line_num < desired_screen.num_rows) {
-                    const char *full_command = cmd_layer->command_text;
-                    char prefix[CONTINUATION_PROMPT_MAX_LENGTH];
-                    
-                    continuation_prompt_error_t cont_result = continuation_prompt_layer_get_prompt_for_line(
-                        controller->continuation_layer,
-                        line_num,
-                        full_command,
-                        prefix,
-                        sizeof(prefix)
-                    );
-                    
-                    if (cont_result == CONTINUATION_PROMPT_SUCCESS) {
-                        write(STDOUT_FILENO, prefix, strlen(prefix));
-                    }
-                }
-            } else {
-                /* Last line (no newline) */
-                write(STDOUT_FILENO, line_start, strlen(line_start));
-                break;
-            }
-        }
+    /* Draw prompt */
+    if (prompt_buffer[0]) {
+        write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+    }
+    
+    /* Draw command text completely */
+    if (command_buffer[0]) {
+        write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
     }
     
     /* Position cursor using row/col from screen_buffer 
      * The screen_buffer_render() calculated the exact cursor position accounting
-     * for line wrapping, prompt width, and UTF-8 character widths. */
+     * for line wrapping, prompt width, and UTF-8 character widths */
     int cursor_row = desired_screen.cursor_row;
     int cursor_col = desired_screen.cursor_col;
-    
-    /* If cursor is on a continuation line (row > 0), account for continuation prompt width */
-    if (cursor_row > 0 && controller->continuation_layer) {
-        const char *full_command = cmd_layer->command_text;
-        char prefix[CONTINUATION_PROMPT_MAX_LENGTH];
-        
-        continuation_prompt_error_t cont_result = continuation_prompt_layer_get_prompt_for_line(
-            controller->continuation_layer,
-            cursor_row,
-            full_command,
-            prefix,
-            sizeof(prefix)
-        );
-        
-        if (cont_result == CONTINUATION_PROMPT_SUCCESS) {
-            /* Add the visual width of the continuation prompt 
-             * Use screen_buffer_calculate_visual_width() to properly account for:
-             * - ANSI escape codes (color/formatting)
-             * - Wide Unicode characters
-             * - Tab characters */
-            size_t prefix_visual_width = screen_buffer_calculate_visual_width(prefix, 0);
-            cursor_col += (int)prefix_visual_width;
-        }
-    }
     
     /* We just drew everything, so cursor is at the end
      * Calculate how to move cursor to the correct position */
@@ -1216,43 +1118,6 @@ display_controller_error_t display_controller_display(
         }
         
         DC_DEBUG("Command layer initialized successfully");
-
-        // Initialize continuation prompt layer
-        DC_DEBUG("About to initialize continuation prompt layer");
-        continuation_prompt_layer_t *cont_layer = continuation_prompt_layer_create();
-        
-        if (!cont_layer) {
-            DC_ERROR("Failed to create continuation prompt layer");
-            prompt_layer_cleanup(prompt_layer);
-            prompt_layer_destroy(prompt_layer);
-            command_layer_cleanup(command_layer);
-            command_layer_destroy(command_layer);
-            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
-        }
-        
-        DC_DEBUG("Continuation prompt layer pointer: %p", (void*)cont_layer);
-        DC_DEBUG("Event system pointer: %p", (void*)controller->event_system);
-        
-        continuation_prompt_error_t cont_init_result = continuation_prompt_layer_init(cont_layer, controller->event_system);
-        
-        DC_DEBUG("Continuation prompt layer init returned: %d", cont_init_result);
-        
-        if (cont_init_result != CONTINUATION_PROMPT_SUCCESS) {
-            DC_ERROR("Failed to initialize continuation prompt layer: error %d", cont_init_result);
-            prompt_layer_cleanup(prompt_layer);
-            prompt_layer_destroy(prompt_layer);
-            command_layer_cleanup(command_layer);
-            command_layer_destroy(command_layer);
-            continuation_prompt_layer_destroy(cont_layer);
-            return DISPLAY_CONTROLLER_ERROR_INITIALIZATION_FAILED;
-        }
-        
-        // Store continuation layer in controller
-        controller->continuation_layer = cont_layer;
-        
-        // Enable context-aware mode for continuation prompts
-        continuation_prompt_layer_set_mode(cont_layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
-        DC_DEBUG("Continuation prompt layer initialized successfully in CONTEXT_AWARE mode");
 
         // ============================================================================
         // CRITICAL FIX: Populate layers with provided content before composition engine init
