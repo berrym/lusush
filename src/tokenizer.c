@@ -1,4 +1,5 @@
 #include "../include/tokenizer.h"
+#include "../include/lle/utf8_support.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -369,9 +370,33 @@ static bool is_operator_char(char c) {
     return strchr(";|&<>=+*%?(){}[]#!", c) != NULL;
 }
 
-// Check if character can be part of a word
+// Check if character can be part of a word (byte-based, for ASCII)
 static bool is_word_char(char c) {
     return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
+}
+
+// Check if Unicode codepoint can be part of a word (UTF-8 aware)
+static bool is_word_codepoint(uint32_t codepoint) {
+    // ASCII range: Use traditional shell word character logic
+    if (codepoint < 0x80) {
+        char c = (char)codepoint;
+        return isalnum(c) || strchr("_.-/~:@*?[]+%", c) != NULL;
+    }
+    
+    // Non-ASCII UTF-8: All non-ASCII codepoints are valid word characters
+    // This includes:
+    // - Latin Extended (accented characters like é, ñ, ü)
+    // - CJK (Chinese, Japanese, Korean)
+    // - Emoji
+    // - All other Unicode scripts
+    //
+    // We explicitly exclude:
+    // - ASCII control characters (0x00-0x1F, already < 0x80)
+    // - Invalid codepoints (handled by UTF-8 decoder)
+    //
+    // Shell metacharacters (quotes, pipes, etc.) are all ASCII (< 0x80),
+    // so they're handled by the ASCII logic above.
+    return true;
 }
 
 // Skip whitespace (except newlines)
@@ -961,20 +986,56 @@ static token_t *tokenize_next(tokenizer_t *tokenizer) {
         tokenizer->column = start_column;
     }
 
-    // Handle words and numbers
-    if (isalnum(c) || is_word_char(c)) {
+    // Handle words and numbers (UTF-8 aware)
+    // First, try to decode the current character as UTF-8
+    uint32_t codepoint;
+    int char_len = lle_utf8_decode_codepoint(
+        &tokenizer->input[tokenizer->position],
+        tokenizer->input_length - tokenizer->position,
+        &codepoint
+    );
+    
+    // Check if this could be the start of a word
+    // (either ASCII word char or non-ASCII UTF-8)
+    bool could_be_word = false;
+    if (char_len > 0) {
+        could_be_word = is_word_codepoint(codepoint);
+    } else if (isalnum(c) || is_word_char(c)) {
+        // Fallback for byte-level check (ASCII)
+        could_be_word = true;
+    }
+    
+    if (could_be_word) {
         size_t start = tokenizer->position;
-        bool is_numeric = isdigit(c);
+        bool is_numeric = (char_len == 1 && isdigit(c));
 
+        // Scan word character by character (UTF-8 aware)
         while (tokenizer->position < tokenizer->input_length) {
-            char curr = tokenizer->input[tokenizer->position];
-            if (is_word_char(curr) || isalnum(curr)) {
-                if (!isdigit(curr)) {
-                    is_numeric = false;
+            // Try to decode UTF-8 codepoint at current position
+            uint32_t curr_codepoint;
+            int curr_char_len = lle_utf8_decode_codepoint(
+                &tokenizer->input[tokenizer->position],
+                tokenizer->input_length - tokenizer->position,
+                &curr_codepoint
+            );
+            
+            if (curr_char_len > 0) {
+                // Valid UTF-8 character - check if it's a word character
+                if (is_word_codepoint(curr_codepoint)) {
+                    // Check if still numeric (only single-byte ASCII digits count)
+                    if (curr_char_len > 1 || !isdigit(tokenizer->input[tokenizer->position])) {
+                        is_numeric = false;
+                    }
+                    
+                    // Advance by the UTF-8 character length
+                    tokenizer->position += curr_char_len;
+                    tokenizer->column++; // One visual column per character
+                } else {
+                    // Not a word character - end of word
+                    break;
                 }
-                tokenizer->position++;
-                tokenizer->column++;
             } else {
+                // Invalid UTF-8 sequence - treat as end of word
                 break;
             }
         }
