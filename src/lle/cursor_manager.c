@@ -144,11 +144,26 @@ static lle_result_t grapheme_index_to_byte_offset(lle_buffer_t *buffer,
     while (offset < buffer->length && current_grapheme < grapheme_index) {
         const char *ptr = data + offset;
         
-        /* Find next grapheme boundary */
-        const char *next = ptr + 1;
-        while (next < end && !lle_is_grapheme_boundary(next, data, end)) {
-            next++;
-        }
+        /* Find next grapheme boundary
+         * CRITICAL: Must advance by UTF-8 character boundaries, not individual bytes!
+         * lle_is_grapheme_boundary() requires valid UTF-8 character starts.
+         */
+        const char *next = ptr;
+        do {
+            /* Advance to next UTF-8 character */
+            int char_len = lle_utf8_sequence_length((unsigned char)*next);
+            if (char_len <= 0 || next + char_len > end) {
+                /* Invalid UTF-8 or end of string - treat as single byte */
+                next++;
+                break;
+            }
+            next += char_len;
+            
+            /* Check if this is a grapheme boundary */
+            if (next >= end || lle_is_grapheme_boundary(next, data, end)) {
+                break;
+            }
+        } while (next < end);
         
         offset = next - data;
         current_grapheme++;

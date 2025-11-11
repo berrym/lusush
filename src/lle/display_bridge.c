@@ -18,10 +18,14 @@
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
+#include "lle/unicode_grapheme.h"  /* For grapheme boundary detection */
+#include "lle/utf8_support.h"      /* For UTF-8 utilities */
 #include "display/command_layer.h"
 #include "display/layer_events.h"
 #include <string.h>
 #include <time.h>
+#include <wchar.h>   /* For wcwidth() */
+#include <locale.h>  /* For UTF-8 locale support */
 
 /* ========================================================================== */
 /*                       HELPER FUNCTION DECLARATIONS                         */
@@ -631,27 +635,80 @@ static void calculate_cursor_screen_position(const char *text,
             continue;
         }
         
-        /* Handle multi-byte UTF-8 sequences */
-        size_t char_bytes = 1;
-        if ((ch & 0x80) == 0) {
-            /* ASCII: 1 byte, 1 column */
-            char_bytes = 1;
-        } else if ((ch & 0xE0) == 0xC0) {
-            /* 2-byte UTF-8 */
-            char_bytes = 2;
-        } else if ((ch & 0xF0) == 0xE0) {
-            /* 3-byte UTF-8 */
-            char_bytes = 3;
-        } else if ((ch & 0xF8) == 0xF0) {
-            /* 4-byte UTF-8 */
-            char_bytes = 4;
+        /* GRAPHEME-AWARE WIDTH CALCULATION (Phase 2 Fix)
+         * 
+         * Instead of processing individual UTF-8 codepoints, we now process
+         * entire grapheme clusters as atomic units. This correctly handles:
+         * - CJK characters (2 columns)
+         * - Emoji (2 columns)
+         * - Combining marks (0 additional columns)
+         * - ZWJ sequences (rendered as single unit)
+         * - Regional Indicator pairs (flags)
+         * - Emoji with skin tone modifiers
+         */
+        
+        /* Find the end of this grapheme cluster
+         * CRITICAL: Must advance by UTF-8 character boundaries, not individual bytes!
+         * lle_is_grapheme_boundary() requires valid UTF-8 character starts.
+         */
+        const char *grapheme_start = text + i;
+        const char *grapheme_end = grapheme_start;
+        
+        /* Scan forward by UTF-8 characters until we hit a grapheme boundary */
+        do {
+            /* Advance to next UTF-8 character */
+            int char_len = lle_utf8_sequence_length((unsigned char)*grapheme_end);
+            if (char_len <= 0 || grapheme_end + char_len > text + text_len) {
+                /* Invalid UTF-8 or end of string - treat as single byte */
+                grapheme_end++;
+                break;
+            }
+            grapheme_end += char_len;
+            
+            /* Check if this is a grapheme boundary */
+            if (grapheme_end >= text + text_len || 
+                lle_is_grapheme_boundary(grapheme_end, text, text + text_len)) {
+                break;
+            }
+        } while (grapheme_end < text + text_len);
+        
+        size_t grapheme_bytes = grapheme_end - grapheme_start;
+        
+        /* Calculate visual width of this grapheme cluster
+         * 
+         * Strategy:
+         * 1. Decode first codepoint of grapheme (base character)
+         * 2. Use wcwidth() on base character for width
+         * 3. Treat entire grapheme cluster as that width
+         * 
+         * This handles:
+         * - Base emoji + modifier → base determines width
+         * - Base char + combining mark → base determines width
+         * - ZWJ sequences → first emoji determines width
+         */
+        uint32_t base_codepoint = 0;
+        int decode_result = lle_utf8_decode_codepoint(grapheme_start, 
+                                                       grapheme_bytes, 
+                                                       &base_codepoint);
+        
+        int visual_width = 1;  /* Default to 1 column */
+        
+        if (decode_result > 0) {
+            /* Successfully decoded first codepoint - get its width */
+            wchar_t wc = (wchar_t)base_codepoint;
+            int wc_width = wcwidth(wc);
+            
+            if (wc_width >= 0) {
+                /* wcwidth() returned valid width (0, 1, or 2) */
+                visual_width = wc_width;
+            } else {
+                /* wcwidth() returned -1 (non-printable or error)
+                 * Default to 1 column for safety */
+                visual_width = 1;
+            }
         }
         
-        /* For simplicity, assume all UTF-8 characters are 1 column wide
-         * (proper implementation would use wcwidth() to detect wide chars) */
-        size_t visual_width = 1;
-        
-        /* Advance x position for this character */
+        /* Advance x position for this grapheme cluster */
         x += visual_width;
         
         /* Handle line wrap: if we've exceeded terminal width, wrap to next line
@@ -661,9 +718,9 @@ static void calculate_cursor_screen_position(const char *text,
             y++;
         }
         
-        /* Advance byte counter and string position */
-        i += char_bytes;
-        bytes_processed += char_bytes;
+        /* Advance byte counter and string position by entire grapheme */
+        i += grapheme_bytes;
+        bytes_processed += grapheme_bytes;
     }
     
     /* If we've processed all text and cursor is at the end */

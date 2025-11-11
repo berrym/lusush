@@ -346,6 +346,9 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
         
         lle_result_t result = lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, -1);
         if (result == LLE_SUCCESS) {
+            /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+            lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+            
             size_t grapheme_start = ctx->buffer->cursor.byte_offset;
             size_t grapheme_len = current_byte - grapheme_start;
             
@@ -650,7 +653,13 @@ static lle_result_t handle_arrow_left(lle_event_t *event, void *user_data)
     if (ctx->buffer->cursor.grapheme_index > 0 && ctx->editor && ctx->editor->cursor_manager) {
         /* Sync cursor manager position with buffer cursor before moving */
         lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
+        
+        /* Move cursor by graphemes */
         lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, -1);
+        
+        /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+        lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+        
         refresh_display(ctx);
     }
     
@@ -672,7 +681,13 @@ static lle_result_t handle_arrow_right(lle_event_t *event, void *user_data)
         ctx->editor && ctx->editor->cursor_manager) {
         /* Sync cursor manager position with buffer cursor before moving */
         lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
+        
+        /* Move cursor by graphemes */
         lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, 1);
+        
+        /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+        lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+        
         refresh_display(ctx);
     }
     
@@ -732,6 +747,9 @@ static lle_result_t handle_delete(lle_event_t *event, void *user_data)
         
         lle_result_t result = lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, 1);
         if (result == LLE_SUCCESS) {
+            /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+            lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+            
             size_t grapheme_end = ctx->buffer->cursor.byte_offset;
             size_t grapheme_len = grapheme_end - grapheme_start;
             
