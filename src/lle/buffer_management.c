@@ -627,6 +627,9 @@ lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer,
     }
     buffer->utf8_index_valid = false;
     
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
+    
     /* Step 8: Update cursor if after insertion point */
     if (buffer->cursor.byte_offset >= position) {
         buffer->cursor.byte_offset += text_length;
@@ -733,6 +736,9 @@ lle_result_t lle_buffer_delete_text(lle_buffer_t *buffer,
         lle_utf8_index_invalidate(buffer->utf8_index);
     }
     buffer->utf8_index_valid = false;
+    
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
     
     /* Step 6: Update cursor if affected */
     if (buffer->cursor.byte_offset > start_position) {
@@ -887,6 +893,9 @@ lle_result_t lle_buffer_replace_text(lle_buffer_t *buffer,
         lle_utf8_index_invalidate(buffer->utf8_index);
     }
     buffer->utf8_index_valid = false;
+    
+    /* Invalidate line structure - line boundaries need rebuild */
+    buffer->line_count = 0;
     
     /* Step 7: Update cursor if affected */
     if (buffer->cursor.byte_offset > start_position) {
