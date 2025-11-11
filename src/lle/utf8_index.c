@@ -1,3 +1,4 @@
+#include "lle/buffer_management.h"
 #include "lle/utf8_index.h"
 #include "lle/utf8_support.h"
 #include "lle/grapheme_detector.h"

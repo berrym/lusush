@@ -16,32 +16,10 @@
  * - Display columns (visual position)
  * 
  * Based on Spec 03, Section 4.1-4.2
+ * 
+ * Full definition in buffer_management.h
  */
-typedef struct lle_utf8_index {
-    // Fast position mapping arrays
-    size_t *byte_to_codepoint;      // [byte_offset] -> codepoint index
-    size_t *codepoint_to_byte;      // [codepoint_idx] -> byte offset
-    size_t *grapheme_to_codepoint;  // [grapheme_idx] -> codepoint index (start)
-    size_t *codepoint_to_grapheme;  // [codepoint_idx] -> grapheme index
-    size_t *grapheme_to_display;    // [grapheme_idx] -> display column
-    size_t *display_to_grapheme;    // [display_col] -> grapheme index
-    
-    // Index metadata
-    size_t byte_count;              // Total bytes indexed
-    size_t codepoint_count;         // Total codepoints indexed
-    size_t grapheme_count;          // Total grapheme clusters indexed
-    size_t display_width;           // Total display columns
-    
-    // Index validity and versioning
-    bool index_valid;               // Index is up-to-date
-    uint32_t buffer_version;        // Associated buffer version
-    uint64_t last_update_time;      // Timestamp of last rebuild
-    
-    // Performance tracking
-    size_t rebuild_count;           // Number of times rebuilt
-    uint64_t total_rebuild_time_ns; // Total time spent rebuilding
-    
-} lle_utf8_index_t;
+typedef struct lle_utf8_index_t lle_utf8_index_t;
 
 /**
  * Initialize UTF-8 index structure

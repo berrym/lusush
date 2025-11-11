@@ -15,6 +15,7 @@
  */
 
 #include "lle/buffer_management.h"
+#include "lle/utf8_index.h"
 #include "lle/utf8_support.h"
 #include "lle/unicode_grapheme.h"
 #include <string.h>
@@ -52,18 +53,43 @@ static lle_result_t calculate_line_column(lle_cursor_manager_t *manager) {
     /* Calculate column offsets */
     size_t column_offset = byte_offset - line_start;
     
-    /* Calculate column in codepoints */
+    /* Calculate column in codepoints - use index if available */
     size_t column_codepoint = 0;
     if (column_offset > 0) {
-        column_codepoint = lle_utf8_count_codepoints(
-            buffer->data + line_start, column_offset);
+        if (buffer->utf8_index && buffer->utf8_index_valid) {
+            /* O(1) lookup using index */
+            size_t total_codepoints, line_start_codepoints;
+            if (lle_utf8_index_byte_to_codepoint(buffer->utf8_index, byte_offset, &total_codepoints) == LLE_SUCCESS &&
+                lle_utf8_index_byte_to_codepoint(buffer->utf8_index, line_start, &line_start_codepoints) == LLE_SUCCESS) {
+                column_codepoint = total_codepoints - line_start_codepoints;
+            } else {
+                /* Fallback to O(n) counting */
+                column_codepoint = lle_utf8_count_codepoints(buffer->data + line_start, column_offset);
+            }
+        } else {
+            column_codepoint = lle_utf8_count_codepoints(buffer->data + line_start, column_offset);
+        }
     }
     
-    /* Calculate column in graphemes */
+    /* Calculate column in graphemes - use index if available */
     size_t column_grapheme = 0;
     if (column_offset > 0) {
-        column_grapheme = lle_utf8_count_graphemes(
-            buffer->data + line_start, column_offset);
+        if (buffer->utf8_index && buffer->utf8_index_valid) {
+            /* O(1) lookup using index */
+            size_t total_codepoints, line_start_codepoints;
+            size_t total_graphemes, line_start_graphemes;
+            if (lle_utf8_index_byte_to_codepoint(buffer->utf8_index, byte_offset, &total_codepoints) == LLE_SUCCESS &&
+                lle_utf8_index_byte_to_codepoint(buffer->utf8_index, line_start, &line_start_codepoints) == LLE_SUCCESS &&
+                lle_utf8_index_codepoint_to_grapheme(buffer->utf8_index, total_codepoints, &total_graphemes) == LLE_SUCCESS &&
+                lle_utf8_index_codepoint_to_grapheme(buffer->utf8_index, line_start_codepoints, &line_start_graphemes) == LLE_SUCCESS) {
+                column_grapheme = total_graphemes - line_start_graphemes;
+            } else {
+                /* Fallback to O(n) counting */
+                column_grapheme = lle_utf8_count_graphemes(buffer->data + line_start, column_offset);
+            }
+        } else {
+            column_grapheme = lle_utf8_count_graphemes(buffer->data + line_start, column_offset);
+        }
     }
     
     /* Update position */
@@ -239,24 +265,41 @@ lle_result_t lle_cursor_manager_move_to_byte_offset(lle_cursor_manager_t *manage
     }
     
     lle_result_t result = LLE_SUCCESS;
+    lle_buffer_t *buffer = manager->buffer;
     
     /* Step 1: Set byte offset */
     manager->position.byte_offset = byte_offset;
     
-    /* Step 2: Calculate codepoint index */
+    /* Step 2: Calculate codepoint index - use UTF-8 index if available */
     if (byte_offset == 0) {
         manager->position.codepoint_index = 0;
+    } else if (buffer->utf8_index && buffer->utf8_index_valid) {
+        /* O(1) lookup */
+        if (lle_utf8_index_byte_to_codepoint(buffer->utf8_index, byte_offset,
+                                             &manager->position.codepoint_index) != LLE_SUCCESS) {
+            /* Fallback to O(n) counting */
+            manager->position.codepoint_index = lle_utf8_count_codepoints(buffer->data, byte_offset);
+        }
     } else {
-        manager->position.codepoint_index = lle_utf8_count_codepoints(
-            manager->buffer->data, byte_offset);
+        manager->position.codepoint_index = lle_utf8_count_codepoints(buffer->data, byte_offset);
     }
     
-    /* Step 3: Calculate grapheme index */
+    /* Step 3: Calculate grapheme index - use UTF-8 index if available */
     if (byte_offset == 0) {
         manager->position.grapheme_index = 0;
+    } else if (buffer->utf8_index && buffer->utf8_index_valid) {
+        /* O(1) lookup via byte→codepoint→grapheme */
+        size_t codepoint_idx;
+        if (lle_utf8_index_byte_to_codepoint(buffer->utf8_index, byte_offset, &codepoint_idx) == LLE_SUCCESS &&
+            lle_utf8_index_codepoint_to_grapheme(buffer->utf8_index, codepoint_idx,
+                                                 &manager->position.grapheme_index) == LLE_SUCCESS) {
+            /* Success - index lookup worked */
+        } else {
+            /* Fallback to O(n) counting */
+            manager->position.grapheme_index = lle_utf8_count_graphemes(buffer->data, byte_offset);
+        }
     } else {
-        manager->position.grapheme_index = lle_utf8_count_graphemes(
-            manager->buffer->data, byte_offset);
+        manager->position.grapheme_index = lle_utf8_count_graphemes(buffer->data, byte_offset);
     }
     
     /* Step 4: Calculate line and column positions */
