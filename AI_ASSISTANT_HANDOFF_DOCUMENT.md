@@ -3,16 +3,16 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
 **Branch**: feature/lle-utf8-grapheme  
-**Status**: ✅ **PHASE 1 BUGS FIXED + RE-TESTING REQUIRED**  
-**Last Action**: Fixed critical UAX #29 grapheme boundary detection bugs (emoji modifiers + flags)  
-**Next**: Re-test all 7 cases in lusush, investigate Test 4 cursor positioning  
-**Current Reality**: Grapheme detection now correct for all complex cases, cursor behavior needs verification  
-**Bugs Fixed**: Skin tone modifiers (GB9), Regional Indicator pairing (GB12/GB13)  
-**Test Results**: Grapheme detection - Tests 5 & 7 now PASS, Test 4 still has cursor issue (not grapheme)  
-**Testing Status**: 3/7 tests passing (1,2,3,6), 2/7 now fixed (5,7), 1/7 needs investigation (4)  
-**Ready For**: User to re-run ./builddir/lusush with fixes and verify Tests 4,5,7  
-**Commits**: 6 total (Steps 5-7 + docs + testing + grapheme fixes) - ready to push  
-**Architecture**: O(1) lookups, lazy invalidation, correct UAX #29 grapheme boundaries
+**Status**: ✅ **PHASE 1 COMPLETE - CONDITIONALLY READY**  
+**Last Action**: Documented test results and cursor synchronization bug (ISSUE-001)  
+**Next**: Proceed to Phase 2 - Display Integration (cursor fix is first task)  
+**Current Reality**: Core UTF-8/grapheme infrastructure complete and correct, one known UX issue  
+**Test Results**: 4/7 PASS, 3/7 FAIL (cursor positioning on paste only)  
+**Known Issue**: Cursor desync after paste (not grapheme detection - that's perfect)  
+**Root Cause**: buffer_insert_text() only updates byte_offset, not codepoint/grapheme indices  
+**Workaround**: Press backspace or arrow after paste to sync cursor  
+**Commits**: 8 total (implementation + fixes + testing + documentation) - all pushed  
+**Recommendation**: Proceed to Phase 2 with documented limitation, fix cursor as Step 0
 
 ---
 
@@ -20,7 +20,7 @@
 
 **When resuming this session:**
 
-Phase 1 UTF-8/Grapheme foundation is **COMPLETE** and **READY FOR TESTING**.
+Phase 1 UTF-8/Grapheme foundation is **COMPLETE** - Testing finished, one known issue documented.
 
 ### Session 10 Accomplishments (2025-11-11)
 
@@ -134,16 +134,74 @@ Test 7 (Skin):   1 grapheme ✓ (NOW FIXED)
 2. Test 4 cursor issue needs separate investigation (display/cursor code)
 3. After verification, all 7 tests should pass or have known issues documented
 
-**Commit**: Pending (grapheme fixes + test utilities)
+**Commit**: 2582bcd (grapheme fixes) + 9395784 (test documentation)
 
-### Next Phase After Testing
+---
+
+### Session 10 Testing Results (2025-11-11 Evening)
+
+**Complete Manual Testing Executed by User**:
+
+| Test # | Input | Grapheme | Cursor | Result | Notes |
+|--------|-------|----------|--------|--------|-------|
+| 1 | café | ✅ | ✅ | ✅ PASS | Perfect |
+| 2 | 日本 | ✅ | ✅ | ✅ PASS | Perfect |
+| 3 | 🎉🎊 | ✅ | ✅ | ✅ PASS | Perfect |
+| 4 | 👨‍👩‍👧‍👦 | ✅ | ❌ | ❌ FAIL | Cursor wrong on paste |
+| 5 | 🇺🇸 | ✅ | ❌ | ❌ FAIL | Cursor wrong on paste |
+| 6 | Hello 世界 | ✅ | ✅ | ✅ PASS | Perfect |
+| 7 | 👋🏽 | ✅ | ❌ | ❌ FAIL | Cursor wrong on paste |
+
+**Summary**: 4/7 PASS - All grapheme detection perfect, 3 cursor positioning failures
+
+**Critical Discovery**: ISSUE-001 - Cursor Desynchronization
+- **Root Cause**: `lle_buffer_insert_text()` only updates `byte_offset`
+- **Impact**: Leaves `codepoint_index` and `grapheme_index` stale
+- **Symptoms**: Cursor appears offset after pasting multi-codepoint graphemes
+- **Workaround**: Press backspace or arrow key after paste (triggers cursor_manager sync)
+- **Why Some Work**: Simple emoji (1 codepoint) display calc coincidentally correct
+- **Why Manual Typing Works**: Each character followed by movement (auto-syncs)
+
+**What This Proves**:
+- ✅ Grapheme boundary detection is PERFECT (100% correct)
+- ✅ Cursor manager integration works PERFECTLY (when used)
+- ✅ Navigation operations properly synchronize cursor
+- ❌ Insert operations don't use cursor_manager (architectural gap)
+
+**Documentation Created**:
+1. `PHASE1_TEST_RESULTS.md` - Complete test execution log with results
+2. `PHASE1_CURSOR_BUG_ANALYSIS.md` - Deep technical analysis, 4 solutions, implementation plan
+
+**Commits**:
+- 2582bcd: Fixed grapheme bugs (skin tone modifiers, Regional Indicators)
+- 9395784: Documented testing results and cursor bug analysis
+
+### Phase 2 Ready to Begin
 
 **Phase 2: Display Integration** (see `docs/development/PHASE2_PLANNING.md`):
-- Audit current display code for UTF-8 assumptions
-- Integrate grapheme_to_display mappings
-- Update cursor rendering for display columns
-- Test with wide characters (CJK, emoji)
-- Estimated: 2-4 days focused work
+
+**NEW Step 0: Fix Cursor Synchronization** (2-4 hours) - MUST DO FIRST
+- Add cursor_manager sync after lle_buffer_insert_text()
+- Pattern: Call lle_cursor_manager_move_to_byte_offset() after insert
+- Locations: handle_character_input(), paste handlers, yank operations
+- Testing: Re-run all 7 Phase 1 tests, verify 7/7 PASS
+- Details: See PHASE1_CURSOR_BUG_ANALYSIS.md (Option 2 recommended)
+
+**Original Phase 2 Steps** (after cursor fix):
+- Step 1: Audit current display code for UTF-8 assumptions
+- Step 2: Integrate grapheme_to_display mappings  
+- Step 3: Update cursor rendering for display columns
+- Step 4: Test with wide characters (CJK, emoji)
+- Step 5: Handle zero-width characters
+- Step 6: Performance testing
+
+**Estimated Total**: 2-4 days (including cursor fix)
+
+**Success Criteria**:
+- All 7 Phase 1 tests pass (including paste)
+- Wide character display correct
+- No performance regression
+- Clean architectural integration
 
 ---
 
