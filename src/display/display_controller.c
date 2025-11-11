@@ -206,54 +206,67 @@ static layer_events_error_t dc_handle_redraw_needed(
     size_t cursor_byte_offset = cmd_layer->cursor_position;
     screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
 
-    /* Use clear and redraw approach with cursor tracking
-     * We'll output everything, track where cursor should be, then reposition */
+    /* PROMPT-ONCE ARCHITECTURE per MODERN_EDITOR_WRAPPING_RESEARCH.md
+     * 
+     * This implements the proven approach used by Replxx, Fish, and ZLE:
+     * 1. Prompt is drawn ONCE on first render and NEVER redrawn
+     * 2. Only the command text area is cleared and redrawn on updates
+     * 3. Absolute column positioning (\033[{n}G) is used instead of \r
+     * 
+     * Key principle: Never move cursor to column 0 after first render,
+     * as this would allow \033[J to clear the prompt.
+     */
     
-    /* Move cursor to start of content for redraw
-     * After previous redraw, cursor is at (current_screen.cursor_row, current_screen.cursor_col)
-     * We need to move to row 0 (start of prompt) to begin redrawing */
-    if (prompt_rendered) {
-        /* Move up from current cursor row to row 0 */
-        if (current_screen.cursor_row > 0) {
-            char up_seq[16];
-            int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", current_screen.cursor_row);
-            if (up_len > 0) {
-                write(STDOUT_FILENO, up_seq, up_len);
-            }
+    size_t prompt_width = screen_buffer_calculate_visual_width(prompt_buffer, 0);
+    
+    /* First render only: Draw prompt once */
+    if (!prompt_rendered) {
+        if (prompt_buffer[0]) {
+            write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+        }
+        prompt_rendered = true;
+    }
+    
+    /* Every render (including first): Position to command start and redraw command */
+    
+    /* Step 1: Move to absolute column where command starts (after prompt)
+     * Use \033[{n}G for absolute positioning (1-based indexing) */
+    char move_to_col[32];
+    int col_len = snprintf(move_to_col, sizeof(move_to_col), "\033[%zuG", prompt_width + 1);
+    if (col_len > 0) {
+        write(STDOUT_FILENO, move_to_col, col_len);
+    }
+    
+    /* Step 2: Move up to row 0 if we're on a lower row */
+    if (current_screen.cursor_row > 0) {
+        char move_up[32];
+        int up_len = snprintf(move_up, sizeof(move_up), "\033[%dA", current_screen.cursor_row);
+        if (up_len > 0) {
+            write(STDOUT_FILENO, move_up, up_len);
         }
     }
     
-    /* Move to beginning of line */
-    write(STDOUT_FILENO, "\r", 1);
-    
-    /* Clear from cursor to end of screen (clears current line and any wrapped lines below) */
+    /* Step 3: Clear from current position to end of screen
+     * This clears only the command area, never touches the prompt */
     write(STDOUT_FILENO, "\033[J", 3);
     
-    /* Draw prompt */
-    if (prompt_buffer[0]) {
-        write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
-    }
-    
-    /* Draw command text completely */
+    /* Step 4: Write command text */
     if (command_buffer[0]) {
         write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
     }
     
-    /* Position cursor using row/col from screen_buffer 
-     * The screen_buffer_render() calculated the exact cursor position accounting
-     * for line wrapping, prompt width, and UTF-8 character widths */
+    /* Step 5: Position cursor at the correct location
+     * 
+     * After drawing command text, terminal cursor is at the end.
+     * We need to position it where the user's cursor actually is.
+     * 
+     * Use absolute positioning to avoid moving through column 0.
+     */
     int cursor_row = desired_screen.cursor_row;
     int cursor_col = desired_screen.cursor_col;
+    int final_row = desired_screen.num_rows - 1;
     
-    /* We just drew everything, so cursor is at the end
-     * Calculate how to move cursor to the correct position */
-    int final_row = desired_screen.num_rows - 1;  /* Last row of rendered content (0-based) */
-    
-    /* Move cursor to correct position:
-     * 1. If cursor is on an earlier row, move UP
-     * 2. Then move to column 0 with \r
-     * 3. Then move RIGHT to correct column */
-    
+    /* Move up to the target row if needed */
     int rows_to_move_up = final_row - cursor_row;
     if (rows_to_move_up > 0) {
         char up_seq[16];
@@ -263,16 +276,12 @@ static layer_events_error_t dc_handle_redraw_needed(
         }
     }
     
-    /* Move to beginning of line */
-    write(STDOUT_FILENO, "\r", 1);
-    
-    /* Move right to cursor column if needed */
-    if (cursor_col > 0) {
-        char right_seq[16];
-        int right_len = snprintf(right_seq, sizeof(right_seq), "\033[%dC", cursor_col);
-        if (right_len > 0) {
-            write(STDOUT_FILENO, right_seq, right_len);
-        }
+    /* Move to absolute column (never use \r - it goes to column 0!)
+     * Use \033[{n}G for absolute column positioning (1-based indexing) */
+    char col_seq[16];
+    int col_seq_len = snprintf(col_seq, sizeof(col_seq), "\033[%dG", cursor_col + 1);
+    if (col_seq_len > 0) {
+        write(STDOUT_FILENO, col_seq, col_seq_len);
     }
     
     screen_buffer_copy(&current_screen, &desired_screen);
