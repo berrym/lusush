@@ -325,32 +325,37 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
 /**
  * @brief Event handler for backspace
  * Step 4: Handler modifies buffer and refreshes display
+ * PHASE 2 FIX: Delete entire grapheme cluster, not just one codepoint
  */
 static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    if (ctx->buffer->cursor.byte_offset > 0) {
-        /* Find the start of the previous UTF-8 character by scanning backward */
-        const char *data = ctx->buffer->data;
-        size_t pos = ctx->buffer->cursor.byte_offset;
-        size_t char_start = pos - 1;
+    if (ctx->buffer->cursor.byte_offset > 0 && ctx->editor && ctx->editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
         
-        /* Scan backward to find UTF-8 character start (byte not starting with 10xxxxxx) */
-        while (char_start > 0 && (data[char_start] & 0xC0) == 0x80) {
-            char_start--;
+        /* Now check if we can move back (after sync) */
+        if (ctx->buffer->cursor.grapheme_index == 0) {
+            return LLE_SUCCESS;  /* Already at beginning */
         }
         
-        /* Calculate how many bytes to delete (entire UTF-8 character) */
-        size_t delete_len = pos - char_start;
+        /* Move cursor back by one grapheme to find the start of the grapheme to delete */
+        size_t current_byte = ctx->buffer->cursor.byte_offset;
         
-        /* Delete the entire UTF-8 character */
-        lle_result_t result = lle_buffer_delete_text(ctx->buffer, char_start, delete_len);
-        
-        /* Refresh display after buffer modification */
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, -1);
         if (result == LLE_SUCCESS) {
-            refresh_display(ctx);
+            size_t grapheme_start = ctx->buffer->cursor.byte_offset;
+            size_t grapheme_len = current_byte - grapheme_start;
+            
+            /* Delete the entire grapheme cluster */
+            result = lle_buffer_delete_text(ctx->buffer, grapheme_start, grapheme_len);
+            
+            /* Refresh display after buffer modification */
+            if (result == LLE_SUCCESS) {
+                refresh_display(ctx);
+            }
         }
         
         return result;
@@ -633,30 +638,19 @@ static lle_result_t handle_yank(lle_event_t *event, void *user_data)
 
 /**
  * @brief Event handler for Left arrow key
- * Step 5: Move cursor left one position
+ * Step 5: Move cursor left one grapheme cluster
+ * PHASE 2 FIX: Use grapheme-based movement instead of codepoint-based
  */
 static lle_result_t handle_arrow_left(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Move cursor left if not at beginning */
-    if (ctx->buffer->cursor.byte_offset > 0) {
-        /* Move back one UTF-8 character by scanning for character boundary */
-        size_t new_offset = ctx->buffer->cursor.byte_offset - 1;
-        
-        /* Scan backward to find start of UTF-8 character
-         * UTF-8 continuation bytes have pattern 10xxxxxx (0x80-0xBF)
-         * Character start bytes are either:
-         * - 0xxxxxxx (ASCII, 0x00-0x7F)
-         * - 11xxxxxx (multi-byte start, 0xC0-0xFF)
-         */
-        while (new_offset > 0 && 
-               (ctx->buffer->data[new_offset] & 0xC0) == 0x80) {
-            new_offset--;
-        }
-        
-        ctx->buffer->cursor.byte_offset = new_offset;
+    /* Move cursor left by one grapheme cluster if not at beginning */
+    if (ctx->buffer->cursor.grapheme_index > 0 && ctx->editor && ctx->editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
+        lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, -1);
         refresh_display(ctx);
     }
     
@@ -665,29 +659,20 @@ static lle_result_t handle_arrow_left(lle_event_t *event, void *user_data)
 
 /**
  * @brief Event handler for Right arrow key
- * Step 5: Move cursor right one position
+ * Step 5: Move cursor right one grapheme cluster
+ * PHASE 2 FIX: Use grapheme-based movement instead of codepoint-based
  */
 static lle_result_t handle_arrow_right(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Move cursor right if not at end */
-    if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
-        /* Move forward one UTF-8 character by scanning for next character boundary */
-        size_t new_offset = ctx->buffer->cursor.byte_offset + 1;
-        
-        /* Skip UTF-8 continuation bytes (10xxxxxx pattern)
-         * Stop at next character start byte:
-         * - 0xxxxxxx (ASCII, 0x00-0x7F)
-         * - 11xxxxxx (multi-byte start, 0xC0-0xFF)
-         */
-        while (new_offset < ctx->buffer->length && 
-               (ctx->buffer->data[new_offset] & 0xC0) == 0x80) {
-            new_offset++;
-        }
-        
-        ctx->buffer->cursor.byte_offset = new_offset;
+    /* Move cursor right by one grapheme cluster if not at end */
+    if (ctx->buffer->cursor.grapheme_index < ctx->buffer->grapheme_count && 
+        ctx->editor && ctx->editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
+        lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, 1);
         refresh_display(ctx);
     }
     
@@ -729,35 +714,34 @@ static lle_result_t handle_end(lle_event_t *event, void *user_data)
 /**
  * @brief Event handler for Delete key
  * Step 5: Delete character at cursor position
+ * PHASE 2 FIX: Delete entire grapheme cluster, not just one codepoint
  */
 static lle_result_t handle_delete(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Delete character at cursor if not at end */
-    if (ctx->buffer->cursor.byte_offset < ctx->buffer->length) {
-        /* Calculate UTF-8 character length at cursor position */
-        size_t char_start = ctx->buffer->cursor.byte_offset;
-        size_t char_end = char_start + 1;
+    /* Delete grapheme cluster at cursor if not at end */
+    if (ctx->buffer->cursor.grapheme_index < ctx->buffer->grapheme_count && 
+        ctx->editor && ctx->editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, ctx->buffer->cursor.byte_offset);
         
-        /* Scan forward past UTF-8 continuation bytes (10xxxxxx pattern) */
-        while (char_end < ctx->buffer->length && 
-               (ctx->buffer->data[char_end] & 0xC0) == 0x80) {
-            char_end++;
-        }
+        /* Move cursor forward by one grapheme to find the end of the grapheme to delete */
+        size_t grapheme_start = ctx->buffer->cursor.byte_offset;
         
-        size_t char_length = char_end - char_start;
-        
-        /* Delete the entire UTF-8 character */
-        lle_result_t result = lle_buffer_delete_text(
-            ctx->buffer, 
-            ctx->buffer->cursor.byte_offset, 
-            char_length
-        );
-        
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, 1);
         if (result == LLE_SUCCESS) {
-            refresh_display(ctx);
+            size_t grapheme_end = ctx->buffer->cursor.byte_offset;
+            size_t grapheme_len = grapheme_end - grapheme_start;
+            
+            /* Delete the entire grapheme cluster */
+            result = lle_buffer_delete_text(ctx->buffer, grapheme_start, grapheme_len);
+            
+            /* Refresh display after buffer modification */
+            if (result == LLE_SUCCESS) {
+                refresh_display(ctx);
+            }
         }
         
         return result;

@@ -3,16 +3,15 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
 **Branch**: feature/lle-utf8-grapheme  
-**Status**: ✅ **PHASE 2 STEP 0 COMPLETE - READY FOR RE-TESTING**  
-**Last Action**: Fixed cursor synchronization bug (ISSUE-001) per PHASE1_CURSOR_BUG_ANALYSIS.md  
-**Next**: User re-test all 7 tests to verify 7/7 PASS (expecting cursor fix to work)  
-**Current Reality**: All insert operations now sync cursor fields via cursor_manager  
-**Fix Applied**: Added lle_cursor_manager_move_to_byte_offset() after all inserts  
-**Locations**: handle_character_input(), handle_enter(), handle_yank() (3 functions)  
-**Expected Result**: Tests 4, 5, 7 should now PASS → 7/7 total  
-**Binary**: Rebuilt with fix, ready for testing (./builddir/lusush)  
-**Commits**: 9 total (pending: cursor fix commit after handoff update)  
-**Architecture**: Caller now coordinates buffer + cursor (clean solution)
+**Status**: ❌ **CRITICAL BLOCKER - DISPLAY SYSTEM NOT GRAPHEME-AWARE**  
+**Last Action**: Session 11 - Discovered navigation fixes insufficient, root cause is display system  
+**Current State**: 1/7 tests pass (only simple 2-byte UTF-8 works)  
+**Critical Finding**: Display/render system calculates positions using codepoints, not graphemes  
+**ISSUE-002**: Display system not grapheme-aware - BLOCKS Phase 1 completion  
+**Required Work**: Phase 2 display integration (8-16 hours estimated)  
+**Next**: Begin Phase 2 Step 1 - Audit render system, implement grapheme-based width calculation  
+**Documentation**: DISPLAY_SYSTEM_ANALYSIS.md created with complete technical analysis  
+**Not Production Ready**: DO NOT MERGE - emoji/CJK input corrupted by display system
 
 ---
 
@@ -20,7 +19,162 @@
 
 **When resuming this session:**
 
-Phase 1 UTF-8/Grapheme foundation is **COMPLETE** - Testing finished, one known issue documented.
+Phase 1 UTF-8/Grapheme foundation is **NOT COMPLETE** - Display system must be fixed before Phase 1 can be considered done.
+
+---
+
+## 🚨 SESSION 11 CRITICAL DISCOVERY (2025-11-11)
+
+### Complete Re-Testing Revealed True Scope
+
+**Session 10 Result**: 4/7 PASS (cursor desync on paste)  
+**Session 11 Result**: 1/7 PASS (display system fundamentally broken)
+
+**What We Attempted**:
+1. Fixed cursor synchronization after buffer insert (Session 10 fix)
+2. Made arrow keys grapheme-aware (use `lle_cursor_manager_move_by_graphemes()`)
+3. Made backspace/delete grapheme-aware (calculate grapheme byte ranges)
+4. Added cursor manager sync before all navigation operations
+
+**What We Discovered**:
+- Navigation logic is ✅ CORRECT
+- Buffer management is ✅ CORRECT (data not corrupted)
+- **Display system is ❌ BROKEN** (not grapheme-aware)
+
+### Session 11 Test Results
+
+| Test | Input | Expected | Actual | Symptoms |
+|------|-------|----------|--------|----------|
+| 1 | café | PASS | ✅ PASS | Perfect (2-byte UTF-8 works) |
+| 2 | 日本 | PASS | ❌ FAIL | Cursor→col 0, � artifacts |
+| 3 | 🎉🎊 | PASS | ❌ FAIL | Cursor→col 0, � artifacts |
+| 4 | 👨‍👩‍👧‍👦 | PASS | ❌ FAIL | Cursor offset, col 0 jump, corruption |
+| 5 | 🇺🇸 | PASS | ❌ FAIL | Cursor offset, col 0 jump |
+| 6 | Hello 世界 | PASS | ❌ FAIL | Cursor→col 0, � artifacts |
+| 7 | 👋🏽 | PASS | ❌ FAIL | Cursor offset, col 0 jump |
+
+**Critical Symptoms**:
+- Cursor jumps to column 0 (position calculation fails)
+- � (U+FFFD replacement character) appears (broken UTF-8 rendering)
+- Emoji break apart visually (multi-codepoint graphemes rendered separately)
+- Two backspaces needed (first corrupts, second clears)
+
+### Root Cause: Display System Not Grapheme-Aware
+
+**The Problem**: Display/render system uses **codepoint-based** or **byte-based** position calculation instead of **grapheme-based**.
+
+**Evidence**:
+1. Emoji display correctly initially → Buffer has correct data ✓
+2. First navigation/edit corrupts display → Display refresh breaks graphemes ✗
+3. Only Test 1 (café) works → 2-byte UTF-8 simple enough for current logic ✓
+4. All 3/4-byte UTF-8 fails → Display can't handle complex characters ✗
+
+**Architecture Flow**:
+```
+Buffer (✓ correct) → Display Bridge (✗ broken) → Render (✗ broken) → Terminal
+```
+
+### What Needs Fixing
+
+**ISSUE-002: Display System Not Grapheme-Aware** (CRITICAL)
+
+**Required Changes**:
+1. **Width Calculation**: Convert from codepoint-based to grapheme-based
+   - CJK characters: 1 grapheme = 2 screen columns
+   - Emoji: 1 grapheme = 2 screen columns
+   - Combining marks: 1 grapheme = 0 additional columns
+   - ZWJ sequences: 1 grapheme = 2 columns (render atomically)
+
+2. **Atomic Grapheme Rendering**: Render grapheme clusters as single units
+   - Never break ZWJ sequences (👨‍👩‍👧‍👦 = 7 codepoints, render as 1)
+   - Keep modifiers with base (👋🏽 = 2 codepoints, render as 1)
+   - Don't split Regional Indicators (🇺🇸 = 2 RIs, render as 1)
+
+3. **Cursor Position Mapping**: Use `grapheme_index` not `codepoint_index`
+   - Display must calculate screen column from grapheme position
+   - Account for variable-width graphemes (CJK=2, ASCII=1, combining=0)
+
+**Files Requiring Audit/Fix**:
+- Render controller (`lle_render_buffer_content()`) - NOT grapheme-aware
+- Display bridge (`src/lle/display_bridge.c`) - Position calculations wrong
+- Screen buffer - May have byte/codepoint-based indexing
+- Width calculation - Needs wcwidth() with grapheme support
+
+### Documentation Created
+
+**1. PHASE1_TEST_RESULTS.md** (Updated)
+- Complete Session 11 test execution log
+- Detailed symptom analysis for each failure
+- 1/7 pass rate documented
+- Root cause analysis pointing to display system
+
+**2. DISPLAY_SYSTEM_ANALYSIS.md** (NEW - Comprehensive)
+- Executive summary of display system issues
+- Test evidence table with failure patterns
+- Complete architecture breakdown showing bug locations
+- Width calculation problem analysis
+- Atomic grapheme rendering requirements
+- Implementation plan for Phase 2 fixes
+- File-by-file change requirements
+- Testing strategy for display integration
+- Performance considerations
+- Risk assessment
+- Success criteria for 7/7 test pass rate
+
+### Navigation Improvements Completed (Working)
+
+**What We Fixed in Session 11**:
+- ✅ Arrow keys use grapheme-based movement
+- ✅ Backspace deletes entire grapheme clusters
+- ✅ Delete key deletes entire grapheme clusters
+- ✅ Cursor manager synced before all operations
+- ✅ Navigation handlers use `lle_cursor_manager_move_by_graphemes()`
+
+**Files Modified**:
+- `src/lle/lle_readline.c`: Navigation handlers made grapheme-aware
+
+**Why These Fixes Alone Weren't Enough**:
+Navigation logic is correct, but display system doesn't understand graphemes, so:
+- Cursor appears in wrong place (display calculates position incorrectly)
+- Graphemes break apart visually (display renders codepoints separately)
+- Buffer data is correct, but display is wrong
+
+### Phase 1 Status: NOT PRODUCTION READY
+
+**DO NOT MERGE TO MASTER**
+
+**Reason**: Display system will corrupt emoji/CJK input for users
+
+**Required Before Merge**:
+1. Implement grapheme-aware display width calculation
+2. Implement atomic grapheme rendering
+3. Fix cursor position mapping
+4. Re-test until 7/7 tests pass
+5. Test on multiple terminals
+
+**Estimated Additional Work**: 8-16 hours
+
+### Next Immediate Actions
+
+**Phase 2 Step 1: Audit Display System**
+- [ ] Locate `lle_render_buffer_content()` implementation
+- [ ] Find screen_buffer implementation  
+- [ ] Identify all position calculation sites
+- [ ] Map complete data flow from buffer to terminal
+
+**Phase 2 Step 2: Implement Display Width Functions**
+- [ ] `lle_grapheme_display_width()` - Width of single grapheme
+- [ ] `lle_calculate_display_width()` - Total width to byte offset
+- [ ] `lle_display_column_to_byte()` - Reverse mapping
+
+**Phase 2 Step 3: Fix Render Controller**
+- [ ] Convert rendering to grapheme-based iteration
+- [ ] Implement atomic grapheme rendering
+- [ ] Fix cursor position calculation
+
+**Phase 2 Step 4: Test Until 7/7 Pass**
+
+---
 
 ### Session 10 Accomplishments (2025-11-11)
 

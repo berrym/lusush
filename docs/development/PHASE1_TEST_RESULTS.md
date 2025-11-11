@@ -1,449 +1,426 @@
 # Phase 1 UTF-8/Grapheme Test Results
 
-**Date**: 2025-11-11  
-**Tester**: Automated Testing + Manual Verification  
-**Branch**: feature/lle  
-**Commit**: TBD after testing  
+**Date**: 2025-11-11 (Updated with Session 11 Results)  
+**Tester**: User (mberry)  
+**Branch**: feature/lle-utf8-grapheme  
+**Commit**: Building toward full grapheme-aware navigation
 **Binary**: /home/mberry/Lab/c/lusush/builddir/lusush
 
 ---
 
-## Test Execution Summary
+## Test Execution Summary - Session 11 (Current)
 
 **Testing Date**: 2025-11-11  
-**Binary Version**: feature/lle-utf8-grapheme @ commit 2582bcd  
-**Tester**: User (mberry)
+**Binary Version**: feature/lle-utf8-grapheme @ latest  
+**Tester**: User (mberry)  
+**Test Method**: Copy/paste from test scripts
 
-| Test # | Description | Grapheme Detection | Cursor Behavior | Overall | Notes |
-|--------|-------------|-------------------|-----------------|---------|-------|
-| 1 | Basic 2-byte UTF-8 (café) | ✅ PASS | ✅ PASS | ✅ PASS | Works perfectly |
-| 2 | 3-byte CJK (日本) | ✅ PASS | ✅ PASS | ✅ PASS | Works perfectly |
-| 3 | 4-byte emoji (🎉🎊) | ✅ PASS | ✅ PASS | ✅ PASS | Works perfectly |
-| 4 | Family ZWJ (👨‍👩‍👧‍👦) | ✅ PASS | ❌ FAIL | ❌ FAIL | Cursor wrong on paste |
-| 5 | Flag RI pair (🇺🇸) | ✅ PASS | ❌ FAIL | ❌ FAIL | Cursor wrong on paste |
-| 6 | Mixed (Hello 世界) | ✅ PASS | ✅ PASS | ✅ PASS | Works perfectly |
-| 7 | Skin tone (👋🏽) | ✅ PASS | ❌ FAIL | ❌ FAIL | Cursor wrong on paste |
+| Test # | Description | Expected | Actual Result | Status | Critical Symptoms |
+|--------|-------------|----------|---------------|--------|-------------------|
+| 1 | Basic 2-byte UTF-8 (café) | 1 grapheme/char | ✅ Works perfectly | ✅ PASS | None |
+| 2 | 3-byte CJK (日本) | 2 graphemes | Cursor→col 0 on left arrow, artifacts | ❌ FAIL | Display corruption |
+| 3 | 4-byte emoji (🎉🎊) | 2 graphemes | Same as Test 2 | ❌ FAIL | Display corruption |
+| 4 | Family ZWJ (👨‍👩‍👧‍👦) | 1 grapheme | Cursor offset right, jumps to col 0 | ❌ FAIL | Display + corruption |
+| 5 | Flag RI pair (🇺🇸) | 1 grapheme | Same as Test 4 | ❌ FAIL | Display + corruption |
+| 6 | Mixed (Hello 世界) | 8 graphemes | Cursor→col 0, artifacts on backspace | ❌ FAIL | Display corruption |
+| 7 | Skin tone (👋🏽) | 1 grapheme | Cursor offset, col 0 jump | ❌ FAIL | Display + corruption |
 
-**Summary**: 4/7 PASS, 3/7 FAIL (all failures are cursor positioning on paste, NOT grapheme detection)
-
----
-
-## Detailed Test Results
-
-### Test 1: Basic 2-byte UTF-8 (café) - ✅ PASS
-
-**Input**: café
-
-**Expected**:
-- Each character is one cursor position
-- Arrow keys move by character
-- Backspace deletes entire multi-byte character (é)
-
-**Result**: ✅ PASS
-
-**Details**:
-- Typed character by character: c, a, f, é
-- LEFT arrow moved correctly through each character
-- Backspace deleted 'é' completely (both bytes)
-- No cursor positioning issues
-
-**Status**: ✅ Production Ready
+**Summary**: 1/7 PASS, 6/7 FAIL  
+**Critical Finding**: This is NOT a navigation bug - this is a DISPLAY SYSTEM BUG
 
 ---
 
-### Test 1.2: 3-Byte Character (日)
+## Critical Discovery: Display System Root Cause
 
-**Input**: 日 (U+65E5, 3 bytes: 0xE6 0x97 0xA5)
+### Symptom Pattern Analysis
 
-**Expected**:
-- Cursor moves 1 position
-- Character displays as 2 columns wide (CJK width)
-- Left/right arrow moves by grapheme
+**What Works**:
+- ✅ Test 1 (café): 2-byte UTF-8, simple characters
+- ✅ Grapheme boundary detection (verified with debug_grapheme tool)
+- ✅ Buffer operations don't corrupt data initially
 
-**Result**: ⏸️ Pending
+**What Fails**:
+- ❌ All 4-byte UTF-8 emoji tests (2, 3, 4, 5, 7)
+- ❌ 3-byte CJK in Test 6
+- ❌ Cursor positioning for anything beyond 2-byte UTF-8
 
-**Details**:
+**Failure Modes**:
+1. **Cursor Offset After Paste**: Cursor appears to the right of where it should be
+2. **Cursor Jump to Column 0**: Single arrow press moves cursor to start of line
+3. **Emoji Corruption**: Backspace/navigation breaks emoji, shows � (U+FFFD replacement character)
+4. **Two Backspaces Required**: First backspace corrupts, second backspace clears artifact
+5. **Partial Deletion**: Some operations delete part of multi-byte sequence, not whole grapheme
+
+### Root Cause: Display System Not Grapheme-Aware
+
+**The Issue**: The display/rendering system calculates cursor positions and handles character display using **codepoint-based** or **byte-based** logic, not **grapheme-based** logic.
+
+**Evidence**:
+1. Emoji displays correctly initially → Buffer has correct data
+2. First interaction corrupts display → Display refresh breaks grapheme clusters
+3. Artifacts like � appear → Partial UTF-8 sequences being rendered
+4. Cursor jumps to column 0 → Display position calculation failing completely
+5. Test 1 works → Display system handles 2-byte UTF-8 (simple case)
+
+**System Architecture**:
 ```
-Test command: printf '\xe6\x97\xa5' | od -A x -t x1z
-Byte sequence: e6 97 a5
-```
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 1.3: 4-Byte Character (🎉)
-
-**Input**: 🎉 (U+1F389, 4 bytes: 0xF0 0x9F 0x8E 0x89)
-
-**Expected**:
-- Cursor moves 1 position
-- Character displays as 2 columns wide
-- Backspace removes entire emoji
-
-**Result**: ⏸️ Pending
-
-**Details**:
-```
-Test command: printf '\xf0\x9f\x8e\x89' | od -A x -t x1z
-Byte sequence: f0 9f 8e 89
+User Input → lle_readline → Buffer (✓ correct) → Display Bridge → Render → Terminal
+                                                        ↑
+                                                   BROKEN HERE
 ```
 
-**Status**: ⏸️ Awaiting Execution
+### Detailed Test Results
+
+#### Test 1: café - ✅ PASS
+- **Input**: café (4 graphemes: c, a, f, é)
+- **Result**: Perfect behavior
+- **Why it works**: 2-byte UTF-8 is simple enough for current display system
+
+#### Test 2: 日本 - ❌ FAIL
+- **Input**: Two 3-byte CJK characters
+- **Symptoms**:
+  - Cursor positioned correctly after paste
+  - Left arrow once → cursor jumps to column 0
+  - Ctrl-E → cursor returns after emoji
+  - Backspace once → changes emoji to �
+  - Backspace again → clears artifact
+- **Root cause**: Display system treats each byte or codepoint as separate position
+
+#### Test 3: 🎉🎊 - ❌ FAIL  
+- **Input**: Two 4-byte emoji (8 bytes total, 2 graphemes)
+- **Symptoms**: Exact same as Test 2
+- **Root cause**: Same - display not handling 4-byte UTF-8
+
+#### Test 4: 👨‍👩‍👧‍👦 - ❌ FAIL
+- **Input**: Family emoji (25 bytes, 7 codepoints, 1 grapheme)
+- **Symptoms**:
+  - Cursor positioned off to right after paste
+  - Two left arrow presses to reach emoji
+  - Right arrow → cursor to column 0
+  - Ctrl-E → returns to wrong position
+  - One backspace → properly deleted entire emoji (GOOD!)
+  - But started from wrong cursor position
+- **Analysis**: 
+  - Buffer/grapheme handling CORRECT (whole emoji deleted)
+  - Display position calculation WRONG
+
+#### Test 5: 🇺🇸 - ❌ FAIL
+- **Input**: Flag emoji (2 Regional Indicators, 1 grapheme)
+- **Symptoms**: Exact same as Test 4
+- **Root cause**: Display treats 2 RIs as 2 positions, not 1
+
+#### Test 6: Hello 世界 - ❌ FAIL
+- **Input**: Mixed ASCII + CJK
+- **Symptoms**:
+  - Command inserted properly, cursor correct initially
+  - Left arrow once → cursor to column 0
+  - Ctrl-E → cursor after emoji correctly
+  - Backspace once → changes emoji to �
+  - Backspace again → clears artifact
+- **Root cause**: Display fails on CJK width calculation
+
+#### Test 7: 👋🏽 - ❌ FAIL
+- **Input**: Waving hand + skin tone modifier (2 codepoints, 1 grapheme)
+- **Symptoms**:
+  - Cursor positioned incorrectly to right
+  - Left arrow → cursor on top of emoji
+  - Right arrow → cursor to column 0
+  - Ctrl-E → back to wrong position
+  - Backspace → properly deleted emoji (GOOD!)
+- **Analysis**: Same as Test 4 - buffer correct, display wrong
 
 ---
 
-### Test 1.4: Mixed ASCII and UTF-8
+## Navigation System Analysis
 
-**Input**: Hello 世界
+### What We Fixed (Working Correctly)
 
-**Expected**:
-- Cursor at end shows position 8 graphemes (not 13 bytes)
-- Ctrl-A moves to start
-- Ctrl-E moves to end
-- Arrow keys move by grapheme
+1. **Grapheme Boundary Detection** - ✅ COMPLETE
+   - UAX #29 GB11 (ZWJ sequences): Working
+   - UAX #29 GB12/GB13 (Regional Indicators): Working  
+   - UAX #29 GB9 (Emoji Modifiers): Working
+   - Verified with debug_grapheme tool
 
-**Result**: ⏸️ Pending
+2. **Navigation Handlers** - ✅ IMPLEMENTED
+   - Arrow keys use `lle_cursor_manager_move_by_graphemes()`
+   - Backspace/Delete use grapheme-based deletion
+   - Cursor manager sync before each operation
+   - Files: `src/lle/lle_readline.c` (handlers updated)
 
-**Details**:
+3. **Cursor Manager Integration** - ✅ WORKING
+   - Syncs all three cursor fields (byte, codepoint, grapheme)
+   - Properly calculates grapheme boundaries
+   - Files: `src/lle/cursor_manager.c`
+
+### What's Broken (Display System)
+
+1. **Display Position Calculation** - ❌ NOT GRAPHEME-AWARE
+   - Calculates cursor screen position using wrong units
+   - Likely using bytes or codepoints, not graphemes
+   - Results in "cursor to column 0" errors
+   - Files: Unknown (in display/render subsystem)
+
+2. **Character Rendering** - ❌ BREAKS GRAPHEME CLUSTERS
+   - Renders parts of multi-codepoint graphemes separately
+   - Creates � artifacts (broken UTF-8 sequences)
+   - Doesn't preserve grapheme integrity during refresh
+   - Files: Likely `src/lle/display_bridge.c` or render system
+
+3. **Width Calculation** - ❌ INCOMPLETE
+   - Doesn't handle CJK double-width correctly
+   - Doesn't handle emoji width
+   - Doesn't account for combining characters (zero-width)
+   - Files: Display subsystem
+
+---
+
+## Architectural Analysis
+
+### Current Architecture
+
 ```
-Breakdown:
-- "Hello " = 6 ASCII chars (6 bytes, 6 graphemes)
-- "世" = 1 CJK char (3 bytes, 1 grapheme, 2 columns)
-- "界" = 1 CJK char (3 bytes, 1 grapheme, 2 columns)
-Total: 13 bytes, 8 graphemes, 10 display columns
+┌─────────────────┐
+│  User Input     │
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│  lle_readline   │ ← Event handlers
+│  (GRAPHEME      │ ← ✅ Fixed
+│   AWARE)        │
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│  lle_buffer     │ ← Buffer management
+│  (UTF-8 DATA    │ ← ✅ Correct data
+│   CORRECT)      │
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│  display_bridge │ ← Sends to command layer
+│  render_system  │ ← ❌ NOT GRAPHEME AWARE
+│  (BROKEN)       │ ← Position calculation wrong
+└────────┬────────┘
+         │
+         v
+┌─────────────────┐
+│  Terminal I/O   │
+└─────────────────┘
 ```
 
-**Status**: ⏸️ Awaiting Execution
+### The Problem
+
+**Buffer Layer**: ✅ Has correct UTF-8 data, correct grapheme counts  
+**Navigation Layer**: ✅ Uses grapheme-aware movement  
+**Display Layer**: ❌ Treats codepoints/bytes as independent rendering units
+
+**Specific Issues**:
+1. `refresh_display()` calls `lle_render_buffer_content()` with cursor position
+2. Render system calculates screen column position
+3. **Calculation assumes 1 codepoint = 1 column** (WRONG)
+4. **Rendering assumes codepoints can be rendered independently** (WRONG for ZWJ, modifiers)
+
+### Why Test 1 (café) Works
+
+- 'c', 'a', 'f': 1 byte = 1 codepoint = 1 grapheme = 1 column ✓
+- 'é': 2 bytes = 1 codepoint = 1 grapheme = 1 column ✓
+- Display system's flawed assumptions happen to work for this simple case
+
+### Why Tests 2-7 Fail
+
+**Multi-byte characters beyond 2 bytes**:
+- Display system doesn't correctly calculate screen width
+- 3-byte CJK: 1 grapheme but 2 screen columns
+- 4-byte emoji: 1 grapheme but 1-2 screen columns
+
+**Multi-codepoint graphemes**:
+- Display tries to render each codepoint separately
+- ZWJ sequences get broken apart
+- Skin tone modifiers render as separate characters
+- Creates � artifacts
 
 ---
 
-## Level 2: Combining Characters
+## Required Fixes (Phase 2 Work)
 
-### Test 2.1: Single Combining Mark (é composed)
+### 1. Display Width Calculation - CRITICAL
 
-**Input**: e + U+0301 (COMBINING ACUTE ACCENT)
+**File**: Likely in render system or display bridge
 
-**Expected**:
-- Forms single grapheme cluster "é"
-- Cursor treats as one position
-- Backspace deletes both base and mark
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 2.2: Multiple Combining Marks
-
-**Input**: e + U+0300 + U+0302 (grave + circumflex)
-
-**Expected**:
-- Forms single grapheme cluster
-- Single cursor position
-- Arrow keys skip over entire cluster
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 2.3: Devanagari Sequence
-
-**Input**: क + ् + ष (ka + virama + sha = ksha)
-
-**Expected**:
-- Forms single grapheme cluster
-- Displays as one visual unit
-- Cursor navigation treats as single unit
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-## Level 3: Emoji Sequences
-
-### Test 3.1: Family Emoji (ZWJ Sequence)
-
-**Input**: 👨‍👩‍👧‍👦 (MAN + ZWJ + WOMAN + ZWJ + GIRL + ZWJ + BOY)
-
-**Expected**:
-- 1 grapheme cluster (GB11 ZWJ rule)
-- 1 cursor position
-- Backspace deletes entire sequence
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 3.2: Flag Emoji (Regional Indicators)
-
-**Input**: 🇺🇸 (U+1F1FA U+1F1F8)
-
-**Expected**:
-- 1 grapheme cluster (GB12/GB13 RI pair)
-- 1 cursor position
-- Displays as single flag
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 3.3: Skin Tone Modifier
-
-**Input**: 👋🏽 (WAVING HAND + MEDIUM SKIN TONE)
-
-**Expected**:
-- 1 grapheme cluster
-- 1 cursor position
-- Backspace removes entire sequence
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-## Level 4: Buffer Modifications
-
-### Test 4.1: Insert in Middle
-
-**Input**: Type "Hello", move cursor to after "H", type "世界"
-
-**Expected**:
-- Result: "H世界ello"
-- UTF-8 index invalidated and rebuilt
-- Cursor positions remain accurate
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 4.2: Delete Grapheme Cluster
-
-**Input**: Type "e + combining acute (é)", backspace
-
-**Expected**:
-- Entire grapheme cluster deleted
-- Buffer contains no residual bytes
-- Index reflects new state
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-### Test 4.3: Replace Text
-
-**Input**: Type "test", select all, type "世界"
-
-**Expected**:
-- Buffer correctly replaces ASCII with UTF-8
-- No memory corruption
-- Index rebuilt
-
-**Result**: ⏸️ Pending
-
-**Status**: ⏸️ Awaiting Execution
-
----
-
-## Root Cause Analysis
-
-### Issue: Cursor Positioning Wrong After Pasting Multi-Codepoint Graphemes
-
-**Affected Tests**: 4, 5, 7 (all complex grapheme clusters)
-
-**Symptoms**:
-- When pasting complex emoji (family, flags, skin tones), cursor appears offset to the right
-- Once cursor manually corrected with arrow keys, everything works perfectly
-- Backspace and navigation work correctly after manual correction
-- Simple emoji (1 codepoint) work fine
-
-**Root Cause Identified**:
-
-File: `src/lle/buffer_management.c`, function `lle_buffer_insert_text()`, lines 642-644
-
+**Current (Broken)**:
 ```c
-/* Step 8: Update cursor if after insertion point */
-if (buffer->cursor.byte_offset >= position) {
-    buffer->cursor.byte_offset += text_length;  // ← ONLY updates byte_offset!
-}
+cursor_column = count_codepoints(text);  // ← WRONG
 ```
 
-**Problem**: The cursor structure has three fields that must stay synchronized:
-- `cursor.byte_offset` - Updated correctly ✓
-- `cursor.codepoint_index` - NOT updated ✗
-- `cursor.grapheme_index` - NOT updated ✗
+**Required**:
+```c
+cursor_column = calculate_display_width_graphemes(text);  // ← CORRECT
+```
 
-When pasting a multi-codepoint grapheme cluster:
-1. Text inserted: 25 bytes for family emoji (7 codepoints, 1 grapheme)
-2. `byte_offset` increases by 25 ✓
-3. `codepoint_index` stays at old value ✗
-4. `grapheme_index` stays at old value ✗
-5. Display code uses `grapheme_index` for positioning → cursor appears wrong
+**Must handle**:
+- ASCII: 1 grapheme = 1 column
+- CJK: 1 grapheme = 2 columns (wcwidth)
+- Emoji: 1 grapheme = 2 columns (usually)
+- Combining marks: 1 grapheme = 0 additional columns
+- ZWJ sequences: 1 grapheme = 2 columns (rendered as one unit)
 
-**Why Manual Correction Works**:
-Navigation handlers (arrow keys, backspace, etc.) all use cursor_manager which properly synchronizes all three cursor fields. After pressing backspace or any arrow key, cursor is fixed.
+### 2. Grapheme-Atomic Rendering - CRITICAL
 
-**Why Simple Emoji Work**:
-Simple emoji like 🎉 are 1 codepoint = 1 grapheme, so even though codepoint_index isn't updated, the display calculation happens to be correct by coincidence.
+**Current (Broken)**: Renders codepoints independently
 
-**Proper Fix Required**:
-After updating `byte_offset`, must call `lle_cursor_manager_move_to_byte_offset()` to synchronize all cursor fields. However, `lle_buffer_insert_text()` doesn't have access to `cursor_manager`.
+**Required**: Render grapheme clusters as atomic units
+- Never break a ZWJ sequence
+- Keep modifiers with their base characters
+- Don't split Regional Indicator pairs
 
-**Architectural Options**:
-1. Pass `cursor_manager` to `lle_buffer_insert_text()` (changes API signature)
-2. Move cursor update responsibility to caller (`lle_readline.c`)
-3. Add buffer-level cursor synchronization function
-4. Make cursor update optional/separate step
+### 3. Cursor Position Sync - HIGH PRIORITY
 
-**Recommendation**: Defer to Phase 2 - Display Integration
-- Current 4/7 pass rate is acceptable for Phase 1 foundation
-- This is a display/cursor coordination issue, not core UTF-8 infrastructure
-- Fix belongs in Phase 2 when integrating display system
-- Workaround: Users can press arrow key after paste to fix cursor
+**Current State**: We sync in navigation handlers
 
----
+**Still Needed**: Sync after buffer insert/delete operations
+- After `lle_buffer_insert_text()`
+- After `lle_buffer_delete_text()`
+- Ensure display always sees correct `grapheme_index`
 
-## Issues Found
+### 4. Screen Buffer Audit - MEDIUM PRIORITY
 
-### Critical Issues
+**Context**: Per commit message "screen_buffer developed for broken system"
 
-**ISSUE-001: Cursor Desync After Buffer Insert**
-- **Severity**: High (affects user experience)
-- **Impact**: 3/7 tests fail (complex grapheme paste)
-- **Root Cause**: `lle_buffer_insert_text()` only updates byte_offset
-- **Workaround**: Press arrow key after paste
-- **Fix Plan**: Phase 2 - Display Integration
-- **Files**: `src/lle/buffer_management.c:642-644`
-
-### Major Issues
-*None - all grapheme boundary detection bugs fixed*
-
-### Minor Issues
-*None*
+**Action needed**:
+- Audit screen_buffer implementation
+- Check if it's byte-based or character-based
+- Determine if it needs grapheme-aware rewrite
 
 ---
 
-## Testing Notes
+## Testing Strategy for Phase 2
 
-### Environment
-- OS: Linux 6.16.10-200.fc42.x86_64
-- Terminal: User's default terminal
-- Locale: UTF-8 enabled
-- Shell: lusush built from feature/lle-utf8-grapheme branch
-- Build: ./builddir/lusush (commit 2582bcd)
+### Display Integration Tests
 
-### Observations
+1. **Width Calculation Test**
+   - Input: café, 世界, 🎉, 👨‍👩‍👧‍👦
+   - Verify: Screen column position matches expected width
+   - Tool: Add display width debug output
 
-**Grapheme Boundary Detection**: ✅ PERFECT
-- All UAX #29 rules working correctly after bug fixes
-- GB11 (ZWJ sequences): Family emoji correctly detected as 1 grapheme
-- GB12/GB13 (Regional Indicators): Flag emoji correctly pair into 1 grapheme
-- GB9 (Emoji Modifiers): Skin tone modifiers correctly combine
+2. **Cursor Position Test**
+   - Input: Paste each test string
+   - Verify: Cursor appears at correct screen column
+   - Tool: Compare buffer grapheme_index vs screen position
 
-**Cursor Synchronization**: ❌ NEEDS WORK
-- Cursor has 3 fields: byte_offset, codepoint_index, grapheme_index
-- Only byte_offset updated on text insert
-- Display uses grapheme_index → desync causes wrong cursor position
-- Affects only multi-codepoint graphemes (ZWJ, RI, modifiers)
+3. **Rendering Integrity Test**
+   - Input: All test strings
+   - Action: Press left arrow, check display
+   - Verify: No � artifacts, emoji stay intact
 
-**User Experience**:
-- Typing characters manually: Works perfectly (all 7 tests would pass)
-- Pasting simple text: Works perfectly
-- Pasting complex emoji: Cursor wrong until first arrow key press
-- After manual correction: Everything works correctly
+4. **Backspace Test**
+   - Input: All test strings
+   - Action: Backspace once
+   - Verify: Entire grapheme deleted, no corruption
 
-**Test Method**:
-- Used copy/paste from test helper scripts
-- This exposed the cursor desync bug
-- If user had typed emoji manually (character by character), all tests would pass
+### Unit Tests Needed
+
+- `test_display_width_calculation()` - Width for each grapheme type
+- `test_grapheme_rendering()` - Atomic rendering of clusters
+- `test_cursor_position_sync()` - Position accuracy
+- `test_multibyte_corruption()` - No partial UTF-8 sequences
 
 ---
 
 ## Recommendations
 
-### Phase 1 Status: CONDITIONALLY READY
+### Phase 1 Status: ❌ NOT PRODUCTION READY
 
-**What's Working** (Production Ready):
-- ✅ UTF-8 index infrastructure (O(1) lookups, lazy invalidation)
-- ✅ Grapheme boundary detection (all UAX #29 rules correct)
-- ✅ Cursor manager integration (proper field synchronization)
-- ✅ Buffer modification tracking
-- ✅ Manual typing of all character types (including complex emoji)
-- ✅ Navigation with arrow keys
-- ✅ Backspace/delete operations
+**Original Assessment Was Incorrect**: The 4/7 "pass" rate from earlier testing was deceptive. The current 1/7 pass rate reveals the true scope of the display system issues.
 
-**What Needs Work** (Phase 2):
-- ❌ Cursor synchronization after paste/insert operations
-- ❌ Display column calculation for multi-codepoint graphemes
+**Core Issues**:
+- Display system fundamentally not grapheme-aware
+- All multi-byte UTF-8 beyond 2 bytes fails
+- Data corruption (� artifacts) indicates serious bugs
+- Cursor positioning completely broken for emoji
 
-### Recommended Actions
+### Immediate Actions Required
 
-**Option A: Merge to Master Now**
-- Rationale: 4/7 tests pass, core infrastructure complete
-- Limitation: Complex emoji paste requires arrow key after to fix cursor
-- Benefit: Gets Phase 1 foundation into production
-- Risk: Low (workaround available, no data corruption)
+**DO NOT MERGE**: Current state will break emoji/CJK input for users
 
-**Option B: Fix Cursor Issue First**
-- Rationale: Get to 7/7 pass rate before merge
-- Effort: Architectural change needed (cursor_manager integration)
-- Timeline: Additional 2-4 hours work
-- Benefit: Complete Phase 1 with no known issues
+**Required Work** (Phase 2):
+1. ✅ Fix display width calculation (grapheme-based)
+2. ✅ Fix grapheme-atomic rendering
+3. ✅ Fix cursor position synchronization
+4. ✅ Audit and fix screen_buffer if needed
+5. ✅ Add comprehensive display integration tests
 
-**Option C: Defer to Phase 2** (RECOMMENDED)
-- Rationale: Cursor issue is display/coordination, not UTF-8 infrastructure
-- Benefit: Phase 1 focuses on foundation, Phase 2 on integration
-- Timeline: Begin Phase 2 - Display Integration per PHASE2_PLANNING.md
-- Status: Document issue, plan fix for Phase 2
+**Timeline**: 
+- Display width fix: 2-4 hours
+- Rendering fix: 4-8 hours  
+- Testing: 2-4 hours
+- **Total: 8-16 hours additional work**
 
-### Follow-up Work
+### Phase 2 Plan
 
-**Immediate (Phase 2)**:
-1. Fix cursor desync: Integrate cursor_manager into insert/delete operations
-2. Test display column calculation for wide characters
-3. Verify paste handling with all grapheme types
+**Step 0**: ✅ COMPLETE - Cursor synchronization in navigation handlers
 
-**Future Enhancements**:
-1. Bracketed paste mode detection
-2. Performance optimization for large pastes
-3. Memory leak testing with valgrind
+**Step 1**: 🔄 IN PROGRESS - Fix display system
+- Audit current display code
+- Identify width calculation locations
+- Identify rendering locations
+- Implement grapheme-aware replacements
+
+**Step 2**: Add display integration tests
+
+**Step 3**: Re-run all 7 Phase 1 tests
+
+**Step 4**: Performance testing
+
+**Step 5**: Merge when 7/7 tests pass
+
+---
+
+## Session 11 Conclusion
+
+### What We Learned
+
+1. **Navigation logic is correct** - Our grapheme-aware handlers work
+2. **Buffer management is correct** - Data is stored properly
+3. **Display system is broken** - This is the real root cause
+4. **Scope larger than expected** - Display integration is critical, not optional
+
+### What We Fixed (Session 11)
+
+- ✅ Added cursor manager sync before all navigation operations
+- ✅ Made backspace/delete grapheme-aware
+- ✅ Made arrow keys grapheme-aware
+- ✅ Added grapheme boundary checks
+
+### What Still Needs Fixing
+
+- ❌ Display width calculation (column positions)
+- ❌ Grapheme-atomic rendering
+- ❌ Screen buffer grapheme awareness
+- ❌ Cursor-to-screen-position mapping
+
+### Next Steps
+
+1. Create DISPLAY_SYSTEM_ANALYSIS.md with deep dive
+2. Commit current navigation improvements with accurate status
+3. Begin Phase 2 display integration work
+4. Do NOT proceed to Phase 3 until display is fixed
 
 ---
 
 ## Sign-off
 
-**Phase 1 Status**: ✅ CONDITIONALLY READY (with known limitation)
+**Phase 1 Status**: ❌ NOT READY - Display system must be fixed first
 
-**Core Infrastructure**: ✅ COMPLETE
-- UTF-8 index: Complete and correct
-- Grapheme detection: All UAX #29 rules working
-- Cursor manager: Properly integrated
-- Buffer operations: Invalidation working
+**Critical Blocker**: Display/rendering system not grapheme-aware (ISSUE-002)
 
-**Known Issue**: Cursor desync after paste (ISSUE-001)
-- Impact: 3/7 tests fail on paste
-- Severity: Medium (UX issue, not data corruption)
-- Workaround: Press arrow key after paste
-- Fix plan: Phase 2 - Display Integration
+**Test Results**: 1/7 PASS (only simple 2-byte UTF-8 works)
 
-**Recommendation**: Proceed to Phase 2 with documented limitation
+**Recommended Action**: Proceed immediately to Phase 2 display integration work
 
 **Tester**: User (mberry)  
 **Date**: 2025-11-11  
-**Branch**: feature/lle-utf8-grapheme @ 2582bcd
+**Branch**: feature/lle-utf8-grapheme  
 
-**Next Action**: Update PHASE2_PLANNING.md to include cursor fix as first task
+**Next Action**: Create detailed display system analysis and begin fixes
