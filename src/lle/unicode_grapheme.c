@@ -509,7 +509,8 @@ static grapheme_cluster_break_t lle_get_gcb_property(uint32_t codepoint) {
         (codepoint >= 0x1E2EC && codepoint <= 0x1E2EF) ||  // Wancho combining
         (codepoint >= 0x1E8D0 && codepoint <= 0x1E8D6) ||  // Mende Kikakui combining
         (codepoint >= 0x1E944 && codepoint <= 0x1E94A) ||  // Adlam combining
-        (codepoint >= 0xE0100 && codepoint <= 0xE01EF)) {  // Variation selectors supplement
+        (codepoint >= 0xE0100 && codepoint <= 0xE01EF) ||  // Variation selectors supplement
+        (codepoint >= 0x1F3FB && codepoint <= 0x1F3FF)) {  // Emoji skin tone modifiers (Fitzpatrick)
         return GCB_EXTEND;
     }
     
@@ -659,12 +660,12 @@ static bool lle_check_grapheme_break(uint32_t prev_cp, uint32_t curr_cp,
     // number of regional indicator symbols before the break point
     if (prev_gcb == GCB_REGIONAL_INDICATOR && 
         curr_gcb == GCB_REGIONAL_INDICATOR) {
-        // If we have an even number of RI codepoints before this pair,
-        // we break. If odd, we don't break (forming a pair).
-        if (prev_ri_count % 2 == 0) {
-            return false;  // Even count before this pair - no break (form pair)
+        // If we have an odd number of RI codepoints before this pair,
+        // we don't break (forming a pair). If even, we break (starting new pair).
+        if (prev_ri_count % 2 == 1) {
+            return false;  // Odd count before - no break (complete the pair)
         } else {
-            return true;   // Odd count - break
+            return true;   // Even count - break (start new pair)
         }
     }
     

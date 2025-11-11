@@ -3,16 +3,16 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
 **Branch**: feature/lle-utf8-grapheme  
-**Status**: ✅ **PHASE 1 COMPLETE + TESTING INFRASTRUCTURE READY**  
-**Last Action**: Added comprehensive testing infrastructure and verification documentation  
-**Next**: Manual testing execution (5-10 minutes) then Phase 2 planning  
-**Current Reality**: Complete UTF-8/grapheme foundation with testing suite ready for user execution  
-**Implementation**: Steps 2-7 complete, all code verified through code review and build checks  
-**Verified**: Main binary builds successfully (3.1M), implementation completeness confirmed  
-**Testing Status**: Automated test helper + quick-start guide + comprehensive strategy all created  
-**Ready For**: User to run ./builddir/lusush and execute tests from PHASE1_QUICKSTART_TEST.md  
-**Commits**: 5 total (Steps 5-7 + docs + testing infrastructure) - all pushed to origin  
-**Architecture**: O(1) lookups, lazy invalidation, graceful degradation, proper separation of concerns
+**Status**: ✅ **PHASE 1 BUGS FIXED + RE-TESTING REQUIRED**  
+**Last Action**: Fixed critical UAX #29 grapheme boundary detection bugs (emoji modifiers + flags)  
+**Next**: Re-test all 7 cases in lusush, investigate Test 4 cursor positioning  
+**Current Reality**: Grapheme detection now correct for all complex cases, cursor behavior needs verification  
+**Bugs Fixed**: Skin tone modifiers (GB9), Regional Indicator pairing (GB12/GB13)  
+**Test Results**: Grapheme detection - Tests 5 & 7 now PASS, Test 4 still has cursor issue (not grapheme)  
+**Testing Status**: 3/7 tests passing (1,2,3,6), 2/7 now fixed (5,7), 1/7 needs investigation (4)  
+**Ready For**: User to re-run ./builddir/lusush with fixes and verify Tests 4,5,7  
+**Commits**: 6 total (Steps 5-7 + docs + testing + grapheme fixes) - ready to push  
+**Architecture**: O(1) lookups, lazy invalidation, correct UAX #29 grapheme boundaries
 
 ---
 
@@ -93,6 +93,48 @@ Phase 1 UTF-8/Grapheme foundation is **COMPLETE** and **READY FOR TESTING**.
 3. **Decision Point**:
    - **If tests PASS**: Merge to master, begin Phase 2 (Display Integration)
    - **If tests FAIL**: Debug issues, create fixes, re-test
+
+### Session 10 Bug Fixes (2025-11-11 Evening)
+
+**User Testing Revealed Critical Bugs**:
+User ran manual tests and found:
+- Test 4 (👨‍👩‍👧‍👦 family emoji): Cursor positioning broken, backspace partial ❌
+- Test 5 (🇺🇸 flag emoji): Counted as 2 graphemes instead of 1 ❌
+- Test 7 (👋🏽 skin tone): Cursor offset, counted as 2 graphemes ❌
+
+**Root Cause Analysis**:
+- Created `debug_grapheme.c` tool to analyze boundary detection
+- Found Test 4 grapheme detection was actually CORRECT (1 grapheme)
+- Test 4 issue is in cursor positioning or display code, NOT grapheme detection
+- Tests 5 & 7 had genuine grapheme boundary bugs
+
+**Bugs Fixed**:
+
+1. **Emoji Skin Tone Modifiers Not in GCB_EXTEND** (unicode_grapheme.c:513)
+   - Problem: U+1F3FB-U+1F3FF (Fitzpatrick skin tones) not recognized as combining
+   - Result: 👋🏽 counted as 2 graphemes instead of 1
+   - Fix: Added range to GCB_EXTEND property
+   - Verifies: GB9 rule now handles emoji modifiers correctly
+
+2. **Regional Indicator Pairing Logic Inverted** (unicode_grapheme.c:664)
+   - Problem: GB12/GB13 odd/even logic was backwards
+   - Result: 🇺🇸 flag counted as 2 separate Regional Indicators
+   - Fix: Changed `if (count % 2 == 0)` to `if (count % 2 == 1)`
+   - Verifies: Flag emojis now correctly pair into single grapheme
+
+**Verification**:
+```
+Test 4 (Family): 1 grapheme ✓ (was already correct)
+Test 5 (Flag):   1 grapheme ✓ (NOW FIXED)
+Test 7 (Skin):   1 grapheme ✓ (NOW FIXED)
+```
+
+**Next Steps**:
+1. User should re-test Tests 5 & 7 in lusush (should now PASS)
+2. Test 4 cursor issue needs separate investigation (display/cursor code)
+3. After verification, all 7 tests should pass or have known issues documented
+
+**Commit**: Pending (grapheme fixes + test utilities)
 
 ### Next Phase After Testing
 
