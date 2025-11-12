@@ -521,9 +521,32 @@ lle_result_t lle_delete_char(lle_editor_t *editor) {
         return lle_send_eof(editor);
     }
     
-    /* Delete character at cursor */
-    if (cursor_pos < buffer_length) {
-        return lle_buffer_delete_text(editor->buffer, cursor_pos, 1);
+    /* Delete grapheme cluster at cursor if not at end */
+    if (editor->buffer->cursor.grapheme_index < editor->buffer->grapheme_count && editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, editor->buffer->cursor.byte_offset);
+        
+        /* Move cursor forward by one grapheme to find the end of the grapheme to delete */
+        size_t grapheme_start = editor->buffer->cursor.byte_offset;
+        
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, 1);
+        if (result == LLE_SUCCESS) {
+            /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+            lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+            
+            size_t grapheme_end = editor->buffer->cursor.byte_offset;
+            size_t grapheme_len = grapheme_end - grapheme_start;
+            
+            /* Delete the entire grapheme cluster */
+            result = lle_buffer_delete_text(editor->buffer, grapheme_start, grapheme_len);
+            
+            /* CRITICAL: After deletion, cursor should be at deletion point, sync cursor_manager */
+            if (result == LLE_SUCCESS) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, grapheme_start);
+            }
+        }
+        
+        return result;
     }
     
     return LLE_SUCCESS;
@@ -534,14 +557,35 @@ lle_result_t lle_backward_delete_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    if (editor->buffer->cursor.byte_offset > 0) {
-        size_t delete_pos = editor->buffer->cursor.byte_offset - 1;
-        lle_result_t result = lle_buffer_delete_text(editor->buffer, delete_pos, 1);
-        if (result == LLE_SUCCESS) {
-            editor->buffer->cursor.byte_offset--;
-            editor->buffer->cursor.codepoint_index--;
-            editor->buffer->cursor.grapheme_index--;
+    if (editor->buffer->cursor.byte_offset > 0 && editor->cursor_manager) {
+        /* Sync cursor manager position with buffer cursor before moving */
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, editor->buffer->cursor.byte_offset);
+        
+        /* Check if we can move back (after sync) */
+        if (editor->buffer->cursor.grapheme_index == 0) {
+            return LLE_SUCCESS;  /* Already at beginning */
         }
+        
+        /* Move cursor back by one grapheme to find the start of the grapheme to delete */
+        size_t current_byte = editor->buffer->cursor.byte_offset;
+        
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
+        if (result == LLE_SUCCESS) {
+            /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+            lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+            
+            size_t grapheme_start = editor->buffer->cursor.byte_offset;
+            size_t grapheme_len = current_byte - grapheme_start;
+            
+            /* Delete the entire grapheme cluster */
+            result = lle_buffer_delete_text(editor->buffer, grapheme_start, grapheme_len);
+            
+            /* CRITICAL: After deletion, ensure cursor_manager is synced with buffer cursor */
+            if (result == LLE_SUCCESS) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, editor->buffer->cursor.byte_offset);
+            }
+        }
+        
         return result;
     }
     
@@ -1135,8 +1179,8 @@ lle_result_t lle_send_eof(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Signal EOF to caller (return special code or set flag) */
-    /* In practice, the readline loop will detect this and exit */
+    /* Signal EOF to readline loop */
+    editor->eof_requested = true;
     return LLE_SUCCESS;
 }
 

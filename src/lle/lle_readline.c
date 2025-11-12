@@ -948,6 +948,13 @@ static lle_result_t execute_keybinding_action(
             /* Execute the action through keybinding manager */
             result = action(ctx->editor);
             
+            /* Check for EOF request */
+            if (ctx->editor->eof_requested) {
+                *ctx->done = true;
+                *ctx->final_line = NULL;
+                return result;
+            }
+            
             /* Refresh display after action */
             if (result == LLE_SUCCESS) {
                 refresh_display(ctx);
@@ -1124,10 +1131,11 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
         lle_keybinding_manager_bind(keybinding_manager, "END", lle_end_of_line, "end-of-line");
         
-        /* Group 2 deletion keys NOT MIGRATED - action functions not implemented */
-        /* BLOCKER: lle_backward_delete_char and lle_delete_char are declared but not implemented */
-        /* Current handlers (handle_backspace, handle_delete) work correctly */
-        /* See KEYBINDING_MIGRATION_TRACKER.md Group 2 section for details */
+        /* Bind Group 2 deletion keys to their action functions */
+        /* These will be routed through keybinding manager instead of hardcoded handlers */
+        lle_keybinding_manager_bind(keybinding_manager, "BACKSPACE", lle_backward_delete_char, "backward-delete-char");
+        lle_keybinding_manager_bind(keybinding_manager, "DELETE", lle_delete_char, "delete-char");
+        lle_keybinding_manager_bind(keybinding_manager, "C-d", lle_delete_char, "delete-char");
     }
     
     readline_context_t ctx = {
@@ -1221,7 +1229,7 @@ char *lle_readline(const char *prompt)
                 
                 /* Check for backspace */
                 if (codepoint == 127 || codepoint == 8) {  /* DEL or BS */
-                    handle_backspace(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "BACKSPACE", handle_backspace);
                     break;
                 }
                 
@@ -1277,7 +1285,7 @@ char *lle_readline(const char *prompt)
                 }
                 /* Step 5: Delete key */
                 else if (event->data.special_key.key == LLE_KEY_DELETE) {
-                    handle_delete(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "DELETE", handle_delete);
                 }
                 /* Handle Ctrl+letter combinations (now SPECIAL_KEY events with keycode) */
                 else if (event->data.special_key.key == LLE_KEY_UNKNOWN && 
@@ -1292,7 +1300,7 @@ char *lle_readline(const char *prompt)
                             handle_arrow_left(NULL, &ctx);
                             break;
                         case 'D':  /* Ctrl-D: EOF */
-                            handle_eof(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-d", handle_eof);
                             break;
                         case 'E':  /* Ctrl-E: End of line */
                             handle_end(NULL, &ctx);

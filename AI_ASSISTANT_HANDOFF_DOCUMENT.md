@@ -3,15 +3,14 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-12  
 **Branch**: feature/lle  
-**Status**: ⚠️ **GROUP 1 COMPLETE - GROUP 2 BLOCKED**  
-**Last Action**: Session 13 - Discovered Group 2 blocker, reverted changes  
-**Current State**: 4/21 keybindings migrated (19%) - Migration PAUSED  
-**Blocker**: Action functions not implemented (lle_backward_delete_char, lle_delete_char)  
-**Work Done**: Group 1 complete + tested, Group 2 attempted + reverted  
-**Test Results**: Group 1: 15/15 PASSED (100%)  
-**Next**: Implement missing action functions before continuing migration  
+**Status**: ✅ **GROUPS 1-2 COMPLETE**  
+**Last Action**: Session 14 - Group 2 complete with bug fixes  
+**Current State**: 7/21 keybindings migrated (33%)  
+**Work Done**: Groups 1-2 complete + tested, all bugs fixed  
+**Test Results**: Group 1: 15/15 PASSED, Group 2: 8/8 PASSED (100%)  
+**Next**: Continue with Group 3 (Kill/Yank keys)  
 **Documentation**: Complete in docs/development/KEYBINDING_*.md  
-**Production Status**: ✅ Group 1 READY - Group 2 BLOCKED by missing implementations
+**Production Status**: ✅ Groups 1-2 PRODUCTION READY
 
 ---
 
@@ -19,21 +18,93 @@
 
 **When resuming this session:**
 
-1. **CRITICAL BLOCKER**: Implement missing action functions before continuing migration
-   - `lle_backward_delete_char` - implement in src/lle/keybinding_actions.c
-   - `lle_delete_char` - implement in src/lle/keybinding_actions.c
-   - Both are declared in keybinding_actions.h but have no implementations
-   - Current handlers (handle_backspace, handle_delete in lle_readline.c) work correctly
-   - Use these as reference for implementing action functions
-   - Test thoroughly with UTF-8 before retrying Group 2 migration
+1. **NEXT PRIORITY**: Continue Group 3 Keybinding Migration (Kill/Yank keys)
+   - Ctrl-K (kill to end of line) → lle_kill_line
+   - Ctrl-U (kill whole line) → lle_unix_line_discard
+   - Ctrl-W (kill word backward) → lle_unix_word_rubout
+   - Ctrl-Y (yank) → lle_yank
+   - See `docs/development/KEYBINDING_MIGRATION_TRACKER.md` Group 3 section
+   - Check if action functions exist and are UTF-8/grapheme aware
+   - Test with UTF-8 content and complex grapheme clusters
 
-2. **After blocker resolved**: Retry Group 2 Keybinding Migration
-   - BACKSPACE → lle_backward_delete_char
-   - DELETE → lle_delete_char
-   - Ctrl-D deferred (needs EOF signaling mechanism)
-   - See `docs/development/KEYBINDING_MIGRATION_TRACKER.md` Group 2 section
+2. **OPTIONAL**: Shell parser UTF-8 bug (deferred) - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
 
-3. **OPTIONAL**: Shell parser UTF-8 bug (deferred) - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
+---
+
+## 🎯 SESSION 14 - GROUP 2 DELETION KEYS COMPLETE (2025-11-12)
+
+### Group 2 Migration Complete - Deletion Keys
+
+**Objective**: Implement and migrate deletion keys (BACKSPACE, DELETE, Ctrl-D) to keybinding manager
+
+**Result**: ✅ All 3 keys successfully migrated with 8/8 tests passing (100%)
+
+### Critical Issues Discovered and Fixed
+
+**Issue 1: Action Functions Not UTF-8/Grapheme Aware**
+- **Problem**: `lle_delete_char` and `lle_backward_delete_char` existed but deleted 1 byte at a time
+- **Impact**: UTF-8 corruption (café → caf� instead of caf)
+- **Root Cause**: Functions used `lle_buffer_delete_text(pos, 1)` instead of grapheme-aware deletion
+- **Solution**: Rewrote both functions using cursor_manager pattern:
+  - Sync cursor_manager to buffer position
+  - Move by grapheme using `lle_cursor_manager_move_by_graphemes()`
+  - Calculate grapheme boundaries
+  - Delete entire grapheme cluster
+  - Sync cursor_manager after deletion
+- **Files**: `src/lle/keybinding_actions.c:511-590`
+
+**Issue 2: Ctrl-D EOF Not Working**
+- **Problem**: Ctrl-D on empty line did nothing (didn't exit lusush)
+- **Root Cause**: `lle_send_eof()` just returned success without signaling EOF
+- **Solution**: 
+  - Added `eof_requested` flag to `lle_editor_t` struct
+  - Modified `lle_send_eof()` to set the flag
+  - Added EOF check in `execute_keybinding_action()` to set done/final_line
+- **Files**: 
+  - `include/lle/lle_editor.h:104` (added flag)
+  - `src/lle/keybinding_actions.c:1173` (set flag)
+  - `src/lle/lle_readline.c:951-955` (check flag)
+
+**Issue 3: Cursor Sync Bug After Deletion**
+- **Problem**: RIGHT arrow after deletion jumped multiple characters
+- **Example**: After deleting 'c' from "café", RIGHT arrow jumped to 'é' instead of 'f'
+- **Root Cause**: cursor_manager out of sync with buffer cursor after deletion
+  - In `lle_delete_char`: moved forward to find grapheme end, cursor stayed at end after deletion
+  - Buffer cursor adjusted by `lle_buffer_delete_text()` but cursor_manager wasn't synced
+- **Solution**: Added cursor_manager sync after deletion in both functions
+  - `lle_delete_char`: sync to `grapheme_start` after deletion
+  - `lle_backward_delete_char`: sync to `buffer->cursor.byte_offset` after deletion
+- **Files**: `src/lle/keybinding_actions.c:543-546, 584-587`
+
+### Implementation Summary
+
+**Keys Migrated**:
+1. BACKSPACE → `lle_backward_delete_char`
+2. DELETE → `lle_delete_char`
+3. Ctrl-D → `lle_delete_char` (with EOF on empty buffer)
+
+**Test Results**: 8/8 PASSED (100%)
+- ✅ BACKSPACE on UTF-8 (café → properly deletes é)
+- ✅ DELETE on UTF-8 (properly deletes whole characters)
+- ✅ DELETE on grapheme clusters (👨‍👩‍👧‍👦 deleted as one unit)
+- ✅ Ctrl-D on empty buffer (exits lusush correctly)
+- ✅ Ctrl-D on non-empty buffer (deletes char at cursor)
+- ✅ Ctrl-D on grapheme clusters (👨‍👩‍👧‍👦 deleted as one unit)
+- ✅ BACKSPACE on grapheme clusters (👨‍👩‍👧‍👦 deleted as one unit)
+- ✅ Cursor navigation after deletion (RIGHT/LEFT work correctly)
+
+**Files Modified**:
+- `include/lle/lle_editor.h` - Added eof_requested flag
+- `src/lle/keybinding_actions.c` - Fixed deletion functions with UTF-8/grapheme support and cursor sync
+- `src/lle/lle_readline.c` - Routed keys through keybinding manager, added EOF check
+- `docs/development/KEYBINDING_MIGRATION_TRACKER.md` - Updated Group 2 status
+
+### Key Learnings
+
+1. **Always check action functions for UTF-8/grapheme awareness** - existing functions may be broken
+2. **Cursor sync is critical** - cursor_manager and buffer cursor must stay in sync
+3. **EOF requires special handling** - need flag-based signaling mechanism
+4. **Test navigation after modifications** - cursor tracking bugs surface during movement
 
 ---
 

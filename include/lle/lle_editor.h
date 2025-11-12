@@ -101,6 +101,7 @@ typedef struct lle_editor {
     
     /* Special modes */
     bool quoted_insert_mode;                           /* Ctrl-Q/Ctrl-V mode */
+    bool eof_requested;                                /* EOF signal (Ctrl-D on empty line) */
     
     /* Extensibility */
     lle_plugin_manager_t *plugin_manager;              /* Plugin system (future) */
