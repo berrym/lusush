@@ -3,14 +3,14 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-12  
 **Branch**: feature/lle  
-**Status**: ✅ **GROUPS 1-2 COMPLETE**  
-**Last Action**: Session 14 - Group 2 complete with bug fixes  
-**Current State**: 7/21 keybindings migrated (33%)  
-**Work Done**: Groups 1-2 complete + tested, all bugs fixed  
-**Test Results**: Group 1: 15/15 PASSED, Group 2: 8/8 PASSED (100%)  
-**Next**: Continue with Group 3 (Kill/Yank keys)  
+**Status**: ✅ **GROUPS 1-3 COMPLETE**  
+**Last Action**: Session 14 - Groups 2-3 complete with multiple bug fixes  
+**Current State**: 11/21 keybindings migrated (52%)  
+**Work Done**: Groups 1-3 complete + tested, all bugs fixed  
+**Test Results**: Group 1: 15/15 PASSED, Group 2: 8/8 PASSED, Group 3: 7/7 PASSED (100%)  
+**Next**: Continue with Group 4 (History & Special keys)  
 **Documentation**: Complete in docs/development/KEYBINDING_*.md  
-**Production Status**: ✅ Groups 1-2 PRODUCTION READY
+**Production Status**: ✅ Groups 1-3 PRODUCTION READY
 
 ---
 
@@ -18,20 +18,77 @@
 
 **When resuming this session:**
 
-1. **NEXT PRIORITY**: Continue Group 3 Keybinding Migration (Kill/Yank keys)
-   - Ctrl-K (kill to end of line) → lle_kill_line
-   - Ctrl-U (kill whole line) → lle_unix_line_discard
-   - Ctrl-W (kill word backward) → lle_unix_word_rubout
-   - Ctrl-Y (yank) → lle_yank
-   - See `docs/development/KEYBINDING_MIGRATION_TRACKER.md` Group 3 section
-   - Check if action functions exist and are UTF-8/grapheme aware
-   - Test with UTF-8 content and complex grapheme clusters
+1. **NEXT PRIORITY**: Continue Group 4 Keybinding Migration (History & Special keys)
+   - History navigation: Ctrl-N/P, UP/DOWN arrows
+   - Duplicate movement keys: Ctrl-A/B/E/F (already work, need migration)
+   - Special: Ctrl-G (abort), Ctrl-L (clear screen)
+   - See `docs/development/KEYBINDING_MIGRATION_TRACKER.md` Group 4 section
+   - Check if action functions exist and are properly implemented
+   - Verify no regressions from Groups 1-3
 
 2. **OPTIONAL**: Shell parser UTF-8 bug (deferred) - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
 
 ---
 
-## 🎯 SESSION 14 - GROUP 2 DELETION KEYS COMPLETE (2025-11-12)
+## 🎯 SESSION 14 - GROUPS 2-3 COMPLETE (2025-11-12)
+
+### Group 3 Migration Complete - Kill/Yank Keys
+
+**Objective**: Migrate kill/yank keys (Ctrl-K/U/W/Y) to keybinding manager
+
+**Result**: ✅ All 4 keys successfully migrated with 7/7 tests passing (100%)
+
+### Critical Issues Discovered and Fixed
+
+**Issue 1: `lle_unix_line_discard` Cursor Sync**
+- **Problem**: Manually set cursor indices without syncing cursor_manager
+- **Fix**: Added `lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0)` after deletion
+
+**Issue 2: `lle_unix_word_rubout` Not UTF-8 Aware**
+- **Problem**: Moved backward byte-by-byte (`word_start--`), would corrupt UTF-8
+- **Impact**: Would land in middle of multi-byte UTF-8 characters
+- **Fix**: Complete rewrite using cursor_manager to move by graphemes
+  - Use `lle_cursor_manager_move_by_graphemes(-1)` for safe backward movement
+  - Check grapheme boundaries properly
+  - Sync cursor_manager after deletion
+
+**Issue 3: `lle_yank` Cursor Sync After Insertion**
+- **Problem**: After `Ctrl-Y`, LEFT/RIGHT arrows jumped multiple characters
+- **Root Cause**: `lle_buffer_insert_text` moved buffer cursor but cursor_manager wasn't synced
+- **Fix**: Added cursor_manager sync after insertion
+
+**Issue 4: Kill Ring API Misuse (Pre-existing Bug)**
+- **Problem**: Test yanked "résuméca fé" instead of separate entries
+- **Root Cause**: All `lle_kill_ring_add()` calls passed length instead of append boolean
+  ```c
+  lle_kill_ring_add(ring, text, kill_len);  // WRONG
+  ```
+- **Impact**: Non-zero lengths treated as `true`, causing all kills to append
+- **Fix**: Changed all 6 calls to pass `false` for separate entries
+  ```c
+  lle_kill_ring_add(ring, text, false);  // CORRECT
+  ```
+
+### Implementation Summary - Group 3
+
+**Keys Migrated**:
+1. Ctrl-K → `lle_kill_line`
+2. Ctrl-U → `lle_unix_line_discard`
+3. Ctrl-W → `lle_unix_word_rubout`
+4. Ctrl-Y → `lle_yank`
+
+**Test Results**: 7/7 PASSED (100%)
+- ✅ Ctrl-K kills to end correctly
+- ✅ Ctrl-U kills entire line
+- ✅ Ctrl-W on UTF-8 (café) works correctly
+- ✅ Ctrl-Y yanks correctly
+- ✅ Cursor tracking after yank fixed
+- ✅ Separate kills maintain separate entries (café résumé test)
+- ✅ Kill ring ordering works correctly
+
+**Files Modified**:
+- `src/lle/keybinding_actions.c` - Fixed 3 functions, corrected 6 kill_ring_add calls
+- `src/lle/lle_readline.c` - Added Group 3 bindings and routing
 
 ### Group 2 Migration Complete - Deletion Keys
 

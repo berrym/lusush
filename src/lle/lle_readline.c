@@ -1136,6 +1136,13 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "BACKSPACE", lle_backward_delete_char, "backward-delete-char");
         lle_keybinding_manager_bind(keybinding_manager, "DELETE", lle_delete_char, "delete-char");
         lle_keybinding_manager_bind(keybinding_manager, "C-d", lle_delete_char, "delete-char");
+        
+        /* Bind Group 3 kill/yank keys to their action functions */
+        /* These will be routed through keybinding manager instead of hardcoded handlers */
+        lle_keybinding_manager_bind(keybinding_manager, "C-k", lle_kill_line, "kill-line");
+        lle_keybinding_manager_bind(keybinding_manager, "C-u", lle_unix_line_discard, "unix-line-discard");
+        lle_keybinding_manager_bind(keybinding_manager, "C-w", lle_unix_word_rubout, "unix-word-rubout");
+        lle_keybinding_manager_bind(keybinding_manager, "C-y", lle_yank, "yank");
     }
     
     readline_context_t ctx = {
@@ -1312,7 +1319,7 @@ char *lle_readline(const char *prompt)
                             handle_abort(NULL, &ctx);
                             break;
                         case 'K':  /* Ctrl-K: Kill to end of line */
-                            handle_kill_to_end(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-k", handle_kill_to_end);
                             break;
                         case 'L':  /* Ctrl-L: Clear screen */
                             handle_clear_screen(NULL, &ctx);
@@ -1334,13 +1341,13 @@ char *lle_readline(const char *prompt)
                             }
                             break;
                         case 'U':  /* Ctrl-U: Kill entire line */
-                            handle_kill_line(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-u", handle_kill_line);
                             break;
                         case 'W':  /* Ctrl-W: Kill word backwards */
-                            handle_kill_word(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-w", handle_kill_word);
                             break;
                         case 'Y':  /* Ctrl-Y: Yank */
-                            handle_yank(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-y", handle_yank);
                             break;
                         default:
                             /* Unknown Ctrl+letter - ignore */

@@ -617,7 +617,7 @@ lle_result_t lle_kill_line(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, kill_len);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -654,7 +654,7 @@ lle_result_t lle_backward_kill_line(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, kill_len);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -689,7 +689,7 @@ lle_result_t lle_kill_word(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, kill_len);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -716,7 +716,7 @@ lle_result_t lle_backward_kill_word(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, kill_len);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -751,10 +751,18 @@ lle_result_t lle_yank(lle_editor_t *editor) {
     }
     
     size_t yank_length = strlen(yank_text);
-    return lle_buffer_insert_text(editor->buffer,
-                                   editor->buffer->cursor.byte_offset,
-                                   yank_text,
-                                   yank_length);
+    result = lle_buffer_insert_text(editor->buffer,
+                                     editor->buffer->cursor.byte_offset,
+                                     yank_text,
+                                     yank_length);
+    
+    /* CRITICAL: Sync cursor_manager after insertion moves cursor */
+    if (result == LLE_SUCCESS && editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                               editor->buffer->cursor.byte_offset);
+    }
+    
+    return result;
 }
 
 lle_result_t lle_yank_pop(lle_editor_t *editor) {
@@ -1248,7 +1256,7 @@ lle_result_t lle_unix_line_discard(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, cursor_pos);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -1256,9 +1264,10 @@ lle_result_t lle_unix_line_discard(lle_editor_t *editor) {
         /* Delete from beginning to cursor */
         lle_result_t result = lle_buffer_delete_text(editor->buffer, 0, cursor_pos);
         if (result == LLE_SUCCESS) {
-            editor->buffer->cursor.byte_offset = 0;
-            editor->buffer->cursor.codepoint_index = 0;
-            editor->buffer->cursor.grapheme_index = 0;
+            /* CRITICAL: Sync cursor_manager after cursor is moved to position 0 */
+            if (editor->cursor_manager) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
+            }
         }
         return result;
     }
@@ -1267,24 +1276,63 @@ lle_result_t lle_unix_line_discard(lle_editor_t *editor) {
 }
 
 lle_result_t lle_unix_word_rubout(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    size_t cursor_pos = editor->buffer->cursor.byte_offset;
-    const char *data = editor->buffer->data;
-    
-    /* Find word start using Unix word boundaries (whitespace only) */
-    size_t word_start = cursor_pos;
-    
-    /* Skip trailing whitespace */
-    while (word_start > 0 && is_unix_word_boundary(data[word_start - 1])) {
-        word_start--;
+    if (editor->buffer->cursor.byte_offset == 0) {
+        return LLE_SUCCESS;  /* Already at beginning */
     }
     
-    /* Find beginning of word */
-    while (word_start > 0 && !is_unix_word_boundary(data[word_start - 1])) {
-        word_start--;
+    /* Sync cursor_manager with buffer cursor */
+    lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                           editor->buffer->cursor.byte_offset);
+    
+    const char *data = editor->buffer->data;
+    size_t cursor_pos = editor->buffer->cursor.byte_offset;
+    size_t word_start = cursor_pos;
+    
+    /* Move backward by graphemes, skipping trailing whitespace */
+    while (word_start > 0) {
+        /* Move back one grapheme */
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_start);
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
+        if (result != LLE_SUCCESS) {
+            break;
+        }
+        
+        lle_cursor_position_t pos;
+        lle_cursor_manager_get_position(editor->cursor_manager, &pos);
+        size_t prev_pos = pos.byte_offset;
+        
+        /* Check if this grapheme is whitespace (check first byte) */
+        if (!is_unix_word_boundary(data[prev_pos])) {
+            word_start = prev_pos;
+            break;
+        }
+        
+        word_start = prev_pos;
+    }
+    
+    /* Now find beginning of word */
+    while (word_start > 0) {
+        /* Move back one grapheme */
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_start);
+        lle_result_t result = lle_cursor_manager_move_by_graphemes(editor->cursor_manager, -1);
+        if (result != LLE_SUCCESS) {
+            break;
+        }
+        
+        lle_cursor_position_t pos;
+        lle_cursor_manager_get_position(editor->cursor_manager, &pos);
+        size_t prev_pos = pos.byte_offset;
+        
+        /* If we hit whitespace, stop */
+        if (is_unix_word_boundary(data[prev_pos])) {
+            break;
+        }
+        
+        word_start = prev_pos;
     }
     
     if (cursor_pos > word_start) {
@@ -1294,7 +1342,7 @@ lle_result_t lle_unix_word_rubout(lle_editor_t *editor) {
         if (killed_text) {
             /* Add to kill ring */
             if (editor->kill_ring) {
-                lle_kill_ring_add(editor->kill_ring, killed_text, kill_len);
+                lle_kill_ring_add(editor->kill_ring, killed_text, false);
             }
             free(killed_text);
         }
@@ -1302,9 +1350,8 @@ lle_result_t lle_unix_word_rubout(lle_editor_t *editor) {
         /* Delete the text */
         lle_result_t result = lle_buffer_delete_text(editor->buffer, word_start, kill_len);
         if (result == LLE_SUCCESS) {
-            editor->buffer->cursor.byte_offset = word_start;
-            editor->buffer->cursor.codepoint_index = word_start;
-            editor->buffer->cursor.grapheme_index = word_start;
+            /* CRITICAL: Sync cursor_manager after deletion */
+            lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_start);
         }
         return result;
     }
