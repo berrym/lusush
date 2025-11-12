@@ -1123,6 +1123,11 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "RIGHT", lle_forward_char, "forward-char");
         lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
         lle_keybinding_manager_bind(keybinding_manager, "END", lle_end_of_line, "end-of-line");
+        
+        /* Group 2 deletion keys NOT MIGRATED - action functions not implemented */
+        /* BLOCKER: lle_backward_delete_char and lle_delete_char are declared but not implemented */
+        /* Current handlers (handle_backspace, handle_delete) work correctly */
+        /* See KEYBINDING_MIGRATION_TRACKER.md Group 2 section for details */
     }
     
     readline_context_t ctx = {

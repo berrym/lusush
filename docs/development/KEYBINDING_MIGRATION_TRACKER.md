@@ -60,15 +60,22 @@
 
 ---
 
-## GROUP 2: Deletion Keys ⬜ NOT STARTED
+## GROUP 2: Deletion Keys ❌ BLOCKED
 
 ### Implementation
-- [ ] Bind BACKSPACE → `lle_backward_delete_char`
-- [ ] Bind DELETE → `lle_delete_char`
-- [ ] Create `handle_ctrl_d_wrapper()` for EOF logic
-- [ ] Bind Ctrl-D → `handle_ctrl_d_wrapper`
-- [ ] Route BACKSPACE/DELETE/Ctrl-D to keybinding manager
-- [ ] Comment out hardcoded handlers
+- [x] Attempted to bind BACKSPACE → `lle_backward_delete_char`
+- [x] Attempted to bind DELETE → `lle_delete_char`
+- [x] Attempted to route through keybinding manager
+- [x] **REVERTED**: Action functions not implemented
+
+### BLOCKER DISCOVERED
+**Critical Issue**: Action functions are declared but NOT IMPLEMENTED
+- `lle_backward_delete_char` - declared in keybinding_actions.h but no implementation exists
+- `lle_delete_char` - declared in keybinding_actions.h but no implementation exists
+- Current handlers (`handle_backspace`, `handle_delete`) work correctly
+- Migration caused UTF-8 corruption (café → caf� instead of caf)
+
+**Resolution**: Reverted all Group 2 changes, keeping hardcoded handlers
 
 ### Testing
 - [ ] Test BACKSPACE on ASCII
@@ -86,9 +93,17 @@
 - [ ] Verify Group 1 still works (regression test)
 
 ### Issues Found
-- None yet
+- **CRITICAL**: Action functions `lle_backward_delete_char` and `lle_delete_char` are not implemented
+- Only function declarations exist in header, no actual code
+- Must implement these functions before Group 2 can proceed
 
-### Status: ⬜ NOT STARTED
+### Status: ❌ BLOCKED - Missing action function implementations
+
+### Next Steps
+1. Implement `lle_backward_delete_char` in keybinding_actions.c
+2. Implement `lle_delete_char` in keybinding_actions.c  
+3. Test implementations thoroughly
+4. Retry Group 2 migration
 
 ---
 
@@ -267,9 +282,19 @@
   - No regressions, no crashes, no UTF-8 corruption
   - Minor visual cursor rendering issues confirmed as terminal emulator bugs, not LLE
   - Group 1 APPROVED for production
+- Attempted Group 2 migration:
+  - Discovered BLOCKER: lle_backward_delete_char and lle_delete_char not implemented
+  - Only declarations exist in keybinding_actions.h, no implementations in keybinding_actions.c
+  - Attempted migration caused UTF-8 corruption (café → caf� instead of caf)
+  - REVERTED all Group 2 changes immediately
+  - Verified BACKSPACE works correctly after revert
+  - Group 2 BLOCKED until action functions are implemented
 
 ### Blocking Issues
-- None currently
+- **CRITICAL**: Group 2-5 cannot proceed - deletion/kill action functions not implemented
+  - `lle_backward_delete_char` - declared but not implemented
+  - `lle_delete_char` - declared but not implemented
+  - These must be implemented before any deletion key migration
 
 ### Resolved Issues
 - ✅ Memory leak in keybinding_manager_destroy() - Fixed with libhashtable enumeration API
