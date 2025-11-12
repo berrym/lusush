@@ -59,6 +59,7 @@
 #include "lle/history.h"              /* History system for UP/DOWN navigation */
 #include "lle/lle_editor.h"           /* Proper LLE editor architecture */
 #include "lle/keybinding_actions.h"   /* Smart arrow navigation functions */
+#include "lle/keybinding.h"           /* Keybinding manager for Group 1+ migration */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -148,6 +149,9 @@ typedef struct {
     
     /* LLE Editor - proper architecture */
     lle_editor_t *editor;                       /* Full LLE editor context */
+    
+    /* Keybinding manager - incremental migration (Group 1+) */
+    lle_keybinding_manager_t *keybinding_manager; /* Replaces hardcoded keybindings */
 } readline_context_t;
 
 /**
@@ -916,6 +920,52 @@ static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data)
 }
 
 /**
+ * @brief Execute a keybinding action via the keybinding manager
+ * Group 1+ migration: Routes key sequences through keybinding manager
+ * Falls back to provided handler function if keybinding manager lookup fails
+ * 
+ * @param ctx Readline context
+ * @param key_sequence Key sequence string (e.g., "LEFT", "RIGHT", "HOME", "END")
+ * @param fallback_handler Fallback handler function if lookup fails (can be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+static lle_result_t execute_keybinding_action(
+    readline_context_t *ctx,
+    const char *key_sequence,
+    lle_result_t (*fallback_handler)(lle_event_t *, void *)
+)
+{
+    /* Try keybinding manager first (Group 1+ migration) */
+    if (ctx->keybinding_manager && ctx->editor) {
+        lle_keybinding_action_t action = NULL;
+        lle_result_t result = lle_keybinding_manager_lookup(
+            ctx->keybinding_manager,
+            key_sequence,
+            &action
+        );
+        
+        if (result == LLE_SUCCESS && action != NULL) {
+            /* Execute the action through keybinding manager */
+            result = action(ctx->editor);
+            
+            /* Refresh display after action */
+            if (result == LLE_SUCCESS) {
+                refresh_display(ctx);
+            }
+            
+            return result;
+        }
+    }
+    
+    /* Fallback to hardcoded handler if keybinding manager not available or lookup failed */
+    if (fallback_handler) {
+        return fallback_handler(NULL, ctx);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Read a line of input from the user with line editing
  * 
  * This is the core readline function that replaces GNU readline when LLE is enabled.
@@ -1059,6 +1109,22 @@ char *lle_readline(const char *prompt)
         }
     }
     
+    /* === STEP 6.6: Create keybinding manager (Group 1+ migration) === */
+    /* Group 1: Navigation keys (LEFT, RIGHT, HOME, END) */
+    lle_keybinding_manager_t *keybinding_manager = NULL;
+    result = lle_keybinding_manager_create(&keybinding_manager, global_memory_pool);
+    if (result != LLE_SUCCESS || keybinding_manager == NULL) {
+        /* Failed to create keybinding manager - non-fatal, will use hardcoded fallbacks */
+        keybinding_manager = NULL;
+    } else {
+        /* Bind Group 1 navigation keys to their action functions */
+        /* These will be routed through keybinding manager instead of hardcoded handlers */
+        lle_keybinding_manager_bind(keybinding_manager, "LEFT", lle_backward_char, "backward-char");
+        lle_keybinding_manager_bind(keybinding_manager, "RIGHT", lle_forward_char, "forward-char");
+        lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
+        lle_keybinding_manager_bind(keybinding_manager, "END", lle_end_of_line, "end-of-line");
+    }
+    
     readline_context_t ctx = {
         .buffer = buffer,
         .done = &done,
@@ -1070,7 +1136,10 @@ char *lle_readline(const char *prompt)
         .kill_buffer_size = kill_buffer_size,
         
         /* LLE Editor - proper architecture */
-        .editor = global_lle_editor
+        .editor = global_lle_editor,
+        
+        /* Keybinding manager - Group 1+ migration */
+        .keybinding_manager = keybinding_manager
     };
     
     /* Register handler for character input */
@@ -1180,12 +1249,12 @@ char *lle_readline(const char *prompt)
                 if (event->data.special_key.key == LLE_KEY_ENTER) {
                     handle_enter(NULL, &ctx);
                 }
-                /* Step 5: Arrow keys for cursor movement */
+                /* GROUP 1 MIGRATION: Navigation keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_LEFT) {
-                    handle_arrow_left(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "LEFT", handle_arrow_left);
                 }
                 else if (event->data.special_key.key == LLE_KEY_RIGHT) {
-                    handle_arrow_right(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "RIGHT", handle_arrow_right);
                 }
                 /* History navigation with UP/DOWN arrows */
                 else if (event->data.special_key.key == LLE_KEY_UP) {
@@ -1194,12 +1263,12 @@ char *lle_readline(const char *prompt)
                 else if (event->data.special_key.key == LLE_KEY_DOWN) {
                     handle_arrow_down(NULL, &ctx);
                 }
-                /* Step 5: Home/End keys */
+                /* GROUP 1 MIGRATION: Home/End keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_HOME) {
-                    handle_home(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "HOME", handle_home);
                 }
                 else if (event->data.special_key.key == LLE_KEY_END) {
-                    handle_end(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "END", handle_end);
                 }
                 /* Step 5: Delete key */
                 else if (event->data.special_key.key == LLE_KEY_DELETE) {
@@ -1326,6 +1395,11 @@ char *lle_readline(const char *prompt)
     /* Step 5 enhancement: Free kill buffer */
     if (kill_buffer) {
         free(kill_buffer);
+    }
+    
+    /* Group 1+ migration: Cleanup keybinding manager */
+    if (keybinding_manager) {
+        lle_keybinding_manager_destroy(keybinding_manager);
     }
     
     /* Step 6: Cleanup continuation state, destroy event system, buffer, and terminal */

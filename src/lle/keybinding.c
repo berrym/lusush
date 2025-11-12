@@ -11,6 +11,7 @@
 
 #include "lle/keybinding.h"
 #include "lle/hashtable.h"
+#include "libhashtable/ht.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -242,8 +243,28 @@ lle_result_t lle_keybinding_manager_destroy(lle_keybinding_manager_t *manager) {
         return LLE_ERROR_NULL_POINTER;
     }
     
-    /* Destroy hashtable (this will free all entries) */
+    /* Free all keybinding entries before destroying hashtable */
     if (manager->bindings != NULL) {
+        /* Use libhashtable enumeration to iterate through all entries */
+        ht_enum_t *enumerator = ht_strstr_enum_create(manager->bindings->ht);
+        if (enumerator != NULL) {
+            const char *key;
+            const char *value_str;
+            
+            /* Iterate through all key-value pairs */
+            while (ht_strstr_enum_next(enumerator, &key, &value_str)) {
+                /* Value is a pointer stored as string - convert back to pointer */
+                lle_keybinding_entry_t *entry;
+                sscanf(value_str, "%p", (void**)&entry);
+                
+                /* Free the entry and its allocated strings */
+                free_keybinding_entry(manager->pool, entry);
+            }
+            
+            ht_strstr_enum_destroy(enumerator);
+        }
+        
+        /* Now destroy the hashtable itself */
         lle_strstr_hashtable_destroy(manager->bindings);
     }
     

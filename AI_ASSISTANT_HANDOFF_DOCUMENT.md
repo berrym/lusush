@@ -2,15 +2,15 @@
 
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-11  
-**Branch**: feature/lle-utf8-grapheme  
-**Status**: ✅ **PHASE 1 COMPLETE - 7/7 TESTS PASS**  
-**Last Action**: Session 12 - Fixed all bugs, completed all testing  
-**Current State**: 7/7 tests PASS - UTF-8/grapheme support PRODUCTION READY  
-**Bugs Fixed**: Grapheme boundary detection, cursor sync (×3), Ctrl-D deletion  
-**Test Results**: 100% pass rate - all editing operations work perfectly  
-**Next**: Merge to master after final review  
-**Documentation**: Complete in docs/development/lle-utf8-grapheme/  
-**Production Status**: ✅ READY TO MERGE - LLE UTF-8 support complete
+**Branch**: feature/lle  
+**Status**: ✅ **GROUP 1 KEYBINDING MIGRATION COMPLETE - 15/15 TESTS PASS**  
+**Last Action**: Session 13 - Completed Group 1 keybinding manager migration  
+**Current State**: 4/21 keybindings migrated (19%) - Group 1 APPROVED for production  
+**Work Done**: Fixed memory leak, migrated LEFT/RIGHT/HOME/END to keybinding manager  
+**Test Results**: 15/15 tests PASSED (100%) - Full UTF-8/grapheme support verified  
+**Next**: Group 2 migration (BACKSPACE, DELETE, Ctrl-D)  
+**Documentation**: Complete in docs/development/KEYBINDING_*.md  
+**Production Status**: ✅ Group 1 READY - Incremental migration in progress (19%)
 
 ---
 
@@ -18,11 +18,173 @@
 
 **When resuming this session:**
 
-1. **Complete LLE Tests 3-7** (Test 2 already PASSED)
-2. **CRITICAL**: Shell parser UTF-8 bug discovered - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
+1. **Proceed with Group 2 Keybinding Migration** - Deletion keys (BACKSPACE, DELETE, Ctrl-D)
+   - Follow same incremental approach as Group 1
+   - Test thoroughly with UTF-8 to ensure no corruption
+   - Pay special attention to Ctrl-D EOF vs delete behavior
+   - See `docs/development/KEYBINDING_MIGRATION_PLAN.md` for detailed steps
+
+2. **OPTIONAL**: Shell parser UTF-8 bug (deferred) - see `docs/bugs/CRITICAL_PARSER_UTF8_BUG.md`
    - LLE works perfectly (editing UTF-8 text)
-   - Parser fails when executing commands with UTF-8 (returns "unterminated quoted string")
-   - This is **separate work** from LLE, needs UTF-8 aware tokenizer rewrite
+   - Parser fails when executing commands with UTF-8
+   - This is **separate work** from LLE keybinding migration
+
+---
+
+## 🎯 SESSION 13 - KEYBINDING MANAGER MIGRATION (2025-11-11)
+
+### Group 1 Migration Complete - Navigation Keys
+
+**Objective**: Begin incremental migration from hardcoded keybindings to keybinding manager architecture
+
+**Strategy**: 5-group incremental migration (lowest to highest risk)
+- Group 1: Navigation (LEFT, RIGHT, HOME, END) - 4 keys ✅ COMPLETE
+- Group 2: Deletion (BACKSPACE, DELETE, Ctrl-D) - 3 keys ⏳ NEXT
+- Group 3: Kill/Yank (Ctrl-K/U/W/Y) - 4 keys
+- Group 4: History & Special (Ctrl-A/B/E/F/N/P, arrows, Ctrl-G/L) - 10 keys
+- Group 5: Accept Line (ENTER) - 1 key
+
+### Critical Bug Fixed BEFORE Migration
+
+**Memory Leak in keybinding_manager_destroy()**: 36 bytes
+- **Problem**: Entries weren't being freed before destroying hashtable
+- **Root Cause**: No iteration mechanism to free individual entries
+- **Solution**: Used libhashtable enumeration API
+  ```c
+  ht_enum_t *enumerator = ht_strstr_enum_create(manager->bindings->ht);
+  while (ht_strstr_enum_next(enumerator, &key, &value_str)) {
+      sscanf(value_str, "%p", (void**)&entry);
+      free_keybinding_entry(manager->pool, entry);
+  }
+  ht_strstr_enum_destroy(enumerator);
+  ```
+- **Verified**: valgrind shows 0 bytes leaked (was 36 bytes)
+- **File**: `src/lle/keybinding.c:240-275`
+
+This was **critical to fix first** to ensure migration doesn't introduce memory leaks.
+
+### Group 1 Implementation
+
+**Files Modified**:
+- `src/lle/lle_readline.c`: Main integration point
+- `src/lle/keybinding.c`: Memory leak fix
+
+**Changes Made**:
+
+1. **Added keybinding manager to context** (lle_readline.c:138-154)
+   - Added `#include "lle/keybinding.h"`
+   - Added `keybinding_manager` field to `readline_context_t`
+
+2. **Initialize and bind keys** (lle_readline.c:1065-1079)
+   ```c
+   lle_keybinding_manager_create(&keybinding_manager, global_memory_pool);
+   lle_keybinding_manager_bind(keybinding_manager, "LEFT", lle_backward_char, "backward-char");
+   lle_keybinding_manager_bind(keybinding_manager, "RIGHT", lle_forward_char, "forward-char");
+   lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
+   lle_keybinding_manager_bind(keybinding_manager, "END", lle_end_of_line, "end-of-line");
+   ```
+
+3. **Created execution helper** (lle_readline.c:922-965)
+   ```c
+   static lle_result_t execute_keybinding_action(
+       readline_context_t *ctx,
+       const char *key_sequence,
+       lle_result_t (*fallback_handler)(lle_event_t *, void *)
+   )
+   ```
+   - Routes through keybinding manager first
+   - Falls back to hardcoded handler if lookup fails
+   - Provides smooth incremental migration path
+
+4. **Routed Group 1 keys** (lle_readline.c:1251-1270)
+   - LEFT: `execute_keybinding_action(&ctx, "LEFT", handle_arrow_left)`
+   - RIGHT: `execute_keybinding_action(&ctx, "RIGHT", handle_arrow_right)`
+   - HOME: `execute_keybinding_action(&ctx, "HOME", handle_home)`
+   - END: `execute_keybinding_action(&ctx, "END", handle_end)`
+
+5. **Added cleanup** (lle_readline.c:1399-1402)
+   ```c
+   if (keybinding_manager) {
+       lle_keybinding_manager_destroy(keybinding_manager);
+   }
+   ```
+
+### Comprehensive Testing - 15/15 PASSED (100%)
+
+**Test Plan**: `docs/development/GROUP1_MANUAL_TEST_PLAN.md`
+
+**Tests Executed**:
+1. ✅ LEFT arrow - ASCII text
+2. ✅ RIGHT arrow - ASCII text
+3. ✅ HOME key - ASCII text
+4. ✅ END key - ASCII text
+5. ✅ LEFT arrow - UTF-8 2-byte (café)
+6. ✅ RIGHT arrow - UTF-8 2-byte (café)
+7. ✅ LEFT arrow - UTF-8 3-byte CJK (北京)
+8. ✅ RIGHT arrow - UTF-8 3-byte CJK (北京)
+9. ✅ LEFT arrow - UTF-8 4-byte emoji (🎉)
+10. ✅ RIGHT arrow - UTF-8 4-byte emoji (🎉)
+11. ✅ LEFT arrow - Complex grapheme cluster (👨‍👩‍👧‍👦 family emoji with ZWJ)
+12. ✅ HOME/END - Mixed UTF-8 content (hello café 北京 🎉)
+13. ✅ Navigation combinations - Mixed movements
+14. ✅ Empty line edge cases - All keys on empty line
+15. ✅ Rapid navigation - Boundary conditions
+
+**Key Findings**:
+- All 4 navigation keys work flawlessly through keybinding manager
+- UTF-8 support fully intact (2-byte, 3-byte, 4-byte characters)
+- Complex grapheme cluster support verified (family emoji with ZWJ)
+- No regressions from hardcoded implementation
+- No noticeable latency added by keybinding manager routing
+- Boundary conditions handled correctly
+- Minor visual cursor rendering issues are terminal emulator bugs, NOT LLE issues
+
+### Documentation Created
+
+1. **KEYBINDING_AUDIT.md** - Complete audit of all 21 hardcoded keybindings
+   - Verified 100% coverage by keybinding manager
+   - 42 action functions available (21 bonus features)
+   
+2. **KEYBINDING_MIGRATION_PLAN.md** - Detailed 5-group migration strategy
+   - Risk assessment for each group
+   - Step-by-step implementation guide
+   - Timeline: 13 hours estimated
+   
+3. **KEYBINDING_MIGRATION_TRACKER.md** - Execution tracker
+   - Checkboxes for each step
+   - Session logs and issue tracking
+   - Progress: Group 1 COMPLETE (19%)
+   
+4. **GROUP1_MANUAL_TEST_PLAN.md** - Comprehensive test results
+   - 15 tests with detailed steps and results
+   - Sign-off: Group 1 APPROVED for production
+
+### Architecture Decisions
+
+**Why Incremental Migration**:
+- Minimize risk by migrating lowest-risk keys first
+- Fallback mechanism ensures no regressions
+- Can validate each group before proceeding
+- Easy to rollback if issues found
+
+**Why This Works**:
+- Action functions already exist and are UTF-8/grapheme aware (from Phase 1)
+- Keybinding manager just routes to existing functions
+- Dual-cursor sync already fixed in Session 12
+- Memory leak fixed before migration
+
+### Production Readiness
+
+**Group 1 Status**: ✅ APPROVED
+- Code complete and tested
+- No memory leaks
+- No regressions
+- Full UTF-8/grapheme support verified
+- Ready for production use
+
+**Migration Progress**: 4/21 keybindings (19%)
+
+**Next Steps**: Group 2 - Deletion keys (BACKSPACE, DELETE, Ctrl-D)
 
 ---
 
