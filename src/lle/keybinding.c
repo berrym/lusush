@@ -419,7 +419,7 @@ lle_result_t lle_key_event_to_string(
 lle_result_t lle_keybinding_manager_bind(
     lle_keybinding_manager_t *manager,
     const char *key_sequence,
-    lle_keybinding_action_t action,
+    lle_action_simple_t action,
     const char *function_name
 ) {
     if (manager == NULL || key_sequence == NULL || action == NULL) {
@@ -438,7 +438,55 @@ lle_result_t lle_keybinding_manager_bind(
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     
-    entry->action = action;
+    /* Initialize action as simple type */
+    entry->action.type = LLE_ACTION_TYPE_SIMPLE;
+    entry->action.func.simple = action;
+    entry->action.name = function_name;
+    entry->mode = manager->current_mode;
+    entry->function_name = function_name ? keybinding_strdup(manager->pool, function_name) : NULL;
+    
+    /* Convert entry to string for storage (hackish but works with strstr hashtable) */
+    char entry_str[32];
+    snprintf(entry_str, sizeof(entry_str), "%p", (void*)entry);
+    
+    /* Insert into hashtable */
+    lle_result_t result = lle_strstr_hashtable_insert(
+        manager->bindings, key_sequence, entry_str);
+    
+    if (result != LLE_SUCCESS) {
+        free_keybinding_entry(manager->pool, entry);
+        return result;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+lle_result_t lle_keybinding_manager_bind_context(
+    lle_keybinding_manager_t *manager,
+    const char *key_sequence,
+    lle_action_context_t action,
+    const char *function_name
+) {
+    if (manager == NULL || key_sequence == NULL || action == NULL) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    /* Create keybinding entry */
+    lle_keybinding_entry_t *entry;
+    if (manager->pool != NULL) {
+        entry = (lle_keybinding_entry_t*)lusush_pool_alloc(sizeof(lle_keybinding_entry_t));
+    } else {
+        entry = (lle_keybinding_entry_t*)malloc(sizeof(lle_keybinding_entry_t));
+    }
+    
+    if (entry == NULL) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    /* Initialize action as context-aware type */
+    entry->action.type = LLE_ACTION_TYPE_CONTEXT;
+    entry->action.func.context = action;
+    entry->action.name = function_name;
     entry->mode = manager->current_mode;
     entry->function_name = function_name ? keybinding_strdup(manager->pool, function_name) : NULL;
     
@@ -539,8 +587,13 @@ lle_result_t lle_keybinding_manager_process_key(
         manager->max_lookup_time_us = elapsed;
     }
     
-    /* Execute action */
-    return entry->action(editor);
+    /* Execute action - only simple actions supported here (no readline context) */
+    if (entry->action.type == LLE_ACTION_TYPE_SIMPLE) {
+        return entry->action.func.simple(editor);
+    } else {
+        /* Context-aware actions cannot be executed without readline context */
+        return LLE_ERROR_INVALID_STATE;
+    }
 }
 
 lle_result_t lle_keybinding_manager_reset_sequence(
@@ -661,7 +714,7 @@ lle_result_t lle_keybinding_manager_list_bindings(
 lle_result_t lle_keybinding_manager_lookup(
     lle_keybinding_manager_t *manager,
     const char *key_sequence,
-    lle_keybinding_action_t *action_out
+    lle_keybinding_action_t **action_out
 ) {
     if (manager == NULL || key_sequence == NULL || action_out == NULL) {
         return LLE_ERROR_NULL_POINTER;
@@ -675,7 +728,8 @@ lle_result_t lle_keybinding_manager_lookup(
     lle_keybinding_entry_t *entry;
     sscanf(entry_str, "%p", (void**)&entry);
     
-    *action_out = entry->action;
+    /* Return pointer to action structure in entry */
+    *action_out = &entry->action;
     return LLE_SUCCESS;
 }
 

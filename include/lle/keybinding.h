@@ -39,6 +39,7 @@
 
 typedef struct lle_keybinding_manager lle_keybinding_manager_t;
 typedef struct lle_editor lle_editor_t;
+typedef struct readline_context readline_context_t;
 
 /* ============================================================================
  * CONSTANTS
@@ -71,15 +72,58 @@ typedef struct lle_editor lle_editor_t;
  * ============================================================================ */
 
 /**
- * Keybinding action function signature
+ * Simple action function signature
  * 
- * All keybinding actions take an editor context and return a result code.
+ * Simple actions take an editor context only and operate on editor state.
  * The editor context provides access to buffer, history, kill ring, etc.
+ * Most keybindings (navigation, editing, kill/yank) are simple actions.
  *
  * @param editor Editor context (contains buffer, history, kill ring, etc.)
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_keybinding_action_t)(lle_editor_t *editor);
+typedef lle_result_t (*lle_action_simple_t)(lle_editor_t *editor);
+
+/**
+ * Context-aware action function signature
+ * 
+ * Context-aware actions have full access to readline context including
+ * continuation state, display controller, done flag, and final_line.
+ * Used for complex actions like ENTER (accept line), incremental search,
+ * completion menus, etc.
+ *
+ * @param ctx Readline context (full access to readline state)
+ * @return LLE_SUCCESS or error code
+ */
+typedef lle_result_t (*lle_action_context_t)(readline_context_t *ctx);
+
+/**
+ * Action type discriminator
+ */
+typedef enum {
+    LLE_ACTION_TYPE_SIMPLE,    /* Simple action - operates on editor only */
+    LLE_ACTION_TYPE_CONTEXT    /* Context-aware action - needs readline context */
+} lle_action_type_t;
+
+/**
+ * Unified keybinding action structure
+ * 
+ * Supports both simple and context-aware actions through a tagged union.
+ * The type field indicates which function pointer is valid.
+ */
+typedef struct {
+    lle_action_type_t type;    /* Action type (simple or context-aware) */
+    union {
+        lle_action_simple_t simple;      /* Simple action function */
+        lle_action_context_t context;    /* Context-aware action function */
+    } func;
+    const char *name;          /* Function name (for debugging/introspection) */
+} lle_keybinding_action_t;
+
+/**
+ * Legacy type alias for backward compatibility
+ * Will be deprecated once all code is updated
+ */
+typedef lle_action_simple_t lle_keybinding_action_func_t;
 
 /**
  * Keybinding mode
@@ -115,8 +159,8 @@ typedef struct {
  */
 typedef struct {
     char key_sequence[LLE_MAX_KEY_SEQUENCE_LENGTH];
-    lle_keybinding_action_t action;
-    const char *function_name;
+    lle_keybinding_action_t action;  /* Full action structure (type + func + name) */
+    const char *function_name;       /* Legacy field (use action.name instead) */
     lle_keymap_mode_t mode;
 } lle_keybinding_info_t;
 
@@ -157,11 +201,11 @@ lle_result_t lle_keybinding_manager_destroy(
  * ============================================================================ */
 
 /**
- * Bind a key sequence to an action function
+ * Bind a key sequence to a simple action function
  *
  * @param manager Keybinding manager
  * @param key_sequence Key sequence in GNU Readline notation
- * @param action Action function to execute
+ * @param action Simple action function to execute
  * @param function_name Human-readable function name (for introspection)
  * @return LLE_SUCCESS or error code
  *
@@ -176,11 +220,44 @@ lle_result_t lle_keybinding_manager_destroy(
  * @note If key_sequence is already bound, overwrites previous binding
  * @note function_name is optional (can be NULL)
  * @note Multi-key sequences are separated by spaces
+ * @note This is the default binding function for most keybindings
  */
 lle_result_t lle_keybinding_manager_bind(
     lle_keybinding_manager_t *manager,
     const char *key_sequence,
-    lle_keybinding_action_t action,
+    lle_action_simple_t action,
+    const char *function_name
+);
+
+/**
+ * Bind a key sequence to a context-aware action function
+ *
+ * @param manager Keybinding manager
+ * @param key_sequence Key sequence in GNU Readline notation
+ * @param action Context-aware action function to execute
+ * @param function_name Human-readable function name (for introspection)
+ * @return LLE_SUCCESS or error code
+ *
+ * Context-aware actions have full access to readline context including:
+ * - Continuation state (for multiline input detection)
+ * - History system and buffer integration
+ * - Display controller for complex rendering
+ * - Done flag and final_line for readline completion
+ *
+ * Use this for complex actions like:
+ * - ENTER (accept-line): Check continuation, add to history, complete readline
+ * - Incremental search (Ctrl-R): Interactive search with display updates
+ * - Tab completion: Display completion menu, handle selection
+ * - History expansion: Modify buffer with expansion results
+ *
+ * @note If key_sequence is already bound, overwrites previous binding
+ * @note function_name is optional (can be NULL)
+ * @note Context-aware actions bypass automatic display refresh
+ */
+lle_result_t lle_keybinding_manager_bind_context(
+    lle_keybinding_manager_t *manager,
+    const char *key_sequence,
+    lle_action_context_t action,
     const char *function_name
 );
 
@@ -345,16 +422,22 @@ lle_result_t lle_keybinding_manager_list_bindings(
  *
  * @param manager Keybinding manager
  * @param key_sequence Key sequence to lookup
- * @param action_out Output pointer for action function
+ * @param action_out Output pointer for action structure
  * @return LLE_SUCCESS, LLE_ERROR_NOT_FOUND, or error code
  *
- * @note Does not execute the action, only returns function pointer
+ * Returns the full action structure including:
+ * - type: LLE_ACTION_TYPE_SIMPLE or LLE_ACTION_TYPE_CONTEXT
+ * - func: Union containing appropriate function pointer
+ * - name: Function name for debugging
+ *
+ * @note Does not execute the action, only returns action structure
  * @note Returns LLE_ERROR_NOT_FOUND if sequence is not bound
+ * @note Caller should check action->type before calling function
  */
 lle_result_t lle_keybinding_manager_lookup(
     lle_keybinding_manager_t *manager,
     const char *key_sequence,
-    lle_keybinding_action_t *action_out
+    lle_keybinding_action_t **action_out
 );
 
 /**

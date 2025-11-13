@@ -130,6 +130,11 @@ lle_result_t lle_beginning_of_line(lle_editor_t *editor) {
         editor->buffer->cursor.grapheme_index = 0;
     }
     
+    /* CRITICAL: Sync cursor_manager with buffer cursor after direct modification */
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, editor->buffer->cursor.byte_offset);
+    }
+    
     return LLE_SUCCESS;
 }
 
@@ -155,6 +160,11 @@ lle_result_t lle_end_of_line(lle_editor_t *editor) {
         editor->buffer->cursor.byte_offset = editor->buffer->length;
         editor->buffer->cursor.codepoint_index = editor->buffer->length;
         editor->buffer->cursor.grapheme_index = editor->buffer->length;
+    }
+    
+    /* CRITICAL: Sync cursor_manager with buffer cursor after direct modification */
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, editor->buffer->cursor.byte_offset);
     }
     
     return LLE_SUCCESS;

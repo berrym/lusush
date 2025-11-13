@@ -275,14 +275,53 @@ lle_result_t lle_insert_completions(lle_editor_t *editor);
  * Accept line (Return, Ctrl-M, Ctrl-J)
  * Accepts current line for execution
  * For multiline: checks if command is complete before accepting
+ * 
+ * NOTE: This is a legacy simple action that sets the line_accepted flag.
+ * New code should use lle_accept_line_context() for direct readline integration.
  */
 lle_result_t lle_accept_line(lle_editor_t *editor);
 
 /**
+ * Accept line with context (Return, Ctrl-M, Ctrl-J) - Context-Aware Action
+ * 
+ * Full readline-aware ENTER key handler with direct access to readline context.
+ * Checks for incomplete input using continuation state, handles history integration,
+ * and directly manages readline completion (done/final_line).
+ * 
+ * Behavior:
+ * - Incomplete input: Inserts newline, syncs cursor, refreshes display, continues editing
+ * - Complete input: Adds to history, sets done=true, returns final line
+ * 
+ * This is a context-aware action that requires readline_context_t access.
+ * See docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md for architecture details.
+ * 
+ * @param ctx Readline context with full access to buffer, history, completion state
+ * @return LLE_SUCCESS on successful handling
+ */
+lle_result_t lle_accept_line_context(struct readline_context *ctx);
+
+/**
  * Abort current operation (Ctrl-G)
  * Clears buffer, cancels search/completion, resets to clean state
+ * 
+ * NOTE: This is a legacy simple action. New code should use
+ * lle_abort_line_context() for direct readline integration.
  */
 lle_result_t lle_abort_line(lle_editor_t *editor);
+
+/**
+ * Abort line with context (Ctrl-G) - Context-Aware Action
+ * 
+ * Emacs-style abort that cancels current input and returns empty line to shell.
+ * Directly manages readline completion state (done/final_line) without using flags.
+ * 
+ * This eliminates the abort_requested flag pattern which caused state persistence
+ * bugs across readline sessions.
+ * 
+ * @param ctx Readline context with full access to done/final_line
+ * @return LLE_SUCCESS
+ */
+lle_result_t lle_abort_line_context(struct readline_context *ctx);
 
 /**
  * Send EOF (Ctrl-D on empty line)

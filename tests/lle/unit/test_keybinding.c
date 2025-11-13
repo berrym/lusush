@@ -229,10 +229,10 @@ TEST(bind_and_lookup) {
     ASSERT(result == LLE_SUCCESS, "Bind failed");
     
     /* Lookup */
-    lle_keybinding_action_t action;
+    lle_keybinding_action_t *action = NULL;
     result = lle_keybinding_manager_lookup(manager, "C-a", &action);
     ASSERT(result == LLE_SUCCESS, "Lookup failed");
-    ASSERT(action == test_action, "Action pointer incorrect");
+    ASSERT(action != NULL && action->type == LLE_ACTION_TYPE_SIMPLE && action->func.simple == test_action, "Action pointer incorrect");
     
     /* Verify count */
     size_t count;
@@ -284,7 +284,7 @@ TEST(unbind_key) {
     ASSERT(result == LLE_SUCCESS, "Unbind failed");
     
     /* Verify removed */
-    lle_keybinding_action_t action;
+    lle_keybinding_action_t *action = NULL;
     result = lle_keybinding_manager_lookup(manager, "C-a", &action);
     ASSERT(result == LLE_ERROR_NOT_FOUND, "Lookup should fail after unbind");
     
@@ -304,7 +304,7 @@ TEST(lookup_nonexistent_key) {
     ASSERT(result == LLE_SUCCESS, "Create failed");
     
     /* Lookup non-existent key */
-    lle_keybinding_action_t action;
+    lle_keybinding_action_t *action = NULL;
     result = lle_keybinding_manager_lookup(manager, "C-z", &action);
     ASSERT(result == LLE_ERROR_NOT_FOUND, "Lookup should return NOT_FOUND");
     

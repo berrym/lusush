@@ -137,7 +137,7 @@ static void populate_history_config_from_lusush_config(lle_history_config_t *his
 }
 
 /* Event handler context for Step 6 */
-typedef struct {
+typedef struct readline_context {
     lle_buffer_t *buffer;
     bool *done;
     char **final_line;
@@ -453,6 +453,100 @@ static lle_result_t handle_enter(lle_event_t *event, void *user_data)
 }
 
 /**
+ * @brief Context-aware ENTER key action (Dual-Action Architecture)
+ * 
+ * Full readline-aware ENTER key handler with direct access to readline context.
+ * This is a context-aware action (type LLE_ACTION_TYPE_CONTEXT) that has full
+ * access to readline state, eliminating the need for flags or complex state management.
+ * 
+ * Architecture:
+ * - Checks for incomplete input using continuation state parser
+ * - If incomplete: inserts newline, syncs cursor, refreshes display, continues editing
+ * - If complete: adds to history, saves history file, sets done flag, returns final line
+ * 
+ * This replaces the flag-based approach (line_accepted flag) which caused system-wide
+ * regressions due to complex state management and flag checking after every action.
+ * 
+ * See: docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md
+ * 
+ * @param ctx Readline context with full access to buffer, history, completion state
+ * @return LLE_SUCCESS on successful handling
+ */
+lle_result_t lle_accept_line_context(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check for incomplete input using shared continuation parser */
+    bool incomplete = is_input_incomplete(ctx->buffer->data, ctx->continuation_state);
+    
+    if (incomplete) {
+        /* Input incomplete - insert newline and continue editing */
+        lle_result_t result = lle_buffer_insert_text(
+            ctx->buffer,
+            ctx->buffer->cursor.byte_offset,
+            "\n",
+            1
+        );
+        
+        /* Synchronize cursor fields after insert */
+        if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
+        
+        if (result == LLE_SUCCESS) {
+            /* NOTE: Continuation prompts not yet supported in LLE
+             * 
+             * ARCHITECTURAL LIMITATION: LLE uses single-buffer model where entire
+             * multiline command is edited in one buffer with embedded newlines.
+             * Continuation prompts (loop>, if>, etc.) cannot be injected into
+             * buffer (would break shell parsing) or easily displayed per-line
+             * without major display system enhancements.
+             * 
+             * GNU Readline calls readline() multiple times with different prompts,
+             * so each line naturally gets its own prompt. LLE would need display
+             * system to parse buffer at newlines and inject prompts in rendered
+             * output (not in buffer) - requires significant composition engine work.
+             * 
+             * FUTURE WORK: Enhance composition_engine to support per-line prompt
+             * injection in display output without modifying command buffer content.
+             * See: docs/lle_specification/future/continuation_prompts.md
+             */
+            
+            refresh_display(ctx);
+        }
+        
+        return result;
+    }
+    
+    /* Line complete - accept entire buffer regardless of cursor position */
+    
+    /* Add to LLE history before completing */
+    if (ctx->editor && ctx->editor->history_system && 
+        ctx->buffer->data && ctx->buffer->data[0] != '\0') {
+        lle_history_add_entry(ctx->editor->history_system, ctx->buffer->data, 0, NULL);
+        
+        /* Save to history file (auto-save enabled in config) */
+        const char *home = getenv("HOME");
+        if (home) {
+            char history_path[1024];
+            snprintf(history_path, sizeof(history_path), "%s/.lusush_history_lle", home);
+            lle_history_save_to_file(ctx->editor->history_system, history_path);
+        }
+    }
+    
+    /* Signal completion to readline loop */
+    *ctx->done = true;
+    *ctx->final_line = ctx->buffer->data ? strdup(ctx->buffer->data) : strdup("");
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Event handler for Ctrl-D (EOF/delete-char)
  * Step 3: Handler signals EOF on empty line
  * Step 5 enhancement: Delete character at cursor when line is non-empty
@@ -512,16 +606,44 @@ static lle_result_t handle_eof(lle_event_t *event, void *user_data)
  */
 
 /**
- * @brief Event handler for Ctrl-G (abort/cancel line)
+ * @brief Event handler for Ctrl-G (abort/cancel line) - LEGACY FALLBACK
  * Step 5 enhancement: Abort readline and return empty line to shell
  * 
  * This is the Emacs-style abort - it cancels the current input
  * and returns an empty line, causing the shell to display a fresh prompt.
+ * 
+ * NOTE: This is the legacy fallback handler. The context-aware action
+ * lle_abort_line_context() is now used when keybinding manager is available.
  */
 static lle_result_t handle_abort(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    /* Signal done with empty result - this aborts the readline */
+    *ctx->done = true;
+    *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Context-aware Ctrl-G action (abort-line) - Dual-Action Architecture
+ * 
+ * Emacs-style abort that cancels current input and returns empty line to shell.
+ * This is a context-aware action that directly manages readline completion state.
+ * 
+ * Unlike the flag-based simple action approach, this directly sets done/final_line,
+ * eliminating the need for abort_requested flag and preventing state persistence bugs.
+ * 
+ * @param ctx Readline context with full access to done/final_line
+ * @return LLE_SUCCESS
+ */
+lle_result_t lle_abort_line_context(readline_context_t *ctx)
+{
+    if (!ctx) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
     
     /* Signal done with empty result - this aborts the readline */
     *ctx->done = true;
@@ -943,7 +1065,7 @@ static lle_result_t execute_keybinding_action(
 {
     /* Try keybinding manager first (Group 1+ migration) */
     if (ctx->keybinding_manager && ctx->editor) {
-        lle_keybinding_action_t action = NULL;
+        lle_keybinding_action_t *action = NULL;
         lle_result_t result = lle_keybinding_manager_lookup(
             ctx->keybinding_manager,
             key_sequence,
@@ -951,29 +1073,42 @@ static lle_result_t execute_keybinding_action(
         );
         
         if (result == LLE_SUCCESS && action != NULL) {
-            /* Execute the action through keybinding manager */
-            result = action(ctx->editor);
+            lle_result_t exec_result;
             
-            /* Check for EOF request */
-            if (ctx->editor->eof_requested) {
-                *ctx->done = true;
-                *ctx->final_line = NULL;
-                return result;
+            /* Dispatch based on action type */
+            if (action->type == LLE_ACTION_TYPE_SIMPLE) {
+                /* Simple action: operate on editor, then handle special flags */
+                exec_result = action->func.simple(ctx->editor);
+                
+                /* Check for EOF request (legacy flag - used by Ctrl-D) */
+                if (ctx->editor->eof_requested) {
+                    *ctx->done = true;
+                    *ctx->final_line = NULL;
+                    return exec_result;
+                }
+                
+                /* Check for abort request (legacy flag - used by Ctrl-G) */
+                if (ctx->editor->abort_requested) {
+                    *ctx->done = true;
+                    *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
+                    return exec_result;
+                }
+                
+                /* Refresh display after simple action */
+                if (exec_result == LLE_SUCCESS) {
+                    refresh_display(ctx);
+                }
+                
+                return exec_result;
+            }
+            else if (action->type == LLE_ACTION_TYPE_CONTEXT) {
+                /* Context-aware action: has full access, handles everything including display refresh */
+                exec_result = action->func.context(ctx);
+                return exec_result;
             }
             
-            /* Check for abort request */
-            if (ctx->editor->abort_requested) {
-                *ctx->done = true;
-                *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
-                return result;
-            }
-            
-            /* Refresh display after action */
-            if (result == LLE_SUCCESS) {
-                refresh_display(ctx);
-            }
-            
-            return result;
+            /* Unknown action type - should never happen */
+            return LLE_ERROR_FATAL_INTERNAL;
         }
     }
     
@@ -1175,8 +1310,15 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "UP", lle_smart_up_arrow, "smart-up-arrow");
         lle_keybinding_manager_bind(keybinding_manager, "DOWN", lle_smart_down_arrow, "smart-down-arrow");
         /* Special functions */
-        lle_keybinding_manager_bind(keybinding_manager, "C-g", lle_abort_line, "abort-line");
         lle_keybinding_manager_bind(keybinding_manager, "C-l", lle_clear_screen, "clear-screen");
+        
+        /* Ctrl-G: Context-aware abort action (requires readline_context_t access) */
+        lle_keybinding_manager_bind_context(keybinding_manager, "C-g", lle_abort_line_context, "abort-line");
+        
+        /* Group 5: ENTER key - Context-aware action (requires readline_context_t access) */
+        /* This uses the new dual-action architecture to provide ENTER with full readline context */
+        /* See: docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md */
+        lle_keybinding_manager_bind_context(keybinding_manager, "ENTER", lle_accept_line_context, "accept-line");
     }
     
     readline_context_t ctx = {
@@ -1195,6 +1337,17 @@ char *lle_readline(const char *prompt)
         /* Keybinding manager - Group 1+ migration */
         .keybinding_manager = keybinding_manager
     };
+    
+    /* CRITICAL: Reset per-readline-call flags on global editor
+     * The editor is persistent across readline calls, but these flags
+     * must be reset at the start of each new readline session.
+     * Without this reset, abort_requested/eof_requested persist across
+     * readline calls, causing all subsequent actions to immediately exit.
+     */
+    if (global_lle_editor) {
+        global_lle_editor->abort_requested = false;
+        global_lle_editor->eof_requested = false;
+    }
     
     /* Register handler for character input */
     result = lle_event_handler_register(event_system, LLE_EVENT_KEY_PRESS,
@@ -1260,7 +1413,8 @@ char *lle_readline(const char *prompt)
                 
                 /* Check for Enter key (newline) */
                 if (codepoint == '\n' || codepoint == '\r') {
-                    handle_enter(NULL, &ctx);
+                    /* GROUP 5 MIGRATION: ENTER routed through keybinding manager (context-aware action) */
+                    execute_keybinding_action(&ctx, "ENTER", handle_enter);
                     break;
                 }
                 
@@ -1300,8 +1454,9 @@ char *lle_readline(const char *prompt)
             
             case LLE_INPUT_TYPE_SPECIAL_KEY: {
                 /* Special keys */
+                /* GROUP 5 MIGRATION: ENTER routed through keybinding manager (context-aware action) */
                 if (event->data.special_key.key == LLE_KEY_ENTER) {
-                    handle_enter(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "ENTER", handle_enter);
                 }
                 /* GROUP 1 MIGRATION: Navigation keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_LEFT) {
