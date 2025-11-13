@@ -302,6 +302,12 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
     const char *utf8_char = event->event_data.key.utf8_char;
     size_t char_len = strlen(utf8_char);
     
+    /* CRITICAL: Reset history navigation when user types a character */
+    /* This follows bash/readline behavior: typing exits history mode */
+    if (ctx->editor && ctx->editor->history_navigation_pos > 0) {
+        ctx->editor->history_navigation_pos = 0;
+    }
+    
     /* Insert character into buffer at cursor position */
     lle_result_t result = lle_buffer_insert_text(
         ctx->buffer,
@@ -955,6 +961,13 @@ static lle_result_t execute_keybinding_action(
                 return result;
             }
             
+            /* Check for abort request */
+            if (ctx->editor->abort_requested) {
+                *ctx->done = true;
+                *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
+                return result;
+            }
+            
             /* Refresh display after action */
             if (result == LLE_SUCCESS) {
                 refresh_display(ctx);
@@ -1114,6 +1127,10 @@ char *lle_readline(const char *prompt)
         if (global_lle_editor->cursor_manager) {
             global_lle_editor->cursor_manager->buffer = buffer;
         }
+        
+        /* CRITICAL: Reset history navigation position for new readline session */
+        /* Each readline() call starts fresh - not in history navigation mode */
+        global_lle_editor->history_navigation_pos = 0;
     }
     
     /* === STEP 6.6: Create keybinding manager (Group 1+ migration) === */
@@ -1143,6 +1160,23 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "C-u", lle_unix_line_discard, "unix-line-discard");
         lle_keybinding_manager_bind(keybinding_manager, "C-w", lle_unix_word_rubout, "unix-word-rubout");
         lle_keybinding_manager_bind(keybinding_manager, "C-y", lle_yank, "yank");
+        
+        /* Bind Group 4 history & special keys to their action functions */
+        /* These will be routed through keybinding manager instead of hardcoded handlers */
+        /* Ctrl-A/B/E/F are duplicates of Group 1 navigation keys */
+        lle_keybinding_manager_bind(keybinding_manager, "C-a", lle_beginning_of_line, "beginning-of-line");
+        lle_keybinding_manager_bind(keybinding_manager, "C-b", lle_backward_char, "backward-char");
+        lle_keybinding_manager_bind(keybinding_manager, "C-e", lle_end_of_line, "end-of-line");
+        lle_keybinding_manager_bind(keybinding_manager, "C-f", lle_forward_char, "forward-char");
+        /* History navigation */
+        lle_keybinding_manager_bind(keybinding_manager, "C-n", lle_history_next, "history-next");
+        lle_keybinding_manager_bind(keybinding_manager, "C-p", lle_history_previous, "history-previous");
+        /* Smart arrows - context-aware (history vs multiline) */
+        lle_keybinding_manager_bind(keybinding_manager, "UP", lle_smart_up_arrow, "smart-up-arrow");
+        lle_keybinding_manager_bind(keybinding_manager, "DOWN", lle_smart_down_arrow, "smart-down-arrow");
+        /* Special functions */
+        lle_keybinding_manager_bind(keybinding_manager, "C-g", lle_abort_line, "abort-line");
+        lle_keybinding_manager_bind(keybinding_manager, "C-l", lle_clear_screen, "clear-screen");
     }
     
     readline_context_t ctx = {
@@ -1278,10 +1312,10 @@ char *lle_readline(const char *prompt)
                 }
                 /* History navigation with UP/DOWN arrows */
                 else if (event->data.special_key.key == LLE_KEY_UP) {
-                    handle_arrow_up(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "UP", handle_arrow_up);
                 }
                 else if (event->data.special_key.key == LLE_KEY_DOWN) {
-                    handle_arrow_down(NULL, &ctx);
+                    execute_keybinding_action(&ctx, "DOWN", handle_arrow_down);
                 }
                 /* GROUP 1 MIGRATION: Home/End keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_HOME) {
@@ -1301,44 +1335,34 @@ char *lle_readline(const char *prompt)
                     
                     switch (keycode) {
                         case 'A':  /* Ctrl-A: Beginning of line */
-                            handle_home(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-a", handle_home);
                             break;
                         case 'B':  /* Ctrl-B: Back one character */
-                            handle_arrow_left(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-b", handle_arrow_left);
                             break;
                         case 'D':  /* Ctrl-D: EOF */
                             execute_keybinding_action(&ctx, "C-d", handle_eof);
                             break;
                         case 'E':  /* Ctrl-E: End of line */
-                            handle_end(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-e", handle_end);
                             break;
                         case 'F':  /* Ctrl-F: Forward one character */
-                            handle_arrow_right(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-f", handle_arrow_right);
                             break;
                         case 'G':  /* Ctrl-G: Abort/cancel line */
-                            handle_abort(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-g", handle_abort);
                             break;
                         case 'K':  /* Ctrl-K: Kill to end of line */
                             execute_keybinding_action(&ctx, "C-k", handle_kill_to_end);
                             break;
                         case 'L':  /* Ctrl-L: Clear screen */
-                            handle_clear_screen(NULL, &ctx);
+                            execute_keybinding_action(&ctx, "C-l", handle_clear_screen);
                             break;
                         case 'N':  /* Ctrl-N: Next history (always navigate history) */
-                            if (ctx.editor) {
-                                lle_result_t result = lle_history_next(ctx.editor);
-                                if (result == LLE_SUCCESS) {
-                                    refresh_display(&ctx);
-                                }
-                            }
+                            execute_keybinding_action(&ctx, "C-n", NULL);
                             break;
                         case 'P':  /* Ctrl-P: Previous history (always navigate history) */
-                            if (ctx.editor) {
-                                lle_result_t result = lle_history_previous(ctx.editor);
-                                if (result == LLE_SUCCESS) {
-                                    refresh_display(&ctx);
-                                }
-                            }
+                            execute_keybinding_action(&ctx, "C-p", NULL);
                             break;
                         case 'U':  /* Ctrl-U: Kill entire line */
                             execute_keybinding_action(&ctx, "C-u", handle_kill_line);

@@ -13,6 +13,8 @@
 #include "lle/history.h"
 #include "lle/kill_ring.h"
 #include "lle/keybinding.h"
+#include "lle/display_integration.h"
+#include "display_controller.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -989,9 +991,12 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
             /* Clear buffer and insert history entry */
             lle_buffer_clear(editor->buffer);
             lle_buffer_insert_text(editor->buffer, 0, entry->command, strlen(entry->command));
-            editor->buffer->cursor.byte_offset = editor->buffer->length;
-            editor->buffer->cursor.codepoint_index = editor->buffer->length;
-            editor->buffer->cursor.grapheme_index = editor->buffer->length;
+            
+            /* CRITICAL: Sync cursor_manager after insertion moves cursor to end */
+            if (editor->cursor_manager) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                                       editor->buffer->cursor.byte_offset);
+            }
             editor->history_navigation_pos++;
         }
     }
@@ -1025,9 +1030,12 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
             /* Clear buffer and insert history entry */
             lle_buffer_clear(editor->buffer);
             lle_buffer_insert_text(editor->buffer, 0, entry->command, strlen(entry->command));
-            editor->buffer->cursor.byte_offset = editor->buffer->length;
-            editor->buffer->cursor.codepoint_index = editor->buffer->length;
-            editor->buffer->cursor.grapheme_index = editor->buffer->length;
+            
+            /* CRITICAL: Sync cursor_manager after insertion moves cursor to end */
+            if (editor->cursor_manager) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
+                                                       editor->buffer->cursor.byte_offset);
+            }
         }
     }
     
@@ -1153,31 +1161,12 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
 }
 
 lle_result_t lle_abort_line(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Cancel any active operations */
-    if (editor->history_search_active) {
-        editor->history_search_active = false;
-    }
-    
-    /* Clear the buffer */
-    lle_result_t result = lle_buffer_clear(editor->buffer);
-    if (result != LLE_SUCCESS) {
-        return result;
-    }
-    
-    /* Reset cursor */
-    editor->buffer->cursor.byte_offset = 0;
-    editor->buffer->cursor.codepoint_index = 0;
-    editor->buffer->cursor.grapheme_index = 0;
-    
-    /* Kill ring state is managed internally by kill_ring module */
-    /* No direct access to opaque structure fields needed */
-    
-    /* Reset modes */
-    editor->quoted_insert_mode = false;
+    /* Signal abort to readline loop */
+    editor->abort_requested = true;
     
     return LLE_SUCCESS;
 }
@@ -1219,11 +1208,28 @@ lle_result_t lle_clear_screen(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Clear screen using ANSI escape sequence */
-    /* In integrated system, this would use display controller */
-    printf("\033[H\033[2J");
-    fflush(stdout);
+    /* Get the global display integration instance */
+    lle_display_integration_t *display_integration = lle_display_integration_get_global();
+    if (!display_integration || !display_integration->lusush_display) {
+        /* Fallback: use ANSI escape sequence if display controller not available */
+        printf("\033[H\033[2J");
+        fflush(stdout);
+        return LLE_SUCCESS;
+    }
     
+    /* Clear screen through display controller */
+    display_controller_error_t result = display_controller_clear_screen(display_integration->lusush_display);
+    if (result != DISPLAY_CONTROLLER_SUCCESS) {
+        return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+    
+    /* CRITICAL: Reset display state so refresh_display knows to redraw everything */
+    /* After clearing the physical screen, the display system's internal state (screen buffers)
+     * is out of sync. dc_reset_prompt_display_state() clears the screen buffer state so the
+     * next refresh_display() will render everything from scratch. */
+    dc_reset_prompt_display_state();
+    
+    /* Note: refresh_display() will be called by execute_keybinding_action after this returns */
     return LLE_SUCCESS;
 }
 
