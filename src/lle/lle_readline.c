@@ -1319,6 +1319,14 @@ char *lle_readline(const char *prompt)
         /* This uses the new dual-action architecture to provide ENTER with full readline context */
         /* See: docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md */
         lle_keybinding_manager_bind_context(keybinding_manager, "ENTER", lle_accept_line_context, "accept-line");
+        
+        /* Group 6: Meta/Alt keybindings - Essential Emacs-style navigation */
+        /* Word navigation (standard Emacs bindings) */
+        lle_keybinding_manager_bind(keybinding_manager, "M-f", lle_forward_word, "forward-word");
+        lle_keybinding_manager_bind(keybinding_manager, "M-b", lle_backward_word, "backward-word");
+        /* Buffer navigation (essential for multiline editing) */
+        lle_keybinding_manager_bind(keybinding_manager, "M-<", lle_beginning_of_buffer, "beginning-of-buffer");
+        lle_keybinding_manager_bind(keybinding_manager, "M->", lle_end_of_buffer, "end-of-buffer");
     }
     
     readline_context_t ctx = {

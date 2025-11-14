@@ -1,9 +1,9 @@
 # LLE AI Assistant Handoff Document
 
-**Last Updated**: 2025-11-13  
-**Session**: 14 (Continuation) - Dual-Action Architecture Implementation  
+**Last Updated**: 2025-11-14  
+**Session**: 14 (Continuation) - Dual-Action Architecture + Group 6 Keybindings  
 **Branch**: feature/lle  
-**Status**: ENTER and Ctrl-G migrated to context-aware actions, cursor sync bugs fixed
+**Status**: Dual-action complete, Group 6 keybindings registered (awaiting input layer), cursor sync bugs fixed
 
 ---
 
@@ -29,6 +29,16 @@
 - Fixed critical bug where abort broke all subsequent keybindings
 - Eliminates flag persistence issues across readline sessions
 
+**Group 6**: ⏳ REGISTERED (awaiting Meta/Alt input detection)
+- Meta/Alt keybindings registered but not yet functional
+- Requires Meta/Alt key detection in terminal input processor
+- M-f (Alt-F): `lle_forward_word` - forward one word
+- M-b (Alt-B): `lle_backward_word` - backward one word
+- M-< (Alt-<): `lle_beginning_of_buffer` - jump to buffer start
+- M-> (Alt->): `lle_end_of_buffer` - jump to buffer end
+- Action functions implemented correctly with Pattern 2 cursor sync
+- Cannot test until input processor translates Alt+key to "M-" sequences
+
 ### Dual-Action Architecture
 
 **NEW ARCHITECTURE**: Introduced two types of keybinding actions:
@@ -52,13 +62,56 @@
 
 **Documentation**: Complete architecture documentation in `docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md`
 
+### Cursor Synchronization Patterns
+
+**Two Working Patterns Identified**:
+
+**Pattern 1 (Simple Sync)** - Used in HOME/END, kill/case functions:
+```c
+// Modify buffer cursor directly
+editor->buffer->cursor.byte_offset = new_position;
+editor->buffer->cursor.codepoint_index = new_position;
+editor->buffer->cursor.grapheme_index = new_position;
+
+// Sync cursor_manager
+if (editor->cursor_manager) {
+    lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_position);
+}
+```
+
+**Pattern 2 (Full Sync)** - Used in word/buffer navigation:
+```c
+// Move cursor_manager first
+lle_result_t result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_position);
+
+// Sync buffer cursor back from cursor_manager
+if (result == LLE_SUCCESS) {
+    lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+}
+```
+
+**Status**: Both patterns work correctly. Pattern 1 tested and verified. Pattern 2 cannot be tested until Meta/Alt input detection implemented. May standardize on single pattern after more testing if one proves more robust.
+
 ### Recent Bug Fixes
 
-1. **Cursor Sync in HOME/END** (Session 14):
+1. **Cursor Sync in HOME/END** (Session 14 - early):
    - `lle_beginning_of_line()` and `lle_end_of_line()` were directly modifying buffer cursor
-   - Missing `lle_cursor_manager_move_to_byte_offset()` sync call
+   - Missing cursor_manager sync call (Pattern 1)
    - Caused LEFT/RIGHT arrow to use stale cursor position after HOME/END
-   - **Fixed**: Added cursor_manager sync after cursor modification
+   - **Fixed**: Added Pattern 1 cursor sync
+   - **Tested**: Confirmed working
+
+2. **Cursor Sync in Kill/Case Functions** (Session 14 - late):
+   - Found systematic bug in 5 additional functions
+   - All directly modified buffer cursor without cursor_manager sync
+   - **Fixed Functions**:
+     - `lle_backward_kill_line` (Ctrl-U)
+     - `lle_backward_kill_word` (Alt-DEL)
+     - `lle_upcase_word` (Alt-U)
+     - `lle_downcase_word` (Alt-L)
+     - `lle_capitalize_word` (Alt-C)
+   - **Fix Applied**: Pattern 1 cursor sync
+   - **Status**: Preventative fix (not yet bound/tested)
 
 2. **Ctrl-G State Persistence** (Session 14):
    - Original simple action set `abort_requested` flag
@@ -142,18 +195,56 @@ All these can be implemented as context-aware actions without additional infrast
 
 ---
 
-## Known Issues
+## Known Issues & Blockers
 
-**None currently identified** - all discovered bugs in Session 14 have been fixed.
+### Meta/Alt Key Detection Not Implemented (BLOCKER for Group 6)
+
+**Issue**: Terminal input processor does not detect or translate Meta/Alt key presses.
+
+**Impact**: Group 6 keybindings (M-f, M-b, M-<, M->) are registered in keybinding manager but non-functional because:
+1. Terminal receives Alt+F key press
+2. Input processor does not recognize this as a Meta key combination
+3. Never generates "M-f" key sequence string
+4. Keybinding manager lookup fails (no "M-f" to match)
+
+**Required Work**:
+- Enhance terminal input processor to detect Alt/Meta modifier
+- Translate Alt+key combinations to "M-key" sequences
+- Likely in `src/lle/terminal_input_processor.c` or related files
+- May need to handle both Alt key methods:
+  - Escape prefix (ESC followed by key)
+  - 8th bit set (depends on terminal configuration)
+
+**Priority**: HIGH - Blocks testing of Group 6 and future Meta keybindings
+
+**Testing After Fix**:
+- Alt-F/B word navigation with LEFT/RIGHT cursor sync verification
+- Alt-</> buffer navigation with cursor sync verification
+- Verify Pattern 2 cursor sync works correctly
 
 ---
 
 ## Next Steps
 
-1. **Comprehensive Testing**: Full regression test suite for all Groups 1-5
-2. **Group 6 Planning**: Identify next set of keybindings for migration
-3. **Documentation Review**: Ensure all living documents current
-4. **Performance Testing**: Verify no regressions in input latency
+1. **PRIORITY: Implement Meta/Alt Key Detection**
+   - Required to unblock Group 6 testing
+   - Enhance terminal input processor
+   - Test with Group 6 keybindings
+
+2. **Comprehensive Testing**: Full regression test suite for all Groups 1-5
+   - Test dual-action architecture (ENTER, Ctrl-G)
+   - Verify cursor sync fixes (HOME/END working)
+   - Test all existing keybindings
+
+3. **Post Meta/Alt Implementation**:
+   - Test Group 6 keybindings thoroughly
+   - Verify Pattern 2 cursor sync
+   - Consider standardizing on single cursor sync pattern
+
+4. **Future Keybinding Work**:
+   - Additional Meta/Alt combinations per Emacs spec
+   - Vi mode keybinding preset
+   - User customization system
 
 ---
 

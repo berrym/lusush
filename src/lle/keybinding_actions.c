@@ -677,6 +677,11 @@ lle_result_t lle_backward_kill_line(lle_editor_t *editor) {
             editor->buffer->cursor.byte_offset = kill_start;
             editor->buffer->cursor.codepoint_index = kill_start;
             editor->buffer->cursor.grapheme_index = kill_start;
+            
+            /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
+            if (editor->cursor_manager) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, kill_start);
+            }
         }
         return result;
     }
@@ -739,6 +744,11 @@ lle_result_t lle_backward_kill_word(lle_editor_t *editor) {
             editor->buffer->cursor.byte_offset = word_start;
             editor->buffer->cursor.codepoint_index = word_start;
             editor->buffer->cursor.grapheme_index = word_start;
+            
+            /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
+            if (editor->cursor_manager) {
+                lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_start);
+            }
         }
         return result;
     }
@@ -922,6 +932,11 @@ lle_result_t lle_upcase_word(lle_editor_t *editor) {
     editor->buffer->cursor.codepoint_index = word_end;
     editor->buffer->cursor.grapheme_index = word_end;
     
+    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
+    }
+    
     return LLE_SUCCESS;
 }
 
@@ -944,6 +959,11 @@ lle_result_t lle_downcase_word(lle_editor_t *editor) {
     editor->buffer->cursor.byte_offset = word_end;
     editor->buffer->cursor.codepoint_index = word_end;
     editor->buffer->cursor.grapheme_index = word_end;
+    
+    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
+    }
     
     return LLE_SUCCESS;
 }
@@ -972,6 +992,11 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor) {
     editor->buffer->cursor.byte_offset = word_end;
     editor->buffer->cursor.codepoint_index = word_end;
     editor->buffer->cursor.grapheme_index = word_end;
+    
+    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
+    }
     
     return LLE_SUCCESS;
 }
