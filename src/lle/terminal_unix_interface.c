@@ -635,6 +635,7 @@ static lle_result_t convert_parsed_input_to_event(
                 /* Regular special key */
                 event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
                 event->data.special_key.key = special_key;
+                event->data.special_key.keycode = parsed->data.key_info.keycode;
                 event->data.special_key.modifiers = convert_modifiers(
                     parsed->data.key_info.modifiers
                 );

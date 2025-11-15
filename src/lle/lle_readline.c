@@ -1541,6 +1541,41 @@ char *lle_readline(const char *prompt)
                             break;
                     }
                 }
+                /* Handle Meta/Alt+letter combinations (Group 6 keybindings) */
+                else if (event->data.special_key.key == LLE_KEY_UNKNOWN && 
+                         (event->data.special_key.modifiers & LLE_MOD_ALT)) {
+                    uint32_t keycode = event->data.special_key.keycode;
+                    
+                    switch (keycode) {
+                        case 'f':  /* Alt-F: Forward word */
+                            execute_keybinding_action(&ctx, "M-f", NULL);
+                            break;
+                        case 'b':  /* Alt-B: Backward word */
+                            execute_keybinding_action(&ctx, "M-b", NULL);
+                            break;
+                        case '<':  /* Alt-<: Beginning of buffer */
+                            execute_keybinding_action(&ctx, "M-<", NULL);
+                            break;
+                        case '>':  /* Alt->: End of buffer */
+                            execute_keybinding_action(&ctx, "M->", NULL);
+                            break;
+                        case 'c':  /* Alt-C: Capitalize word */
+                            execute_keybinding_action(&ctx, "M-c", NULL);
+                            break;
+                        case 'd':  /* Alt-D: Kill word forward */
+                            execute_keybinding_action(&ctx, "M-d", NULL);
+                            break;
+                        case 'l':  /* Alt-L: Downcase word */
+                            execute_keybinding_action(&ctx, "M-l", NULL);
+                            break;
+                        case 'u':  /* Alt-U: Upcase word */
+                            execute_keybinding_action(&ctx, "M-u", NULL);
+                            break;
+                        default:
+                            /* Unknown Alt+letter - ignore */
+                            break;
+                    }
+                }
                 /* Other special keys ignored */
                 break;
             }

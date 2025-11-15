@@ -121,6 +121,18 @@ static const key_mapping_entry_t key_mappings[] = {
     {"\x18", 1, LLE_KEY_TYPE_CONTROL, 'X', LLE_KEY_MOD_CTRL, "Ctrl+X"},
     {"\x19", 1, LLE_KEY_TYPE_CONTROL, 'Y', LLE_KEY_MOD_CTRL, "Ctrl+Y"},
     {"\x1A", 1, LLE_KEY_TYPE_CONTROL, 'Z', LLE_KEY_MOD_CTRL, "Ctrl+Z"},
+    
+    /* Meta/Alt + letter keys (lowercase) */
+    {"\x1B" "f", 2, LLE_KEY_TYPE_REGULAR, 'f', LLE_KEY_MOD_ALT, "Alt+F"},
+    {"\x1B" "b", 2, LLE_KEY_TYPE_REGULAR, 'b', LLE_KEY_MOD_ALT, "Alt+B"},
+    {"\x1B" "c", 2, LLE_KEY_TYPE_REGULAR, 'c', LLE_KEY_MOD_ALT, "Alt+C"},
+    {"\x1B" "d", 2, LLE_KEY_TYPE_REGULAR, 'd', LLE_KEY_MOD_ALT, "Alt+D"},
+    {"\x1B" "l", 2, LLE_KEY_TYPE_REGULAR, 'l', LLE_KEY_MOD_ALT, "Alt+L"},
+    {"\x1B" "u", 2, LLE_KEY_TYPE_REGULAR, 'u', LLE_KEY_MOD_ALT, "Alt+U"},
+    
+    /* Meta/Alt + special characters */
+    {"\x1B" "<", 2, LLE_KEY_TYPE_REGULAR, '<', LLE_KEY_MOD_ALT, "Alt+<"},
+    {"\x1B" ">", 2, LLE_KEY_TYPE_REGULAR, '>', LLE_KEY_MOD_ALT, "Alt+>"},
 };
 
 #define KEY_MAPPING_COUNT (sizeof(key_mappings) / sizeof(key_mappings[0]))
