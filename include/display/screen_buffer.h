@@ -31,6 +31,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,9 +50,22 @@ extern "C" {
 
 /**
  * Represents a single character cell in the virtual screen
+ * 
+ * Stores full UTF-8 grapheme clusters (1-4 bytes) to properly support:
+ * - ASCII characters (1 byte)
+ * - Extended Latin, Cyrillic, etc. (2 bytes)
+ * - CJK characters, box drawing (3 bytes)
+ * - Emoji and other SMP characters (4 bytes)
+ * 
+ * The visual_width field indicates display columns (0, 1, or 2):
+ * - 0 for zero-width characters (combining marks)
+ * - 1 for normal width (ASCII, most Unicode)
+ * - 2 for wide characters (CJK, emoji)
  */
 typedef struct {
-    char ch;              // Character (UTF-8 byte)
+    char utf8_bytes[4];   // Full UTF-8 sequence (1-4 bytes)
+    uint8_t byte_len;     // Actual bytes used (1-4)
+    uint8_t visual_width; // Display width in columns (0, 1, or 2)
     bool is_prompt;       // True if this cell is part of the prompt
 } screen_cell_t;
 

@@ -1,8 +1,8 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-11-14  
+**Date**: 2025-11-15  
 **Status**: ⚠️ ACTIVE DEVELOPMENT - Known Issues Tracked  
-**Implementation Status**: Phase 1 complete, Groups 1-6 keybindings implemented
+**Implementation Status**: Phase 1 complete, Groups 1-6 keybindings implemented, UTF-8 cell storage complete
 
 ---
 
@@ -132,9 +132,46 @@ if true; then
 
 ---
 
-## Resolved Issues (Session 14)
+## Resolved Issues
 
-### ✅ Multi-line Prompt Cursor Positioning Bug
+### ✅ Screen Buffer Single-Byte Cell Limitation (Session 15)
+**Resolved**: 2025-11-15  
+**Severity**: MEDIUM  
+**Component**: Screen buffer cell storage
+
+**Description**: Screen buffer cells stored only the first byte of UTF-8 sequences, limiting internal representation to ASCII or first byte of multi-byte characters. While prompts and commands displayed correctly (direct STDOUT write), this limitation affected:
+- Future diff-based rendering
+- Prefix rendering for continuation prompts
+- Any feature needing to reconstruct text from cells
+
+**Fix Applied**:
+- Upgraded `screen_cell_t` structure from single byte to full UTF-8 sequence storage
+- Changed from `char ch` to `char utf8_bytes[4]` with metadata (`byte_len`, `visual_width`)
+- Updated all code paths that read/write cells
+- Memory increased from 2 bytes/cell to 8 bytes/cell (~410 KB max)
+
+**Capabilities Now Supported**:
+- ASCII (1 byte, 1 column)
+- Extended Latin (2 bytes, 1 column)
+- CJK ideographs (3 bytes, 2 columns)
+- Emoji (4 bytes, 2 columns)
+- Box-drawing characters (3 bytes, 1 column)
+
+**Files Changed**:
+- `include/display/screen_buffer.h` - Updated structure, added stdint.h
+- `src/display/screen_buffer.c` - Updated all cell operations
+
+**Testing Results**:
+- ✅ Zero regressions in baseline testing
+- ✅ Emoji rendering perfect (🚀 💻)
+- ✅ Cursor positioning accurate
+- ✅ All editing operations natural
+- ✅ Multi-line input working
+- ✅ Alt keybindings working
+
+---
+
+### ✅ Multi-line Prompt Cursor Positioning Bug (Session 14)
 **Resolved**: 2025-11-14  
 **Severity**: HIGH  
 **Component**: Screen buffer prompt rendering / display_controller.c
@@ -235,6 +272,6 @@ To prevent future issues:
 
 ---
 
-**Last Updated**: 2025-11-14  
+**Last Updated**: 2025-11-15  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

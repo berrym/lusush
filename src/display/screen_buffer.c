@@ -53,6 +53,8 @@ void screen_buffer_clear(screen_buffer_t *buffer) {
     for (int i = 0; i < buffer->num_rows; i++) {
         buffer->lines[i].length = 0;
         buffer->lines[i].dirty = false;
+        
+        // Zero all cells (important for UTF-8 structure with padding)
         memset(buffer->lines[i].cells, 0, sizeof(buffer->lines[i].cells));
         
         // Note: We do NOT free prefixes here - they persist across clears
@@ -148,17 +150,28 @@ size_t screen_buffer_visual_width(const char *text, size_t byte_length) {
 // ============================================================================
 
 /**
- * Helper: Write a character to screen buffer at current position
+ * Helper: Write a UTF-8 character to screen buffer at current position
  * Handles wrapping to next line automatically
+ * 
+ * @param buffer Screen buffer to write to
+ * @param utf8_bytes UTF-8 byte sequence (1-4 bytes)
+ * @param byte_len Number of bytes in the UTF-8 sequence (1-4)
+ * @param visual_width Display width in columns (0, 1, or 2)
+ * @param is_prompt True if this is part of the prompt
+ * @param row Current row (may be incremented for wrapping)
+ * @param col Current column (may be incremented for wrapping)
  */
 static void write_char_to_buffer(
     screen_buffer_t *buffer,
-    char ch,
+    const char *utf8_bytes,
+    int byte_len,
+    int visual_width,
     bool is_prompt,
     int *row,
     int *col
 ) {
-    if (!buffer || !row || !col) return;
+    if (!buffer || !utf8_bytes || !row || !col) return;
+    if (byte_len < 1 || byte_len > 4) return;
     
     // Check if we need to wrap to next line
     if (*col >= buffer->terminal_width) {
@@ -175,9 +188,17 @@ static void write_char_to_buffer(
         }
     }
     
-    // Write character to buffer
-    buffer->lines[*row].cells[*col].ch = ch;
-    buffer->lines[*row].cells[*col].is_prompt = is_prompt;
+    // Write UTF-8 sequence to buffer
+    screen_cell_t *cell = &buffer->lines[*row].cells[*col];
+    memcpy(cell->utf8_bytes, utf8_bytes, byte_len);
+    cell->byte_len = (uint8_t)byte_len;
+    cell->visual_width = (uint8_t)visual_width;
+    cell->is_prompt = is_prompt;
+    
+    // Zero out unused bytes for cleanliness and deterministic comparison
+    for (int i = byte_len; i < 4; i++) {
+        cell->utf8_bytes[i] = '\0';
+    }
     
     if (*col >= buffer->lines[*row].length) {
         buffer->lines[*row].length = *col + 1;
@@ -271,11 +292,22 @@ void screen_buffer_render(
             if (bytes > 0 && codepoint >= 32) {
                 int visual_width = lle_utf8_codepoint_width(codepoint);
                 if (visual_width > 0) {
-                    // For now, just store first byte (proper impl would store UTF-8 sequence)
-                    write_char_to_buffer(buffer, prompt_text[i], true, &row, &col);
-                    // Advance col by actual width (handles wide chars)
+                    // Store full UTF-8 sequence
+                    write_char_to_buffer(buffer, prompt_text + i, bytes, visual_width,
+                                        true, &row, &col);
+                    
+                    // For wide characters (width=2), we store the character in one cell
+                    // but it occupies 2 columns visually, so advance col by 1 more
                     if (visual_width == 2) {
-                        col++; // Wide character takes 2 columns
+                        col++;
+                        // Handle wrapping for wide characters at boundary
+                        if (col >= buffer->terminal_width) {
+                            row++;
+                            col = 0;
+                            if (row >= buffer->num_rows) {
+                                buffer->num_rows = row + 1;
+                            }
+                        }
                     }
                 }
                 i += bytes;
@@ -359,12 +391,15 @@ void screen_buffer_render(
                 int visual_width = lle_utf8_codepoint_width(codepoint);
                 
                 if (visual_width > 0) {
-                    // Store character (simplified - stores first byte only)
-                    write_char_to_buffer(buffer, command_text[i], false, &row, &col);
+                    // Store full UTF-8 sequence
+                    write_char_to_buffer(buffer, command_text + i, char_bytes, visual_width,
+                                        false, &row, &col);
                     
-                    // For wide characters, advance col by 2
+                    // For wide characters (width=2), we store the character in one cell
+                    // but it occupies 2 columns visually, so advance col by 1 more
                     if (visual_width == 2) {
                         col++;
+                        // Handle wrapping for wide characters at boundary
                         if (col >= buffer->terminal_width) {
                             row++;
                             col = 0;
@@ -436,10 +471,28 @@ void screen_buffer_diff(
         int last_diff = -1;
         
         for (int col = 0; col < new_line->length || (old_line && col < old_line->length); col++) {
-            char old_ch = (old_line && col < old_line->length) ? old_line->cells[col].ch : '\0';
-            char new_ch = (col < new_line->length) ? new_line->cells[col].ch : '\0';
+            const screen_cell_t *old_cell = (old_line && col < old_line->length) ? 
+                                            &old_line->cells[col] : NULL;
+            const screen_cell_t *new_cell = (col < new_line->length) ? 
+                                            &new_line->cells[col] : NULL;
             
-            if (old_ch != new_ch) {
+            bool cells_differ = false;
+            if (!old_cell && new_cell) {
+                cells_differ = true;
+            } else if (old_cell && !new_cell) {
+                cells_differ = true;
+            } else if (old_cell && new_cell) {
+                // Compare byte length first (fast check)
+                if (old_cell->byte_len != new_cell->byte_len) {
+                    cells_differ = true;
+                } else {
+                    // Compare actual UTF-8 bytes
+                    cells_differ = (memcmp(old_cell->utf8_bytes, new_cell->utf8_bytes, 
+                                          old_cell->byte_len) != 0);
+                }
+            }
+            
+            if (cells_differ) {
                 if (first_diff == -1) {
                     first_diff = col;
                 }
@@ -455,9 +508,14 @@ void screen_buffer_diff(
             change->col = first_diff;
             change->text_len = 0;
             
-            // Copy changed text
+            // Copy changed text (full UTF-8 sequences)
             for (int col = first_diff; col <= last_diff && col < new_line->length; col++) {
-                change->text[change->text_len++] = new_line->cells[col].ch;
+                const screen_cell_t *cell = &new_line->cells[col];
+                
+                // Copy full UTF-8 sequence
+                for (int b = 0; b < cell->byte_len && change->text_len < SCREEN_BUFFER_MAX_COLS - 1; b++) {
+                    change->text[change->text_len++] = cell->utf8_bytes[b];
+                }
             }
             change->text[change->text_len] = '\0';
             
@@ -721,9 +779,14 @@ bool screen_buffer_render_line_with_prefix(
         pos += prefix_len;
     }
     
-    // Add line content
+    // Add line content (full UTF-8 sequences)
     for (int i = 0; i < line->length && pos < output_size - 1; i++) {
-        output[pos++] = line->cells[i].ch;
+        const screen_cell_t *cell = &line->cells[i];
+        
+        // Copy full UTF-8 sequence
+        for (int b = 0; b < cell->byte_len && pos < output_size - 1; b++) {
+            output[pos++] = cell->utf8_bytes[b];
+        }
     }
     
     output[pos] = '\0';
