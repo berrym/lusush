@@ -146,13 +146,20 @@ if (result == LLE_SUCCESS) {
 - `src/lle/key_detector.c` - Added ESC+character sequences for Alt keys (fixed hex escape bug)
 - `src/lle/terminal_unix_interface.c` - Fixed missing keycode field in event conversion (line 637)
 - `src/lle/lle_readline.c` - Added Meta/Alt event routing logic
+
+**Modified Files (Multi-line Prompt Support)**:
+- `include/display/screen_buffer.h` - Added command_start_row/col fields to screen_buffer_t
+- `src/display/screen_buffer.c` - Handle \n/\r/\t in prompts, set command start position
+- `src/display/display_controller.c` - Use command_start_row/col for clearing position
+
+**Documentation**:
 - `docs/lle_implementation/tracking/KNOWN_ISSUES.md` - Complete rewrite with active issue tracking
 
 ### Testing Status
 
 **Verified Working** (Session 14):
 - ✅ Basic functionality (character input, cursor movement, editing)
-- ✅ UTF-8 handling (café example)
+- ✅ UTF-8 handling (café example, box-drawing characters)
 - ✅ Line wrapping with editing across boundaries
 - ✅ History navigation (UP/DOWN, Ctrl-P/N)
 - ✅ Kill/yank operations
@@ -165,7 +172,9 @@ if (result == LLE_SUCCESS) {
 - ✅ Alt-< (beginning-of-buffer) - working with Pattern 2 cursor sync
 - ✅ Alt-> (end-of-buffer) - working with Pattern 2 cursor sync
 - ✅ Meta/Alt detection in key_detector and event routing
-- ✅ No regressions from Meta/Alt implementation
+- ✅ Multi-line prompts (dark theme with 2-line prompt)
+- ✅ Multi-line prompts with line wrapping and navigation
+- ✅ No regressions from Meta/Alt or multi-line prompt implementation
 
 **Pending Comprehensive Testing**:
 - Alt-C/D/L/U (registered but not tested)
@@ -217,6 +226,28 @@ All these can be implemented as context-aware actions without additional infrast
 
 **Active Issues**: See `docs/lle_implementation/tracking/KNOWN_ISSUES.md` for complete tracking
 
+### ✅ RESOLVED: Multi-line Prompt Cursor Positioning (HIGH Priority)
+
+**Resolution Date**: 2025-11-14 (Session 14, after Meta/Alt commit)
+
+**Root Causes**:
+1. `screen_buffer_render()` didn't handle `\n` in prompt text (only in command text)
+2. `display_controller.c` always moved to row 0 before clearing (assumed single-line prompt)
+3. `display_controller.c` used total prompt width instead of actual command start column
+
+**Fix Applied**:
+- Added `\n`, `\r`, `\t` handling to prompt rendering loop
+- Added `command_start_row` and `command_start_col` fields to `screen_buffer_t`
+- Updated display_controller to use actual command start position for clearing/positioning
+
+**Testing Results**:
+- ✅ Cursor positioned correctly on second prompt line
+- ✅ Character input without display corruption
+- ✅ Line wrapping and navigation working correctly
+- ✅ UTF-8 box-drawing characters rendering correctly
+
+---
+
 ### ✅ RESOLVED: Meta/Alt Key Detection (Was BLOCKER for Group 6)
 
 **Resolution Date**: 2025-11-14 (Session 14)
@@ -240,7 +271,7 @@ All these can be implemented as context-aware actions without additional infrast
 
 ---
 
-### NEW: Multiline ENTER Display Bug (MEDIUM Priority)
+### ACTIVE: Multiline ENTER Display Bug (MEDIUM Priority)
 
 **Discovered**: 2025-11-14 (Session 14) during Meta/Alt testing  
 **Severity**: MEDIUM  
@@ -263,6 +294,8 @@ All these can be implemented as context-aware actions without additional infrast
 - Issue #3: Pipe `|` character doesn't trigger continuation (MEDIUM priority)
 
 Both pre-existed in v1.3.0 and are shell interpreter bugs, not LLE bugs.
+
+---
 
 ---
 
@@ -338,7 +371,12 @@ lle_result_t lle_my_action_context(readline_context_t *ctx) {
 ## Session History
 
 - **Session 1-13**: Keybinding manager foundation, Groups 1-4 migration
-- **Session 14**: Dual-action architecture, ENTER/Ctrl-G migration, cursor sync fixes
+- **Session 14**: 
+  - Dual-action architecture implementation and testing
+  - ENTER/Ctrl-G migration to context-aware actions
+  - Cursor sync fixes for HOME/END and kill/case functions
+  - Meta/Alt key detection implementation (Group 6 keybindings)
+  - Multi-line prompt support implementation (critical display fix)
 
 ---
 
@@ -347,5 +385,6 @@ lle_result_t lle_my_action_context(readline_context_t *ctx) {
 - Dual-action architecture proven and documented
 - Group 6 core keybindings (Alt-F/B/</>) implemented, tested, and working
 - Meta/Alt detection fully functional with cursor sync verified
+- **Multi-line prompts fully working** (dark theme tested successfully)
 - Known issues tracked in KNOWN_ISSUES.md
 - Ready for Group 6 extended testing (Alt-C/D/L/U) and additional keybinding work

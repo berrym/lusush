@@ -10,10 +10,11 @@
 
 **Current State**: Active development with keybinding manager migration complete
 
-- ⚠️ **3 Active Issues** (display bug, v1.3.0 regressions)
+- ⚠️ **2 Active Issues** (multiline ENTER display, v1.3.0 regressions)
 - ✅ **No Blockers** (all issues are non-critical)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
+- ✅ **Multi-line prompts working** (Session 14)
 
 ---
 
@@ -132,6 +133,37 @@ if true; then
 ---
 
 ## Resolved Issues (Session 14)
+
+### ✅ Multi-line Prompt Cursor Positioning Bug
+**Resolved**: 2025-11-14  
+**Severity**: HIGH  
+**Component**: Screen buffer prompt rendering / display_controller.c
+
+**Description**: Multi-line prompts (e.g., dark theme with 2-line prompt) had incorrect cursor positioning and display corruption on character input.
+
+**Root Causes**:
+1. `screen_buffer_render()` didn't handle `\n` in prompt text (only in command text)
+2. `display_controller.c` always moved to row 0 before clearing (assumed single-line prompt)
+3. `display_controller.c` used total prompt width instead of actual command start column
+
+**Fixes Applied**:
+1. Added `\n`, `\r`, `\t` handling to prompt rendering loop (screen_buffer.c:231-261)
+2. Added `command_start_row` and `command_start_col` fields to `screen_buffer_t`
+3. Updated `display_controller.c` to use `command_start_row` instead of hardcoded row 0
+4. Updated `display_controller.c` to use `command_start_col` instead of calculated prompt width
+
+**Files Changed**:
+- `include/display/screen_buffer.h` - Added command_start_row/col fields
+- `src/display/screen_buffer.c` - Handle newlines in prompts, set command start position
+- `src/display/display_controller.c` - Use actual command start position for clearing
+
+**Testing Results**:
+- ✅ Cursor positioned correctly on second prompt line
+- ✅ Character input without display corruption
+- ✅ Line wrapping and navigation across boundaries working
+- ✅ UTF-8 box-drawing characters rendering correctly
+
+---
 
 ### ✅ Meta/Alt Key Detection Not Implemented
 **Resolved**: 2025-11-14  

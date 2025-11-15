@@ -37,6 +37,8 @@ void screen_buffer_init(screen_buffer_t *buffer, int terminal_width) {
     buffer->num_rows = 0;
     buffer->cursor_row = 0;
     buffer->cursor_col = 0;
+    buffer->command_start_row = 0;
+    buffer->command_start_col = 0;
     
     // Initialize all prefix pointers to NULL
     for (int i = 0; i < SCREEN_BUFFER_MAX_ROWS; i++) {
@@ -229,6 +231,39 @@ void screen_buffer_render(
                 continue;
             }
             
+            // Handle newlines in multi-line prompts
+            if (ch == '\n') {
+                row++;
+                col = 0;
+                if (row >= buffer->num_rows) {
+                    buffer->num_rows = row + 1;
+                }
+                i++;
+                continue;
+            }
+            
+            // Handle carriage returns (move to start of line without newline)
+            if (ch == '\r') {
+                col = 0;
+                i++;
+                continue;
+            }
+            
+            // Handle tabs
+            if (ch == '\t') {
+                size_t tab_width = 8 - (col % 8);
+                col += tab_width;
+                if (col >= buffer->terminal_width) {
+                    row++;
+                    col = 0;
+                    if (row >= buffer->num_rows) {
+                        buffer->num_rows = row + 1;
+                    }
+                }
+                i++;
+                continue;
+            }
+            
             // Decode UTF-8 codepoint for proper width calculation
             uint32_t codepoint;
             int bytes = lle_utf8_decode_codepoint(prompt_text + i, text_len - i, &codepoint);
@@ -251,8 +286,8 @@ void screen_buffer_render(
     }
     
     // Save position where command starts (this is where cursor save happens)
-    int command_start_row = row;
-    int command_start_col = col;
+    buffer->command_start_row = row;
+    buffer->command_start_col = col;
     
     // Render command text using same approach as display_bridge.c
     if (command_text) {

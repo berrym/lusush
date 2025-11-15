@@ -217,8 +217,6 @@ static layer_events_error_t dc_handle_redraw_needed(
      * as this would allow \033[J to clear the prompt.
      */
     
-    size_t prompt_width = screen_buffer_calculate_visual_width(prompt_buffer, 0);
-    
     /* First render only: Draw prompt once */
     if (!prompt_rendered) {
         if (prompt_buffer[0]) {
@@ -230,17 +228,22 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Every render (including first): Position to command start and redraw command */
     
     /* Step 1: Move to absolute column where command starts (after prompt)
+     * For multi-line prompts, use command_start_col from screen buffer
      * Use \033[{n}G for absolute positioning (1-based indexing) */
+    int command_start_col = desired_screen.command_start_col;
     char move_to_col[32];
-    int col_len = snprintf(move_to_col, sizeof(move_to_col), "\033[%zuG", prompt_width + 1);
+    int col_len = snprintf(move_to_col, sizeof(move_to_col), "\033[%dG", command_start_col + 1);
     if (col_len > 0) {
         write(STDOUT_FILENO, move_to_col, col_len);
     }
     
-    /* Step 2: Move up to row 0 if we're on a lower row */
-    if (current_screen.cursor_row > 0) {
+    /* Step 2: Move up to command start row if we're on a lower row
+     * For multi-line prompts, command_start_row may be > 0 */
+    int command_row = desired_screen.command_start_row;
+    if (current_screen.cursor_row > command_row) {
+        int rows_up = current_screen.cursor_row - command_row;
         char move_up[32];
-        int up_len = snprintf(move_up, sizeof(move_up), "\033[%dA", current_screen.cursor_row);
+        int up_len = snprintf(move_up, sizeof(move_up), "\033[%dA", rows_up);
         if (up_len > 0) {
             write(STDOUT_FILENO, move_up, up_len);
         }

@@ -87,10 +87,12 @@ typedef struct {
  */
 typedef struct {
     screen_line_t lines[SCREEN_BUFFER_MAX_ROWS];
-    int num_rows;         // Number of rows currently used
-    int terminal_width;   // Terminal width in columns
-    int cursor_row;       // Cursor row position (0-based)
-    int cursor_col;       // Cursor column position (0-based)
+    int num_rows;           // Number of rows currently used
+    int terminal_width;     // Terminal width in columns
+    int cursor_row;         // Cursor row position (0-based)
+    int cursor_col;         // Cursor column position (0-based)
+    int command_start_row;  // Row where command text starts (after prompt)
+    int command_start_col;  // Column where command text starts (after prompt)
 } screen_buffer_t;
 
 /**
