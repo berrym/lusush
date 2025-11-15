@@ -347,6 +347,17 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
         state->escaped = false;  // Reset for next line
     }
     
+    // Check if line ends with pipe character (requires continuation)
+    // Need to check backwards from end, skipping whitespace
+    const char *end = line + strlen(line);
+    while (end > line && isspace(*(end - 1))) {
+        end--;
+    }
+    if (end > line && *(end - 1) == '|') {
+        // Line ends with pipe - needs continuation
+        state->has_continuation = true;
+    }
+    
     // Handle remaining word at end of line
     if (word_pos > 0) {
         word[word_pos] = '\0';
