@@ -918,12 +918,22 @@ lle_result_t lle_upcase_word(lle_editor_t *editor) {
     }
     
     size_t cursor = editor->buffer->cursor.byte_offset;
-    size_t word_end = find_word_end(editor->buffer->data,
-                                     editor->buffer->length,
-                                     cursor);
+    size_t len = editor->buffer->length;
     
-    /* Uppercase from cursor to end of word */
-    for (size_t i = cursor; i < word_end; i++) {
+    /* Skip whitespace to find start of next word */
+    size_t word_start = cursor;
+    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
+        word_start++;
+    }
+    
+    /* Find end of word */
+    size_t word_end = word_start;
+    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
+        word_end++;
+    }
+    
+    /* Uppercase from word start to end */
+    for (size_t i = word_start; i < word_end; i++) {
         editor->buffer->data[i] = (char)toupper((unsigned char)editor->buffer->data[i]);
     }
     
@@ -946,12 +956,22 @@ lle_result_t lle_downcase_word(lle_editor_t *editor) {
     }
     
     size_t cursor = editor->buffer->cursor.byte_offset;
-    size_t word_end = find_word_end(editor->buffer->data,
-                                     editor->buffer->length,
-                                     cursor);
+    size_t len = editor->buffer->length;
     
-    /* Lowercase from cursor to end of word */
-    for (size_t i = cursor; i < word_end; i++) {
+    /* Skip whitespace to find start of next word */
+    size_t word_start = cursor;
+    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
+        word_start++;
+    }
+    
+    /* Find end of word */
+    size_t word_end = word_start;
+    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
+        word_end++;
+    }
+    
+    /* Lowercase from word start to end */
+    for (size_t i = word_start; i < word_end; i++) {
         editor->buffer->data[i] = (char)tolower((unsigned char)editor->buffer->data[i]);
     }
     
@@ -974,17 +994,27 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor) {
     }
     
     size_t cursor = editor->buffer->cursor.byte_offset;
-    size_t word_end = find_word_end(editor->buffer->data,
-                                     editor->buffer->length,
-                                     cursor);
+    size_t len = editor->buffer->length;
+    
+    /* Skip whitespace to find start of next word */
+    size_t word_start = cursor;
+    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
+        word_start++;
+    }
+    
+    /* Find end of word */
+    size_t word_end = word_start;
+    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
+        word_end++;
+    }
     
     /* Capitalize first letter */
-    if (cursor < word_end) {
-        editor->buffer->data[cursor] = (char)toupper((unsigned char)editor->buffer->data[cursor]);
+    if (word_start < word_end) {
+        editor->buffer->data[word_start] = (char)toupper((unsigned char)editor->buffer->data[word_start]);
     }
     
     /* Lowercase rest */
-    for (size_t i = cursor + 1; i < word_end; i++) {
+    for (size_t i = word_start + 1; i < word_end; i++) {
         editor->buffer->data[i] = (char)tolower((unsigned char)editor->buffer->data[i]);
     }
     

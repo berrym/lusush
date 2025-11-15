@@ -1327,6 +1327,11 @@ char *lle_readline(const char *prompt)
         /* Buffer navigation (essential for multiline editing) */
         lle_keybinding_manager_bind(keybinding_manager, "M-<", lle_beginning_of_buffer, "beginning-of-buffer");
         lle_keybinding_manager_bind(keybinding_manager, "M->", lle_end_of_buffer, "end-of-buffer");
+        /* Word editing and case changes */
+        lle_keybinding_manager_bind(keybinding_manager, "M-d", lle_kill_word, "kill-word");
+        lle_keybinding_manager_bind(keybinding_manager, "M-c", lle_capitalize_word, "capitalize-word");
+        lle_keybinding_manager_bind(keybinding_manager, "M-l", lle_downcase_word, "downcase-word");
+        lle_keybinding_manager_bind(keybinding_manager, "M-u", lle_upcase_word, "upcase-word");
     }
     
     readline_context_t ctx = {
