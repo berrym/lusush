@@ -525,6 +525,34 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx)
     
     /* Line complete - accept entire buffer regardless of cursor position */
     
+    /* CRITICAL: Move buffer cursor to end before accepting
+     * 
+     * Issue #1 Fix: When accepting multiline input, the buffer cursor must be
+     * positioned at the end before the display system renders. This ensures
+     * the screen cursor is positioned after all lines when returning to shell.
+     * 
+     * This is the architecturally correct solution: move the cursor in the buffer
+     * (LLE's responsibility) and let the display system render it naturally
+     * (display system's responsibility). No direct terminal writes from LLE.
+     */
+    if (ctx->buffer->length > 0 && ctx->buffer->cursor.byte_offset != ctx->buffer->length) {
+        /* Move buffer cursor to end */
+        ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+        ctx->buffer->cursor.codepoint_index = ctx->buffer->length;
+        ctx->buffer->cursor.grapheme_index = ctx->buffer->length;
+        
+        /* Sync cursor_manager with new position */
+        if (ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->length
+            );
+        }
+        
+        /* Refresh display to render cursor at new position */
+        refresh_display(ctx);
+    }
+    
     /* Add to LLE history before completing */
     if (ctx->editor && ctx->editor->history_system && 
         ctx->buffer->data && ctx->buffer->data[0] != '\0') {

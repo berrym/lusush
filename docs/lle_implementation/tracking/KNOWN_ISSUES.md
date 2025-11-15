@@ -10,55 +10,68 @@
 
 **Current State**: Active development with keybinding manager migration complete
 
-- ⚠️ **2 Active Issues** (multiline ENTER display, v1.3.0 regressions)
+- ⚠️ **1 Active Issue** (v1.3.0 regressions)
 - ✅ **No Blockers** (all issues are non-critical)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
+- ✅ **Multiline ENTER display bug fixed** (Session 15)
 
 ---
 
 ## Active Issues
 
-### Issue #1: Multiline ENTER Display Bug
+### Issue #1: Multiline ENTER Display Bug ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-11-14 (Session 14, Meta/Alt testing)  
+**Fixed**: 2025-11-15 (Session 15)
 **Component**: Display finalization / lle_readline.c  
 
 **Description**:
-When pressing ENTER on a non-final line of multiline input, the output appears on the line below where ENTER was pressed, rather than after the complete multiline input.
+When pressing ENTER on a non-final line of multiline input, the output appeared on the line below where ENTER was pressed, rather than after the complete multiline input.
 
-**Reproduction**:
-```bash
-# Type this multiline input:
-if true; then
-echo done
-fi
+**Root Cause**: 
+When cursor was not at end of buffer and ENTER was pressed, the display system rendered with cursor at the wrong position (middle of buffer instead of end). Shell output then appeared at that cursor position instead of after the complete command.
 
-# Press ENTER on line 1 "if true; then":
-# Expected: Output appears after all 3 lines
-# Actual: Output appears on line 2, clearing "echo done" and "fi"
+**Fix**:
+Move buffer cursor to end using pure LLE API before accepting input. This ensures the display system renders with cursor at the correct position:
 
-# Press ENTER on line 2 "echo done":
-# Expected: Output appears after all 3 lines
-# Actual: Output appears on line 3, clearing "fi"
+```c
+/* Move buffer cursor to end */
+ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+ctx->buffer->cursor.codepoint_index = ctx->buffer->length;
+ctx->buffer->cursor.grapheme_index = ctx->buffer->length;
 
-# Press ENTER on line 3 "fi":
-# Correct: Output appears after all 3 lines
+/* Sync cursor_manager with new position */
+if (ctx->editor && ctx->editor->cursor_manager) {
+    lle_cursor_manager_move_to_byte_offset(
+        ctx->editor->cursor_manager,
+        ctx->buffer->length
+    );
+}
+
+/* Refresh display to render cursor at new position */
+refresh_display(ctx);
 ```
 
-**Root Cause**: Unknown - appears to be in display finalization logic when ENTER context-aware action completes on non-final line.
+**Architecture**:
+This fix follows LLE design principles:
+- Uses pure LLE buffer and cursor APIs (no direct terminal writes)
+- LLE manages buffer state; display system handles rendering
+- Clean separation of concerns maintained
 
-**Impact**:
-- Command executes correctly
-- Visual display is confusing/incorrect
-- Does not affect single-line input
-- No data loss
+**Verification**:
+- ✅ ENTER on line 1: Output appears after all 3 lines
+- ✅ ENTER on line 2: Output appears after all 3 lines
+- ✅ ENTER on line 3: Output appears after all 3 lines
+- ✅ Line wrapping works correctly with multi-line prompts
+- ✅ Works with both default and themed prompts
+- ✅ No regressions in history navigation, multi-line editing, incomplete input, edge cases, or long line wrapping
 
-**Priority**: MEDIUM (functional but poor UX)  
-**Workaround**: Press ENTER on the final line only  
-**Resolution Plan**: Investigate display refresh logic in `lle_accept_line_context()` and `refresh_display()`  
-**Assigned**: Not assigned  
+**Files Modified**:
+- `src/lle/lle_readline.c` (lle_accept_line_context function)
+
+**Status**: ✅ FIXED AND VERIFIED
 
 ---
 
