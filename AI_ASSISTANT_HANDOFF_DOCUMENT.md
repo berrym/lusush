@@ -3,12 +3,12 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-15  
 **Branch**: feature/lle  
-**Status**: ✅ **BREAK/CONTINUE FIXED + ALT-ENTER + ALL GROUPS 1-6**  
-**Last Action**: Session 16 - Fixed critical break/continue bug in all loop types  
-**Current State**: Core shell loops working, all keybinding groups complete, full UTF-8 support  
-**Work Done**: Fixed break/continue in while/for/until loops (HIGH priority bug)  
-**Test Results**: All loop types work correctly with break and continue  
-**Next**: Address remaining known issue (pipe continuation parser bug)  
+**Status**: ✅ **ALL KNOWN BUGS FIXED + ALT-ENTER + ALL GROUPS 1-6**  
+**Last Action**: Session 16 - Fixed break/continue and multiline pipeline bugs  
+**Current State**: Core shell fully working, all keybinding groups complete, full UTF-8 support  
+**Work Done**: Fixed break/continue in loops + multiline pipeline execution  
+**Test Results**: All core shell features working correctly  
+**Next**: LLE enhancements (continuation prompts, additional features)  
 **Documentation**: See docs/lle_implementation/ for detailed documentation  
 **Production Status**: ✅ All implemented features production ready
 
@@ -44,7 +44,9 @@
 See `docs/lle_implementation/tracking/KNOWN_ISSUES.md` for complete tracking:
 - ✅ Issue #1: Multiline ENTER display bug - **FIXED** (Session 15)
 - ✅ Issue #2: Shell `break` statement broken - **FIXED** (Session 16)
-- Issue #3: Pipe continuation partially fixed (continuation works, parser broken)
+- ✅ Issue #3: Multiline pipeline execution - **FIXED** (Session 16)
+
+**All known bugs resolved!**
 
 ---
 
@@ -110,6 +112,68 @@ Modified 5 functions:
 - No regressions detected in loop behavior
 
 **Note**: This was a shell interpreter bug (not LLE-related), but fixed in feature/lle branch as pragmatic decision since active work is happening here.
+
+---
+
+### Multiline Pipeline Execution Fix (Session 16)
+
+**Status**: ✅ COMPLETE - Multiline pipelines now work correctly
+
+**Problem**: Multiline pipelines failed with "Expected command name" error. Continuation detection worked (Session 15), but execution failed.
+
+**Example** (Before Fix):
+```bash
+echo hello |
+wc -l
+# Error: "Expected command name"
+```
+
+**Root Cause**: In `parse_pipeline()`, after consuming the `|` token, the parser immediately called `parse_pipeline()` recursively for the right side. When there was a newline between `|` and the next command, the parser saw a `TOK_NEWLINE` token instead of a command name, causing the error.
+
+**Fix Applied** (src/parser.c:322-328):
+After consuming the pipe token, skip any newlines and whitespace before parsing right side:
+```c
+tokenizer_advance(parser->tokenizer); // consume |
+
+// Skip newlines after pipe - allows multiline pipelines
+while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+       tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+    tokenizer_advance(parser->tokenizer);
+}
+
+node_t *right = parse_pipeline(parser);
+```
+
+**Why This Is Safe**:
+- Very narrow scope: only affects tokens immediately after `|`
+- Newlines after pipe have no semantic meaning - they're formatting
+- Doesn't modify existing separator logic
+- Matches bash behavior for multiline pipelines
+
+**Testing Results**:
+- ✅ Simple multiline pipeline: `echo hello |\nwc -l` outputs `1`
+- ✅ Multi-stage pipeline: `echo one two three |\ntr " " "\n" |\nwc -l` outputs `3`
+- ✅ Extra whitespace: `echo hello |\n\n   wc -l` outputs `1`
+- ✅ Single-line pipes still work correctly
+
+**Regression Testing**:
+- ✅ Single-line pipelines (no impact)
+- ✅ Commands with semicolons
+- ✅ Pipeline with redirection
+- ✅ Command substitution
+- ✅ For/while loops (break/continue)
+- ✅ Multi-stage pipelines
+- **No regressions detected**
+
+**Files Modified**:
+- src/parser.c (parse_pipeline function)
+
+**Impact**:
+- Multiline pipelines work correctly
+- Natural shell syntax supported (matches bash)
+- Completes Issue #3 fix (continuation + execution both working)
+
+**Note**: This was a shell parser bug, not an LLE bug. Fixed in feature/lle branch as pragmatic decision.
 
 ---
 

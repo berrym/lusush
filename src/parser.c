@@ -320,6 +320,12 @@ static node_t *parse_pipeline(parser_t *parser) {
     if (tokenizer_match(parser->tokenizer, TOK_PIPE)) {
         tokenizer_advance(parser->tokenizer); // consume |
 
+        // Skip newlines after pipe - allows multiline pipelines
+        while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+               tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+            tokenizer_advance(parser->tokenizer);
+        }
+
         node_t *right = parse_pipeline(parser);
         if (!right) {
             free_node_tree(left);

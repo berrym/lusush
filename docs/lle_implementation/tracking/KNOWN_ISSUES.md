@@ -10,17 +10,26 @@
 
 **Current State**: Active development with keybinding manager migration complete
 
-- ⚠️ **1 Active Issue** (pipe continuation parser bug)
-- ✅ **No Blockers** (all issues are non-critical)
+- ✅ **No Active Issues** - All known bugs fixed!
+- ✅ **No Blockers** (all issues resolved)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
 - ✅ **Multiline ENTER display bug fixed** (Session 15)
 - ✅ **break/continue in loops fixed** (Session 16)
+- ✅ **Multiline pipeline execution fixed** (Session 16)
 
 ---
 
 ## Active Issues
+
+**None** - All known issues have been resolved!
+
+See "Resolved Issues" section below for details on fixes.
+
+---
+
+## Resolved Issues
 
 ### Issue #1: Multiline ENTER Display Bug ✅ FIXED
 **Severity**: MEDIUM  
@@ -131,48 +140,71 @@ Modified 5 functions in `src/executor.c`:
 
 ---
 
-### Issue #3: Pipe Character - Continuation Works But Execution Fails
+### Issue #3: Pipe Character - Continuation Works But Execution Fails ✅ FIXED
 **Severity**: MEDIUM  
-**Discovered**: Pre-2025-11-14, continuation fixed 2025-11-15  
+**Discovered**: Pre-2025-11-14, continuation fixed 2025-11-15, execution fixed 2025-11-15 (Session 16)
+**Fixed**: 2025-11-15 (Session 16)
 **Component**: Shell parser (NOT input continuation)  
 
 **Description**:
-When a line ends with a pipe character `|`, continuation detection NOW WORKS (shows continuation prompt), but the shell parser fails to execute the multiline pipeline with "Expected command name" error.
+When a line ends with a pipe character `|`, continuation detection worked (shows continuation prompt), but the shell parser failed to execute the multiline pipeline with "Expected command name" error.
 
-**Status**: PARTIALLY FIXED
+**Status**: ✅ COMPLETELY FIXED
 - ✅ Continuation detection: FIXED (Session 15)
-- ❌ Pipeline execution: BROKEN (pre-existing shell parser bug)
+- ✅ Pipeline execution: FIXED (Session 16)
 
-**Reproduction**:
+**Reproduction** (Before Fix):
 ```bash
 # Type this and press ENTER:
 echo hello |
-# Result: Continuation prompt appears ✅ (fixed!)
+# Result: Continuation prompt appears (fixed in Session 15)
 
 # Then type:
 wc -l
-# Result: "Expected command name" error ❌ (shell parser bug)
+# Result: "Expected command name" error (parser bug)
 ```
 
-**Root Causes**:
-1. ✅ FIXED: Pipe not detected by continuation parser
+**Root Causes Identified**:
+1. ✅ FIXED (Session 15): Pipe not detected by continuation parser
    - Fixed in src/input_continuation.c
    - Now checks for trailing pipe character
-2. ❌ NOT FIXED: Shell parser doesn't handle newlines in pipelines
-   - Parser/tokenizer doesn't recognize "cmd1 |\ncmd2" as single pipeline
-   - Pre-existing bug (also fails in non-LLE mode)
+
+2. ✅ FIXED (Session 16): Shell parser didn't handle newlines in pipelines
+   - Parser didn't skip newlines after pipe token
+   - In `parse_pipeline()` at line 321, after consuming `|` token, immediately called `parse_pipeline()` recursively
+   - Newline token between `|` and next command caused "Expected command name" error
+
+**Fix Applied** (src/parser.c:322-328):
+After consuming the pipe token, skip any newlines and whitespace before parsing right side:
+```c
+tokenizer_advance(parser->tokenizer); // consume |
+
+// Skip newlines after pipe - allows multiline pipelines
+while (tokenizer_match(parser->tokenizer, TOK_NEWLINE) ||
+       tokenizer_match(parser->tokenizer, TOK_WHITESPACE)) {
+    tokenizer_advance(parser->tokenizer);
+}
+
+node_t *right = parse_pipeline(parser);
+```
+
+**Verification**:
+- ✅ Simple multiline pipeline: `echo hello |\nwc -l` outputs `1`
+- ✅ Multi-stage pipeline: `echo one two three |\ntr " " "\n" |\nwc -l` outputs `3`
+- ✅ Extra whitespace: `echo hello |\n\n   wc -l` outputs `1`
+- ✅ Single-line pipes still work correctly
+
+**Files Modified**:
+- src/parser.c (parse_pipeline function, lines 322-328)
 
 **Impact**:
-- Continuation prompt now appears correctly ✅
-- But pipeline execution fails with parser error ❌
-- Single-line pipes work correctly
-- This is a shell interpreter bug, not an LLE bug
+- Multiline pipelines now work correctly
+- Natural shell syntax supported (like bash)
+- Continuation detection + execution both working
 
-**Priority**: MEDIUM (continuation working, execution broken)  
-**Workaround**: Type entire pipeline on single line  
-**Resolution Plan**: Fix shell parser to handle newlines within pipelines  
-**Assigned**: Not assigned  
-**Note**: Continuation detection fixed in Session 15, parser bug remains  
+**Status**: ✅ FIXED AND VERIFIED
+
+**Note**: This was a shell parser bug, not an LLE bug. Fixed in feature/lle branch as pragmatic decision.  
 
 ---
 
