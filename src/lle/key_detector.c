@@ -78,6 +78,7 @@ static const key_mapping_entry_t key_mappings[] = {
     /* Special keys */
     {"\x09", 1, LLE_KEY_TYPE_SPECIAL, 0x09, LLE_KEY_MOD_NONE, "Tab"},
     {"\x0D", 1, LLE_KEY_TYPE_SPECIAL, 0x0D, LLE_KEY_MOD_NONE, "Enter"},
+    {"\x1B\x0D", 2, LLE_KEY_TYPE_SPECIAL, 0x0D, LLE_KEY_MOD_ALT, "Alt+Enter"},
     {"\x1B", 1, LLE_KEY_TYPE_SPECIAL, 0x1B, LLE_KEY_MOD_NONE, "Escape"},
     
     /* Modified cursor keys (Shift) */

@@ -1360,6 +1360,10 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "M-c", lle_capitalize_word, "capitalize-word");
         lle_keybinding_manager_bind(keybinding_manager, "M-l", lle_downcase_word, "downcase-word");
         lle_keybinding_manager_bind(keybinding_manager, "M-u", lle_upcase_word, "upcase-word");
+        
+        /* Literal newline insertion - for editing complete multiline commands */
+        lle_keybinding_manager_bind(keybinding_manager, "S-ENTER", lle_insert_newline_literal, "insert-newline-literal");
+        lle_keybinding_manager_bind(keybinding_manager, "M-ENTER", lle_insert_newline_literal, "insert-newline-literal");
     }
     
     readline_context_t ctx = {
@@ -1496,8 +1500,15 @@ char *lle_readline(const char *prompt)
             case LLE_INPUT_TYPE_SPECIAL_KEY: {
                 /* Special keys */
                 /* GROUP 5 MIGRATION: ENTER routed through keybinding manager (context-aware action) */
-                if (event->data.special_key.key == LLE_KEY_ENTER) {
+                if (event->data.special_key.key == LLE_KEY_ENTER && 
+                    !(event->data.special_key.modifiers & LLE_MOD_ALT)) {
+                    /* Plain Enter - accept line */
                     execute_keybinding_action(&ctx, "ENTER", handle_enter);
+                }
+                /* Alt-Enter: Insert literal newline (for editing complete multiline commands) */
+                else if (event->data.special_key.key == LLE_KEY_ENTER && 
+                         (event->data.special_key.modifiers & LLE_MOD_ALT)) {
+                    execute_keybinding_action(&ctx, "M-ENTER", NULL);
                 }
                 /* GROUP 1 MIGRATION: Navigation keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_LEFT) {

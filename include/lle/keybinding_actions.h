@@ -388,6 +388,13 @@ lle_result_t lle_self_insert(lle_editor_t *editor, uint32_t codepoint);
 lle_result_t lle_newline(lle_editor_t *editor);
 
 /**
+ * Insert literal newline (Shift-Enter, Alt-Enter)
+ * Inserts a newline at cursor position regardless of completion status.
+ * Useful for editing complete multiline commands when adding lines in the middle.
+ */
+lle_result_t lle_insert_newline_literal(lle_editor_t *editor);
+
+/**
  * Tab insert (Meta-TAB)
  * Inserts a literal tab character
  */

@@ -1298,6 +1298,42 @@ lle_result_t lle_clear_screen(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+/**
+ * Insert literal newline regardless of completion status
+ * 
+ * This action inserts a newline at the cursor position without checking
+ * whether the input is complete. Useful for editing complete multiline
+ * commands when user wants to add more lines in the middle.
+ * 
+ * Bound to: Shift-Enter, Alt-Enter
+ * 
+ * @param editor LLE editor instance
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_insert_newline_literal(lle_editor_t *editor) {
+    if (!editor || !editor->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Insert newline at cursor position */
+    lle_result_t result = lle_buffer_insert_text(
+        editor->buffer,
+        editor->buffer->cursor.byte_offset,
+        "\n",
+        1
+    );
+    
+    /* Synchronize cursor fields after insert */
+    if (result == LLE_SUCCESS && editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(
+            editor->cursor_manager,
+            editor->buffer->cursor.byte_offset
+        );
+    }
+    
+    return result;
+}
+
 /* ============================================================================
  * UTILITY ACTIONS
  * ============================================================================ */
