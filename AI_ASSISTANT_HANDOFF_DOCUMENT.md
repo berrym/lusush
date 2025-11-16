@@ -656,6 +656,77 @@ lle_result_t lle_my_action_context(readline_context_t *ctx) {
   - Group 6 extended testing complete (Alt-C/D/L/U)
   - Fixed keybinding registration bug (missing M-c/d/l/u bindings)
   - Fixed case functions to skip whitespace for consecutive use
+- **Session 16**:
+  - Fixed break/continue in all loop types (HIGH priority bug)
+  - Fixed multiline pipeline execution
+  - Cleaned emoji violations from git history (3 commits)
+  - Fixed commit-msg hook to enforce emoji policy universally
+  - All known bugs now resolved
+  - Continuation prompt investigation completed
+
+---
+
+## 🔍 CONTINUATION PROMPT INVESTIGATION (Session 16)
+
+**Status**: Investigation complete, ready for implementation
+
+**Background**: Previous attempt at continuation prompts (commits 00d6458 through eecb87c, Nov 8-9 2025) was reverted due to line wrapping bugs. The implementation correctly used continuation_prompt_layer architecture but had a critical detection bug.
+
+**Root Cause Identified**:
+
+The previous implementation triggered continuation prompts when `desired_screen.num_rows > 1`:
+```c
+if (controller->continuation_layer && desired_screen.num_rows > 1) {
+    // Apply continuation prompts
+}
+```
+
+**The Problem**: `num_rows > 1` occurs for BOTH:
+- Actual multiline input (command contains `\n` characters) - SHOULD show prompts
+- Wrapped single-line input (long line wraps at terminal width) - SHOULD NOT show prompts
+
+This caused continuation prompts to appear on wrapped lines, breaking cursor positioning and display.
+
+**The Solution**:
+
+Count actual newlines in command text instead of checking visual rows:
+```c
+static int count_newlines(const char *text) {
+    if (!text) return 0;
+    int count = 0;
+    for (const char *p = text; *p; p++) {
+        if (*p == '\n') count++;
+    }
+    return count;
+}
+
+int actual_lines = count_newlines(cmd_layer->command_text) + 1;
+if (controller->continuation_layer && actual_lines > 1) {
+    // Apply continuation prompts at newline boundaries only
+}
+```
+
+**Architecture Status**:
+- ✅ Screen buffer has prefix support API (`screen_buffer_set_line_prefix()`)
+- ✅ continuation_prompt_layer implementation exists (commits d5df3b6, eecb87c)
+- ✅ Event-driven architecture proven working
+- ✅ Context-aware prompt logic implemented (loop>, if>, func>, sh>)
+- ❌ Not currently integrated (was reverted in commit 4322e58)
+
+**Documentation**:
+- `docs/development/lle_continuation_prompt_display_layer_architecture.md` - Architecture analysis
+- `docs/development/CONTINUATION_PROMPT_HANDOFF.md` - Previous implementation details
+
+**Next Steps for Implementation**:
+1. Restore continuation_prompt_layer from commit eecb87c
+2. Replace `num_rows > 1` check with newline counting
+3. Insert prompts at logical line boundaries (after `\n`), not wrap boundaries
+4. Test: wrapped single-line (no prompts), actual multiline (yes prompts)
+
+**Foundation Improvements Since Previous Attempt**:
+- UTF-8 cell storage complete (better wide char handling)
+- All core bugs fixed (break/continue, pipelines)
+- Display architecture more mature and stable
 
 ---
 
