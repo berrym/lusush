@@ -358,10 +358,17 @@ void screen_buffer_render(
             // Handle newlines
             if (ch == '\n') {
                 row++;
-                col = 0;
                 if (row >= buffer->num_rows) {
                     buffer->num_rows = row + 1;
                 }
+                
+                // CONTINUATION PROMPT SUPPORT:
+                // After a newline, check if the next row has a continuation prompt prefix.
+                // If it does, start column position after the prefix (not at column 0).
+                // This ensures cursor tracking accounts for continuation prompts like "loop> "
+                size_t prefix_width = screen_buffer_get_line_prefix_visual_width(buffer, row);
+                col = (int)prefix_width;
+                
                 i++;
                 bytes_processed++;
                 continue;

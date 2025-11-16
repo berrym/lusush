@@ -48,6 +48,7 @@
 #include "display_integration.h"
 #include "lusush_memory_pool.h"
 #include "lle/utf8_support.h"
+#include "input_continuation.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,6 +95,19 @@ static uint64_t dc_get_timestamp_us(void) {
         return 0;
     }
     return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
+}
+
+/**
+ * Count newlines in text.
+ * Used to detect multiline input for continuation prompt support.
+ */
+static int count_newlines(const char *text) {
+    if (!text) return 0;
+    int count = 0;
+    for (const char *p = text; *p; p++) {
+        if (*p == '\n') count++;
+    }
+    return count;
 }
 
 // ============================================================================
@@ -203,6 +217,95 @@ static layer_events_error_t dc_handle_redraw_needed(
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
 
+    /* CONTINUATION PROMPT SUPPORT:
+     * 
+     * Detect multiline input and set continuation prompt prefixes on screen_buffer.
+     * This allows screen_buffer_render() to account for continuation prompt widths
+     * when calculating cursor positions for lines after newlines.
+     * 
+     * The continuation prompts are NOT rendered into the screen_buffer cells -
+     * they're tracked separately as line prefixes and output during terminal writes.
+     */
+    int newline_count = count_newlines(command_buffer);
+    bool is_multiline = (newline_count > 0);
+    
+    if (is_multiline) {
+        /* Parse command text line-by-line to get context-aware continuation prompts.
+         * We need to analyze the text incrementally to track state changes:
+         * - After "for i in 1 2 3; do" → in_for_loop = true → "loop>"
+         * - After "if [ ... ]; then" → in_if_statement = true → "if>"
+         * etc.
+         */
+        continuation_state_t cont_state;
+        continuation_state_init(&cont_state);
+        
+        int logical_line = 0;
+        const char *line_start = command_buffer;
+        char line_buffer[4096];
+        
+        while (line_start && *line_start) {
+            const char *newline_pos = strchr(line_start, '\n');
+            
+            if (newline_pos) {
+                /* Extract this line into a buffer for analysis */
+                size_t line_len = newline_pos - line_start;
+                if (line_len >= sizeof(line_buffer)) {
+                    line_len = sizeof(line_buffer) - 1;
+                }
+                memcpy(line_buffer, line_start, line_len);
+                line_buffer[line_len] = '\0';
+                
+                /* Strip ANSI escape sequences before analyzing
+                 * The command_buffer from command_layer includes syntax highlighting,
+                 * but continuation_analyze_line() expects plain text */
+                char plain_buffer[4096];
+                size_t plain_pos = 0;
+                bool in_ansi = false;
+                
+                for (size_t i = 0; i < line_len && plain_pos < sizeof(plain_buffer) - 1; i++) {
+                    if (line_buffer[i] == '\033' || line_buffer[i] == '\x1b') {
+                        in_ansi = true;
+                        continue;
+                    }
+                    if (in_ansi) {
+                        if ((line_buffer[i] >= 'A' && line_buffer[i] <= 'Z') || 
+                            (line_buffer[i] >= 'a' && line_buffer[i] <= 'z') ||
+                            line_buffer[i] == 'm') {
+                            in_ansi = false;
+                        }
+                        continue;
+                    }
+                    plain_buffer[plain_pos++] = line_buffer[i];
+                }
+                plain_buffer[plain_pos] = '\0';
+                
+                /* Analyze this line to update continuation state */
+                continuation_analyze_line(plain_buffer, &cont_state);
+                
+                logical_line++;
+                line_start = newline_pos + 1;
+                
+                /* Get continuation prompt for the NEXT line based on current state */
+                const char *cont_prompt = continuation_get_prompt(&cont_state);
+                if (cont_prompt) {
+                    /* DEBUG: Log continuation prompt generation */
+                    DC_DEBUG("Line %d: analyzed='%s', prompt='%s', in_for=%d, in_while=%d, in_if=%d",
+                             logical_line, line_buffer, cont_prompt, 
+                             cont_state.in_for_loop, cont_state.in_while_loop, cont_state.in_if_statement);
+                    
+                    /* Set prefix for the visual row where this logical line starts */
+                    screen_buffer_set_line_prefix(&desired_screen, 
+                                                   desired_screen.command_start_row + logical_line,
+                                                   cont_prompt);
+                }
+            } else {
+                break;
+            }
+        }
+        
+        continuation_state_cleanup(&cont_state);
+    }
+    
     size_t cursor_byte_offset = cmd_layer->cursor_position;
     screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
 
@@ -253,9 +356,49 @@ static layer_events_error_t dc_handle_redraw_needed(
      * This clears only the command area, never touches the prompt */
     write(STDOUT_FILENO, "\033[J", 3);
     
-    /* Step 4: Write command text */
+    /* Step 4: Write command text with continuation prompts
+     * 
+     * For multiline input, we need to insert continuation prompts after each newline.
+     * This ensures the visual display matches the cursor position calculations done
+     * by screen_buffer_render() which accounts for continuation prompt widths.
+     */
     if (command_buffer[0]) {
-        write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
+        if (is_multiline) {
+            /* Write command text line by line with continuation prompts */
+            const char *line = command_buffer;
+            int line_num = 0;
+            
+            while (*line) {
+                const char *nl = strchr(line, '\n');
+                
+                if (nl) {
+                    /* Write line up to newline */
+                    write(STDOUT_FILENO, line, nl - line);
+                    write(STDOUT_FILENO, "\n", 1);
+                    
+                    line_num++;
+                    line = nl + 1;
+                    
+                    /* Write continuation prompt for next line (if there's more content) */
+                    if (*line) {
+                        const char *cont_prompt = screen_buffer_get_line_prefix(
+                            &desired_screen, 
+                            desired_screen.command_start_row + line_num
+                        );
+                        if (cont_prompt) {
+                            write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
+                        }
+                    }
+                } else {
+                    /* Last line - write remaining content */
+                    write(STDOUT_FILENO, line, strlen(line));
+                    break;
+                }
+            }
+        } else {
+            /* Single-line input - write directly */
+            write(STDOUT_FILENO, command_buffer, strlen(command_buffer));
+        }
     }
     
     /* Step 5: Position cursor at the correct location
