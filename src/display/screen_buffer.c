@@ -20,6 +20,7 @@
 
 #include "display/screen_buffer.h"
 #include "lle/utf8_support.h"
+#include "lle/unicode_grapheme.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -852,9 +853,10 @@ size_t screen_buffer_calculate_visual_width(const char *text, size_t start_col) 
     size_t visual_width = 0;
     size_t col = start_col;
     size_t i = 0;
+    size_t text_len = strlen(text);
     bool in_escape = false;
     
-    while (text[i]) {
+    while (i < text_len) {
         unsigned char ch = (unsigned char)text[i];
         
         // Handle ANSI escape sequences (they take 0 columns)
@@ -889,32 +891,67 @@ size_t screen_buffer_calculate_visual_width(const char *text, size_t start_col) 
             continue;
         }
         
-        // Handle UTF-8 multi-byte sequences
-        if ((ch & 0x80) == 0) {
-            // ASCII: 1 byte, 1 column
-            visual_width++;
-            col++;
-            i++;
-        } else if ((ch & 0xE0) == 0xC0) {
-            // 2-byte UTF-8
-            visual_width++;
-            col++;
-            i += 2;
-        } else if ((ch & 0xF0) == 0xE0) {
-            // 3-byte UTF-8 - check if wide character
-            // For now, assume 1 column (proper impl would use wcwidth)
-            visual_width++;
-            col++;
-            i += 3;
-        } else if ((ch & 0xF8) == 0xF0) {
-            // 4-byte UTF-8
-            visual_width++;
-            col++;
-            i += 4;
-        } else {
-            // Invalid UTF-8, skip
-            i++;
+        /* GRAPHEME-AWARE WIDTH CALCULATION
+         * 
+         * Use LLE's full Unicode TR#29 grapheme cluster detection to properly
+         * handle complex characters in continuation prompts:
+         * - Emoji with modifiers (👨‍👩‍👧‍👦 = family emoji)
+         * - ZWJ sequences (🏳️‍🌈 = rainbow flag)
+         * - Regional indicator pairs (🇺🇸 = US flag)
+         * - Combining marks (é = e + combining acute)
+         * - CJK characters (中文 = 2 columns each)
+         * - Emoji (🎉 = 2 columns)
+         * 
+         * This allows users to configure continuation prompts with any Unicode:
+         *   CONTINUATION_PROMPTS=([loop]="🔄 " [if]="❓ " [quote]="💬 ")
+         */
+        
+        // Find the end of this grapheme cluster
+        const char *grapheme_start = text + i;
+        const char *grapheme_end = grapheme_start;
+        
+        // Scan forward by UTF-8 characters until we hit a grapheme boundary
+        do {
+            // Advance to next UTF-8 character
+            int char_len = lle_utf8_sequence_length((unsigned char)*grapheme_end);
+            if (char_len <= 0 || grapheme_end + char_len > text + text_len) {
+                // Invalid UTF-8 or end of string - treat as single byte
+                grapheme_end++;
+                break;
+            }
+            grapheme_end += char_len;
+            
+            // Check if this is a grapheme boundary
+            if (grapheme_end >= text + text_len || 
+                lle_is_grapheme_boundary(grapheme_end, text, text + text_len)) {
+                break;
+            }
+        } while (grapheme_end < text + text_len);
+        
+        size_t grapheme_bytes = grapheme_end - grapheme_start;
+        
+        // Calculate visual width of this grapheme cluster
+        // Decode base codepoint (determines width of entire cluster)
+        uint32_t base_codepoint = 0;
+        int decode_result = lle_utf8_decode_codepoint(grapheme_start, 
+                                                       grapheme_bytes, 
+                                                       &base_codepoint);
+        
+        int char_width = 1;  // Default to 1 column
+        if (decode_result > 0 && base_codepoint >= 32) {
+            // Use LLE's wcwidth implementation for proper width
+            char_width = lle_utf8_codepoint_width(base_codepoint);
+            if (char_width < 0) {
+                char_width = 1;  // Control characters default to 1
+            }
         }
+        
+        // Add width of this grapheme cluster
+        visual_width += char_width;
+        col += char_width;
+        
+        // Move to next grapheme cluster
+        i += grapheme_bytes;
     }
     
     return visual_width;
