@@ -3,12 +3,12 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-15  
 **Branch**: feature/lle  
-**Status**: ✅ **ALT-ENTER LITERAL NEWLINE + MULTILINE ENTER BUG FIXED + ALL GROUPS 1-6**  
-**Last Action**: Session 15 (continued) - Alt-Enter literal newline enhancement added  
-**Current State**: All keybinding groups complete, multiline editing enhanced, full UTF-8 support  
-**Work Done**: Added Alt-Enter for literal newline insertion; fixed multiline ENTER display bug  
-**Test Results**: Alt-Enter works correctly; ENTER bug fixed with no regressions  
-**Next**: Address remaining known issues (pipe continuation, break statement)  
+**Status**: ✅ **BREAK/CONTINUE FIXED + ALT-ENTER + ALL GROUPS 1-6**  
+**Last Action**: Session 16 - Fixed critical break/continue bug in all loop types  
+**Current State**: Core shell loops working, all keybinding groups complete, full UTF-8 support  
+**Work Done**: Fixed break/continue in while/for/until loops (HIGH priority bug)  
+**Test Results**: All loop types work correctly with break and continue  
+**Next**: Address remaining known issue (pipe continuation parser bug)  
 **Documentation**: See docs/lle_implementation/ for detailed documentation  
 **Production Status**: ✅ All implemented features production ready
 
@@ -43,12 +43,75 @@
 
 See `docs/lle_implementation/tracking/KNOWN_ISSUES.md` for complete tracking:
 - ✅ Issue #1: Multiline ENTER display bug - **FIXED** (Session 15)
-- Issue #2: Shell `break` statement broken (HIGH - pre-existing, not LLE)
+- ✅ Issue #2: Shell `break` statement broken - **FIXED** (Session 16)
 - Issue #3: Pipe continuation partially fixed (continuation works, parser broken)
 
 ---
 
 ## 📋 IMPLEMENTATION STATUS DETAILS
+
+### Break/Continue Loop Control Fix (Session 16)
+
+**Status**: ✅ COMPLETE - Critical shell bug fixed
+
+**Problem**: The `break` and `continue` statements did not work in any loop type (`while`, `for`, `until`). Error message "not currently in a loop" was displayed and loops continued executing.
+
+**Severity**: HIGH - Core shell functionality broken, scripts using break/continue would fail
+
+**Root Causes Identified**:
+1. **`loop_depth` never incremented**: Loop execution functions never incremented `executor->loop_depth`, so `bin_break` and `bin_continue` always saw `loop_depth <= 0` and reported "not currently in a loop"
+
+2. **`loop_control` never checked**: Even when builtins set `executor->loop_control`, loop functions never checked this state to actually break/continue
+
+3. **Command chains/lists didn't stop**: `execute_command_chain` and `execute_command_list` continued executing remaining commands even when `loop_control` was set
+
+**Fix Applied** (src/executor.c):
+
+Modified 5 functions:
+
+1. **`execute_while`** (lines 1161-1211):
+   - Added `executor->loop_depth++` before loop
+   - Added loop_control check after executing body (break on LOOP_BREAK, continue on LOOP_CONTINUE)
+   - Added `executor->loop_depth--` before returning
+
+2. **`execute_for`** (lines 1268-1451):
+   - Added `executor->loop_depth++` after debug setup
+   - Added loop_control check in iteration loop
+   - Added `executor->loop_depth--` before cleanup
+
+3. **`execute_until`** (lines 1217-1275):
+   - Added `executor->loop_depth++` before loop
+   - Added loop_control check after executing body
+   - Added `executor->loop_depth--` before returning
+
+4. **`execute_command_chain`** (lines 1070-1074):
+   - Added check: if `loop_control != LOOP_NORMAL`, return immediately
+   - Prevents executing commands after break/continue
+
+5. **`execute_command_list`** (lines 513-517):
+   - Added check: if `loop_control != LOOP_NORMAL`, return immediately
+   - Prevents executing commands after break/continue in command lists
+
+**Testing Results**:
+- ✅ `break` works in `while` loops (tested: breaks at iteration 3 of 10)
+- ✅ `break` works in `for` loops (tested: breaks at i=3 of 1-5)
+- ✅ `break` works in `until` loops (tested: breaks at counter=3)
+- ✅ `continue` works in `while` loops (tested: skips iteration 3)
+- ✅ `continue` works in `for` loops (tested: skips i=3)
+- ✅ `continue` works in `until` loops (tested: skips counter=3)
+- ✅ Break/continue in nested structures (if blocks, command chains)
+
+**Files Modified**:
+- `src/executor.c` - All loop execution functions and command chain/list executors
+
+**Impact**:
+- Core shell functionality restored
+- Scripts using `break` and `continue` now work correctly
+- No regressions detected in loop behavior
+
+**Note**: This was a shell interpreter bug (not LLE-related), but fixed in feature/lle branch as pragmatic decision since active work is happening here.
+
+---
 
 ### Alt-Enter Literal Newline Enhancement (Session 15)
 

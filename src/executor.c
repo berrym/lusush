@@ -509,6 +509,11 @@ static int execute_command_list(executor_t *executor, node_t *list) {
 
         last_result = execute_node(executor, current);
 
+        // Check for loop control (break/continue) - stop executing list
+        if (executor->loop_control != LOOP_NORMAL) {
+            return last_result;
+        }
+
         // Flush stdout to prevent pipeline from picking up residual output
         fflush(stdout);
 
@@ -1068,6 +1073,11 @@ static int execute_command_chain(executor_t *executor, node_t *first_command) {
     while (current) {
         last_result = execute_node(executor, current);
 
+        // Check for loop control (break/continue) - stop executing chain
+        if (executor->loop_control != LOOP_NORMAL) {
+            return last_result;
+        }
+
         // Handle set -e (exit_on_error): exit if command failed and not part of
         // conditional
         if (shell_opts.exit_on_error && last_result != 0) {
@@ -1157,7 +1167,8 @@ static int execute_while(executor_t *executor, node_t *while_node) {
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
 
-
+    // Increment loop depth - enables break/continue builtins
+    executor->loop_depth++;
 
     while (iteration < max_iterations) {
         // Execute condition
@@ -1176,8 +1187,20 @@ static int execute_while(executor_t *executor, node_t *while_node) {
         // Execute body
         last_result = execute_command_chain(executor, body);
 
+        // Check for break/continue
+        if (executor->loop_control == LOOP_BREAK) {
+            executor->loop_control = LOOP_NORMAL;
+            break;
+        } else if (executor->loop_control == LOOP_CONTINUE) {
+            executor->loop_control = LOOP_NORMAL;
+            // Continue to next iteration (just reset and loop again)
+        }
+
         iteration++;
     }
+
+    // Decrement loop depth before returning
+    executor->loop_depth--;
 
     if (iteration >= max_iterations) {
         set_executor_error(executor, "While loop exceeded maximum iterations");
@@ -1208,7 +1231,8 @@ static int execute_until(executor_t *executor, node_t *until_node) {
     int iteration = 0;
     const int max_iterations = 10000; // Safety limit
 
-
+    // Increment loop depth - enables break/continue builtins
+    executor->loop_depth++;
 
     while (iteration < max_iterations) {
         // Execute condition
@@ -1228,8 +1252,20 @@ static int execute_until(executor_t *executor, node_t *until_node) {
         // Execute body
         last_result = execute_command_chain(executor, body);
 
+        // Check for break/continue
+        if (executor->loop_control == LOOP_BREAK) {
+            executor->loop_control = LOOP_NORMAL;
+            break;
+        } else if (executor->loop_control == LOOP_CONTINUE) {
+            executor->loop_control = LOOP_NORMAL;
+            // Continue to next iteration
+        }
+
         iteration++;
     }
+
+    // Decrement loop depth before returning
+    executor->loop_depth--;
 
     if (iteration >= max_iterations) {
         set_executor_error(executor, "Until loop exceeded maximum iterations");
@@ -1274,6 +1310,9 @@ static int execute_for(executor_t *executor, node_t *for_node) {
     if (g_debug_context && g_debug_context->enabled) {
         debug_enter_loop(g_debug_context, "for", var_name, NULL);
     }
+
+    // Increment loop depth - enables break/continue builtins
+    executor->loop_depth++;
 
     int last_result = 0;
 
@@ -1392,6 +1431,15 @@ static int execute_for(executor_t *executor, node_t *for_node) {
 
             // Execute body
             last_result = execute_command_chain(executor, body);
+
+            // Check for break/continue
+            if (executor->loop_control == LOOP_BREAK) {
+                executor->loop_control = LOOP_NORMAL;
+                break;
+            } else if (executor->loop_control == LOOP_CONTINUE) {
+                executor->loop_control = LOOP_NORMAL;
+                // Continue to next iteration
+            }
         }
     }
 
@@ -1406,7 +1454,8 @@ static int execute_for(executor_t *executor, node_t *for_node) {
         debug_exit_loop(g_debug_context);
     }
 
-
+    // Decrement loop depth before returning
+    executor->loop_depth--;
 
     // Pop loop scope
     symtable_pop_scope(executor->symtable);

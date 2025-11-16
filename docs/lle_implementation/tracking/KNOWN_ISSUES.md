@@ -10,12 +10,13 @@
 
 **Current State**: Active development with keybinding manager migration complete
 
-- ⚠️ **1 Active Issue** (v1.3.0 regressions)
+- ⚠️ **1 Active Issue** (pipe continuation parser bug)
 - ✅ **No Blockers** (all issues are non-critical)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
 - ✅ **Multiline ENTER display bug fixed** (Session 15)
+- ✅ **break/continue in loops fixed** (Session 16)
 
 ---
 
@@ -75,13 +76,14 @@ This fix follows LLE design principles:
 
 ---
 
-### Issue #2: break Statement Inside Loops Broken
+### Issue #2: break Statement Inside Loops Broken ✅ FIXED
 **Severity**: HIGH  
 **Discovered**: Pre-2025-11-14 (existed in v1.3.0, recently discovered)  
+**Fixed**: 2025-11-15 (Session 16)
 **Component**: Shell interpreter / loop execution  
 
 **Description**:
-The `break` statement does not work correctly inside `for`, `while`, or `until` loops. Instead of breaking out of the loop, it causes unexpected behavior.
+The `break` and `continue` statements did not work inside `for`, `while`, or `until` loops. Error message "not currently in a loop" was displayed and loops continued executing.
 
 **Reproduction**:
 ```bash
@@ -92,21 +94,40 @@ for i in 1 2 3 4 5; do
     fi
 done
 # Expected: Prints 1, 2, 3 then stops
-# Actual: Unknown (needs testing to document exact behavior)
+# Actual (before fix): Printed "break: not currently in a loop", continued to 5
 ```
 
-**Root Cause**: Unknown - likely in loop control flow implementation in shell interpreter
+**Root Causes Identified**:
+1. **`loop_depth` never incremented**: Loop functions (`execute_while`, `execute_for`, `execute_until`) never incremented/decremented `executor->loop_depth`, so `bin_break` and `bin_continue` always saw `loop_depth <= 0`
 
-**Impact**:
-- Core shell functionality broken
-- Scripts using `break` will fail
-- Pre-existed in v1.3.0 (not a regression from LLE work)
+2. **`loop_control` never checked**: Loop functions never checked `executor->loop_control` state after executing loop body
 
-**Priority**: HIGH (core feature broken)  
-**Workaround**: Avoid using `break`, use conditionals to skip loop body  
-**Resolution Plan**: Investigate shell interpreter loop control flow  
-**Assigned**: Not assigned  
-**Note**: This is a shell interpreter bug, not an LLE bug
+3. **Command chains/lists didn't stop**: `execute_command_chain` and `execute_command_list` continued executing remaining commands even when `loop_control` was set
+
+**Fix Applied**:
+Modified 5 functions in `src/executor.c`:
+
+1. **`execute_while`**: Added loop_depth increment/decrement, loop_control checking
+2. **`execute_for`**: Added loop_depth increment/decrement, loop_control checking  
+3. **`execute_until`**: Added loop_depth increment/decrement, loop_control checking
+4. **`execute_command_chain`**: Added loop_control check after each command
+5. **`execute_command_list`**: Added loop_control check after each command
+
+**Verification**:
+- ✅ `break` works in `while` loops
+- ✅ `break` works in `for` loops
+- ✅ `break` works in `until` loops
+- ✅ `continue` works in `while` loops
+- ✅ `continue` works in `for` loops
+- ✅ `continue` works in `until` loops
+- ✅ Break/continue in nested command structures (if blocks, command chains)
+
+**Files Modified**:
+- `src/executor.c` (execute_while, execute_for, execute_until, execute_command_chain, execute_command_list)
+
+**Status**: ✅ FIXED AND VERIFIED
+
+**Note**: This was a core shell interpreter bug, not an LLE bug. Fixed in feature/lle branch as pragmatic decision.
 
 ---
 
