@@ -51,6 +51,7 @@
 #include "display_integration.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
+#include "alias.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +60,8 @@
 #include <errno.h>
 #include <ctype.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <limits.h>
 
 // ============================================================================
 // CONSTANTS AND INTERNAL CONFIGURATION
@@ -131,6 +134,7 @@ static void expire_old_cache_entries(command_layer_t *layer);
 static void init_token_parser(token_parser_t *parser, const char *text);
 static command_token_type_t get_next_token(token_parser_t *parser, size_t *token_start, size_t *token_length);
 static command_token_type_t classify_token(const char *token, size_t length, bool is_first_token);
+static bool command_exists_in_path(const char *command);
 static bool is_shell_keyword(const char *token, size_t length);
 static bool is_shell_builtin(const char *token, size_t length);
 static const char *get_token_color(command_layer_t *layer, command_token_type_t token_type);
@@ -793,9 +797,33 @@ static command_token_type_t classify_token(const char *token, size_t length, boo
         return COMMAND_TOKEN_KEYWORD;
     }
     
-    // If it's the first token, it's likely a command
+    // If it's the first token, validate it's a real command
     if (is_first_token) {
-        return COMMAND_TOKEN_COMMAND;
+        // Check if it's a builtin command first (most common)
+        if (is_shell_builtin(token, length)) {
+            return COMMAND_TOKEN_COMMAND;
+        }
+        
+        // Check if command exists in PATH
+        // Create null-terminated string for validation
+        char command_name[MAX_TOKEN_SIZE];
+        size_t copy_len = (length < sizeof(command_name) - 1) ? length : sizeof(command_name) - 1;
+        strncpy(command_name, token, copy_len);
+        command_name[copy_len] = '\0';
+        
+        // Check if it's an alias
+        // NOTE: lookup_alias returns internal hash table pointer - do NOT free
+        if (lookup_alias(command_name) != NULL) {
+            return COMMAND_TOKEN_COMMAND;
+        }
+        
+        // Check if executable exists in PATH
+        if (command_exists_in_path(command_name)) {
+            return COMMAND_TOKEN_COMMAND;
+        }
+        
+        // Command doesn't exist - mark as error
+        return COMMAND_TOKEN_ERROR;
     }
     
     // Check if it looks like a path
@@ -805,6 +833,52 @@ static command_token_type_t classify_token(const char *token, size_t length, boo
     }
     
     return COMMAND_TOKEN_ARGUMENT;
+}
+
+/**
+ * Check if a command exists in PATH
+ * Returns true if the command is an executable file in any PATH directory
+ */
+static bool command_exists_in_path(const char *command) {
+    if (!command || !*command) {
+        return false;
+    }
+    
+    // Get PATH environment variable
+    const char *path_env = getenv("PATH");
+    if (!path_env) {
+        return false;
+    }
+    
+    // Make a copy of PATH since strtok modifies the string
+    char *path_copy = strdup(path_env);
+    if (!path_copy) {
+        return false;
+    }
+    
+    bool found = false;
+    char *path_dir = strtok(path_copy, ":");
+    
+    while (path_dir && !found) {
+        // Build full path: dir/command
+        char full_path[PATH_MAX];
+        int ret = snprintf(full_path, sizeof(full_path), "%s/%s", path_dir, command);
+        
+        if (ret > 0 && (size_t)ret < sizeof(full_path)) {
+            // Check if file exists and is executable
+            struct stat st;
+            if (stat(full_path, &st) == 0 && 
+                S_ISREG(st.st_mode) && 
+                (st.st_mode & S_IXUSR)) {
+                found = true;
+            }
+        }
+        
+        path_dir = strtok(NULL, ":");
+    }
+    
+    free(path_copy);
+    return found;
 }
 
 static bool is_shell_keyword(const char *token, size_t length) {
@@ -1420,7 +1494,7 @@ command_layer_error_t command_layer_create_default_colors(command_color_scheme_t
     safe_string_copy(color_scheme->path_color, "\033[0;32m", sizeof(color_scheme->path_color));           // Green
     safe_string_copy(color_scheme->number_color, "\033[1;37m", sizeof(color_scheme->number_color));       // Bright white
     safe_string_copy(color_scheme->comment_color, "\033[0;90m", sizeof(color_scheme->comment_color));     // Dark gray
-    safe_string_copy(color_scheme->error_color, "\033[1;41m", sizeof(color_scheme->error_color));         // Red background
+    safe_string_copy(color_scheme->error_color, "\033[1;31m", sizeof(color_scheme->error_color));         // Bright red foreground
     safe_string_copy(color_scheme->reset_color, "\033[0m", sizeof(color_scheme->reset_color));            // Reset
     
     return COMMAND_LAYER_SUCCESS;
