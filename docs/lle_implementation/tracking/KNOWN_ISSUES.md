@@ -8,24 +8,134 @@
 
 ## Executive Summary
 
-**Current State**: Active development with keybinding manager migration complete
+**Current State**: Active development with continuation prompts complete, syntax highlighting issues identified
 
-- ✅ **No Active Issues** - All known bugs fixed!
-- ✅ **No Blockers** (all issues resolved)
+- ⚠️ **3 Active Issues** - Syntax highlighting bugs (2 MEDIUM, 1 LOW)
+- ✅ **No Blockers** (all issues are non-critical)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
 - ✅ **Multiline ENTER display bug fixed** (Session 15)
 - ✅ **break/continue in loops fixed** (Session 16)
 - ✅ **Multiline pipeline execution fixed** (Session 16)
+- ✅ **Continuation prompts with full Unicode support** (Session 17-18)
 
 ---
 
 ## Active Issues
 
-**None** - All known issues have been resolved!
+### Issue #4: Invalid Commands Highlighted as Valid (Green)
+**Severity**: MEDIUM  
+**Discovered**: 2025-11-16 (Session 18+)  
+**Status**: Not yet fixed  
+**Component**: Syntax highlighting / command validation  
 
-See "Resolved Issues" section below for details on fixes.
+**Description**:
+The first word of a command prompt always gets highlighted green (valid command color), even when the command doesn't exist or is invalid. Green highlighting should only appear for:
+- Valid executable commands (in PATH)
+- Valid builtins
+- Valid aliases/functions
+- Partial input matching valid commands that can be completed
+
+**Reproduction**:
+```bash
+$ ehello
+  ^^^^^^ - highlighted green but "ehello" is not a valid command
+```
+
+**Expected Behavior**:
+- Valid commands: Green highlighting
+- Invalid commands: Red highlighting (or no highlighting)
+- Partial matches during typing: Green if completable, red if invalid
+
+**Impact**: 
+- Misleading visual feedback to users
+- Cannot distinguish valid from invalid commands
+- Reduces usefulness of syntax highlighting
+
+**Priority**: MEDIUM (cosmetic but impacts usability)
+
+---
+
+### Issue #5: Multiline Input - Builtins Not Highlighted
+**Severity**: MEDIUM  
+**Discovered**: 2025-11-16 (Session 18+)  
+**Status**: Not yet fixed  
+**Component**: Syntax highlighting / multiline command processing  
+
+**Description**:
+In multiline input, builtin commands are not getting syntax highlighting. Single-line commands highlight correctly, but the same commands in multiline constructs (if/while/for blocks) don't get highlighted.
+
+**Reproduction**:
+```bash
+$ if true; then
+if> echo done
+     ^^^^ - "echo" not highlighted (should be green as builtin)
+if> fi
+```
+
+**Expected Behavior**:
+Builtin commands like `echo`, `cd`, `export`, etc. should be highlighted green regardless of whether they appear in single-line or multiline input.
+
+**Root Cause** (suspected):
+- Syntax highlighter may only process first line
+- Continuation prompt lines may not be passed through highlighter
+- Multiline parsing may strip highlighting information
+
+**Impact**:
+- Inconsistent user experience between single-line and multiline
+- Reduced readability of complex multiline commands
+- Makes multiline editing harder to validate visually
+
+**Priority**: MEDIUM (affects multiline editing UX)
+
+---
+
+### Issue #6: Continuation Prompt Incorrectly Highlighted in Quotes
+**Severity**: LOW  
+**Discovered**: 2025-11-16 (Session 18+)  
+**Status**: Not yet fixed  
+**Component**: Syntax highlighting / continuation prompt rendering  
+
+**Description**:
+When a quoted string spans multiple lines (open quote with continuation), the continuation prompt itself gets highlighted with the quote color (yellow), not just the content after the prompt.
+
+**Reproduction**:
+```bash
+$ echo "hello
+quote> world"
+^^^^^^ - continuation prompt "quote> " incorrectly highlighted yellow
+```
+
+**Expected Behavior**:
+- Continuation prompt: Normal prompt color (not highlighted)
+- Content after prompt: Quoted string color (yellow)
+
+**Visual Example**:
+```
+Current (incorrect):
+$ echo "hello
+quote> world"
+└─────────────┘ all yellow including "quote> "
+
+Expected (correct):
+$ echo "hello
+quote> world"
+       └─────┘ only content highlighted yellow
+```
+
+**Root Cause** (suspected):
+- Syntax highlighter doesn't distinguish continuation prompt from command content
+- Highlighting applied to entire line including prompt prefix
+- Prompt prefixes not excluded from highlighting scope
+
+**Impact**:
+- Minor visual inconsistency
+- Continuation prompt less readable when inside quotes
+
+**Priority**: LOW (cosmetic, doesn't affect functionality)
+
+---
 
 ---
 
@@ -341,13 +451,14 @@ To prevent future issues:
 
 **Active Issues**: 3  
 **Blockers**: 0  
-**High Priority**: 1 (break statement)  
-**Medium Priority**: 2 (multiline display, pipe continuation)  
-**Implementation Status**: Groups 1-6 complete, Meta/Alt working  
-**Next Action**: Continue development, address issues when prioritized
+**High Priority**: 0  
+**Medium Priority**: 2 (Issues #4, #5 - syntax highlighting)  
+**Low Priority**: 1 (Issue #6 - continuation prompt highlighting)  
+**Implementation Status**: Continuation prompts complete with full Unicode support  
+**Next Action**: Fix syntax highlighting bugs or implement autosuggestions
 
 ---
 
-**Last Updated**: 2025-11-15  
+**Last Updated**: 2025-11-16  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
