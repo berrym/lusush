@@ -8,9 +8,10 @@
 
 ## Executive Summary
 
-**Current State**: Active development with continuation prompts complete, syntax highlighting issues identified
+**Current State**: Active development with continuation prompts complete, partial syntax highlighting fixes
 
-- ⚠️ **3 Active Issues** - Syntax highlighting bugs (2 MEDIUM, 1 LOW)
+- ⚠️ **2 Active Issues** - Syntax highlighting bugs (2 MEDIUM)
+- ✅ **1 Issue Fixed** - Invalid command highlighting (Issue #4)
 - ✅ **No Blockers** (all issues are non-critical)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
@@ -24,10 +25,10 @@
 
 ## Active Issues
 
-### Issue #4: Invalid Commands Highlighted as Valid (Green)
+### Issue #4: Invalid Commands Highlighted as Valid (Green) ✅ FIXED
 **Severity**: MEDIUM  
 **Discovered**: 2025-11-16 (Session 18+)  
-**Status**: Not yet fixed  
+**Fixed**: 2025-11-16 (Session 18+)
 **Component**: Syntax highlighting / command validation  
 
 **Description**:
@@ -45,15 +46,22 @@ $ ehello
 
 **Expected Behavior**:
 - Valid commands: Green highlighting
-- Invalid commands: Red highlighting (or no highlighting)
+- Invalid commands: Red highlighting (not red background)
 - Partial matches during typing: Green if completable, red if invalid
 
-**Impact**: 
-- Misleading visual feedback to users
-- Cannot distinguish valid from invalid commands
-- Reduces usefulness of syntax highlighting
+**Fix Applied** (commit 04fde1f):
+- Added `command_exists_in_path()` to check PATH for executables
+- Modified `classify_token()` to validate commands using:
+  - `is_shell_builtin()` for builtins (e.g., echo, cd)
+  - `lookup_alias()` for aliases (fixed double-free bug)
+  - `command_exists_in_path()` for PATH executables
+- Returns `COMMAND_TOKEN_ERROR` for invalid commands
+- Changed error_color from red background to red foreground
 
-**Priority**: MEDIUM (cosmetic but impacts usability)
+**Status**: ✅ FIXED AND VERIFIED
+- Invalid commands now show as red text
+- Valid builtins/aliases/PATH commands show as green
+- No crashes when typing aliases
 
 ---
 
@@ -449,13 +457,14 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 3  
+**Active Issues**: 2  
 **Blockers**: 0  
 **High Priority**: 0  
-**Medium Priority**: 2 (Issues #4, #5 - syntax highlighting)  
-**Low Priority**: 1 (Issue #6 - continuation prompt highlighting)  
+**Medium Priority**: 2 (Issues #5, #6 - syntax highlighting)  
+**Low Priority**: 0  
+**Fixed This Session**: 1 (Issue #4)
 **Implementation Status**: Continuation prompts complete with full Unicode support  
-**Next Action**: Fix syntax highlighting bugs or implement autosuggestions
+**Next Action**: Address remaining syntax highlighting issues (requires deeper analysis)
 
 ---
 
