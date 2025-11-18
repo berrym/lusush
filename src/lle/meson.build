@@ -424,6 +424,11 @@ endif
 # Spec 12: Completion System
 # Provides: Command/path completion, completion menu
 # Depends on: Spec 16, 15, 14, 17, 03, 05
+# Phase 1: Type Classification System
+if fs.exists('completion/completion_types.c')
+  lle_sources += files('completion/completion_types.c')
+endif
+# Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'
 endif

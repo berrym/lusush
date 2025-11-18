@@ -763,6 +763,19 @@ endif
          timeout: 30)
   endif
 
+  # Completion Types Unit Tests (Spec 12 Phase 1)
+  # Tests type classification, item/result management, sorting
+  if fs.exists('tests/lle/unit/test_completion_types.c')
+    test_completion_types = executable('test_completion_types',
+                                       'tests/lle/unit/test_completion_types.c',
+                                       include_directories: inc,
+                                       link_with: lle_lib,
+                                       dependencies: [ncurses_dep])
+    test('LLE Completion Types', test_completion_types,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
   # UTF-8 Movement Functions Test
   # Tests cursor_manager integration for UTF-8 character movement
   # Tests: lle_forward_char, lle_backward_char, lle_forward_word, lle_backward_word
