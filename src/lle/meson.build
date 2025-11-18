@@ -432,6 +432,10 @@ endif
 if fs.exists('completion/completion_sources.c')
   lle_sources += files('completion/completion_sources.c')
 endif
+# Phase 3: Completion Generator (Orchestration and Context Analysis)
+if fs.exists('completion/completion_generator.c')
+  lle_sources += files('completion/completion_generator.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'
