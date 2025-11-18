@@ -428,6 +428,10 @@ endif
 if fs.exists('completion/completion_types.c')
   lle_sources += files('completion/completion_types.c')
 endif
+# Phase 2: Completion Sources (Shell Data Adapters)
+if fs.exists('completion/completion_sources.c')
+  lle_sources += files('completion/completion_sources.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'
