@@ -320,10 +320,18 @@ if fs.exists('input_parser_error_recovery.c')
 endif
 
 # Spec 07: Extensibility Framework
-# Provides: Plugin system, widget hooks, extension API
+# Provides: Widget system, widget hooks, plugin API
 # Depends on: Spec 16, 15, 14, 17, 04
-if fs.exists('src/lle/extensibility.c')
-  lle_sources += 'extensibility.c'
+# Phase 1: Widget Registry and Hooks Manager
+if fs.exists('widget_system.c')
+  lle_sources += files('widget_system.c')
+endif
+if fs.exists('widget_hooks.c')
+  lle_sources += files('widget_hooks.c')
+endif
+# Phase 2: Full extensibility framework (future)
+if fs.exists('extensibility.c')
+  lle_sources += files('extensibility.c')
 endif
 
 # ============================================================================

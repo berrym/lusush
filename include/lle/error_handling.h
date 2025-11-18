@@ -114,6 +114,8 @@ typedef enum {
     LLE_ERROR_THROTTLING_ACTIVE,              /**< Resource throttling active */
     LLE_ERROR_MONITORING_FAILURE,             /**< Performance monitoring failure */
     LLE_ERROR_OPTIMIZATION_FAILED,            /**< Optimization attempt failed */
+    LLE_ERROR_ALREADY_EXISTS,                 /**< Item already exists */
+    LLE_ERROR_DISABLED,                       /**< Feature/widget is disabled */
     
     /* Critical system errors (1600-1699) */
     LLE_ERROR_INITIALIZATION_FAILED = 1600,   /**< System initialization failed */

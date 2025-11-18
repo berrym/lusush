@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 /* Mock memory pool type */
 typedef struct lusush_memory_pool_system_t {
@@ -51,5 +52,22 @@ lusush_memory_pool_config_t* lusush_pool_get_default_config(void) {
 int lusush_pool_init(lusush_memory_pool_t *pool, lusush_memory_pool_config_t *config) {
     (void)pool;
     (void)config;
+    return 0;
+}
+
+/* LLE memory pool API */
+typedef lusush_memory_pool_t lle_memory_pool_t;
+
+lle_memory_pool_t* lle_pool_create(void) {
+    return &global_pool_instance;
+}
+
+void lle_pool_destroy(lle_memory_pool_t *pool) {
+    (void)pool;
+}
+
+int lle_pool_init(lle_memory_pool_t **pool, size_t size) {
+    (void)size;
+    *pool = &global_pool_instance;
     return 0;
 }

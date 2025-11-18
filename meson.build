@@ -737,6 +737,32 @@ endif
          timeout: 30)
   endif
 
+  # Widget System Unit Tests (Spec 07)
+  # Tests widget registry: init, register, lookup, execute, unregister, enable/disable
+  if fs.exists('tests/lle/unit/test_widget_system.c')
+    test_widget_system = executable('test_widget_system',
+                                    ['tests/lle/unit/test_widget_system.c',
+                                     'tests/lle/functional/test_memory_mock.c'],
+                                    include_directories: inc,
+                                    dependencies: [lle_dep])
+    test('LLE Widget System', test_widget_system,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
+  # Widget Hooks Manager Unit Tests (Spec 07)
+  # Tests hooks manager: register, unregister, trigger, enable/disable, hook types
+  if fs.exists('tests/lle/unit/test_widget_hooks.c')
+    test_widget_hooks = executable('test_widget_hooks',
+                                   ['tests/lle/unit/test_widget_hooks.c',
+                                    'tests/lle/functional/test_memory_mock.c'],
+                                   include_directories: inc,
+                                   dependencies: [lle_dep])
+    test('LLE Widget Hooks Manager', test_widget_hooks,
+         suite: 'lle-unit',
+         timeout: 30)
+  endif
+
   # UTF-8 Movement Functions Test
   # Tests cursor_manager integration for UTF-8 character movement
   # Tests: lle_forward_char, lle_backward_char, lle_forward_word, lle_backward_word
