@@ -436,6 +436,13 @@ endif
 if fs.exists('completion/completion_generator.c')
   lle_sources += files('completion/completion_generator.c')
 endif
+# Phase 4: Completion Menu (State and Navigation Logic)
+if fs.exists('completion/completion_menu_state.c')
+  lle_sources += files('completion/completion_menu_state.c')
+endif
+if fs.exists('completion/completion_menu_logic.c')
+  lle_sources += files('completion/completion_menu_logic.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'

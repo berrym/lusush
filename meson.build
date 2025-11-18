@@ -654,6 +654,20 @@ endif
          timeout: 60)
   endif
 
+  # Completion System Compliance Tests (Spec 12)
+  # Validates compliance with Spec 12 requirements
+  if fs.exists('tests/lle/compliance/spec_12_completion_compliance.c')
+    test_completion_compliance = executable('spec_12_compliance',
+                                           ['tests/lle/compliance/spec_12_completion_compliance.c',
+                                            'tests/lle/functional/test_memory_mock.c',
+                                            'tests/lle/functional/test_completion_mock.c'],
+                                           include_directories: inc,
+                                           dependencies: [lle_dep])
+    test('Spec 12 Completion Compliance', test_completion_compliance,
+         suite: 'lle-compliance',
+         timeout: 60)
+  endif
+
   # Validates compliance with Spec 22 requirements
   if fs.exists('tests/lle/compliance/spec_22_history_buffer_compliance.c')
     test_spec22_compliance = executable('spec_22_compliance',
