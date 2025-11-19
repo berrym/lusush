@@ -13,7 +13,7 @@
  * - Phase 2: Completion Sources (completion_sources)
  * - Phase 3: Completion Generator (completion_generator)
  * - Phase 4: Menu State and Logic (completion_menu_state, completion_menu_logic)
- * - Phase 5: Display Integration (future)
+ * - Phase 5.1: Menu Renderer (completion_menu_renderer)
  */
 
 #include "lle/completion/completion_types.h"
@@ -21,6 +21,7 @@
 #include "lle/completion/completion_generator.h"
 #include "lle/completion/completion_menu_state.h"
 #include "lle/completion/completion_menu_logic.h"
+#include "lle/completion/completion_menu_renderer.h"
 #include "lle/error_handling.h"
 #include <stdio.h>
 #include <string.h>
@@ -283,6 +284,84 @@ void test_phase4_api_functions(void) {
 }
 
 /**
+ * @brief Test: Verify Phase 5.1 renderer structures exist
+ */
+void test_renderer_structures(void) {
+    printf("[ TEST ] Phase 5.1 renderer structures\n");
+    
+    /* Verify lle_menu_render_options_t structure */
+    lle_menu_render_options_t options;
+    memset(&options, 0, sizeof(options));
+    
+    options.show_category_headers = true;
+    options.show_type_indicators = true;
+    options.use_multi_column = true;
+    options.highlight_selection = true;
+    options.max_rows = 20;
+    options.terminal_width = 80;
+    options.selection_prefix = "> ";
+    options.item_separator = "  ";
+    
+    TEST_ASSERT(sizeof(options) > 0, "lle_menu_render_options_t structure exists");
+    
+    /* Verify lle_menu_render_stats_t structure */
+    lle_menu_render_stats_t stats;
+    memset(&stats, 0, sizeof(stats));
+    
+    stats.items_rendered = 0;
+    stats.rows_used = 0;
+    stats.columns_used = 0;
+    stats.categories_shown = 0;
+    stats.truncated = false;
+    
+    TEST_ASSERT(sizeof(stats) > 0, "lle_menu_render_stats_t structure exists");
+    
+    printf("[ PASS ] Phase 5.1 renderer structures\n");
+}
+
+/**
+ * @brief Test: Verify Phase 5.1 API functions exist and are callable
+ */
+void test_phase5_1_api_functions(void) {
+    printf("[ TEST ] Phase 5.1 API functions (completion_menu_renderer)\n");
+    
+    /* Test default options function */
+    lle_menu_render_options_t options = lle_menu_renderer_default_options(80);
+    TEST_ASSERT(options.terminal_width == 80, "lle_menu_renderer_default_options exists and callable");
+    TEST_ASSERT(options.show_category_headers == true, "default options has category headers enabled");
+    TEST_ASSERT(options.use_multi_column == true, "default options has multi-column enabled");
+    TEST_ASSERT(options.max_rows == 20, "default options has correct max_rows");
+    
+    /* Test column calculation functions exist (just verify they compile and link) */
+    size_t width = lle_menu_renderer_calculate_column_width(NULL, 0, 80, 4);
+    TEST_ASSERT(width >= LLE_MENU_RENDERER_MIN_COL_WIDTH, "lle_menu_renderer_calculate_column_width exists");
+    
+    size_t cols = lle_menu_renderer_calculate_columns(80, 20, 2);
+    TEST_ASSERT(cols >= 1, "lle_menu_renderer_calculate_columns exists");
+    
+    /* Test estimate size function */
+    size_t estimate = lle_menu_renderer_estimate_size(NULL, NULL);
+    TEST_ASSERT(estimate > 0, "lle_menu_renderer_estimate_size exists and returns estimate");
+    
+    /* Test main render function exists (verify signature compiles) */
+    char output[128];
+    lle_menu_render_stats_t stats;
+    lle_result_t result = lle_completion_menu_render(NULL, &options, output, sizeof(output), &stats);
+    TEST_ASSERT(result == LLE_ERROR_INVALID_PARAMETER, "lle_completion_menu_render exists and validates params");
+    
+    /* Test format functions exist (verify signatures compile) */
+    result = lle_menu_renderer_format_category_header(LLE_COMPLETION_TYPE_FILE, output, sizeof(output), true);
+    TEST_ASSERT(result == LLE_SUCCESS, "lle_menu_renderer_format_category_header exists");
+    
+    lle_completion_item_t item = {0};
+    result = lle_menu_renderer_format_item(&item, false, false, NULL, output, sizeof(output));
+    TEST_ASSERT(result == LLE_SUCCESS || result == LLE_ERROR_INVALID_PARAMETER, 
+                "lle_menu_renderer_format_item exists");
+    
+    printf("[ PASS ] Phase 5.1 API functions\n");
+}
+
+/**
  * @brief Test: Verify error handling compliance
  */
 void test_error_handling(void) {
@@ -338,6 +417,10 @@ int main(void) {
     test_menu_state_structure();
     test_menu_config_structure();
     test_phase4_api_functions();
+    
+    /* Phase 5.1: Menu Renderer */
+    test_renderer_structures();
+    test_phase5_1_api_functions();
     
     /* Cross-cutting concerns */
     test_error_handling();

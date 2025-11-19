@@ -981,6 +981,18 @@ if fs.exists('tests/unit/test_completion_menu_theme.c')
        timeout: 30)
 endif
 
+# LLE Completion Menu Renderer Unit Tests (Spec 12 Phase 5.1)
+# Tests menu rendering, column layout, category headers, item formatting
+if fs.exists('tests/unit/test_completion_menu_renderer.c')
+  test_completion_menu_renderer = executable('test_completion_menu_renderer',
+                                             'tests/unit/test_completion_menu_renderer.c',
+                                             include_directories: inc,
+                                             link_with: lle_lib)
+  test('LLE Completion Menu Renderer', test_completion_menu_renderer,
+       suite: 'unit',
+       timeout: 30)
+endif
+
 # Phase 4: Continuation Prompt Tests
 # ============================================================================
 

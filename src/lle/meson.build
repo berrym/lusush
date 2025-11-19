@@ -443,6 +443,10 @@ endif
 if fs.exists('completion/completion_menu_logic.c')
   lle_sources += files('completion/completion_menu_logic.c')
 endif
+# Phase 5: Completion Menu Renderer (Text Formatting)
+if fs.exists('completion/completion_menu_renderer.c')
+  lle_sources += files('completion/completion_menu_renderer.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'
