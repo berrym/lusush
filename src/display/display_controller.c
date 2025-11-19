@@ -351,6 +351,8 @@ static layer_events_error_t dc_handle_redraw_needed(
     if (!prompt_rendered) {
         if (prompt_buffer[0]) {
             write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
+            /* Ensure prompt is visible immediately */
+            fsync(STDOUT_FILENO);
         }
         prompt_rendered = true;
     }

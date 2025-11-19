@@ -292,7 +292,10 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     bool command_changed = (strcmp(layer->command_text, command_text) != 0);
     bool cursor_changed = (layer->cursor_position != cursor_pos);
     
-    if (!command_changed && !cursor_changed) {
+    /* Always need initial render even if buffer is empty */
+    bool is_first_render = (layer->update_sequence_number == 0);
+    
+    if (!command_changed && !cursor_changed && !is_first_render) {
         // No change, just update performance stats with minimal time
         update_performance_stats(layer, get_current_time_ns() - start_time);
         return COMMAND_LAYER_SUCCESS;
