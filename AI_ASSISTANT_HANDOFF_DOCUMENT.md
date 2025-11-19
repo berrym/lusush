@@ -575,11 +575,83 @@ lusush:lle-compliance / Spec 12 Completion Compliance   OK    0.01s
 lusush:lle-unit / LLE Completion Types                  OK    0.01s
 ```
 
-**Next Steps - Phase 5.2**:
-- Extend command_layer.c to query completion state
-- Append rendered menu text to command output
-- Follow continuation prompt pattern (proven working)
-- Minimal changes, leverage existing infrastructure
+**Next Steps - Phase 5.3**:
+- Minimal display controller adjustments if needed
+- Phase 5.4: LLE integration (event wiring, TAB key handling)
+- Phase 5.5: Testing and refinement
+
+---
+
+## ✅ COMMAND LAYER COMPLETION MENU INTEGRATION - COMPLETE (Session 21)
+
+**Status**: Successfully implemented Phase 5.2 - Command Layer Integration
+
+**Implementation Summary**:
+- **Command Layer Extension**: Added completion menu support to command_layer
+- **Menu Rendering Integration**: Menu text appended to highlighted command output
+- **API Functions**: Set, update, clear menu operations
+- **Seamless Integration**: Menu appears automatically via existing display pipeline
+
+**Files Modified**:
+1. `include/display/command_layer.h` (60 lines added)
+   - Forward declaration for `lle_completion_menu_state_t`
+   - Added menu-related fields to `command_layer_t` structure
+   - New API functions: `command_layer_set_completion_menu()`, `command_layer_update_completion_menu()`, `command_layer_clear_completion_menu()`, `command_layer_has_completion_menu()`
+
+2. `src/display/command_layer.c` (180 lines added)
+   - Include LLE completion headers
+   - Initialize menu fields in `command_layer_create()`
+   - Helper function: `append_menu_to_highlighted_text()` - renders menu and appends to command
+   - `command_layer_set_completion_menu()` - associates menu state with layer, triggers render
+   - `command_layer_update_completion_menu()` - re-renders after menu state changes
+   - `command_layer_clear_completion_menu()` - removes menu, restores command-only display
+   - `command_layer_has_completion_menu()` - query function
+   - `command_layer_clear()` - extended to auto-clear menu
+
+**Architecture**:
+```
+LLE Completion State (menu_state)
+         ↓
+command_layer_set_completion_menu(layer, menu_state, terminal_width)
+         ↓
+lle_completion_menu_render() - formats menu to text
+         ↓
+Append "\n" + menu_text to highlighted_text
+         ↓
+publish_command_event(CONTENT_CHANGED)
+         ↓
+Display controller sees updated highlighted_text
+         ↓
+screen_buffer_render() + diff + apply
+         ↓
+Menu appears below command
+```
+
+**Key Design Decisions**:
+- Menu state is NOT owned by command_layer (reference only)
+- Menu text appended to existing `highlighted_text` buffer
+- `highlighted_base_length` tracks command-only length for restoration
+- Menu clearing restores original command text
+- Uses existing event system for display updates
+
+**Integration Points**:
+- Command layer queries: `command_layer_get_highlighted_text()` returns command + menu
+- Display controller: No changes needed - menu is part of command output
+- Screen buffer: Renders combined text as normal
+- Cursor position: Unchanged, stays in command portion
+
+**Buffer Management**:
+- `COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE = 16384` bytes
+- Typical command: 100-500 bytes
+- Typical menu: 1-2KB (20 items, multi-column)
+- Plenty of room for both
+
+**Next Integration Steps** (Phase 5.4):
+- Wire up TAB key to trigger completion generation
+- Wire up Arrow keys to navigate menu (call `lle_completion_menu_move_*`)
+- Wire up Enter to accept selected item
+- Wire up Escape/typing to dismiss menu
+- All wiring happens in LLE input handling, not in command_layer
 
 ---
 

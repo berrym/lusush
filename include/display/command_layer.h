@@ -62,6 +62,10 @@
 #include "layer_events.h"
 #include "prompt_layer.h"
 
+// LLE completion menu support (Spec 12 Phase 5.2)
+// Need full type definition for struct member
+#include "lle/completion/completion_menu_state.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -232,6 +236,12 @@ typedef struct command_layer_s {
     char highlighted_text[COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE];  // Highlighted output
     size_t cursor_position;                     // Current cursor position (byte offset)
     
+    // Completion menu support (LLE Spec 12 Phase 5.2)
+    bool completion_menu_active;                // Menu is currently displayed
+    lle_completion_menu_state_t *menu_state;    // Reference to LLE menu state (not owned)
+    size_t command_only_length;                 // Length of command without menu text
+    size_t highlighted_base_length;             // Length of highlighted text without menu
+    
     // Cursor screen coordinates (calculated by LLE using incremental tracking)
     size_t cursor_screen_row;                   // Cursor row on screen (0-based)
     size_t cursor_screen_column;                // Cursor column on screen (0-based)
@@ -349,6 +359,67 @@ command_layer_error_t command_layer_update(command_layer_t *layer);
  * @return COMMAND_LAYER_SUCCESS on success, error code on failure
  */
 command_layer_error_t command_layer_clear(command_layer_t *layer);
+
+// ============================================================================
+// COMPLETION MENU INTEGRATION (LLE Spec 12 Phase 5.2)
+// ============================================================================
+
+/**
+ * Set completion menu state for display
+ * 
+ * Associates a completion menu with the command layer. The menu will be
+ * rendered and appended to the command output. The menu state is NOT owned
+ * by the command layer - caller retains ownership.
+ * 
+ * @param layer Command layer instance
+ * @param menu_state LLE completion menu state (NULL to clear menu)
+ * @param terminal_width Terminal width for menu rendering
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_set_completion_menu(
+    command_layer_t *layer,
+    lle_completion_menu_state_t *menu_state,
+    size_t terminal_width
+);
+
+/**
+ * Update completion menu display
+ * 
+ * Re-renders the menu (e.g., after selection changed). Used when menu state
+ * changes but command text is unchanged.
+ * 
+ * @param layer Command layer instance
+ * @param terminal_width Terminal width for menu rendering
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_update_completion_menu(
+    command_layer_t *layer,
+    size_t terminal_width
+);
+
+/**
+ * Clear completion menu from display
+ * 
+ * Removes the menu and restores command-only display.
+ * 
+ * @param layer Command layer instance
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_clear_completion_menu(
+    command_layer_t *layer
+);
+
+/**
+ * Check if completion menu is active
+ * 
+ * @param layer Command layer instance
+ * @return true if menu is active, false otherwise
+ */
+bool command_layer_has_completion_menu(command_layer_t *layer);
+
+// ============================================================================
+// LIFECYCLE MANAGEMENT
+// ============================================================================
 
 /**
  * Cleanup command layer resources
