@@ -653,6 +653,13 @@ Menu appears below command
 - Wire up Escape/typing to dismiss menu
 - All wiring happens in LLE input handling, not in command_layer
 
+**Implementation Guide**: See `docs/development/COMPLETION_PHASE54_IMPLEMENTATION_GUIDE.md`
+- Detailed step-by-step implementation plan
+- Code examples for each handler
+- Architecture diagrams and data flow
+- Testing strategy
+- Complete checklist for next session
+
 ---
 
 ## ✅ WIDGET SYSTEM IMPLEMENTATION - COMPLETE (Session 19)
