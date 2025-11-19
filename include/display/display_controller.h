@@ -63,6 +63,7 @@
 #include "composition_engine.h"
 #include "terminal_control.h"
 #include "../themes.h"
+#include "../lle/completion/completion_menu_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -269,6 +270,10 @@ typedef struct {
     char current_theme_name[THEME_NAME_MAX];    // Current active theme name
     symbol_compatibility_t current_symbol_mode; // Current symbol compatibility mode
     bool theme_context_initialized;             // Theme context initialization state
+    
+    // Completion menu integration (LLE Spec 12 - Proper Architecture)
+    lle_completion_menu_state_t *active_completion_menu;  // Active completion menu (NULL if none)
+    bool completion_menu_visible;                         // Menu visibility state
 } display_controller_t;
 
 // ============================================================================
@@ -439,6 +444,67 @@ display_controller_error_t display_controller_clear_screen(display_controller_t 
  * @param controller The display controller to destroy (can be NULL)
  */
 void display_controller_destroy(display_controller_t *controller);
+
+// ============================================================================
+// COMPLETION MENU INTEGRATION (LLE Spec 12 - Proper Architecture)
+// ============================================================================
+
+/**
+ * Set active completion menu for display composition.
+ * 
+ * Associates a completion menu with the display controller. The menu will be
+ * composed with the command output during rendering. The menu state is NOT
+ * owned by the display controller - caller retains ownership and is responsible
+ * for lifecycle management.
+ * 
+ * This follows proper architectural layering where display_controller composes
+ * multiple display elements (prompt, command, menu) rather than having menu
+ * baked into command text.
+ * 
+ * @param controller The display controller
+ * @param menu_state Completion menu state (NULL to clear)
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t display_controller_set_completion_menu(
+    display_controller_t *controller,
+    lle_completion_menu_state_t *menu_state
+);
+
+/**
+ * Clear active completion menu.
+ * 
+ * Removes the completion menu from display composition. The next display
+ * update will show only prompt and command without menu.
+ * 
+ * @param controller The display controller
+ * @return DISPLAY_CONTROLLER_SUCCESS on success, error code on failure
+ */
+display_controller_error_t display_controller_clear_completion_menu(
+    display_controller_t *controller
+);
+
+/**
+ * Check if completion menu is currently visible.
+ * 
+ * @param controller The display controller
+ * @return true if menu is visible, false otherwise
+ */
+bool display_controller_has_completion_menu(
+    const display_controller_t *controller
+);
+
+/**
+ * Get active completion menu state.
+ * 
+ * Returns a pointer to the currently active completion menu, or NULL if
+ * no menu is active. The returned pointer is NOT owned by caller.
+ * 
+ * @param controller The display controller
+ * @return Pointer to active menu state, or NULL if no menu active
+ */
+lle_completion_menu_state_t *display_controller_get_completion_menu(
+    const display_controller_t *controller
+);
 
 // ============================================================================
 // PERFORMANCE AND MONITORING FUNCTIONS

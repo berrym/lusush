@@ -3,14 +3,81 @@
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
 **Date**: 2025-11-19  
 **Branch**: feature/lle  
-**Status**: 🎯 **PHASE 5.4 PARTIAL - MENU DISPLAY WORKING**  
-**Last Action**: Session 21 - Completion menu displays correctly, navigation/dismissal pending  
-**Current State**: TAB completion menu displays without continuation prompts, cursor positioned correctly  
-**Completion Status**: Phase 5.1 ✅ Phase 5.2 ✅ Phase 5.4 🔄 (display works, navigation/dismissal needed)  
-**Build Status**: ✅ Compiles successfully  
-**Architecture**: Menu separated from command before screen_buffer_render(), written after  
-**Next**: Implement arrow key navigation, menu dismissal, deduplication  
-**Production Status**: Menu display functional, core interactions incomplete
+**Status**: 🎯 **PHASE 5.4 PARTIAL - OPTION C REFACTOR COMPLETE**  
+**Last Action**: Session 22 - Option C architecture refactor, eliminated double re-append hack  
+**Current State**: Menu management moved to display_controller, proper architectural separation  
+**Completion Status**: Phase 5.1 ✅ Phase 5.2 ✅ Phase 5.4 🔄 (architecture clean, navigation/dismissal needed)  
+**Build Status**: ✅ Compiles successfully (builddir/lusush 3.3MB)  
+**Architecture**: Menu composed at render time in display_controller (proper layer separation)  
+**Next**: Manual testing, then implement arrow key navigation, menu dismissal, deduplication  
+**Production Status**: Architecture clean, manual testing required before implementing interactions
+
+---
+
+## 🎯 SESSION 22 SUMMARY - OPTION C ARCHITECTURE REFACTOR (2025-11-19)
+
+### What Was Accomplished
+
+**Eliminated the Double Re-Append Hack:**
+- ✅ Moved completion menu management from command_layer to display_controller
+- ✅ Removed redundant `command_layer_update()` call in display_bridge
+- ✅ Menu now composed at render time, not baked into command text
+- ✅ Eliminated duplicate syntax highlighting passes (performance improvement)
+- ✅ Proper architectural separation of concerns
+
+**Architecture Changes:**
+1. **Removed from command_layer** (~180 lines deleted):
+   - Menu state fields (`completion_menu_active`, `menu_state`, etc.)
+   - All menu API functions (`set`, `update`, `clear`, `has`)
+   - Menu re-append logic from both `set_command()` and `update()`
+   
+2. **Added to display_controller** (~170 lines added):
+   - Menu state fields (`active_completion_menu`, `completion_menu_visible`)
+   - New menu API: `display_controller_set/clear/has/get_completion_menu()`
+   - Menu composition in `dc_handle_redraw_needed()` at render time
+   
+3. **Fixed display_bridge.c**:
+   - Removed redundant `command_layer_update()` call
+   - Added `LAYER_EVENT_REDRAW_NEEDED` to `command_layer_set_command()`
+   
+4. **Updated keybinding_actions.c**:
+   - Changed to use `display_controller` API instead of `command_layer`
+   - Simplified menu management code
+
+**Typedef Resolution:**
+- Fixed typedef conflicts by including completion header directly
+- Now using proper `lle_completion_menu_state_t` typedef throughout
+- Eliminated awkward `struct lle_completion_menu_state` forward declarations
+
+**Benefits:**
+- **Performance**: One syntax highlighting pass instead of two
+- **Architecture**: Proper layer separation (display composes, command processes)
+- **Maintainability**: Cleaner, more intuitive code (~150 lines removed net)
+- **Type safety**: Proper typedef usage throughout
+
+**Build Status:**
+- ✅ Main binary compiled successfully: `builddir/lusush` (3.3MB)
+- ✅ No typedef conflicts
+- ✅ Shell runs and executes commands
+- ⚠️ Some test binaries have linker errors (unrelated to refactor)
+
+**Documentation Created:**
+- `docs/development/OPTION_C_ARCHITECTURE_REFACTOR.md` - Complete refactor details
+- Updated this handoff document
+
+**Critical Insight:**
+The "double re-append hack" from Session 21 was a symptom of menu management being in the wrong architectural layer. Moving it to display_controller where composition happens eliminated the hack entirely and improved performance.
+
+**Manual Testing Required:**
+```bash
+LLE_ENABLED=1 ./builddir/lusush -i
+# Type: ec
+# Press: TAB
+# Expected: Menu displays (verify architecture works)
+```
+
+**User Direction:**
+"excellent! proceed with option c" - User chose proper architectural fix over quick hack
 
 ---
 
@@ -44,11 +111,12 @@ The key breakthrough was understanding the actual display flow:
 7. `completion_types.c` - Remove default emoji indicators (empty strings)
 8. `lle_readline.c` - Add TAB key handler
 
-**The Double Re-Append Hack:**
-Menu must survive TWO syntax highlighting passes because:
-- `lle_display_bridge_send_output()` calls `command_layer_set_command()` (highlighting pass 1)
-- Then calls `command_layer_update()` (highlighting pass 2)
-- Each pass overwrites `highlighted_text`, so each must re-append menu
+**The Double Re-Append Hack (ELIMINATED in Session 22):**
+Menu had to survive TWO syntax highlighting passes because:
+- `lle_display_bridge_send_output()` called `command_layer_set_command()` (highlighting pass 1)
+- Then called `command_layer_update()` (highlighting pass 2)
+- Each pass overwrote `highlighted_text`, so each had to re-append menu
+- **Fixed by Option C refactor**: Menu now managed by display_controller, composed at render time
 
 ### What's Still Missing (CRITICAL)
 

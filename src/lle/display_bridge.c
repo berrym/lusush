@@ -360,21 +360,14 @@ lle_result_t lle_display_bridge_send_output(
         cmd_layer->cursor_screen_position_valid = false;
     }
 
-    /* Update command layer with new text and cursor position */
+    /* Update command layer with new text and cursor position
+     * This performs syntax highlighting and publishes REDRAW_NEEDED event */
     command_layer_error_t error = command_layer_set_command(
         cmd_layer,
         command_text,
         cursor_pos
     );
 
-    if (error != COMMAND_LAYER_SUCCESS) {
-        bridge->consecutive_errors++;
-        return LLE_ERROR_DISPLAY_INTEGRATION;
-    }
-
-    /* Trigger update which publishes REDRAW_NEEDED event */
-    error = command_layer_update(cmd_layer);
-    
     if (error != COMMAND_LAYER_SUCCESS) {
         bridge->consecutive_errors++;
         return LLE_ERROR_DISPLAY_INTEGRATION;

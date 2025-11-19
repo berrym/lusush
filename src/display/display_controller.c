@@ -50,6 +50,10 @@
 #include "lle/utf8_support.h"
 #include "input_continuation.h"
 
+// LLE Completion menu support (Spec 12 - Proper Architecture)
+#include "lle/completion/completion_menu_state.h"
+#include "lle/completion/completion_menu_renderer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -217,13 +221,26 @@ static layer_events_error_t dc_handle_redraw_needed(
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
 
-    /* Separate menu from command if completion is active */
+    /* Render completion menu if active (Proper Architecture - Spec 12)
+     * Menu is now composed at display time, not baked into command text */
+    char menu_buffer[8192] = {0};
     char *menu_text = NULL;
-    if (cmd_layer->completion_menu_active && cmd_layer->highlighted_base_length > 0) {
-        size_t base_len = cmd_layer->highlighted_base_length;
-        if (base_len < strlen(command_buffer) && command_buffer[base_len] == '\n') {
-            menu_text = &command_buffer[base_len + 1];  /* Point to menu text after newline */
-            command_buffer[base_len] = '\0';  /* Terminate command portion */
+    
+    if (controller->completion_menu_visible && controller->active_completion_menu) {
+        lle_menu_render_options_t options = lle_menu_renderer_default_options(term_width);
+        options.max_rows = 20;  /* Limit menu to 20 rows */
+        
+        lle_menu_render_stats_t stats;
+        lle_result_t result = lle_completion_menu_render(
+            controller->active_completion_menu,
+            &options,
+            menu_buffer,
+            sizeof(menu_buffer),
+            &stats
+        );
+        
+        if (result == LLE_SUCCESS && menu_buffer[0]) {
+            menu_text = menu_buffer;
         }
     }
 
@@ -1122,6 +1139,10 @@ display_controller_error_t display_controller_init(
         }
     }
     
+    // Initialize completion menu state (LLE Spec 12 - Proper Architecture)
+    controller->active_completion_menu = NULL;
+    controller->completion_menu_visible = false;
+    
     controller->is_initialized = true;
     controller->integration_mode_active = controller->config.enable_integration_mode;
     controller->operation_sequence_number = 0;
@@ -1864,6 +1885,10 @@ display_controller_error_t display_controller_cleanup(display_controller_t *cont
         controller->current_state_hash = NULL;
     }
     
+    // Clear completion menu reference (we don't own it, just clear the pointer)
+    controller->active_completion_menu = NULL;
+    controller->completion_menu_visible = false;
+    
     controller->is_initialized = false;
     
     DC_DEBUG("Display controller cleanup completed");
@@ -1877,6 +1902,99 @@ void display_controller_destroy(display_controller_t *controller) {
     
     display_controller_cleanup(controller);
     free(controller);
+}
+
+// ============================================================================
+// COMPLETION MENU INTEGRATION (LLE Spec 12 - Proper Architecture)
+// ============================================================================
+
+display_controller_error_t display_controller_set_completion_menu(
+    display_controller_t *controller,
+    lle_completion_menu_state_t *menu_state) {
+    
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+    
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+    
+    // Clear existing menu if NULL is passed
+    if (!menu_state) {
+        controller->active_completion_menu = NULL;
+        controller->completion_menu_visible = false;
+        DC_DEBUG("Completion menu cleared");
+        return DISPLAY_CONTROLLER_SUCCESS;
+    }
+    
+    // Set new menu state (we don't own it - caller manages lifecycle)
+    controller->active_completion_menu = menu_state;
+    controller->completion_menu_visible = true;
+    
+    DC_DEBUG("Completion menu set (visible: %d)", controller->completion_menu_visible);
+    
+    // Trigger display update to show menu
+    if (controller->event_system) {
+        layer_event_t event = {
+            .type = LAYER_EVENT_CONTENT_CHANGED,
+            .source_layer = LAYER_ID_COMMAND_LAYER,
+            .timestamp = 0
+        };
+        layer_events_publish(controller->event_system, &event);
+    }
+    
+    return DISPLAY_CONTROLLER_SUCCESS;
+}
+
+display_controller_error_t display_controller_clear_completion_menu(
+    display_controller_t *controller) {
+    
+    if (!controller) {
+        return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;
+    }
+    
+    if (!controller->is_initialized) {
+        return DISPLAY_CONTROLLER_ERROR_NOT_INITIALIZED;
+    }
+    
+    controller->active_completion_menu = NULL;
+    controller->completion_menu_visible = false;
+    
+    DC_DEBUG("Completion menu cleared");
+    
+    // Trigger display update to remove menu
+    if (controller->event_system) {
+        layer_event_t event = {
+            .type = LAYER_EVENT_CONTENT_CHANGED,
+            .source_layer = LAYER_ID_COMMAND_LAYER,
+            .timestamp = 0
+        };
+        layer_events_publish(controller->event_system, &event);
+    }
+    
+    return DISPLAY_CONTROLLER_SUCCESS;
+}
+
+bool display_controller_has_completion_menu(
+    const display_controller_t *controller) {
+    
+    if (!controller) {
+        return false;
+    }
+    
+    return controller->completion_menu_visible && 
+           controller->active_completion_menu != NULL;
+}
+
+lle_completion_menu_state_t *display_controller_get_completion_menu(
+    const display_controller_t *controller) {
+    
+    if (!controller || !controller->completion_menu_visible) {
+        return NULL;
+    }
+    
+    return controller->active_completion_menu;
 }
 
 // ============================================================================

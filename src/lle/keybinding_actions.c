@@ -92,37 +92,21 @@ static size_t find_word_end(const char *text, size_t len, size_t pos) {
  * ============================================================================ */
 
 /**
- * Get command layer from display controller
- * Helper to access the command layer for completion menu display
+ * NOTE: With proper architecture, completion menu is managed by display_controller
+ * No need to access command_layer directly anymore - removed get_command_layer_from_display()
  */
-static command_layer_t* get_command_layer_from_display(display_controller_t *dc) {
-    if (!dc || !dc->compositor) {
-        return NULL;
-    }
-    return dc->compositor->command_layer;
-}
 
 /**
  * Trigger display refresh after completion changes
+ * With proper architecture, menu changes are picked up automatically via events
  */
 static void refresh_after_completion(display_controller_t *dc) {
     if (!dc) {
         return;
     }
     
-    /* Get command layer */
-    command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-    if (!cmd_layer) {
-        return;
-    }
-    
-    /* Trigger command_layer_update() which publishes REDRAW_NEEDED event
-     * This is the critical step that makes screen_buffer_render() get called
-     */
-    command_layer_update(cmd_layer);
-    
     /* Process pending events to trigger dc_handle_redraw_needed()
-     * which calls screen_buffer_render() and outputs to terminal
+     * The display_controller will compose menu with command during rendering
      */
     if (dc->event_system) {
         layer_events_process_pending(dc->event_system, 10, 0);
@@ -179,11 +163,8 @@ static void clear_completion_menu(lle_editor_t *editor) {
     /* Clear menu from command layer */
     display_controller_t *dc = display_integration_get_controller();
     if (dc) {
-        command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-        if (cmd_layer) {
-            command_layer_clear_completion_menu(cmd_layer);
-            refresh_after_completion(dc);
-        }
+        display_controller_clear_completion_menu(dc);
+        refresh_after_completion(dc);
     }
 }
 
@@ -593,18 +574,11 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
         if (menu) {
             lle_completion_menu_move_up(menu);
             
-            /* Update menu display */
+            /* Menu state has changed, trigger refresh
+             * The display_controller will re-render the menu automatically */
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
-                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-                if (cmd_layer) {
-                    int term_width = 80;
-                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
-                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
-                    }
-                    command_layer_update_completion_menu(cmd_layer, term_width);
-                    refresh_after_completion(dc);
-                }
+                refresh_after_completion(dc);
             }
         }
         return LLE_SUCCESS;
@@ -644,18 +618,11 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
         if (menu) {
             lle_completion_menu_move_down(menu);
             
-            /* Update menu display */
+            /* Menu state has changed, trigger refresh
+             * The display_controller will re-render the menu automatically */
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
-                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-                if (cmd_layer) {
-                    int term_width = 80;
-                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
-                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
-                    }
-                    command_layer_update_completion_menu(cmd_layer, term_width);
-                    refresh_after_completion(dc);
-                }
+                refresh_after_completion(dc);
             }
         }
         return LLE_SUCCESS;
@@ -1356,18 +1323,10 @@ lle_result_t lle_complete(lle_editor_t *editor) {
             /* Move to next item */
             lle_completion_menu_move_down(menu);
             
-            /* Update menu display on command layer */
+            /* Menu state has changed, trigger refresh */
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
-                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-                if (cmd_layer) {
-                    int term_width = 80;
-                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
-                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
-                    }
-                    command_layer_update_completion_menu(cmd_layer, term_width);
-                    refresh_after_completion(dc);
-                }
+                refresh_after_completion(dc);
             }
         }
         return LLE_SUCCESS;
@@ -1433,20 +1392,14 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         return set_result;
     }
     
-    /* Display menu on command layer */
+    /* Display menu via display_controller (proper architecture) */
     display_controller_t *dc = display_integration_get_controller();
     if (dc) {
-        command_layer_t *cmd_layer = get_command_layer_from_display(dc);
-        if (cmd_layer) {
-            lle_completion_menu_state_t *menu = 
-                lle_completion_system_get_menu(editor->completion_system);
-            if (menu) {
-                int term_width = 80;
-                if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
-                    term_width = dc->terminal_ctrl->capabilities.terminal_width;
-                }
-                command_layer_set_completion_menu(cmd_layer, menu, term_width);
-            }
+        lle_completion_menu_state_t *menu = 
+            lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            display_controller_set_completion_menu(dc, menu);
+            refresh_after_completion(dc);
         }
     }
     

@@ -53,9 +53,7 @@
 #include "display/terminal_control.h"
 #include "alias.h"
 
-// LLE Completion menu support (Spec 12 Phase 5.2)
-#include "lle/completion/completion_menu_state.h"
-#include "lle/completion/completion_menu_renderer.h"
+// Note: Completion menu support moved to display_controller (proper architecture)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -124,7 +122,6 @@ static highlighting_stats_t g_highlighting_stats = {0};
 // Core functionality
 static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer);
 static command_layer_error_t update_command_metrics(command_layer_t *layer);
-static command_layer_error_t append_menu_to_highlighted_text(command_layer_t *layer, size_t terminal_width);
 static uint64_t get_current_time_ns(void);
 static void update_performance_stats(command_layer_t *layer, uint64_t operation_time_ns);
 
@@ -176,12 +173,6 @@ command_layer_t *command_layer_create(void) {
     layer->command_text[0] = '\0';
     layer->highlighted_text[0] = '\0';
     layer->cursor_position = 0;
-    
-    // Initialize completion menu support (LLE Spec 12 Phase 5.2)
-    layer->completion_menu_active = false;
-    layer->menu_state = NULL;
-    layer->command_only_length = 0;
-    layer->highlighted_base_length = 0;
     
     // Initialize syntax highlighting state
     layer->region_count = 0;
@@ -301,12 +292,7 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     bool command_changed = (strcmp(layer->command_text, command_text) != 0);
     bool cursor_changed = (layer->cursor_position != cursor_pos);
     
-    /* If completion menu is active, we need to re-process even if command hasn't changed
-     * because the menu needs to be re-appended after syntax highlighting
-     */
-    bool force_refresh = (layer->completion_menu_active && layer->menu_state);
-    
-    if (!command_changed && !cursor_changed && !force_refresh) {
+    if (!command_changed && !cursor_changed) {
         // No change, just update performance stats with minimal time
         update_performance_stats(layer, get_current_time_ns() - start_time);
         return COMMAND_LAYER_SUCCESS;
@@ -359,17 +345,6 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     // Update cursor position in metrics
     layer->metrics.cursor_position = cursor_pos;
     
-    /* Re-append completion menu if active
-     * Syntax highlighting overwrites highlighted_text, so we need to restore the menu
-     */
-    if (layer->completion_menu_active && layer->menu_state) {
-        layer->highlighted_base_length = strlen(layer->highlighted_text);
-        /* Get terminal width from display integration */
-        size_t term_width = 80;  /* Default fallback */
-        /* Note: terminal width should ideally come from display_controller, but we'll use default for now */
-        append_menu_to_highlighted_text(layer, term_width);
-    }
-    
     uint64_t operation_time = get_current_time_ns() - start_time;
     update_performance_stats(layer, operation_time);
     
@@ -382,6 +357,11 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     if (cursor_changed) {
         publish_command_event(layer, LAYER_EVENT_CURSOR_MOVED);
     }
+    
+    // Publish redraw needed event (triggers display_controller to render)
+    // This was previously done by command_layer_update(), but that caused
+    // redundant syntax highlighting. Now we do it here after highlighting.
+    publish_command_event(layer, LAYER_EVENT_REDRAW_NEEDED);
     
     return COMMAND_LAYER_SUCCESS;
 }
@@ -462,15 +442,6 @@ command_layer_error_t command_layer_update(command_layer_t *layer) {
         return result;
     }
     
-    /* Re-append completion menu if active
-     * perform_syntax_highlighting() overwrites highlighted_text, so we need to restore the menu
-     */
-    if (layer->completion_menu_active && layer->menu_state) {
-        layer->highlighted_base_length = strlen(layer->highlighted_text);
-        size_t term_width = 80;  /* Default fallback */
-        append_menu_to_highlighted_text(layer, term_width);
-    }
-    
     layer->needs_redraw = true;
     layer->update_sequence_number++;
     
@@ -486,11 +457,6 @@ command_layer_error_t command_layer_update(command_layer_t *layer) {
 command_layer_error_t command_layer_clear(command_layer_t *layer) {
     if (!validate_layer_state(layer)) {
         return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    // Clear completion menu if active
-    if (layer->completion_menu_active) {
-        command_layer_clear_completion_menu(layer);
     }
     
     // Clear command content
@@ -510,178 +476,9 @@ command_layer_error_t command_layer_clear(command_layer_t *layer) {
 }
 
 // ============================================================================
-// COMPLETION MENU INTEGRATION (LLE Spec 12 Phase 5.2)
+// NOTE: Completion menu integration moved to display_controller
+// All menu-related functions removed - proper architecture now in place
 // ============================================================================
-
-/**
- * Append completion menu text to highlighted_text
- * Internal helper function
- */
-static command_layer_error_t append_menu_to_highlighted_text(
-    command_layer_t *layer,
-    size_t terminal_width
-) {
-    if (!layer || !layer->menu_state) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    // Prepare render options
-    lle_menu_render_options_t options = lle_menu_renderer_default_options(terminal_width);
-    options.max_rows = 20;  // Limit menu to 20 rows
-    
-    // Allocate buffer for menu text
-    char menu_buffer[8192];
-    lle_menu_render_stats_t stats;
-    
-    // Render menu to text
-    lle_result_t result = lle_completion_menu_render(
-        layer->menu_state,
-        &options,
-        menu_buffer,
-        sizeof(menu_buffer),
-        &stats
-    );
-    
-    if (result != LLE_SUCCESS) {
-        return COMMAND_LAYER_ERROR_SYNTAX_ERROR;
-    }
-    
-    // Calculate total size needed
-    size_t menu_len = strlen(menu_buffer);
-    size_t total_len = layer->highlighted_base_length + 1 + menu_len;  // +1 for newline
-    
-    if (total_len >= COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE) {
-        return COMMAND_LAYER_ERROR_BUFFER_TOO_SMALL;
-    }
-    
-    // Restore base highlighted text (without menu)
-    layer->highlighted_text[layer->highlighted_base_length] = '\0';
-    
-    // Append newline separator
-    strcat(layer->highlighted_text, "\n");
-    
-    // Append menu text
-    strcat(layer->highlighted_text, menu_buffer);
-    
-    return COMMAND_LAYER_SUCCESS;
-}
-
-command_layer_error_t command_layer_set_completion_menu(
-    command_layer_t *layer,
-    lle_completion_menu_state_t *menu_state,
-    size_t terminal_width
-) {
-    if (!validate_layer_state(layer)) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    // Clear existing menu if present
-    if (layer->completion_menu_active) {
-        command_layer_clear_completion_menu(layer);
-    }
-    
-    // If menu_state is NULL, just return (menu already cleared)
-    if (!menu_state) {
-        return COMMAND_LAYER_SUCCESS;
-    }
-    
-    // Store menu state reference (NOT owned by command layer)
-    layer->menu_state = menu_state;
-    layer->completion_menu_active = (menu_state->menu_active);
-    
-    if (!layer->completion_menu_active) {
-        return COMMAND_LAYER_SUCCESS;
-    }
-    
-    // Save current highlighted text length (base without menu)
-    layer->highlighted_base_length = strlen(layer->highlighted_text);
-    layer->command_only_length = strlen(layer->command_text);
-    
-    // Append menu to highlighted text
-    command_layer_error_t result = append_menu_to_highlighted_text(layer, terminal_width);
-    
-    if (result != COMMAND_LAYER_SUCCESS) {
-        // Cleanup on failure
-        layer->completion_menu_active = false;
-        layer->menu_state = NULL;
-        return result;
-    }
-    
-    // Mark for redraw
-    layer->needs_redraw = true;
-    
-    // Publish content changed event
-    publish_command_event(layer, LAYER_EVENT_CONTENT_CHANGED);
-    
-    return COMMAND_LAYER_SUCCESS;
-}
-
-command_layer_error_t command_layer_update_completion_menu(
-    command_layer_t *layer,
-    size_t terminal_width
-) {
-    if (!validate_layer_state(layer)) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    if (!layer->completion_menu_active || !layer->menu_state) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    // Re-append menu with updated state
-    command_layer_error_t result = append_menu_to_highlighted_text(layer, terminal_width);
-    
-    if (result != COMMAND_LAYER_SUCCESS) {
-        return result;
-    }
-    
-    // Mark for redraw
-    layer->needs_redraw = true;
-    
-    // Publish content changed event
-    publish_command_event(layer, LAYER_EVENT_CONTENT_CHANGED);
-    
-    return COMMAND_LAYER_SUCCESS;
-}
-
-command_layer_error_t command_layer_clear_completion_menu(
-    command_layer_t *layer
-) {
-    if (!validate_layer_state(layer)) {
-        return COMMAND_LAYER_ERROR_INVALID_PARAM;
-    }
-    
-    if (!layer->completion_menu_active) {
-        return COMMAND_LAYER_SUCCESS;
-    }
-    
-    // Restore highlighted text to base (without menu)
-    if (layer->highlighted_base_length < COMMAND_LAYER_MAX_HIGHLIGHTED_SIZE) {
-        layer->highlighted_text[layer->highlighted_base_length] = '\0';
-    }
-    
-    // Clear menu state
-    layer->completion_menu_active = false;
-    layer->menu_state = NULL;
-    layer->highlighted_base_length = 0;
-    layer->command_only_length = 0;
-    
-    // Mark for redraw
-    layer->needs_redraw = true;
-    
-    // Publish content changed event
-    publish_command_event(layer, LAYER_EVENT_CONTENT_CHANGED);
-    
-    return COMMAND_LAYER_SUCCESS;
-}
-
-bool command_layer_has_completion_menu(command_layer_t *layer) {
-    if (!layer) {
-        return false;
-    }
-    
-    return layer->completion_menu_active;
-}
 
 command_layer_error_t command_layer_cleanup(command_layer_t *layer) {
     if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
