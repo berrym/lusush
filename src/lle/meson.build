@@ -447,6 +447,10 @@ endif
 if fs.exists('completion/completion_menu_renderer.c')
   lle_sources += files('completion/completion_menu_renderer.c')
 endif
+# Phase 5.4: Completion System (Runtime State)
+if fs.exists('completion/completion_system.c')
+  lle_sources += files('completion/completion_system.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'

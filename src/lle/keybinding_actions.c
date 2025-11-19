@@ -14,7 +14,13 @@
 #include "lle/kill_ring.h"
 #include "lle/keybinding.h"
 #include "lle/display_integration.h"
+#include "lle/completion/completion_system.h"
+#include "lle/completion/completion_generator.h"
+#include "lle/completion/completion_menu_logic.h"
 #include "display_controller.h"
+#include "display/command_layer.h"
+#include "display/composition_engine.h"
+#include "display_integration.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -79,6 +85,95 @@ static size_t find_word_end(const char *text, size_t len, size_t pos) {
     }
     
     return pos;
+}
+
+/* ============================================================================
+ * COMPLETION HELPER FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Get command layer from display controller
+ * Helper to access the command layer for completion menu display
+ */
+static command_layer_t* get_command_layer_from_display(display_controller_t *dc) {
+    if (!dc || !dc->compositor) {
+        return NULL;
+    }
+    return dc->compositor->command_layer;
+}
+
+/**
+ * Trigger display refresh after completion changes
+ */
+static void refresh_after_completion(display_controller_t *dc) {
+    if (!dc) {
+        return;
+    }
+    
+    /* Publish content changed event to trigger display update */
+    layer_event_t event = {
+        .type = LAYER_EVENT_CONTENT_CHANGED,
+        .timestamp = 0
+    };
+    layer_events_publish(dc->event_system, &event);
+}
+
+/**
+ * Replace word at cursor with completion text
+ * Deletes the word being completed and inserts the selected completion
+ */
+static lle_result_t replace_word_at_cursor(
+    lle_editor_t *editor,
+    size_t word_start,
+    size_t word_length,
+    const char *replacement)
+{
+    if (!editor || !editor->buffer || !replacement) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Delete the word being completed */
+    if (word_length > 0) {
+        lle_result_t result = lle_buffer_delete_text(
+            editor->buffer, word_start, word_length);
+        if (result != LLE_SUCCESS) {
+            return result;
+        }
+    }
+    
+    /* Insert the replacement text at word_start */
+    lle_result_t result = lle_buffer_insert_text(
+        editor->buffer, word_start, replacement, strlen(replacement));
+    if (result != LLE_SUCCESS) {
+        return result;
+    }
+    
+    /* Move cursor to end of inserted text */
+    size_t new_pos = word_start + strlen(replacement);
+    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+}
+
+/**
+ * Clear active completion menu
+ * Clears both the completion system state and the command layer display
+ */
+static void clear_completion_menu(lle_editor_t *editor) {
+    if (!editor || !editor->completion_system) {
+        return;
+    }
+    
+    /* Clear completion system state */
+    lle_completion_system_clear(editor->completion_system);
+    
+    /* Clear menu from command layer */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+        if (cmd_layer) {
+            command_layer_clear_completion_menu(cmd_layer);
+            refresh_after_completion(dc);
+        }
+    }
 }
 
 /**
@@ -465,17 +560,43 @@ lle_result_t lle_next_line(lle_editor_t *editor) {
 }
 
 /**
- * Smart up arrow: Navigate buffer lines in multiline mode, history otherwise
+ * Smart up arrow: Navigate completion menu, buffer lines, or history
  * 
  * Behavior:
- * - Single-line mode: Navigate command history (backward)
+ * - Completion menu active: Move up in menu
  * - Multi-line mode: Navigate to previous line in buffer
+ * - Single-line mode: Navigate command history (backward)
  * 
  * This prevents accidental history navigation while editing multi-line constructs.
  */
 lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* If completion menu is active, navigate within menu */
+    if (editor->completion_system && 
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        lle_completion_menu_state_t *menu = 
+            lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_up(menu);
+            
+            /* Update menu display */
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+                if (cmd_layer) {
+                    int term_width = 80;
+                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
+                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
+                    }
+                    command_layer_update_completion_menu(cmd_layer, term_width);
+                    refresh_after_completion(dc);
+                }
+            }
+        }
+        return LLE_SUCCESS;
     }
     
     /* Check if buffer is multiline (contains newline) */
@@ -492,15 +613,41 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
 }
 
 /**
- * Smart down arrow: Navigate buffer lines in multiline mode, history otherwise
+ * Smart down arrow: Navigate completion menu, buffer lines, or history
  * 
  * Behavior:
- * - Single-line mode: Navigate command history (forward)
+ * - Completion menu active: Move down in menu
  * - Multi-line mode: Navigate to next line in buffer
+ * - Single-line mode: Navigate command history (forward)
  */
 lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* If completion menu is active, navigate within menu */
+    if (editor->completion_system && 
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        lle_completion_menu_state_t *menu = 
+            lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_down(menu);
+            
+            /* Update menu display */
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+                if (cmd_layer) {
+                    int term_width = 80;
+                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
+                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
+                    }
+                    command_layer_update_completion_menu(cmd_layer, term_width);
+                    refresh_after_completion(dc);
+                }
+            }
+        }
+        return LLE_SUCCESS;
     }
     
     /* Check if buffer is multiline (contains newline) */
@@ -1186,11 +1333,113 @@ lle_result_t lle_history_search_forward(lle_editor_t *editor) {
  * ============================================================================ */
 
 lle_result_t lle_complete(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->completion_system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Completion system requires Spec 12 implementation */
+    /* If completion is already active, cycle to next item */
+    if (lle_completion_system_is_active(editor->completion_system)) {
+        lle_completion_menu_state_t *menu = 
+            lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            /* Move to next item */
+            lle_completion_menu_move_down(menu);
+            
+            /* Update menu display on command layer */
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+                if (cmd_layer) {
+                    int term_width = 80;
+                    if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
+                        term_width = dc->terminal_ctrl->capabilities.terminal_width;
+                    }
+                    command_layer_update_completion_menu(cmd_layer, term_width);
+                    refresh_after_completion(dc);
+                }
+            }
+        }
+        return LLE_SUCCESS;
+    }
+    
+    /* Generate completions for current cursor position */
+    lle_cursor_position_t cursor_info;
+    lle_cursor_manager_get_position(editor->cursor_manager, &cursor_info);
+    size_t cursor_pos = cursor_info.byte_offset;
+    const char *buffer = editor->buffer->data;
+    
+    lle_completion_result_t *result = NULL;
+    lle_result_t gen_result = lle_completion_generate(
+        editor->lle_pool,
+        buffer,
+        cursor_pos,
+        &result);
+    
+    if (gen_result != LLE_SUCCESS || !result) {
+        return LLE_SUCCESS;  /* No completions - not an error */
+    }
+    
+    /* If no items, clean up and return */
+    if (result->count == 0) {
+        lle_completion_result_free(result);
+        return LLE_SUCCESS;
+    }
+    
+    /* Extract word being completed */
+    lle_completion_context_info_t context;
+    lle_result_t ctx_result = lle_completion_analyze_context(
+        buffer, cursor_pos, &context);
+    if (ctx_result != LLE_SUCCESS) {
+        lle_completion_result_free(result);
+        return LLE_SUCCESS;
+    }
+    
+    /* If only one completion, insert it directly */
+    if (result->count == 1) {
+        const char *completion_text = result->items[0].text;
+        lle_result_t replace_result = replace_word_at_cursor(
+            editor, context.word_start, context.word_length, completion_text);
+        lle_completion_result_free(result);
+        
+        /* Trigger display refresh */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            refresh_after_completion(dc);
+        }
+        
+        return replace_result;
+    }
+    
+    /* Multiple completions - activate completion system with menu */
+    lle_result_t set_result = lle_completion_system_set_completion(
+        editor->completion_system,
+        result,  /* Ownership transferred */
+        context.word,
+        context.word_start);
+    
+    if (set_result != LLE_SUCCESS) {
+        lle_completion_result_free(result);
+        return set_result;
+    }
+    
+    /* Display menu on command layer */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+        if (cmd_layer) {
+            lle_completion_menu_state_t *menu = 
+                lle_completion_system_get_menu(editor->completion_system);
+            if (menu) {
+                int term_width = 80;
+                if (dc->terminal_ctrl && dc->terminal_ctrl->capabilities.terminal_width > 0) {
+                    term_width = dc->terminal_ctrl->capabilities.terminal_width;
+                }
+                command_layer_set_completion_menu(cmd_layer, menu, term_width);
+                refresh_after_completion(dc);
+            }
+        }
+    }
+    
     return LLE_SUCCESS;
 }
 
@@ -1221,6 +1470,25 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* If completion menu is active, accept the selected completion */
+    if (editor->completion_system && 
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+        size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+        const char *word = lle_completion_system_get_word(editor->completion_system);
+        
+        if (selected && word) {
+            /* Replace word with selected completion */
+            lle_result_t result = replace_word_at_cursor(
+                editor, word_start, strlen(word), selected);
+            
+            /* Clear completion menu */
+            clear_completion_menu(editor);
+            
+            return result;
+        }
+    }
+    
     /* Signal that line is accepted (caller handles execution) */
     return LLE_SUCCESS;
 }
@@ -1228,6 +1496,13 @@ lle_result_t lle_accept_line(lle_editor_t *editor) {
 lle_result_t lle_abort_line(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* If completion menu is active, just cancel it without aborting */
+    if (editor->completion_system && 
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        clear_completion_menu(editor);
+        return LLE_SUCCESS;
     }
     
     /* Signal abort to readline loop */
@@ -1504,6 +1779,12 @@ lle_result_t lle_delete_horizontal_space(lle_editor_t *editor) {
 lle_result_t lle_self_insert(lle_editor_t *editor, uint32_t codepoint) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Dismiss completion menu on character input */
+    if (editor->completion_system && 
+        lle_completion_system_is_menu_visible(editor->completion_system)) {
+        clear_completion_menu(editor);
     }
     
     /* Convert codepoint to UTF-8 bytes */

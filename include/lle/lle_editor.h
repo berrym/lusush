@@ -18,6 +18,7 @@
 #include "lle/keybinding.h"
 #include "lle/memory_management.h"
 #include "lle/error_handling.h"
+#include "lle/completion/completion_system.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -26,7 +27,6 @@
  * ============================================================================ */
 
 typedef struct lle_display_controller lle_display_controller_t;
-typedef struct lle_completion_system_t lle_completion_system_t;
 typedef struct lle_widget_registry lle_widget_registry_t;
 typedef struct lle_widget_hooks_manager lle_widget_hooks_manager_t;
 typedef struct lle_plugin_manager lle_plugin_manager_t;
