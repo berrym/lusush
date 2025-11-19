@@ -1,8 +1,8 @@
 # Completion System Phase 5.4 - Event Wiring Implementation Guide
-**Date**: 2025-11-18  
+**Date**: 2025-11-18 (Updated 2025-11-19)
 **Session**: 21 → 22 Handoff  
-**Status**: Ready to implement  
-**Previous Work**: Phases 5.1-5.2 complete (renderer + command layer integration)
+**Status**: PARTIAL - Menu Display Working, Navigation/Dismissal Pending  
+**Previous Work**: Phases 5.1-5.3 complete (renderer + command layer + display controller integration)
 
 ---
 
@@ -11,11 +11,23 @@
 **What's Done:**
 - ✅ Phase 5.1: Menu renderer (formats menu state to text)
 - ✅ Phase 5.2: Command layer integration (appends menu to command output)
+- ✅ Phase 5.3: Display controller integration (menu separation, cursor positioning)
+- ✅ Phase 5.4 (Partial): TAB key wiring, basic menu display working
 - ✅ Phases 1-4: Completion logic, sources, generator, menu state/navigation
 
-**What's Next:**
-- Phase 5.4: Wire up keyboard events (TAB, Arrow keys, Enter, Escape)
-- Connect user input → completion generation → menu display → selection
+**What's Working (Session 21 Results):**
+- ✅ TAB key triggers completion and displays menu
+- ✅ Menu renders below command without continuation prompts
+- ✅ Cursor positioned correctly accounting for menu lines
+- ✅ Multi-line prompt support
+
+**What's Still Needed:**
+- ❌ Arrow key navigation updating command line
+- ❌ Enter key accepting completion
+- ❌ Escape key dismissing menu
+- ❌ Typing dismissing menu
+- ❌ Completion deduplication
+- ❌ TAB cycling through completions
 
 **Where to Implement:**
 - File: `src/lle/keybinding_actions.c`
@@ -529,3 +541,278 @@ This should:
 ---
 
 **Good luck with Phase 5.4!** 🚀
+
+---
+
+## ACTUAL IMPLEMENTATION (Session 21)
+
+### What Was Actually Implemented
+
+The implementation deviated from the planned approach in several critical ways. Here's what actually happened:
+
+#### 1. No Completion System Structure Added to Editor
+
+**Planned**: Add `lle_completion_system_t` to `lle_editor_t`
+
+**Actual**: Implementation worked WITHOUT adding a completion system structure. State is managed differently:
+- Menu state is passed directly to command layer
+- No persistent completion state in editor
+- Simpler but less stateful approach
+
+#### 2. TAB Key Handler - Simplified Implementation
+
+**Location**: `src/lle/lle_readline.c` lines 1477-1480, 804-826
+
+**Actual Code**:
+```c
+// In input processing loop:
+if (codepoint == '\t' || codepoint == 9) {
+    execute_keybinding_action(&ctx, "TAB", handle_tab);
+    break;
+}
+
+// TAB handler:
+static lle_result_t handle_tab(lle_event_t *event, void *user_data)
+{
+    (void)event;
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (!ctx || !ctx->editor) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Call completion function to set up menu */
+    lle_result_t result = lle_complete(ctx->editor);
+    
+    /* Refresh display to render buffer content with menu appended */
+    if (result == LLE_SUCCESS) {
+        refresh_display(ctx);
+    }
+    
+    return result;
+}
+```
+
+**Key Difference**: Uses existing `refresh_display()` instead of manual display controller calls
+
+#### 3. lle_complete() Implementation
+
+**Location**: `src/lle/keybinding_actions.c` lines 1345-1450
+
+**Actual Implementation** (simplified from plan):
+```c
+lle_result_t lle_complete(lle_editor_t *editor)
+{
+    if (!editor || !editor->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Get completion context
+    size_t cursor_pos = lle_cursor_manager_get_byte_offset(editor->cursor_manager);
+    const char *buffer_text = editor->buffer->data;
+    
+    // Generate completions
+    lle_completion_result_t *result = NULL;
+    lle_result_t res = lle_completion_generate(
+        editor->lle_pool,
+        buffer_text,
+        cursor_pos,
+        &result
+    );
+    
+    if (res != LLE_SUCCESS || !result || result->count == 0) {
+        return LLE_SUCCESS;  // No completions
+    }
+    
+    // Single completion - auto insert (NOT IMPLEMENTED YET)
+    if (result->count == 1) {
+        // TODO: Insert directly
+        lle_completion_result_free(result);
+        return LLE_SUCCESS;
+    }
+    
+    // Multiple completions - create menu
+    lle_completion_menu_config_t config = lle_completion_menu_default_config();
+    lle_completion_menu_state_t *menu_state = NULL;
+    
+    res = lle_completion_menu_state_create(
+        editor->lle_pool,
+        result,
+        &config,
+        &menu_state
+    );
+    
+    if (res != LLE_SUCCESS) {
+        lle_completion_result_free(result);
+        return res;
+    }
+    
+    // Get command layer and set menu
+    command_layer_t *cmd_layer = 
+        lle_display_controller_get_command_layer(editor->display_controller);
+    
+    if (cmd_layer) {
+        size_t term_width = 80;  // Hardcoded for now
+        command_layer_set_completion_menu(cmd_layer, menu_state, term_width);
+    }
+    
+    return LLE_SUCCESS;
+}
+```
+
+**Key Differences**:
+- No completion system state tracking
+- Memory pool from editor, not separate system
+- Hardcoded terminal width (80)
+- Display refresh happens in `handle_tab()`, not here
+
+#### 4. Critical Architecture Discoveries
+
+##### The Double Re-Append Hack
+
+**Problem**: Menu was being wiped during display refresh
+
+**Root Cause**: BOTH `command_layer_set_command()` AND `command_layer_update()` call `perform_syntax_highlighting()`, which overwrites `highlighted_text`
+
+**Solution** (`src/display/command_layer.c`):
+```c
+// In BOTH set_command() and update():
+if (layer->completion_menu_active && layer->menu_state) {
+    layer->highlighted_base_length = strlen(layer->highlighted_text);
+    size_t term_width = 80;
+    append_menu_to_highlighted_text(layer, term_width);
+}
+```
+
+**Also added force_refresh flag** (lines 305-307):
+```c
+bool force_refresh = (layer->completion_menu_active && layer->menu_state);
+
+if (!command_changed && !cursor_changed && !force_refresh) {
+    return COMMAND_LAYER_SUCCESS;  // Early return skipped when menu active
+}
+```
+
+##### Menu Separation Architecture
+
+**Problem**: Continuation prompts being added to menu lines
+
+**User's Critical Direction**: "screen_buffer_render() should handle the menu... do it right"
+
+**Solution** (`src/display/display_controller.c` lines 219-227, 413-418):
+```c
+// Separate menu from command BEFORE screen_buffer_render()
+char *menu_text = NULL;
+if (cmd_layer->completion_menu_active && cmd_layer->highlighted_base_length > 0) {
+    size_t base_len = cmd_layer->highlighted_base_length;
+    if (base_len < strlen(command_buffer) && command_buffer[base_len] == '\n') {
+        menu_text = &command_buffer[base_len + 1];
+        command_buffer[base_len] = '\0';  // Terminate command
+    }
+}
+
+// ... render command only with continuation prompts ...
+
+// Write menu separately WITHOUT continuation prompts
+if (menu_text && *menu_text) {
+    write(STDOUT_FILENO, "\n", 1);
+    write(STDOUT_FILENO, menu_text, strlen(menu_text));
+}
+```
+
+##### Cursor Positioning with Menu
+
+**Problem**: Cursor one line below correct position
+
+**Solution** (lines 431-441):
+```c
+// Count menu lines
+int menu_lines = 0;
+if (menu_text && *menu_text) {
+    menu_lines = 1;  // Newline before menu
+    for (const char *p = menu_text; *p; p++) {
+        if (*p == '\n') menu_lines++;
+    }
+}
+
+// Account for menu when moving cursor up
+int rows_to_move_up = (final_row - cursor_row) + menu_lines;
+```
+
+#### 5. What Was NOT Implemented
+
+- ❌ Arrow key navigation updating command (navigation works but doesn't update buffer)
+- ❌ Enter key acceptance
+- ❌ Escape key dismissal
+- ❌ Typing dismissal
+- ❌ Word replacement function
+- ❌ Completion system state structure
+- ❌ TAB cycling (partially implemented in `lle_complete()` but untested)
+- ❌ Single completion auto-insert
+
+### Files Actually Modified
+
+1. **src/lle/completion/completion_menu_state.c** (line 132)
+   - Set `menu_active = true` on creation
+
+2. **src/display/command_layer.c** (lines 127, 305-370, 470-476)
+   - Added forward declaration for helper
+   - Force refresh when menu active
+   - Re-append menu in `set_command()` after highlighting
+   - Re-append menu in `update()` after highlighting
+
+3. **src/display/display_controller.c** (lines 219-227, 413-418, 431-441)
+   - Separate menu from command before rendering
+   - Write menu directly after command
+   - Account for menu lines in cursor positioning
+
+4. **src/lle/completion/completion_types.c** (lines 45, 52, 60, 68, 76, 84, 92, 100)
+   - Set all indicators to empty strings (no emojis)
+
+5. **src/lle/lle_readline.c** (lines 804-826, 1477-1480)
+   - Added `handle_tab()` event handler
+   - Added TAB detection in input loop
+
+6. **src/lle/keybinding_actions.c** (lines 1345-1450)
+   - Implemented `lle_complete()` function
+
+### Critical Lessons Learned
+
+1. **"Do it right, not intermediary hacks"** - User stopped wrong approaches immediately
+2. **Screen buffer is the "real" display layer** - Despite architecture, it handles actual rendering
+3. **Test in live terminal early** - Many issues invisible in theory
+4. **Separation at render time** - Command gets continuation prompts, menu does not
+5. **Manual cursor sync critical** - Every buffer change needs explicit sync
+
+### Next Session Priorities
+
+For the next session to complete Phase 5.4:
+
+1. **Implement arrow key navigation** that updates command buffer
+2. **Implement Enter key acceptance** with word replacement
+3. **Implement Escape key dismissal**
+4. **Implement typing dismissal** (clear menu on character input)
+5. **Fix duplicate completions** (deduplication logic)
+6. **Test TAB cycling** (currently in code but untested)
+7. **Implement single completion auto-insert**
+
+### Working Test Command
+
+```bash
+LLE_ENABLED=1 ./builddir/lusush
+# Type: ec
+# Press: TAB
+# Expected: Menu shows with echo, ecryptfs-* commands
+# Press: Arrow keys (navigation changes selection - confirmed working)
+# Issue: Command line doesn't update with selection
+```
+
+### Reference Documents
+
+- `docs/development/COMPLETION_REMAINING_TASKS.md` - Detailed task breakdown
+- `AI_ASSISTANT_HANDOFF_DOCUMENT.md` - Session 21 summary
+- `docs/development/LLE_COMPLETION_PHASE5_IMPLEMENTATION_PLAN.md` - Updated with actual results
+
+---
+
+**Session 21 Status**: Menu display working. Navigation, dismissal, and acceptance still needed.

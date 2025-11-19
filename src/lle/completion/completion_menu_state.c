@@ -129,7 +129,7 @@ lle_result_t lle_completion_menu_state_create(
     new_state->visible_count = 0;
     new_state->category_positions = NULL;
     new_state->category_count = 0;
-    new_state->menu_active = false;
+    new_state->menu_active = true;  // Menu is active when created
     new_state->memory_pool = memory_pool;
     
     // Copy configuration or use defaults

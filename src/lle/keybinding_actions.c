@@ -110,12 +110,23 @@ static void refresh_after_completion(display_controller_t *dc) {
         return;
     }
     
-    /* Publish content changed event to trigger display update */
-    layer_event_t event = {
-        .type = LAYER_EVENT_CONTENT_CHANGED,
-        .timestamp = 0
-    };
-    layer_events_publish(dc->event_system, &event);
+    /* Get command layer */
+    command_layer_t *cmd_layer = get_command_layer_from_display(dc);
+    if (!cmd_layer) {
+        return;
+    }
+    
+    /* Trigger command_layer_update() which publishes REDRAW_NEEDED event
+     * This is the critical step that makes screen_buffer_render() get called
+     */
+    command_layer_update(cmd_layer);
+    
+    /* Process pending events to trigger dc_handle_redraw_needed()
+     * which calls screen_buffer_render() and outputs to terminal
+     */
+    if (dc->event_system) {
+        layer_events_process_pending(dc->event_system, 10, 0);
+    }
 }
 
 /**
@@ -1435,7 +1446,6 @@ lle_result_t lle_complete(lle_editor_t *editor) {
                     term_width = dc->terminal_ctrl->capabilities.terminal_width;
                 }
                 command_layer_set_completion_menu(cmd_layer, menu, term_width);
-                refresh_after_completion(dc);
             }
         }
     }

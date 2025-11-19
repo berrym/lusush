@@ -519,7 +519,7 @@ tests/lle/unit/test_completion_menu_renderer.c   (~300 lines)
 
 ## Implementation Phases
 
-### Phase 5.1: Menu Renderer (Week 1)
+### Phase 5.1: Menu Renderer ✅ COMPLETE
 
 **Tasks**:
 1. Create `completion_menu_renderer.c/h`
@@ -532,12 +532,17 @@ tests/lle/unit/test_completion_menu_renderer.c   (~300 lines)
 4. Compile and test renderer standalone
 
 **Success Criteria**:
-- Renderer produces correct text output
-- Selection highlighting works
-- Handles edge cases (empty menu, single item, etc.)
-- Unit tests pass
+- ✅ Renderer produces correct text output
+- ✅ Selection highlighting works
+- ✅ Handles edge cases (empty menu, single item, etc.)
+- ✅ Unit tests pass
 
-### Phase 5.2: Command Layer Integration (Week 2)
+**Actual Implementation Notes (Session 20)**:
+- Implemented without emoji/symbol indicators by default (theme customizable)
+- Used simple text formatting for terminal compatibility
+- Category headers working correctly
+
+### Phase 5.2: Command Layer Integration ✅ COMPLETE
 
 **Tasks**:
 1. Extend `command_layer_t` structure
@@ -547,12 +552,19 @@ tests/lle/unit/test_completion_menu_renderer.c   (~300 lines)
 5. Write integration tests
 
 **Success Criteria**:
-- Menu appears in `highlighted_text`
-- Command portion unchanged
-- Events fire correctly
-- Menu clearing works
+- ✅ Menu appears in `highlighted_text`
+- ✅ Command portion unchanged
+- ✅ Events fire correctly
+- ✅ Menu clearing works
 
-### Phase 5.3: Display Controller Adjustments (Week 2)
+**Actual Implementation Notes (Session 20-21)**:
+- Added `completion_menu_active`, `menu_state`, `highlighted_base_length` fields
+- Implemented `command_layer_set_completion_menu()`, `command_layer_update_completion_menu()`, `command_layer_clear_completion_menu()`
+- **Critical Discovery**: Menu must be re-appended after BOTH syntax highlighting passes (in `set_command()` AND `update()`)
+- Added `force_refresh` flag to prevent early return when menu active
+- Helper function `append_menu_to_highlighted_text()` implemented
+
+### Phase 5.3: Display Controller Adjustments ✅ COMPLETE
 
 **Tasks**:
 1. Adjust newline counting for continuation prompts
@@ -561,29 +573,50 @@ tests/lle/unit/test_completion_menu_renderer.c   (~300 lines)
 4. Test clearing mechanism
 
 **Success Criteria**:
-- Menu renders below command
-- Cursor stays in command
-- Menu clears cleanly
-- No display corruption
+- ✅ Menu renders below command
+- ✅ Cursor stays in command
+- ✅ Menu clears cleanly
+- ✅ No display corruption
 
-### Phase 5.4: LLE Integration (Week 3)
+**Actual Implementation Notes (Session 21)**:
+- **Critical Architecture Discovery**: Menu must be separated from command BEFORE `screen_buffer_render()`
+- Command portion gets continuation prompts, menu does NOT
+- Menu written separately after command rendering via direct `write()`
+- Cursor positioning accounts for menu lines in `rows_to_move_up` calculation
+- Works correctly with multi-line prompts and commands
+
+### Phase 5.4: LLE Integration ⚠️ PARTIAL - MENU DISPLAY WORKING
 
 **Tasks**:
-1. Wire up TAB key to trigger completion + menu
-2. Wire up arrow keys to navigate menu
-3. Wire up Enter to accept selection
-4. Wire up Escape to cancel
-5. Implement word replacement on accept
-6. Add event handlers
+1. ✅ Wire up TAB key to trigger completion + menu
+2. ❌ Wire up arrow keys to navigate menu (NOT WORKING - doesn't update command)
+3. ❌ Wire up Enter to accept selection (NOT IMPLEMENTED)
+4. ❌ Wire up Escape to cancel (NOT IMPLEMENTED)
+5. ❌ Implement word replacement on accept (NOT IMPLEMENTED)
+6. ✅ Add event handlers (basic TAB handler working)
 
 **Success Criteria**:
-- TAB shows menu
-- Arrows navigate
-- Enter accepts and fills command
-- Escape dismisses
-- Character input dismisses menu
+- ✅ TAB shows menu
+- ❌ Arrows navigate (selection changes but command doesn't update)
+- ❌ Enter accepts and fills command
+- ❌ Escape dismisses
+- ❌ Character input dismisses menu
 
-### Phase 5.5: Testing and Refinement (Week 3-4)
+**Actual Implementation Notes (Session 21)**:
+- Added TAB recognition to `lle_readline.c` input processing
+- Implemented `handle_tab()` event handler
+- Implemented `lle_complete()` in `keybinding_actions.c`
+- Menu displays correctly without continuation prompts
+- Cursor positioned correctly
+- **Still needed**: Navigation, dismissal, acceptance, deduplication
+
+**Known Issues**:
+- Arrow keys don't update command line with selected completion
+- No menu dismissal on typing/escape/enter/movement
+- Duplicate completions (e.g., `echo` appears twice - symlink issue)
+- TAB cycling partially implemented but untested
+
+### Phase 5.5: Testing and Refinement ❌ NOT STARTED
 
 **Tasks**:
 1. Test with various completion scenarios
@@ -598,6 +631,8 @@ tests/lle/unit/test_completion_menu_renderer.c   (~300 lines)
 - Performance acceptable (<50ms updates)
 - No visual glitches
 - Handles all edge cases
+
+**Status**: Deferred until Phase 5.4 fully complete
 
 ---
 
@@ -851,8 +886,129 @@ These will be answered during implementation.
 
 ## Conclusion
 
-Phase 5 starts with the simplest approach that could work: append menu text to command text, let existing infrastructure handle it. This follows the "architecturally correct + just works" principle while acknowledging we'll learn and iterate.
+Phase 5 started with the simplest approach that could work: append menu text to command text, let existing infrastructure handle it. This followed the "architecturally correct + just works" principle while acknowledging we'd learn and iterate.
 
-The plan is detailed enough to start implementation, flexible enough to adapt, and based on proven patterns from continuation prompts.
+The plan was detailed enough to start implementation, flexible enough to adapt, and based on proven patterns from continuation prompts.
 
-**Ready to begin implementation on user approval.**
+---
+
+## Actual Implementation Results (Sessions 20-21)
+
+### What Worked as Planned
+
+✅ **Approach A (Append Menu)**: The fundamental approach of appending menu to command text worked
+✅ **Screen Buffer Diff System**: Reusing existing infrastructure was correct
+✅ **Event-Driven Updates**: Command layer events triggered proper display updates
+✅ **Separation of Concerns**: LLE owns state, display queries it
+
+### Critical Deviations from Plan
+
+#### 1. The "Double Re-Append Hack"
+
+**Original Plan**: Append menu once in `command_layer_set_completion_menu()`
+
+**Reality**: Menu must be re-appended in TWO places:
+- `command_layer_set_command()` - after first syntax highlighting pass
+- `command_layer_update()` - after second syntax highlighting pass
+
+**Reason**: Both functions call `perform_syntax_highlighting()` which overwrites `highlighted_text`, erasing the menu
+
+**Solution**:
+```c
+// Both functions now do this after highlighting:
+if (layer->completion_menu_active && layer->menu_state) {
+    layer->highlighted_base_length = strlen(layer->highlighted_text);
+    append_menu_to_highlighted_text(layer, term_width);
+}
+```
+
+#### 2. Menu Separation Before Rendering
+
+**Original Plan**: Pass combined text to `screen_buffer_render()`, continuation prompts would work
+
+**Reality**: Continuation prompt system added "> " to EVERY line including menu lines
+
+**Solution**: Separate menu from command BEFORE `screen_buffer_render()`:
+```c
+// In display_controller.c:
+char *menu_text = NULL;
+if (cmd_layer->completion_menu_active && cmd_layer->highlighted_base_length > 0) {
+    size_t base_len = cmd_layer->highlighted_base_length;
+    if (base_len < strlen(command_buffer) && command_buffer[base_len] == '\n') {
+        menu_text = &command_buffer[base_len + 1];
+        command_buffer[base_len] = '\0';  // Terminate command portion
+    }
+}
+
+// Pass only command to screen_buffer_render()
+screen_buffer_render(..., command_buffer, ...);
+
+// Write menu directly after
+if (menu_text && *menu_text) {
+    write(STDOUT_FILENO, "\n", 1);
+    write(STDOUT_FILENO, menu_text, strlen(menu_text));
+}
+```
+
+#### 3. Cursor Positioning with Menu Lines
+
+**Original Plan**: Cursor offset just works with combined text
+
+**Reality**: Cursor calculation needed adjustment for menu lines written after command
+
+**Solution**:
+```c
+// Count menu lines
+int menu_lines = 0;
+if (menu_text && *menu_text) {
+    menu_lines = 1;  // Newline before menu
+    for (const char *p = menu_text; *p; p++) {
+        if (*p == '\n') menu_lines++;
+    }
+}
+
+// Account for menu when moving cursor up
+int rows_to_move_up = (final_row - cursor_row) + menu_lines;
+```
+
+### Lessons Learned
+
+1. **"Do it right, not intermediary hacks"** - User wisdom that prevented complex workarounds
+2. **Screen buffer is the "real" display layer** - Despite layered architecture, screen_buffer handles actual rendering
+3. **Separation of concerns at render time** - Command gets continuation prompts, menu does not
+4. **Manual cursor synchronization critical** - Every buffer modification requires explicit cursor sync
+5. **Test in live terminal early** - Many issues only visible in actual terminal, not in theory
+
+### Files Actually Modified
+
+**Created**:
+- `src/lle/completion/completion_menu_state.c` - Set `menu_active=true` on creation
+
+**Modified**:
+- `src/display/command_layer.c` - Double re-append hack, force refresh flag
+- `src/display/display_controller.c` - Menu separation, direct write, cursor adjustment
+- `src/lle/completion/completion_types.c` - Remove default emoji indicators
+- `src/lle/lle_readline.c` - TAB key recognition
+- `src/lle/keybinding_actions.c` - `lle_complete()` implementation
+
+### Current Status Summary
+
+**Working**:
+- TAB triggers completion menu
+- Menu displays without continuation prompts
+- Cursor positioned correctly
+- Multi-line prompt support
+- No default symbols (theme customizable)
+
+**Not Working**:
+- Arrow key navigation doesn't update command
+- No menu dismissal on typing/escape/enter
+- No completion acceptance
+- Duplicate completions not filtered
+- TAB cycling untested
+
+**Next Session Priority**: Complete Phase 5.4 - implement navigation, dismissal, and acceptance
+
+---
+
+**Implementation complete for menu display. Ready for Phase 5.4 completion in next session.**

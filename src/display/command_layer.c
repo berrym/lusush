@@ -124,6 +124,7 @@ static highlighting_stats_t g_highlighting_stats = {0};
 // Core functionality
 static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer);
 static command_layer_error_t update_command_metrics(command_layer_t *layer);
+static command_layer_error_t append_menu_to_highlighted_text(command_layer_t *layer, size_t terminal_width);
 static uint64_t get_current_time_ns(void);
 static void update_performance_stats(command_layer_t *layer, uint64_t operation_time_ns);
 
@@ -300,7 +301,12 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     bool command_changed = (strcmp(layer->command_text, command_text) != 0);
     bool cursor_changed = (layer->cursor_position != cursor_pos);
     
-    if (!command_changed && !cursor_changed) {
+    /* If completion menu is active, we need to re-process even if command hasn't changed
+     * because the menu needs to be re-appended after syntax highlighting
+     */
+    bool force_refresh = (layer->completion_menu_active && layer->menu_state);
+    
+    if (!command_changed && !cursor_changed && !force_refresh) {
         // No change, just update performance stats with minimal time
         update_performance_stats(layer, get_current_time_ns() - start_time);
         return COMMAND_LAYER_SUCCESS;
@@ -352,6 +358,17 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     
     // Update cursor position in metrics
     layer->metrics.cursor_position = cursor_pos;
+    
+    /* Re-append completion menu if active
+     * Syntax highlighting overwrites highlighted_text, so we need to restore the menu
+     */
+    if (layer->completion_menu_active && layer->menu_state) {
+        layer->highlighted_base_length = strlen(layer->highlighted_text);
+        /* Get terminal width from display integration */
+        size_t term_width = 80;  /* Default fallback */
+        /* Note: terminal width should ideally come from display_controller, but we'll use default for now */
+        append_menu_to_highlighted_text(layer, term_width);
+    }
     
     uint64_t operation_time = get_current_time_ns() - start_time;
     update_performance_stats(layer, operation_time);
@@ -443,6 +460,15 @@ command_layer_error_t command_layer_update(command_layer_t *layer) {
     result = update_command_metrics(layer);
     if (result != COMMAND_LAYER_SUCCESS) {
         return result;
+    }
+    
+    /* Re-append completion menu if active
+     * perform_syntax_highlighting() overwrites highlighted_text, so we need to restore the menu
+     */
+    if (layer->completion_menu_active && layer->menu_state) {
+        layer->highlighted_base_length = strlen(layer->highlighted_text);
+        size_t term_width = 80;  /* Default fallback */
+        append_menu_to_highlighted_text(layer, term_width);
     }
     
     layer->needs_redraw = true;

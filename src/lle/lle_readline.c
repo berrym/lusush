@@ -802,6 +802,33 @@ static lle_result_t handle_yank(lle_event_t *event, void *user_data)
 }
 
 /**
+ * @brief Event handler for TAB key
+ * Triggers completion via lle_complete()
+ */
+static lle_result_t handle_tab(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (!ctx || !ctx->editor) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Call completion function to set up menu */
+    lle_result_t result = lle_complete(ctx->editor);
+    
+    /* Refresh display to render buffer content with menu appended
+     * The menu was set by lle_complete(), and command_layer_set_command() 
+     * will re-append it after syntax highlighting thanks to our fix
+     */
+    if (result == LLE_SUCCESS) {
+        refresh_display(ctx);
+    }
+    
+    return result;
+}
+
+/**
  * @brief Event handler for Left arrow key
  * Step 5: Move cursor left one grapheme cluster
  * PHASE 2 FIX: Use grapheme-based movement instead of codepoint-based
@@ -1470,6 +1497,12 @@ char *lle_readline(const char *prompt)
                 /* Check for backspace */
                 if (codepoint == 127 || codepoint == 8) {  /* DEL or BS */
                     execute_keybinding_action(&ctx, "BACKSPACE", handle_backspace);
+                    break;
+                }
+                
+                /* Check for TAB - trigger completion */
+                if (codepoint == '\t' || codepoint == 9) {
+                    execute_keybinding_action(&ctx, "TAB", handle_tab);
                     break;
                 }
                 

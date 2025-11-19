@@ -217,6 +217,16 @@ static layer_events_error_t dc_handle_redraw_needed(
         return LAYER_EVENTS_ERROR_INVALID_PARAM;
     }
 
+    /* Separate menu from command if completion is active */
+    char *menu_text = NULL;
+    if (cmd_layer->completion_menu_active && cmd_layer->highlighted_base_length > 0) {
+        size_t base_len = cmd_layer->highlighted_base_length;
+        if (base_len < strlen(command_buffer) && command_buffer[base_len] == '\n') {
+            menu_text = &command_buffer[base_len + 1];  /* Point to menu text after newline */
+            command_buffer[base_len] = '\0';  /* Terminate command portion */
+        }
+    }
+
     /* CONTINUATION PROMPT SUPPORT:
      * 
      * Detect multiline input and set continuation prompt prefixes on screen_buffer.
@@ -401,10 +411,19 @@ static layer_events_error_t dc_handle_redraw_needed(
         }
     }
     
+    /* Step 4b: Write completion menu WITHOUT continuation prompts */
+    if (menu_text && *menu_text) {
+        write(STDOUT_FILENO, "\n", 1);
+        write(STDOUT_FILENO, menu_text, strlen(menu_text));
+    }
+    
     /* Step 5: Position cursor at the correct location
      * 
-     * After drawing command text, terminal cursor is at the end.
-     * We need to position it where the user's cursor actually is.
+     * After drawing command text and menu, terminal cursor is at the end of menu.
+     * We need to position it where the user's cursor actually is (in the command).
+     * 
+     * screen_buffer calculated cursor position relative to command text only.
+     * We need to account for menu lines that were written after.
      * 
      * Use absolute positioning to avoid moving through column 0.
      */
@@ -412,8 +431,17 @@ static layer_events_error_t dc_handle_redraw_needed(
     int cursor_col = desired_screen.cursor_col;
     int final_row = desired_screen.num_rows - 1;
     
-    /* Move up to the target row if needed */
-    int rows_to_move_up = final_row - cursor_row;
+    /* Count menu lines to adjust final cursor position */
+    int menu_lines = 0;
+    if (menu_text && *menu_text) {
+        menu_lines = 1;  /* The newline before menu counts as one */
+        for (const char *p = menu_text; *p; p++) {
+            if (*p == '\n') menu_lines++;
+        }
+    }
+    
+    /* Move up from end of menu to cursor position in command */
+    int rows_to_move_up = (final_row - cursor_row) + menu_lines;
     if (rows_to_move_up > 0) {
         char up_seq[16];
         int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
