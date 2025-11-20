@@ -49,6 +49,7 @@
 
 #include "display/command_layer.h"
 #include "display_integration.h"
+#include "display/display_controller.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
 #include "alias.h"
@@ -295,7 +296,15 @@ command_layer_error_t command_layer_set_command(command_layer_t *layer,
     /* Always need initial render even if buffer is empty */
     bool is_first_render = (layer->update_sequence_number == 0);
     
-    if (!command_changed && !cursor_changed && !is_first_render) {
+    /* Check if completion menu state changed (even if command/cursor didn't)
+     * When menu is shown/hidden, we need redraw even if command text unchanged */
+    bool menu_changed = false;
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        menu_changed = display_controller_check_and_clear_menu_changed(dc);
+    }
+    
+    if (!command_changed && !cursor_changed && !is_first_render && !menu_changed) {
         // No change, just update performance stats with minimal time
         update_performance_stats(layer, get_current_time_ns() - start_time);
         return COMMAND_LAYER_SUCCESS;

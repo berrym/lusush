@@ -105,11 +105,19 @@ static void refresh_after_completion(display_controller_t *dc) {
         return;
     }
     
-    /* Process pending events to trigger dc_handle_redraw_needed()
-     * The display_controller will compose menu with command during rendering
+    /* Directly publish REDRAW_NEEDED event and process immediately
+     * Event-based approach wasn't reliably triggering display update
      */
     if (dc->event_system) {
-        layer_events_process_pending(dc->event_system, 10, 0);
+        layer_event_t event = {
+            .type = LAYER_EVENT_REDRAW_NEEDED,
+            .source_layer = LAYER_ID_DISPLAY_CONTROLLER,
+            .timestamp = 0
+        };
+        layer_events_publish(dc->event_system, &event);
+        
+        /* Process events immediately to ensure display updates */
+        layer_events_process_pending(dc->event_system, 100, 0);
     }
 }
 
@@ -150,7 +158,10 @@ static lle_result_t replace_word_at_cursor(
 
 /**
  * Clear active completion menu
- * Clears both the completion system state and the command layer display
+ * 
+ * Clears both the completion system state and the display_controller menu.
+ * The caller (lle_self_insert) is a SIMPLE action, so refresh_display() will
+ * be called automatically by execute_keybinding_action() framework.
  */
 static void clear_completion_menu(lle_editor_t *editor) {
     if (!editor || !editor->completion_system) {
@@ -160,11 +171,11 @@ static void clear_completion_menu(lle_editor_t *editor) {
     /* Clear completion system state */
     lle_completion_system_clear(editor->completion_system);
     
-    /* Clear menu from command layer */
+    /* Clear menu from display_controller */
     display_controller_t *dc = display_integration_get_controller();
     if (dc) {
         display_controller_clear_completion_menu(dc);
-        refresh_after_completion(dc);
+        /* Note: menu_state_changed flag is set, will trigger redraw in refresh_display() */
     }
 }
 
@@ -1315,18 +1326,24 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* If completion is already active, cycle to next item */
+    /* If completion is already active, cycle to next item
+     * This is standard shell behavior: TAB cycles through completions
+     */
     if (lle_completion_system_is_active(editor->completion_system)) {
         lle_completion_menu_state_t *menu = 
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
-            /* Move to next item */
+            /* Move to next item (cycles back to first when at end) */
             lle_completion_menu_move_down(menu);
             
-            /* Menu state has changed, trigger refresh */
+            /* NOTE: Command text update with selected completion not yet implemented
+             * This is Phase 5.5 functionality - menu highlights but text doesn't change
+             */
+            
+            /* Menu selection changed, trigger refresh */
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
-                refresh_after_completion(dc);
+                dc->menu_state_changed = true;
             }
         }
         return LLE_SUCCESS;
@@ -1399,7 +1416,11 @@ lle_result_t lle_complete(lle_editor_t *editor) {
             lle_completion_system_get_menu(editor->completion_system);
         if (menu) {
             display_controller_set_completion_menu(dc, menu);
-            refresh_after_completion(dc);
+            /* NOTE: Don't call refresh_after_completion() here!
+             * The caller (execute_keybinding_action) will call refresh_display(ctx)
+             * which goes through lle_render → lle_display_bridge → command_layer_set_command
+             * → REDRAW_NEEDED event → dc_handle_redraw_needed → menu rendered
+             */
         }
     }
     

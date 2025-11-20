@@ -35,7 +35,16 @@ LLE_ENABLED=1 ./builddir/lusush -i
 
 ---
 
-### 2. ⚠️ TAB on "ec" doesn't show completion menu
+### 2. ⚠️ TAB on "ec" completion menu - PARTIALLY WORKING
+
+**Test Result** (2025-11-20 - Session 22):
+- ✅ Menu appears on TAB
+- ❌ Menu content is WRONG (duplicates, wrong categorization)
+- ❌ Menu only dismisses on character insertion (not backspace/delete/ESC/Ctrl+G)
+- ❌ Menu rendering corrupts during TAB cycling (spaces disappear/reappear)
+- "ec" appears in red (syntax highlighting working)
+- TAB press: no menu, no visible change
+- Something may be happening behind the scenes (completions generated but not displayed?)
 
 **Symptom**:
 ```bash

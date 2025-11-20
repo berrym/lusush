@@ -351,8 +351,6 @@ static layer_events_error_t dc_handle_redraw_needed(
     if (!prompt_rendered) {
         if (prompt_buffer[0]) {
             write(STDOUT_FILENO, prompt_buffer, strlen(prompt_buffer));
-            /* Ensure prompt is visible immediately */
-            fsync(STDOUT_FILENO);
         }
         prompt_rendered = true;
     }
@@ -1144,6 +1142,7 @@ display_controller_error_t display_controller_init(
     // Initialize completion menu state (LLE Spec 12 - Proper Architecture)
     controller->active_completion_menu = NULL;
     controller->completion_menu_visible = false;
+    controller->menu_state_changed = false;
     
     controller->is_initialized = true;
     controller->integration_mode_active = controller->config.enable_integration_mode;
@@ -1936,15 +1935,10 @@ display_controller_error_t display_controller_set_completion_menu(
     
     DC_DEBUG("Completion menu set (visible: %d)", controller->completion_menu_visible);
     
-    // Trigger display update to show menu
-    if (controller->event_system) {
-        layer_event_t event = {
-            .type = LAYER_EVENT_CONTENT_CHANGED,
-            .source_layer = LAYER_ID_COMMAND_LAYER,
-            .timestamp = 0
-        };
-        layer_events_publish(controller->event_system, &event);
-    }
+    /* Menu state changed - mark that we need redraw even if command text unchanged
+     * This flag will be checked by command_layer to bypass its early return optimization
+     */
+    controller->menu_state_changed = true;
     
     return DISPLAY_CONTROLLER_SUCCESS;
 }
@@ -1965,15 +1959,8 @@ display_controller_error_t display_controller_clear_completion_menu(
     
     DC_DEBUG("Completion menu cleared");
     
-    // Trigger display update to remove menu
-    if (controller->event_system) {
-        layer_event_t event = {
-            .type = LAYER_EVENT_CONTENT_CHANGED,
-            .source_layer = LAYER_ID_COMMAND_LAYER,
-            .timestamp = 0
-        };
-        layer_events_publish(controller->event_system, &event);
-    }
+    /* Menu state changed - mark that we need redraw even if command text unchanged */
+    controller->menu_state_changed = true;
     
     return DISPLAY_CONTROLLER_SUCCESS;
 }
@@ -1997,6 +1984,18 @@ lle_completion_menu_state_t *display_controller_get_completion_menu(
     }
     
     return controller->active_completion_menu;
+}
+
+bool display_controller_check_and_clear_menu_changed(
+    display_controller_t *controller) {
+    
+    if (!controller) {
+        return false;
+    }
+    
+    bool changed = controller->menu_state_changed;
+    controller->menu_state_changed = false;  // Clear the flag after checking
+    return changed;
 }
 
 // ============================================================================

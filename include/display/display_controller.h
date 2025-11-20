@@ -274,6 +274,7 @@ typedef struct {
     // Completion menu integration (LLE Spec 12 - Proper Architecture)
     lle_completion_menu_state_t *active_completion_menu;  // Active completion menu (NULL if none)
     bool completion_menu_visible;                         // Menu visibility state
+    bool menu_state_changed;                              // Flag: menu state changed, needs redraw
 } display_controller_t;
 
 // ============================================================================
@@ -504,6 +505,20 @@ bool display_controller_has_completion_menu(
  */
 lle_completion_menu_state_t *display_controller_get_completion_menu(
     const display_controller_t *controller
+);
+
+/**
+ * Check if menu state changed and clear the flag.
+ * 
+ * This is used by command_layer to determine if it should bypass its early
+ * return optimization even when command text hasn't changed. When the menu
+ * state changes (menu shown/hidden), we need a redraw even if command is same.
+ * 
+ * @param controller The display controller
+ * @return true if menu state changed since last check, false otherwise
+ */
+bool display_controller_check_and_clear_menu_changed(
+    display_controller_t *controller
 );
 
 // ============================================================================

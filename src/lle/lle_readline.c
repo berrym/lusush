@@ -308,6 +308,16 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         ctx->editor->history_navigation_pos = 0;
     }
     
+    /* Clear completion menu on character input */
+    if (ctx->editor && ctx->editor->completion_system &&
+        lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+        lle_completion_system_clear(ctx->editor->completion_system);
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_clear_completion_menu(dc);
+        }
+    }
+    
     /* Insert character into buffer at cursor position */
     lle_result_t result = lle_buffer_insert_text(
         ctx->buffer,
