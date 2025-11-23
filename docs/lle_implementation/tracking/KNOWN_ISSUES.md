@@ -8,11 +8,12 @@
 
 ## Executive Summary
 
-**Current State**: Active development with continuation prompts complete, partial syntax highlighting fixes
+**Current State**: Active development - Spec 12 completion system integrated, duplicates fixed
 
-- ⚠️ **2 Active Issues** - Syntax highlighting bugs (2 MEDIUM)
+- ⚠️ **4 Active Issues** - Completion enhancements (2 MEDIUM), syntax highlighting (2 MEDIUM)
 - ✅ **1 Issue Fixed** - Invalid command highlighting (Issue #4)
-- ✅ **No Blockers** (all issues are non-critical)
+- ✅ **Spec 12 v2 completion integrated** - Duplicates eliminated (Session 23)
+- ✅ **No Blockers** (all issues are enhancements/cosmetic)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
@@ -20,10 +21,164 @@
 - ✅ **break/continue in loops fixed** (Session 16)
 - ✅ **Multiline pipeline execution fixed** (Session 16)
 - ✅ **Continuation prompts with full Unicode support** (Session 17-18)
+- ✅ **Completion generation proper architecture** (Session 23)
 
 ---
 
 ## Active Issues
+
+### Issue #7: Completion Menu - Category Disambiguation Not Implemented
+**Severity**: MEDIUM  
+**Discovered**: 2025-11-22 (Session 23 Part 2)  
+**Status**: Not yet fixed (documented for future work)  
+**Component**: Completion system v2 / source manager  
+
+**Description**:
+When the same command exists in multiple categories (e.g., builtin `echo` vs external `/usr/bin/echo`, or alias `ls` vs external `ls`), the completion system currently deduplicates based on text only, not considering the type/category. This means only one entry appears in the menu, and users cannot disambiguate which version to execute.
+
+**Example Scenarios**:
+1. **Builtin vs External**:
+   - Builtin `echo` 
+   - External `/usr/bin/echo`
+   - Current: Only "echo" appears once
+   - Problem: Selecting "echo" always executes builtin (due to Lusush prioritization)
+   - User cannot explicitly select external version
+
+2. **Alias vs External**:
+   - Alias `ls='ls --color=auto'`
+   - External `/usr/bin/ls`
+   - Current: Only "ls" appears once
+   - Problem: Selecting "ls" executes alias
+   - User cannot bypass alias to run plain external command
+
+**Current Deduplication Logic** (src/lle/completion/completion_system_v2.c):
+```c
+static lle_result_t deduplicate_results(lle_completion_result_t *result) {
+    // Compares text ONLY, not type:
+    if (strcmp(result->items[check].text, text) == 0) {
+        duplicate = true;  // Removes regardless of category!
+    }
+}
+```
+
+**Proper Behavior** (recommended):
+1. **Keep duplicates with different types**:
+   ```c
+   if (strcmp(result->items[check].text, text) == 0 &&
+       result->items[check].type == result->items[read_pos].type) {
+       duplicate = true;  // Only remove if BOTH text AND type match
+   }
+   ```
+
+2. **Display with category indicators**:
+   ```
+   echo [builtin]
+   echo [command: /usr/bin/echo]
+   ls [alias]
+   ls [command: /usr/bin/ls]
+   ```
+
+3. **Smart insertion on selection**:
+   - Builtin selected: insert "echo" (executes builtin due to priority)
+   - Command selected: insert "/usr/bin/echo" (full path bypasses builtin)
+   - Alias selected: insert "ls" (executes alias)
+
+4. **Future: `command` builtin** (like zsh):
+   ```bash
+   command echo  # Forces external command, bypasses builtins/aliases
+   ```
+
+**Current Workaround**:
+Users can type the full path manually: `/usr/bin/echo` instead of relying on completion.
+
+**Why Not Fixed Now**:
+1. True conflicts (builtin + external with same name) are rare in practice
+2. The critical bug we fixed was "echo" appearing **twice in same category** (both as builtin)
+3. Category disambiguation is an **enhancement**, not a blocker
+4. Requires changes to:
+   - Deduplication logic (compare type + text)
+   - Menu display (show category indicators)
+   - Insertion logic (insert full path for external commands when disambiguating)
+   - Metadata tracking (source functions need to provide full paths)
+
+**Priority**: MEDIUM (enhancement for power users, not critical for basic usage)
+
+**Resolution Plan**:
+1. Modify `deduplicate_results()` to compare both text and type
+2. Update menu renderer to show category labels for duplicates
+3. Implement smart insertion logic based on selected type
+4. (Future) Add `command` builtin for explicit external command execution
+
+**Status**: DOCUMENTED - Fix deferred to future session
+
+---
+
+### Issue #8: Completion Menu Single-Column Display (Inefficient Space Usage)
+**Severity**: LOW  
+**Discovered**: 2025-11-22 (Session 23 Part 2)  
+**Status**: Not yet fixed (documented for investigation)  
+**Component**: Completion menu display / legacy bash completion integration  
+
+**Description**:
+Completion menu currently displays one item per line (single-column), which is inefficient use of screen space. Modern shells like zsh display completions in multiple columns with category headers, making better use of terminal width.
+
+**Current Behavior**:
+```
+Display all 112 possibilities? (y or n)
+e2freefrag
+e2fsck
+e2fsdroid
+e2image
+e2label
+echo
+ed
+... (one per line, continues)
+```
+
+**Expected Behavior** (zsh-style):
+```
+completing external command
+e2freefrag  e2fsck      e2fsdroid   e2image     e2label
+completing builtin command
+echo        echotc      echoti
+```
+
+**Investigation Findings**:
+1. **LLE has multi-column support**: The completion_menu_renderer.c already supports multi-column layout:
+   ```c
+   .use_multi_column = true,
+   ```
+
+2. **Problem**: Menu is likely going through **legacy bash completion display** instead of using the LLE menu renderer
+
+3. **Evidence**: The "Display all X possibilities?" prompt is bash's completion pager, not LLE's menu system
+
+**Root Cause** (suspected):
+- v2 completion generates results correctly
+- Results not being routed through LLE menu renderer
+- Instead falling back to bash/readline completion display
+- Need to verify menu rendering path in keybinding integration
+
+**Why This Matters**:
+- Screen space efficiency (especially on small terminals)
+- Better visual organization with category grouping
+- Improved UX matching modern shell expectations
+- Professional appearance
+
+**Priority**: LOW (functionality works, this is UX enhancement)
+
+**Resolution Plan**:
+1. Trace completion display path in `lle_complete()` keybinding action
+2. Verify LLE menu renderer is being called vs bash fallback
+3. If using bash fallback: Wire v2 results to LLE menu renderer
+4. Enable multi-column display with category headers
+5. Test with various terminal widths
+
+**Status**: DOCUMENTED - Investigation needed
+
+**Note**: This may be related to screen_buffer integration that was planned in Session 23. Menu needs to go through proper LLE display system, not bypass to bash completion.
+
+---
 
 ### Issue #4: Invalid Commands Highlighted as Valid (Green) ✅ FIXED
 **Severity**: MEDIUM  
@@ -457,17 +612,20 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 2  
+**Active Issues**: 4  
 **Blockers**: 0  
 **High Priority**: 0  
-**Medium Priority**: 2 (Issues #5, #6 - syntax highlighting)  
-**Low Priority**: 0  
-**Fixed This Session**: 1 (Issue #4)
-**Implementation Status**: Continuation prompts complete with full Unicode support  
-**Next Action**: Address remaining syntax highlighting issues (requires deeper analysis)
+**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation)  
+**Low Priority**: 1 (Issue #8 - menu display format)  
+**Fixed This Session**: 0 (Issues #7 and #8 documented for future work)
+**Implementation Status**: Spec 12 v2 completion integrated, duplicates eliminated  
+**Next Action**: 
+- Interactive menu features (arrow navigation, Enter to accept)
+- (Future) Category disambiguation for completion conflicts
+- (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-11-16  
+**Last Updated**: 2025-11-22  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
