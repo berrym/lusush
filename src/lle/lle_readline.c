@@ -1401,6 +1401,9 @@ char *lle_readline(const char *prompt)
         /* Literal newline insertion - for editing complete multiline commands */
         lle_keybinding_manager_bind(keybinding_manager, "S-ENTER", lle_insert_newline_literal, "insert-newline-literal");
         lle_keybinding_manager_bind(keybinding_manager, "M-ENTER", lle_insert_newline_literal, "insert-newline-literal");
+        
+        /* Completion */
+        lle_keybinding_manager_bind(keybinding_manager, "TAB", lle_complete, "complete");
     }
     
     readline_context_t ctx = {

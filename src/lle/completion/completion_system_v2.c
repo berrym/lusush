@@ -215,12 +215,38 @@ lle_result_t lle_completion_system_v2_generate(
         return res;
     }
     
-    /* Clear old state */
+    /* Step 7: Create menu if multiple completions (for display system) */
+    lle_completion_menu_state_t *menu = NULL;
+    if (result->count > 1) {
+        /* Create menu with default config */
+        lle_completion_menu_config_t menu_config = {
+            .max_visible_items = 20,
+            .show_category_headers = true,
+            .show_type_indicators = false,
+            .show_descriptions = false,
+            .enable_scrolling = true,
+            .min_items_for_menu = 2
+        };
+        
+        res = lle_completion_menu_state_create(system->pool, result, &menu_config, &menu);
+        if (res != LLE_SUCCESS) {
+            lle_completion_state_free(state);
+            lle_completion_result_free(result);
+            lle_context_analyzer_free(context);
+            return res;
+        }
+    }
+    
+    /* Clear old state and menu */
     if (system->current_state) {
         lle_completion_state_free(system->current_state);
     }
+    if (system->menu) {
+        lle_completion_menu_state_free(system->menu);
+    }
     
     system->current_state = state;
+    system->menu = menu;  /* NULL if single completion or no completions */
     *out_result = result;
     
     return LLE_SUCCESS;

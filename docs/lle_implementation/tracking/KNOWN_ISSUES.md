@@ -36,6 +36,9 @@
 **Description**:
 When the same command exists in multiple categories (e.g., builtin `echo` vs external `/usr/bin/echo`, or alias `ls` vs external `ls`), the completion system currently deduplicates based on text only, not considering the type/category. This means only one entry appears in the menu, and users cannot disambiguate which version to execute.
 
+**ACTUAL OBSERVATION** (Session 23 Part 3 - 2025-11-22):
+Testing shows `echo` appears ONLY in the "builtin command" section, NOT in "external command" section at all. This suggests the deduplication is working as designed, but external commands that shadow builtins are being removed from the external category. User cannot see or select `/usr/bin/echo` from completion menu.
+
 **Example Scenarios**:
 1. **Builtin vs External**:
    - Builtin `echo` 
