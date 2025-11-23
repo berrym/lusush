@@ -451,6 +451,22 @@ endif
 if fs.exists('completion/completion_system.c')
   lle_sources += files('completion/completion_system.c')
 endif
+# Spec 12 Core: Context Analyzer
+if fs.exists('completion/context_analyzer.c')
+  lle_sources += files('completion/context_analyzer.c')
+endif
+# Spec 12 Core: Source Manager
+if fs.exists('completion/source_manager.c')
+  lle_sources += files('completion/source_manager.c')
+endif
+# Spec 12 Core: Completion State
+if fs.exists('completion/completion_state.c')
+  lle_sources += files('completion/completion_state.c')
+endif
+# Spec 12 Core: Completion System V2
+if fs.exists('completion/completion_system_v2.c')
+  lle_sources += files('completion/completion_system_v2.c')
+endif
 # Legacy completion (will be deprecated)
 if fs.exists('src/lle/completion.c')
   lle_sources += 'completion.c'
