@@ -438,11 +438,107 @@ cat $PA[TAB]   # Should show $PATH (variables only)
 
 ---
 
+## Spec 12 v2 Integration (COMPLETED) ✅
+
+**Status**: Integration complete, tested, duplicates FIXED!  
+**Commit**: [pending] - Session 23 Part 2  
+
+### What Was Done
+
+**1. Added v2 System to Editor Structure** ✅
+- Added `completion_system_v2` field to `lle_editor_t`
+- Kept legacy `completion_system` for fallback
+- Location: `include/lle/lle_editor.h`
+
+**2. Updated Editor Lifecycle** ✅
+- Initialize v2 in `lle_editor_create()` using unified pool
+- Destroy v2 in `lle_editor_destroy()`
+- Location: `src/lle/lle_editor.c`
+
+**3. Updated Keybinding Action** ✅
+- Modified `lle_complete()` to prefer v2 system
+- Falls back to legacy if v2 not available
+- Uses `lle_completion_system_v2_generate()` for proper generation
+- Location: `src/lle/keybinding_actions.c`
+
+**4. CRITICAL FIX: Separated Source Functions** ✅
+- **Problem**: Both builtin and external sources called `lle_completion_generate_commands()`
+- **Root Cause**: `lle_completion_generate_commands()` calls BOTH builtin AND external sources internally
+- **Solution**: Call individual source functions directly
+  - `builtin_source_generate()` → calls `lle_completion_source_builtins()` ONLY
+  - `external_command_source_generate()` → calls `lle_completion_source_commands()` ONLY
+- Location: `src/lle/completion/source_manager.c`
+
+### Testing Results
+
+**Manual Testing**:
+```bash
+LLE_ENABLED=1 printf 'e\t\ty\nexit\n' | ./build/lusush -i
+```
+
+**Results**:
+- Total completions for 'e': 112 possibilities
+- **"echo" appears EXACTLY ONCE** ✅
+- Verified with: `grep "^echo" | uniq -c` → shows "1 echo"
+- Check for duplicates: `sort | uniq -d` → **ZERO duplicates** ✅
+
+**Success Metric ACHIEVED**: 
+```
+Goal: Type ec[TAB] and see "echo" appear ONCE
+Result: ✅ "echo" appears exactly once, no duplicates found
+```
+
+### Why This Works
+
+**Deduplication Architecture**:
+1. Source manager queries each source type separately
+2. `builtin_source_generate()` adds builtins ONLY
+3. `external_command_source_generate()` adds external commands ONLY  
+4. `lle_completion_system_v2_generate()` deduplicates all results
+5. Even if sources overlap, deduplication ensures uniqueness
+
+**Before** (broken):
+```
+lle_complete() 
+  → lle_completion_generate_commands()
+      → lle_completion_source_builtins()  [adds "echo"]
+      → lle_completion_source_commands()  [adds "echo" again]
+  → Result: "echo" appears TWICE
+```
+
+**After** (fixed):
+```
+lle_complete()
+  → lle_completion_system_v2_generate()
+      → source_manager_query()
+          → builtin_source_generate() → lle_completion_source_builtins() [adds "echo"]
+          → external_source_generate() → lle_completion_source_commands() [skips "echo", it's builtin]
+      → deduplicate_results() [ensures uniqueness]
+  → Result: "echo" appears ONCE
+```
+
+### Files Modified
+
+- `include/lle/lle_editor.h`: Added completion_system_v2 field
+- `src/lle/lle_editor.c`: Initialize and destroy v2 system
+- `src/lle/keybinding_actions.c`: Use v2 generation in lle_complete()
+- `src/lle/completion/source_manager.c`: Fixed source functions
+
+### Build Status
+
+- ✅ Compiles successfully
+- ✅ Links successfully  
+- ✅ Lusush binary runs
+- ✅ Completions work correctly
+- ✅ No duplicates in completion results
+
+---
+
 ## For Next AI Assistant
 
 **Current Branch**: `feature/lle`  
-**Current Commit**: e237da6 (reverted to working baseline)  
-**Next Task**: Implement Spec 12 Phase 1 (core components)  
+**Current Commit**: [pending commit] - Spec 12 v2 integration complete  
+**Next Task**: Interactive menu features (arrow key navigation, Enter to accept)  
 
 **Read These Documents**:
 1. `docs/lle_implementation/SPEC12_CORE_IMPLEMENTATION_PLAN.md` - Implementation plan

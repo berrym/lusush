@@ -15,6 +15,7 @@
 #include "lle/keybinding.h"
 #include "lle/display_integration.h"
 #include "lle/completion/completion_system.h"
+#include "lle/completion/completion_system_v2.h"
 #include "lle/completion/completion_generator.h"
 #include "lle/completion/completion_menu_logic.h"
 #include "display_controller.h"
@@ -1322,31 +1323,51 @@ lle_result_t lle_history_search_forward(lle_editor_t *editor) {
  * ============================================================================ */
 
 lle_result_t lle_complete(lle_editor_t *editor) {
-    if (!editor || !editor->buffer || !editor->completion_system) {
+    if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
+    
+    /* Prefer v2 system (Spec 12), fall back to legacy if v2 not available */
+    bool use_v2 = (editor->completion_system_v2 != NULL);
     
     /* If completion is already active, cycle to next item
      * This is standard shell behavior: TAB cycles through completions
      */
-    if (lle_completion_system_is_active(editor->completion_system)) {
-        lle_completion_menu_state_t *menu = 
-            lle_completion_system_get_menu(editor->completion_system);
-        if (menu) {
-            /* Move to next item (cycles back to first when at end) */
-            lle_completion_menu_move_down(menu);
-            
-            /* NOTE: Command text update with selected completion not yet implemented
-             * This is Phase 5.5 functionality - menu highlights but text doesn't change
-             */
-            
-            /* Menu selection changed, trigger refresh */
-            display_controller_t *dc = display_integration_get_controller();
-            if (dc) {
-                dc->menu_state_changed = true;
+    if (use_v2) {
+        if (lle_completion_system_v2_is_active(editor->completion_system_v2)) {
+            lle_completion_menu_state_t *menu = 
+                lle_completion_system_v2_get_menu(editor->completion_system_v2);
+            if (menu) {
+                /* Move to next item (cycles back to first when at end) */
+                lle_completion_menu_move_down(menu);
+                
+                /* NOTE: Command text update with selected completion not yet implemented
+                 * This is Phase 5.5 functionality - menu highlights but text doesn't change
+                 */
+                
+                /* Menu selection changed, trigger refresh */
+                display_controller_t *dc = display_integration_get_controller();
+                if (dc) {
+                    dc->menu_state_changed = true;
+                }
             }
+            return LLE_SUCCESS;
         }
-        return LLE_SUCCESS;
+    } else {
+        /* Legacy system */
+        if (editor->completion_system && 
+            lle_completion_system_is_active(editor->completion_system)) {
+            lle_completion_menu_state_t *menu = 
+                lle_completion_system_get_menu(editor->completion_system);
+            if (menu) {
+                lle_completion_menu_move_down(menu);
+                display_controller_t *dc = display_integration_get_controller();
+                if (dc) {
+                    dc->menu_state_changed = true;
+                }
+            }
+            return LLE_SUCCESS;
+        }
     }
     
     /* Generate completions for current cursor position */
@@ -1356,11 +1377,26 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     const char *buffer = editor->buffer->data;
     
     lle_completion_result_t *result = NULL;
-    lle_result_t gen_result = lle_completion_generate(
-        editor->lle_pool,
-        buffer,
-        cursor_pos,
-        &result);
+    lle_result_t gen_result;
+    
+    if (use_v2) {
+        /* Use Spec 12 v2 generation (PROPER - with deduplication) */
+        gen_result = lle_completion_system_v2_generate(
+            editor->completion_system_v2,
+            buffer,
+            cursor_pos,
+            &result);
+    } else {
+        /* Fall back to legacy generation (has duplicates bug) */
+        if (!editor->completion_system) {
+            return LLE_SUCCESS;  /* No completion system available */
+        }
+        gen_result = lle_completion_generate(
+            editor->lle_pool,
+            buffer,
+            cursor_pos,
+            &result);
+    }
     
     if (gen_result != LLE_SUCCESS || !result) {
         return LLE_SUCCESS;  /* No completions - not an error */
@@ -1398,22 +1434,40 @@ lle_result_t lle_complete(lle_editor_t *editor) {
     }
     
     /* Multiple completions - activate completion system with menu */
-    lle_result_t set_result = lle_completion_system_set_completion(
-        editor->completion_system,
-        result,  /* Ownership transferred */
-        context.word,
-        context.word_start);
-    
-    if (set_result != LLE_SUCCESS) {
-        lle_completion_result_free(result);
-        return set_result;
+    lle_result_t set_result;
+    if (use_v2) {
+        /* V2 system stores state internally during generate, just need to show menu */
+        lle_completion_menu_state_t *menu = 
+            lle_completion_system_v2_get_menu(editor->completion_system_v2);
+        if (!menu) {
+            lle_completion_result_free(result);
+            return LLE_SUCCESS;
+        }
+        set_result = LLE_SUCCESS;
+    } else {
+        /* Legacy system needs explicit set */
+        set_result = lle_completion_system_set_completion(
+            editor->completion_system,
+            result,  /* Ownership transferred */
+            context.word,
+            context.word_start);
+        
+        if (set_result != LLE_SUCCESS) {
+            lle_completion_result_free(result);
+            return set_result;
+        }
     }
     
     /* Display menu via display_controller (proper architecture) */
     display_controller_t *dc = display_integration_get_controller();
     if (dc) {
-        lle_completion_menu_state_t *menu = 
-            lle_completion_system_get_menu(editor->completion_system);
+        lle_completion_menu_state_t *menu;
+        if (use_v2) {
+            menu = lle_completion_system_v2_get_menu(editor->completion_system_v2);
+        } else {
+            menu = lle_completion_system_get_menu(editor->completion_system);
+        }
+        
         if (menu) {
             display_controller_set_completion_menu(dc, menu);
             /* NOTE: Don't call refresh_after_completion() here!

@@ -64,7 +64,7 @@ static bool history_source_applicable(const lle_context_analyzer_t *context) {
 // ============================================================================
 
 /**
- * Builtin command source
+ * Builtin command source - ONLY builtins (no external commands)
  */
 static lle_result_t builtin_source_generate(
     lle_memory_pool_t *pool,
@@ -74,12 +74,12 @@ static lle_result_t builtin_source_generate(
 {
     (void)context;  /* Not needed for builtins */
     
-    /* Use existing completion function */
-    return lle_completion_generate_commands(pool, prefix, result);
+    /* Call ONLY the builtin source function to avoid duplicates */
+    return lle_completion_source_builtins(pool, prefix, result);
 }
 
 /**
- * External command source  
+ * External command source - ONLY PATH commands (no builtins)
  */
 static lle_result_t external_command_source_generate(
     lle_memory_pool_t *pool,
@@ -89,9 +89,8 @@ static lle_result_t external_command_source_generate(
 {
     (void)context;  /* Not needed for commands */
     
-    /* Use existing completion function */
-    /* NOTE: Currently shares implementation with builtins - will separate when needed */
-    return lle_completion_generate_commands(pool, prefix, result);
+    /* Call ONLY the external command source to avoid duplicates with builtins */
+    return lle_completion_source_commands(pool, prefix, result);
 }
 
 /**

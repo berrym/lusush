@@ -14,6 +14,7 @@
 #include "lle/kill_ring.h"
 #include "lle/memory_management.h"
 #include "lle/error_handling.h"
+#include "lle/completion/completion_system_v2.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -110,6 +111,18 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         return result;
     }
     
+    /* Create completion system v2 (Spec 12) using unified pool */
+    result = lle_completion_system_v2_create(ed->lle_pool, &ed->completion_system_v2);
+    if (result != LLE_SUCCESS) {
+        lle_completion_system_destroy(ed->completion_system);
+        lle_kill_ring_destroy(ed->kill_ring);
+        lle_cursor_manager_destroy(ed->cursor_manager);
+        lle_buffer_destroy(ed->buffer);
+        lle_memory_pool_destroy(ed->lle_pool);
+        lle_pool_free(ed);
+        return result;
+    }
+    
     /* Initialize statistics */
     ed->total_keystrokes = 0;
     ed->command_count = 0;
@@ -160,7 +173,13 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
      * should have their own destroy functions called if they're not NULL.
      * For now, we only handle the core subsystems we initialize. */
     
-    /* Destroy completion system */
+    /* Destroy completion system v2 (Spec 12) */
+    if (editor->completion_system_v2) {
+        lle_completion_system_v2_destroy(editor->completion_system_v2);
+        editor->completion_system_v2 = NULL;
+    }
+    
+    /* Destroy completion system (legacy) */
     if (editor->completion_system) {
         lle_completion_system_destroy(editor->completion_system);
         editor->completion_system = NULL;
