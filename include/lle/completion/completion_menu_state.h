@@ -74,6 +74,11 @@ typedef struct {
     size_t first_visible;             // First visible item index (for scrolling)
     size_t visible_count;             // Number of visible items
     
+    // Layout state (for multi-column navigation)
+    size_t terminal_width;            // Current terminal width
+    size_t column_width;              // Width of each column
+    size_t num_columns;               // Number of columns in layout
+    
     // Category tracking
     size_t *category_positions;       // Start position of each category
     size_t category_count;            // Number of categories present
@@ -198,6 +203,30 @@ bool lle_completion_menu_is_active(const lle_completion_menu_state_t *state);
  * @return number of categories
  */
 size_t lle_completion_menu_get_category_count(
+    const lle_completion_menu_state_t *state);
+
+/**
+ * Update menu layout based on terminal width
+ * 
+ * Calculates optimal column width and number of columns based on
+ * the current terminal width and item widths. Should be called
+ * whenever the menu is displayed or terminal is resized.
+ * 
+ * @param state menu state
+ * @param terminal_width current terminal width
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_menu_update_layout(
+    lle_completion_menu_state_t *state,
+    size_t terminal_width);
+
+/**
+ * Get number of columns in current layout
+ * 
+ * @param state menu state
+ * @return number of columns (1 if not set)
+ */
+size_t lle_completion_menu_get_num_columns(
     const lle_completion_menu_state_t *state);
 
 #ifdef __cplusplus

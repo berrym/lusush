@@ -40,6 +40,17 @@ static void ensure_visible(lle_completion_menu_state_t *state)
     }
 }
 
+/**
+ * Get number of columns from menu state
+ * Uses the dynamically calculated value from lle_completion_menu_update_layout()
+ */
+static size_t get_columns(const lle_completion_menu_state_t *state) {
+    if (state && state->num_columns > 0) {
+        return state->num_columns;
+    }
+    return 1;  // Default to single column
+}
+
 lle_result_t lle_completion_menu_move_down(
     lle_completion_menu_state_t *state)
 {
@@ -56,12 +67,37 @@ lle_result_t lle_completion_menu_move_down(
     }
 
     size_t total_items = state->result->count;
-
-    // Move down, wrap to beginning if at end
-    state->selected_index++;
-    if (state->selected_index >= total_items) {
-        state->selected_index = 0;
+    size_t columns = get_columns(state);
+    
+    // Calculate current row and column
+    size_t current_row = state->selected_index / columns;
+    size_t current_col = state->selected_index % columns;
+    
+    // Calculate total rows
+    size_t total_rows = (total_items + columns - 1) / columns;
+    
+    // Move to next row, same column
+    size_t next_row = current_row + 1;
+    
+    // Wrap to first row if past last row
+    if (next_row >= total_rows) {
+        next_row = 0;
     }
+    
+    // Calculate new index
+    size_t new_index = next_row * columns + current_col;
+    
+    // If new index is past total items (last row may be incomplete),
+    // go to the last item in that column or wrap
+    if (new_index >= total_items) {
+        // Try first row same column instead
+        new_index = current_col;
+        if (new_index >= total_items) {
+            new_index = 0;
+        }
+    }
+    
+    state->selected_index = new_index;
 
     ensure_visible(state);
     return LLE_SUCCESS;
@@ -83,13 +119,34 @@ lle_result_t lle_completion_menu_move_up(
     }
 
     size_t total_items = state->result->count;
-
-    // Move up, wrap to end if at beginning
-    if (state->selected_index == 0) {
-        state->selected_index = total_items - 1;
+    size_t columns = get_columns(state);
+    
+    // Calculate current row and column
+    size_t current_row = state->selected_index / columns;
+    size_t current_col = state->selected_index % columns;
+    
+    // Calculate total rows
+    size_t total_rows = (total_items + columns - 1) / columns;
+    
+    // Move to previous row, same column
+    size_t prev_row;
+    if (current_row == 0) {
+        // Wrap to last row
+        prev_row = total_rows - 1;
     } else {
-        state->selected_index--;
+        prev_row = current_row - 1;
     }
+    
+    // Calculate new index
+    size_t new_index = prev_row * columns + current_col;
+    
+    // If new index is past total items (last row may be incomplete),
+    // go to the last item in that row
+    if (new_index >= total_items) {
+        new_index = total_items - 1;
+    }
+    
+    state->selected_index = new_index;
 
     ensure_visible(state);
     return LLE_SUCCESS;
@@ -148,17 +205,6 @@ lle_result_t lle_completion_menu_page_up(
     return LLE_SUCCESS;
 }
 
-/**
- * Calculate how many columns based on terminal width
- * Currently returns fixed 3 columns - will be enhanced to calculate
- * dynamically based on terminal width and item widths
- */
-static size_t calculate_columns(void) {
-    // Fixed 3-column layout for initial implementation
-    // Will be enhanced to calculate based on actual terminal width and item widths
-    return 3;
-}
-
 lle_result_t lle_completion_menu_move_right(
     lle_completion_menu_state_t *state)
 {
@@ -171,7 +217,7 @@ lle_result_t lle_completion_menu_move_right(
     }
 
     size_t total_items = state->result->count;
-    size_t columns = calculate_columns();
+    size_t columns = get_columns(state);
     
     // Calculate current row and column
     size_t current_row = state->selected_index / columns;
@@ -206,7 +252,7 @@ lle_result_t lle_completion_menu_move_left(
     }
 
     size_t total_items = state->result->count;
-    size_t columns = calculate_columns();
+    size_t columns = get_columns(state);
     
     // Calculate current row and column
     size_t current_row = state->selected_index / columns;

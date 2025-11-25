@@ -262,3 +262,93 @@ size_t lle_completion_menu_get_category_count(
     
     return state->category_count;
 }
+
+// ============================================================================
+// LAYOUT FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate visual width of text (excluding ANSI codes)
+ */
+static size_t calc_visual_width(const char *text) {
+    if (!text) return 0;
+    
+    size_t width = 0;
+    bool in_escape = false;
+    
+    for (const char *p = text; *p; p++) {
+        if (*p == '\033' || *p == '\x1b') {
+            in_escape = true;
+            continue;
+        }
+        if (in_escape) {
+            if ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || *p == 'm') {
+                in_escape = false;
+            }
+            continue;
+        }
+        width++;
+    }
+    
+    return width;
+}
+
+lle_result_t lle_completion_menu_update_layout(
+    lle_completion_menu_state_t *state,
+    size_t terminal_width)
+{
+    if (!state) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Store terminal width
+    state->terminal_width = terminal_width > 0 ? terminal_width : 80;
+    
+    // Calculate max item width
+    size_t max_item_width = 0;
+    if (state->result && state->result->count > 0) {
+        for (size_t i = 0; i < state->result->count; i++) {
+            if (state->result->items[i].text) {
+                size_t len = calc_visual_width(state->result->items[i].text);
+                if (len > max_item_width) {
+                    max_item_width = len;
+                }
+            }
+        }
+    }
+    
+    // Add padding for selection indicator and spacing
+    const size_t padding = 4;  // "  " separator + selection indicator space
+    state->column_width = max_item_width + padding;
+    
+    // Ensure minimum column width
+    if (state->column_width < 10) {
+        state->column_width = 10;
+    }
+    
+    // Calculate number of columns that fit
+    if (state->column_width >= state->terminal_width) {
+        state->num_columns = 1;
+    } else {
+        state->num_columns = state->terminal_width / state->column_width;
+        if (state->num_columns == 0) {
+            state->num_columns = 1;
+        }
+        // Cap at reasonable maximum
+        if (state->num_columns > 6) {
+            state->num_columns = 6;
+        }
+    }
+    
+    return LLE_SUCCESS;
+}
+
+size_t lle_completion_menu_get_num_columns(
+    const lle_completion_menu_state_t *state)
+{
+    if (!state || state->num_columns == 0) {
+        return 1;  // Default to single column
+    }
+    
+    return state->num_columns;
+}

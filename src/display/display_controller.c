@@ -1963,7 +1963,15 @@ display_controller_error_t display_controller_set_completion_menu(
     controller->active_completion_menu = menu_state;
     controller->completion_menu_visible = true;
     
-    DC_DEBUG("Completion menu set (visible: %d)", controller->completion_menu_visible);
+    // Update menu layout based on current terminal width
+    int term_width = 80;
+    if (controller->terminal_ctrl && controller->terminal_ctrl->capabilities.terminal_width > 0) {
+        term_width = controller->terminal_ctrl->capabilities.terminal_width;
+    }
+    lle_completion_menu_update_layout(menu_state, (size_t)term_width);
+    
+    DC_DEBUG("Completion menu set (visible: %d, columns: %zu)", 
+             controller->completion_menu_visible, menu_state->num_columns);
     
     /* Menu state changed - mark that we need redraw even if command text unchanged
      * This flag will be checked by command_layer to bypass its early return optimization
