@@ -148,6 +148,94 @@ lle_result_t lle_completion_menu_page_up(
     return LLE_SUCCESS;
 }
 
+/**
+ * Calculate how many columns based on terminal width
+ * Currently returns fixed 3 columns - will be enhanced to calculate
+ * dynamically based on terminal width and item widths
+ */
+static size_t calculate_columns(void) {
+    // Fixed 3-column layout for initial implementation
+    // Will be enhanced to calculate based on actual terminal width and item widths
+    return 3;
+}
+
+lle_result_t lle_completion_menu_move_right(
+    lle_completion_menu_state_t *state)
+{
+    if (state == NULL || !state->menu_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (state->result == NULL || state->result->count == 0) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    size_t total_items = state->result->count;
+    size_t columns = calculate_columns();
+    
+    // Calculate current row and column
+    size_t current_row = state->selected_index / columns;
+    size_t current_col = state->selected_index % columns;
+    
+    // Move to next column
+    current_col++;
+    
+    // Calculate new index
+    size_t new_index = current_row * columns + current_col;
+    
+    // If we went past the last column or past total items, wrap to first column
+    if (current_col >= columns || new_index >= total_items) {
+        // Go to first column of same row
+        new_index = current_row * columns;
+    }
+    
+    state->selected_index = new_index;
+    ensure_visible(state);
+    return LLE_SUCCESS;
+}
+
+lle_result_t lle_completion_menu_move_left(
+    lle_completion_menu_state_t *state)
+{
+    if (state == NULL || !state->menu_active) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    if (state->result == NULL || state->result->count == 0) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+
+    size_t total_items = state->result->count;
+    size_t columns = calculate_columns();
+    
+    // Calculate current row and column
+    size_t current_row = state->selected_index / columns;
+    size_t current_col = state->selected_index % columns;
+    
+    // Move to previous column
+    if (current_col == 0) {
+        // Wrap to last valid column of this row
+        size_t row_start = current_row * columns;
+        size_t row_end = row_start + columns;
+        
+        // Find last valid item in this row
+        if (row_end > total_items) {
+            row_end = total_items;
+        }
+        
+        // Go to last item in row
+        if (row_end > row_start) {
+            state->selected_index = row_end - 1;
+        }
+    } else {
+        // Simply move left one column
+        state->selected_index--;
+    }
+    
+    ensure_visible(state);
+    return LLE_SUCCESS;
+}
+
 lle_result_t lle_completion_menu_next_category(
     lle_completion_menu_state_t *state)
 {

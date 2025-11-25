@@ -49,6 +49,26 @@ lle_result_t lle_completion_menu_move_up(
     lle_completion_menu_state_t *state);
 
 /**
+ * Move selection right in menu (next column)
+ * Wraps to first column when at last
+ * 
+ * @param state menu state to update
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_completion_menu_move_right(
+    lle_completion_menu_state_t *state);
+
+/**
+ * Move selection left in menu (previous column)
+ * Wraps to last column when at first
+ * 
+ * @param state menu state to update
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_completion_menu_move_left(
+    lle_completion_menu_state_t *state);
+
+/**
  * Move selection down by one page
  * A page is defined by visible_count items
  * Does not wrap - stops at last item

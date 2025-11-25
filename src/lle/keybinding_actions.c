@@ -281,7 +281,58 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* LEFT/RIGHT arrows move cursor even when menu is visible (no column navigation) */
+    /* If completion menu is active, navigate columns */
+    bool menu_handled = false;
+    lle_completion_menu_state_t *menu = NULL;
+    
+    /* Check v2 system first */
+    if (editor->completion_system_v2 && 
+        lle_completion_system_v2_is_menu_visible(editor->completion_system_v2)) {
+        menu = lle_completion_system_v2_get_menu(editor->completion_system_v2);
+        if (menu) {
+            lle_completion_menu_move_right(menu);
+            
+            /* Update inline text for v2 */
+            lle_completion_state_t *state = 
+                lle_completion_system_v2_get_state(editor->completion_system_v2);
+            if (state && state->context && state->results && 
+                menu->selected_index < state->results->count) {
+                const char *selected_text = state->results->items[menu->selected_index].text;
+                size_t word_start = state->context->word_start;
+                size_t word_end = state->context->word_end;
+                size_t word_length = word_end - word_start;
+                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            }
+            menu_handled = true;
+        }
+    }
+    /* Fall back to legacy system */
+    else if (editor->completion_system && 
+             lle_completion_system_is_menu_visible(editor->completion_system)) {
+        menu = lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_right(menu);
+            
+            /* Update inline text for legacy */
+            const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+            size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+            const char *word = lle_completion_system_get_word(editor->completion_system);
+            if (selected && word) {
+                replace_word_at_cursor(editor, word_start, strlen(word), selected);
+            }
+            menu_handled = true;
+        }
+    }
+    
+    if (menu_handled) {
+        /* Menu state has changed, trigger refresh */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            refresh_after_completion(dc);
+        }
+        return LLE_SUCCESS;
+    }
+    
     /* Clear sticky column on horizontal movement */
     editor->cursor_manager->sticky_column = false;
     
@@ -301,7 +352,58 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* LEFT/RIGHT arrows move cursor even when menu is visible (no column navigation) */
+    /* If completion menu is active, navigate columns */
+    bool menu_handled = false;
+    lle_completion_menu_state_t *menu = NULL;
+    
+    /* Check v2 system first */
+    if (editor->completion_system_v2 && 
+        lle_completion_system_v2_is_menu_visible(editor->completion_system_v2)) {
+        menu = lle_completion_system_v2_get_menu(editor->completion_system_v2);
+        if (menu) {
+            lle_completion_menu_move_left(menu);
+            
+            /* Update inline text for v2 */
+            lle_completion_state_t *state = 
+                lle_completion_system_v2_get_state(editor->completion_system_v2);
+            if (state && state->context && state->results && 
+                menu->selected_index < state->results->count) {
+                const char *selected_text = state->results->items[menu->selected_index].text;
+                size_t word_start = state->context->word_start;
+                size_t word_end = state->context->word_end;
+                size_t word_length = word_end - word_start;
+                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            }
+            menu_handled = true;
+        }
+    }
+    /* Fall back to legacy system */
+    else if (editor->completion_system && 
+             lle_completion_system_is_menu_visible(editor->completion_system)) {
+        menu = lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_left(menu);
+            
+            /* Update inline text for legacy */
+            const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+            size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+            const char *word = lle_completion_system_get_word(editor->completion_system);
+            if (selected && word) {
+                replace_word_at_cursor(editor, word_start, strlen(word), selected);
+            }
+            menu_handled = true;
+        }
+    }
+    
+    if (menu_handled) {
+        /* Menu state has changed, trigger refresh */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            refresh_after_completion(dc);
+        }
+        return LLE_SUCCESS;
+    }
+    
     /* Clear sticky column on horizontal movement */
     editor->cursor_manager->sticky_column = false;
     

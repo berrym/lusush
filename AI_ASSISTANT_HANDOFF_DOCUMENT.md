@@ -29,11 +29,18 @@
    - Updated clear_completion_menu() to handle v2 system
    - Both v2 and legacy systems now clear properly
 
+4. **Column Navigation** ✅
+   - LEFT/RIGHT arrows navigate menu columns (3 columns for now)
+   - Added lle_completion_menu_move_left/right functions
+   - Proper wrapping at row boundaries
+   - Inline text updates with column navigation
+
 ### Current State
 - TAB completion shows menu with 117 items
 - Inline text updates work when cycling
-- Arrow navigation works for menu
+- All arrow keys navigate menu properly (UP/DOWN for rows, LEFT/RIGHT for columns)
 - Core v2 completion system functional
+- Menu dismissal working
 - Ready for further enhancement
 
 ---
