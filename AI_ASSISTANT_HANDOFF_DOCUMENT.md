@@ -35,6 +35,12 @@
    - Proper wrapping at row boundaries
    - Inline text updates with column navigation
 
+5. **Accumulation Bug Fix** ✅
+   - Fixed critical bug where completions accumulated instead of replacing
+   - Problem: Used stale word boundaries from initial TAB press
+   - Solution: Recalculate current word boundaries for each update
+   - Added update_inline_completion_v2() helper function
+
 ### Current State
 - TAB completion shows menu with 117 items
 - Inline text updates work when cycling

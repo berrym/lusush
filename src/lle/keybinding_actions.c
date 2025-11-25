@@ -158,6 +158,39 @@ static lle_result_t replace_word_at_cursor(
 }
 
 /**
+ * Update inline text with selected completion
+ * CRITICAL: Must use current word boundaries, not original context
+ * because after the first replacement, the original boundaries are stale
+ */
+static void update_inline_completion_v2(lle_editor_t *editor, 
+                                        lle_completion_menu_state_t *menu,
+                                        lle_completion_state_t *state) {
+    if (!editor || !menu || !state || !state->results) {
+        return;
+    }
+    
+    if (menu->selected_index >= state->results->count) {
+        return;
+    }
+    
+    const char *selected_text = state->results->items[menu->selected_index].text;
+    
+    /* Find CURRENT word boundaries - not the stale ones from initial context */
+    lle_completion_context_info_t current_context;
+    lle_result_t ctx_result = lle_completion_analyze_context(
+        editor->buffer->data, 
+        editor->buffer->cursor.byte_offset, 
+        &current_context);
+    
+    if (ctx_result == LLE_SUCCESS) {
+        replace_word_at_cursor(editor, 
+            current_context.word_start, 
+            current_context.word_length, 
+            selected_text);
+    }
+}
+
+/**
  * Clear active completion menu
  * 
  * Clears both the completion system state and the display_controller menu.
@@ -295,13 +328,8 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
             /* Update inline text for v2 */
             lle_completion_state_t *state = 
                 lle_completion_system_v2_get_state(editor->completion_system_v2);
-            if (state && state->context && state->results && 
-                menu->selected_index < state->results->count) {
-                const char *selected_text = state->results->items[menu->selected_index].text;
-                size_t word_start = state->context->word_start;
-                size_t word_end = state->context->word_end;
-                size_t word_length = word_end - word_start;
-                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            if (state) {
+                update_inline_completion_v2(editor, menu, state);
             }
             menu_handled = true;
         }
@@ -366,13 +394,8 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
             /* Update inline text for v2 */
             lle_completion_state_t *state = 
                 lle_completion_system_v2_get_state(editor->completion_system_v2);
-            if (state && state->context && state->results && 
-                menu->selected_index < state->results->count) {
-                const char *selected_text = state->results->items[menu->selected_index].text;
-                size_t word_start = state->context->word_start;
-                size_t word_end = state->context->word_end;
-                size_t word_length = word_end - word_start;
-                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            if (state) {
+                update_inline_completion_v2(editor, menu, state);
             }
             menu_handled = true;
         }
@@ -703,13 +726,8 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
             /* Update inline text for v2 */
             lle_completion_state_t *state = 
                 lle_completion_system_v2_get_state(editor->completion_system_v2);
-            if (state && state->context && state->results && 
-                menu->selected_index < state->results->count) {
-                const char *selected_text = state->results->items[menu->selected_index].text;
-                size_t word_start = state->context->word_start;
-                size_t word_end = state->context->word_end;
-                size_t word_length = word_end - word_start;
-                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            if (state) {
+                update_inline_completion_v2(editor, menu, state);
             }
             menu_handled = true;
         }
@@ -781,13 +799,8 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
             /* Update inline text for v2 */
             lle_completion_state_t *state = 
                 lle_completion_system_v2_get_state(editor->completion_system_v2);
-            if (state && state->context && state->results && 
-                menu->selected_index < state->results->count) {
-                const char *selected_text = state->results->items[menu->selected_index].text;
-                size_t word_start = state->context->word_start;
-                size_t word_end = state->context->word_end;
-                size_t word_length = word_end - word_start;
-                replace_word_at_cursor(editor, word_start, word_length, selected_text);
+            if (state) {
+                update_inline_completion_v2(editor, menu, state);
             }
             menu_handled = true;
         }
@@ -1524,19 +1537,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
                 lle_completion_state_t *state = 
                     lle_completion_system_v2_get_state(editor->completion_system_v2);
                     
-                if (state && state->context && state->results && 
-                    menu->selected_index < state->results->count) {
-                    
-                    /* Get the selected completion text */
-                    const char *selected_text = state->results->items[menu->selected_index].text;
-                    
-                    /* Get word boundaries from context */
-                    size_t word_start = state->context->word_start;
-                    size_t word_end = state->context->word_end;
-                    size_t word_length = word_end - word_start;
-                    
-                    /* Replace the partial word with the selected completion */
-                    replace_word_at_cursor(editor, word_start, word_length, selected_text);
+                if (state) {
+                    update_inline_completion_v2(editor, menu, state);
                 }
                 
                 /* Menu selection changed, trigger refresh */
