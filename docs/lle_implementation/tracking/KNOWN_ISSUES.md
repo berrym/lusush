@@ -1,6 +1,6 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-11-15  
+**Date**: 2025-11-25  
 **Status**: ⚠️ ACTIVE DEVELOPMENT - Known Issues Tracked  
 **Implementation Status**: Phase 1 complete, Groups 1-6 keybindings implemented, UTF-8 cell storage complete
 
@@ -8,12 +8,12 @@
 
 ## Executive Summary
 
-**Current State**: Active development - Spec 12 completion system integrated, duplicates fixed
+**Current State**: Active development - Spec 12 completion system integrated, cursor positioning FIXED
 
-- ⚠️ **4 Active Issues** - Completion enhancements (2 MEDIUM), syntax highlighting (2 MEDIUM)
-- ✅ **1 Issue Fixed** - Invalid command highlighting (Issue #4)
+- ⚠️ **6 Active Issues** - Completion menu behavior (3 HIGH), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
 - ✅ **Spec 12 v2 completion integrated** - Duplicates eliminated (Session 23)
-- ✅ **No Blockers** (all issues are enhancements/cosmetic)
+- ✅ **No Blockers** (all issues are enhancements or menu behavior)
 - ✅ **Living document enforcement active**
 - ✅ **Meta/Alt keybindings working** (Session 14)
 - ✅ **Multi-line prompts working** (Session 14)
@@ -22,63 +22,111 @@
 - ✅ **Multiline pipeline execution fixed** (Session 16)
 - ✅ **Continuation prompts with full Unicode support** (Session 17-18)
 - ✅ **Completion generation proper architecture** (Session 23)
+- ✅ **Completion menu cursor positioning fixed** (Session 25)
 
 ---
 
 ## Active Issues
 
-### Issue #9: Completion Menu Cursor Positioning Bug - CRITICAL
-**Severity**: CRITICAL  
-**Discovered**: 2025-11-25 (Session 24 - Recovery from lost work)  
-**Status**: NOT FIXED - Multiple attempts failed  
-**Component**: display_controller.c cursor positioning after menu display  
+### Issue #10: Completion Menu Arrow Key Navigation Broken
+**Severity**: HIGH  
+**Discovered**: 2025-11-25 (Session 25)  
+**Status**: NOT FIXED  
+**Component**: keybinding_actions.c / completion_menu_logic.c  
 
 **Description**:
-After displaying the completion menu and updating inline text, the cursor is positioned one row too high. This causes each subsequent completion to overwrite the previous line, consuming terminal rows on each TAB press.
+Arrow key navigation in the completion menu does not work correctly:
+- UP/DOWN arrows move selection LEFT/RIGHT instead of up/down between menu rows
+- LEFT/RIGHT arrows also move selection left/right (at least this direction is correct)
+- Navigation causes menu columns to shift/redraw incorrectly
 
-**Detailed Symptoms**:
-1. First TAB press: Text updates correctly (e.g., 'e' → 'echo'), menu displays
-2. Cursor then moves one row UP from where it should be
-3. Next TAB press redraws everything from the wrong position
-4. Each completion consumes the previous terminal row
+**Expected Behavior**:
+- UP: Move selection to item above in previous row
+- DOWN: Move selection to item below in next row  
+- LEFT: Move selection to previous item
+- RIGHT: Move selection to next item
 
-**User Report** (exact words):
-- "cursor starts on correct row with prompt, after first completion the cursor moves to column after the completion then moves up one row above the correct line"
-- "every next completion causes a complete redraw of command text moving up to the previous cursor which was one row too high overwriting the previous line"
-- "the very first completion put the in-place completion correctly on the prompt line then moves the cursor one row up above that line positioned after the completion, that's where the bug starts"
+**Current Behavior**:
+- All arrow keys move selection left or right
+- UP/DOWN do not navigate between menu rows
+- Menu columns shift position during navigation
 
-**Attempted Fixes** (all failed):
-1. **Attempt 1**: Adjusted `rows_to_move_up` calculation to account for separator newline
-2. **Attempt 2**: Changed from `menu_lines + 1` to just `menu_lines`  
-3. **Attempt 3**: Added conditional logic for `cursor_row < final_row`
-4. **Attempt 4**: Recalculated as `final_row + menu_lines - cursor_row`
-5. **Attempt 5**: Changed to `final_row + 1 + menu_lines - cursor_row`
+**Root Cause**: 
+Likely the keybinding handlers for UP/DOWN are calling the wrong menu navigation functions, or the menu navigation functions themselves are incorrectly implemented.
 
-**Current Code Location**: `/home/mberry/Lab/c/lusush/src/display/display_controller.c:465-485`
+**Files to Investigate**:
+- `src/lle/keybinding_actions.c` - Arrow key handlers during completion
+- `src/lle/completion/completion_menu_logic.c` - Menu navigation functions
 
-**Root Cause**: Unknown - Multiple calculation attempts have failed. The issue appears to be in how the terminal row position is calculated after writing the menu. The separator newline and menu line counting may not be correctly accounted for.
+**Priority**: HIGH (menu navigation is core UX)
 
-**Impact**:
-- Completion menu unusable due to display corruption
-- Each TAB press destroys terminal display
-- Core Spec 12 functionality broken
+---
 
-**Why Not Fixed**:
-After multiple attempts across Session 24, the assistant was unable to fix the cursor positioning calculation. The complexity involves:
-- Screen buffer virtual layout system
-- ANSI code handling in menu text
-- Separator newline between command and menu
-- 0-based vs 1-based indexing confusion
-- Interaction between display_controller and screen_buffer_menu
+### Issue #11: Completion Menu Dismissal Not Working
+**Severity**: HIGH  
+**Discovered**: 2025-11-25 (Session 25)  
+**Status**: NOT FIXED  
+**Component**: keybinding_actions.c / completion menu state management  
 
-**Next Session TODO**:
-1. Add debug logging to trace exact cursor positions
-2. Test with single-line menu first (simplify problem)
-3. Verify screen_buffer_render_menu() line counting
-4. Check if issue is with the newline separator handling
-5. Consider alternative approach: save/restore cursor position
+**Description**:
+There is no way to dismiss/clear the completion menu:
+- ESC does not dismiss menu (should dismiss and restore original buffer)
+- Ctrl+G does not dismiss menu (first Ctrl+G should dismiss menu, second should abort line)
+- Typing a character does not dismiss menu
+- Backspace does not dismiss menu
+- ENTER does not accept completion and dismiss menu
 
-**Priority**: CRITICAL (core completion feature broken)
+**Expected Behavior**:
+- ESC: Dismiss menu, restore original uncompleted text
+- Ctrl+G: First press dismisses menu, second press aborts line (default behavior)
+- Any character input: Dismiss menu, insert character
+- Backspace: Dismiss menu, delete character
+- ENTER: Accept currently selected completion, dismiss menu, optionally execute
+
+**Current Behavior**:
+- Menu remains visible indefinitely
+- No way to cancel/dismiss completion
+- No way to accept a completion
+
+**Root Cause**:
+Menu dismissal logic not implemented or not wired to key handlers.
+
+**Files to Investigate**:
+- `src/lle/keybinding_actions.c` - Key handlers need to check menu state
+- `src/lle/completion/completion_menu_state.c` - Menu visibility/dismiss functions
+- `src/display/display_controller.c` - Menu rendering state
+
+**Priority**: HIGH (no way to dismiss menu makes completion unusable)
+
+---
+
+### Issue #12: Completion Menu Column Shifting During Navigation
+**Severity**: MEDIUM  
+**Discovered**: 2025-11-25 (Session 25)  
+**Status**: NOT FIXED  
+**Component**: completion_menu_renderer.c / display_controller.c  
+
+**Description**:
+When navigating through the completion menu, the columns shift/redraw in different positions. The menu layout should remain stable during navigation - only the selection highlight should change.
+
+**Expected Behavior**:
+- Menu columns stay in fixed positions
+- Only the selection indicator/highlight changes
+- No visual shifting or jumping
+
+**Current Behavior**:
+- Columns shift position during navigation
+- Menu appears to redraw with different layout
+- Unstable visual appearance
+
+**Root Cause**:
+Possibly the menu renderer recalculates column widths on each render, or there's inconsistency in how the menu is being cleared and redrawn.
+
+**Files to Investigate**:
+- `src/lle/completion/completion_menu_renderer.c` - Column width calculation
+- `src/display/display_controller.c` - Menu rendering and clearing
+
+**Priority**: MEDIUM (affects UX but doesn't block functionality)
 
 ---
 
@@ -361,6 +409,60 @@ quote> world"
 ---
 
 ## Resolved Issues
+
+### Issue #9: Completion Menu Cursor Positioning Bug ✅ FIXED
+**Severity**: CRITICAL  
+**Discovered**: 2025-11-25 (Session 24 - Recovery from lost work)  
+**Fixed**: 2025-11-25 (Session 25)  
+**Component**: display_controller.c cursor positioning after menu display  
+
+**Description**:
+After displaying the completion menu and updating inline text, the cursor was positioned one row too high. This caused each subsequent completion to overwrite the previous line, consuming terminal rows on each TAB press.
+
+**Detailed Symptoms** (before fix):
+1. First TAB press: Text updates correctly (e.g., 'e' → 'echo'), menu displays
+2. Cursor then moves one row UP from where it should be
+3. Next TAB press redraws everything from the wrong position
+4. Each completion consumes the previous terminal row
+
+**Root Cause**:
+Off-by-one error in the cursor positioning calculation. The code was:
+```c
+int current_terminal_row = final_row + 1 + menu_lines;  // WRONG
+```
+
+The `+1` for the separator newline was incorrect. The separator newline moves the cursor FROM the command row TO the first menu row, but `menu_lines` already counts starting from that position.
+
+**Fix Applied** (Session 25):
+Changed the calculation to:
+```c
+int current_terminal_row = final_row + menu_lines;  // CORRECT
+```
+
+Example with command on row 0 and 9-line menu:
+- Row 0: "prompt> echo" (command)
+- Row 1-9: menu (9 lines)
+- Terminal cursor at row 9 after writing menu
+- To get back to row 0: move up 9 rows = (0 + 9) - 0 = 9 ✓
+
+**Debug Values** (from testing):
+```
+cursor_row=0, cursor_col=65, final_row=0, menu_lines=9
+OLD: current_terminal_row=10, rows_to_move_up=10 (WRONG - moved up too far)
+NEW: current_terminal_row=9, rows_to_move_up=9 (CORRECT)
+```
+
+**Files Modified**:
+- `src/display/display_controller.c` (lines ~470-500)
+
+**Verification**:
+- ✅ Cursor stays on correct row after TAB completion
+- ✅ Multiple TAB presses don't consume terminal rows
+- ✅ Completion cycling works without display corruption
+
+**Status**: ✅ FIXED AND VERIFIED
+
+---
 
 ### Issue #1: Multiline ENTER Display Bug ✅ FIXED
 **Severity**: MEDIUM  
@@ -670,20 +772,22 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 4  
+**Active Issues**: 6  
 **Blockers**: 0  
-**High Priority**: 0  
-**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation)  
+**High Priority**: 2 (Issues #10, #11 - menu navigation and dismissal)  
+**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #12 - column shifting)  
 **Low Priority**: 1 (Issue #8 - menu display format)  
-**Fixed This Session**: 0 (Issues #7 and #8 documented for future work)
-**Implementation Status**: Spec 12 v2 completion integrated, duplicates eliminated  
+**Fixed This Session**: 1 (Issue #9 - cursor positioning)
+**Implementation Status**: Spec 12 v2 completion integrated, cursor positioning fixed  
 **Next Action**: 
-- Interactive menu features (arrow navigation, Enter to accept)
+- Fix menu navigation (Issue #10) - UP/DOWN should move between rows
+- Implement menu dismissal (Issue #11) - ESC, Ctrl+G, character input, ENTER
+- Fix column shifting (Issue #12) - stable menu layout during navigation
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-11-22  
+**Last Updated**: 2025-11-25  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

@@ -464,21 +464,28 @@ static layer_events_error_t dc_handle_redraw_needed(
     if (menu_lines > 0) {
         /* After displaying the menu, we're at the end of the last menu line.
          * 
-         * Layout after rendering:
+         * Layout after rendering (0-indexed rows from prompt start):
          * Row 0..final_row: Command text (cursor should be at cursor_row)
          * After separator newline, menu starts at row final_row+1
-         * Menu occupies menu_lines rows
-         * So menu ends at row: final_row + menu_lines
-         * Terminal cursor is at the end of this last menu row
+         * Menu occupies menu_lines rows (rows final_row+1 through final_row+menu_lines)
+         * Terminal cursor is at the end of row: final_row + menu_lines
+         * 
+         * Example: command on row 0, 9-line menu
+         * - Row 0: "prompt> echo" (command)
+         * - Row 1-9: menu (9 lines)
+         * - Terminal cursor at row 9 after writing menu
+         * - To get back to row 0: move up 9 rows = (0 + 9) - 0 = 9
          * 
          * We need to move cursor back to cursor_row.
          * Current position: final_row + menu_lines  
          * Target position: cursor_row
+         * Rows to move up: (final_row + menu_lines) - cursor_row
          * 
-         * BUT: We also wrote a separator newline, so we're actually one row further!
-         * Current position is really: final_row + 1 + menu_lines
+         * Note: The separator newline moves us FROM final_row TO final_row+1,
+         * but we don't add +1 to the calculation because menu_lines already
+         * counts from that starting row.
          */
-        int current_terminal_row = final_row + 1 + menu_lines;
+        int current_terminal_row = final_row + menu_lines;
         int rows_to_move_up = current_terminal_row - cursor_row;
         
         if (rows_to_move_up > 0) {
