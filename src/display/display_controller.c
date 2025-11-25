@@ -448,13 +448,11 @@ static layer_events_error_t dc_handle_redraw_needed(
     int cursor_col = desired_screen.cursor_col;
     int final_row = desired_screen.num_rows - 1;
     
-    /* Count menu lines to adjust final cursor position */
+    /* Use screen_buffer to properly count menu lines (handles ANSI codes) */
     int menu_lines = 0;
     if (menu_text && *menu_text) {
         menu_lines = 1;  /* The newline before menu counts as one */
-        for (const char *p = menu_text; *p; p++) {
-            if (*p == '\n') menu_lines++;
-        }
+        menu_lines += screen_buffer_render_menu(&desired_screen, menu_text, term_width);
     }
     
     /* Move up from end of menu to cursor position in command */

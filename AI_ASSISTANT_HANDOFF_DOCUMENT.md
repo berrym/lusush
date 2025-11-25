@@ -1,7 +1,7 @@
 # AI Assistant Handoff Document - Session 24
 
 **Document**: AI_ASSISTANT_HANDOFF_DOCUMENT.md  
-**Date**: 2025-11-24  
+**Date**: 2025-11-25  
 **Session**: 24 (Recovery from catastrophic work loss)  
 **Branch**: feature/lle  
 **Status**: ⚠️ COMPLETION MENU PARTIALLY RESTORED - Inline updates working  
@@ -41,13 +41,26 @@
    - Solution: Recalculate current word boundaries for each update
    - Added update_inline_completion_v2() helper function
 
+6. **Screen Buffer Menu Integration** ✅
+   - Created screen_buffer_render_menu() function
+   - Properly handles ANSI codes through virtual layout
+   - Fixed cursor positioning bug (was one row too high)
+   - Fixed row consumption bug (num_rows was being permanently modified)
+
 ### Current State
 - TAB completion shows menu with 117 items
-- Inline text updates work when cycling
+- First TAB now properly replaces text with first selection
+- Inline text updates work when cycling (no more accumulation)
 - All arrow keys navigate menu properly (UP/DOWN for rows, LEFT/RIGHT for columns)
+- ESC and Ctrl-G dismiss menu
 - Core v2 completion system functional
-- Menu dismissal working
-- Ready for further enhancement
+- Menu rendering bypasses screen_buffer (causes column shift bug)
+
+### Current Status
+- Core Spec 12 v2 completion system implemented
+- Menu properly integrated with screen_buffer virtual layout
+- All major bugs fixed: accumulation, cursor positioning, row consumption
+- Ready for testing and further refinement
 
 ---
 

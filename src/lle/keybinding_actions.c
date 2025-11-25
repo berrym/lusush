@@ -1675,6 +1675,23 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         }
         
         if (menu) {
+            /* CRITICAL: Update text to show first selected item */
+            if (use_v2) {
+                lle_completion_state_t *state = 
+                    lle_completion_system_v2_get_state(editor->completion_system_v2);
+                if (state) {
+                    update_inline_completion_v2(editor, menu, state);
+                }
+            } else {
+                /* Legacy system inline update */
+                const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+                size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+                const char *word = lle_completion_system_get_word(editor->completion_system);
+                if (selected && word) {
+                    replace_word_at_cursor(editor, word_start, strlen(word), selected);
+                }
+            }
+            
             display_controller_set_completion_menu(dc, menu);
             /* NOTE: Don't call refresh_after_completion() here!
              * The caller (execute_keybinding_action) will call refresh_display(ctx)
@@ -1743,8 +1760,10 @@ lle_result_t lle_abort_line(lle_editor_t *editor) {
     }
     
     /* If completion menu is active, just cancel it without aborting */
-    if (editor->completion_system && 
-        lle_completion_system_is_menu_visible(editor->completion_system)) {
+    if ((editor->completion_system_v2 && 
+         lle_completion_system_v2_is_menu_visible(editor->completion_system_v2)) ||
+        (editor->completion_system && 
+         lle_completion_system_is_menu_visible(editor->completion_system))) {
         clear_completion_menu(editor);
         return LLE_SUCCESS;
     }
@@ -2158,6 +2177,7 @@ lle_result_t lle_keybinding_load_emacs_preset(lle_editor_t *editor) {
     /* Shell operations */
     lle_keybinding_manager_bind(mgr, "RET", lle_accept_line, "accept-line");
     lle_keybinding_manager_bind(mgr, "C-g", lle_abort_line, "abort");
+    lle_keybinding_manager_bind(mgr, "ESC", lle_abort_line, "abort");
     lle_keybinding_manager_bind(mgr, "C-l", lle_clear_screen, "clear-screen");
     lle_keybinding_manager_bind(mgr, "C-c", lle_interrupt, "interrupt");
     lle_keybinding_manager_bind(mgr, "C-z", lle_suspend, "suspend");
