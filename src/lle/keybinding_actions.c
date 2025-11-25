@@ -165,12 +165,19 @@ static lle_result_t replace_word_at_cursor(
  * be called automatically by execute_keybinding_action() framework.
  */
 static void clear_completion_menu(lle_editor_t *editor) {
-    if (!editor || !editor->completion_system) {
+    if (!editor) {
         return;
     }
     
-    /* Clear completion system state */
-    lle_completion_system_clear(editor->completion_system);
+    /* Clear v2 completion system if available */
+    if (editor->completion_system_v2) {
+        lle_completion_system_v2_clear(editor->completion_system_v2);
+    }
+    
+    /* Clear legacy completion system if available */
+    if (editor->completion_system) {
+        lle_completion_system_clear(editor->completion_system);
+    }
     
     /* Clear menu from display_controller */
     display_controller_t *dc = display_integration_get_controller();
@@ -274,6 +281,7 @@ lle_result_t lle_forward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* LEFT/RIGHT arrows move cursor even when menu is visible (no column navigation) */
     /* Clear sticky column on horizontal movement */
     editor->cursor_manager->sticky_column = false;
     
@@ -293,6 +301,7 @@ lle_result_t lle_backward_char(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    /* LEFT/RIGHT arrows move cursor even when menu is visible (no column navigation) */
     /* Clear sticky column on horizontal movement */
     editor->cursor_manager->sticky_column = false;
     
@@ -579,19 +588,53 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
     }
     
     /* If completion menu is active, navigate within menu */
-    if (editor->completion_system && 
-        lle_completion_system_is_menu_visible(editor->completion_system)) {
-        lle_completion_menu_state_t *menu = 
-            lle_completion_system_get_menu(editor->completion_system);
+    bool menu_handled = false;
+    lle_completion_menu_state_t *menu = NULL;
+    
+    /* Check v2 system first */
+    if (editor->completion_system_v2 && 
+        lle_completion_system_v2_is_menu_visible(editor->completion_system_v2)) {
+        menu = lle_completion_system_v2_get_menu(editor->completion_system_v2);
         if (menu) {
             lle_completion_menu_move_up(menu);
             
-            /* Menu state has changed, trigger refresh
-             * The display_controller will re-render the menu automatically */
-            display_controller_t *dc = display_integration_get_controller();
-            if (dc) {
-                refresh_after_completion(dc);
+            /* Update inline text for v2 */
+            lle_completion_state_t *state = 
+                lle_completion_system_v2_get_state(editor->completion_system_v2);
+            if (state && state->context && state->results && 
+                menu->selected_index < state->results->count) {
+                const char *selected_text = state->results->items[menu->selected_index].text;
+                size_t word_start = state->context->word_start;
+                size_t word_end = state->context->word_end;
+                size_t word_length = word_end - word_start;
+                replace_word_at_cursor(editor, word_start, word_length, selected_text);
             }
+            menu_handled = true;
+        }
+    }
+    /* Fall back to legacy system */
+    else if (editor->completion_system && 
+             lle_completion_system_is_menu_visible(editor->completion_system)) {
+        menu = lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_up(menu);
+            
+            /* Update inline text for legacy */
+            const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+            size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+            const char *word = lle_completion_system_get_word(editor->completion_system);
+            if (selected && word) {
+                replace_word_at_cursor(editor, word_start, strlen(word), selected);
+            }
+            menu_handled = true;
+        }
+    }
+    
+    if (menu_handled) {
+        /* Menu state has changed, trigger refresh */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            refresh_after_completion(dc);
         }
         return LLE_SUCCESS;
     }
@@ -623,19 +666,53 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor) {
     }
     
     /* If completion menu is active, navigate within menu */
-    if (editor->completion_system && 
-        lle_completion_system_is_menu_visible(editor->completion_system)) {
-        lle_completion_menu_state_t *menu = 
-            lle_completion_system_get_menu(editor->completion_system);
+    bool menu_handled = false;
+    lle_completion_menu_state_t *menu = NULL;
+    
+    /* Check v2 system first */
+    if (editor->completion_system_v2 && 
+        lle_completion_system_v2_is_menu_visible(editor->completion_system_v2)) {
+        menu = lle_completion_system_v2_get_menu(editor->completion_system_v2);
         if (menu) {
             lle_completion_menu_move_down(menu);
             
-            /* Menu state has changed, trigger refresh
-             * The display_controller will re-render the menu automatically */
-            display_controller_t *dc = display_integration_get_controller();
-            if (dc) {
-                refresh_after_completion(dc);
+            /* Update inline text for v2 */
+            lle_completion_state_t *state = 
+                lle_completion_system_v2_get_state(editor->completion_system_v2);
+            if (state && state->context && state->results && 
+                menu->selected_index < state->results->count) {
+                const char *selected_text = state->results->items[menu->selected_index].text;
+                size_t word_start = state->context->word_start;
+                size_t word_end = state->context->word_end;
+                size_t word_length = word_end - word_start;
+                replace_word_at_cursor(editor, word_start, word_length, selected_text);
             }
+            menu_handled = true;
+        }
+    }
+    /* Fall back to legacy system */
+    else if (editor->completion_system && 
+             lle_completion_system_is_menu_visible(editor->completion_system)) {
+        menu = lle_completion_system_get_menu(editor->completion_system);
+        if (menu) {
+            lle_completion_menu_move_down(menu);
+            
+            /* Update inline text for legacy */
+            const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+            size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+            const char *word = lle_completion_system_get_word(editor->completion_system);
+            if (selected && word) {
+                replace_word_at_cursor(editor, word_start, strlen(word), selected);
+            }
+            menu_handled = true;
+        }
+    }
+    
+    if (menu_handled) {
+        /* Menu state has changed, trigger refresh */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            refresh_after_completion(dc);
         }
         return LLE_SUCCESS;
     }
@@ -1341,9 +1418,24 @@ lle_result_t lle_complete(lle_editor_t *editor) {
                 /* Move to next item (cycles back to first when at end) */
                 lle_completion_menu_move_down(menu);
                 
-                /* NOTE: Command text update with selected completion not yet implemented
-                 * This is Phase 5.5 functionality - menu highlights but text doesn't change
-                 */
+                /* Update command line with newly selected completion (inline update) */
+                lle_completion_state_t *state = 
+                    lle_completion_system_v2_get_state(editor->completion_system_v2);
+                    
+                if (state && state->context && state->results && 
+                    menu->selected_index < state->results->count) {
+                    
+                    /* Get the selected completion text */
+                    const char *selected_text = state->results->items[menu->selected_index].text;
+                    
+                    /* Get word boundaries from context */
+                    size_t word_start = state->context->word_start;
+                    size_t word_end = state->context->word_end;
+                    size_t word_length = word_end - word_start;
+                    
+                    /* Replace the partial word with the selected completion */
+                    replace_word_at_cursor(editor, word_start, word_length, selected_text);
+                }
                 
                 /* Menu selection changed, trigger refresh */
                 display_controller_t *dc = display_integration_get_controller();
@@ -1361,6 +1453,16 @@ lle_result_t lle_complete(lle_editor_t *editor) {
                 lle_completion_system_get_menu(editor->completion_system);
             if (menu) {
                 lle_completion_menu_move_down(menu);
+                
+                /* Update inline text for legacy system too */
+                const char *selected = lle_completion_system_get_selected_text(editor->completion_system);
+                size_t word_start = lle_completion_system_get_word_start(editor->completion_system);
+                const char *word = lle_completion_system_get_word(editor->completion_system);
+                
+                if (selected && word) {
+                    replace_word_at_cursor(editor, word_start, strlen(word), selected);
+                }
+                
                 display_controller_t *dc = display_integration_get_controller();
                 if (dc) {
                     dc->menu_state_changed = true;
