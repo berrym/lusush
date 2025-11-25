@@ -451,17 +451,42 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Use screen_buffer to properly count menu lines (handles ANSI codes) */
     int menu_lines = 0;
     if (menu_text && *menu_text) {
-        menu_lines = 1;  /* The newline before menu counts as one */
-        menu_lines += screen_buffer_render_menu(&desired_screen, menu_text, term_width);
+        /* screen_buffer_render_menu returns the actual number of lines the menu occupies */
+        menu_lines = screen_buffer_render_menu(&desired_screen, menu_text, term_width);
+        /* Note: We write a separator newline before the menu, but we don't need to add it
+         * to menu_lines for cursor positioning calculations */
     }
     
-    /* Move up from end of menu to cursor position in command */
-    int rows_to_move_up = (final_row - cursor_row) + menu_lines;
-    if (rows_to_move_up > 0) {
-        char up_seq[16];
-        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
-        if (up_len > 0) {
-            write(STDOUT_FILENO, up_seq, up_len);
+    /* Move cursor back to correct position in command text
+     * After writing menu, terminal cursor is at end of last menu line
+     * We need to move it back to where it should be in the command
+     */
+    if (menu_lines > 0) {
+        /* After displaying the menu, we're at the end of the last menu line.
+         * 
+         * Layout after rendering:
+         * Row 0..final_row: Command text (cursor should be at cursor_row)
+         * After separator newline, menu starts at row final_row+1
+         * Menu occupies menu_lines rows
+         * So menu ends at row: final_row + menu_lines
+         * Terminal cursor is at the end of this last menu row
+         * 
+         * We need to move cursor back to cursor_row.
+         * Current position: final_row + menu_lines  
+         * Target position: cursor_row
+         * 
+         * BUT: We also wrote a separator newline, so we're actually one row further!
+         * Current position is really: final_row + 1 + menu_lines
+         */
+        int current_terminal_row = final_row + 1 + menu_lines;
+        int rows_to_move_up = current_terminal_row - cursor_row;
+        
+        if (rows_to_move_up > 0) {
+            char up_seq[16];
+            int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
+            if (up_len > 0) {
+                write(STDOUT_FILENO, up_seq, up_len);
+            }
         }
     }
     

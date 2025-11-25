@@ -27,6 +27,61 @@
 
 ## Active Issues
 
+### Issue #9: Completion Menu Cursor Positioning Bug - CRITICAL
+**Severity**: CRITICAL  
+**Discovered**: 2025-11-25 (Session 24 - Recovery from lost work)  
+**Status**: NOT FIXED - Multiple attempts failed  
+**Component**: display_controller.c cursor positioning after menu display  
+
+**Description**:
+After displaying the completion menu and updating inline text, the cursor is positioned one row too high. This causes each subsequent completion to overwrite the previous line, consuming terminal rows on each TAB press.
+
+**Detailed Symptoms**:
+1. First TAB press: Text updates correctly (e.g., 'e' → 'echo'), menu displays
+2. Cursor then moves one row UP from where it should be
+3. Next TAB press redraws everything from the wrong position
+4. Each completion consumes the previous terminal row
+
+**User Report** (exact words):
+- "cursor starts on correct row with prompt, after first completion the cursor moves to column after the completion then moves up one row above the correct line"
+- "every next completion causes a complete redraw of command text moving up to the previous cursor which was one row too high overwriting the previous line"
+- "the very first completion put the in-place completion correctly on the prompt line then moves the cursor one row up above that line positioned after the completion, that's where the bug starts"
+
+**Attempted Fixes** (all failed):
+1. **Attempt 1**: Adjusted `rows_to_move_up` calculation to account for separator newline
+2. **Attempt 2**: Changed from `menu_lines + 1` to just `menu_lines`  
+3. **Attempt 3**: Added conditional logic for `cursor_row < final_row`
+4. **Attempt 4**: Recalculated as `final_row + menu_lines - cursor_row`
+5. **Attempt 5**: Changed to `final_row + 1 + menu_lines - cursor_row`
+
+**Current Code Location**: `/home/mberry/Lab/c/lusush/src/display/display_controller.c:465-485`
+
+**Root Cause**: Unknown - Multiple calculation attempts have failed. The issue appears to be in how the terminal row position is calculated after writing the menu. The separator newline and menu line counting may not be correctly accounted for.
+
+**Impact**:
+- Completion menu unusable due to display corruption
+- Each TAB press destroys terminal display
+- Core Spec 12 functionality broken
+
+**Why Not Fixed**:
+After multiple attempts across Session 24, the assistant was unable to fix the cursor positioning calculation. The complexity involves:
+- Screen buffer virtual layout system
+- ANSI code handling in menu text
+- Separator newline between command and menu
+- 0-based vs 1-based indexing confusion
+- Interaction between display_controller and screen_buffer_menu
+
+**Next Session TODO**:
+1. Add debug logging to trace exact cursor positions
+2. Test with single-line menu first (simplify problem)
+3. Verify screen_buffer_render_menu() line counting
+4. Check if issue is with the newline separator handling
+5. Consider alternative approach: save/restore cursor position
+
+**Priority**: CRITICAL (core completion feature broken)
+
+---
+
 ### Issue #7: Completion Menu - Category Disambiguation Not Implemented
 **Severity**: MEDIUM  
 **Discovered**: 2025-11-22 (Session 23 Part 2)  

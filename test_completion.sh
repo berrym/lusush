@@ -1,9 +1,21 @@
 #!/bin/bash
-# Test TAB completion
+# Test completion cursor positioning
 
-echo "Testing TAB completion with 'e' prefix..."
-./builddir/lusush -c "echo 'Testing echo completion'" 2>&1
-
+echo "Testing completion cursor positioning..."
+echo "Type 'e' then TAB to see completion menu"
+echo "Watch if cursor moves up one row after first completion"
 echo ""
-echo "Testing with simple commands..."
-echo -e "ls\nexit" | ./builddir/lusush 2>&1 | head -20
+
+# Use expect or send keys programmatically
+(
+    sleep 1
+    echo -n "e"
+    sleep 0.5
+    # Send TAB character (ASCII 9)
+    printf "\t"
+    sleep 2
+    # Send ESC to clear menu
+    printf "\033"
+    sleep 1
+    echo "exit"
+) | ./builddir/lusush 2>&1
