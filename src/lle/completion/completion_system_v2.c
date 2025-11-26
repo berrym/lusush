@@ -81,6 +81,10 @@ void lle_completion_system_v2_clear(lle_completion_system_v2_t *system) {
         system->current_state = NULL;
     }
     
+    /* Just set to NULL - menu is pool-allocated and will be freed with pool.
+     * NOTE: display_controller also holds a pointer to this menu, so we must
+     * not free it here. The display_controller will clear its reference via
+     * display_controller_clear_completion_menu() called after this function. */
     system->menu = NULL;
 }
 

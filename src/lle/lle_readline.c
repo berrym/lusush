@@ -60,6 +60,8 @@
 #include "lle/lle_editor.h"           /* Proper LLE editor architecture */
 #include "lle/keybinding_actions.h"   /* Smart arrow navigation functions */
 #include "lle/keybinding.h"           /* Keybinding manager for Group 1+ migration */
+#include "lle/completion/completion_system_v2.h"  /* Completion system v2 for menu visibility */
+#include "lle/completion/completion_system.h"     /* Legacy completion system for menu visibility */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -309,12 +311,29 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
     }
     
     /* Clear completion menu on character input */
-    if (ctx->editor && ctx->editor->completion_system &&
-        lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
-        lle_completion_system_clear(ctx->editor->completion_system);
-        display_controller_t *dc = display_integration_get_controller();
-        if (dc) {
-            display_controller_clear_completion_menu(dc);
+    if (ctx->editor) {
+        bool menu_cleared = false;
+        
+        /* Check and clear v2 completion system */
+        if (ctx->editor->completion_system_v2 &&
+            lle_completion_system_v2_is_menu_visible(ctx->editor->completion_system_v2)) {
+            lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+            menu_cleared = true;
+        }
+        
+        /* Check and clear legacy completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+            lle_completion_system_clear(ctx->editor->completion_system);
+            menu_cleared = true;
+        }
+        
+        /* Clear menu from display controller if any menu was cleared */
+        if (menu_cleared) {
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+            }
         }
     }
     
@@ -486,6 +505,48 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx)
 {
     if (!ctx || !ctx->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* If completion menu is active, accept the selected completion instead of the line */
+    if (ctx->editor) {
+        /* Check v2 completion system first */
+        if (ctx->editor->completion_system_v2 &&
+            lle_completion_system_v2_is_menu_visible(ctx->editor->completion_system_v2)) {
+            
+            /* NOTE: The inline preview has already updated the buffer with the
+             * selected completion text. When navigating completions (UP/DOWN/TAB),
+             * update_inline_completion_v2() replaces the current word with each
+             * selected item. So the buffer already contains the correct text.
+             * 
+             * We just need to clear the menu and NOT modify the buffer further.
+             * The old code tried to replace based on stale context, causing duplicates.
+             */
+            
+            /* Clear the completion menu */
+            lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+            }
+            
+            /* Refresh display and return - don't accept line yet */
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
+        
+        /* Check legacy completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+            /* Clear the completion menu for legacy system */
+            lle_completion_system_clear(ctx->editor->completion_system);
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+            }
+            
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
     }
     
     /* Check for incomplete input using shared continuation parser */
@@ -674,6 +735,10 @@ static lle_result_t handle_abort(lle_event_t *event, void *user_data)
  * Unlike the flag-based simple action approach, this directly sets done/final_line,
  * eliminating the need for abort_requested flag and preventing state persistence bugs.
  * 
+ * BEHAVIOR:
+ * - If completion menu is visible: dismiss menu (first press)
+ * - If no completion menu: abort line (second press or no menu active)
+ * 
  * @param ctx Readline context with full access to done/final_line
  * @return LLE_SUCCESS
  */
@@ -683,10 +748,115 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Signal done with empty result - this aborts the readline */
+    /* Check if completion menu is active - if so, dismiss it first */
+    if (ctx->editor) {
+        bool menu_visible = false;
+        
+        /* Check v2 completion system */
+        if (ctx->editor->completion_system_v2 &&
+            lle_completion_system_v2_is_menu_visible(ctx->editor->completion_system_v2)) {
+            menu_visible = true;
+        }
+        
+        /* Check legacy completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+            menu_visible = true;
+        }
+        
+        if (menu_visible) {
+            /* Dismiss completion menu - don't abort line yet */
+            /* Clear v2 completion system */
+            if (ctx->editor->completion_system_v2) {
+                lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+            }
+            
+            /* Clear legacy completion system */
+            if (ctx->editor->completion_system) {
+                lle_completion_system_clear(ctx->editor->completion_system);
+            }
+            
+            /* Clear menu from display controller */
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+            }
+            
+            /* Refresh display to clear menu from screen */
+            refresh_display(ctx);
+            
+            return LLE_SUCCESS;  /* Menu dismissed, don't abort line */
+        }
+    }
+    
+    /* No completion menu active - abort the line */
     *ctx->done = true;
     *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
     
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Context-aware ESC action - Dismiss completion menu
+ * 
+ * ESC dismisses the completion menu and restores the original text.
+ * Unlike Ctrl-G, ESC does NOT abort the line if no menu is visible -
+ * it's a no-op in that case.
+ * 
+ * @param ctx Readline context with full access
+ * @return LLE_SUCCESS
+ */
+lle_result_t lle_escape_context(readline_context_t *ctx)
+{
+    if (!ctx) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check if completion menu is active */
+    if (ctx->editor) {
+        bool menu_visible = false;
+        
+        /* Check v2 completion system */
+        if (ctx->editor->completion_system_v2 &&
+            lle_completion_system_v2_is_menu_visible(ctx->editor->completion_system_v2)) {
+            menu_visible = true;
+        }
+        
+        /* Check legacy completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+            menu_visible = true;
+        }
+        
+        if (menu_visible) {
+            /* NOTE: ESC dismisses menu but keeps current buffer state.
+             * Restoring original pre-completion text would require storing
+             * the buffer state before completion started, which is not yet
+             * implemented. Current behavior matches many shells where ESC
+             * just dismisses the menu without reverting the text. */
+            
+            /* Clear v2 completion system */
+            if (ctx->editor->completion_system_v2) {
+                lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+            }
+            
+            /* Clear legacy completion system */
+            if (ctx->editor->completion_system) {
+                lle_completion_system_clear(ctx->editor->completion_system);
+            }
+            
+            /* Clear menu from display controller */
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_clear_completion_menu(dc);
+            }
+            
+            /* Refresh display to clear menu from screen */
+            refresh_display(ctx);
+        }
+    }
+    
+    /* ESC is a no-op if no completion menu is visible */
     return LLE_SUCCESS;
 }
 
@@ -1378,7 +1548,11 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "C-l", lle_clear_screen, "clear-screen");
         
         /* Ctrl-G: Context-aware abort action (requires readline_context_t access) */
+        /* First press dismisses completion menu, second press aborts line */
         lle_keybinding_manager_bind_context(keybinding_manager, "C-g", lle_abort_line_context, "abort-line");
+        
+        /* ESC: Context-aware escape action - dismisses completion menu only */
+        lle_keybinding_manager_bind_context(keybinding_manager, "ESC", lle_escape_context, "escape");
         
         /* Group 5: ENTER key - Context-aware action (requires readline_context_t access) */
         /* This uses the new dual-action architecture to provide ENTER with full readline context */
@@ -1519,6 +1693,13 @@ char *lle_readline(const char *prompt)
                     break;
                 }
                 
+                /* Check for ESC (0x1B = 27) - dismiss completion menu */
+                /* ESC arrives as CHARACTER when timeout expires without escape sequence */
+                if (codepoint == 0x1B || codepoint == 27) {
+                    execute_keybinding_action(&ctx, "ESC", NULL);
+                    break;
+                }
+                
                 /* Regular character - create LLE event and dispatch */
                 lle_event_t *lle_event = NULL;
                 result = lle_event_create(event_system, LLE_EVENT_KEY_PRESS, 
@@ -1580,6 +1761,10 @@ char *lle_readline(const char *prompt)
                 /* Step 5: Delete key */
                 else if (event->data.special_key.key == LLE_KEY_DELETE) {
                     execute_keybinding_action(&ctx, "DELETE", handle_delete);
+                }
+                /* ESC key - dismiss completion menu */
+                else if (event->data.special_key.key == LLE_KEY_ESCAPE) {
+                    execute_keybinding_action(&ctx, "ESC", NULL);
                 }
                 /* Handle Ctrl+letter combinations (now SPECIAL_KEY events with keycode) */
                 else if (event->data.special_key.key == LLE_KEY_UNKNOWN && 

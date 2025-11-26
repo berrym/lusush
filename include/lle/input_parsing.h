@@ -822,6 +822,19 @@ lle_result_t lle_sequence_parser_get_stats(const lle_sequence_parser_t *parser,
                                            uint32_t *malformed,
                                            uint32_t *timeout);
 
+/**
+ * Check if parser has timed out waiting for sequence completion.
+ * If in ESCAPE state and timeout exceeded, returns the ESC as a standalone key.
+ * 
+ * @param parser The sequence parser
+ * @param timeout_us Timeout in microseconds (typically 50000-100000 for ESC)
+ * @param parsed_input Output: If timeout occurred, contains ESC key event
+ * @return LLE_SUCCESS if timeout handled, LLE_ERROR_NOT_FOUND if no timeout
+ */
+lle_result_t lle_sequence_parser_check_timeout(lle_sequence_parser_t *parser,
+                                                uint64_t timeout_us,
+                                                lle_parsed_input_t **parsed_input);
+
 /* ============================================================================
  * Function Declarations - UTF-8 Processor
  * ============================================================================ */

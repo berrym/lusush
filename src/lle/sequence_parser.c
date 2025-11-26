@@ -508,3 +508,72 @@ lle_result_t lle_sequence_parser_get_stats(const lle_sequence_parser_t *parser,
     
     return LLE_SUCCESS;
 }
+
+/*
+ * Check if parser has timed out waiting for sequence completion.
+ * If in ESCAPE state and timeout exceeded, returns the ESC as a standalone key.
+ * 
+ * @param parser The sequence parser
+ * @param timeout_us Timeout in microseconds (typically 50000-100000 for ESC)
+ * @param parsed_input Output: If timeout occurred, contains ESC key event
+ * @return LLE_SUCCESS if timeout handled, LLE_ERROR_NOT_FOUND if no timeout
+ */
+lle_result_t lle_sequence_parser_check_timeout(lle_sequence_parser_t *parser,
+                                                uint64_t timeout_us,
+                                                lle_parsed_input_t **parsed_input) {
+    if (!parser || !parsed_input) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    *parsed_input = NULL;
+    
+    /* Only check timeout if parser is accumulating a sequence */
+    if (parser->state == LLE_PARSER_STATE_NORMAL) {
+        return LLE_ERROR_NOT_FOUND;  /* Not accumulating, no timeout to check */
+    }
+    
+    /* Check if we have a sequence start time */
+    if (parser->sequence_start_time == 0) {
+        return LLE_ERROR_NOT_FOUND;
+    }
+    
+    uint64_t current_time = get_current_time_us();
+    uint64_t elapsed = current_time - parser->sequence_start_time;
+    
+    if (elapsed < timeout_us) {
+        return LLE_ERROR_NOT_FOUND;  /* Timeout not yet exceeded */
+    }
+    
+    /* Timeout exceeded - if in ESCAPE state with just ESC buffered, return ESC key */
+    if (parser->state == LLE_PARSER_STATE_ESCAPE && parser->buffer_pos == 1 && 
+        parser->buffer[0] == 0x1B) {
+        
+        /* Create ESC key event */
+        lle_parsed_input_t *result = lle_pool_alloc(sizeof(lle_parsed_input_t));
+        if (!result) {
+            return LLE_ERROR_OUT_OF_MEMORY;
+        }
+        
+        memset(result, 0, sizeof(lle_parsed_input_t));
+        result->type = LLE_PARSED_INPUT_TYPE_KEY;
+        result->data.key_info.type = LLE_KEY_TYPE_SPECIAL;
+        result->data.key_info.keycode = 27;  /* ESC */
+        result->data.key_info.modifiers = 0;
+        result->data.key_info.timestamp = current_time;
+        result->handled = false;
+        result->parse_time_us = 0;
+        
+        /* Reset parser state */
+        parser->timeout_sequences++;
+        lle_sequence_parser_reset_state(parser);
+        
+        *parsed_input = result;
+        return LLE_SUCCESS;
+    }
+    
+    /* Timeout in other state - reset parser and discard partial sequence */
+    parser->timeout_sequences++;
+    lle_sequence_parser_reset_state(parser);
+    
+    return LLE_ERROR_NOT_FOUND;
+}

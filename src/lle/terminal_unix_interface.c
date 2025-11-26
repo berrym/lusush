@@ -848,12 +848,28 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
     struct timeval tv;
     struct timeval *tv_ptr;
     
-    if (timeout_ms == UINT32_MAX) {
+    /* Determine effective timeout */
+    uint32_t effective_timeout_ms = timeout_ms;
+    
+    /* If parser is accumulating an escape sequence, use a shorter timeout
+     * to detect standalone ESC key (50ms is typical escape sequence timeout) */
+    if (interface->sequence_parser) {
+        lle_parser_state_t parser_state = lle_sequence_parser_get_state(interface->sequence_parser);
+        if (parser_state != LLE_PARSER_STATE_NORMAL) {
+            /* Parser is waiting for more sequence bytes - use 60ms timeout
+             * (slightly longer than the 50ms sequence timeout to ensure we detect it) */
+            if (effective_timeout_ms == UINT32_MAX || effective_timeout_ms > 60) {
+                effective_timeout_ms = 60;
+            }
+        }
+    }
+    
+    if (effective_timeout_ms == UINT32_MAX) {
         /* Infinite timeout - pass NULL to select() */
         tv_ptr = NULL;
     } else {
-        tv.tv_sec = (time_t)(timeout_ms / 1000);
-        tv.tv_usec = (suseconds_t)((timeout_ms % 1000) * 1000);
+        tv.tv_sec = (time_t)(effective_timeout_ms / 1000);
+        tv.tv_usec = (suseconds_t)((effective_timeout_ms % 1000) * 1000);
         tv_ptr = &tv;
     }
     
@@ -883,6 +899,23 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
     
     if (ready == 0) {
         /* Timeout - no data available */
+        /* Check if parser is accumulating a sequence that has timed out */
+        if (interface->sequence_parser) {
+            lle_parsed_input_t *timeout_input = NULL;
+            lle_result_t timeout_result = lle_sequence_parser_check_timeout(
+                interface->sequence_parser,
+                50000,  /* 50ms timeout for ESC key */
+                &timeout_input
+            );
+            
+            if (timeout_result == LLE_SUCCESS && timeout_input) {
+                /* Timeout occurred - return the ESC key event */
+                lle_result_t convert_result = convert_parsed_input_to_event(timeout_input, event);
+                lle_pool_free(timeout_input);
+                return convert_result;
+            }
+        }
+        
         event->type = LLE_INPUT_TYPE_TIMEOUT;
         event->timestamp = lle_get_current_time_microseconds();
         return LLE_SUCCESS;
@@ -1006,8 +1039,23 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
             return convert_result;
         }
         
-            /* Parser is accumulating a sequence - return timeout so caller will call again */
-            /* This allows the parser to accumulate the full escape sequence across multiple calls */
+            /* Parser is accumulating a sequence - check for timeout first */
+            /* If ESC key was pressed and enough time has passed, return ESC as standalone key */
+            lle_parsed_input_t *timeout_input = NULL;
+            lle_result_t timeout_result = lle_sequence_parser_check_timeout(
+                interface->sequence_parser,
+                50000,  /* 50ms timeout for ESC key */
+                &timeout_input
+            );
+            
+            if (timeout_result == LLE_SUCCESS && timeout_input) {
+                /* Timeout occurred - return the ESC key event */
+                lle_result_t convert_result = convert_parsed_input_to_event(timeout_input, event);
+                lle_pool_free(timeout_input);
+                return convert_result;
+            }
+            
+            /* No timeout yet - return timeout so caller will call again */
             event->type = LLE_INPUT_TYPE_TIMEOUT;
             event->timestamp = lle_get_current_time_microseconds();
             return LLE_SUCCESS;

@@ -8,10 +8,12 @@
 
 ## Executive Summary
 
-**Current State**: Active development - Spec 12 completion system integrated, cursor positioning FIXED
+**Current State**: Active development - Spec 12 completion system integrated, menu dismissal FIXED
 
-- ⚠️ **6 Active Issues** - Completion menu behavior (3 HIGH), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **4 Active Issues** - Column shifting (1 MEDIUM), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
+- ✅ **Issue #10 Fixed** - Arrow key navigation (Session 25)
+- ✅ **Issue #11 Fixed** - Menu dismissal (Session 26)
 - ✅ **Spec 12 v2 completion integrated** - Duplicates eliminated (Session 23)
 - ✅ **No Blockers** (all issues are enhancements or menu behavior)
 - ✅ **Living document enforcement active**
@@ -23,82 +25,11 @@
 - ✅ **Continuation prompts with full Unicode support** (Session 17-18)
 - ✅ **Completion generation proper architecture** (Session 23)
 - ✅ **Completion menu cursor positioning fixed** (Session 25)
+- ✅ **Completion menu dismissal working** (Session 26)
 
 ---
 
 ## Active Issues
-
-### Issue #10: Completion Menu Arrow Key Navigation Broken
-**Severity**: HIGH  
-**Discovered**: 2025-11-25 (Session 25)  
-**Status**: NOT FIXED  
-**Component**: keybinding_actions.c / completion_menu_logic.c  
-
-**Description**:
-Arrow key navigation in the completion menu does not work correctly:
-- UP/DOWN arrows move selection LEFT/RIGHT instead of up/down between menu rows
-- LEFT/RIGHT arrows also move selection left/right (at least this direction is correct)
-- Navigation causes menu columns to shift/redraw incorrectly
-
-**Expected Behavior**:
-- UP: Move selection to item above in previous row
-- DOWN: Move selection to item below in next row  
-- LEFT: Move selection to previous item
-- RIGHT: Move selection to next item
-
-**Current Behavior**:
-- All arrow keys move selection left or right
-- UP/DOWN do not navigate between menu rows
-- Menu columns shift position during navigation
-
-**Root Cause**: 
-Likely the keybinding handlers for UP/DOWN are calling the wrong menu navigation functions, or the menu navigation functions themselves are incorrectly implemented.
-
-**Files to Investigate**:
-- `src/lle/keybinding_actions.c` - Arrow key handlers during completion
-- `src/lle/completion/completion_menu_logic.c` - Menu navigation functions
-
-**Priority**: HIGH (menu navigation is core UX)
-
----
-
-### Issue #11: Completion Menu Dismissal Not Working
-**Severity**: HIGH  
-**Discovered**: 2025-11-25 (Session 25)  
-**Status**: NOT FIXED  
-**Component**: keybinding_actions.c / completion menu state management  
-
-**Description**:
-There is no way to dismiss/clear the completion menu:
-- ESC does not dismiss menu (should dismiss and restore original buffer)
-- Ctrl+G does not dismiss menu (first Ctrl+G should dismiss menu, second should abort line)
-- Typing a character does not dismiss menu
-- Backspace does not dismiss menu
-- ENTER does not accept completion and dismiss menu
-
-**Expected Behavior**:
-- ESC: Dismiss menu, restore original uncompleted text
-- Ctrl+G: First press dismisses menu, second press aborts line (default behavior)
-- Any character input: Dismiss menu, insert character
-- Backspace: Dismiss menu, delete character
-- ENTER: Accept currently selected completion, dismiss menu, optionally execute
-
-**Current Behavior**:
-- Menu remains visible indefinitely
-- No way to cancel/dismiss completion
-- No way to accept a completion
-
-**Root Cause**:
-Menu dismissal logic not implemented or not wired to key handlers.
-
-**Files to Investigate**:
-- `src/lle/keybinding_actions.c` - Key handlers need to check menu state
-- `src/lle/completion/completion_menu_state.c` - Menu visibility/dismiss functions
-- `src/display/display_controller.c` - Menu rendering state
-
-**Priority**: HIGH (no way to dismiss menu makes completion unusable)
-
----
 
 ### Issue #12: Completion Menu Column Shifting During Navigation
 **Severity**: MEDIUM  
@@ -409,6 +340,72 @@ quote> world"
 ---
 
 ## Resolved Issues
+
+### Issue #11: Completion Menu Dismissal Not Working ✅ FIXED
+**Severity**: HIGH  
+**Discovered**: 2025-11-25 (Session 25)  
+**Fixed**: 2025-11-25 (Session 26)  
+**Component**: keybinding_actions.c, lle_readline.c, sequence_parser.c, terminal_unix_interface.c  
+
+**Description**:
+There was no way to dismiss/clear the completion menu. ESC, Ctrl+G, typing characters, backspace, and ENTER did not dismiss the menu.
+
+**Root Causes and Fixes**:
+
+1. **ESC Key**: Parser waited indefinitely for escape sequence bytes
+   - Added `lle_sequence_parser_check_timeout()` to return standalone ESC after 50ms
+   - Modified `terminal_unix_interface.c` to use 60ms timeout when parser is accumulating
+   - Added `lle_escape_context()` handler to dismiss menu
+
+2. **Ctrl+G**: Didn't check for menu state
+   - Modified `lle_abort_line_context()` to dismiss menu on first press
+   - Second press aborts line as normal
+
+3. **Character Input/Backspace**: v2 completion system not checked
+   - Added v2 checks to `handle_character_input()` and keybinding actions
+
+4. **ENTER Key**: Buffer duplication bug
+   - Inline preview already updates buffer during navigation
+   - Old code tried to replace based on stale context, causing "echocho"
+   - Fixed by just clearing menu (buffer already correct)
+
+**Files Modified**:
+- `src/lle/sequence_parser.c` - Added timeout check function
+- `include/lle/input_parsing.h` - Added declaration
+- `src/lle/terminal_unix_interface.c` - Shorter timeout when accumulating, timeout check
+- `src/lle/lle_readline.c` - ESC handler, abort line fix, character input fix, ENTER fix
+- `src/lle/keybinding_actions.c` - v2 completion checks
+
+**Status**: ✅ FIXED AND VERIFIED
+
+---
+
+### Issue #10: Completion Menu Arrow Key Navigation Broken ✅ FIXED
+**Severity**: HIGH  
+**Discovered**: 2025-11-25 (Session 25)  
+**Fixed**: 2025-11-25 (Session 25)  
+**Component**: keybinding_actions.c / completion_menu_logic.c  
+
+**Description**:
+Arrow key navigation moved selection incorrectly - UP/DOWN moved left/right instead of between rows.
+
+**Root Cause**:
+Navigation functions used linear index movement instead of row-based calculation.
+
+**Fix Applied**:
+- Added `terminal_width`, `column_width`, `num_columns` to menu state
+- Added `lle_completion_menu_update_layout()` for dynamic column calculation
+- Changed `move_up/move_down` to use row-based navigation with `num_columns`
+
+**Files Modified**:
+- `include/lle/completion/completion_menu_state.h` - New layout fields
+- `src/lle/completion/completion_menu_state.c` - Layout calculation
+- `src/lle/completion/completion_menu_logic.c` - Row-based navigation
+- `src/display/display_controller.c` - Call layout update when menu set
+
+**Status**: ✅ FIXED AND VERIFIED
+
+---
 
 ### Issue #9: Completion Menu Cursor Positioning Bug ✅ FIXED
 **Severity**: CRITICAL  
@@ -772,16 +769,14 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 6  
+**Active Issues**: 4  
 **Blockers**: 0  
-**High Priority**: 2 (Issues #10, #11 - menu navigation and dismissal)  
+**High Priority**: 0 (Issues #10, #11 now FIXED)  
 **Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #12 - column shifting)  
 **Low Priority**: 1 (Issue #8 - menu display format)  
-**Fixed This Session**: 1 (Issue #9 - cursor positioning)
-**Implementation Status**: Spec 12 v2 completion integrated, cursor positioning fixed  
+**Fixed This Session**: 3 (Issues #9, #10, #11 - cursor, navigation, dismissal)
+**Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
 **Next Action**: 
-- Fix menu navigation (Issue #10) - UP/DOWN should move between rows
-- Implement menu dismissal (Issue #11) - ESC, Ctrl+G, character input, ENTER
 - Fix column shifting (Issue #12) - stable menu layout during navigation
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
