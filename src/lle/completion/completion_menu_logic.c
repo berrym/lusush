@@ -51,6 +51,48 @@ static size_t get_columns(const lle_completion_menu_state_t *state) {
     return 1;  // Default to single column
 }
 
+/**
+ * Find which category an item belongs to
+ * Returns category index (0-based) and sets category_start/category_end
+ */
+static size_t find_category_for_index(
+    const lle_completion_menu_state_t *state,
+    size_t item_index,
+    size_t *category_start,
+    size_t *category_end)
+{
+    if (!state || state->category_count == 0) {
+        // No categories, treat all items as one category
+        if (category_start) *category_start = 0;
+        if (category_end) *category_end = state ? state->result->count : 0;
+        return 0;
+    }
+    
+    size_t total_items = state->result->count;
+    
+    for (size_t i = 0; i < state->category_count; i++) {
+        size_t cat_start = state->category_positions[i];
+        size_t cat_end;
+        
+        if (i + 1 < state->category_count) {
+            cat_end = state->category_positions[i + 1];
+        } else {
+            cat_end = total_items;
+        }
+        
+        if (item_index >= cat_start && item_index < cat_end) {
+            if (category_start) *category_start = cat_start;
+            if (category_end) *category_end = cat_end;
+            return i;
+        }
+    }
+    
+    // Fallback: return last category
+    if (category_start) *category_start = state->category_positions[state->category_count - 1];
+    if (category_end) *category_end = total_items;
+    return state->category_count - 1;
+}
+
 lle_result_t lle_completion_menu_move_down(
     lle_completion_menu_state_t *state)
 {
@@ -66,38 +108,70 @@ lle_result_t lle_completion_menu_move_down(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    size_t total_items = state->result->count;
     size_t columns = get_columns(state);
     
-    // Calculate current row and column
-    size_t current_row = state->selected_index / columns;
-    size_t current_col = state->selected_index % columns;
+    // Find current category
+    size_t cat_start, cat_end;
+    size_t current_cat = find_category_for_index(state, state->selected_index, 
+                                                  &cat_start, &cat_end);
     
-    // Calculate total rows
-    size_t total_rows = (total_items + columns - 1) / columns;
+    // Calculate position within current category
+    size_t index_in_cat = state->selected_index - cat_start;
+    size_t items_in_cat = cat_end - cat_start;
+    size_t current_row_in_cat = index_in_cat / columns;
+    size_t rows_in_cat = (items_in_cat + columns - 1) / columns;
     
-    // Move to next row, same column
-    size_t next_row = current_row + 1;
+    // Try to move to next row in same category
+    size_t next_row = current_row_in_cat + 1;
     
-    // Wrap to first row if past last row
-    if (next_row >= total_rows) {
-        next_row = 0;
-    }
-    
-    // Calculate new index
-    size_t new_index = next_row * columns + current_col;
-    
-    // If new index is past total items (last row may be incomplete),
-    // go to the last item in that column or wrap
-    if (new_index >= total_items) {
-        // Try first row same column instead
-        new_index = current_col;
-        if (new_index >= total_items) {
-            new_index = 0;
+    if (next_row < rows_in_cat) {
+        // Stay in same category, move to next row
+        size_t row_start = cat_start + next_row * columns;
+        size_t row_end = row_start + columns;
+        if (row_end > cat_end) {
+            row_end = cat_end;
         }
+        size_t items_in_row = row_end - row_start;
+        
+        // Use target column, fall back to last item in row
+        size_t new_col = state->target_column;
+        if (new_col >= items_in_row) {
+            new_col = items_in_row - 1;
+        }
+        state->selected_index = row_start + new_col;
+    } else {
+        // Move to next category (or wrap to first)
+        size_t next_cat;
+        if (state->category_count > 0 && current_cat + 1 < state->category_count) {
+            next_cat = current_cat + 1;
+        } else {
+            next_cat = 0;  // Wrap to first category
+        }
+        
+        // Get next category boundaries
+        size_t next_cat_start, next_cat_end;
+        if (state->category_count > 0) {
+            next_cat_start = state->category_positions[next_cat];
+            if (next_cat + 1 < state->category_count) {
+                next_cat_end = state->category_positions[next_cat + 1];
+            } else {
+                next_cat_end = state->result->count;
+            }
+        } else {
+            next_cat_start = 0;
+            next_cat_end = state->result->count;
+        }
+        
+        // Go to first row of next category, preserving target column
+        size_t items_in_next_cat = next_cat_end - next_cat_start;
+        size_t items_in_first_row = items_in_next_cat < columns ? items_in_next_cat : columns;
+        
+        size_t new_col = state->target_column;
+        if (new_col >= items_in_first_row) {
+            new_col = items_in_first_row - 1;
+        }
+        state->selected_index = next_cat_start + new_col;
     }
-    
-    state->selected_index = new_index;
 
     ensure_visible(state);
     return LLE_SUCCESS;
@@ -118,35 +192,76 @@ lle_result_t lle_completion_menu_move_up(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    size_t total_items = state->result->count;
     size_t columns = get_columns(state);
     
-    // Calculate current row and column
-    size_t current_row = state->selected_index / columns;
-    size_t current_col = state->selected_index % columns;
+    // Find current category
+    size_t cat_start, cat_end;
+    size_t current_cat = find_category_for_index(state, state->selected_index, 
+                                                  &cat_start, &cat_end);
     
-    // Calculate total rows
-    size_t total_rows = (total_items + columns - 1) / columns;
+    // Calculate position within current category
+    size_t index_in_cat = state->selected_index - cat_start;
+    size_t current_row_in_cat = index_in_cat / columns;
     
-    // Move to previous row, same column
-    size_t prev_row;
-    if (current_row == 0) {
-        // Wrap to last row
-        prev_row = total_rows - 1;
+    if (current_row_in_cat > 0) {
+        // Stay in same category, move to previous row
+        size_t prev_row = current_row_in_cat - 1;
+        size_t row_start = cat_start + prev_row * columns;
+        size_t row_end = row_start + columns;
+        if (row_end > cat_end) {
+            row_end = cat_end;
+        }
+        size_t items_in_row = row_end - row_start;
+        
+        // Use target column, fall back to last item in row
+        size_t new_col = state->target_column;
+        if (new_col >= items_in_row) {
+            new_col = items_in_row - 1;
+        }
+        state->selected_index = row_start + new_col;
     } else {
-        prev_row = current_row - 1;
+        // Move to previous category (or wrap to last)
+        size_t prev_cat;
+        if (state->category_count > 0 && current_cat > 0) {
+            prev_cat = current_cat - 1;
+        } else if (state->category_count > 0) {
+            prev_cat = state->category_count - 1;  // Wrap to last category
+        } else {
+            prev_cat = 0;
+        }
+        
+        // Get previous category boundaries
+        size_t prev_cat_start, prev_cat_end;
+        if (state->category_count > 0) {
+            prev_cat_start = state->category_positions[prev_cat];
+            if (prev_cat + 1 < state->category_count) {
+                prev_cat_end = state->category_positions[prev_cat + 1];
+            } else {
+                prev_cat_end = state->result->count;
+            }
+        } else {
+            prev_cat_start = 0;
+            prev_cat_end = state->result->count;
+        }
+        
+        // Go to last row of previous category, preserving target column
+        size_t items_in_prev_cat = prev_cat_end - prev_cat_start;
+        size_t rows_in_prev_cat = (items_in_prev_cat + columns - 1) / columns;
+        size_t last_row = rows_in_prev_cat > 0 ? rows_in_prev_cat - 1 : 0;
+        
+        size_t row_start = prev_cat_start + last_row * columns;
+        size_t row_end = row_start + columns;
+        if (row_end > prev_cat_end) {
+            row_end = prev_cat_end;
+        }
+        size_t items_in_row = row_end - row_start;
+        
+        size_t new_col = state->target_column;
+        if (new_col >= items_in_row) {
+            new_col = items_in_row - 1;
+        }
+        state->selected_index = row_start + new_col;
     }
-    
-    // Calculate new index
-    size_t new_index = prev_row * columns + current_col;
-    
-    // If new index is past total items (last row may be incomplete),
-    // go to the last item in that row
-    if (new_index >= total_items) {
-        new_index = total_items - 1;
-    }
-    
-    state->selected_index = new_index;
 
     ensure_visible(state);
     return LLE_SUCCESS;
@@ -216,26 +331,39 @@ lle_result_t lle_completion_menu_move_right(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    size_t total_items = state->result->count;
     size_t columns = get_columns(state);
     
-    // Calculate current row and column
-    size_t current_row = state->selected_index / columns;
-    size_t current_col = state->selected_index % columns;
+    // Find current category
+    size_t cat_start, cat_end;
+    find_category_for_index(state, state->selected_index, &cat_start, &cat_end);
+    
+    // Calculate position within current category
+    size_t index_in_cat = state->selected_index - cat_start;
+    size_t current_row_in_cat = index_in_cat / columns;
+    size_t current_col = index_in_cat % columns;
+    
+    // Calculate row boundaries within category
+    size_t row_start_in_cat = current_row_in_cat * columns;
+    size_t row_end_in_cat = row_start_in_cat + columns;
+    size_t items_in_cat = cat_end - cat_start;
+    if (row_end_in_cat > items_in_cat) {
+        row_end_in_cat = items_in_cat;
+    }
+    size_t items_in_row = row_end_in_cat - row_start_in_cat;
     
     // Move to next column
     current_col++;
     
-    // Calculate new index
-    size_t new_index = current_row * columns + current_col;
-    
-    // If we went past the last column or past total items, wrap to first column
-    if (current_col >= columns || new_index >= total_items) {
-        // Go to first column of same row
-        new_index = current_row * columns;
+    // If we went past the last item in row, wrap to first column
+    if (current_col >= items_in_row) {
+        current_col = 0;
     }
     
-    state->selected_index = new_index;
+    state->selected_index = cat_start + row_start_in_cat + current_col;
+    
+    // Update target column for sticky behavior
+    state->target_column = current_col;
+    
     ensure_visible(state);
     return LLE_SUCCESS;
 }
@@ -251,32 +379,38 @@ lle_result_t lle_completion_menu_move_left(
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    size_t total_items = state->result->count;
     size_t columns = get_columns(state);
     
-    // Calculate current row and column
-    size_t current_row = state->selected_index / columns;
-    size_t current_col = state->selected_index % columns;
+    // Find current category
+    size_t cat_start, cat_end;
+    find_category_for_index(state, state->selected_index, &cat_start, &cat_end);
+    
+    // Calculate position within current category
+    size_t index_in_cat = state->selected_index - cat_start;
+    size_t current_row_in_cat = index_in_cat / columns;
+    size_t current_col = index_in_cat % columns;
+    
+    // Calculate row boundaries within category
+    size_t row_start_in_cat = current_row_in_cat * columns;
+    size_t row_end_in_cat = row_start_in_cat + columns;
+    size_t items_in_cat = cat_end - cat_start;
+    if (row_end_in_cat > items_in_cat) {
+        row_end_in_cat = items_in_cat;
+    }
+    size_t items_in_row = row_end_in_cat - row_start_in_cat;
     
     // Move to previous column
     if (current_col == 0) {
-        // Wrap to last valid column of this row
-        size_t row_start = current_row * columns;
-        size_t row_end = row_start + columns;
-        
-        // Find last valid item in this row
-        if (row_end > total_items) {
-            row_end = total_items;
-        }
-        
-        // Go to last item in row
-        if (row_end > row_start) {
-            state->selected_index = row_end - 1;
-        }
+        // Wrap to last item in this row
+        current_col = items_in_row - 1;
     } else {
-        // Simply move left one column
-        state->selected_index--;
+        current_col--;
     }
+    
+    state->selected_index = cat_start + row_start_in_cat + current_col;
+    
+    // Update target column for sticky behavior
+    state->target_column = current_col;
     
     ensure_visible(state);
     return LLE_SUCCESS;

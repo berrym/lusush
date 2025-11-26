@@ -10,11 +10,12 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **4 Active Issues** - Column preservation (1 LOW), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **3 Active Issues** - Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
 - ✅ **Issue #10 Fixed** - Arrow key navigation (Session 25)
 - ✅ **Issue #11 Fixed** - Menu dismissal (Session 26)
 - ✅ **Issue #12 Fixed** - Column shifting during navigation (Session 26)
+- ✅ **Issue #13 Fixed** - UP/DOWN column preservation with category-aware navigation (Session 26)
 - ✅ **Spec 12 v2 completion integrated** - Duplicates eliminated (Session 23)
 - ✅ **No Blockers** (all issues are enhancements or menu behavior)
 - ✅ **Living document enforcement active**
@@ -31,35 +32,6 @@
 ---
 
 ## Active Issues
-
-### Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position
-**Severity**: LOW  
-**Discovered**: 2025-11-25 (Session 26)  
-**Status**: NOT FIXED  
-**Component**: completion_menu_logic.c  
-
-**Description**:
-When navigating UP/DOWN in the completion menu, the selection doesn't always stay in the same column. The pattern is unclear but seems related to category boundaries - when moving to a row in a different category, the column position isn't preserved.
-
-**Expected Behavior**:
-- UP/DOWN should move to the same column in adjacent rows
-- If the target row has fewer items, move to the last item in that row
-- Column position should be remembered across category boundaries
-
-**Current Behavior**:
-- Selection sometimes jumps to different column when crossing category boundaries
-- Pattern is inconsistent and hard to predict
-
-**Root Cause**:
-The navigation logic in `lle_completion_menu_move_up/down` may not properly handle category headers or may be calculating target index incorrectly when rows have different item counts.
-
-**Files to Investigate**:
-- `src/lle/completion/completion_menu_logic.c` - move_up/move_down functions
-- Category boundary handling in navigation
-
-**Priority**: LOW (UX polish, menu is functional)
-
----
 
 ### Issue #7: Completion Menu - Category Disambiguation Not Implemented
 **Severity**: MEDIUM  
@@ -340,6 +312,41 @@ quote> world"
 ---
 
 ## Resolved Issues
+
+### Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position ✅ FIXED
+**Severity**: LOW  
+**Discovered**: 2025-11-25 (Session 26)  
+**Fixed**: 2025-11-26 (Session 26 continued)  
+**Component**: completion_menu_logic.c  
+
+**Description**:
+When navigating UP/DOWN in the completion menu, the selection jumped to different columns when crossing category boundaries. The navigation treated all items as one continuous grid, but categories visually separate rows.
+
+**Root Cause**:
+The navigation functions (`move_up`, `move_down`, `move_left`, `move_right`) calculated row/column positions globally (`index / columns`, `index % columns`) without accounting for category boundaries. Each category has its own visual rows, so:
+- Moving DOWN from the last row of category 1 should go to the first row of category 2, same column
+- Moving UP from the first row of category 2 should go to the last row of category 1, same column
+
+**Fix Applied**:
+1. Added `find_category_for_index()` helper to find category boundaries for any item
+2. Rewrote `move_up` and `move_down` to be category-aware:
+   - Calculate row/column position within current category
+   - When moving past category boundary, jump to adjacent category preserving column
+   - Use `target_column` for sticky column behavior (falls back to last item if row is shorter)
+3. Updated `move_left` and `move_right` to also be category-aware for consistent column calculation
+
+**Files Modified**:
+- `src/lle/completion/completion_menu_logic.c` - Category-aware navigation
+
+**Expected Behavior Now**:
+- UP/DOWN moves between rows within category, then jumps to adjacent category
+- Column position preserved using `target_column` (set by LEFT/RIGHT)
+- If target row has fewer items, selects last item in that row
+- Navigation wraps at boundaries (last category → first, and vice versa)
+
+**Status**: ✅ FIXED
+
+---
 
 ### Issue #12: Completion Menu Column Shifting During Navigation ✅ FIXED
 **Severity**: MEDIUM  
@@ -796,20 +803,19 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 4  
+**Active Issues**: 3  
 **Blockers**: 0  
 **High Priority**: 0  
 **Medium Priority**: 3 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation)  
-**Low Priority**: 2 (Issue #8 - menu display format; Issue #13 - column preservation)  
-**Fixed This Session**: 4 (Issues #9, #10, #11, #12 - cursor, navigation, dismissal, column shifting)
+**Low Priority**: 1 (Issue #8 - menu display format)  
+**Fixed This Session**: 5 (Issues #9, #10, #11, #12, #13 - cursor, navigation, dismissal, column shifting, column preservation)
 **Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
 **Next Action**: 
-- Fix UP/DOWN column preservation (Issue #13) - maintain column position during navigation
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-11-25  
+**Last Updated**: 2025-11-26  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

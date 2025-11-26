@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 26 (Continued)
+# AI Assistant Handoff Document - Session 26 (Complete)
 
-**Date**: 2025-11-25  
-**Session Type**: Bug Fixes - Menu Dismissal (Issue #11) + Column Shifting (Issue #12)  
-**Status**: ✅ MENU DISMISSAL FIXED, ✅ COLUMN SHIFTING FIXED - Issue #13 (column preservation) remains  
+**Date**: 2025-11-26  
+**Session Type**: Bug Fixes - Menu Issues #11, #12, #13 ALL FIXED  
+**Status**: ✅ ALL COMPLETION MENU ISSUES RESOLVED  
 
 ---
 
@@ -14,9 +14,10 @@
 1. Cursor positioning bug FIXED (Issue #9)
 2. Arrow key navigation FIXED (Issue #10)
 
-**Session 26 Success**:
+**Session 26 Success (Complete)**:
 1. Menu dismissal fully implemented (Issue #11)
 2. Column shifting during navigation FIXED (Issue #12)
+3. UP/DOWN column preservation FIXED (Issue #13)
 
 ---
 
@@ -67,6 +68,24 @@ Menu columns now stay stable during navigation:
 
 3. **Terminal Resize**: Added layout recalculation on WINDOW_RESIZE event
 
+**COLUMN PRESERVATION (Issue #13)** - ✅ FIXED
+
+UP/DOWN navigation now preserves column position with sticky column behavior:
+
+1. **Root Cause**: Navigation functions calculated row/column positions globally
+   - `row = index / columns`, `col = index % columns`
+   - But categories have their own visual rows, not a continuous grid
+   - Crossing category boundaries caused unexpected column jumps
+
+2. **Fix Applied**: Category-aware navigation
+   - Added `find_category_for_index()` helper to find category boundaries
+   - Rewrote `move_up` and `move_down` to be category-aware:
+     - Calculate position within current category, not globally
+     - When moving past category boundary, jump to adjacent category
+     - Preserve `target_column` (sticky column behavior)
+     - Fall back to last item if target row is shorter
+   - Updated `move_left` and `move_right` for consistent column calculation
+
 ---
 
 ## Key Technical Details
@@ -97,6 +116,23 @@ if (c == 0x1B && i + 1 < len) {
 }
 ```
 
+### Category-Aware Navigation
+
+Navigation now respects category boundaries:
+```c
+// Find which category contains current selection
+size_t cat_start, cat_end;
+size_t current_cat = find_category_for_index(state, state->selected_index, 
+                                              &cat_start, &cat_end);
+
+// Calculate position within category (not globally)
+size_t index_in_cat = state->selected_index - cat_start;
+size_t current_row_in_cat = index_in_cat / columns;
+
+// When crossing category boundary, jump to adjacent category
+// preserving target_column (sticky column behavior)
+```
+
 ---
 
 ## Files Modified in Session 26
@@ -115,11 +151,17 @@ if (c == 0x1B && i + 1 < len) {
 2. `src/lle/lle_readline.c`
    - Recalculate menu layout on WINDOW_RESIZE event
 
+### Issue #13 (Column Preservation):
+1. `src/lle/completion/completion_menu_logic.c`
+   - Added `find_category_for_index()` helper
+   - Rewrote `move_up`, `move_down` for category-aware navigation
+   - Updated `move_left`, `move_right` for category-aware column calculation
+
 ---
 
 ## Current State
 
-### WORKING
+### WORKING - Completion Menu Fully Functional
 - ✅ Cursor stays on correct row after TAB completion
 - ✅ Multiple TAB presses don't consume terminal rows
 - ✅ Completion cycling works without display corruption
@@ -135,23 +177,14 @@ if (c == 0x1B && i + 1 < len) {
 - ✅ ENTER accepts completion (no duplicate text bug)
 - ✅ Menu columns stay stable during navigation (no shifting)
 - ✅ Terminal resize recalculates menu layout
+- ✅ UP/DOWN preserves column position (sticky column behavior)
+- ✅ Category boundaries respected during navigation
 
-### NOT WORKING
-
-**Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position** (LOW)
-- When navigating UP/DOWN, selection doesn't always stay in same column
-- Seems related to category boundaries
-- Pattern is inconsistent
-- Files: `completion_menu_logic.c`
-
----
-
-## Next Session MUST DO
-
-### Priority 1: Fix Column Preservation (Issue #13)
-- UP/DOWN should maintain column position when moving between rows
-- Need to handle category boundaries properly
-- May need to store "target column" separately from current position
+### REMAINING KNOWN ISSUES (Not Critical)
+- Issue #5: Multiline input - builtins not highlighted (MEDIUM)
+- Issue #6: Continuation prompt incorrectly highlighted in quotes (LOW)
+- Issue #7: Category disambiguation not implemented (MEDIUM)
+- Issue #8: Single-column display investigation (LOW)
 
 ---
 
@@ -174,6 +207,16 @@ On Terminal Resize:
 3. Menu re-rendered with new layout
 ```
 
+### Category-Aware Navigation
+```
+Navigation considers categories as separate visual groups:
+1. Items are grouped by type (builtin, external, etc.)
+2. Each category has its own rows
+3. UP/DOWN moves within category first
+4. Crossing category boundary jumps to adjacent category
+5. target_column preserved for sticky behavior
+```
+
 ---
 
 ## User Preferences (CRITICAL)
@@ -194,12 +237,13 @@ cd /home/mberry/Lab/c/lusush/builddir && ninja lusush
 # Test completion
 ./builddir/lusush
 
-# Test menu navigation (Issue #12 fix):
+# Test menu navigation:
 e<TAB>         # Menu appears
 UP/DOWN        # Navigate - columns should NOT shift ✅
 LEFT/RIGHT     # Navigate within row ✅
+               # Column position preserved on UP/DOWN ✅
 
-# Test menu dismissal (Issue #11):
+# Test menu dismissal:
 e<TAB>         # Menu appears
 ESC            # Menu dismisses ✅
 e<TAB>         # Menu appears
@@ -212,21 +256,22 @@ Ctrl+G         # Line aborts ✅
 ## Git Status
 
 **Branch**: feature/lle  
-**Last Commit**: 0172146 "LLE Session 26: Fix completion menu dismissal (Issue #11)"
+**Uncommitted Changes**: Issue #13 fix (category-aware navigation)
 
 ---
 
 ## Session 26 Outcome
 
-**SUCCESS**:
+**COMPLETE SUCCESS**:
 - ✅ Fixed all menu dismissal mechanisms (Issue #11)
 - ✅ Fixed column shifting during navigation (Issue #12)
+- ✅ Fixed UP/DOWN column preservation (Issue #13)
 - ✅ ESC key with proper timeout-based detection
 - ✅ Ctrl+G context-aware (dismiss menu vs abort line)
 - ✅ ANSI escape sequence handling in visual_width()
+- ✅ Category-aware navigation with sticky column behavior
 
-**REMAINING WORK**:
-- Issue #13: UP/DOWN column preservation (LOW priority)
+**ALL CRITICAL COMPLETION MENU ISSUES RESOLVED**
 
 ---
 

@@ -127,6 +127,7 @@ lle_result_t lle_completion_menu_state_create(
     new_state->selected_index = 0;
     new_state->first_visible = 0;
     new_state->visible_count = 0;
+    new_state->target_column = 0;  // Sticky column for UP/DOWN navigation
     new_state->category_positions = NULL;
     new_state->category_count = 0;
     new_state->menu_active = true;  // Menu is active when created

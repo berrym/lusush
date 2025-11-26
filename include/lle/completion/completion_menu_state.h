@@ -73,6 +73,7 @@ typedef struct {
     size_t selected_index;            // Currently selected item (global index)
     size_t first_visible;             // First visible item index (for scrolling)
     size_t visible_count;             // Number of visible items
+    size_t target_column;             // Sticky column for UP/DOWN navigation
     
     // Layout state (for multi-column navigation)
     size_t terminal_width;            // Current terminal width
