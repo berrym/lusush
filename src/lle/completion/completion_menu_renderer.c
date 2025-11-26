@@ -29,7 +29,10 @@ static const char *get_type_category_name(lle_completion_type_t type) {
 }
 
 /**
- * Calculate visual width of string (no ANSI codes expected here)
+ * Calculate visual width of string, skipping ANSI escape sequences
+ * 
+ * ANSI escape sequences have zero visual width but take up bytes.
+ * Format: ESC [ ... final_byte (where final_byte is 0x40-0x7E)
  */
 static size_t visual_width(const char *str) {
     if (!str) return 0;
@@ -40,6 +43,27 @@ static size_t visual_width(const char *str) {
     
     while (i < len) {
         unsigned char c = (unsigned char)str[i];
+        
+        // Check for ANSI escape sequence (ESC = 0x1B)
+        if (c == 0x1B && i + 1 < len) {
+            unsigned char next = (unsigned char)str[i + 1];
+            if (next == '[') {
+                // CSI sequence: ESC [ ... final_byte
+                // Skip until we find the final byte (0x40-0x7E)
+                i += 2;  // Skip ESC [
+                while (i < len) {
+                    unsigned char seq_char = (unsigned char)str[i];
+                    i++;
+                    if (seq_char >= 0x40 && seq_char <= 0x7E) {
+                        break;  // Found final byte, sequence complete
+                    }
+                }
+                continue;  // Don't add to width, continue to next character
+            }
+            // Other escape sequences (ESC + single char)
+            i += 2;
+            continue;
+        }
         
         // UTF-8 character width calculation
         if ((c & 0x80) == 0) {
@@ -350,21 +374,29 @@ lle_result_t lle_completion_menu_render(
     size_t output_pos = 0;
     size_t rows_used = 0;
     
-    // Calculate column layout if multi-column enabled
+    // Use pre-calculated column layout from menu state if available
+    // This ensures stable layout during navigation (no column shifting)
     size_t col_width = 0;
     size_t columns = 1;
     if (options->use_multi_column) {
-        col_width = lle_menu_renderer_calculate_column_width(
-            items + start_idx, 
-            end_idx - start_idx,
-            options->terminal_width,
-            LLE_MENU_RENDERER_MAX_COLS
-        );
-        columns = lle_menu_renderer_calculate_columns(
-            options->terminal_width,
-            col_width,
-            LLE_MENU_RENDERER_COL_PADDING
-        );
+        // Prefer cached layout from state (set by lle_completion_menu_update_layout)
+        if (state->column_width > 0 && state->num_columns > 0) {
+            col_width = state->column_width;
+            columns = state->num_columns;
+        } else {
+            // Fallback: calculate fresh if state doesn't have layout info
+            col_width = lle_menu_renderer_calculate_column_width(
+                items + start_idx, 
+                end_idx - start_idx,
+                options->terminal_width,
+                LLE_MENU_RENDERER_MAX_COLS
+            );
+            columns = lle_menu_renderer_calculate_columns(
+                options->terminal_width,
+                col_width,
+                LLE_MENU_RENDERER_COL_PADDING
+            );
+        }
         local_stats.columns_used = columns;
     }
     

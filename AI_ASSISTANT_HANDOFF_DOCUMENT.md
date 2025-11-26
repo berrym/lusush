@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 26
+# AI Assistant Handoff Document - Session 26 (Continued)
 
 **Date**: 2025-11-25  
-**Session Type**: Bug Fixes - Menu Dismissal (Issue #11)  
-**Status**: ✅ MENU DISMISSAL FIXED - Column shifting (Issue #12) remains  
+**Session Type**: Bug Fixes - Menu Dismissal (Issue #11) + Column Shifting (Issue #12)  
+**Status**: ✅ MENU DISMISSAL FIXED, ✅ COLUMN SHIFTING FIXED - Issue #13 (column preservation) remains  
 
 ---
 
@@ -16,6 +16,7 @@
 
 **Session 26 Success**:
 1. Menu dismissal fully implemented (Issue #11)
+2. Column shifting during navigation FIXED (Issue #12)
 
 ---
 
@@ -52,6 +53,20 @@ All menu dismissal mechanisms now work:
    - ENTER now just clears menu (doesn't duplicate text)
    - Old code tried to replace based on stale context, causing "echocho" bug
 
+**COLUMN SHIFTING (Issue #12)** - ✅ FIXED
+
+Menu columns now stay stable during navigation:
+
+1. **Root Cause 1**: Renderer recalculated column width/count on every render
+   - Fix: Use pre-cached `state->column_width` and `state->num_columns`
+
+2. **Root Cause 2**: `visual_width()` didn't skip ANSI escape sequences
+   - Selected items have `\e[7m...\e[0m` highlighting codes
+   - These were counted as visible characters, throwing off padding
+   - Fix: Updated `visual_width()` to skip CSI sequences (ESC [ ... final_byte)
+
+3. **Terminal Resize**: Added layout recalculation on WINDOW_RESIZE event
+
 ---
 
 ## Key Technical Details
@@ -69,46 +84,36 @@ Solution:
 4. `lle_sequence_parser_check_timeout()` returns ESC as standalone key
 5. `terminal_unix_interface.c` uses 60ms select() timeout when parser is accumulating
 
-### ENTER Completion Bug Fix
+### ANSI Escape Sequence Skipping
 
-**Problem**: Typing `e<TAB>` then `ENTER` resulted in "echocho"
-
-**Root Cause**: 
-- Inline preview (`update_inline_completion_v2`) already replaced "e" with "echo"
-- `lle_accept_line_context()` used stale `state->context->partial_word` ("e")
-- Code deleted 1 char ("e") from buffer "echo" → "cho"
-- Then inserted "echo" → "echocho"
-
-**Solution**: Since inline preview already updates buffer, ENTER just clears menu without further modification.
+`visual_width()` now handles ANSI codes:
+```c
+// Check for ANSI escape sequence (ESC = 0x1B)
+if (c == 0x1B && i + 1 < len) {
+    if (next == '[') {
+        // CSI sequence: ESC [ ... final_byte (0x40-0x7E)
+        // Skip all bytes until final byte
+    }
+}
+```
 
 ---
 
 ## Files Modified in Session 26
 
-### 1. `src/lle/sequence_parser.c`
-- Added `lle_sequence_parser_check_timeout()` function
-- Returns standalone ESC key after 50ms timeout
+### Issue #11 (Menu Dismissal):
+1. `src/lle/sequence_parser.c` - Added timeout check function
+2. `include/lle/input_parsing.h` - Added declaration
+3. `src/lle/terminal_unix_interface.c` - Shorter timeout, timeout check
+4. `src/lle/lle_readline.c` - ESC handler, abort line fix, ENTER fix
+5. `src/lle/keybinding_actions.c` - v2 completion checks
 
-### 2. `include/lle/input_parsing.h`
-- Added declaration for `lle_sequence_parser_check_timeout()`
-
-### 3. `src/lle/terminal_unix_interface.c`
-- Use shorter timeout (60ms) when parser is accumulating escape sequence
-- Check for parser timeout when select() returns with no data
-- Convert timeout ESC to proper key event
-
-### 4. `src/lle/lle_readline.c`
-- Added `lle_escape_context()` - ESC handler that dismisses menu
-- Added ESC keybinding registration
-- Added ESC handling in CHARACTER and SPECIAL_KEY cases
-- Modified `lle_abort_line_context()` - dismiss menu on first Ctrl+G
-- Modified `handle_character_input()` - dismiss menu before inserting
-- Fixed `lle_accept_line_context()` - don't modify buffer (inline preview already did)
-
-### 5. `src/lle/keybinding_actions.c`
-- Added v2 completion system checks to `lle_self_insert`
-- Added v2 completion system checks to `lle_backward_delete_char`
-- Added v2 completion system checks to `lle_delete_char`
+### Issue #12 (Column Shifting):
+1. `src/lle/completion/completion_menu_renderer.c`
+   - Use cached layout from state instead of recalculating
+   - Fix `visual_width()` to skip ANSI escape sequences
+2. `src/lle/lle_readline.c`
+   - Recalculate menu layout on WINDOW_RESIZE event
 
 ---
 
@@ -128,58 +133,46 @@ Solution:
 - ✅ Character input dismisses menu
 - ✅ Backspace dismisses menu
 - ✅ ENTER accepts completion (no duplicate text bug)
+- ✅ Menu columns stay stable during navigation (no shifting)
+- ✅ Terminal resize recalculates menu layout
 
 ### NOT WORKING
 
-**Issue #12: Column Shifting During Navigation** (MEDIUM)
-- Menu columns shift position when navigating
-- Should stay stable, only highlight changes
-- Files: `completion_menu_renderer.c`, `display_controller.c`
+**Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position** (LOW)
+- When navigating UP/DOWN, selection doesn't always stay in same column
+- Seems related to category boundaries
+- Pattern is inconsistent
+- Files: `completion_menu_logic.c`
 
 ---
 
 ## Next Session MUST DO
 
-### Priority 1: Fix Column Shifting (Issue #12)
-- Menu layout should be calculated once and remain stable
-- Only the selection indicator should change during navigation
-- Investigate `completion_menu_renderer.c` column width calculation
-- May need to cache column positions or use fixed-width columns
+### Priority 1: Fix Column Preservation (Issue #13)
+- UP/DOWN should maintain column position when moving between rows
+- Need to handle category boundaries properly
+- May need to store "target column" separately from current position
 
 ---
 
 ## Architecture Notes
 
-### ESC Key Flow
+### Menu Layout Caching
 ```
-User presses ESC
-    ↓
-terminal_unix_interface.c: read_event()
-    ↓
-sequence_parser: enters ESCAPE state, records timestamp
-    ↓
-read_event returns TIMEOUT (parser accumulating)
-    ↓
-Next read_event call with 60ms timeout
-    ↓
-select() times out (no more input)
-    ↓
-lle_sequence_parser_check_timeout(50000) called
-    ↓
-50ms elapsed since ESC → returns ESC key event
-    ↓
-convert_parsed_input_to_event() → LLE_INPUT_TYPE_SPECIAL_KEY with LLE_KEY_ESCAPE
-    ↓
-lle_readline.c: dispatches to "ESC" keybinding
-    ↓
-lle_escape_context() clears menu and refreshes display
-```
+Menu Creation:
+1. display_controller_set_completion_menu() called
+2. lle_completion_menu_update_layout() calculates column_width, num_columns
+3. Values cached in menu state
 
-### Menu Dismissal Architecture
-- v2 completion system: `lle_completion_system_v2_clear()` 
-- Display controller: `display_controller_clear_completion_menu()`
-- Must clear both for proper cleanup
-- Menu memory is pool-allocated (don't free individually)
+During Navigation:
+1. lle_completion_menu_render() uses cached state->column_width, state->num_columns
+2. No recalculation = stable layout
+
+On Terminal Resize:
+1. LLE_INPUT_TYPE_WINDOW_RESIZE event received
+2. lle_completion_menu_update_layout() called with new width
+3. Menu re-rendered with new layout
+```
 
 ---
 
@@ -201,18 +194,17 @@ cd /home/mberry/Lab/c/lusush/builddir && ninja lusush
 # Test completion
 ./builddir/lusush
 
-# Test menu dismissal:
+# Test menu navigation (Issue #12 fix):
 e<TAB>         # Menu appears
-ESC            # Menu dismisses (~60ms delay) ✅
+UP/DOWN        # Navigate - columns should NOT shift ✅
+LEFT/RIGHT     # Navigate within row ✅
+
+# Test menu dismissal (Issue #11):
+e<TAB>         # Menu appears
+ESC            # Menu dismisses ✅
 e<TAB>         # Menu appears
 Ctrl+G         # Menu dismisses ✅
-Ctrl+G         # Line aborts, new prompt ✅
-e<TAB>         # Menu appears
-x              # Menu dismisses, 'x' inserted ✅
-e<TAB>         # Menu appears  
-BACKSPACE      # Menu dismisses, char deleted ✅
-e<TAB>         # Menu appears
-ENTER          # Accepts "echo", menu dismisses ✅
+Ctrl+G         # Line aborts ✅
 ```
 
 ---
@@ -220,9 +212,7 @@ ENTER          # Accepts "echo", menu dismisses ✅
 ## Git Status
 
 **Branch**: feature/lle  
-**Previous Commits**: 
-- 8043240 "LLE Session 25: Fix completion menu cursor positioning bug"
-- 7509b68 "LLE Session 24: Document critical cursor positioning bug - UNFIXED"
+**Last Commit**: 0172146 "LLE Session 26: Fix completion menu dismissal (Issue #11)"
 
 ---
 
@@ -230,13 +220,13 @@ ENTER          # Accepts "echo", menu dismisses ✅
 
 **SUCCESS**:
 - ✅ Fixed all menu dismissal mechanisms (Issue #11)
+- ✅ Fixed column shifting during navigation (Issue #12)
 - ✅ ESC key with proper timeout-based detection
 - ✅ Ctrl+G context-aware (dismiss menu vs abort line)
-- ✅ Character input/backspace dismiss menu
-- ✅ ENTER accepts completion without duplication bug
+- ✅ ANSI escape sequence handling in visual_width()
 
 **REMAINING WORK**:
-- Column shifting during navigation (Issue #12)
+- Issue #13: UP/DOWN column preservation (LOW priority)
 
 ---
 

@@ -8,12 +8,13 @@
 
 ## Executive Summary
 
-**Current State**: Active development - Spec 12 completion system integrated, menu dismissal FIXED
+**Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **4 Active Issues** - Column shifting (1 MEDIUM), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **4 Active Issues** - Column preservation (1 LOW), syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
 - ✅ **Issue #10 Fixed** - Arrow key navigation (Session 25)
 - ✅ **Issue #11 Fixed** - Menu dismissal (Session 26)
+- ✅ **Issue #12 Fixed** - Column shifting during navigation (Session 26)
 - ✅ **Spec 12 v2 completion integrated** - Duplicates eliminated (Session 23)
 - ✅ **No Blockers** (all issues are enhancements or menu behavior)
 - ✅ **Living document enforcement active**
@@ -31,33 +32,32 @@
 
 ## Active Issues
 
-### Issue #12: Completion Menu Column Shifting During Navigation
-**Severity**: MEDIUM  
-**Discovered**: 2025-11-25 (Session 25)  
+### Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position
+**Severity**: LOW  
+**Discovered**: 2025-11-25 (Session 26)  
 **Status**: NOT FIXED  
-**Component**: completion_menu_renderer.c / display_controller.c  
+**Component**: completion_menu_logic.c  
 
 **Description**:
-When navigating through the completion menu, the columns shift/redraw in different positions. The menu layout should remain stable during navigation - only the selection highlight should change.
+When navigating UP/DOWN in the completion menu, the selection doesn't always stay in the same column. The pattern is unclear but seems related to category boundaries - when moving to a row in a different category, the column position isn't preserved.
 
 **Expected Behavior**:
-- Menu columns stay in fixed positions
-- Only the selection indicator/highlight changes
-- No visual shifting or jumping
+- UP/DOWN should move to the same column in adjacent rows
+- If the target row has fewer items, move to the last item in that row
+- Column position should be remembered across category boundaries
 
 **Current Behavior**:
-- Columns shift position during navigation
-- Menu appears to redraw with different layout
-- Unstable visual appearance
+- Selection sometimes jumps to different column when crossing category boundaries
+- Pattern is inconsistent and hard to predict
 
 **Root Cause**:
-Possibly the menu renderer recalculates column widths on each render, or there's inconsistency in how the menu is being cleared and redrawn.
+The navigation logic in `lle_completion_menu_move_up/down` may not properly handle category headers or may be calculating target index incorrectly when rows have different item counts.
 
 **Files to Investigate**:
-- `src/lle/completion/completion_menu_renderer.c` - Column width calculation
-- `src/display/display_controller.c` - Menu rendering and clearing
+- `src/lle/completion/completion_menu_logic.c` - move_up/move_down functions
+- Category boundary handling in navigation
 
-**Priority**: MEDIUM (affects UX but doesn't block functionality)
+**Priority**: LOW (UX polish, menu is functional)
 
 ---
 
@@ -340,6 +340,33 @@ quote> world"
 ---
 
 ## Resolved Issues
+
+### Issue #12: Completion Menu Column Shifting During Navigation ✅ FIXED
+**Severity**: MEDIUM  
+**Discovered**: 2025-11-25 (Session 25)  
+**Fixed**: 2025-11-25 (Session 26)  
+**Component**: completion_menu_renderer.c  
+
+**Description**:
+Menu columns shifted position during navigation, making the menu layout unstable.
+
+**Root Cause**:
+Two issues:
+1. Renderer recalculated column width/count on every render instead of using cached layout
+2. `visual_width()` function didn't skip ANSI escape sequences, so selected items (with highlighting codes) had incorrect width calculations, causing padding to be wrong
+
+**Fix Applied**:
+1. Modified `lle_completion_menu_render()` to use pre-cached `state->column_width` and `state->num_columns` instead of recalculating
+2. Updated `visual_width()` to properly skip ANSI escape sequences (CSI format: ESC [ ... final_byte)
+3. Added terminal resize handling to recalculate layout when window size changes
+
+**Files Modified**:
+- `src/lle/completion/completion_menu_renderer.c` - Use cached layout, fix visual_width
+- `src/lle/lle_readline.c` - Recalculate layout on WINDOW_RESIZE
+
+**Status**: ✅ FIXED AND VERIFIED
+
+---
 
 ### Issue #11: Completion Menu Dismissal Not Working ✅ FIXED
 **Severity**: HIGH  
@@ -771,13 +798,13 @@ To prevent future issues:
 
 **Active Issues**: 4  
 **Blockers**: 0  
-**High Priority**: 0 (Issues #10, #11 now FIXED)  
-**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #12 - column shifting)  
-**Low Priority**: 1 (Issue #8 - menu display format)  
-**Fixed This Session**: 3 (Issues #9, #10, #11 - cursor, navigation, dismissal)
+**High Priority**: 0  
+**Medium Priority**: 3 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation)  
+**Low Priority**: 2 (Issue #8 - menu display format; Issue #13 - column preservation)  
+**Fixed This Session**: 4 (Issues #9, #10, #11, #12 - cursor, navigation, dismissal, column shifting)
 **Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
 **Next Action**: 
-- Fix column shifting (Issue #12) - stable menu layout during navigation
+- Fix UP/DOWN column preservation (Issue #13) - maintain column position during navigation
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 

@@ -1872,6 +1872,15 @@ char *lle_readline(const char *prompt)
             
             case LLE_INPUT_TYPE_WINDOW_RESIZE: {
                 /* Step 7: Window resize - refresh display with new dimensions */
+                /* If completion menu is active, recalculate layout for new terminal width */
+                if (ctx.editor && ctx.editor->completion_system_v2) {
+                    lle_completion_menu_state_t *menu =
+                        lle_completion_system_v2_get_menu(ctx.editor->completion_system_v2);
+                    if (menu && menu->menu_active) {
+                        size_t new_width = event->data.resize.new_width;
+                        lle_completion_menu_update_layout(menu, new_width);
+                    }
+                }
                 refresh_display(&ctx);
                 break;
             }
