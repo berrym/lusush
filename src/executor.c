@@ -205,6 +205,8 @@ executor_t *executor_new(void) {
     executor->in_script_execution = false;
     executor->expansion_error = false;
     executor->expansion_exit_status = 0;
+    executor->loop_control = LOOP_NORMAL;
+    executor->loop_depth = 0;
     initialize_job_control(executor);
 
     return executor;
@@ -231,6 +233,8 @@ executor_t *executor_new_with_symtable(symtable_manager_t *symtable) {
     executor->in_script_execution = false;
     executor->expansion_error = false;
     executor->expansion_exit_status = 0;
+    executor->loop_control = LOOP_NORMAL;
+    executor->loop_depth = 0;
     initialize_job_control(executor);
 
     return executor;
