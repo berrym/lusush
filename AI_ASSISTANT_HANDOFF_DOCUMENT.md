@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 26 (Complete)
+# AI Assistant Handoff Document - Session 27 (Complete)
 
 **Date**: 2025-11-26  
-**Session Type**: Bug Fixes - Menu Issues #11, #12, #13 ALL FIXED  
-**Status**: ✅ ALL COMPLETION MENU ISSUES RESOLVED  
+**Session Type**: Critical Bug Fixes - Executor Initialization, Multiline Display  
+**Status**: ✅ ALL ISSUES RESOLVED  
 
 ---
 
@@ -14,208 +14,247 @@
 1. Cursor positioning bug FIXED (Issue #9)
 2. Arrow key navigation FIXED (Issue #10)
 
-**Session 26 Success (Complete)**:
+**Session 26 Success**:
 1. Menu dismissal fully implemented (Issue #11)
 2. Column shifting during navigation FIXED (Issue #12)
 3. UP/DOWN column preservation FIXED (Issue #13)
 
+**Session 27 Success (This Session)**:
+1. Critical executor loop_control initialization bug FIXED
+2. Continuation prompt ANSI isolation FIXED (yellow leak)
+3. Syntax highlighting for builtins in multiline FIXED
+4. Adaptive terminal detection implemented (Spec 11 core)
+5. Continuation prompt immediate display FIXED
+
 ---
 
-## Session 26 Summary
+## Session 27 Summary
+
+### Critical Bug Discovery
+
+A major regression was discovered where nested if/for constructs with quoted strings would only execute the first command when run as the FIRST command in a new shell session:
+
+```bash
+# This would only print "test", not the full loop
+$ if true; then
+if> echo "test"
+if> for i in 1 2 3; do
+if> echo $i
+if> done
+if> echo "loop finished"
+if> fi
+test              # Only this printed!
+```
+
+But running a simpler command first would "warm up" the system and subsequent commands worked.
+
+### Root Cause Analysis
+
+**The bug was NOT in LLE** - it was in the executor.
+
+Through systematic debugging, we discovered:
+- `executor->loop_control` was **never initialized** in `executor_new()`
+- malloc() doesn't zero memory, so it contained garbage
+- When garbage value != LOOP_NORMAL, the command list loop exited early
+- First command that set loop_control "fixed" it for subsequent commands
+
+Debug output that revealed the bug:
+```
+[DEBUG cmd_list] cmd #1 result=0, loop_control=1667566181, exit_on_error=0
+[DEBUG cmd_list] EXITING due to loop_control
+```
+(1667566181 is garbage - should be 0)
 
 ### What Was Fixed
 
-**MENU DISMISSAL (Issue #11)** - ✅ FIXED
+**1. EXECUTOR INITIALIZATION (CRITICAL)** - ✅ FIXED
 
-All menu dismissal mechanisms now work:
+Added missing initialization in both executor creation functions:
+```c
+executor->loop_control = LOOP_NORMAL;
+executor->loop_depth = 0;
+```
 
-1. **ESC Key**: Dismisses completion menu
-   - Added timeout-based ESC detection in `sequence_parser.c`
-   - When ESC pressed, parser waits 50ms for escape sequence
-   - If no more bytes arrive, returns standalone ESC as key event
-   - Modified `terminal_unix_interface.c` to use shorter timeout (60ms) when parser is accumulating
-   - Added `lle_sequence_parser_check_timeout()` function
-   - Added `lle_escape_context()` handler in `lle_readline.c`
-
-2. **Ctrl+G**: First press dismisses menu, second press aborts line
-   - Modified `lle_abort_line_context()` to check for visible menu first
-   - If menu visible: dismiss it and return (don't abort line)
-   - If menu not visible: abort line as normal
-
-3. **Character Input**: Dismisses menu, inserts character
-   - Added v2 completion system checks to `handle_character_input()`
-   - Calls `lle_completion_system_v2_clear()` before inserting
-
-4. **Backspace**: Dismisses menu, deletes character
-   - Added v2 completion system checks to keybinding actions
-
-5. **ENTER Key**: Accepts selected completion, dismisses menu
-   - Fixed critical bug: inline preview already updates buffer
-   - ENTER now just clears menu (doesn't duplicate text)
-   - Old code tried to replace based on stale context, causing "echocho" bug
-
-**COLUMN SHIFTING (Issue #12)** - ✅ FIXED
-
-Menu columns now stay stable during navigation:
-
-1. **Root Cause 1**: Renderer recalculated column width/count on every render
-   - Fix: Use pre-cached `state->column_width` and `state->num_columns`
-
-2. **Root Cause 2**: `visual_width()` didn't skip ANSI escape sequences
-   - Selected items have `\e[7m...\e[0m` highlighting codes
-   - These were counted as visible characters, throwing off padding
-   - Fix: Updated `visual_width()` to skip CSI sequences (ESC [ ... final_byte)
-
-3. **Terminal Resize**: Added layout recalculation on WINDOW_RESIZE event
-
-**COLUMN PRESERVATION (Issue #13)** - ✅ FIXED
-
-UP/DOWN navigation now preserves column position with sticky column behavior:
-
-1. **Root Cause**: Navigation functions calculated row/column positions globally
-   - `row = index / columns`, `col = index % columns`
-   - But categories have their own visual rows, not a continuous grid
-   - Crossing category boundaries caused unexpected column jumps
-
-2. **Fix Applied**: Category-aware navigation
-   - Added `find_category_for_index()` helper to find category boundaries
-   - Rewrote `move_up` and `move_down` to be category-aware:
-     - Calculate position within current category, not globally
-     - When moving past category boundary, jump to adjacent category
-     - Preserve `target_column` (sticky column behavior)
-     - Fall back to last item if target row is shorter
-   - Updated `move_left` and `move_right` for consistent column calculation
+**Commit**: 2421804 - Fix: Initialize loop_control and loop_depth in executor_new()
 
 ---
 
-## Key Technical Details
+**2. CONTINUATION PROMPT ANSI ISOLATION** - ✅ FIXED
 
-### ESC Timeout Mechanism
+Problem: Syntax highlighting color (e.g., yellow from unclosed quotes) leaked into continuation prompts.
 
-The ESC key is ambiguous - it could be:
-- Standalone ESC key
-- Start of escape sequence (e.g., ESC [ A for up arrow)
+Solution (two parts):
 
-Solution:
-1. Parser enters ESCAPE state when ESC (0x1B) received
-2. `sequence_start_time` is recorded
-3. If no more bytes within 50ms, timeout triggers
-4. `lle_sequence_parser_check_timeout()` returns ESC as standalone key
-5. `terminal_unix_interface.c` uses 60ms select() timeout when parser is accumulating
-
-### ANSI Escape Sequence Skipping
-
-`visual_width()` now handles ANSI codes:
+A. **display_controller.c**: Add ANSI reset before writing continuation prompts
 ```c
-// Check for ANSI escape sequence (ESC = 0x1B)
-if (c == 0x1B && i + 1 < len) {
-    if (next == '[') {
-        // CSI sequence: ESC [ ... final_byte (0x40-0x7E)
-        // Skip all bytes until final byte
-    }
+write(STDOUT_FILENO, "\033[0m", 4);  // Reset before prompt
+write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
+```
+
+B. **command_layer.c**: Re-apply color codes after embedded newlines within tokens
+```c
+// After a newline within a colored token, re-apply the color
+if (token_text[i] == '\n' && has_color && i + 1 < token_length) {
+    strcpy(layer->highlighted_text + output_pos, color);
+    output_pos += color_len;
 }
 ```
 
-### Category-Aware Navigation
-
-Navigation now respects category boundaries:
-```c
-// Find which category contains current selection
-size_t cat_start, cat_end;
-size_t current_cat = find_category_for_index(state, state->selected_index, 
-                                              &cat_start, &cat_end);
-
-// Calculate position within category (not globally)
-size_t index_in_cat = state->selected_index - cat_start;
-size_t current_row_in_cat = index_in_cat / columns;
-
-// When crossing category boundary, jump to adjacent category
-// preserving target_column (sticky column behavior)
-```
+**Commit**: 978b640 - LLE: Fix continuation prompt ANSI isolation and multiline string highlighting
 
 ---
 
-## Files Modified in Session 26
+**3. SYNTAX HIGHLIGHTING FOR BUILTINS IN MULTILINE** - ✅ FIXED
 
-### Issue #11 (Menu Dismissal):
-1. `src/lle/sequence_parser.c` - Added timeout check function
-2. `include/lle/input_parsing.h` - Added declaration
-3. `src/lle/terminal_unix_interface.c` - Shorter timeout, timeout check
-4. `src/lle/lle_readline.c` - ESC handler, abort line fix, ENTER fix
-5. `src/lle/keybinding_actions.c` - v2 completion checks
+Problem: Builtins like `echo` weren't highlighted after `do`, `then`, etc.
 
-### Issue #12 (Column Shifting):
-1. `src/lle/completion/completion_menu_renderer.c`
-   - Use cached layout from state instead of recalculating
-   - Fix `visual_width()` to skip ANSI escape sequences
-2. `src/lle/lle_readline.c`
-   - Recalculate menu layout on WINDOW_RESIZE event
+Root Cause: `is_first_token` only tracked the very first token, not command positions after control keywords.
 
-### Issue #13 (Column Preservation):
-1. `src/lle/completion/completion_menu_logic.c`
-   - Added `find_category_for_index()` helper
-   - Rewrote `move_up`, `move_down` for category-aware navigation
-   - Updated `move_left`, `move_right` for category-aware column calculation
+Solution: Replace `is_first_token` with `is_command_position` context tracking:
+- After newlines in multiline input → command position
+- After operators: ; | { ( && || → command position
+- After control keywords: do, then, else, elif → command position
+
+**Commit**: acda429 - LLE: Fix syntax highlighting for commands in multiline constructs
+
+---
+
+**4. ADAPTIVE TERMINAL DETECTION (Spec 11 Core)** - ✅ FIXED
+
+Integrated termcap capability detection for graceful color degradation:
+
+1. **No colors**: Empty strings for dumb terminals or piping
+2. **256/truecolor**: Enhanced palette with better visual distinction
+3. **Basic 16-color**: Standard ANSI colors with bold for brightness
+
+**Commit**: 726c763 - LLE: Implement adaptive terminal color detection (Spec 11 core)
+
+---
+
+**5. CONTINUATION PROMPT IMMEDIATE DISPLAY** - ✅ FIXED
+
+Problem: Continuation prompt didn't appear until first character was typed.
+
+Root Cause: Prompt was only written if there was content after the newline:
+```c
+if (*line) {  // BUG: Empty line = no prompt written
+    write(..., cont_prompt, ...);
+}
+```
+
+Solution: Write prompt unconditionally after newlines:
+```c
+// Write prompt always
+write(..., cont_prompt, ...);
+// Then break if no more content
+if (!*line) break;
+```
+
+**Commit**: 334f193 - LLE: Fix continuation prompt not appearing until character typed
+
+---
+
+## Files Modified in Session 27
+
+1. **src/executor.c**
+   - Initialize loop_control and loop_depth in executor_new()
+   - Initialize loop_control and loop_depth in executor_new_with_symtable()
+
+2. **src/display/display_controller.c**
+   - Add ANSI reset before continuation prompts
+   - Write continuation prompt unconditionally after newlines
+
+3. **src/display/command_layer.c**
+   - Re-apply color codes after newlines within tokens
+   - Replace is_first_token with is_command_position tracking
+   - Add command position context updates after operators/keywords
+   - Add termcap.h include
+   - Implement adaptive color detection based on terminal capabilities
 
 ---
 
 ## Current State
 
-### WORKING - Completion Menu Fully Functional
-- ✅ Cursor stays on correct row after TAB completion
-- ✅ Multiple TAB presses don't consume terminal rows
-- ✅ Completion cycling works without display corruption
-- ✅ Inline text updates correctly (e.g., 'e' → 'echo')
-- ✅ Menu displays with items
-- ✅ UP/DOWN arrows move between rows correctly
-- ✅ LEFT/RIGHT arrows move within rows correctly
-- ✅ Dynamic column count based on terminal width
-- ✅ ESC dismisses menu (~60ms delay for escape sequence detection)
-- ✅ Ctrl+G dismisses menu (first press), aborts line (second press)
-- ✅ Character input dismisses menu
-- ✅ Backspace dismisses menu
-- ✅ ENTER accepts completion (no duplicate text bug)
-- ✅ Menu columns stay stable during navigation (no shifting)
-- ✅ Terminal resize recalculates menu layout
-- ✅ UP/DOWN preserves column position (sticky column behavior)
-- ✅ Category boundaries respected during navigation
+### WORKING - All Core Features
+- ✅ Nested if/for/while constructs execute correctly
+- ✅ Quoted strings in first command work
+- ✅ Continuation prompts display immediately
+- ✅ Continuation prompts not affected by syntax highlight colors
+- ✅ Multiline strings maintain highlighting across lines
+- ✅ Builtins highlight correctly after do/then/else/elif
+- ✅ Adaptive colors based on terminal capabilities (16/256/truecolor)
+- ✅ Completion menu fully functional (from Session 26)
 
-### REMAINING KNOWN ISSUES (Not Critical)
-- Issue #5: Multiline input - builtins not highlighted (MEDIUM)
-- Issue #6: Continuation prompt incorrectly highlighted in quotes (LOW)
+### REMAINING WORK - Continued Development
+
+**From Session 26 (Lower Priority)**:
 - Issue #7: Category disambiguation not implemented (MEDIUM)
 - Issue #8: Single-column display investigation (LOW)
 
+**Spec 11 - Adaptive Terminal (Partial)**:
+- ✅ Core color detection implemented
+- Remaining: Full widget system integration
+- Remaining: User-configurable color schemes
+
+**Spec 12 - Completion System v2 (Mostly Complete)**:
+- ✅ Core completion working
+- ✅ Menu navigation working
+- ✅ Menu dismissal working
+- Remaining: Category disambiguation UI
+
+**Documentation**:
+- May need CHANGELOG.md update for new features
+
 ---
 
-## Architecture Notes
+## Key Technical Details
 
-### Menu Layout Caching
-```
-Menu Creation:
-1. display_controller_set_completion_menu() called
-2. lle_completion_menu_update_layout() calculates column_width, num_columns
-3. Values cached in menu state
+### Executor Initialization Bug Pattern
 
-During Navigation:
-1. lle_completion_menu_render() uses cached state->column_width, state->num_columns
-2. No recalculation = stable layout
+This class of bug (uninitialized struct fields) can hide for a long time:
+- Only triggers under specific conditions
+- First command "fixes" it by accident
+- Intermittent behavior makes debugging hard
 
-On Terminal Resize:
-1. LLE_INPUT_TYPE_WINDOW_RESIZE event received
-2. lle_completion_menu_update_layout() called with new width
-3. Menu re-rendered with new layout
+**Lesson**: Always initialize ALL struct fields, even if they "should" be set later.
+
+### Command Position Tracking
+
+The `is_command_position` logic now handles:
+```c
+// After these, next token is in command position:
+// Operators: ; | { ( && ||
+// Keywords: do then else elif
+// Newlines in multiline input
+
+// After these, next token is NOT in command position:
+// Commands, arguments, strings, variables, etc.
 ```
 
-### Category-Aware Navigation
+### Multiline Token Color Continuation
+
+For tokens spanning multiple lines (like strings with embedded newlines):
 ```
-Navigation considers categories as separate visual groups:
-1. Items are grouped by type (builtin, external, etc.)
-2. Each category has its own rows
-3. UP/DOWN moves within category first
-4. Crossing category boundary jumps to adjacent category
-5. target_column preserved for sticky behavior
+Original: "hello\nworld"
+Highlighted: [yellow]"hello\n[yellow]world"[reset]
+                      ^^^^^^^^ color re-applied after newline
 ```
+
+This ensures when display_controller writes line-by-line with prompts inserted, each line starts with the correct color.
+
+---
+
+## Git Status
+
+**Branch**: feature/lle  
+**Clean**: All changes committed
+
+**Commits this session**:
+1. 2421804 - Fix: Initialize loop_control and loop_depth in executor_new()
+2. 978b640 - LLE: Fix continuation prompt ANSI isolation and multiline string highlighting
+3. acda429 - LLE: Fix syntax highlighting for commands in multiline constructs
+4. 726c763 - LLE: Implement adaptive terminal color detection (Spec 11 core)
+5. 334f193 - LLE: Fix continuation prompt not appearing until character typed
 
 ---
 
@@ -224,7 +263,7 @@ Navigation considers categories as separate visual groups:
 1. **NO COMMITS without manual test confirmation**
 2. **NO DESTRUCTIVE git operations without explicit approval**
 3. **USE screen_buffer integration, not direct terminal writes**
-4. **FOLLOW Spec 12 v2 core (no fancy features yet)**
+4. **Test each fix individually before moving to next**
 
 ---
 
@@ -232,46 +271,51 @@ Navigation considers categories as separate visual groups:
 
 ```bash
 # Build
-cd /home/mberry/Lab/c/lusush/builddir && ninja lusush
+cd /home/mberry/Lab/c/lusush && meson compile -C builddir lusush
 
-# Test completion
-./builddir/lusush
+# Test with LLE enabled
+LLE_ENABLED=1 ./builddir/lusush
 
-# Test menu navigation:
-e<TAB>         # Menu appears
-UP/DOWN        # Navigate - columns should NOT shift ✅
-LEFT/RIGHT     # Navigate within row ✅
-               # Column position preserved on UP/DOWN ✅
+# Critical test - nested constructs with quotes as FIRST command:
+if true; then
+echo "test"
+for i in 1 2 3; do
+echo $i
+done
+echo "loop finished"
+fi
+# Expected: test, 1, 2, 3, loop finished
 
-# Test menu dismissal:
-e<TAB>         # Menu appears
-ESC            # Menu dismisses ✅
-e<TAB>         # Menu appears
-Ctrl+G         # Menu dismisses ✅
-Ctrl+G         # Line aborts ✅
+# Test continuation prompt appears immediately:
+if true; then
+# Prompt "if>" should appear immediately, not after typing
+
+# Test multiline string highlighting:
+echo "
+hello"
+# "hello" should be highlighted same color as opening quote
+# Continuation prompt should NOT be colored
+
+# Test builtin highlighting in multiline:
+for i in 1 2 3; do
+echo $i
+# "echo" should be highlighted as builtin (cyan/command color)
+done
 ```
 
 ---
 
-## Git Status
-
-**Branch**: feature/lle  
-**Uncommitted Changes**: Issue #13 fix (category-aware navigation)
-
----
-
-## Session 26 Outcome
+## Session 27 Outcome
 
 **COMPLETE SUCCESS**:
-- ✅ Fixed all menu dismissal mechanisms (Issue #11)
-- ✅ Fixed column shifting during navigation (Issue #12)
-- ✅ Fixed UP/DOWN column preservation (Issue #13)
-- ✅ ESC key with proper timeout-based detection
-- ✅ Ctrl+G context-aware (dismiss menu vs abort line)
-- ✅ ANSI escape sequence handling in visual_width()
-- ✅ Category-aware navigation with sticky column behavior
+- ✅ Fixed critical executor initialization bug
+- ✅ Fixed continuation prompt ANSI isolation
+- ✅ Fixed multiline string color continuation
+- ✅ Fixed builtin highlighting in multiline constructs
+- ✅ Implemented adaptive terminal color detection
+- ✅ Fixed continuation prompt immediate display
 
-**ALL CRITICAL COMPLETION MENU ISSUES RESOLVED**
+**ALL ISSUES FROM THIS SESSION RESOLVED**
 
 ---
 
