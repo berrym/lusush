@@ -413,6 +413,10 @@ static layer_events_error_t dc_handle_redraw_needed(
                             desired_screen.command_start_row + line_num
                         );
                         if (cont_prompt) {
+                            /* CRITICAL: Reset ANSI state before writing continuation prompt.
+                             * Without this, syntax highlighting from the previous line
+                             * (e.g., yellow for unclosed quotes) leaks into the prompt. */
+                            write(STDOUT_FILENO, "\033[0m", 4);
                             write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
                         }
                     }

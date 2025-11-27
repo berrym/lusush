@@ -595,7 +595,8 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
         const char *color = get_token_color(layer, token_type);
         
         // Add color code to output if colors are enabled
-        if (layer->syntax_config.use_colors && color && color[0]) {
+        bool has_color = layer->syntax_config.use_colors && color && color[0];
+        if (has_color) {
             size_t color_len = strlen(color);
             if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
                 strcpy(layer->highlighted_text + output_pos, color);
@@ -603,16 +604,26 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
             }
         }
         
-        // Add the token text
-        if (output_pos + token_length < sizeof(layer->highlighted_text) - 1) {
-            strncpy(layer->highlighted_text + output_pos, 
-                   layer->command_text + token_start, token_length);
-            output_pos += token_length;
-            layer->highlighted_text[output_pos] = '\0';
+        // Add the token text, re-applying color after any embedded newlines
+        // This ensures multiline tokens (like strings) maintain their color
+        // after continuation prompts are inserted during display
+        const char *token_text = layer->command_text + token_start;
+        for (size_t i = 0; i < token_length && output_pos < sizeof(layer->highlighted_text) - 1; i++) {
+            layer->highlighted_text[output_pos++] = token_text[i];
+            
+            // After a newline within a colored token, re-apply the color
+            if (token_text[i] == '\n' && has_color && i + 1 < token_length) {
+                size_t color_len = strlen(color);
+                if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
+                    strcpy(layer->highlighted_text + output_pos, color);
+                    output_pos += color_len;
+                }
+            }
         }
+        layer->highlighted_text[output_pos] = '\0';
         
         // Add reset color code if colors are enabled
-        if (layer->syntax_config.use_colors && color && color[0]) {
+        if (has_color) {
             const char *reset = layer->syntax_config.color_scheme.reset_color;
             size_t reset_len = strlen(reset);
             if (output_pos + reset_len < sizeof(layer->highlighted_text) - 1) {
