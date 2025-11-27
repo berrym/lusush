@@ -52,6 +52,7 @@
 #include "display/display_controller.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
+#include "termcap.h"
 #include "alias.h"
 
 // Note: Completion menu support moved to display_controller (proper architecture)
@@ -1559,23 +1560,73 @@ command_layer_error_t command_layer_create_default_colors(command_color_scheme_t
     if (!color_scheme) {
         return COMMAND_LAYER_ERROR_INVALID_PARAM;
     }
-    
-    // Default color scheme (similar to existing lusush colors)
-    safe_string_copy(color_scheme->command_color, "\033[1;32m", sizeof(color_scheme->command_color));     // Bright green
-    safe_string_copy(color_scheme->argument_color, "\033[0;37m", sizeof(color_scheme->argument_color));   // White
-    safe_string_copy(color_scheme->option_color, "\033[1;36m", sizeof(color_scheme->option_color));       // Bright cyan
-    safe_string_copy(color_scheme->string_color, "\033[1;33m", sizeof(color_scheme->string_color));       // Bright yellow
-    safe_string_copy(color_scheme->variable_color, "\033[1;35m", sizeof(color_scheme->variable_color));   // Bright magenta
-    safe_string_copy(color_scheme->redirect_color, "\033[1;31m", sizeof(color_scheme->redirect_color));   // Bright red
-    safe_string_copy(color_scheme->pipe_color, "\033[1;34m", sizeof(color_scheme->pipe_color));           // Bright blue
-    safe_string_copy(color_scheme->keyword_color, "\033[1;34m", sizeof(color_scheme->keyword_color));     // Bright blue
-    safe_string_copy(color_scheme->operator_color, "\033[1;31m", sizeof(color_scheme->operator_color));   // Bright red
-    safe_string_copy(color_scheme->path_color, "\033[0;32m", sizeof(color_scheme->path_color));           // Green
-    safe_string_copy(color_scheme->number_color, "\033[1;37m", sizeof(color_scheme->number_color));       // Bright white
-    safe_string_copy(color_scheme->comment_color, "\033[0;90m", sizeof(color_scheme->comment_color));     // Dark gray
-    safe_string_copy(color_scheme->error_color, "\033[1;31m", sizeof(color_scheme->error_color));         // Bright red foreground
-    safe_string_copy(color_scheme->reset_color, "\033[0m", sizeof(color_scheme->reset_color));            // Reset
-    
+
+    // Detect terminal capabilities for adaptive color support
+    termcap_detect_capabilities();
+    const terminal_info_t *term_info = termcap_get_info();
+
+    // Determine color mode based on terminal capabilities
+    bool has_colors = term_info && term_info->caps.colors;
+    bool has_256_colors = term_info && term_info->caps.colors_256;
+    bool has_truecolor = term_info && term_info->caps.truecolor;
+
+    // Reset color is always the same when colors are supported
+    if (has_colors) {
+        safe_string_copy(color_scheme->reset_color, "\033[0m", sizeof(color_scheme->reset_color));
+    } else {
+        // No colors - use empty string
+        color_scheme->reset_color[0] = '\0';
+    }
+
+    if (!has_colors) {
+        // Terminal doesn't support colors - use empty strings for all colors
+        // This allows the shell to work on dumb terminals or when piping
+        color_scheme->command_color[0] = '\0';
+        color_scheme->argument_color[0] = '\0';
+        color_scheme->option_color[0] = '\0';
+        color_scheme->string_color[0] = '\0';
+        color_scheme->variable_color[0] = '\0';
+        color_scheme->redirect_color[0] = '\0';
+        color_scheme->pipe_color[0] = '\0';
+        color_scheme->keyword_color[0] = '\0';
+        color_scheme->operator_color[0] = '\0';
+        color_scheme->path_color[0] = '\0';
+        color_scheme->number_color[0] = '\0';
+        color_scheme->comment_color[0] = '\0';
+        color_scheme->error_color[0] = '\0';
+    } else if (has_256_colors || has_truecolor) {
+        // 256-color or truecolor terminal - use enhanced color palette
+        // These colors provide better visual distinction on modern terminals
+        safe_string_copy(color_scheme->command_color, "\033[38;5;82m", sizeof(color_scheme->command_color));    // Bright lime green (82)
+        safe_string_copy(color_scheme->argument_color, "\033[38;5;252m", sizeof(color_scheme->argument_color)); // Light gray (252)
+        safe_string_copy(color_scheme->option_color, "\033[38;5;51m", sizeof(color_scheme->option_color));      // Cyan (51)
+        safe_string_copy(color_scheme->string_color, "\033[38;5;214m", sizeof(color_scheme->string_color));     // Orange (214)
+        safe_string_copy(color_scheme->variable_color, "\033[38;5;177m", sizeof(color_scheme->variable_color)); // Light purple (177)
+        safe_string_copy(color_scheme->redirect_color, "\033[38;5;203m", sizeof(color_scheme->redirect_color)); // Salmon red (203)
+        safe_string_copy(color_scheme->pipe_color, "\033[38;5;69m", sizeof(color_scheme->pipe_color));          // Steel blue (69)
+        safe_string_copy(color_scheme->keyword_color, "\033[38;5;75m", sizeof(color_scheme->keyword_color));    // Sky blue (75)
+        safe_string_copy(color_scheme->operator_color, "\033[38;5;167m", sizeof(color_scheme->operator_color)); // Indian red (167)
+        safe_string_copy(color_scheme->path_color, "\033[38;5;114m", sizeof(color_scheme->path_color));         // Pale green (114)
+        safe_string_copy(color_scheme->number_color, "\033[38;5;229m", sizeof(color_scheme->number_color));     // Light yellow (229)
+        safe_string_copy(color_scheme->comment_color, "\033[38;5;244m", sizeof(color_scheme->comment_color));   // Gray (244)
+        safe_string_copy(color_scheme->error_color, "\033[38;5;196m", sizeof(color_scheme->error_color));       // Bright red (196)
+    } else {
+        // Basic 16-color terminal - use standard ANSI colors with bold for bright
+        safe_string_copy(color_scheme->command_color, "\033[1;32m", sizeof(color_scheme->command_color));     // Bright green
+        safe_string_copy(color_scheme->argument_color, "\033[0;37m", sizeof(color_scheme->argument_color));   // White
+        safe_string_copy(color_scheme->option_color, "\033[1;36m", sizeof(color_scheme->option_color));       // Bright cyan
+        safe_string_copy(color_scheme->string_color, "\033[1;33m", sizeof(color_scheme->string_color));       // Bright yellow
+        safe_string_copy(color_scheme->variable_color, "\033[1;35m", sizeof(color_scheme->variable_color));   // Bright magenta
+        safe_string_copy(color_scheme->redirect_color, "\033[1;31m", sizeof(color_scheme->redirect_color));   // Bright red
+        safe_string_copy(color_scheme->pipe_color, "\033[1;34m", sizeof(color_scheme->pipe_color));           // Bright blue
+        safe_string_copy(color_scheme->keyword_color, "\033[1;34m", sizeof(color_scheme->keyword_color));     // Bright blue
+        safe_string_copy(color_scheme->operator_color, "\033[1;31m", sizeof(color_scheme->operator_color));   // Bright red
+        safe_string_copy(color_scheme->path_color, "\033[0;32m", sizeof(color_scheme->path_color));           // Green
+        safe_string_copy(color_scheme->number_color, "\033[1;37m", sizeof(color_scheme->number_color));       // Bright white
+        safe_string_copy(color_scheme->comment_color, "\033[0;90m", sizeof(color_scheme->comment_color));     // Dark gray
+        safe_string_copy(color_scheme->error_color, "\033[1;31m", sizeof(color_scheme->error_color));         // Bright red
+    }
+
     return COMMAND_LAYER_SUCCESS;
 }
 
