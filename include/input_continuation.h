@@ -17,6 +17,26 @@
 #include <stddef.h>
 
 /*
+ * Context types for the context stack
+ * Used to track nested shell constructs for proper prompt display
+ */
+typedef enum {
+    CONTEXT_NONE = 0,
+    CONTEXT_IF,
+    CONTEXT_WHILE,
+    CONTEXT_FOR,
+    CONTEXT_UNTIL,
+    CONTEXT_CASE,
+    CONTEXT_FUNCTION,
+    CONTEXT_BRACE_GROUP
+} continuation_context_type_t;
+
+/*
+ * Maximum nesting depth for context stack
+ */
+#define CONTINUATION_MAX_CONTEXT_DEPTH 32
+
+/*
  * Continuation state structure
  * 
  * Tracks the parsing state for multiline input constructs including:
@@ -25,6 +45,7 @@
  * - Control structure detection (if/then/fi, case, loops)
  * - Here document handling
  * - Function definitions
+ * - Context stack for proper nested construct tracking
  */
 typedef struct {
     // Quote tracking
@@ -52,7 +73,7 @@ typedef struct {
     bool in_command_substitution;
     bool in_arithmetic;
     
-    // Control structure tracking
+    // Control structure tracking (legacy flags - kept for compatibility)
     bool in_function_definition;
     bool in_case_statement;
     bool in_if_statement;
@@ -60,6 +81,11 @@ typedef struct {
     bool in_for_loop;
     bool in_until_loop;
     int compound_command_depth;
+    
+    // Context stack for nested construct tracking
+    // This allows proper prompt switching when entering/exiting nested constructs
+    continuation_context_type_t context_stack[CONTINUATION_MAX_CONTEXT_DEPTH];
+    int context_stack_depth;
 } continuation_state_t;
 
 /*

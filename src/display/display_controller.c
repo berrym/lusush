@@ -76,9 +76,11 @@
 #define DC_ADAPTIVE_OPTIMIZATION_THRESHOLD 5
 
 // Debugging and logging macros
-#if 0  // DC_DEBUG disabled - interferes with display
-#define DC_DEBUG(fmt, ...) \
-    fprintf(stderr, "[DC_DEBUG] %s:%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__)
+#if 0  // DC_DEBUG disabled - enable for debugging display issues
+#define DC_DEBUG(fmt, ...) do { \
+    FILE *_dbg = fopen("/tmp/lusush_dc_debug.log", "a"); \
+    if (_dbg) { fprintf(_dbg, "[DC_DEBUG] %s:%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__); fclose(_dbg); } \
+} while(0)
 #else
 #define DC_DEBUG(fmt, ...) do { } while(0)
 #endif

@@ -1,6 +1,6 @@
 # AI Assistant Handoff Document - Session 27 (Complete)
 
-**Date**: 2025-11-26  
+**Date**: 2025-11-27  
 **Session Type**: Critical Bug Fixes - Executor Initialization, Multiline Display  
 **Status**: ✅ ALL ISSUES RESOLVED  
 
@@ -187,6 +187,29 @@ if (!*line) break;
 
 ### REMAINING WORK - Continued Development
 
+**NEXT UP - Continuation Prompt Context Switching**:
+- Dynamic prompt updates as user types (e.g., `>` → `if>` → `for>` → `quote>`)
+- Real-time detection of shell construct context
+- Proper nesting tracking for nested constructs
+
+**Recommended Priority Order (Post Continuation Prompts)**:
+
+1. **Fish-Style Inline Autosuggestions** (Spec 10) - HIGH VALUE
+   - Framework exists in `autosuggestions_layer.c`
+   - Needs: Better history-based prefix matching
+   - Needs: Ghost text rendering integration
+   - User presses Right/End to accept suggestion
+
+2. **UI Commands - `display lle`** (Spec 22) - MEDIUM VALUE
+   - `display lle status` - Show LLE system status
+   - `display lle syntax on|off` - Toggle syntax highlighting
+   - Quick win, helps debugging/configuration
+
+3. **Fuzzy Matching for Completions** (Spec 12) - MEDIUM VALUE
+   - Currently prefix-based only
+   - Add Levenshtein distance scoring
+   - `git comit` → suggests `git commit`
+
 **From Session 26 (Lower Priority)**:
 - Issue #7: Category disambiguation not implemented (MEDIUM)
 - Issue #8: Single-column display investigation (LOW)
@@ -201,6 +224,12 @@ if (!*line) break;
 - ✅ Menu navigation working
 - ✅ Menu dismissal working
 - Remaining: Category disambiguation UI
+
+**NOT Worth Implementing (Over-engineered in specs)**:
+- ML-based learning - Unnecessary complexity
+- Parallel source processing with thread pools - Over-engineered
+- Plugin systems - Not needed for core functionality
+- Forensic-grade history tracking - Beyond practical needs
 
 **Documentation**:
 - May need CHANGELOG.md update for new features

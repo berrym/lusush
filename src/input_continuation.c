@@ -33,6 +33,67 @@ void continuation_state_cleanup(continuation_state_t *state) {
 }
 
 // ============================================================================
+// CONTEXT STACK MANAGEMENT
+// ============================================================================
+
+/**
+ * Push a context onto the stack
+ */
+static void context_stack_push(continuation_state_t *state, continuation_context_type_t ctx) {
+    if (!state) return;
+    if (state->context_stack_depth >= CONTINUATION_MAX_CONTEXT_DEPTH) return;
+    
+    state->context_stack[state->context_stack_depth++] = ctx;
+}
+
+/**
+ * Pop a context from the stack if it matches the expected type
+ * Returns true if popped successfully
+ */
+static bool context_stack_pop(continuation_state_t *state, continuation_context_type_t expected) {
+    if (!state || state->context_stack_depth <= 0) return false;
+    
+    // Check if top matches expected (for proper nesting validation)
+    continuation_context_type_t top = state->context_stack[state->context_stack_depth - 1];
+    if (top == expected) {
+        state->context_stack_depth--;
+        return true;
+    }
+    
+    // For loops, accept any loop type (for/while/until all end with 'done')
+    if (expected == CONTEXT_FOR || expected == CONTEXT_WHILE || expected == CONTEXT_UNTIL) {
+        if (top == CONTEXT_FOR || top == CONTEXT_WHILE || top == CONTEXT_UNTIL) {
+            state->context_stack_depth--;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Pop any loop context from the stack (for 'done' keyword)
+ */
+static bool context_stack_pop_loop(continuation_state_t *state) {
+    if (!state || state->context_stack_depth <= 0) return false;
+    
+    continuation_context_type_t top = state->context_stack[state->context_stack_depth - 1];
+    if (top == CONTEXT_FOR || top == CONTEXT_WHILE || top == CONTEXT_UNTIL) {
+        state->context_stack_depth--;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Get the current (topmost) context
+ */
+static continuation_context_type_t context_stack_top(const continuation_state_t *state) {
+    if (!state || state->context_stack_depth <= 0) return CONTEXT_NONE;
+    return state->context_stack[state->context_stack_depth - 1];
+}
+
+// ============================================================================
 // KEYWORD DETECTION
 // ============================================================================
 
@@ -218,27 +279,34 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                     if (strcmp(word, "if") == 0) {
                         state->in_if_statement = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_IF);
                     } else if (strcmp(word, "while") == 0) {
                         state->in_while_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_WHILE);
                     } else if (strcmp(word, "for") == 0) {
                         state->in_for_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_FOR);
                     } else if (strcmp(word, "until") == 0) {
                         state->in_until_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_UNTIL);
                     } else if (strcmp(word, "case") == 0) {
                         state->in_case_statement = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_CASE);
                     } else if (strcmp(word, "function") == 0) {
                         state->in_function_definition = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_FUNCTION);
                     } else if (strcmp(word, "fi") == 0) {
                         state->in_if_statement = false;
                         state->has_continuation = false;
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop(state, CONTEXT_IF);
                     } else if (strcmp(word, "done") == 0) {
                         state->in_while_loop = false;
                         state->in_for_loop = false;
@@ -247,12 +315,14 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop_loop(state);
                     } else if (strcmp(word, "esac") == 0) {
                         state->in_case_statement = false;
                         state->has_continuation = false;
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop(state, CONTEXT_CASE);
                     }
                 }
                 
@@ -266,10 +336,17 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                 // (function keyword already incremented depth)
                 if (!state->in_function_definition) {
                     state->compound_command_depth++;
+                    context_stack_push(state, CONTEXT_BRACE_GROUP);
                 }
             } else if (c == '}') {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
+                }
+                context_stack_pop(state, CONTEXT_BRACE_GROUP);
+                // Also try popping function context
+                if (state->context_stack_depth > 0 && 
+                    context_stack_top(state) == CONTEXT_FUNCTION) {
+                    context_stack_pop(state, CONTEXT_FUNCTION);
                 }
                 if (state->compound_command_depth == 0) {
                     state->in_function_definition = false;
@@ -285,29 +362,37 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                     if (strcmp(word, "if") == 0) {
                         state->in_if_statement = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_IF);
                     } else if (strcmp(word, "while") == 0) {
                         state->in_while_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_WHILE);
                     } else if (strcmp(word, "for") == 0) {
                         state->in_for_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_FOR);
                     } else if (strcmp(word, "until") == 0) {
                         state->in_until_loop = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_UNTIL);
                     } else if (strcmp(word, "case") == 0) {
                         state->in_case_statement = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_CASE);
                     } else if (strcmp(word, "function") == 0) {
                         state->in_function_definition = true;
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_FUNCTION);
                     } else if (strcmp(word, "{") == 0) {
                         state->compound_command_depth++;
+                        context_stack_push(state, CONTEXT_BRACE_GROUP);
                     } else if (strcmp(word, "fi") == 0) {
                         state->in_if_statement = false;
                         state->has_continuation = false;
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop(state, CONTEXT_IF);
                     } else if (strcmp(word, "done") == 0) {
                         state->in_while_loop = false;
                         state->in_for_loop = false;
@@ -316,16 +401,19 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop_loop(state);
                     } else if (strcmp(word, "esac") == 0) {
                         state->in_case_statement = false;
                         state->has_continuation = false;
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop(state, CONTEXT_CASE);
                     } else if (strcmp(word, "}") == 0) {
                         if (state->compound_command_depth > 0) {
                             state->compound_command_depth--;
                         }
+                        context_stack_pop(state, CONTEXT_BRACE_GROUP);
                         if (state->compound_command_depth == 0) {
                             state->in_function_definition = false;
                         }
@@ -374,16 +462,19 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
+                context_stack_pop_loop(state);
             } else if (strcmp(word, "esac") == 0) {
                 state->in_case_statement = false;
                 state->has_continuation = false;
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
+                context_stack_pop(state, CONTEXT_CASE);
             } else if (strcmp(word, "}") == 0) {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
+                context_stack_pop(state, CONTEXT_BRACE_GROUP);
                 if (state->compound_command_depth == 0) {
                     state->in_function_definition = false;
                 }
@@ -393,6 +484,7 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
                 if (state->compound_command_depth > 0) {
                     state->compound_command_depth--;
                 }
+                context_stack_pop(state, CONTEXT_IF);
             }
         }
     }
@@ -453,15 +545,47 @@ const char *continuation_get_prompt(const continuation_state_t *state) {
     // Use PS2 from symbol table, with fallback
     const char *ps2 = symtable_get_global_default("PS2", "> ");
     
-    // Customize based on state
+    // Quote state takes highest priority (not tracked in context stack)
     if (state->in_single_quote || state->in_double_quote) {
         return "quote> ";
-    } else if (state->in_function_definition) {
-        return "function> ";
+    }
+    
+    // Use context stack for proper nested construct tracking
+    // The top of the stack represents the innermost active construct
+    continuation_context_type_t current_ctx = context_stack_top(state);
+    
+    switch (current_ctx) {
+        case CONTEXT_IF:
+            return "if> ";
+        case CONTEXT_WHILE:
+            return "while> ";
+        case CONTEXT_FOR:
+            return "for> ";
+        case CONTEXT_UNTIL:
+            return "until> ";
+        case CONTEXT_CASE:
+            return "case> ";
+        case CONTEXT_FUNCTION:
+            return "func> ";
+        case CONTEXT_BRACE_GROUP:
+            return "brace> ";
+        case CONTEXT_NONE:
+        default:
+            break;
+    }
+    
+    // Fallback to legacy boolean flags for backwards compatibility
+    // (in case context stack isn't being used consistently)
+    if (state->in_function_definition) {
+        return "func> ";
     } else if (state->in_if_statement) {
         return "if> ";
-    } else if (state->in_while_loop || state->in_for_loop || state->in_until_loop) {
-        return "loop> ";
+    } else if (state->in_while_loop) {
+        return "while> ";
+    } else if (state->in_for_loop) {
+        return "for> ";
+    } else if (state->in_until_loop) {
+        return "until> ";
     } else if (state->in_case_statement) {
         return "case> ";
     }
