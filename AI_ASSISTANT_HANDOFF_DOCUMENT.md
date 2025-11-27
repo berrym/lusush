@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 27 (Complete)
+# AI Assistant Handoff Document - Session 28
 
 **Date**: 2025-11-27  
-**Session Type**: Critical Bug Fixes - Executor Initialization, Multiline Display  
-**Status**: ✅ ALL ISSUES RESOLVED  
+**Session Type**: Bug Fix - Multiline History Navigation Display  
+**Status**: ✅ ISSUE RESOLVED  
 
 ---
 
@@ -19,12 +19,63 @@
 2. Column shifting during navigation FIXED (Issue #12)
 3. UP/DOWN column preservation FIXED (Issue #13)
 
-**Session 27 Success (This Session)**:
+**Session 27 Success**:
 1. Critical executor loop_control initialization bug FIXED
 2. Continuation prompt ANSI isolation FIXED (yellow leak)
 3. Syntax highlighting for builtins in multiline FIXED
 4. Adaptive terminal detection implemented (Spec 11 core)
 5. Continuation prompt immediate display FIXED
+6. Dynamic continuation prompt context switching (context stack)
+
+**Session 28 Success (This Session)**:
+1. Multiline history recall display corruption FIXED
+
+---
+
+## Session 28 Summary
+
+### Bug: Multiline History Recall Display Corruption
+
+When recalling a multiline history entry (e.g., a for loop) and then navigating within it using up/down arrows, the display was corrupted - text from one line would appear at the end of another.
+
+**Symptom:**
+```
+$ for i in 1 2 3; do
+for> echo test                                               for i in 1 2 3; do
+for> echo test
+for> done
+```
+
+### Root Cause
+
+In `dc_handle_redraw_needed()` (display_controller.c), Step 5 cursor positioning only moved the cursor vertically when a completion menu was present (`if (menu_lines > 0)`). 
+
+When navigating within multiline input **without** a menu:
+1. After redrawing all content, terminal cursor was at `final_row` (last line)
+2. We needed to position cursor at `cursor_row` (target line)
+3. But we only set the column, not the row!
+
+### Fix
+
+Move cursor up from `final_row` to `cursor_row` unconditionally:
+```c
+// Before: only when menu present
+if (menu_lines > 0) {
+    int rows_to_move_up = (final_row + menu_lines) - cursor_row;
+    // move up...
+}
+
+// After: always (menu_lines=0 when no menu)
+int current_terminal_row = final_row + menu_lines;
+int rows_to_move_up = current_terminal_row - cursor_row;
+if (rows_to_move_up > 0) {
+    // move up...
+}
+```
+
+**Files Changed:**
+- `src/display/display_controller.c` - Fixed Step 5 cursor positioning
+- `src/lle/keybinding_actions.c` - Disabled debug logging
 
 ---
 

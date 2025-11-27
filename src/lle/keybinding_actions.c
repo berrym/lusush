@@ -27,6 +27,27 @@
 #include <ctype.h>
 #include <signal.h>
 #include <unistd.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+/* ============================================================================
+ * DEBUG LOGGING (disabled - enable for debugging)
+ * ============================================================================ */
+#if 0
+static void debug_log(const char *fmt, ...) {
+    FILE *f = fopen("/tmp/lle_arrow_debug.log", "a");
+    if (f) {
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(f, fmt, args);
+        va_end(args);
+        fprintf(f, "\n");
+        fclose(f);
+    }
+}
+#else
+#define debug_log(...) ((void)0)
+#endif
 
 /* ============================================================================
  * HELPER FUNCTIONS
@@ -553,12 +574,17 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
     const char *data = editor->buffer->data;
     size_t cursor = editor->buffer->cursor.byte_offset;
     
+    debug_log("previous_line: cursor=%zu, buffer_len=%zu", cursor, editor->buffer->length);
+    
     /* Get current line boundaries */
     size_t curr_line_start, curr_line_end;
     get_current_line_bounds(editor->buffer, &curr_line_start, &curr_line_end);
     
+    debug_log("previous_line: curr_line_start=%zu, curr_line_end=%zu", curr_line_start, curr_line_end);
+    
     /* If we're on the first line, can't move up */
     if (curr_line_start == 0) {
+        debug_log("previous_line: already on first line, returning no-op");
         return LLE_SUCCESS;  /* No-op, stay on first line */
     }
     
@@ -712,6 +738,9 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    debug_log("smart_up_arrow: buffer_len=%zu, cursor=%zu", 
+              editor->buffer->length, editor->buffer->cursor.byte_offset);
+    
     /* If completion menu is active, navigate within menu */
     bool menu_handled = false;
     lle_completion_menu_state_t *menu = NULL;
@@ -763,11 +792,18 @@ lle_result_t lle_smart_up_arrow(lle_editor_t *editor) {
     bool is_multiline = (editor->buffer->length > 0 && 
                          memchr(editor->buffer->data, '\n', editor->buffer->length) != NULL);
     
+    debug_log("smart_up_arrow: is_multiline=%d", is_multiline);
+    
     if (is_multiline) {
         /* Multi-line mode: navigate within buffer */
-        return lle_previous_line(editor);
+        debug_log("smart_up_arrow: calling lle_previous_line");
+        lle_result_t res = lle_previous_line(editor);
+        debug_log("smart_up_arrow: lle_previous_line returned %d, cursor now=%zu", 
+                  res, editor->buffer->cursor.byte_offset);
+        return res;
     } else {
         /* Single-line mode: navigate history */
+        debug_log("smart_up_arrow: calling lle_history_previous");
         return lle_history_previous(editor);
     }
 }

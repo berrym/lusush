@@ -372,8 +372,11 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Step 2: Move up to command start row if we're on a lower row
      * For multi-line prompts, command_start_row may be > 0 */
     int command_row = desired_screen.command_start_row;
+    DC_DEBUG("Step2: current_screen.cursor_row=%d, command_row=%d, desired_screen.cursor_row=%d, desired_screen.num_rows=%d",
+             current_screen.cursor_row, command_row, desired_screen.cursor_row, desired_screen.num_rows);
     if (current_screen.cursor_row > command_row) {
         int rows_up = current_screen.cursor_row - command_row;
+        DC_DEBUG("Step2: Moving up %d rows", rows_up);
         char move_up[32];
         int up_len = snprintf(move_up, sizeof(move_up), "\033[%dA", rows_up);
         if (up_len > 0) {
@@ -469,53 +472,41 @@ static layer_events_error_t dc_handle_redraw_needed(
     }
     
     /* Move cursor back to correct position in command text
-     * After writing menu, terminal cursor is at end of last menu line
-     * We need to move it back to where it should be in the command
+     * After writing content (and menu if present), terminal cursor is at end of last line.
+     * We need to move it back to where it should be in the command.
+     * 
+     * Layout after rendering (0-indexed rows from prompt start):
+     * Row 0..final_row: Command text (cursor should be at cursor_row)
+     * If menu present: rows final_row+1 through final_row+menu_lines
+     * 
+     * Terminal cursor position after writing:
+     * - With menu: at end of row (final_row + menu_lines)
+     * - Without menu: at end of row (final_row)
+     * 
+     * We need to move cursor back to cursor_row.
      */
-    if (menu_lines > 0) {
-        /* After displaying the menu, we're at the end of the last menu line.
-         * 
-         * Layout after rendering (0-indexed rows from prompt start):
-         * Row 0..final_row: Command text (cursor should be at cursor_row)
-         * After separator newline, menu starts at row final_row+1
-         * Menu occupies menu_lines rows (rows final_row+1 through final_row+menu_lines)
-         * Terminal cursor is at the end of row: final_row + menu_lines
-         * 
-         * Example: command on row 0, 9-line menu
-         * - Row 0: "prompt> echo" (command)
-         * - Row 1-9: menu (9 lines)
-         * - Terminal cursor at row 9 after writing menu
-         * - To get back to row 0: move up 9 rows = (0 + 9) - 0 = 9
-         * 
-         * We need to move cursor back to cursor_row.
-         * Current position: final_row + menu_lines  
-         * Target position: cursor_row
-         * Rows to move up: (final_row + menu_lines) - cursor_row
-         * 
-         * Note: The separator newline moves us FROM final_row TO final_row+1,
-         * but we don't add +1 to the calculation because menu_lines already
-         * counts from that starting row.
-         */
-        int current_terminal_row = final_row + menu_lines;
-        int rows_to_move_up = current_terminal_row - cursor_row;
-        
-        if (rows_to_move_up > 0) {
-            char up_seq[16];
-            int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
-            if (up_len > 0) {
-                write(STDOUT_FILENO, up_seq, up_len);
-            }
+    int current_terminal_row = final_row + menu_lines;
+    int rows_to_move_up = current_terminal_row - cursor_row;
+    
+    if (rows_to_move_up > 0) {
+        char up_seq[16];
+        int up_len = snprintf(up_seq, sizeof(up_seq), "\033[%dA", rows_to_move_up);
+        if (up_len > 0) {
+            write(STDOUT_FILENO, up_seq, up_len);
         }
     }
     
     /* Move to absolute column (never use \r - it goes to column 0!)
      * Use \033[{n}G for absolute column positioning (1-based indexing) */
+    DC_DEBUG("Step5: cursor_row=%d, cursor_col=%d, final_row=%d, menu_lines=%d",
+             cursor_row, cursor_col, final_row, menu_lines);
     char col_seq[16];
     int col_seq_len = snprintf(col_seq, sizeof(col_seq), "\033[%dG", cursor_col + 1);
     if (col_seq_len > 0) {
         write(STDOUT_FILENO, col_seq, col_seq_len);
     }
     
+    DC_DEBUG("Step5 done: copying desired_screen to current_screen (cursor_row=%d)", desired_screen.cursor_row);
     screen_buffer_copy(&current_screen, &desired_screen);
     prompt_rendered = true;
 
