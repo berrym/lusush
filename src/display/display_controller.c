@@ -406,19 +406,24 @@ static layer_events_error_t dc_handle_redraw_needed(
                     line_num++;
                     line = nl + 1;
                     
-                    /* Write continuation prompt for next line (if there's more content) */
-                    if (*line) {
-                        const char *cont_prompt = screen_buffer_get_line_prefix(
-                            &desired_screen, 
-                            desired_screen.command_start_row + line_num
-                        );
-                        if (cont_prompt) {
-                            /* CRITICAL: Reset ANSI state before writing continuation prompt.
-                             * Without this, syntax highlighting from the previous line
-                             * (e.g., yellow for unclosed quotes) leaks into the prompt. */
-                            write(STDOUT_FILENO, "\033[0m", 4);
-                            write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
-                        }
+                    /* Write continuation prompt for next line
+                     * This must happen even if the line is empty (cursor at end after newline)
+                     * so the prompt appears immediately, not just after typing a character */
+                    const char *cont_prompt = screen_buffer_get_line_prefix(
+                        &desired_screen, 
+                        desired_screen.command_start_row + line_num
+                    );
+                    if (cont_prompt) {
+                        /* CRITICAL: Reset ANSI state before writing continuation prompt.
+                         * Without this, syntax highlighting from the previous line
+                         * (e.g., yellow for unclosed quotes) leaks into the prompt. */
+                        write(STDOUT_FILENO, "\033[0m", 4);
+                        write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
+                    }
+                    
+                    /* If no more content, we're done */
+                    if (!*line) {
+                        break;
                     }
                 } else {
                     /* Last line - write remaining content */
