@@ -564,7 +564,7 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
     size_t output_pos = 0;
     size_t token_start, token_length;
     command_token_type_t token_type;
-    bool is_first_token = true;
+    bool is_command_position = true;  // Start in command position
     
     // Parse and highlight tokens
     size_t last_token_end = 0;  // Track position after last token
@@ -575,8 +575,18 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
             break;
         }
         
+        // Check for newlines in whitespace between tokens - they reset command position
+        if (last_token_end < token_start) {
+            for (size_t i = last_token_end; i < token_start; i++) {
+                if (layer->command_text[i] == '\n') {
+                    is_command_position = true;
+                    break;
+                }
+            }
+        }
+        
         // Add any whitespace between previous token and this token
-        if (!is_first_token && last_token_end < token_start) {
+        if (last_token_end < token_start) {
             size_t whitespace_len = token_start - last_token_end;
             if (output_pos + whitespace_len < sizeof(layer->highlighted_text) - 1) {
                 strncpy(layer->highlighted_text + output_pos,
@@ -588,7 +598,7 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
         
         // Classify the token if it's not already classified
         if (token_type == COMMAND_TOKEN_ARGUMENT) {
-            token_type = classify_token(layer->command_text + token_start, token_length, is_first_token);
+            token_type = classify_token(layer->command_text + token_start, token_length, is_command_position);
         }
         
         // Get color for this token type
@@ -646,9 +656,43 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
             layer->region_count++;
         }
         
+        // Update command position context for next token
+        // After these tokens, the next word should be treated as a command:
+        // - Pipe operators: |, ||
+        // - Logical operators: &&
+        // - Command separators: ;
+        // - Control flow keywords: do, then, else, elif
+        // - Block delimiters: {, (
+        if (token_type == COMMAND_TOKEN_PIPE ||
+            token_type == COMMAND_TOKEN_OPERATOR) {
+            // Check if it's a command-starting operator
+            const char *tok = layer->command_text + token_start;
+            if (token_length == 1 && (tok[0] == ';' || tok[0] == '|' || tok[0] == '{' || tok[0] == '(')) {
+                is_command_position = true;
+            } else if (token_length == 2 && ((tok[0] == '&' && tok[1] == '&') ||
+                                              (tok[0] == '|' && tok[1] == '|'))) {
+                is_command_position = true;
+            } else {
+                is_command_position = false;
+            }
+        } else if (token_type == COMMAND_TOKEN_KEYWORD) {
+            // After do, then, else, elif - next token is a command
+            const char *tok = layer->command_text + token_start;
+            if ((token_length == 2 && strncmp(tok, "do", 2) == 0) ||
+                (token_length == 4 && strncmp(tok, "then", 4) == 0) ||
+                (token_length == 4 && strncmp(tok, "else", 4) == 0) ||
+                (token_length == 4 && strncmp(tok, "elif", 4) == 0)) {
+                is_command_position = true;
+            } else {
+                is_command_position = false;
+            }
+        } else {
+            // After most tokens, we're not in command position
+            is_command_position = false;
+        }
+
         // Update tracking for next iteration
         last_token_end = token_start + token_length;
-        is_first_token = false;
         g_highlighting_stats.tokens_parsed++;
     }
     
