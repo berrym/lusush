@@ -590,17 +590,26 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
     
     /* Find previous line boundaries */
     /* curr_line_start points to first char of current line (after the '\n') */
-    /* So curr_line_start - 1 is the '\n', and we need to go back from there */
-    size_t prev_line_end = curr_line_start - 1;  /* Points to '\n' between lines */
+    /* So curr_line_start - 1 is the '\n' that ends the previous line */
     
-    /* If prev_line_end points to newline, the actual line content ends before it */
-    if (prev_line_end > 0 && data[prev_line_end] == '\n') {
-        prev_line_end--;  /* Now points to last char of previous line content */
-    }
+    /* The newline at curr_line_start - 1 terminates the previous line.
+     * We need to find where that previous line starts.
+     * 
+     * Example: "line1\n\nline3" with cursor on line3
+     *          012345 6 789...
+     *          line1  \n \n line3
+     *                 ^  ^
+     *                 |  curr_line_start = 7
+     *                 prev line's terminating newline = 6
+     * 
+     * The previous line (empty) spans from index 6 to 6 (just the newline).
+     * For an empty line, prev_line_start = prev_line_end = position after prior newline.
+     */
     
-    size_t prev_line_start = prev_line_end;
+    size_t prev_line_terminator = curr_line_start - 1;  /* The '\n' that ends prev line */
     
-    /* Find start of previous line */
+    /* Find start of previous line by searching backwards for newline (or buffer start) */
+    size_t prev_line_start = prev_line_terminator;
     while (prev_line_start > 0 && data[prev_line_start - 1] != '\n') {
         prev_line_start--;
     }
@@ -618,15 +627,16 @@ lle_result_t lle_previous_line(lle_editor_t *editor) {
     }
     
     /* Calculate new cursor position on previous line */
-    /* prev_line_end points to last character of line content (after adjustment above) */
-    /* prev_line_start points to first character */
-    /* Line length is the number of characters, cursor can be 0..length (length positions cursor after last char) */
-    size_t prev_line_length = prev_line_end - prev_line_start + 1;
+    /* prev_line_start points to first character of line content
+     * prev_line_terminator points to the '\n' that ends the line
+     * Line length = prev_line_terminator - prev_line_start (0 for empty lines)
+     */
+    size_t prev_line_length = prev_line_terminator - prev_line_start;
     size_t new_cursor = prev_line_start + target_column;
     
     /* Clamp to end of previous line if column is too far right */
     if (target_column > prev_line_length) {
-        new_cursor = prev_line_end + 1;  /* Position cursor after last character */
+        new_cursor = prev_line_terminator;  /* Position cursor at end of line (before newline) */
     }
     
     /* Temporarily disable sticky_column to prevent move_to_byte_offset from overwriting preferred_visual_column */

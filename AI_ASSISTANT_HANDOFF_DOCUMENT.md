@@ -29,6 +29,7 @@
 
 **Session 28 Success (This Session)**:
 1. Multiline history recall display corruption FIXED
+2. Up arrow skipping blank lines in multiline mode FIXED
 
 ---
 
@@ -76,6 +77,37 @@ if (rows_to_move_up > 0) {
 **Files Changed:**
 - `src/display/display_controller.c` - Fixed Step 5 cursor positioning
 - `src/lle/keybinding_actions.c` - Disabled debug logging
+
+### Bug: Up Arrow Skipping Blank Lines
+
+When navigating up through multiline input, pressing up arrow would skip over blank lines and jump to the previous line with content.
+
+**Root Cause:**
+
+In `lle_previous_line()`, the logic to find the previous line's end was flawed:
+```c
+size_t prev_line_end = curr_line_start - 1;  // Points to '\n'
+if (prev_line_end > 0 && data[prev_line_end] == '\n') {
+    prev_line_end--;  // BUG: Skips empty line!
+}
+```
+
+For buffer `"line1\n\nline3"`, when on line3, this would decrement past the empty line's newline and land on line1's newline.
+
+**Fix:**
+
+Rewrote the line boundary calculation to properly handle empty lines:
+```c
+size_t prev_line_terminator = curr_line_start - 1;  // The '\n' ending prev line
+size_t prev_line_start = prev_line_terminator;
+while (prev_line_start > 0 && data[prev_line_start - 1] != '\n') {
+    prev_line_start--;
+}
+size_t prev_line_length = prev_line_terminator - prev_line_start;  // 0 for empty
+```
+
+**Files Changed:**
+- `src/lle/keybinding_actions.c` - Fixed `lle_previous_line()` blank line handling
 
 ---
 
