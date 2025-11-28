@@ -66,6 +66,7 @@
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
 #include "display/prompt_layer.h"
+#include "display/autosuggestions_layer.h"  /* For AUTOSUGGESTIONS_LAYER_MAX_SUGGESTION_LENGTH */
 #include "config.h"                   /* For config_values_t and history config options */
 
 /* Forward declarations for history action functions */
@@ -154,7 +155,233 @@ typedef struct readline_context {
     
     /* Keybinding manager - incremental migration (Group 1+) */
     lle_keybinding_manager_t *keybinding_manager; /* Replaces hardcoded keybindings */
+    
+    /* Fish-style autosuggestions - direct LLE history integration */
+    char *current_suggestion;      /* Current suggestion text (the part to append) */
+    size_t suggestion_alloc_size;  /* Allocated size of suggestion buffer */
 } readline_context_t;
+
+/**
+ * @brief Update autosuggestion based on current buffer content
+ * 
+ * Searches LLE history for prefix matches and stores the suggestion
+ * (the remaining text to append) in ctx->current_suggestion.
+ * 
+ * Fish-style autosuggestion rules:
+ * - Only suggest when cursor is at end of buffer
+ * - Only suggest for non-empty input (>= 2 chars)
+ * - Don't suggest if input ends with space
+ * - Don't suggest in multiline mode
+ * - Search history most-recent-first for best prefix match
+ * 
+ * @param ctx Readline context with buffer and editor
+ */
+static void update_autosuggestion(readline_context_t *ctx)
+{
+    /* Clear existing suggestion */
+    if (ctx->current_suggestion) {
+        ctx->current_suggestion[0] = '\0';
+    }
+    
+    /* Bail out conditions */
+    if (!ctx || !ctx->buffer || !ctx->editor || !ctx->editor->history_system) {
+        return;
+    }
+    
+    /* Only suggest when cursor at end */
+    if (ctx->buffer->cursor.byte_offset != ctx->buffer->length) {
+        return;
+    }
+    
+    /* Need at least 2 characters */
+    if (ctx->buffer->length < 2) {
+        return;
+    }
+    
+    const char *input = ctx->buffer->data;
+    if (!input || !*input) {
+        return;
+    }
+    
+    /* Don't suggest if ends with space */
+    if (input[ctx->buffer->length - 1] == ' ') {
+        return;
+    }
+    
+    /* Don't suggest in multiline mode */
+    if (strchr(input, '\n') != NULL) {
+        return;
+    }
+    
+    /* Search LLE history for prefix match (most recent first) */
+    lle_history_core_t *history = ctx->editor->history_system;
+    size_t count = 0;
+    lle_history_get_entry_count(history, &count);
+    
+    if (count == 0) {
+        return;
+    }
+    
+    size_t input_len = ctx->buffer->length;
+    
+    /* Search backwards (most recent first) */
+    for (size_t i = count; i > 0; i--) {
+        lle_history_entry_t *entry = NULL;
+        lle_result_t result = lle_history_get_entry_by_index(history, i - 1, &entry);
+        
+        if (result != LLE_SUCCESS || !entry || !entry->command) {
+            continue;
+        }
+        
+        /* Skip multiline history entries - don't suggest them for single-line input
+         * This prevents suggesting "echo \"\nhello\"" when user types "echo"
+         * 
+         * Note: LLE history stores newlines as escaped "\n" (two chars: backslash + n)
+         * not as actual newline bytes. Check for both formats. */
+        if (strchr(entry->command, '\n') != NULL || strstr(entry->command, "\\n") != NULL) {
+            continue;
+        }
+        
+        /* Check for prefix match */
+        if (strncmp(input, entry->command, input_len) == 0) {
+            /* Found a match - get the remaining text */
+            const char *remaining = entry->command + input_len;
+            
+            /* Only suggest if there's something to add */
+            if (*remaining) {
+                size_t remaining_len = strlen(remaining);
+                
+                /* Ensure buffer is large enough */
+                if (remaining_len + 1 > ctx->suggestion_alloc_size) {
+                    size_t new_size = remaining_len + 64;
+                    char *new_buf = realloc(ctx->current_suggestion, new_size);
+                    if (new_buf) {
+                        ctx->current_suggestion = new_buf;
+                        ctx->suggestion_alloc_size = new_size;
+                    } else {
+                        return;  /* Allocation failed */
+                    }
+                }
+                
+                strcpy(ctx->current_suggestion, remaining);
+                return;  /* Found best match */
+            }
+        }
+    }
+}
+
+/**
+ * @brief Check if autosuggestion is available
+ */
+static bool has_autosuggestion(readline_context_t *ctx)
+{
+    return ctx && ctx->current_suggestion && ctx->current_suggestion[0] != '\0';
+}
+
+/**
+ * @brief Accept current autosuggestion into buffer
+ * @return true if suggestion was accepted, false otherwise
+ */
+static bool accept_autosuggestion(readline_context_t *ctx)
+{
+    if (!has_autosuggestion(ctx)) {
+        return false;
+    }
+    
+    /* Insert suggestion text at cursor (which is at end) */
+    size_t suggestion_len = strlen(ctx->current_suggestion);
+    lle_result_t result = lle_buffer_insert_text(
+        ctx->buffer,
+        ctx->buffer->cursor.byte_offset,
+        ctx->current_suggestion,
+        suggestion_len
+    );
+    
+    if (result == LLE_SUCCESS) {
+        /* Sync cursor manager */
+        if (ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
+        
+        /* Clear suggestion after acceptance */
+        ctx->current_suggestion[0] = '\0';
+        return true;
+    }
+    
+    return false;
+}
+
+/* Forward declaration for refresh_display */
+static void refresh_display(readline_context_t *ctx);
+
+/**
+ * @brief Context-aware RIGHT arrow action (Fish-style autosuggestion acceptance)
+ * 
+ * If cursor is at end of buffer AND autosuggestion is available, accept it.
+ * Otherwise, move cursor right by one grapheme.
+ * 
+ * This is a context-aware action that requires readline_context_t access
+ * for the autosuggestion buffer.
+ */
+lle_result_t lle_forward_char_or_accept_suggestion(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Fish-style: If at end of buffer with suggestion, accept it */
+    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
+        if (accept_autosuggestion(ctx)) {
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    /* Normal behavior: move cursor right */
+    if (ctx->buffer->cursor.grapheme_index < ctx->buffer->grapheme_count && 
+        ctx->editor && ctx->editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, 
+                                                ctx->buffer->cursor.byte_offset);
+        lle_cursor_manager_move_by_graphemes(ctx->editor->cursor_manager, 1);
+        lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+        refresh_display(ctx);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * @brief Context-aware END key action (Fish-style autosuggestion acceptance)
+ * 
+ * If cursor is already at end of buffer AND autosuggestion is available, accept it.
+ * Otherwise, move cursor to end of line.
+ * 
+ * This is a context-aware action that requires readline_context_t access
+ * for the autosuggestion buffer.
+ */
+lle_result_t lle_end_of_line_or_accept_suggestion(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Fish-style: If already at end with suggestion, accept it */
+    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
+        if (accept_autosuggestion(ctx)) {
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    /* Normal behavior: move cursor to end */
+    ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+    refresh_display(ctx);
+    
+    return LLE_SUCCESS;
+}
 
 /**
  * @brief Multiline detection using shared continuation parser
@@ -204,6 +431,23 @@ static void refresh_display(readline_context_t *ctx)
 {
     if (!ctx || !ctx->buffer) {
         return;
+    }
+
+    /* Fish-style autosuggestions using LLE history
+     * 
+     * This must happen BEFORE rendering so the ghost text is available
+     * for display_controller to render in dc_handle_redraw_needed().
+     * 
+     * We generate the suggestion here using LLE history (not GNU readline
+     * history) and pass it directly to display_controller for rendering.
+     */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        /* Generate suggestion from LLE history */
+        update_autosuggestion(ctx);
+        
+        /* Pass suggestion to display controller for rendering */
+        display_controller_set_autosuggestion(dc, ctx->current_suggestion);
     }
 
     /* Get the global Spec 08 display integration instance */
@@ -1045,7 +1289,17 @@ static lle_result_t handle_arrow_right(lle_event_t *event, void *user_data)
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Move cursor right by one grapheme cluster if not at end */
+    /* Fish-style autosuggestion acceptance:
+     * If cursor is at end of buffer AND an autosuggestion is available,
+     * accept the suggestion instead of normal cursor movement. */
+    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
+        if (accept_autosuggestion(ctx)) {
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    /* Normal behavior: Move cursor right by one grapheme cluster if not at end */
     if (ctx->buffer->cursor.grapheme_index < ctx->buffer->grapheme_count && 
         ctx->editor && ctx->editor->cursor_manager) {
         /* Sync cursor manager position with buffer cursor before moving */
@@ -1082,13 +1336,24 @@ static lle_result_t handle_home(lle_event_t *event, void *user_data)
 /**
  * @brief Event handler for End key
  * Step 5: Move cursor to end of line
+ * Fish-style: Accept autosuggestion if cursor already at end
  */
 static lle_result_t handle_end(lle_event_t *event, void *user_data)
 {
     (void)event;  /* Unused */
     readline_context_t *ctx = (readline_context_t *)user_data;
     
-    /* Move to end */
+    /* Fish-style autosuggestion acceptance:
+     * If cursor is already at end of buffer AND an autosuggestion is available,
+     * accept the suggestion. Otherwise, move cursor to end normally. */
+    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
+        if (accept_autosuggestion(ctx)) {
+            refresh_display(ctx);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    /* Normal behavior: Move cursor to end */
     ctx->buffer->cursor.byte_offset = ctx->buffer->length;
     refresh_display(ctx);
     
@@ -1514,9 +1779,10 @@ char *lle_readline(const char *prompt)
         /* Bind Group 1 navigation keys to their action functions */
         /* These will be routed through keybinding manager instead of hardcoded handlers */
         lle_keybinding_manager_bind(keybinding_manager, "LEFT", lle_backward_char, "backward-char");
-        lle_keybinding_manager_bind(keybinding_manager, "RIGHT", lle_forward_char, "forward-char");
+        /* RIGHT and END use context-aware actions for Fish-style autosuggestion acceptance */
+        lle_keybinding_manager_bind_context(keybinding_manager, "RIGHT", lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
         lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
-        lle_keybinding_manager_bind(keybinding_manager, "END", lle_end_of_line, "end-of-line");
+        lle_keybinding_manager_bind_context(keybinding_manager, "END", lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
         
         /* Bind Group 2 deletion keys to their action functions */
         /* These will be routed through keybinding manager instead of hardcoded handlers */
@@ -1536,8 +1802,9 @@ char *lle_readline(const char *prompt)
         /* Ctrl-A/B/E/F are duplicates of Group 1 navigation keys */
         lle_keybinding_manager_bind(keybinding_manager, "C-a", lle_beginning_of_line, "beginning-of-line");
         lle_keybinding_manager_bind(keybinding_manager, "C-b", lle_backward_char, "backward-char");
-        lle_keybinding_manager_bind(keybinding_manager, "C-e", lle_end_of_line, "end-of-line");
-        lle_keybinding_manager_bind(keybinding_manager, "C-f", lle_forward_char, "forward-char");
+        /* Ctrl-E and Ctrl-F also use context-aware actions for autosuggestion acceptance */
+        lle_keybinding_manager_bind_context(keybinding_manager, "C-e", lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
+        lle_keybinding_manager_bind_context(keybinding_manager, "C-f", lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
         /* History navigation */
         lle_keybinding_manager_bind(keybinding_manager, "C-n", lle_history_next, "history-next");
         lle_keybinding_manager_bind(keybinding_manager, "C-p", lle_history_previous, "history-previous");
@@ -1594,7 +1861,11 @@ char *lle_readline(const char *prompt)
         .editor = global_lle_editor,
         
         /* Keybinding manager - Group 1+ migration */
-        .keybinding_manager = keybinding_manager
+        .keybinding_manager = keybinding_manager,
+        
+        /* Fish-style autosuggestions - LLE history integration */
+        .current_suggestion = NULL,
+        .suggestion_alloc_size = 0
     };
     
     /* CRITICAL: Reset per-readline-call flags on global editor
@@ -1921,6 +2192,11 @@ char *lle_readline(const char *prompt)
     /* Step 5 enhancement: Free kill buffer */
     if (kill_buffer) {
         free(kill_buffer);
+    }
+    
+    /* Fish-style autosuggestions: Free suggestion buffer */
+    if (ctx.current_suggestion) {
+        free(ctx.current_suggestion);
     }
     
     /* Group 1+ migration: Cleanup keybinding manager */

@@ -307,6 +307,22 @@ autosuggestions_layer_error_t autosuggestions_layer_accept(autosuggestions_layer
 const char* autosuggestions_layer_get_current_suggestion(const autosuggestions_layer_t *layer);
 
 /**
+ * Set suggestion text directly (bypassing internal generation)
+ *
+ * This function allows external code (like lle_readline) to set the suggestion
+ * text directly, bypassing the internal lusush_get_suggestion() generation.
+ * This is used when the suggestion should come from LLE history rather than
+ * the legacy GNU readline history.
+ *
+ * @param layer Autosuggestions layer
+ * @param suggestion Suggestion text to display (the part to append after cursor)
+ * @return AUTOSUGGESTIONS_LAYER_SUCCESS on success, error code otherwise
+ */
+autosuggestions_layer_error_t autosuggestions_layer_set_suggestion(
+    autosuggestions_layer_t *layer,
+    const char *suggestion);
+
+/**
  * Check if a suggestion is currently displayed
  *
  * @param layer Autosuggestions layer

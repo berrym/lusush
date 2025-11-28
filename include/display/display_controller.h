@@ -62,6 +62,7 @@
 #include "layer_events.h"
 #include "composition_engine.h"
 #include "terminal_control.h"
+#include "autosuggestions_layer.h"
 #include "../themes.h"
 #include "../lle/completion/completion_menu_state.h"
 
@@ -275,6 +276,10 @@ typedef struct {
     lle_completion_menu_state_t *active_completion_menu;  // Active completion menu (NULL if none)
     bool completion_menu_visible;                         // Menu visibility state
     bool menu_state_changed;                              // Flag: menu state changed, needs redraw
+    
+    // Autosuggestions integration (Fish-style ghost text)
+    autosuggestions_layer_t *autosuggestions_layer;       // Autosuggestions layer (NULL if disabled)
+    bool autosuggestions_enabled;                         // Whether autosuggestions are active
 } display_controller_t;
 
 // ============================================================================
@@ -519,6 +524,107 @@ lle_completion_menu_state_t *display_controller_get_completion_menu(
  */
 bool display_controller_check_and_clear_menu_changed(
     display_controller_t *controller
+);
+
+// ============================================================================
+// AUTOSUGGESTIONS INTEGRATION (Fish-style Ghost Text)
+// ============================================================================
+
+/**
+ * Update autosuggestion state based on current buffer content.
+ * 
+ * Called after every buffer modification to regenerate suggestions.
+ * Clears the suggestion if cursor is not at end of buffer or if
+ * completion menu is visible.
+ * 
+ * @param controller The display controller
+ * @param buffer_content Current buffer text (may be NULL for empty)
+ * @param cursor_position Cursor byte offset in buffer
+ * @param buffer_length Total buffer length in bytes
+ * 
+ * @deprecated Use display_controller_set_autosuggestion() instead for LLE history
+ */
+void display_controller_update_autosuggestion(
+    display_controller_t *controller,
+    const char *buffer_content,
+    size_t cursor_position,
+    size_t buffer_length
+);
+
+/**
+ * Set autosuggestion text directly (for LLE history integration).
+ * 
+ * This function allows lle_readline to set the suggestion text directly
+ * after searching LLE history, bypassing the legacy GNU readline history.
+ * 
+ * @param controller The display controller
+ * @param suggestion The suggestion text to display (text to append after cursor)
+ *                   Pass NULL or empty string to clear the suggestion
+ */
+void display_controller_set_autosuggestion(
+    display_controller_t *controller,
+    const char *suggestion
+);
+
+/**
+ * Get current autosuggestion text.
+ * 
+ * @param controller The display controller
+ * @return Current suggestion text or NULL if none available
+ * 
+ * @note Returns internal pointer - do not free or modify
+ */
+const char* display_controller_get_autosuggestion(
+    const display_controller_t *controller
+);
+
+/**
+ * Accept current autosuggestion.
+ * 
+ * Retrieves and clears the current suggestion. The caller should
+ * insert the returned text into the buffer.
+ * 
+ * @param controller The display controller
+ * @param accepted_text Buffer to receive accepted text
+ * @param buffer_size Size of accepted_text buffer
+ * @return true if suggestion was accepted, false if none available
+ * 
+ * @note Clears the current suggestion after acceptance
+ */
+bool display_controller_accept_autosuggestion(
+    display_controller_t *controller,
+    char *accepted_text,
+    size_t buffer_size
+);
+
+/**
+ * Check if an autosuggestion is currently available.
+ * 
+ * @param controller The display controller
+ * @return true if a suggestion is available, false otherwise
+ */
+bool display_controller_has_autosuggestion(
+    const display_controller_t *controller
+);
+
+/**
+ * Clear current autosuggestion.
+ * 
+ * @param controller The display controller
+ */
+void display_controller_clear_autosuggestion(
+    display_controller_t *controller
+);
+
+/**
+ * Enable or disable autosuggestions.
+ * 
+ * @param controller The display controller
+ * @param enabled Whether to enable autosuggestions
+ */
+void display_controller_set_autosuggestions_enabled(
+    display_controller_t *controller,
+    bool enabled
 );
 
 // ============================================================================

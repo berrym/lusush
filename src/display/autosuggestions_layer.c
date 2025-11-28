@@ -418,6 +418,13 @@ autosuggestions_layer_error_t autosuggestions_layer_init(autosuggestions_layer_t
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }
     
+    // Initialize the core autosuggestions system (history-based suggestions)
+    // This MUST be called before any suggestions can be generated
+    if (!lusush_autosuggestions_init()) {
+        set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_GENERATION_FAILED);
+        return AUTOSUGGESTIONS_LAYER_ERROR_GENERATION_FAILED;
+    }
+    
     // Subscribe to layer events
     autosuggestions_layer_error_t error = autosuggestions_layer_subscribe_events(layer);
     if (error != AUTOSUGGESTIONS_LAYER_SUCCESS) {
@@ -629,6 +636,47 @@ const char* autosuggestions_layer_get_current_suggestion(const autosuggestions_l
     }
     
     return layer->current_suggestion;
+}
+
+autosuggestions_layer_error_t autosuggestions_layer_set_suggestion(
+    autosuggestions_layer_t *layer,
+    const char *suggestion) {
+    
+    if (!layer) {
+        return AUTOSUGGESTIONS_LAYER_ERROR_NULL_POINTER;
+    }
+    
+    /* Handle NULL or empty suggestion as clear */
+    if (!suggestion || !*suggestion) {
+        return autosuggestions_layer_clear(layer);
+    }
+    
+    /* Validate suggestion length */
+    size_t len = strlen(suggestion);
+    if (len > AUTOSUGGESTIONS_LAYER_MAX_SUGGESTION_LENGTH) {
+        set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_INVALID_PARAM);
+        return AUTOSUGGESTIONS_LAYER_ERROR_INVALID_PARAM;
+    }
+    
+    /* Free existing suggestion if any */
+    if (layer->current_suggestion) {
+        free(layer->current_suggestion);
+        layer->current_suggestion = NULL;
+    }
+    
+    /* Set new suggestion */
+    layer->current_suggestion = strdup(suggestion);
+    if (!layer->current_suggestion) {
+        set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_MEMORY_ALLOCATION);
+        return AUTOSUGGESTIONS_LAYER_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    layer->suggestion_displayed = true;
+    layer->suggestion_timestamp = get_timestamp_ns();
+    layer->metrics.suggestions_displayed++;
+    
+    set_layer_error(layer, AUTOSUGGESTIONS_LAYER_SUCCESS);
+    return AUTOSUGGESTIONS_LAYER_SUCCESS;
 }
 
 bool autosuggestions_layer_has_suggestion(const autosuggestions_layer_t *layer) {

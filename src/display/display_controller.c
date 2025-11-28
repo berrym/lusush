@@ -442,6 +442,34 @@ static layer_events_error_t dc_handle_redraw_needed(
         }
     }
     
+    /* Step 4a: Write autosuggestion ghost text (Fish-style)
+     * 
+     * Conditions for showing ghost text:
+     * 1. Autosuggestions enabled and layer available
+     * 2. No completion menu visible (menu takes precedence)
+     * 3. Not multiline input (simplifies initial implementation)
+     * 4. Cursor is at end of command (checked by autosuggestions_layer)
+     * 
+     * The ghost text appears in BRIGHT_BLACK (gray/dimmed) after the command.
+     * Cursor positioning (Step 5) will move cursor back to correct position.
+     */
+    if (controller->autosuggestions_enabled && 
+        controller->autosuggestions_layer &&
+        !controller->completion_menu_visible &&
+        !is_multiline) {
+        
+        const char *suggestion = autosuggestions_layer_get_current_suggestion(
+            controller->autosuggestions_layer
+        );
+        
+        if (suggestion && *suggestion) {
+            /* Write ghost text in BRIGHT_BLACK (dimmed gray) */
+            write(STDOUT_FILENO, "\033[90m", 5);   /* Set bright black foreground */
+            write(STDOUT_FILENO, suggestion, strlen(suggestion));
+            write(STDOUT_FILENO, "\033[0m", 4);    /* Reset all attributes */
+        }
+    }
+    
     /* Step 4b: Write completion menu WITHOUT continuation prompts */
     if (menu_text && *menu_text) {
         write(STDOUT_FILENO, "\n", 1);
@@ -450,17 +478,56 @@ static layer_events_error_t dc_handle_redraw_needed(
     
     /* Step 5: Position cursor at the correct location
      * 
-     * After drawing command text and menu, terminal cursor is at the end of menu.
+     * After drawing command text, ghost text, and menu, terminal cursor is at the end.
      * We need to position it where the user's cursor actually is (in the command).
      * 
      * screen_buffer calculated cursor position relative to command text only.
-     * We need to account for menu lines that were written after.
+     * We need to account for ghost text and menu lines that were written after.
      * 
      * Use absolute positioning to avoid moving through column 0.
      */
     int cursor_row = desired_screen.cursor_row;
     int cursor_col = desired_screen.cursor_col;
     int final_row = desired_screen.num_rows - 1;
+    
+    /* Calculate extra rows added by ghost text (autosuggestion)
+     * Ghost text may wrap to additional lines beyond the command text */
+    int ghost_text_extra_rows = 0;
+    if (controller->autosuggestions_enabled && 
+        controller->autosuggestions_layer &&
+        !controller->completion_menu_visible &&
+        !is_multiline) {
+        
+        const char *suggestion = autosuggestions_layer_get_current_suggestion(
+            controller->autosuggestions_layer
+        );
+        
+        if (suggestion && *suggestion) {
+            /* Calculate how many extra rows the ghost text adds
+             * 
+             * After command text, cursor is at some column. Ghost text continues
+             * from there and may wrap. We need to know the final row.
+             * 
+             * command_end_col = column after last char of command (on final_row)
+             * suggestion_width = display width of suggestion (handles UTF-8, wide chars)
+             * 
+             * Use lle_utf8_string_width() for proper grapheme cluster and
+             * wide character (CJK, emoji) support.
+             */
+            size_t suggestion_width = lle_utf8_string_width(suggestion, strlen(suggestion));
+            
+            /* Get the column where command text ends (where ghost text starts) */
+            int command_end_col = desired_screen.cursor_col;  /* cursor is at end for suggestions */
+            
+            /* Calculate total columns needed for ghost text from that position */
+            int total_cols_needed = command_end_col + (int)suggestion_width;
+            
+            /* How many extra rows does this create? */
+            if (total_cols_needed > term_width) {
+                ghost_text_extra_rows = (total_cols_needed - 1) / term_width;
+            }
+        }
+    }
     
     /* Use screen_buffer to properly count menu lines (handles ANSI codes) */
     int menu_lines = 0;
@@ -472,20 +539,21 @@ static layer_events_error_t dc_handle_redraw_needed(
     }
     
     /* Move cursor back to correct position in command text
-     * After writing content (and menu if present), terminal cursor is at end of last line.
+     * After writing content (ghost text and menu if present), terminal cursor is at end.
      * We need to move it back to where it should be in the command.
      * 
      * Layout after rendering (0-indexed rows from prompt start):
      * Row 0..final_row: Command text (cursor should be at cursor_row)
-     * If menu present: rows final_row+1 through final_row+menu_lines
+     * Row final_row (continuing): Ghost text may wrap to additional rows
+     * If menu present: rows after ghost text end
      * 
      * Terminal cursor position after writing:
-     * - With menu: at end of row (final_row + menu_lines)
-     * - Without menu: at end of row (final_row)
+     * - After ghost text: at end of row (final_row + ghost_text_extra_rows)
+     * - With menu: at end of row (final_row + ghost_text_extra_rows + menu_lines)
      * 
      * We need to move cursor back to cursor_row.
      */
-    int current_terminal_row = final_row + menu_lines;
+    int current_terminal_row = final_row + ghost_text_extra_rows + menu_lines;
     int rows_to_move_up = current_terminal_row - cursor_row;
     
     if (rows_to_move_up > 0) {
@@ -1175,6 +1243,37 @@ display_controller_error_t display_controller_init(
     controller->active_completion_menu = NULL;
     controller->completion_menu_visible = false;
     controller->menu_state_changed = false;
+    
+    // Initialize autosuggestions layer (Fish-style ghost text)
+    controller->autosuggestions_layer = NULL;
+    controller->autosuggestions_enabled = false;
+    
+    if (controller->event_system && controller->terminal_ctrl) {
+        controller->autosuggestions_layer = autosuggestions_layer_create(
+            controller->event_system,
+            controller->terminal_ctrl
+        );
+        
+        if (controller->autosuggestions_layer) {
+            autosuggestions_layer_error_t as_result = autosuggestions_layer_init(
+                controller->autosuggestions_layer,
+                NULL  // Use default config (BRIGHT_BLACK color)
+            );
+            
+            if (as_result == AUTOSUGGESTIONS_LAYER_SUCCESS) {
+                controller->autosuggestions_enabled = true;
+                DC_DEBUG("Autosuggestions layer initialized successfully");
+            } else {
+                DC_DEBUG("Autosuggestions layer init failed: %s", 
+                         autosuggestions_layer_error_string(as_result));
+                // Non-fatal - continue without autosuggestions
+                autosuggestions_layer_destroy(&controller->autosuggestions_layer);
+                controller->autosuggestions_layer = NULL;
+            }
+        } else {
+            DC_DEBUG("Failed to create autosuggestions layer");
+        }
+    }
     
     controller->is_initialized = true;
     controller->integration_mode_active = controller->config.enable_integration_mode;
@@ -1922,6 +2021,13 @@ display_controller_error_t display_controller_cleanup(display_controller_t *cont
     controller->active_completion_menu = NULL;
     controller->completion_menu_visible = false;
     
+    // Clean up autosuggestions layer
+    if (controller->autosuggestions_layer) {
+        autosuggestions_layer_destroy(&controller->autosuggestions_layer);
+        controller->autosuggestions_layer = NULL;
+    }
+    controller->autosuggestions_enabled = false;
+    
     controller->is_initialized = false;
     
     DC_DEBUG("Display controller cleanup completed");
@@ -2036,6 +2142,128 @@ bool display_controller_check_and_clear_menu_changed(
     bool changed = controller->menu_state_changed;
     controller->menu_state_changed = false;  // Clear the flag after checking
     return changed;
+}
+
+// ============================================================================
+// AUTOSUGGESTIONS INTEGRATION (Fish-style Ghost Text)
+// ============================================================================
+
+void display_controller_update_autosuggestion(
+    display_controller_t *controller,
+    const char *buffer_content,
+    size_t cursor_position,
+    size_t buffer_length) {
+    
+    /* DEPRECATED: This function uses the legacy autosuggestions system which
+     * relies on GNU readline history. Use display_controller_set_autosuggestion()
+     * with LLE history instead.
+     * 
+     * This function is kept for backwards compatibility but is now a no-op
+     * when LLE is active. The actual suggestion generation happens in
+     * lle_readline.c using LLE history, then passed via set_autosuggestion().
+     */
+    (void)buffer_content;
+    (void)cursor_position;
+    (void)buffer_length;
+    
+    /* No-op: lle_readline now handles suggestion generation and calls
+     * display_controller_set_autosuggestion() directly */
+}
+
+void display_controller_set_autosuggestion(
+    display_controller_t *controller,
+    const char *suggestion) {
+    
+    if (!controller || !controller->autosuggestions_layer) {
+        return;
+    }
+    
+    /* Don't set suggestion if completion menu is visible */
+    if (controller->completion_menu_visible) {
+        autosuggestions_layer_clear(controller->autosuggestions_layer);
+        return;
+    }
+    
+    /* Set the suggestion directly (or clear if NULL/empty) */
+    autosuggestions_layer_set_suggestion(controller->autosuggestions_layer, suggestion);
+}
+
+const char* display_controller_get_autosuggestion(
+    const display_controller_t *controller) {
+    
+    if (!controller || !controller->autosuggestions_enabled ||
+        !controller->autosuggestions_layer) {
+        return NULL;
+    }
+    
+    return autosuggestions_layer_get_current_suggestion(controller->autosuggestions_layer);
+}
+
+bool display_controller_accept_autosuggestion(
+    display_controller_t *controller,
+    char *accepted_text,
+    size_t buffer_size) {
+    
+    if (!controller || !accepted_text || buffer_size == 0) {
+        return false;
+    }
+    
+    if (!controller->autosuggestions_enabled || !controller->autosuggestions_layer) {
+        return false;
+    }
+    
+    if (!autosuggestions_layer_has_suggestion(controller->autosuggestions_layer)) {
+        return false;
+    }
+    
+    autosuggestions_layer_error_t result = autosuggestions_layer_accept(
+        controller->autosuggestions_layer,
+        accepted_text,
+        buffer_size
+    );
+    
+    return (result == AUTOSUGGESTIONS_LAYER_SUCCESS && accepted_text[0] != '\0');
+}
+
+bool display_controller_has_autosuggestion(
+    const display_controller_t *controller) {
+    
+    if (!controller || !controller->autosuggestions_enabled ||
+        !controller->autosuggestions_layer) {
+        return false;
+    }
+    
+    return autosuggestions_layer_has_suggestion(controller->autosuggestions_layer);
+}
+
+void display_controller_clear_autosuggestion(
+    display_controller_t *controller) {
+    
+    if (!controller || !controller->autosuggestions_layer) {
+        return;
+    }
+    
+    autosuggestions_layer_clear(controller->autosuggestions_layer);
+}
+
+void display_controller_set_autosuggestions_enabled(
+    display_controller_t *controller,
+    bool enabled) {
+    
+    if (!controller) {
+        return;
+    }
+    
+    controller->autosuggestions_enabled = enabled;
+    
+    if (controller->autosuggestions_layer) {
+        autosuggestions_layer_set_enabled(controller->autosuggestions_layer, enabled);
+    }
+    
+    // Clear any existing suggestion when disabling
+    if (!enabled && controller->autosuggestions_layer) {
+        autosuggestions_layer_clear(controller->autosuggestions_layer);
+    }
 }
 
 // ============================================================================
