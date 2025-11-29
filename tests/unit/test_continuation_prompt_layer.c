@@ -85,7 +85,7 @@ TEST(test_init_requires_event_system) {
     ASSERT(layer != NULL);
     
     // Init with NULL event system should fail
-    continuation_prompt_error_t result = continuation_prompt_layer_init(layer, NULL);
+    continuation_prompt_error_t result = continuation_prompt_layer_init(layer);
     ASSERT(result == CONTINUATION_PROMPT_ERROR_INVALID_PARAM);
     
     continuation_prompt_layer_destroy(layer);
@@ -99,7 +99,7 @@ TEST(test_init_with_event_system) {
     ASSERT(events != NULL);
     layer_events_init(events);
     
-    continuation_prompt_error_t result = continuation_prompt_layer_init(layer, events);
+    continuation_prompt_error_t result = continuation_prompt_layer_init(layer);
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
     
     continuation_prompt_layer_cleanup(layer);
@@ -112,7 +112,7 @@ TEST(test_double_cleanup) {
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
     
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     // First cleanup
     continuation_prompt_error_t result = continuation_prompt_layer_cleanup(layer);
@@ -134,7 +134,7 @@ TEST(test_simple_mode_default) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     // Default mode should be SIMPLE
     continuation_prompt_mode_t mode = continuation_prompt_layer_get_mode(layer);
@@ -149,7 +149,7 @@ TEST(test_simple_mode_all_lines_same) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_SIMPLE);
     
@@ -184,7 +184,7 @@ TEST(test_context_aware_if_statement) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -207,7 +207,7 @@ TEST(test_context_aware_for_loop) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -230,7 +230,7 @@ TEST(test_context_aware_while_loop) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -253,7 +253,7 @@ TEST(test_context_aware_function) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -276,7 +276,7 @@ TEST(test_context_aware_subshell) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -299,7 +299,7 @@ TEST(test_context_aware_quotes) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     continuation_prompt_layer_set_mode(layer, CONTINUATION_PROMPT_MODE_CONTEXT_AWARE);
     
@@ -336,7 +336,7 @@ TEST(test_null_command) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     char prompt[64];
     
@@ -354,7 +354,7 @@ TEST(test_null_output_buffer) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     const char *command = "test";
     
@@ -372,7 +372,7 @@ TEST(test_buffer_too_small) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     char prompt[2];  // Too small for "> "
     const char *command = "test";
@@ -395,7 +395,7 @@ TEST(test_mode_switching) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     layer_event_system_t *events = layer_events_create(NULL);
     layer_events_init(events);
-    continuation_prompt_layer_init(layer, events);
+    continuation_prompt_layer_init(layer);
     
     // Default is SIMPLE
     continuation_prompt_mode_t mode = continuation_prompt_layer_get_mode(layer);
