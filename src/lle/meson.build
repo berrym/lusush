@@ -274,6 +274,13 @@ if fs.exists('theme_integration.c')
   lle_sources += files('theme_integration.c')
 endif
 
+# Spec 11: Syntax Highlighting
+# Provides: Real-time syntax highlighting with theme integration
+# Depends on: Spec 08 (Display), Theme System
+if fs.exists('syntax_highlighting.c')
+  lle_sources += files('syntax_highlighting.c')
+endif
+
 # ============================================================================
 # PHASE 3: INPUT AND INTEGRATION
 # ============================================================================

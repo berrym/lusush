@@ -89,7 +89,7 @@
 /* #include "lle/history.h" */  /* NOT YET IMPLEMENTED */
 
 /* Spec 11: Syntax Highlighting */
-/* #include "lle/syntax_highlighting.h" */  /* NOT YET IMPLEMENTED */
+#include "lle/syntax_highlighting.h"
 
 /* Spec 12: Completion System */
 /* #include "lle/completion.h" */  /* NOT YET IMPLEMENTED */

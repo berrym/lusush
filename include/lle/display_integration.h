@@ -967,6 +967,17 @@ lle_result_t lle_extract_cursor_colors_from_theme(theme_definition_t *theme,
                                                   lle_cursor_colors_t **colors,
                                                   lle_memory_pool_t *memory_pool);
 
+/* Forward declare lle_syntax_colors_t from syntax_highlighting.h */
+struct lle_syntax_colors;
+typedef struct lle_syntax_colors lle_syntax_colors_t;
+
+/**
+ * Extract syntax highlighting colors from theme
+ * Converts theme's syntax_color_scheme_t to lle_syntax_colors_t
+ */
+lle_result_t lle_theme_get_syntax_colors(theme_definition_t *theme,
+                                         lle_syntax_colors_t *colors);
+
 /* Additional function declarations will be added as implementation progresses */
 
 #ifdef __cplusplus

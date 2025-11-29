@@ -257,7 +257,34 @@ int fuzzy_match_best(const char *pattern, const char **candidates, int num_candi
 - ~~Used by: autocorrect, completion ranking, fuzzy history search~~
 - **DONE**: Created `include/fuzzy_match.h` and `src/libfuzzy/fuzzy_match.c`
 
-### Priority 5: Widget System Needs Content
+### Priority 5: Wire LibFuzzy into Completion System
+**Effort: Low-Medium | Value: User Experience + Spec Compliance**
+
+The completion system currently uses byte-level `strcmp`/`strncmp` for prefix matching only.
+Spec 12 Section 6 ("Fuzzy Matching and Ranking Engine") explicitly calls for fuzzy completion.
+
+**Current state:**
+- `completion_system_v2.c` has `enable_fuzzy_matching = false; /* Future feature */`
+- Only exact prefix matching works (no "gco" → "git checkout" style matching)
+- No Unicode awareness in completion matching
+
+**What needs to be done:**
+1. Enable `enable_fuzzy_matching` flag with config option
+2. Add fallback path: when prefix match fails, use `fuzzy_match_best()` from libfuzzy
+3. Update relevance scoring to incorporate fuzzy scores
+4. Consider Unicode-aware prefix matching for file paths (especially macOS NFD normalization)
+
+**Rationale for deferring:**
+- Themeable syntax highlighting is higher priority (core philosophy: "themeable everything")
+- LibFuzzy is already complete and waiting - integration will be straightforward
+- Current prefix-only completion is functional, just not as powerful as spec envisions
+
+**LibFuzzy functions ready for use:**
+- `fuzzy_subsequence_score()` - for "gco" → "git checkout" style matching
+- `fuzzy_match_score()` - combined weighted scoring
+- `fuzzy_match_best()` - batch matching for completion candidate lists
+
+### Priority 6: Widget System Needs Content
 **Effort: Medium-High | Value: Future Extensibility**
 
 - Registry and hooks infrastructure exists

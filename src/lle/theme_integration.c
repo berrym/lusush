@@ -11,7 +11,9 @@
  */
 
 #include "lle/display_integration.h"
+#include "lle/syntax_highlighting.h"
 #include "lle/error_handling.h"
+#include "display/command_layer.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -131,6 +133,160 @@ lle_result_t lle_extract_syntax_colors_from_theme(theme_definition_t *theme,
 }
 
 /**
+ * Extract syntax highlighting colors from theme to LLE syntax highlighter format
+ * 
+ * Converts theme's syntax_color_scheme_t (ANSI codes) to lle_syntax_colors_t (RGB)
+ */
+lle_result_t lle_theme_get_syntax_colors(theme_definition_t *theme,
+                                         lle_syntax_colors_t *colors) {
+    if (!theme || !colors) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    /* Get theme's syntax color scheme */
+    syntax_color_scheme_t *syn = &theme->syntax;
+    
+    /* Convert ANSI codes to RGB values */
+    colors->command_valid = parse_color_code(syn->command_valid);
+    colors->command_invalid = parse_color_code(syn->command_invalid);
+    colors->command_builtin = parse_color_code(syn->command_builtin);
+    colors->command_alias = parse_color_code(syn->command_alias);
+    colors->command_function = parse_color_code(syn->command_builtin); /* Same as builtin */
+    
+    colors->keyword = parse_color_code(syn->keyword);
+    
+    colors->string = parse_color_code(syn->string);
+    colors->string_escape = parse_color_code(syn->error_syntax); /* Use error color for escapes */
+    
+    colors->variable = parse_color_code(syn->variable);
+    colors->variable_special = parse_color_code(syn->variable_special);
+    
+    colors->path_valid = parse_color_code(syn->path_valid);
+    colors->path_invalid = parse_color_code(syn->path_invalid);
+    
+    colors->pipe = parse_color_code(syn->pipe);
+    colors->redirect = parse_color_code(syn->redirect);
+    colors->operator_other = parse_color_code(syn->operator_sym);
+    
+    colors->comment = parse_color_code(syn->comment);
+    colors->number = parse_color_code(syn->number);
+    colors->option = parse_color_code(syn->option);
+    colors->glob = parse_color_code(syn->glob);
+    colors->argument = parse_color_code(syn->option); /* Same as option */
+    
+    colors->error = parse_color_code(syn->error_syntax);
+    colors->error_fg = 0xFFFFFF; /* White on error background */
+    
+    /* Set text attributes based on typical conventions */
+    colors->keyword_bold = 1;
+    colors->command_bold = 1;
+    colors->error_underline = 1;
+    colors->path_underline = 1;
+    colors->comment_dim = 1;
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * Apply theme syntax colors to command layer color scheme
+ * 
+ * Converts theme's syntax_color_scheme_t to command_color_scheme_t
+ * and applies it to the command layer for syntax highlighting.
+ * 
+ * @param theme Theme containing syntax colors
+ * @param cmd_layer Command layer to update
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+static lle_result_t apply_theme_syntax_to_command_layer(theme_definition_t *theme,
+                                                        command_layer_t *cmd_layer) {
+    if (!theme || !cmd_layer) {
+        return LLE_ERROR_NULL_POINTER;
+    }
+    
+    syntax_color_scheme_t *syn = &theme->syntax;
+    command_color_scheme_t cmd_colors;
+    
+    /* Map theme syntax colors to command layer color scheme */
+    /* command_valid -> command_color (commands in command position) */
+    strncpy(cmd_colors.command_color, syn->command_valid, 
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.command_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* Use option color for arguments (what follows commands) */
+    strncpy(cmd_colors.argument_color, syn->option,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.argument_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* option -> option_color */
+    strncpy(cmd_colors.option_color, syn->option,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.option_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* string -> string_color */
+    strncpy(cmd_colors.string_color, syn->string,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.string_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* variable -> variable_color */
+    strncpy(cmd_colors.variable_color, syn->variable,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.variable_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* redirect -> redirect_color */
+    strncpy(cmd_colors.redirect_color, syn->redirect,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.redirect_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* pipe -> pipe_color */
+    strncpy(cmd_colors.pipe_color, syn->pipe,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.pipe_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* keyword -> keyword_color */
+    strncpy(cmd_colors.keyword_color, syn->keyword,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.keyword_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* operator_sym -> operator_color */
+    strncpy(cmd_colors.operator_color, syn->operator_sym,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.operator_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* path_valid -> path_color */
+    strncpy(cmd_colors.path_color, syn->path_valid,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.path_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* number -> number_color */
+    strncpy(cmd_colors.number_color, syn->number,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.number_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* comment -> comment_color */
+    strncpy(cmd_colors.comment_color, syn->comment,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.comment_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* error_syntax -> error_color */
+    strncpy(cmd_colors.error_color, syn->error_syntax,
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.error_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* Reset color is always the standard ANSI reset */
+    strncpy(cmd_colors.reset_color, "\033[0m",
+            COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1);
+    cmd_colors.reset_color[COMMAND_LAYER_MAX_COLOR_CODE_SIZE - 1] = '\0';
+    
+    /* Apply the color scheme to the command layer */
+    command_layer_error_t result = command_layer_set_color_scheme(cmd_layer, &cmd_colors);
+    if (result != COMMAND_LAYER_SUCCESS) {
+        return LLE_ERROR_DISPLAY_INTEGRATION;
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * Extract cursor colors from theme
  * 
  * Converts theme color scheme to LLE cursor color format
@@ -215,6 +371,16 @@ lle_result_t lle_display_integrate_theme_system(lle_display_integration_t *integ
         
         /* Store in render controller's cursor_theme_colors field */
         integration->render_controller->cursor_theme_colors = cursor_colors;
+    }
+    
+    /* Apply theme syntax colors to command layer for real-time highlighting */
+    if (integration->display_bridge && integration->display_bridge->command_layer) {
+        command_layer_t *cmd_layer = (command_layer_t *)integration->display_bridge->command_layer;
+        lle_result_t result = apply_theme_syntax_to_command_layer(theme, cmd_layer);
+        if (result != LLE_SUCCESS) {
+            /* Non-fatal: continue with default colors if this fails */
+            /* Log would go here in debug builds */
+        }
     }
     
     return LLE_SUCCESS;

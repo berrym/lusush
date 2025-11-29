@@ -104,6 +104,29 @@ typedef struct {
     char path_normal[COLOR_CODE_MAX]; // Normal directories
 } color_scheme_t;
 
+// Syntax highlighting color scheme for command line input
+// Colors are ANSI escape codes (e.g., "\033[1;32m" for bright green)
+typedef struct {
+    char command_valid[COLOR_CODE_MAX];      // Valid external commands
+    char command_invalid[COLOR_CODE_MAX];    // Invalid/non-existent commands
+    char command_builtin[COLOR_CODE_MAX];    // Shell builtin commands
+    char command_alias[COLOR_CODE_MAX];      // Aliases
+    char keyword[COLOR_CODE_MAX];            // Shell keywords (if, for, while, etc.)
+    char string[COLOR_CODE_MAX];             // Quoted strings
+    char variable[COLOR_CODE_MAX];           // Variable references ($var)
+    char variable_special[COLOR_CODE_MAX];   // Special variables ($?, $#, etc.)
+    char operator_sym[COLOR_CODE_MAX];       // Operators (|, &, ;, etc.)
+    char redirect[COLOR_CODE_MAX];           // Redirection (>, <, >>)
+    char pipe[COLOR_CODE_MAX];               // Pipe operator
+    char comment[COLOR_CODE_MAX];            // Comments
+    char number[COLOR_CODE_MAX];             // Numeric literals
+    char path_valid[COLOR_CODE_MAX];         // Valid file paths
+    char path_invalid[COLOR_CODE_MAX];       // Invalid file paths
+    char option[COLOR_CODE_MAX];             // Command options (-v, --help)
+    char glob[COLOR_CODE_MAX];               // Glob patterns (*, ?)
+    char error_syntax[COLOR_CODE_MAX];       // Syntax errors
+} syntax_color_scheme_t;
+
 // Corporate branding configuration
 typedef struct {
     char company_name[BRAND_TEXT_MAX]; // Company name for prompts
@@ -150,6 +173,7 @@ typedef struct {
     char version[16];                 // Theme version
     theme_category_t category;        // Theme category
     color_scheme_t colors;            // Color scheme
+    syntax_color_scheme_t syntax;     // Syntax highlighting colors
     prompt_template_t templates;      // Prompt templates
     branding_config_t branding;       // Corporate branding
     visual_effects_t effects;         // Visual effects

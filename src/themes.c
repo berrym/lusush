@@ -102,6 +102,88 @@ static bool debug_enabled = false;
 static bool theme_register(theme_definition_t *theme);
 static bool detect_terminal_unicode_support(void);
 static bool convert_symbols_in_string(const char *input, char *output, size_t output_size);
+static void set_dark_syntax_colors(syntax_color_scheme_t *syntax);
+static void set_light_syntax_colors(syntax_color_scheme_t *syntax);
+
+// =============================================================================
+// SYNTAX HIGHLIGHTING COLOR HELPERS
+// =============================================================================
+
+/**
+ * Set dark theme syntax highlighting colors
+ * Uses bright colors on dark background
+ */
+static void set_dark_syntax_colors(syntax_color_scheme_t *syntax) {
+    if (!syntax) return;
+    
+    // Commands - green for valid, red for invalid, cyan for builtins
+    strncpy(syntax->command_valid, "\033[1;32m", COLOR_CODE_MAX - 1);      // Bold green
+    strncpy(syntax->command_invalid, "\033[1;31m", COLOR_CODE_MAX - 1);    // Bold red
+    strncpy(syntax->command_builtin, "\033[1;36m", COLOR_CODE_MAX - 1);    // Bold cyan
+    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1);        // Cyan
+    
+    // Keywords - orange/bold blue
+    strncpy(syntax->keyword, "\033[1;34m", COLOR_CODE_MAX - 1);            // Bold blue
+    
+    // Strings - yellow
+    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1);               // Yellow
+    
+    // Variables - magenta/purple
+    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
+    strncpy(syntax->variable_special, "\033[1;35m", COLOR_CODE_MAX - 1);   // Bold magenta
+    
+    // Operators
+    strncpy(syntax->operator_sym, "\033[37m", COLOR_CODE_MAX - 1);         // White
+    strncpy(syntax->redirect, "\033[1;35m", COLOR_CODE_MAX - 1);           // Bold magenta
+    strncpy(syntax->pipe, "\033[1;34m", COLOR_CODE_MAX - 1);               // Bold blue
+    
+    // Other
+    strncpy(syntax->comment, "\033[90m", COLOR_CODE_MAX - 1);              // Bright black (gray)
+    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1);               // Cyan
+    strncpy(syntax->path_valid, "\033[4;32m", COLOR_CODE_MAX - 1);         // Underline green
+    strncpy(syntax->path_invalid, "\033[4;31m", COLOR_CODE_MAX - 1);       // Underline red
+    strncpy(syntax->option, "\033[37m", COLOR_CODE_MAX - 1);               // White
+    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);                 // Yellow
+    strncpy(syntax->error_syntax, "\033[41;37m", COLOR_CODE_MAX - 1);      // White on red
+}
+
+/**
+ * Set light theme syntax highlighting colors
+ * Uses darker colors for light background
+ */
+static void set_light_syntax_colors(syntax_color_scheme_t *syntax) {
+    if (!syntax) return;
+    
+    // Commands - darker colors for light background
+    strncpy(syntax->command_valid, "\033[32m", COLOR_CODE_MAX - 1);        // Green
+    strncpy(syntax->command_invalid, "\033[31m", COLOR_CODE_MAX - 1);      // Red
+    strncpy(syntax->command_builtin, "\033[36m", COLOR_CODE_MAX - 1);      // Cyan
+    strncpy(syntax->command_alias, "\033[36m", COLOR_CODE_MAX - 1);        // Cyan
+    
+    // Keywords
+    strncpy(syntax->keyword, "\033[34m", COLOR_CODE_MAX - 1);              // Blue
+    
+    // Strings
+    strncpy(syntax->string, "\033[33m", COLOR_CODE_MAX - 1);               // Yellow/brown
+    
+    // Variables
+    strncpy(syntax->variable, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
+    strncpy(syntax->variable_special, "\033[35m", COLOR_CODE_MAX - 1);     // Magenta
+    
+    // Operators
+    strncpy(syntax->operator_sym, "\033[30m", COLOR_CODE_MAX - 1);         // Black
+    strncpy(syntax->redirect, "\033[35m", COLOR_CODE_MAX - 1);             // Magenta
+    strncpy(syntax->pipe, "\033[34m", COLOR_CODE_MAX - 1);                 // Blue
+    
+    // Other
+    strncpy(syntax->comment, "\033[37m", COLOR_CODE_MAX - 1);              // Light gray
+    strncpy(syntax->number, "\033[36m", COLOR_CODE_MAX - 1);               // Cyan
+    strncpy(syntax->path_valid, "\033[4;32m", COLOR_CODE_MAX - 1);         // Underline green
+    strncpy(syntax->path_invalid, "\033[4;31m", COLOR_CODE_MAX - 1);       // Underline red
+    strncpy(syntax->option, "\033[30m", COLOR_CODE_MAX - 1);               // Black
+    strncpy(syntax->glob, "\033[33m", COLOR_CODE_MAX - 1);                 // Yellow
+    strncpy(syntax->error_syntax, "\033[41;37m", COLOR_CODE_MAX - 1);      // White on red
+}
 
 // =============================================================================
 // BUILT-IN THEME DEFINITIONS
@@ -198,6 +280,9 @@ static theme_definition_t *create_corporate_theme(void) {
     theme->effects.enable_icons = false;
     theme->effects.enable_powerline = false;
 
+    // Syntax highlighting - use light colors (corporate is light background)
+    set_light_syntax_colors(&theme->syntax);
+
     return theme;
 }
 
@@ -284,6 +369,9 @@ static theme_definition_t *create_dark_theme(void) {
     theme->effects.enable_icons = true;
     theme->effects.enable_powerline = false;
 
+    // Syntax highlighting - bright colors for dark background
+    set_dark_syntax_colors(&theme->syntax);
+
     return theme;
 }
 
@@ -368,6 +456,9 @@ static theme_definition_t *create_light_theme(void) {
     theme->effects.enable_gradient_colors = false;
     theme->effects.enable_icons = false;
     theme->effects.enable_powerline = false;
+
+    // Syntax highlighting - darker colors for light background
+    set_light_syntax_colors(&theme->syntax);
 
     return theme;
 }
@@ -455,6 +546,9 @@ static theme_definition_t *create_colorful_theme(void) {
     theme->effects.enable_icons = true;
     theme->effects.enable_powerline = false;
 
+    // Syntax highlighting - colorful uses dark background
+    set_dark_syntax_colors(&theme->syntax);
+
     return theme;
 }
 
@@ -515,6 +609,9 @@ static theme_definition_t *create_minimal_theme(void) {
 
     // No visual effects for minimal theme
     memset(&theme->effects, 0, sizeof(visual_effects_t));
+
+    // Syntax highlighting - minimal uses dark background typically
+    set_dark_syntax_colors(&theme->syntax);
 
     return theme;
 }
@@ -581,6 +678,9 @@ static theme_definition_t *create_classic_theme(void) {
 
     // No visual effects for classic theme
     memset(&theme->effects, 0, sizeof(visual_effects_t));
+
+    // Syntax highlighting - classic uses dark background
+    set_dark_syntax_colors(&theme->syntax);
 
     return theme;
 }
