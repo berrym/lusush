@@ -345,8 +345,8 @@ lle_result_t lle_history_core_create(
     
     /* Phase 4 Day 12: Create deduplication engine if configured */
     if (c->config->ignore_duplicates) {
-        /* Default to KEEP_RECENT strategy when ignore_duplicates is enabled */
-        result = lle_history_dedup_create(&c->dedup_engine, c, LLE_DEDUP_KEEP_RECENT);
+        /* Use configured strategy (default: KEEP_RECENT) */
+        result = lle_history_dedup_create(&c->dedup_engine, c, c->config->dedup_strategy);
         if (result != LLE_SUCCESS) {
             if (c->entry_lookup) {
                 lle_history_index_destroy(c->entry_lookup);

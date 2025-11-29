@@ -22,6 +22,7 @@
 #include "display/command_layer.h"
 #include "display/composition_engine.h"
 #include "display_integration.h"
+#include "config.h"  /* For lle_dedup_navigation config option */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -1426,6 +1427,17 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor) {
  * HISTORY NAVIGATION
  * ============================================================================ */
 
+/**
+ * Helper: Get current buffer content as null-terminated string
+ * Returns NULL if buffer is empty or on error. Caller must NOT free.
+ */
+static const char* get_current_buffer_content(lle_editor_t *editor) {
+    if (!editor || !editor->buffer || editor->buffer->length == 0) {
+        return NULL;
+    }
+    return editor->buffer->data;
+}
+
 lle_result_t lle_history_previous(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1437,14 +1449,27 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
         return LLE_SUCCESS;  /* No history */
     }
     
-    /* Move backward in history (toward older entries) */
-    if (editor->history_navigation_pos < entry_count) {
+    /* Check if navigation-time deduplication is enabled (default: true) */
+    bool dedup_enabled = config.lle_dedup_navigation;
+    
+    /* Get current buffer content for deduplication comparison */
+    const char *current_content = dedup_enabled ? get_current_buffer_content(editor) : NULL;
+    
+    /* Move backward in history (toward older entries), skipping duplicates if enabled */
+    while (editor->history_navigation_pos < entry_count) {
         size_t idx = entry_count - 1 - editor->history_navigation_pos;
         lle_history_entry_t *entry = NULL;
         result = lle_history_get_entry_by_index(editor->history_system, idx, &entry);
         
+        editor->history_navigation_pos++;  /* Always advance position */
+        
         if (result == LLE_SUCCESS && entry && entry->command) {
-            /* Clear buffer and insert history entry */
+            /* Skip if dedup enabled and this entry matches current buffer content */
+            if (dedup_enabled && current_content && strcmp(entry->command, current_content) == 0) {
+                continue;  /* Skip duplicate, try next older entry */
+            }
+            
+            /* Found entry to display */
             lle_buffer_clear(editor->buffer);
             lle_buffer_insert_text(editor->buffer, 0, entry->command, strlen(entry->command));
             
@@ -1453,7 +1478,7 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
                 lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
                                                        editor->buffer->cursor.byte_offset);
             }
-            editor->history_navigation_pos++;
+            break;  /* Found and displayed entry, done */
         }
     }
     
@@ -1471,19 +1496,33 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
         return LLE_SUCCESS;  /* No history or already at current line */
     }
     
-    /* Move forward in history (toward newer entries) */
-    editor->history_navigation_pos--;
+    /* Check if navigation-time deduplication is enabled (default: true) */
+    bool dedup_enabled = config.lle_dedup_navigation;
     
-    if (editor->history_navigation_pos == 0) {
-        /* Back to current line - clear buffer */
-        lle_buffer_clear(editor->buffer);
-    } else {
+    /* Get current buffer content for deduplication comparison */
+    const char *current_content = dedup_enabled ? get_current_buffer_content(editor) : NULL;
+    
+    /* Move forward in history (toward newer entries), skipping duplicates if enabled */
+    while (editor->history_navigation_pos > 0) {
+        editor->history_navigation_pos--;
+        
+        if (editor->history_navigation_pos == 0) {
+            /* Back to current line - clear buffer */
+            lle_buffer_clear(editor->buffer);
+            break;
+        }
+        
         size_t idx = entry_count - editor->history_navigation_pos;
         lle_history_entry_t *entry = NULL;
         result = lle_history_get_entry_by_index(editor->history_system, idx, &entry);
         
         if (result == LLE_SUCCESS && entry && entry->command) {
-            /* Clear buffer and insert history entry */
+            /* Skip if dedup enabled and this entry matches current buffer content */
+            if (dedup_enabled && current_content && strcmp(entry->command, current_content) == 0) {
+                continue;  /* Skip duplicate, try next newer entry */
+            }
+            
+            /* Found entry to display */
             lle_buffer_clear(editor->buffer);
             lle_buffer_insert_text(editor->buffer, 0, entry->command, strlen(entry->command));
             
@@ -1492,6 +1531,7 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
                 lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 
                                                        editor->buffer->cursor.byte_offset);
             }
+            break;  /* Found and displayed entry, done */
         }
     }
     

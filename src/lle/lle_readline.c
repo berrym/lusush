@@ -125,6 +125,27 @@ static void populate_history_config_from_lusush_config(lle_history_config_t *his
     /* Deduplication behavior */
     hist_config->ignore_duplicates = config.lle_enable_deduplication &&
                                     (config.lle_dedup_scope != LLE_DEDUP_SCOPE_NONE);
+    
+    /* Map config dedup strategy to history dedup strategy */
+    switch (config.lle_dedup_strategy) {
+        case LLE_DEDUP_STRATEGY_IGNORE:
+            hist_config->dedup_strategy = LLE_DEDUP_IGNORE;
+            break;
+        case LLE_DEDUP_STRATEGY_KEEP_FREQUENT:
+            hist_config->dedup_strategy = LLE_DEDUP_KEEP_FREQUENT;
+            break;
+        case LLE_DEDUP_STRATEGY_MERGE:
+            hist_config->dedup_strategy = LLE_DEDUP_MERGE_METADATA;
+            break;
+        case LLE_DEDUP_STRATEGY_KEEP_ALL:
+            hist_config->dedup_strategy = LLE_DEDUP_KEEP_ALL;
+            break;
+        case LLE_DEDUP_STRATEGY_KEEP_RECENT:
+        default:
+            hist_config->dedup_strategy = LLE_DEDUP_KEEP_RECENT;
+            break;
+    }
+    
     hist_config->ignore_space_prefix = false; /* Standard bash behavior: space = don't save */
     
     /* Metadata to save */

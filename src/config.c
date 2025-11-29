@@ -84,6 +84,10 @@ static config_option_t config_options[] = {
      &config.lle_enable_deduplication, "Enable history deduplication", config_validate_bool},
     {"lle.dedup_scope", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
      &config.lle_dedup_scope, "Deduplication scope", config_validate_lle_dedup_scope},
+    {"lle.dedup_strategy", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_strategy, "Deduplication strategy", config_validate_lle_dedup_strategy},
+    {"lle.dedup_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_navigation, "Skip duplicates during history navigation", config_validate_bool},
     {"lle.enable_history_cache", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_enable_history_cache, "Enable history caching for performance", config_validate_bool},
     {"lle.cache_size", CONFIG_TYPE_INT, CONFIG_SECTION_HISTORY,
@@ -1012,6 +1016,8 @@ void config_set_defaults(void) {
     config.lle_enable_forensic_tracking = true;
     config.lle_enable_deduplication = true;
     config.lle_dedup_scope = LLE_DEDUP_SCOPE_SESSION;
+    config.lle_dedup_strategy = LLE_DEDUP_STRATEGY_KEEP_RECENT;
+    config.lle_dedup_navigation = true;  // Skip duplicates when navigating history
     config.lle_enable_history_cache = true;
     config.lle_cache_size = 100;
     config.lle_readline_compatible_mode = false;
@@ -1573,6 +1579,14 @@ bool config_validate_lle_dedup_scope(const char *value) {
             strcmp(value, "session") == 0 ||
             strcmp(value, "recent") == 0 ||
             strcmp(value, "global") == 0);
+}
+
+bool config_validate_lle_dedup_strategy(const char *value) {
+    return (strcmp(value, "ignore") == 0 ||
+            strcmp(value, "keep_recent") == 0 ||
+            strcmp(value, "keep_frequent") == 0 ||
+            strcmp(value, "merge") == 0 ||
+            strcmp(value, "keep_all") == 0);
 }
 
 /**

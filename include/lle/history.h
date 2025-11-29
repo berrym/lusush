@@ -51,6 +51,18 @@ typedef struct lle_history_search_engine lle_history_search_engine_t;
 typedef struct lle_history_dedup_engine lle_history_dedup_engine_t;
 /* Note: lle_history_system_t already defined in performance.h - no redefinition */
 
+/**
+ * Deduplication strategy enumeration (forward declaration for config struct)
+ * Full documentation in DEDUPLICATION API section below.
+ */
+typedef enum lle_history_dedup_strategy {
+    LLE_DEDUP_IGNORE = 0,       /* Ignore all duplicates (reject new) */
+    LLE_DEDUP_KEEP_RECENT,      /* Keep most recent, discard older */
+    LLE_DEDUP_KEEP_FREQUENT,    /* Keep entry with highest usage count */
+    LLE_DEDUP_MERGE_METADATA,   /* Merge forensic metadata, keep existing */
+    LLE_DEDUP_KEEP_ALL          /* No deduplication (keep all instances) */
+} lle_history_dedup_strategy_t;
+
 /* ============================================================================
  * CONSTANTS AND CONFIGURATION
  * ============================================================================ */
@@ -192,6 +204,7 @@ struct lle_history_config {
     
     /* Behavior settings */
     bool ignore_duplicates;             /* Ignore duplicate commands */
+    lle_history_dedup_strategy_t dedup_strategy; /* Deduplication strategy */
     bool ignore_space_prefix;           /* Ignore commands starting with space */
     bool save_timestamps;               /* Save timestamp metadata */
     bool save_working_dir;              /* Save working directory */
@@ -1427,18 +1440,16 @@ void lle_forensic_free_context(lle_forensic_context_t *context);
  * DEDUPLICATION API (Phase 4 Day 12)
  * ============================================================================ */
 
-/**
- * Deduplication strategy enumeration
+/* Note: lle_history_dedup_strategy_t enum is defined earlier in this file
+ * (in the FORWARD DECLARATIONS section) for use in lle_history_config_t.
  * 
- * Defines how duplicate commands should be handled when added to history.
+ * Strategies:
+ * - LLE_DEDUP_IGNORE: Reject new duplicates, keep old
+ * - LLE_DEDUP_KEEP_RECENT: Keep newest, mark old as deleted (default)
+ * - LLE_DEDUP_KEEP_FREQUENT: Keep entry with highest usage count
+ * - LLE_DEDUP_MERGE_METADATA: Merge forensic metadata, keep existing
+ * - LLE_DEDUP_KEEP_ALL: No deduplication (keep all instances)
  */
-typedef enum lle_history_dedup_strategy {
-    LLE_DEDUP_IGNORE = 0,       /* Ignore all duplicates (reject new) */
-    LLE_DEDUP_KEEP_RECENT,      /* Keep most recent, discard older */
-    LLE_DEDUP_KEEP_FREQUENT,    /* Keep entry with highest usage count */
-    LLE_DEDUP_MERGE_METADATA,   /* Merge forensic metadata, keep existing */
-    LLE_DEDUP_KEEP_ALL          /* No deduplication (keep all instances) */
-} lle_history_dedup_strategy_t;
 
 /**
  * Deduplication statistics

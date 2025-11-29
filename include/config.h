@@ -58,6 +58,15 @@ typedef enum {
     LLE_DEDUP_SCOPE_GLOBAL           // Entire history
 } lle_dedup_scope_t;
 
+// LLE History - Deduplication strategy
+typedef enum {
+    LLE_DEDUP_STRATEGY_IGNORE,       // Reject new duplicates, keep old
+    LLE_DEDUP_STRATEGY_KEEP_RECENT,  // Keep newest, mark old as deleted (default)
+    LLE_DEDUP_STRATEGY_KEEP_FREQUENT,// Keep entry with highest usage count
+    LLE_DEDUP_STRATEGY_MERGE,        // Merge forensic metadata, keep existing
+    LLE_DEDUP_STRATEGY_KEEP_ALL      // No dedup (track frequency only)
+} lle_dedup_strategy_t;
+
 // Configuration option structure
 typedef struct {
     const char *name;
@@ -116,6 +125,8 @@ typedef struct {
     bool lle_enable_forensic_tracking;
     bool lle_enable_deduplication;
     lle_dedup_scope_t lle_dedup_scope;
+    lle_dedup_strategy_t lle_dedup_strategy;      // Dedup strategy (default: KEEP_RECENT)
+    bool lle_dedup_navigation;                     // Skip duplicates during history navigation (default: true)
 
     // Performance
     bool lle_enable_history_cache;
@@ -242,6 +253,7 @@ bool config_validate_color_scheme(const char *value);
 bool config_validate_lle_arrow_mode(const char *value);
 bool config_validate_lle_storage_mode(const char *value);
 bool config_validate_lle_dedup_scope(const char *value);
+bool config_validate_lle_dedup_strategy(const char *value);
 
 // Configuration value setters and getters
 int config_set_bool(const char *key, bool value);
