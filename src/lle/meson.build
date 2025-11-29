@@ -202,6 +202,10 @@ endif
 if fs.exists('unicode_grapheme.c')
   lle_sources += files('unicode_grapheme.c')
 endif
+# unicode_compare.c: NFC normalization and Unicode-aware string comparison
+if fs.exists('unicode_compare.c')
+  lle_sources += files('unicode_compare.c')
+endif
 if fs.exists('change_tracker.c')
   lle_sources += files('change_tracker.c')
 endif

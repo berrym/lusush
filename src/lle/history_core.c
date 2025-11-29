@@ -356,6 +356,8 @@ lle_result_t lle_history_core_create(
             lle_pool_free(c);
             return result;
         }
+        /* Configure Unicode normalization for dedup comparison */
+        lle_history_dedup_set_unicode_normalize(c->dedup_engine, c->config->unicode_normalize);
     } else {
         c->dedup_engine = NULL;
     }

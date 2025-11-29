@@ -205,6 +205,7 @@ struct lle_history_config {
     /* Behavior settings */
     bool ignore_duplicates;             /* Ignore duplicate commands */
     lle_history_dedup_strategy_t dedup_strategy; /* Deduplication strategy */
+    bool unicode_normalize;             /* Use Unicode NFC normalization for dedup */
     bool ignore_space_prefix;           /* Ignore commands starting with space */
     bool save_timestamps;               /* Save timestamp metadata */
     bool save_working_dir;              /* Save working directory */
@@ -1590,6 +1591,21 @@ lle_result_t lle_history_dedup_configure(
     bool case_sensitive,
     bool trim_whitespace,
     bool merge_forensics);
+
+/**
+ * Set Unicode normalization for deduplication comparison
+ *
+ * When enabled, commands are normalized to NFC (Canonical Composition) form
+ * before comparison, ensuring equivalent Unicode sequences compare as equal.
+ * This handles cases like precomposed vs decomposed characters (é vs e+́).
+ *
+ * @param dedup Deduplication engine
+ * @param unicode_normalize true to enable NFC normalization (default: true)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_history_dedup_set_unicode_normalize(
+    lle_history_dedup_engine_t *dedup,
+    bool unicode_normalize);
 
 /* ============================================================================
  * MULTILINE COMMAND SUPPORT API (Phase 4 Day 13)

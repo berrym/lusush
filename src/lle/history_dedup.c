@@ -19,6 +19,7 @@
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
+#include "lle/unicode_compare.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -46,6 +47,7 @@ struct lle_history_dedup_engine {
     bool case_sensitive;                      /* Case-sensitive comparison */
     bool trim_whitespace;                     /* Trim whitespace before compare */
     bool merge_forensics;                     /* Merge forensic metadata */
+    bool unicode_normalize;                   /* Use Unicode NFC normalization */
 };
 
 /* ============================================================================
@@ -133,13 +135,23 @@ static bool commands_equal(
         return true;
     }
     
-    /* Fast path: if both config options are default (case-sensitive, trim whitespace),
+    /* Use Unicode-aware comparison if enabled */
+    if (dedup->unicode_normalize) {
+        lle_unicode_compare_options_t opts = {
+            .normalize = true,
+            .case_insensitive = !dedup->case_sensitive,
+            .trim_whitespace = dedup->trim_whitespace
+        };
+        return lle_unicode_strings_equal(cmd1, cmd2, &opts);
+    }
+    
+    /* Fast path: if both config options are default (case-sensitive, no trim),
      * we can just do direct strcmp */
     if (dedup->case_sensitive && !dedup->trim_whitespace) {
         return strcmp(cmd1, cmd2) == 0;
     }
     
-    /* Slow path: need normalization
+    /* Slow path: need whitespace/case normalization (no Unicode)
      * Use reasonable stack buffers (4KB each) - commands are typically < 1KB
      * For very large commands, we'll truncate during normalization */
     #define NORM_BUFFER_SIZE 4096
@@ -239,6 +251,7 @@ lle_result_t lle_history_dedup_create(
     engine->case_sensitive = true;
     engine->trim_whitespace = true;
     engine->merge_forensics = true;
+    engine->unicode_normalize = true;  /* Use Unicode NFC normalization by default */
     
     *dedup = engine;
     return LLE_SUCCESS;
@@ -557,6 +570,22 @@ lle_result_t lle_history_dedup_configure(
     dedup->case_sensitive = case_sensitive;
     dedup->trim_whitespace = trim_whitespace;
     dedup->merge_forensics = merge_forensics;
+    
+    return LLE_SUCCESS;
+}
+
+/**
+ * Set Unicode normalization for deduplication
+ */
+lle_result_t lle_history_dedup_set_unicode_normalize(
+    lle_history_dedup_engine_t *dedup,
+    bool unicode_normalize)
+{
+    if (!dedup) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    dedup->unicode_normalize = unicode_normalize;
     
     return LLE_SUCCESS;
 }

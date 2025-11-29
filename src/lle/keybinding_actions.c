@@ -23,6 +23,7 @@
 #include "display/composition_engine.h"
 #include "display_integration.h"
 #include "config.h"  /* For lle_dedup_navigation config option */
+#include "lle/unicode_compare.h"  /* For Unicode-aware dedup comparison */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -1438,6 +1439,22 @@ static const char* get_current_buffer_content(lle_editor_t *editor) {
     return editor->buffer->data;
 }
 
+/**
+ * Helper: Compare two strings for navigation-time deduplication
+ * Uses Unicode NFC normalization if configured (default: true)
+ */
+static bool history_nav_strings_equal(const char *s1, const char *s2) {
+    if (!s1 || !s2) return false;
+    
+    if (config.lle_dedup_unicode_normalize) {
+        /* Use Unicode-aware comparison with NFC normalization */
+        return lle_unicode_strings_equal(s1, s2, &LLE_UNICODE_COMPARE_DEFAULT);
+    } else {
+        /* Fast byte-level comparison */
+        return strcmp(s1, s2) == 0;
+    }
+}
+
 lle_result_t lle_history_previous(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1465,7 +1482,7 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
         
         if (result == LLE_SUCCESS && entry && entry->command) {
             /* Skip if dedup enabled and this entry matches current buffer content */
-            if (dedup_enabled && current_content && strcmp(entry->command, current_content) == 0) {
+            if (dedup_enabled && current_content && history_nav_strings_equal(entry->command, current_content)) {
                 continue;  /* Skip duplicate, try next older entry */
             }
             
@@ -1518,7 +1535,7 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
         
         if (result == LLE_SUCCESS && entry && entry->command) {
             /* Skip if dedup enabled and this entry matches current buffer content */
-            if (dedup_enabled && current_content && strcmp(entry->command, current_content) == 0) {
+            if (dedup_enabled && current_content && history_nav_strings_equal(entry->command, current_content)) {
                 continue;  /* Skip duplicate, try next newer entry */
             }
             

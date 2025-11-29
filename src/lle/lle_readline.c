@@ -146,6 +146,9 @@ static void populate_history_config_from_lusush_config(lle_history_config_t *his
             break;
     }
     
+    /* Configure Unicode normalization for dedup comparison */
+    hist_config->unicode_normalize = config.lle_dedup_unicode_normalize;
+    
     hist_config->ignore_space_prefix = false; /* Standard bash behavior: space = don't save */
     
     /* Metadata to save */

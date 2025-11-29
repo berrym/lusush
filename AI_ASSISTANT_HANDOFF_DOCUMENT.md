@@ -1,7 +1,7 @@
 # AI Assistant Handoff Document - Session 33
 
 **Date**: 2025-11-29  
-**Session Type**: Navigation-Time History Deduplication  
+**Session Type**: Unicode-Aware History Deduplication  
 **Status**: IN PROGRESS  
 
 ---
@@ -23,17 +23,16 @@
 **Session 33 (This Session)**:
 1. Reviewed history deduplication implementation against spec
 2. Discovered add-time dedup was active but navigation-time dedup was missing
-3. Implemented navigation-time deduplication with config options
+3. Implemented navigation-time deduplication with config options - **COMMITTED as 250246d**
+4. Implemented Unicode-aware comparison for history deduplication
 
 ---
 
-## Session 33 Implementation - Navigation-Time History Deduplication
+## Session 33 Implementation - Part 1: Navigation-Time Deduplication
 
 ### Problem Discovered
 
-Add-time deduplication was already implemented and ON by default (`lle_enable_deduplication = true`), but users still saw duplicate commands when pressing Up arrow because dedup only prevented duplicates from being stored - it didn't skip duplicates during navigation.
-
-User expectation: When pressing Up arrow, never see the same command twice in a row.
+Add-time deduplication was already implemented and ON by default, but users still saw duplicate commands when pressing Up arrow because dedup only prevented duplicates from being stored - it didn't skip duplicates during navigation.
 
 ### What Was Implemented
 
@@ -41,46 +40,89 @@ User expectation: When pressing Up arrow, never see the same command twice in a 
 2. **Config option `lle_dedup_navigation`** (default: true): Enable/disable navigation-time dedup
 3. **Config option `lle_dedup_strategy`** (default: keep_recent): Select dedup strategy
 
+**COMMITTED as 250246d**
+
+---
+
+## Session 33 Implementation - Part 2: Unicode-Aware Comparison
+
+### Problem
+
+History deduplication was using `strcmp()` which is byte-level only. Unicode allows multiple byte representations of the same visual character:
+- Precomposed: "é" (U+00E9) - single codepoint
+- Decomposed: "e" + "́" (U+0065 + U+0301) - base + combining mark
+
+These should compare as equal for deduplication purposes.
+
+### What Was Implemented
+
+1. **New module `unicode_compare.c`**: Unicode NFC normalization and string comparison
+2. **Config option `lle_dedup_unicode_normalize`** (default: true): Enable/disable Unicode normalization
+3. **Integration into both add-time and navigation-time dedup**
+
+### Files Created
+
+**`include/lle/unicode_compare.h`**:
+- `lle_unicode_strings_equal()` - Compare strings with NFC normalization
+- `lle_unicode_strings_equal_n()` - With length limits
+- `lle_unicode_normalize_nfc()` - Normalize UTF-8 string to NFC form
+- `lle_unicode_is_combining()` - Check if codepoint is combining character
+- `lle_unicode_combining_class()` - Get canonical combining class
+- `lle_unicode_decompose()` - Get canonical decomposition
+- `lle_unicode_compose()` - Compose base + combining into precomposed
+
+**`src/lle/unicode_compare.c`**:
+- Decomposition table for Latin-1 Supplement and Latin Extended-A (~130 characters)
+- Combining class table for diacritical marks
+- Full NFC normalization algorithm (decompose → reorder → compose)
+- Case folding for case-insensitive comparison
+
 ### Files Modified
 
 **`include/config.h`**:
-- Added `lle_dedup_strategy_t` enum with values: IGNORE, KEEP_RECENT, KEEP_FREQUENT, MERGE, KEEP_ALL
-- Added `lle_dedup_strategy` field to config struct
-- Added `lle_dedup_navigation` field to config struct (default: true)
+- Added `lle_dedup_unicode_normalize` field (default: true)
 
 **`src/config.c`**:
-- Added config options `lle.dedup_strategy` and `lle.dedup_navigation`
-- Added validator `config_validate_lle_dedup_strategy()`
-- Set defaults: `lle_dedup_strategy = LLE_DEDUP_STRATEGY_KEEP_RECENT`, `lle_dedup_navigation = true`
+- Added config option `lle.dedup_unicode_normalize`
+- Set default: `lle_dedup_unicode_normalize = true`
 
 **`include/lle/history.h`**:
-- Moved `lle_history_dedup_strategy_t` enum to forward declarations section (was at line 1448, caused compilation error)
-- Added `dedup_strategy` field to `lle_history_config_t` struct
+- Added `unicode_normalize` field to `lle_history_config_t`
+- Added `lle_history_dedup_set_unicode_normalize()` API function
 
-**`src/lle/keybinding_actions.c`**:
-- Added `#include "config.h"` 
-- Added helper `get_current_buffer_content()`
-- Modified `lle_history_previous()`: Loop skips entries matching current buffer when `config.lle_dedup_navigation` is true
-- Modified `lle_history_next()`: Same navigation-time dedup logic
-
-**`src/lle/lle_readline.c`**:
-- Added strategy mapping from config enum to history enum in `setup_lle_history()`
+**`src/lle/history_dedup.c`**:
+- Added `#include "lle/unicode_compare.h"`
+- Added `unicode_normalize` field to dedup engine struct
+- Updated `commands_equal()` to use Unicode-aware comparison when enabled
+- Added `lle_history_dedup_set_unicode_normalize()` function
 
 **`src/lle/history_core.c`**:
-- Changed from hardcoded `LLE_DEDUP_KEEP_RECENT` to use `c->config->dedup_strategy`
+- Call `lle_history_dedup_set_unicode_normalize()` after creating dedup engine
+
+**`src/lle/lle_readline.c`**:
+- Pass `unicode_normalize` config to history config
+
+**`src/lle/keybinding_actions.c`**:
+- Added `#include "lle/unicode_compare.h"`
+- Added helper `history_nav_strings_equal()` that respects Unicode config
+- Updated both `lle_history_previous()` and `lle_history_next()` to use Unicode comparison
+
+**`src/lle/meson.build`**:
+- Added `unicode_compare.c` to build
 
 ### Config Options Added
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `lle.dedup_navigation` | bool | true | Skip duplicates when navigating history with Up/Down |
-| `lle.dedup_strategy` | string | keep_recent | Strategy: ignore, keep_recent, keep_frequent, merge, keep_all |
+| `lle.dedup_unicode_normalize` | bool | true | Use Unicode NFC normalization for dedup comparison |
 
-### Technical Notes
+### Technical Design
 
-- Uses `strcmp()` for comparison (byte-level, not Unicode-normalized)
-- Navigation dedup compares against current buffer content, not previous entry
-- Two separate enums exist (config.h and history.h) with mapping function to maintain separation
+- **NFC (Canonical Composition)**: Standard normalization form where precomposed characters are preferred
+- **Decomposition tables**: Cover Latin-1 Supplement (U+0080-00FF) and Latin Extended-A (U+0100-017F)
+- **Combining class ordering**: Ensures combining marks are in canonical order before composition
+- **Fast path**: If Unicode normalization disabled, falls back to direct strcmp
+- **99%+ commands are ASCII**: Unicode normalization has negligible performance impact for typical use
 
 ---
 
@@ -96,26 +138,19 @@ User expectation: When pressing Up arrow, never see the same command twice in a 
 | Vi Keybindings | 25 | ❌ Not implemented | Stub exists, no actual bindings |
 | Completion System | 12 | ✅ Working | Type classification, context analyzer |
 | Completion Menu | 23 | ✅ Working | Arrow/vim nav, categories |
-| History System | 09 | ✅ Working | Add-time AND navigation-time dedup now active |
+| History System | 09 | ✅ Working | Add-time, navigation-time dedup, Unicode-aware |
 | Widget System | 07 | ⚠️ EMPTY | Registry/hooks exist but ZERO widgets registered |
 | Syntax Highlighting | 11 | ⚠️ PARTIAL | Working but NOT THEMEABLE |
 | Fuzzy Matching | 27 | ⚠️ DUPLICATED | Exists in autocorrect.c, not shared library |
 
 ### KEY ISSUES FIXED THIS SESSION
 
-1. **~~History Dedup Not Active~~**: **FIXED** - Both add-time and navigation-time dedup now active by default with user-configurable options.
+1. **~~History Dedup Not Active~~**: **FIXED** - Both add-time and navigation-time dedup now active
+2. **~~Byte-level comparison only~~**: **FIXED** - Unicode NFC normalization now used by default
 
 ---
 
 ## Remaining Priority Items
-
-### Priority 3: Unicode-Aware History Comparison
-**Effort: Low-Medium | Value: Completeness/Quality**
-
-- Currently uses `strcmp()` which is byte-level only
-- LLE has TR#29 Unicode support for grapheme clusters
-- Should use Unicode-normalized comparison for history dedup
-- User explicitly requested: "we should by the philosophies that drive lusush development have this fully featured capability"
 
 ### Priority 4: Themeable Syntax Highlighting
 **Effort: Medium | Value: Core Philosophy**
