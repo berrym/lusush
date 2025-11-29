@@ -10,6 +10,7 @@
  */
 
 #include "lle/keybinding.h"
+#include "lle/keybinding_actions.h"
 #include "lle/hashtable.h"
 #include "libhashtable/ht.h"
 #include <stdlib.h>
@@ -649,8 +650,203 @@ lle_result_t lle_keybinding_manager_load_emacs_preset(
     /* Set mode to emacs */
     manager->current_mode = LLE_KEYMAP_EMACS;
     
-    /* Note: Actual bindings will be loaded in Phase 3 when we implement
-     * the keybinding action functions. For now, this is a placeholder. */
+    /* ========================================================================
+     * GNU Readline Emacs-style Keybindings
+     * 
+     * This loads all SIMPLE actions that operate on lle_editor_t only.
+     * Context-aware actions (requiring readline_context_t) must be registered
+     * separately in lle_readline.c after this preset loads.
+     * 
+     * Context-aware bindings registered in lle_readline.c will OVERRIDE
+     * simple bindings registered here for: RIGHT, END, C-e, C-f, C-g, 
+     * C-RIGHT, ESC, ENTER (these need autosuggestion/completion/readline access)
+     * ======================================================================== */
+    
+    lle_result_t result;
+    
+    /* ------------------------------------------------------------------------
+     * MOVEMENT - Character Level
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-f", lle_forward_char, "forward-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-b", lle_backward_char, "backward-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "RIGHT", lle_forward_char, "forward-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "LEFT", lle_backward_char, "backward-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * MOVEMENT - Word Level
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "M-f", lle_forward_word, "forward-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-b", lle_backward_word, "backward-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * MOVEMENT - Line Level
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-a", lle_beginning_of_line, "beginning-of-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-e", lle_end_of_line, "end-of-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "HOME", lle_beginning_of_line, "beginning-of-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "END", lle_end_of_line, "end-of-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * MOVEMENT - Buffer Level (Multiline)
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "M-<", lle_beginning_of_buffer, "beginning-of-buffer");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M->", lle_end_of_buffer, "end-of-buffer");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * DELETION - Character Level
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-d", lle_delete_char, "delete-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "DELETE", lle_delete_char, "delete-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "BACKSPACE", lle_backward_delete_char, "backward-delete-char");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * KILL/YANK - Line Operations
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-k", lle_kill_line, "kill-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-u", lle_unix_line_discard, "unix-line-discard");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * KILL/YANK - Word Operations
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-w", lle_unix_word_rubout, "unix-word-rubout");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-d", lle_kill_word, "kill-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-BACKSPACE", lle_backward_kill_word, "backward-kill-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * YANK (Paste)
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-y", lle_yank, "yank");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-y", lle_yank_pop, "yank-pop");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * CASE CHANGES
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "M-u", lle_upcase_word, "upcase-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-l", lle_downcase_word, "downcase-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-c", lle_capitalize_word, "capitalize-word");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * TRANSPOSE
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-t", lle_transpose_chars, "transpose-chars");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-t", lle_transpose_words, "transpose-words");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * HISTORY NAVIGATION
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-p", lle_history_previous, "history-previous");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-n", lle_history_next, "history-next");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "UP", lle_smart_up_arrow, "smart-up-arrow");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "DOWN", lle_smart_down_arrow, "smart-down-arrow");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* History search - not yet fully implemented but bind for future */
+    result = lle_keybinding_manager_bind(manager, "M-p", lle_history_search_backward, "history-search-backward");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-n", lle_history_search_forward, "history-search-forward");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * COMPLETION
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "TAB", lle_complete, "complete");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-?", lle_possible_completions, "possible-completions");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-*", lle_insert_completions, "insert-completions");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * SPECIAL FUNCTIONS
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "C-l", lle_clear_screen, "clear-screen");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-g", lle_abort_line, "abort-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "ENTER", lle_accept_line, "accept-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "RET", lle_accept_line, "accept-line");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * LITERAL INSERTION
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "S-ENTER", lle_insert_newline_literal, "insert-newline-literal");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-ENTER", lle_insert_newline_literal, "insert-newline-literal");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-q", lle_quoted_insert, "quoted-insert");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "C-v", lle_quoted_insert, "quoted-insert");
+    if (result != LLE_SUCCESS) return result;
+    
+    result = lle_keybinding_manager_bind(manager, "M-TAB", lle_tab_insert, "tab-insert");
+    if (result != LLE_SUCCESS) return result;
+    
+    /* ------------------------------------------------------------------------
+     * MISCELLANEOUS
+     * ------------------------------------------------------------------------ */
+    result = lle_keybinding_manager_bind(manager, "M-\\", lle_delete_horizontal_space, "delete-horizontal-space");
+    if (result != LLE_SUCCESS) return result;
     
     return LLE_SUCCESS;
 }

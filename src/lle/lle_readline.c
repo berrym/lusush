@@ -1963,85 +1963,40 @@ char *lle_readline(const char *prompt)
         global_lle_editor->history_navigation_pos = 0;
     }
     
-    /* === STEP 6.6: Create keybinding manager (Group 1+ migration) === */
-    /* Group 1: Navigation keys (LEFT, RIGHT, HOME, END) */
+    /* === STEP 6.6: Create keybinding manager and load Emacs preset === */
     lle_keybinding_manager_t *keybinding_manager = NULL;
     result = lle_keybinding_manager_create(&keybinding_manager, global_memory_pool);
     if (result != LLE_SUCCESS || keybinding_manager == NULL) {
         /* Failed to create keybinding manager - non-fatal, will use hardcoded fallbacks */
         keybinding_manager = NULL;
     } else {
-        /* Bind Group 1 navigation keys to their action functions */
-        /* These will be routed through keybinding manager instead of hardcoded handlers */
-        lle_keybinding_manager_bind(keybinding_manager, "LEFT", lle_backward_char, "backward-char");
-        /* RIGHT and END use context-aware actions for Fish-style autosuggestion acceptance */
+        /* Load the full Emacs preset first - this provides all GNU Readline bindings */
+        result = lle_keybinding_manager_load_emacs_preset(keybinding_manager);
+        if (result != LLE_SUCCESS) {
+            /* Preset load failed - continue with context-aware overrides only */
+        }
+        
+        /* Override specific bindings with context-aware variants that need readline_context_t.
+         * These provide Fish-style autosuggestion acceptance and completion menu handling.
+         * The preset's simple actions are overridden where context awareness is needed. */
+        
+        /* Fish-style autosuggestion acceptance: RIGHT/END/C-f/C-e accept suggestions */
         lle_keybinding_manager_bind_context(keybinding_manager, "RIGHT", lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
-        /* Ctrl+RIGHT: Partial suggestion acceptance (accept one word at a time) */
-        lle_keybinding_manager_bind_context(keybinding_manager, "C-RIGHT", lle_forward_word_or_accept_partial_suggestion, "forward-word-or-accept-partial");
-        lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
         lle_keybinding_manager_bind_context(keybinding_manager, "END", lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
-        
-        /* Bind Group 2 deletion keys to their action functions */
-        /* These will be routed through keybinding manager instead of hardcoded handlers */
-        lle_keybinding_manager_bind(keybinding_manager, "BACKSPACE", lle_backward_delete_char, "backward-delete-char");
-        lle_keybinding_manager_bind(keybinding_manager, "DELETE", lle_delete_char, "delete-char");
-        lle_keybinding_manager_bind(keybinding_manager, "C-d", lle_delete_char, "delete-char");
-        
-        /* Bind Group 3 kill/yank keys to their action functions */
-        /* These will be routed through keybinding manager instead of hardcoded handlers */
-        lle_keybinding_manager_bind(keybinding_manager, "C-k", lle_kill_line, "kill-line");
-        lle_keybinding_manager_bind(keybinding_manager, "C-u", lle_unix_line_discard, "unix-line-discard");
-        lle_keybinding_manager_bind(keybinding_manager, "C-w", lle_unix_word_rubout, "unix-word-rubout");
-        lle_keybinding_manager_bind(keybinding_manager, "C-y", lle_yank, "yank");
-        
-        /* Bind Group 4 history & special keys to their action functions */
-        /* These will be routed through keybinding manager instead of hardcoded handlers */
-        /* Ctrl-A/B/E/F are duplicates of Group 1 navigation keys */
-        lle_keybinding_manager_bind(keybinding_manager, "C-a", lle_beginning_of_line, "beginning-of-line");
-        lle_keybinding_manager_bind(keybinding_manager, "C-b", lle_backward_char, "backward-char");
-        /* Ctrl-E and Ctrl-F also use context-aware actions for autosuggestion acceptance */
         lle_keybinding_manager_bind_context(keybinding_manager, "C-e", lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
         lle_keybinding_manager_bind_context(keybinding_manager, "C-f", lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
-        /* History navigation */
-        lle_keybinding_manager_bind(keybinding_manager, "C-n", lle_history_next, "history-next");
-        lle_keybinding_manager_bind(keybinding_manager, "C-p", lle_history_previous, "history-previous");
-        /* Smart arrows - context-aware (history vs multiline) */
-        lle_keybinding_manager_bind(keybinding_manager, "UP", lle_smart_up_arrow, "smart-up-arrow");
-        lle_keybinding_manager_bind(keybinding_manager, "DOWN", lle_smart_down_arrow, "smart-down-arrow");
-        /* Special functions */
-        lle_keybinding_manager_bind(keybinding_manager, "C-l", lle_clear_screen, "clear-screen");
         
-        /* Ctrl-G: Context-aware abort action (requires readline_context_t access) */
-        /* First press dismisses completion menu, second press aborts line */
+        /* Partial suggestion acceptance: Ctrl+RIGHT accepts one word at a time */
+        lle_keybinding_manager_bind_context(keybinding_manager, "C-RIGHT", lle_forward_word_or_accept_partial_suggestion, "forward-word-or-accept-partial");
+        
+        /* Context-aware abort: first press dismisses completion menu, second aborts line */
         lle_keybinding_manager_bind_context(keybinding_manager, "C-g", lle_abort_line_context, "abort-line");
         
-        /* ESC: Context-aware escape action - dismisses completion menu only */
+        /* ESC: Context-aware escape - dismisses completion menu or autosuggestion */
         lle_keybinding_manager_bind_context(keybinding_manager, "ESC", lle_escape_context, "escape");
         
-        /* Group 5: ENTER key - Context-aware action (requires readline_context_t access) */
-        /* This uses the new dual-action architecture to provide ENTER with full readline context */
-        /* See: docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md */
+        /* ENTER: Context-aware accept line with multiline/completion awareness */
         lle_keybinding_manager_bind_context(keybinding_manager, "ENTER", lle_accept_line_context, "accept-line");
-        
-        /* Group 6: Meta/Alt keybindings - Essential Emacs-style navigation */
-        /* Word navigation (standard Emacs bindings) */
-        lle_keybinding_manager_bind(keybinding_manager, "M-f", lle_forward_word, "forward-word");
-        lle_keybinding_manager_bind(keybinding_manager, "M-b", lle_backward_word, "backward-word");
-        /* Buffer navigation (essential for multiline editing) */
-        lle_keybinding_manager_bind(keybinding_manager, "M-<", lle_beginning_of_buffer, "beginning-of-buffer");
-        lle_keybinding_manager_bind(keybinding_manager, "M->", lle_end_of_buffer, "end-of-buffer");
-        /* Word editing and case changes */
-        lle_keybinding_manager_bind(keybinding_manager, "M-d", lle_kill_word, "kill-word");
-        lle_keybinding_manager_bind(keybinding_manager, "M-c", lle_capitalize_word, "capitalize-word");
-        lle_keybinding_manager_bind(keybinding_manager, "M-l", lle_downcase_word, "downcase-word");
-        lle_keybinding_manager_bind(keybinding_manager, "M-u", lle_upcase_word, "upcase-word");
-        
-        /* Literal newline insertion - for editing complete multiline commands */
-        lle_keybinding_manager_bind(keybinding_manager, "S-ENTER", lle_insert_newline_literal, "insert-newline-literal");
-        lle_keybinding_manager_bind(keybinding_manager, "M-ENTER", lle_insert_newline_literal, "insert-newline-literal");
-        
-        /* Completion */
-        lle_keybinding_manager_bind(keybinding_manager, "TAB", lle_complete, "complete");
     }
     
     readline_context_t ctx = {
