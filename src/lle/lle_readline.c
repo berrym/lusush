@@ -384,6 +384,201 @@ lle_result_t lle_end_of_line_or_accept_suggestion(readline_context_t *ctx)
 }
 
 /**
+ * @brief Find next word boundary in suggestion text
+ * 
+ * Finds the end of the next word in the suggestion, used for partial
+ * acceptance with Ctrl+Right.
+ * 
+ * @param suggestion The suggestion text to search
+ * @return Byte offset to end of next word (including trailing space if any)
+ */
+static size_t find_next_word_boundary_in_suggestion(const char *suggestion)
+{
+    if (!suggestion || !*suggestion) {
+        return 0;
+    }
+    
+    size_t pos = 0;
+    
+    /* Skip leading whitespace */
+    while (suggestion[pos] && (suggestion[pos] == ' ' || suggestion[pos] == '\t')) {
+        pos++;
+    }
+    
+    /* Find end of word (non-whitespace characters) */
+    while (suggestion[pos] && suggestion[pos] != ' ' && suggestion[pos] != '\t') {
+        pos++;
+    }
+    
+    /* Include one trailing space if present (feels more natural) */
+    if (suggestion[pos] == ' ') {
+        pos++;
+    }
+    
+    return pos;
+}
+
+/**
+ * @brief Accept partial autosuggestion (one word) into buffer
+ * 
+ * Inserts the next word from the suggestion into the buffer and updates
+ * the suggestion to show remaining text.
+ * 
+ * @param ctx Readline context
+ * @return true if partial suggestion was accepted, false otherwise
+ */
+static bool accept_partial_autosuggestion(readline_context_t *ctx)
+{
+    if (!has_autosuggestion(ctx)) {
+        return false;
+    }
+    
+    /* Find next word boundary */
+    size_t word_len = find_next_word_boundary_in_suggestion(ctx->current_suggestion);
+    if (word_len == 0) {
+        return false;
+    }
+    
+    /* Insert just the word portion at cursor (which is at end) */
+    lle_result_t result = lle_buffer_insert_text(
+        ctx->buffer,
+        ctx->buffer->cursor.byte_offset,
+        ctx->current_suggestion,
+        word_len
+    );
+    
+    if (result == LLE_SUCCESS) {
+        /* Sync cursor manager */
+        if (ctx->editor && ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
+        
+        /* Update suggestion to show remaining text */
+        size_t remaining_len = strlen(ctx->current_suggestion) - word_len;
+        if (remaining_len > 0) {
+            memmove(ctx->current_suggestion, 
+                    ctx->current_suggestion + word_len, 
+                    remaining_len + 1);  /* +1 for null terminator */
+        } else {
+            /* No more suggestion text */
+            ctx->current_suggestion[0] = '\0';
+        }
+        
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * @brief Refresh display WITHOUT regenerating autosuggestion
+ * 
+ * Used after partial suggestion acceptance when we want to keep
+ * the remaining suggestion text rather than regenerating from history.
+ * This is a copy of refresh_display() but skips update_autosuggestion().
+ */
+static void refresh_display_keep_suggestion(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->buffer) {
+        return;
+    }
+
+    /* Pass existing suggestion to display controller (don't regenerate) */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        display_controller_set_autosuggestion(dc, ctx->current_suggestion);
+    }
+
+    /* Get the global Spec 08 display integration instance */
+    lle_display_integration_t *display_integration = lle_display_integration_get_global();
+    if (!display_integration) {
+        return;
+    }
+
+    /* Get render controller from display integration */
+    lle_render_controller_t *render_controller = display_integration->render_controller;
+    if (!render_controller) {
+        return;
+    }
+
+    /* Mark entire buffer as dirty for redraw */
+    if (render_controller->dirty_tracker) {
+        lle_dirty_tracker_mark_full(render_controller->dirty_tracker);
+    }
+
+    /* Render buffer content through Spec 08 render system */
+    lle_render_output_t *render_output = NULL;
+    lle_result_t result = lle_render_buffer_content(
+        render_controller,
+        ctx->buffer,
+        &ctx->buffer->cursor,
+        &render_output
+    );
+
+    if (result != LLE_SUCCESS || !render_output) {
+        return;
+    }
+
+    /* Send rendered output through display_bridge */
+    lle_display_bridge_t *display_bridge = display_integration->display_bridge;
+    if (display_bridge) {
+        lle_display_bridge_send_output(
+            display_bridge,
+            render_output,
+            &ctx->buffer->cursor
+        );
+    }
+
+    /* Free the render output */
+    lle_render_output_free(render_output);
+
+    /* Clear dirty tracker after successful render */
+    if (render_controller->dirty_tracker) {
+        lle_dirty_tracker_clear(render_controller->dirty_tracker);
+    }
+}
+
+/**
+ * @brief Context-aware Ctrl+Right action (Fish-style partial autosuggestion acceptance)
+ * 
+ * If cursor is at end of buffer AND autosuggestion is available, accept one word.
+ * Otherwise, move cursor forward by one word.
+ * 
+ * This is a context-aware action that requires readline_context_t access
+ * for the autosuggestion buffer.
+ */
+lle_result_t lle_forward_word_or_accept_partial_suggestion(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->buffer) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Fish-style: If at end of buffer with suggestion, accept one word */
+    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
+        if (accept_partial_autosuggestion(ctx)) {
+            /* Use special refresh that keeps remaining suggestion intact */
+            refresh_display_keep_suggestion(ctx);
+            return LLE_SUCCESS;
+        }
+    }
+    
+    /* Normal behavior: move cursor forward by one word */
+    if (ctx->editor) {
+        lle_forward_word(ctx->editor);
+        /* Sync buffer cursor from editor */
+        if (ctx->editor->cursor_manager) {
+            lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+        }
+        refresh_display(ctx);
+    }
+    
+    return LLE_SUCCESS;
+}
+
+/**
  * @brief Multiline detection using shared continuation parser
  * Step 6: Uses input_continuation.c for proper shell construct detection
  * 
@@ -1781,6 +1976,8 @@ char *lle_readline(const char *prompt)
         lle_keybinding_manager_bind(keybinding_manager, "LEFT", lle_backward_char, "backward-char");
         /* RIGHT and END use context-aware actions for Fish-style autosuggestion acceptance */
         lle_keybinding_manager_bind_context(keybinding_manager, "RIGHT", lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
+        /* Ctrl+RIGHT: Partial suggestion acceptance (accept one word at a time) */
+        lle_keybinding_manager_bind_context(keybinding_manager, "C-RIGHT", lle_forward_word_or_accept_partial_suggestion, "forward-word-or-accept-partial");
         lle_keybinding_manager_bind(keybinding_manager, "HOME", lle_beginning_of_line, "beginning-of-line");
         lle_keybinding_manager_bind_context(keybinding_manager, "END", lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
         
@@ -2011,6 +2208,11 @@ char *lle_readline(const char *prompt)
                 /* GROUP 1 MIGRATION: Navigation keys routed through keybinding manager */
                 else if (event->data.special_key.key == LLE_KEY_LEFT) {
                     execute_keybinding_action(&ctx, "LEFT", handle_arrow_left);
+                }
+                /* Ctrl+Right: Partial suggestion acceptance (must check before plain RIGHT) */
+                else if (event->data.special_key.key == LLE_KEY_RIGHT &&
+                         (event->data.special_key.modifiers & LLE_MOD_CTRL)) {
+                    execute_keybinding_action(&ctx, "C-RIGHT", NULL);
                 }
                 else if (event->data.special_key.key == LLE_KEY_RIGHT) {
                     execute_keybinding_action(&ctx, "RIGHT", handle_arrow_right);

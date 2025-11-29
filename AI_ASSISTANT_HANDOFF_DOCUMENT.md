@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 30
+# AI Assistant Handoff Document - Session 31
 
-**Date**: 2025-11-28  
-**Session Type**: Feature Implementation - Fish-Style Autosuggestions (LLE History Integration)  
-**Status**: ✅ IMPLEMENTATION COMPLETE - TESTED AND VERIFIED  
+**Date**: 2025-11-29  
+**Session Type**: Specification Review, Priority Analysis, Feature Implementation  
+**Status**: COMPLETE - COMMITTED  
 
 ---
 
@@ -14,410 +14,147 @@
 
 **Session 29**: Initial autosuggestions design document and basic integration.
 
-**Session 30 (This Session)**:
-1. Fish-style autosuggestions fully integrated with **LLE history system** (not GNU readline)
-2. Context-aware keybindings for Right/End/Ctrl-F/Ctrl-E acceptance
-3. Multiline history entry filtering (both real `\n` and escaped `\\n`)
-4. Line-wrapped ghost text cursor positioning fix
-5. UTF-8/grapheme width calculation for display
-6. Design document updated to version 2.0
+**Session 30**: Fish-style autosuggestions fully integrated with LLE history system, context-aware keybindings, multiline filtering, cursor positioning fixes. **COMMITTED as 3bcb7fd**.
+
+**Session 31 (This Session)**: 
+1. Comprehensive specification review with user corrections
+2. Implemented and tested partial suggestion acceptance (Ctrl+Right)
 
 ---
 
-## Session 30 Summary - LLE History Autosuggestions
-
-### Key Changes from Session 29
-
-The previous session used `lusush_get_suggestion()` which searched GNU readline history. This session **rewrote the entire suggestion system** to use LLE's own history system directly.
+## Session 31 Implementation - Partial Suggestion Acceptance
 
 ### What Was Implemented
 
-#### 1. New API Functions in autosuggestions_layer
+**Ctrl+Right**: Accept autosuggestion one word at a time (Fish-style partial acceptance)
 
-**`include/display/autosuggestions_layer.h`** - Added:
-```c
-/**
- * Set suggestion text directly (bypassing internal generation)
- */
-autosuggestions_layer_error_t autosuggestions_layer_set_suggestion(
-    autosuggestions_layer_t *layer,
-    const char *suggestion);
-```
+### Verified Behavior
 
-**`src/display/autosuggestions_layer.c`** - Implemented direct setter (~40 lines):
-- Validates layer and suggestion length
-- Frees existing suggestion
-- Duplicates new suggestion text
-- Updates display flags and metrics
+- `ec` shows red (invalid command) with gray suggestion text
+- Ctrl+Right accepts `ho ` → `echo` turns green (valid command), remaining suggestion visible
+- Ctrl+Right continues accepting word by word: `"this `, `is `, `an `, etc.
+- Syntax highlighting updates correctly as words are accepted
+- Ctrl+U clears line correctly
+- Typing `ec` again after clear shows suggestions (confirmed working)
 
-#### 2. Display Controller Updates
+### Files Modified
 
-**`include/display/display_controller.h`**:
-- Deprecated `display_controller_update_autosuggestion()` (legacy GNU readline)
-- Added `display_controller_set_autosuggestion()` for direct LLE integration
+**`src/lle/lle_readline.c`**:
 
-**`src/display/display_controller.c`**:
+1. **`find_next_word_boundary_in_suggestion()`** - Finds end of next word in suggestion (whitespace-delimited, includes trailing space)
 
-1. **Made old function no-op**, added new direct setter:
-```c
-void display_controller_set_autosuggestion(
-    display_controller_t *controller,
-    const char *suggestion) {
-    
-    if (!controller || !controller->autosuggestions_layer) {
-        return;
-    }
-    
-    if (controller->completion_menu_visible) {
-        autosuggestions_layer_clear(controller->autosuggestions_layer);
-        return;
-    }
-    
-    autosuggestions_layer_set_suggestion(controller->autosuggestions_layer, suggestion);
-}
-```
+2. **`accept_partial_autosuggestion()`** - Inserts next word, updates `ctx->current_suggestion` with remaining text via memmove
 
-2. **Fixed cursor positioning for wrapped ghost text**:
-```c
-/* Calculate extra rows added by ghost text (autosuggestion) */
-int ghost_text_extra_rows = 0;
-if (controller->autosuggestions_enabled && 
-    controller->autosuggestions_layer &&
-    !controller->completion_menu_visible &&
-    !is_multiline) {
-    
-    const char *suggestion = autosuggestions_layer_get_current_suggestion(
-        controller->autosuggestions_layer
-    );
-    
-    if (suggestion && *suggestion) {
-        size_t suggestion_width = lle_utf8_string_width(suggestion, strlen(suggestion));
-        int command_end_col = desired_screen.cursor_col;
-        int total_cols_needed = command_end_col + (int)suggestion_width;
-        
-        if (total_cols_needed > term_width) {
-            ghost_text_extra_rows = (total_cols_needed - 1) / term_width;
-        }
-    }
-}
+3. **`refresh_display_keep_suggestion()`** - Critical fix: refreshes display WITHOUT calling `update_autosuggestion()`, preserving the remaining suggestion text we already calculated
 
-int current_terminal_row = final_row + ghost_text_extra_rows + menu_lines;
-```
+4. **`lle_forward_word_or_accept_partial_suggestion()`** - Context-aware action:
+   - At end with suggestion → accept one word, use `refresh_display_keep_suggestion()`
+   - Otherwise → normal forward-word behavior
 
-#### 3. LLE Readline - Core Implementation
+5. **Keybinding registration**: `"C-RIGHT"` bound to the new action
 
-**`src/lle/lle_readline.c`** - Major changes:
+6. **Event handling**: Added check for `LLE_KEY_RIGHT` with `LLE_MOD_CTRL` modifier before plain RIGHT
 
-**New fields in `readline_context_t`**:
-```c
-/* Fish-style autosuggestions - LLE history integration */
-char *current_suggestion;
-size_t suggestion_alloc_size;
-```
+### Key Bug Fixed
 
-**`update_autosuggestion()` function** (~90 lines):
-- Clears existing suggestion
-- Validates context and cursor position (must be at end)
-- Requires minimum 2 characters
-- Skips if buffer ends with space
-- Skips if in multiline mode (contains newlines)
-- Searches LLE history backwards (most recent first)
-- **Filters multiline entries**: Both `strchr(entry->command, '\n')` AND `strstr(entry->command, "\\n")`
-- Copies remaining text after prefix match
+**Issue**: After partial acceptance, remaining suggestion disappeared.
 
-**Helper functions**:
-```c
-static bool has_autosuggestion(readline_context_t *ctx)
-{
-    return ctx && ctx->current_suggestion && ctx->current_suggestion[0] != '\0';
-}
+**Root Cause**: `refresh_display()` calls `update_autosuggestion()` which regenerates from history. After accepting "ho ", buffer is "echo " but history search for "echo " prefix might not match or finds different entry.
 
-static bool accept_autosuggestion(readline_context_t *ctx)
-{
-    if (!has_autosuggestion(ctx)) {
-        return false;
-    }
-    
-    size_t suggestion_len = strlen(ctx->current_suggestion);
-    lle_result_t result = lle_buffer_insert_text(
-        ctx->buffer,
-        ctx->buffer->cursor.byte_offset,
-        ctx->current_suggestion,
-        suggestion_len
-    );
-    
-    if (result == LLE_SUCCESS) {
-        if (ctx->editor && ctx->editor->cursor_manager) {
-            lle_cursor_manager_move_to_byte_offset(
-                ctx->editor->cursor_manager,
-                ctx->buffer->cursor.byte_offset
-            );
-        }
-        ctx->current_suggestion[0] = '\0';
-        return true;
-    }
-    
-    return false;
-}
-```
-
-**Context-aware actions** (new pattern for LLE):
-```c
-lle_result_t lle_forward_char_or_accept_suggestion(readline_context_t *ctx)
-{
-    if (!ctx || !ctx->buffer) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    /* Fish-style: If at end of buffer with suggestion, accept it */
-    if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
-        if (accept_autosuggestion(ctx)) {
-            refresh_display(ctx);
-            return LLE_SUCCESS;
-        }
-    }
-    
-    /* Normal behavior: move cursor right */
-    // ... standard cursor movement code
-}
-
-lle_result_t lle_end_of_line_or_accept_suggestion(readline_context_t *ctx)
-{
-    // Similar dual-behavior pattern
-}
-```
-
-**Keybinding registrations using context-aware actions**:
-```c
-/* RIGHT and END use context-aware actions for Fish-style autosuggestion acceptance */
-lle_keybinding_manager_bind_context(keybinding_manager, "RIGHT", 
-    lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
-lle_keybinding_manager_bind_context(keybinding_manager, "END", 
-    lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
-
-/* Ctrl-E and Ctrl-F also use context-aware actions */
-lle_keybinding_manager_bind_context(keybinding_manager, "C-e", 
-    lle_end_of_line_or_accept_suggestion, "end-of-line-or-accept");
-lle_keybinding_manager_bind_context(keybinding_manager, "C-f", 
-    lle_forward_char_or_accept_suggestion, "forward-char-or-accept");
-```
-
-**Updated `refresh_display()`**:
-```c
-static void refresh_display(readline_context_t *ctx)
-{
-    if (!ctx || !ctx->buffer) {
-        return;
-    }
-
-    display_controller_t *dc = display_integration_get_controller();
-    if (dc) {
-        /* Generate suggestion from LLE history */
-        update_autosuggestion(ctx);
-        
-        /* Pass suggestion to display controller for rendering */
-        display_controller_set_autosuggestion(dc, ctx->current_suggestion);
-    }
-    // ... rest of function
-}
-```
-
-#### 4. Design Document Update
-
-**`docs/design/FISH_STYLE_AUTOSUGGESTIONS_DESIGN.md`**:
-- Updated from version 1.0 (design) to version 2.0 (implementation complete)
-- Added actual implementation details matching code
-- Added Future Enhancements section with config option for multiline suggestions
-- Added Troubleshooting guide
+**Fix**: Created `refresh_display_keep_suggestion()` that skips regeneration, uses already-updated `ctx->current_suggestion`.
 
 ---
 
-## Architecture - Data Flow
+## Specification Analysis (Corrected by User)
 
-```
-User types character
-    │
-    ▼
-lle_readline.c::handle_character_input()
-    │
-    ├──► lle_buffer_insert_text()
-    │
-    ▼
-refresh_display()
-    │
-    ├──► update_autosuggestion()
-    │         │
-    │         ▼
-    │    LLE History Search (most recent first)
-    │         │
-    │         ▼
-    │    Filter multiline entries (\n and \\n)
-    │         │
-    │         ▼
-    │    Store suggestion in ctx->current_suggestion
-    │
-    ├──► display_controller_set_autosuggestion()
-    │
-    ▼
-dc_handle_redraw_needed()
-    │
-    ├──► Write command text
-    ├──► Write ghost text (BRIGHT_BLACK \033[90m)
-    ├──► Calculate ghost_text_extra_rows for cursor
-    └──► Position cursor correctly
-```
+### IMPLEMENTATION STATUS
+
+| Feature | Spec | Status | Notes |
+|---------|------|--------|-------|
+| Autosuggestions | 10 | ✅ Working | LLE history integration complete |
+| Partial Accept | 10 | ✅ COMPLETE | Ctrl+Right word-at-a-time - VERIFIED |
+| Emacs Keybindings | 25 | ⚠️ PARTIAL | Bindings hardcoded in lle_readline.c, preset loader is EMPTY STUB |
+| Vi Keybindings | 25 | ❌ Not implemented | Stub exists, no actual bindings |
+| Completion System | 12 | ✅ Working | Type classification, context analyzer |
+| Completion Menu | 23 | ✅ Working | Arrow/vim nav, categories |
+| History System | 09 | ⚠️ PARTIAL | Infrastructure exists, dedup NOT ACTIVE by default |
+| Widget System | 07 | ⚠️ EMPTY | Registry/hooks exist but ZERO widgets registered |
+| Syntax Highlighting | 11 | ⚠️ PARTIAL | Working but NOT THEMEABLE |
+| Fuzzy Matching | 27 | ⚠️ DUPLICATED | Exists in autocorrect.c, not shared library |
+
+### KEY ISSUES IDENTIFIED BY USER
+
+1. **Emacs Preset is Empty**: `lle_keybinding_manager_load_emacs_preset()` just sets mode flag, doesn't load bindings. The 40+ bindings are hardcoded directly in `lle_readline.c`. Should have:
+   - Hardcoded fallback for resilience (keep)
+   - Preset loader that actually loads bindings via API (missing)
+
+2. **History Dedup Not Active**: `history_dedup.c` has sophisticated engine but not wired as default. Lusush philosophy = opinionated defaults, dedup should be ON.
+
+3. **Widget System is Useless**: Infrastructure exists but zero widgets registered, no way for users to configure/use it.
+
+4. **Syntax Highlighting Exists But Not Themeable**: `enhanced_syntax_highlighting.c` and `command_layer.c` work, but colors are hardcoded. Themeable everything is core lusush philosophy.
+
+5. **Autocorrect Location Question**: Fuzzy algorithms in `src/autocorrect.c` serve both shell-level autocorrect AND LLE completion/history. Should be shared library accessible to both. Open question: Should autocorrect itself be an LLE component?
 
 ---
 
-## Bugs Fixed in Session 30
+## Remaining Priority Items
 
-### Bug 1: Right/End Keys Not Accepting Suggestions
-- **Symptom**: Suggestions displayed but Right/End didn't accept them
-- **Root Cause**: Keybinding manager bound RIGHT to `lle_forward_char` (simple action without context access)
-- **Fix**: Created context-aware actions `lle_forward_char_or_accept_suggestion()` and `lle_end_of_line_or_accept_suggestion()` using `lle_keybinding_manager_bind_context()`
+### Priority 2: Emacs Preset Should Actually Load Bindings
+**Effort: Medium | Value: Architecture**
 
-### Bug 2: Multiline History Causing Display Corruption
-- **Symptom**: Typing `echo "` showed `\nhello"` as suggestion, corrupting display
-- **Root Cause**: LLE history stores newlines as escaped `\\n` (two chars: backslash + n), not actual newline byte
-- **Fix**: Filter both formats:
-```c
-if (strchr(entry->command, '\n') != NULL || strstr(entry->command, "\\n") != NULL) {
-    continue;
-}
-```
+- `lle_keybinding_manager_load_emacs_preset()` should call bind for all 40+ bindings
+- Keep hardcoded fallback in `lle_readline.c` for resilience
+- Enables future vi preset and user presets
 
-### Bug 3: Cursor Wrong Row With Wrapped Suggestions
-- **Symptom**: When suggestion wrapped to next line, cursor was on wrong row
-- **Root Cause**: Cursor positioning didn't account for ghost text extra rows
-- **Fix**: Calculate `ghost_text_extra_rows` based on suggestion width and terminal width
+### Priority 3: Wire Up History Deduplication as Default
+**Effort: Low | Value: Opinionated Default**
 
-### Bug 4: Not Using UTF-8 Display Width
-- **User Feedback**: "make sure the length calculation gets full utf-8/graphemes/graphemes-clusters support"
-- **Fix**: Changed from `strlen(suggestion)` to `lle_utf8_string_width(suggestion, strlen(suggestion))`
+- Dedup engine exists in `history_dedup.c`
+- Should be active by default (lusush philosophy)
+- Respect `history_no_dups` config option
 
----
+### Priority 4: Themeable Syntax Highlighting
+**Effort: Medium | Value: Core Philosophy**
 
-## Files Modified in Session 30
+- Current implementation has hardcoded colors
+- Should integrate with theme system
+- "Themeable everything" is lusush core design philosophy
 
-1. **include/display/autosuggestions_layer.h**
-   - Added `autosuggestions_layer_set_suggestion()` declaration
+### Priority 5: Fuzzy Matching Shared Library
+**Effort: Low | Value: Architecture**
 
-2. **src/display/autosuggestions_layer.c**
-   - Implemented `autosuggestions_layer_set_suggestion()` (~40 lines)
+- Extract from `src/autocorrect.c` to shared location
+- Used by: autocorrect, completion ranking, fuzzy history search
 
-3. **include/display/display_controller.h**
-   - Deprecated old function, added `display_controller_set_autosuggestion()`
+### Priority 6: Widget System Needs Content
+**Effort: Medium-High | Value: Future Extensibility**
 
-4. **src/display/display_controller.c**
-   - Made old function no-op
-   - Added direct setter
-   - Added ghost text extra rows calculation for cursor positioning
-
-5. **src/lle/lle_readline.c**
-   - Added `current_suggestion` and `suggestion_alloc_size` fields
-   - Added `update_autosuggestion()` function (~90 lines)
-   - Added `has_autosuggestion()` and `accept_autosuggestion()` helpers
-   - Added `lle_forward_char_or_accept_suggestion()` context-aware action
-   - Added `lle_end_of_line_or_accept_suggestion()` context-aware action
-   - Updated keybinding registrations
-   - Updated `refresh_display()` to call autosuggestion update
-
-6. **docs/design/FISH_STYLE_AUTOSUGGESTIONS_DESIGN.md**
-   - Updated to version 2.0 with implementation details
+- Registry and hooks infrastructure exists
+- Zero widgets actually registered
+- No user configuration mechanism
 
 ---
 
-## Test Results - VERIFIED WORKING
+## Open Questions / Undetermined Behaviors
 
-```
-$ echo "hello world from wrapped autosuggestions test"
-hello world from wrapped autosuggestions test
+1. **Ctrl+Left backwards partial un-acceptance**: Could potentially remove last accepted word and prepend back to suggestion if text hasn't been modified. Complex semantics, not implemented.
 
-# Cursor properly positioned after user input
-# Autosuggestion showed and wrapped lines correctly
-# Suggestion accepted and executed with zero display corruption
-```
+2. **Word boundary behavior**: Currently uses simple whitespace-delimited words, crosses quote boundaries. This matches Fish behavior but differs from Emacs word-based navigation which is quote-aware. Current behavior is intentional.
 
----
-
-## Conditions for Suggestions
-
-Suggestions are displayed when ALL of these are true:
-1. `autosuggestions_enabled == true`
-2. `autosuggestions_layer != NULL`
-3. `completion_menu_visible == false`
-4. `is_multiline == false` (no newlines in current buffer)
-5. Cursor is at end of buffer
-6. Buffer length >= 2 characters
-7. Buffer doesn't end with space
-8. LLE history contains a prefix match
-9. Matched history entry is NOT multiline (no `\n` or `\\n`)
-
----
-
-## Future Enhancements (Documented)
-
-From design document section 8 "Future Enhancements":
-
-1. **Partial Acceptance** (Ctrl+Right): Accept one word at a time
-2. **Multiline Suggestion Config**: `enable_multiline_suggestions` option for users who want suggestions in multiline mode
-3. **Configurable Colors**: User-selectable ghost text color
-4. **Completion-Based Suggestions**: Fall back to completions if no history match
-5. **Fuzzy Matching**: More flexible history search
-
----
-
-## Key Implementation Notes
-
-### Context-Aware Actions Pattern
-LLE uses two types of keybinding actions:
-1. **Simple actions**: Take `lle_editor_t*` only, used for basic operations
-2. **Context-aware actions**: Take `readline_context_t*`, have access to full context including suggestion state
-
-Use `lle_keybinding_manager_bind_context()` for context-aware actions.
-
-### Multiline Newline Escaping
-LLE history stores actual newlines as the two-character sequence `\\n` (backslash + n), NOT as `\x0a`. When filtering multiline entries, check for BOTH.
-
-### UTF-8 Width Calculation
-Always use `lle_utf8_string_width(str, len)` for display width, NOT `strlen()`. This handles:
-- Multi-byte UTF-8 characters
-- Grapheme clusters
-- Wide characters (CJK, etc.)
-
----
-
-## Git Status
-
-**Branch**: feature/lle  
-**Status**: Ready to commit
-
-**Files to Stage**:
-- `include/display/autosuggestions_layer.h`
-- `src/display/autosuggestions_layer.c`
-- `include/display/display_controller.h`
-- `src/display/display_controller.c`
-- `src/lle/lle_readline.c`
-- `docs/design/FISH_STYLE_AUTOSUGGESTIONS_DESIGN.md`
-- `AI_ASSISTANT_HANDOFF_DOCUMENT.md`
+3. **Autocorrect as LLE component**: Should `src/autocorrect.c` be moved into LLE? Fuzzy algorithms are useful for both shell-level autocorrect and LLE completion/history search. Needs architectural decision.
 
 ---
 
 ## User Preferences (CRITICAL)
 
-1. **NO COMMITS without manual test confirmation** ✅ User confirmed working
+1. **NO COMMITS without manual test confirmation** ✅ User tested and confirmed
 2. **NO DESTRUCTIVE git operations without explicit approval**
 3. **USE screen_buffer integration, not direct terminal writes**
 4. **Lusush philosophy**: Maximum configurability with sensible defaults
-5. **User extensibility goal**: Every aspect should be configurable for users who want it
-
----
-
-## Recommended Next Steps
-
-1. **Commit and push** the autosuggestions work
-2. Consider implementing partial acceptance (Ctrl+Right) in future session
-3. Consider adding config option for multiline suggestions
+5. **Themeable everything** is core design philosophy
+6. **Opinionated defaults** - things like dedup should be ON by default
+7. **Specifications can be massive/overengineered** - implement core value
 
 ---
 
