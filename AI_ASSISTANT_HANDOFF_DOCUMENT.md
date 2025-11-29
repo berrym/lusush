@@ -1,7 +1,7 @@
 # AI Assistant Handoff Document - Session 33
 
 **Date**: 2025-11-29  
-**Session Type**: Unicode-Aware History Deduplication  
+**Session Type**: Unicode-Aware History Deduplication + LibFuzzy  
 **Status**: IN PROGRESS  
 
 ---
@@ -24,7 +24,9 @@
 1. Reviewed history deduplication implementation against spec
 2. Discovered add-time dedup was active but navigation-time dedup was missing
 3. Implemented navigation-time deduplication with config options - **COMMITTED as 250246d**
-4. Implemented Unicode-aware comparison for history deduplication
+4. Implemented Unicode-aware comparison for history deduplication - **COMMITTED as bb815b3**
+5. Created shared libfuzzy library with Unicode-aware fuzzy matching algorithms
+6. Refactored autocorrect.c and history_search.c to use libfuzzy
 
 ---
 
@@ -126,6 +128,94 @@ These should compare as equal for deduplication purposes.
 
 ---
 
+## Session 33 Implementation - Part 3: LibFuzzy Shared Library
+
+### Problem
+
+Fuzzy matching algorithms were duplicated in multiple places:
+- `src/autocorrect.c` - shell command autocorrection
+- `src/lle/history_search.c` - fuzzy history search
+- Potential future use in completion ranking
+
+Additionally, these algorithms used byte-level comparison, not Unicode-aware.
+
+### What Was Implemented
+
+1. **New shared library `libfuzzy`**: Centralized Unicode-aware fuzzy matching
+2. **Refactored `autocorrect.c`**: Delegates to libfuzzy functions
+3. **Refactored `history_search.c`**: Uses `fuzzy_levenshtein_distance()` instead of local implementation
+
+### Files Created
+
+**`include/fuzzy_match.h`**:
+```c
+typedef struct fuzzy_match_options {
+    bool case_sensitive;      // Default: false
+    bool unicode_normalize;   // Default: true (use NFC normalization)
+    bool use_damerau;         // Default: false (allow transpositions)
+    int max_distance;         // Default: -1 (unlimited)
+} fuzzy_match_options_t;
+
+extern const fuzzy_match_options_t FUZZY_MATCH_DEFAULT;
+
+// Core algorithms
+int fuzzy_levenshtein_distance(const char *s1, const char *s2, const fuzzy_match_options_t *options);
+int fuzzy_damerau_levenshtein_distance(const char *s1, const char *s2, const fuzzy_match_options_t *options);
+int fuzzy_jaro_winkler_score(const char *s1, const char *s2, const fuzzy_match_options_t *options);
+int fuzzy_common_prefix_length(const char *s1, const char *s2, const fuzzy_match_options_t *options);
+int fuzzy_subsequence_score(const char *pattern, const char *text, const fuzzy_match_options_t *options);
+
+// Combined scoring (weighted combination of algorithms)
+int fuzzy_match_score(const char *s1, const char *s2, const fuzzy_match_options_t *options);
+
+// Batch matching for completion lists
+int fuzzy_match_best(const char *pattern, const char **candidates, int num_candidates,
+                     fuzzy_match_result_t *results, int max_results, int threshold,
+                     const fuzzy_match_options_t *options);
+```
+
+**`src/libfuzzy/fuzzy_match.c`**:
+- Full implementations of all algorithms
+- Uses `lle/unicode_compare.h` for NFC normalization
+- Uses `lle/utf8_support.h` for UTF-8 codepoint decoding
+- Proper character-level comparison (not byte-level)
+
+### Files Modified
+
+**`meson.build`**:
+- Added `src/libfuzzy/fuzzy_match.c` to source list
+
+**`src/autocorrect.c`**:
+- Added `#include "fuzzy_match.h"`
+- Replaced `autocorrect_similarity_score()` → delegates to `fuzzy_match_score()`
+- Replaced `autocorrect_levenshtein_distance()` → delegates to `fuzzy_levenshtein_distance()`
+- Replaced `autocorrect_jaro_winkler_score()` → delegates to `fuzzy_jaro_winkler_score()`
+- Replaced `autocorrect_common_prefix_length()` → delegates to `fuzzy_common_prefix_length()`
+- Replaced `autocorrect_subsequence_score()` → delegates to `fuzzy_subsequence_score()`
+- Removed now-unused `min3()` and `jaro_similarity()` helper functions
+
+**`src/lle/history_search.c`**:
+- Added `#include "fuzzy_match.h"`
+- Removed local `min3()` and `levenshtein_distance()` functions (~70 lines)
+- Updated fuzzy search to use `fuzzy_levenshtein_distance()` with options
+
+### Technical Design
+
+- **Unicode-aware by default**: All algorithms use NFC normalization
+- **Case folding**: Case-insensitive comparison available via options
+- **Codepoint-based**: Decodes UTF-8 to codepoints for true character-level edit distance
+- **Configurable**: Options struct allows callers to customize behavior
+- **Backward compatible**: `autocorrect_*` functions preserved with same signatures
+
+### Benefits
+
+1. **Code consolidation**: ~200 lines of duplicated code removed
+2. **Unicode correctness**: All fuzzy matching now Unicode-aware
+3. **Consistency**: Same algorithms used by shell and LLE
+4. **Extensibility**: Easy to add new algorithms or use in completion ranking
+
+---
+
 ## Specification Analysis (Updated)
 
 ### IMPLEMENTATION STATUS
@@ -141,12 +231,13 @@ These should compare as equal for deduplication purposes.
 | History System | 09 | ✅ Working | Add-time, navigation-time dedup, Unicode-aware |
 | Widget System | 07 | ⚠️ EMPTY | Registry/hooks exist but ZERO widgets registered |
 | Syntax Highlighting | 11 | ⚠️ PARTIAL | Working but NOT THEMEABLE |
-| Fuzzy Matching | 27 | ⚠️ DUPLICATED | Exists in autocorrect.c, not shared library |
+| Fuzzy Matching | 27 | ✅ COMPLETE | Shared libfuzzy with Unicode support |
 
 ### KEY ISSUES FIXED THIS SESSION
 
 1. **~~History Dedup Not Active~~**: **FIXED** - Both add-time and navigation-time dedup now active
 2. **~~Byte-level comparison only~~**: **FIXED** - Unicode NFC normalization now used by default
+3. **~~Fuzzy matching duplicated~~**: **FIXED** - Consolidated into shared libfuzzy library
 
 ---
 
@@ -159,13 +250,14 @@ These should compare as equal for deduplication purposes.
 - Should integrate with theme system
 - "Themeable everything" is lusush core design philosophy
 
-### Priority 5: Fuzzy Matching Shared Library
-**Effort: Low | Value: Architecture**
+### ~~Priority 5: Fuzzy Matching Shared Library~~ ✅ COMPLETE
+~~**Effort: Low | Value: Architecture**~~
 
-- Extract from `src/autocorrect.c` to shared location
-- Used by: autocorrect, completion ranking, fuzzy history search
+- ~~Extract from `src/autocorrect.c` to shared location~~
+- ~~Used by: autocorrect, completion ranking, fuzzy history search~~
+- **DONE**: Created `include/fuzzy_match.h` and `src/libfuzzy/fuzzy_match.c`
 
-### Priority 6: Widget System Needs Content
+### Priority 5: Widget System Needs Content
 **Effort: Medium-High | Value: Future Extensibility**
 
 - Registry and hooks infrastructure exists

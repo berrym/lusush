@@ -11,6 +11,7 @@
 #define _GNU_SOURCE
 
 #include "../include/autocorrect.h"
+#include "../include/fuzzy_match.h"
 
 #include "../include/builtins.h"
 #include "../include/completion.h"
@@ -49,8 +50,6 @@ static char *learned_commands[MAX_LEARNED_COMMANDS];
 static int learned_commands_count = 0;
 
 // Internal helper functions
-static int min3(int a, int b, int c);
-static double jaro_similarity(const char *s1, const char *s2);
 static void sort_corrections_by_score(correction_t *corrections, int count);
 static bool is_executable_file(const char *path);
 
@@ -306,6 +305,7 @@ void autocorrect_free_results(correction_results_t *results) {
 
 /**
  * Calculate similarity score between two commands
+ * Now delegates to libfuzzy for Unicode-aware matching
  */
 int autocorrect_similarity_score(const char *command1, const char *command2,
                                  bool case_sensitive) {
@@ -313,78 +313,12 @@ int autocorrect_similarity_score(const char *command1, const char *command2,
         return 0;
     }
 
-    // If commands are identical, return perfect score
-    int cmp_result;
-    if (case_sensitive) {
-        cmp_result = strcmp(command1, command2);
-    } else {
-        // Manual case-insensitive comparison
-        cmp_result = 0;
-        const char *s1 = command1, *s2 = command2;
-        while (*s1 && *s2) {
-            char c1 = tolower(*s1);
-            char c2 = tolower(*s2);
-            if (c1 != c2) {
-                cmp_result = c1 - c2;
-                break;
-            }
-            s1++;
-            s2++;
-        }
-        if (cmp_result == 0) {
-            cmp_result = *s1 - *s2;
-        }
-    }
-    if (cmp_result == 0) {
-        return 100;
-    }
-
-    int len1 = strlen(command1);
-    int len2 = strlen(command2);
-
-    // If one string is empty, return 0
-    if (len1 == 0 || len2 == 0) {
-        return 0;
-    }
-
-    // Combine multiple similarity algorithms for better results
-
-    // 1. Levenshtein distance (edit distance)
-    int edit_distance = autocorrect_levenshtein_distance(command1, command2);
-    int max_len = (len1 > len2) ? len1 : len2;
-    int levenshtein_score = ((max_len - edit_distance) * 100) / max_len;
-    if (levenshtein_score < 0) {
-        levenshtein_score = 0;
-    }
-
-    // 2. Jaro-Winkler similarity
-    int jaro_score = autocorrect_jaro_winkler_score(command1, command2);
-
-    // 3. Common prefix bonus
-    int prefix_len =
-        autocorrect_common_prefix_length(command1, command2, case_sensitive);
-    int prefix_score = (prefix_len * 100) / ((len1 + len2) / 2);
-    if (prefix_score > 100) {
-        prefix_score = 100;
-    }
-
-    // 4. Subsequence matching (fuzzy)
-    int subseq_score =
-        autocorrect_subsequence_score(command1, command2, case_sensitive);
-
-    // Weighted combination of all scores
-    int final_score = (levenshtein_score * 4 + jaro_score * 3 +
-                       prefix_score * 2 + subseq_score * 1) /
-                      10;
-
-    if (final_score > 100) {
-        final_score = 100;
-    }
-    if (final_score < 0) {
-        final_score = 0;
-    }
-
-    return final_score;
+    /* Use libfuzzy with appropriate options */
+    fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+    opts.case_sensitive = case_sensitive;
+    /* Unicode normalization enabled by default for proper matching */
+    
+    return fuzzy_match_score(command1, command2, &opts);
 }
 
 /**
@@ -467,125 +401,46 @@ bool autocorrect_command_exists(executor_t *executor, const char *command) {
 
 /**
  * Calculate Levenshtein distance
+ * Now delegates to libfuzzy for Unicode-aware matching
  */
 int autocorrect_levenshtein_distance(const char *s1, const char *s2) {
-    int len1 = strlen(s1);
-    int len2 = strlen(s2);
-
-    // Create matrix
-    int **matrix = malloc((len1 + 1) * sizeof(int *));
-    if (!matrix) {
-        return len1 + len2; // Worst case
-    }
-
-    for (int i = 0; i <= len1; i++) {
-        matrix[i] = malloc((len2 + 1) * sizeof(int));
-        if (!matrix[i]) {
-            // Cleanup and return worst case
-            for (int j = 0; j < i; j++) {
-                free(matrix[j]);
-            }
-            free(matrix);
-            return len1 + len2;
-        }
-    }
-
-    // Initialize matrix
-    for (int i = 0; i <= len1; i++) {
-        matrix[i][0] = i;
-    }
-    for (int j = 0; j <= len2; j++) {
-        matrix[0][j] = j;
-    }
-
-    // Fill matrix
-    for (int i = 1; i <= len1; i++) {
-        for (int j = 1; j <= len2; j++) {
-            int cost = (tolower(s1[i - 1]) == tolower(s2[j - 1])) ? 0 : 1;
-            matrix[i][j] = min3(matrix[i - 1][j] + 1,       // deletion
-                                matrix[i][j - 1] + 1,       // insertion
-                                matrix[i - 1][j - 1] + cost // substitution
-            );
-        }
-    }
-
-    int result = matrix[len1][len2];
-
-    // Cleanup
-    for (int i = 0; i <= len1; i++) {
-        free(matrix[i]);
-    }
-    free(matrix);
-
-    return result;
+    /* Use libfuzzy with case-insensitive matching (original behavior) */
+    fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+    opts.case_sensitive = false;
+    return fuzzy_levenshtein_distance(s1, s2, &opts);
 }
 
 /**
  * Calculate Jaro-Winkler similarity score
+ * Now delegates to libfuzzy for Unicode-aware matching
  */
 int autocorrect_jaro_winkler_score(const char *s1, const char *s2) {
-    double jaro = jaro_similarity(s1, s2);
-
-    // Jaro-Winkler adds prefix bonus
-    int prefix_len = autocorrect_common_prefix_length(s1, s2, false);
-    if (prefix_len > 4) {
-        prefix_len = 4; // Max prefix bonus is 4 chars
-    }
-
-    double jaro_winkler = jaro + (0.1 * prefix_len * (1 - jaro));
-
-    return (int)(jaro_winkler * 100);
+    /* Use libfuzzy with case-insensitive matching (original behavior) */
+    fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+    opts.case_sensitive = false;
+    return fuzzy_jaro_winkler_score(s1, s2, &opts);
 }
 
 /**
  * Calculate common prefix length
+ * Now delegates to libfuzzy for Unicode-aware matching
  */
 int autocorrect_common_prefix_length(const char *s1, const char *s2,
                                      bool case_sensitive) {
-    int len = 0;
-    while (s1[len] && s2[len]) {
-        char c1 = case_sensitive ? s1[len] : tolower(s1[len]);
-        char c2 = case_sensitive ? s2[len] : tolower(s2[len]);
-        if (c1 != c2) {
-            break;
-        }
-        len++;
-    }
-    return len;
+    fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+    opts.case_sensitive = case_sensitive;
+    return fuzzy_common_prefix_length(s1, s2, &opts);
 }
 
 /**
  * Check subsequence match quality
+ * Now delegates to libfuzzy for Unicode-aware matching
  */
 int autocorrect_subsequence_score(const char *pattern, const char *text,
                                   bool case_sensitive) {
-    int pattern_len = strlen(pattern);
-    int text_len = strlen(text);
-
-    if (pattern_len == 0) {
-        return 100;
-    }
-    if (text_len == 0) {
-        return 0;
-    }
-
-    int matches = 0;
-    int text_idx = 0;
-
-    for (int p = 0; p < pattern_len && text_idx < text_len; p++) {
-        char pc = case_sensitive ? pattern[p] : tolower(pattern[p]);
-
-        for (; text_idx < text_len; text_idx++) {
-            char tc = case_sensitive ? text[text_idx] : tolower(text[text_idx]);
-            if (pc == tc) {
-                matches++;
-                text_idx++;
-                break;
-            }
-        }
-    }
-
-    return (matches * 100) / pattern_len;
+    fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+    opts.case_sensitive = case_sensitive;
+    return fuzzy_subsequence_score(pattern, text, &opts);
 }
 
 /**
@@ -803,85 +658,6 @@ void autocorrect_reset_stats(void) {
 void autocorrect_set_debug(bool enabled) { debug_enabled = enabled; }
 
 // Internal helper functions
-
-static int min3(int a, int b, int c) {
-    int min_ab = (a < b) ? a : b;
-    return (min_ab < c) ? min_ab : c;
-}
-
-static double jaro_similarity(const char *s1, const char *s2) {
-    int len1 = strlen(s1);
-    int len2 = strlen(s2);
-
-    if (len1 == 0 && len2 == 0) {
-        return 1.0;
-    }
-    if (len1 == 0 || len2 == 0) {
-        return 0.0;
-    }
-
-    int match_window = ((len1 > len2) ? len1 : len2) / 2 - 1;
-    if (match_window < 0) {
-        match_window = 0;
-    }
-
-    bool *s1_matches = calloc(len1, sizeof(bool));
-    bool *s2_matches = calloc(len2, sizeof(bool));
-
-    if (!s1_matches || !s2_matches) {
-        free(s1_matches);
-        free(s2_matches);
-        return 0.0;
-    }
-
-    int matches = 0;
-
-    // Find matches
-    for (int i = 0; i < len1; i++) {
-        int start = (i - match_window > 0) ? i - match_window : 0;
-        int end = (i + match_window < len2) ? i + match_window : len2 - 1;
-
-        for (int j = start; j <= end; j++) {
-            if (s2_matches[j] || tolower(s1[i]) != tolower(s2[j])) {
-                continue;
-            }
-            s1_matches[i] = s2_matches[j] = true;
-            matches++;
-            break;
-        }
-    }
-
-    if (matches == 0) {
-        free(s1_matches);
-        free(s2_matches);
-        return 0.0;
-    }
-
-    // Count transpositions
-    int transpositions = 0;
-    int k = 0;
-    for (int i = 0; i < len1; i++) {
-        if (!s1_matches[i]) {
-            continue;
-        }
-        while (!s2_matches[k]) {
-            k++;
-        }
-        if (tolower(s1[i]) != tolower(s2[k])) {
-            transpositions++;
-        }
-        k++;
-    }
-
-    free(s1_matches);
-    free(s2_matches);
-
-    double jaro = ((double)matches / len1 + (double)matches / len2 +
-                   (double)(matches - transpositions / 2) / matches) /
-                  3.0;
-
-    return jaro;
-}
 
 static void sort_corrections_by_score(correction_t *corrections, int count) {
     // Simple bubble sort by score (descending)

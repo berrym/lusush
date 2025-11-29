@@ -27,12 +27,12 @@
 #include "lle/history.h"
 #include "lle/error_handling.h"
 #include "lle/performance.h"
+#include "fuzzy_match.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>    /* for printf */
 #include <ctype.h>
 #include <time.h>
-#include <alloca.h>   /* for alloca */
 #include <strings.h>  /* for strncasecmp - must be after other includes */
 
 /* ============================================================================
@@ -92,77 +92,7 @@ static char* pool_strdup(const char *str) {
     return dup;
 }
 
-/**
- * Calculate minimum of three integers
- */
-static inline int min3(int a, int b, int c) {
-    int min = a;
-    if (b < min) min = b;
-    if (c < min) min = c;
-    return min;
-}
-
-/**
- * Calculate Levenshtein distance between two strings
- * 
- * @param s1 First string
- * @param s2 Second string
- * @return Edit distance between strings
- */
-static int levenshtein_distance(const char *s1, const char *s2) {
-    if (!s1 || !s2) return -1;
-    
-    size_t len1 = strlen(s1);
-    size_t len2 = strlen(s2);
-    
-    /* Early exit for empty strings */
-    if (len1 == 0) return (int)len2;
-    if (len2 == 0) return (int)len1;
-    
-    /* Allocate distance matrix (use stack for small strings) */
-    size_t matrix_size = (len1 + 1) * (len2 + 1);
-    int *matrix;
-    
-    if (matrix_size <= 1024) {
-        /* Small enough for stack */
-        matrix = alloca(matrix_size * sizeof(int));
-    } else {
-        /* Use heap for large strings */
-        matrix = malloc(matrix_size * sizeof(int));
-        if (!matrix) return -1;
-    }
-    
-    /* Initialize first row and column */
-    for (size_t i = 0; i <= len1; i++) {
-        matrix[i * (len2 + 1)] = (int)i;
-    }
-    for (size_t j = 0; j <= len2; j++) {
-        matrix[j] = (int)j;
-    }
-    
-    /* Fill matrix using dynamic programming */
-    for (size_t i = 1; i <= len1; i++) {
-        for (size_t j = 1; j <= len2; j++) {
-            int cost = (s1[i - 1] == s2[j - 1]) ? 0 : 1;
-            
-            size_t idx = i * (len2 + 1) + j;
-            matrix[idx] = min3(
-                matrix[(i - 1) * (len2 + 1) + j] + 1,      /* deletion */
-                matrix[i * (len2 + 1) + (j - 1)] + 1,      /* insertion */
-                matrix[(i - 1) * (len2 + 1) + (j - 1)] + cost  /* substitution */
-            );
-        }
-    }
-    
-    int distance = matrix[len1 * (len2 + 1) + len2];
-    
-    /* Free heap allocation if used */
-    if (matrix_size > 1024) {
-        free(matrix);
-    }
-    
-    return distance;
-}
+/* Note: Levenshtein distance now provided by libfuzzy (fuzzy_match.h) */
 
 /**
  * Calculate relevance score for a search result
@@ -717,8 +647,10 @@ lle_history_search_results_t* lle_history_search_fuzzy(
             continue;
         }
         
-        /* Calculate Levenshtein distance */
-        int distance = levenshtein_distance(entry->command, query);
+        /* Calculate Levenshtein distance using libfuzzy (Unicode-aware) */
+        fuzzy_match_options_t opts = FUZZY_MATCH_DEFAULT;
+        opts.case_sensitive = false;
+        int distance = fuzzy_levenshtein_distance(entry->command, query, &opts);
         
         /* Accept if within fuzzy threshold */
         if (distance >= 0 && distance <= FUZZY_MAX_DISTANCE) {
