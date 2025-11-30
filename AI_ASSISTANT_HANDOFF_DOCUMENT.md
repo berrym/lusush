@@ -54,6 +54,11 @@
    - Fixed visual_width() in completion_menu_renderer.c to use lle_utf8_string_width()
    - Proper display width for CJK (2 cols), emoji (2 cols), combining marks (0 cols)
    - Completion menu columns now align correctly with Unicode filenames
+7. **Fix RIGHT Arrow Completion Menu Regression**:
+   - lle_forward_char_or_accept_suggestion() was bypassing menu navigation
+   - Now checks for active completion menu FIRST before autosuggestion logic
+   - Delegates to lle_forward_char() which handles multi-column menu navigation
+   - Also fixes Ctrl+F which uses the same function
 
 **COMMITS**:
 - `7fe94fa` - Add CLAUDE.md with build directory enforcement

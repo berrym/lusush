@@ -345,8 +345,10 @@ static void refresh_display(readline_context_t *ctx);
 /**
  * @brief Context-aware RIGHT arrow action (Fish-style autosuggestion acceptance)
  * 
- * If cursor is at end of buffer AND autosuggestion is available, accept it.
- * Otherwise, move cursor right by one grapheme.
+ * Priority order:
+ * 1. If completion menu is active, navigate menu (delegate to lle_forward_char)
+ * 2. If cursor at end of buffer with autosuggestion, accept suggestion
+ * 3. Otherwise, move cursor right by one grapheme
  * 
  * This is a context-aware action that requires readline_context_t access
  * for the autosuggestion buffer.
@@ -357,7 +359,28 @@ lle_result_t lle_forward_char_or_accept_suggestion(readline_context_t *ctx)
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Fish-style: If at end of buffer with suggestion, accept it */
+    /* Priority 1: If completion menu is active, delegate to lle_forward_char
+     * which handles menu navigation (move right in multi-column menu) */
+    if (ctx->editor) {
+        bool menu_active = false;
+        
+        if (ctx->editor->completion_system_v2 &&
+            lle_completion_system_v2_is_menu_visible(ctx->editor->completion_system_v2)) {
+            menu_active = true;
+        } else if (ctx->editor->completion_system &&
+                   lle_completion_system_is_menu_visible(ctx->editor->completion_system)) {
+            menu_active = true;
+        }
+        
+        if (menu_active) {
+            /* Delegate to lle_forward_char which handles menu navigation */
+            lle_result_t result = lle_forward_char(ctx->editor);
+            refresh_display(ctx);
+            return result;
+        }
+    }
+    
+    /* Priority 2: Fish-style autosuggestion - if at end of buffer with suggestion, accept it */
     if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
         if (accept_autosuggestion(ctx)) {
             refresh_display(ctx);
@@ -365,7 +388,7 @@ lle_result_t lle_forward_char_or_accept_suggestion(readline_context_t *ctx)
         }
     }
     
-    /* Normal behavior: move cursor right */
+    /* Priority 3: Normal behavior - move cursor right */
     if (ctx->buffer->cursor.grapheme_index < ctx->buffer->grapheme_count && 
         ctx->editor && ctx->editor->cursor_manager) {
         lle_cursor_manager_move_to_byte_offset(ctx->editor->cursor_manager, 
