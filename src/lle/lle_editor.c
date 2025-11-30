@@ -15,8 +15,13 @@
 #include "lle/memory_management.h"
 #include "lle/error_handling.h"
 #include "lle/completion/completion_system_v2.h"
+#include "lle/widget_system.h"
+#include "lle/widget_hooks.h"
 #include <string.h>
 #include <stdlib.h>
+
+/* Forward declaration for builtin widget registration */
+lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry);
 
 /* ============================================================================
  * EDITOR LIFECYCLE FUNCTIONS
@@ -143,6 +148,27 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
     ed->history_search_direction = 0;
     ed->quoted_insert_mode = false;
     
+    /* === Widget System Initialization (Spec 07) === */
+    /* Initialize widget registry for ZSH-style widget system */
+    result = lle_widget_registry_init(&ed->widget_registry, ed->lle_pool);
+    if (result != LLE_SUCCESS) {
+        /* Widget system initialization failed - non-fatal, continue without widgets */
+        ed->widget_registry = NULL;
+        ed->widget_hooks_manager = NULL;
+    } else {
+        /* Register builtin widgets */
+        lle_register_builtin_widgets(ed->widget_registry);
+        
+        /* Initialize widget hooks manager */
+        result = lle_widget_hooks_manager_init(&ed->widget_hooks_manager,
+                                               ed->widget_registry,
+                                               ed->lle_pool);
+        if (result != LLE_SUCCESS) {
+            /* Hooks manager failed - widgets work but hooks won't trigger */
+            ed->widget_hooks_manager = NULL;
+        }
+    }
+    
     *editor = ed;
     return LLE_SUCCESS;
 }
@@ -162,6 +188,18 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
     }
     
     /* Destroy subsystems in reverse order of dependencies */
+    
+    /* Destroy widget hooks manager first (depends on widget registry) */
+    if (editor->widget_hooks_manager) {
+        lle_widget_hooks_manager_destroy(editor->widget_hooks_manager);
+        editor->widget_hooks_manager = NULL;
+    }
+    
+    /* Destroy widget registry */
+    if (editor->widget_registry) {
+        lle_widget_registry_destroy(editor->widget_registry);
+        editor->widget_registry = NULL;
+    }
     
     /* Destroy optional subsystems if allocated */
     if (editor->vi_state) {

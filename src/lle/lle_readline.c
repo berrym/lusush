@@ -62,6 +62,7 @@
 #include "lle/keybinding.h"           /* Keybinding manager for Group 1+ migration */
 #include "lle/completion/completion_system_v2.h"  /* Completion system v2 for menu visibility */
 #include "lle/completion/completion_system.h"     /* Legacy completion system for menu visibility */
+#include "lle/widget_hooks.h"         /* Widget hooks for lifecycle events */
 #include "input_continuation.h"
 #include "display_integration.h"      /* Lusush display integration */
 #include "display/display_controller.h"
@@ -2097,6 +2098,13 @@ char *lle_readline(const char *prompt)
     /* Initial display refresh to show prompt */
     refresh_display(&ctx);
     
+    /* === WIDGET HOOK: LINE_INIT === */
+    /* Trigger line-init hook at start of readline (ZSH zle-line-init) */
+    if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
+        lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
+                               LLE_HOOK_LINE_INIT, global_lle_editor);
+    }
+    
     /* === STEP 8: Main input loop === */
     
     while (!done) {
@@ -2351,6 +2359,13 @@ char *lle_readline(const char *prompt)
                         lle_completion_menu_update_layout(menu, new_width);
                     }
                 }
+                
+                /* Trigger terminal-resize hook for registered widgets */
+                if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
+                    lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
+                                           LLE_HOOK_TERMINAL_RESIZE, global_lle_editor);
+                }
+                
                 refresh_display(&ctx);
                 break;
             }
@@ -2374,6 +2389,13 @@ char *lle_readline(const char *prompt)
         }
         
         /* Event processed - in Step 1 we don't free events (managed by input processor) */
+    }
+    
+    /* === WIDGET HOOK: LINE_FINISH === */
+    /* Trigger line-finish hook at end of readline (ZSH zle-line-finish) */
+    if (global_lle_editor && global_lle_editor->widget_hooks_manager) {
+        lle_widget_hook_trigger(global_lle_editor->widget_hooks_manager,
+                               LLE_HOOK_LINE_FINISH, global_lle_editor);
     }
     
     /* === STEP 10: Exit raw mode and finalize input === */

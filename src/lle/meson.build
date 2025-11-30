@@ -340,6 +340,9 @@ endif
 if fs.exists('widget_hooks.c')
   lle_sources += files('widget_hooks.c')
 endif
+if fs.exists('builtin_widgets.c')
+  lle_sources += files('builtin_widgets.c')
+endif
 # Phase 2: Full extensibility framework (future)
 if fs.exists('extensibility.c')
   lle_sources += files('extensibility.c')
