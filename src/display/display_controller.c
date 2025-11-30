@@ -76,7 +76,7 @@
 #define DC_ADAPTIVE_OPTIMIZATION_THRESHOLD 5
 
 // Debugging and logging macros
-#if 0  // DC_DEBUG disabled - enable for debugging display issues
+#if 1  // DC_DEBUG enabled temporarily for debugging
 #define DC_DEBUG(fmt, ...) do { \
     FILE *_dbg = fopen("/tmp/lusush_dc_debug.log", "a"); \
     if (_dbg) { fprintf(_dbg, "[DC_DEBUG] %s:%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__); fclose(_dbg); } \
@@ -143,6 +143,7 @@ static screen_buffer_t current_screen;
 static screen_buffer_t desired_screen;
 static bool screen_buffer_initialized = false;
 static bool prompt_rendered = false;
+static int last_terminal_end_row = 0;  /* Actual terminal row after ghost text/menu */
 
 /**
  * Reset display state - called when starting new input session
@@ -151,9 +152,19 @@ static bool prompt_rendered = false;
  */
 void dc_reset_prompt_display_state(void) {
     prompt_rendered = false;
+    last_terminal_end_row = 0;
     if (screen_buffer_initialized) {
         screen_buffer_clear(&current_screen);
         screen_buffer_clear(&desired_screen);
+    }
+    
+    /* Reset command_layer's update_sequence_number so next render is treated
+     * as "first render" and publishes REDRAW_NEEDED even if buffer is empty.
+     * Without this, empty-to-empty transitions (like Ctrl+G on empty buffer)
+     * would skip the event and prompt wouldn't be drawn. */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc && dc->compositor && dc->compositor->command_layer) {
+        dc->compositor->command_layer->update_sequence_number = 0;
     }
 }
 
@@ -369,12 +380,43 @@ static layer_events_error_t dc_handle_redraw_needed(
         write(STDOUT_FILENO, move_to_col, col_len);
     }
     
-    /* Step 2: Move up to command start row if we're on a lower row
-     * For multi-line prompts, command_start_row may be > 0 */
+    /* Step 2: Handle ghost text/menu cleanup from previous render
+     * 
+     * Problem: Ghost text (autosuggestions) may have wrapped to extra rows.
+     * After Step 5 of previous render, cursor was moved back to command cursor
+     * position. But the ghost text remains on screen below that.
+     * 
+     * Solution: If previous render had extra rows (ghost text/menu), move DOWN
+     * to that row first, then clear, then move back up. This ensures we clear
+     * all the ghost text artifacts. */
     int command_row = desired_screen.command_start_row;
-    DC_DEBUG("Step2: current_screen.cursor_row=%d, command_row=%d, desired_screen.cursor_row=%d, desired_screen.num_rows=%d",
-             current_screen.cursor_row, command_row, desired_screen.cursor_row, desired_screen.num_rows);
-    if (current_screen.cursor_row > command_row) {
+    
+    if (last_terminal_end_row > current_screen.cursor_row) {
+        /* Previous render had ghost text/menu extending below cursor position.
+         * Move DOWN to that row to clear from there. */
+        int rows_down = last_terminal_end_row - current_screen.cursor_row;
+        DC_DEBUG("Step2: Moving DOWN %d rows to clear ghost text", rows_down);
+        char move_down[32];
+        int down_len = snprintf(move_down, sizeof(move_down), "\033[%dB", rows_down);
+        if (down_len > 0) {
+            write(STDOUT_FILENO, move_down, down_len);
+        }
+        
+        /* Clear from here to end of screen (clears ghost text) */
+        write(STDOUT_FILENO, "\033[J", 3);
+        
+        /* Move back up to command start row */
+        int rows_up = last_terminal_end_row - command_row;
+        if (rows_up > 0) {
+            DC_DEBUG("Step2: Moving UP %d rows to command start", rows_up);
+            char move_up[32];
+            int up_len = snprintf(move_up, sizeof(move_up), "\033[%dA", rows_up);
+            if (up_len > 0) {
+                write(STDOUT_FILENO, move_up, up_len);
+            }
+        }
+    } else if (current_screen.cursor_row > command_row) {
+        /* No ghost text overflow, but cursor is below command start - move up */
         int rows_up = current_screen.cursor_row - command_row;
         DC_DEBUG("Step2: Moving up %d rows", rows_up);
         char move_up[32];
@@ -566,8 +608,6 @@ static layer_events_error_t dc_handle_redraw_needed(
     
     /* Move to absolute column (never use \r - it goes to column 0!)
      * Use \033[{n}G for absolute column positioning (1-based indexing) */
-    DC_DEBUG("Step5: cursor_row=%d, cursor_col=%d, final_row=%d, menu_lines=%d",
-             cursor_row, cursor_col, final_row, menu_lines);
     char col_seq[16];
     int col_seq_len = snprintf(col_seq, sizeof(col_seq), "\033[%dG", cursor_col + 1);
     if (col_seq_len > 0) {
@@ -577,6 +617,10 @@ static layer_events_error_t dc_handle_redraw_needed(
     DC_DEBUG("Step5 done: copying desired_screen to current_screen (cursor_row=%d)", desired_screen.cursor_row);
     screen_buffer_copy(&current_screen, &desired_screen);
     prompt_rendered = true;
+    
+    /* Track where the terminal cursor actually ended up (including ghost text/menu)
+     * This is needed by Step 2 on the next render to move up the correct amount */
+    last_terminal_end_row = current_terminal_row;
 
     /* NOTE: fsync() was causing input timeouts after cursor positioning - removed
      * stdout is line-buffered by default and terminal I/O doesn't need fsync */

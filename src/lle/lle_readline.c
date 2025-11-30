@@ -302,11 +302,31 @@ static void update_autosuggestion(readline_context_t *ctx)
 }
 
 /**
- * @brief Check if autosuggestion is available
+ * @brief Check if autosuggestion is available/visible
+ * 
+ * Checks both the local suggestion buffer AND the display controller's
+ * autosuggestions layer, since the displayed ghost text comes from the
+ * display controller.
  */
 static bool has_autosuggestion(readline_context_t *ctx)
 {
-    return ctx && ctx->current_suggestion && ctx->current_suggestion[0] != '\0';
+    if (!ctx) return false;
+    
+    /* Check local suggestion buffer */
+    if (ctx->current_suggestion && ctx->current_suggestion[0] != '\0') {
+        return true;
+    }
+    
+    /* Also check display controller - it may have a suggestion we don't know about */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        const char *dc_suggestion = display_controller_get_autosuggestion(dc);
+        if (dc_suggestion && dc_suggestion[0] != '\0') {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 /**
@@ -1305,8 +1325,10 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
     
     /* Check if autosuggestion is visible - if so, clear it first */
     if (has_autosuggestion(ctx)) {
-        /* Clear the autosuggestion */
-        ctx->current_suggestion[0] = '\0';
+        /* Clear the local autosuggestion buffer (if allocated) */
+        if (ctx->current_suggestion) {
+            ctx->current_suggestion[0] = '\0';
+        }
         
         /* Suppress autosuggestion regeneration during this refresh
          * Otherwise refresh_display() will immediately regenerate it */
@@ -1318,7 +1340,7 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
             display_controller_set_autosuggestion(dc, NULL);
         }
         
-        /* Refresh display to clear suggestion from screen */
+        /* Refresh display to redraw without ghost text */
         refresh_display(ctx);
         
         return LLE_SUCCESS;  /* Suggestion cleared, don't abort line */
@@ -1331,6 +1353,33 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
      * a weird state, Ctrl+G guarantees a fresh start with a new prompt.
      * Unlike the no-op approach, this ensures users always have an escape hatch.
      */
+    
+    /* Clear display before aborting to ensure clean state
+     * This clears any ghost text, completion menu residue, etc. */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        /* Clear autosuggestion from display */
+        display_controller_set_autosuggestion(dc, NULL);
+        /* Clear completion menu if any */
+        display_controller_clear_completion_menu(dc);
+    }
+    
+    /* Suppress autosuggestion during final refresh */
+    ctx->suppress_autosuggestion = true;
+    
+    /* Clear local suggestion buffer */
+    if (ctx->current_suggestion) {
+        ctx->current_suggestion[0] = '\0';
+    }
+    
+    /* Final refresh to clear ghost text from screen before abort */
+    refresh_display(ctx);
+    
+    /* Reset display state for fresh prompt on next lle_readline() call.
+     * Don't call dc_finalize_input() here - it will be called in lle_readline()
+     * cleanup when final_line is returned. Calling it here would cause double newline. */
+    dc_reset_prompt_display_state();
+    
     *ctx->done = true;
     *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
     

@@ -752,6 +752,17 @@ autosuggestions_layer_error_t autosuggestions_layer_publish_change(autosuggestio
                                            content,
                                            content_len,
                                            false);
+        
+        /* Also publish REDRAW_NEEDED so display_controller renders the change.
+         * This is critical when clearing autosuggestion - display_controller
+         * subscribes to REDRAW_NEEDED events to trigger dc_handle_redraw_needed()
+         * which handles ghost text cleanup. Without this, clearing autosuggestion
+         * doesn't trigger a visual update. */
+        layer_events_publish_simple(layer->event_system,
+                                   LAYER_EVENT_REDRAW_NEEDED,
+                                   LAYER_ID_AUTOSUGGESTIONS,
+                                   0,  /* broadcast to all */
+                                   LAYER_EVENT_PRIORITY_HIGH);
     }
     
     return AUTOSUGGESTIONS_LAYER_SUCCESS;

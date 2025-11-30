@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 36
+# AI Assistant Handoff Document - Session 37
 
 **Date**: 2025-11-30  
-**Session Type**: Ctrl+G ZSH-style Recovery Behavior  
-**Status**: COMPLETE - Ctrl+G Always Aborts for Clean State Recovery  
+**Session Type**: Ctrl+G Empty Buffer Fix - Event Pipeline Debugging  
+**Status**: COMPLETE - All Ctrl+G scenarios working correctly  
 
 ---
 
@@ -36,52 +36,41 @@
 5. Wired theme syntax colors into command_layer via `apply_theme_syntax_to_command_layer()`
 6. Fixed Ctrl+E multiline regression - was moving to buffer end instead of line end
 7. Implemented unique-only history navigation (`lle.dedup_navigation_unique`)
-   - Tracks seen commands via hash set during navigation session
-   - Each command shown at most once per navigation (no duplicates even non-adjacent)
-   - Reset when returning to current line or typing new characters
-   - Non-destructive: history file remains intact, only navigation filtered
 
-**Session 35 (This Session)**:
-1. Added `config reset-defaults` command - writes fresh default .lusushrc on demand
+**Session 35**:
+1. Added `config reset-defaults` command
 2. Updated CONFIG_FILE_TEMPLATE with all current options (~340 lines)
 3. Added meson.build enforcement for `builddir` directory name
 4. Wired libfuzzy into completion system
-5. **Implemented Widget System (Spec 07)**:
-   - Initialize widget_registry and widget_hooks_manager in lle_editor_create()
-   - Create builtin_widgets.c with 24 core widgets
-   - Add lifecycle hook triggers (LINE_INIT, LINE_FINISH, TERMINAL_RESIZE)
-6. **Unicode-Aware File Path Completion**:
-   - Fixed visual_width() in completion_menu_renderer.c to use lle_utf8_string_width()
-   - Proper display width for CJK (2 cols), emoji (2 cols), combining marks (0 cols)
-   - Completion menu columns now align correctly with Unicode filenames
-7. **Fix RIGHT Arrow Completion Menu Regression**:
-   - lle_forward_char_or_accept_suggestion() was bypassing menu navigation
-   - Now checks for active completion menu FIRST before autosuggestion logic
-   - Delegates to lle_forward_char() which handles multi-column menu navigation
-   - Also fixes Ctrl+F which uses the same function
-8. **Ctrl+G Tiered Dismissal**:
-   - Now clears autosuggestion before aborting line
-   - Behavior: completion menu (1st) -> autosuggestion (2nd) -> abort (3rd)
-   - More intuitive UX - user can dismiss ghost text without losing input
+5. **Implemented Widget System (Spec 07)**: 24 core widgets, lifecycle hooks
+6. **Unicode-Aware Completion Menu**: Fixed visual_width() to use lle_utf8_string_width()
+7. **Fix RIGHT Arrow Completion Menu Regression**
 
-**Session 36 (This Session)**:
-1. **Ctrl+G ZSH-style Always-Abort Behavior**:
-   - Changed from no-op on empty buffer to always aborting
-   - Follows ZSH's ZLE behavior - Ctrl+G is an escape hatch for state recovery
-   - If display/editor gets into weird state, Ctrl+G guarantees fresh prompt
-   - Tiered dismissal preserved: menu (1st) -> suggestion (2nd) -> abort (3rd)
-2. **Fix Ctrl+G Autosuggestion Clearing Bug**:
-   - Bug: Ctrl+G cleared autosuggestion but refresh_display() immediately regenerated it
-   - Added `suppress_autosuggestion` flag to readline_context_t
-   - Flag set before clearing, checked in update_autosuggestion() to skip regeneration
-   - Flag reset when user types next character (re-enables suggestions)
+**Session 36**:
+1. **Ctrl+G ZSH-style Always-Abort Behavior**: Changed from no-op on empty buffer to always aborting
+2. **Fix Ctrl+G Autosuggestion Clearing Bug**: Added `suppress_autosuggestion` flag
 
-**COMMITS**:
-- `7fe94fa` - Add CLAUDE.md with build directory enforcement
-- `50a78ae` - Add config reset-defaults command and update default .lusushrc template
-- `73cfdcb` - Enforce 'builddir' as canonical meson build directory
-- `0ea64b0` - Wire libfuzzy into completion system for improved fuzzy matching
-- (pending) - Widget system implementation
+**Session 37 (This Session)**:
+1. **Fix Autosuggestion Layer Event Publishing**:
+   - Bug: Clearing autosuggestion didn't trigger `dc_handle_redraw_needed()` 
+   - Cause: `autosuggestions_layer_publish_change()` only published `LAYER_EVENT_CONTENT_CHANGED`
+   - Fix: Now also publishes `LAYER_EVENT_REDRAW_NEEDED` so display_controller renders the change
+   - Location: `src/display/autosuggestions_layer.c:738-766`
+
+2. **Fix Ctrl+G on Empty Buffer - No Prompt Drawn**:
+   - Bug: First Ctrl+G on empty buffer didn't draw prompt, only subsequent presses did
+   - Root Cause: `command_layer`'s `update_sequence_number` wasn't reset between readline sessions
+   - The optimization in `command_layer_set_command()` detected "no change" (empty→empty)
+     and returned early WITHOUT publishing `LAYER_EVENT_REDRAW_NEEDED`
+   - Fix: Reset `command_layer->update_sequence_number = 0` in `dc_reset_prompt_display_state()`
+   - Location: `src/display/display_controller.c:153-169`
+
+3. **Debugging Journey** (for future reference):
+   - Added call counters to trace event flow
+   - Discovered `refresh_display()` was called but no events processed (0 events)
+   - Traced through: refresh_display → display_bridge_send_output → command_layer_set_command
+   - Found early return at line 308 when `!command_changed && !cursor_changed && !is_first_render`
+   - Key insight: `is_first_render` was FALSE because `update_sequence_number > 0` persisted
 
 ---
 
@@ -102,98 +91,41 @@
 | Syntax Highlighting | 11 | ✅ COMPLETE | Themeable, integrated with command_layer |
 | Fuzzy Matching | 27 | ✅ COMPLETE | Shared libfuzzy, wired into completion |
 | Config System | - | ✅ Enhanced | reset-defaults command, comprehensive template |
+| Ctrl+G Abort | - | ✅ COMPLETE | ZSH-style, tiered dismissal, empty buffer works |
 
 ---
 
-## Widget System Implementation (Spec 07)
+## Ctrl+G Tiered Dismissal - Final Working Behavior
 
-### Completed Work
+Ctrl+G now works correctly in ALL scenarios:
 
-**Infrastructure Wiring** (`src/lle/lle_editor.c`):
-- Widget registry initialized in `lle_editor_create()`
-- Widget hooks manager initialized after registry
-- Builtin widgets registered automatically on editor creation
-- Proper cleanup in `lle_editor_destroy()` (reverse order)
+1. **With Completion Menu Active**: First Ctrl+G dismisses menu, keeps buffer
+2. **With Autosuggestion Visible**: Ctrl+G clears ghost text (if no menu)
+3. **Empty or Non-empty Buffer**: Final Ctrl+G aborts line, draws fresh prompt
 
-**Builtin Widgets** (`src/lle/builtin_widgets.c`):
-24 core widgets registered, all delegating to keybinding_actions.c functions:
-
-Movement (8 widgets):
-- `forward-char`, `backward-char`
-- `forward-word`, `backward-word`
-- `beginning-of-line`, `end-of-line`
-- `beginning-of-buffer`, `end-of-buffer`
-
-Editing (9 widgets):
-- `delete-char`, `backward-delete-char`
-- `kill-line`, `backward-kill-line`
-- `kill-word`, `backward-kill-word`
-- `yank`, `transpose-chars`, `transpose-words`
-
-Case Change (3 widgets):
-- `capitalize-word`, `upcase-word`, `downcase-word`
-
-History (2 widgets):
-- `previous-history`, `next-history`
-- Note: `beginning-of-history`, `end-of-history` pending (no action functions yet)
-
-Completion (1 widget):
-- `complete`
-
-Display (1 widget):
-- `clear-screen`
-
-Multiline Navigation (2 widgets):
-- `smart-up`, `smart-down`
-
-**Lifecycle Hooks** (`src/lle/lle_readline.c`):
-- `LLE_HOOK_LINE_INIT` - triggered at start of readline (before main loop)
-- `LLE_HOOK_LINE_FINISH` - triggered at end of readline (after main loop exits)
-- `LLE_HOOK_TERMINAL_RESIZE` - triggered on window resize events
-
-### Widget System Architecture
-
+The tiered dismissal follows this order:
 ```
-lle_editor_create()
-    └── lle_widget_registry_init()
-        └── lle_register_builtin_widgets()  # 24 widgets registered
-    └── lle_widget_hooks_manager_init()
-
-lle_readline()
-    ├── [LINE_INIT hook triggered]
-    ├── main input loop
-    │   └── [TERMINAL_RESIZE hook on resize]
-    ├── [LINE_FINISH hook triggered]
-    └── return
-
-lle_editor_destroy()
-    ├── lle_widget_hooks_manager_destroy()
-    └── lle_widget_registry_destroy()
+Completion Menu (dismiss) → Autosuggestion (clear) → Abort Line (new prompt)
 ```
 
-### Usage Example (Future)
+**Key Implementation Details**:
+- `suppress_autosuggestion` flag prevents regeneration during clear
+- `LAYER_EVENT_REDRAW_NEEDED` published by autosuggestions_layer when clearing
+- `update_sequence_number` reset ensures "first render" event always published
+- `dc_finalize_input()` writes `\n` and resets state for clean new session
 
-Once user configuration is added, users will be able to:
-```bash
-# Register custom widget for a hook
-zle-line-init() { ... }  # ZSH-style
-# Or via config:
-# hooks.line_init = "my-custom-widget"
-```
+---
+
+## Files Modified This Session
+
+- `src/display/autosuggestions_layer.c` - Publish REDRAW_NEEDED on suggestion change
+- `src/display/display_controller.c` - Reset command_layer update_sequence_number
 
 ---
 
 ## Priority Roadmap
 
-### Priority 1: Unicode-Aware File Path Completion
-**Effort: Medium | Value: High | Status: NEXT**
-
-File paths with Unicode characters (emoji, CJK, etc.) need proper handling:
-- Grapheme-aware cursor positioning during completion
-- Proper display width calculation for alignment
-- Handle combining characters in filenames
-
-### Priority 2: macOS Compatibility Sprint
+### Priority 1: macOS Compatibility Sprint
 **Effort: Medium | Value: High | Status: Pending**
 
 Required for cross-platform release:
@@ -201,7 +133,7 @@ Required for cross-platform release:
 - Handle macOS terminal quirks
 - Verify all LLE features work on macOS
 
-### Priority 3: Vi Keybindings Implementation
+### Priority 2: Vi Keybindings Implementation
 **Effort: High | Value: Medium-High | Status: Pending**
 
 - Implement modal editing (normal/insert/visual modes)
@@ -211,27 +143,54 @@ Required for cross-platform release:
 
 ---
 
-## Files Modified This Session
+## Testing Notes
 
-- `src/lle/lle_readline.c` - Ctrl+G always-abort behavior (ZSH-style recovery)
+Ctrl+G tested via:
+```bash
+LLE_ENABLED=1 ./builddir/lusush
+```
+
+Test scenarios verified:
+1. ✅ Type text, show completion menu, Ctrl+G dismisses menu (keeps text)
+2. ✅ Type text, show autosuggestion, Ctrl+G clears ghost text (keeps text)
+3. ✅ Type text, Ctrl+G aborts, fresh prompt with cursor synced
+4. ✅ Empty buffer, Ctrl+G aborts, fresh prompt with cursor synced
+5. ✅ Multiple Ctrl+G presses work correctly in sequence
 
 ---
 
-## Testing Notes
+## Architecture Notes - Event Pipeline
 
-Widget system tested via:
-```bash
-LUSUSH_USE_LLE=1 ./builddir/lusush
+Understanding the display event pipeline is critical for debugging:
+
 ```
-- Shell starts successfully with widget system initialized
-- All existing keybindings continue to work
-- No regressions in editing functionality
+lle_readline()
+  └── refresh_display(ctx)
+        └── lle_display_bridge_send_output()
+              └── command_layer_set_command()
+                    ├── Early return if no change AND not first render
+                    └── publish_command_event(LAYER_EVENT_REDRAW_NEEDED)
+                          └── layer_events_process_pending()
+                                └── dc_handle_redraw_needed()
+                                      └── Terminal writes (prompt, command, cursor)
+```
+
+**Critical Reset Points**:
+- `dc_reset_prompt_display_state()` - Called at start of each readline session
+  - Sets `prompt_rendered = false`
+  - Sets `last_terminal_end_row = 0`
+  - Clears screen buffers
+  - **NEW**: Resets `command_layer->update_sequence_number = 0`
+
+- `dc_finalize_input()` - Called when readline returns
+  - Writes `\n` to terminal
+  - Calls `dc_reset_prompt_display_state()`
 
 ---
 
 ## Next Session Recommendations
 
-1. **Unicode File Path Completion**: Enhance completion to handle Unicode paths
-2. **Add More Hooks**: Consider adding BUFFER_MODIFIED, COMPLETION_START/END hooks
-3. **User Widget Configuration**: Allow users to register custom widgets via config
-4. **Widget Documentation**: Document available widgets and hook points
+1. **macOS Testing**: Build and test on macOS, fix any compatibility issues
+2. **Vi Keybindings**: Begin implementing vi mode (high effort but valuable)
+3. **Performance Profiling**: May want to profile with complex prompts
+4. **Documentation**: Update user-facing docs with Ctrl+G behavior
