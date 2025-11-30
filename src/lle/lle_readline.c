@@ -392,7 +392,9 @@ lle_result_t lle_end_of_line_or_accept_suggestion(readline_context_t *ctx)
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Fish-style: If already at end with suggestion, accept it */
+    /* Fish-style: If already at end of buffer with suggestion, accept it
+     * Note: Suggestion acceptance only applies at absolute buffer end,
+     * since suggestions extend the entire command, not individual lines */
     if (ctx->buffer->cursor.byte_offset == ctx->buffer->length && has_autosuggestion(ctx)) {
         if (accept_autosuggestion(ctx)) {
             refresh_display(ctx);
@@ -400,8 +402,20 @@ lle_result_t lle_end_of_line_or_accept_suggestion(readline_context_t *ctx)
         }
     }
     
-    /* Normal behavior: move cursor to end */
-    ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+    /* Normal behavior: move cursor to end of CURRENT LINE (not buffer)
+     * This is critical for multiline mode - Ctrl+E should move to end of
+     * the current logical line, while Alt+> moves to end of buffer */
+    if (ctx->editor) {
+        lle_end_of_line(ctx->editor);
+        /* Sync buffer cursor from editor after the move */
+        if (ctx->editor->cursor_manager) {
+            lle_cursor_manager_get_position(ctx->editor->cursor_manager, &ctx->buffer->cursor);
+        }
+    } else {
+        /* Fallback for no editor: move to buffer end (single-line behavior) */
+        ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+    }
+    
     refresh_display(ctx);
     
     return LLE_SUCCESS;

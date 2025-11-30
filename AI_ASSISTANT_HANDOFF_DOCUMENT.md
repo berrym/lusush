@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 33
+# AI Assistant Handoff Document - Session 34
 
 **Date**: 2025-11-29  
-**Session Type**: Unicode-Aware History Deduplication + LibFuzzy  
+**Session Type**: Themeable Syntax Highlighting + Bugfix  
 **Status**: IN PROGRESS  
 
 ---
@@ -20,13 +20,21 @@
 
 **Session 32**: Implemented full Emacs preset loader with all GNU Readline bindings, refactored lle_readline.c to use preset + context-aware overrides - **COMMITTED as 84e95e9**
 
-**Session 33 (This Session)**:
+**Session 33**:
 1. Reviewed history deduplication implementation against spec
 2. Discovered add-time dedup was active but navigation-time dedup was missing
 3. Implemented navigation-time deduplication with config options - **COMMITTED as 250246d**
 4. Implemented Unicode-aware comparison for history deduplication - **COMMITTED as bb815b3**
 5. Created shared libfuzzy library with Unicode-aware fuzzy matching algorithms
 6. Refactored autocorrect.c and history_search.c to use libfuzzy
+
+**Session 34 (This Session)**:
+1. Implemented themeable syntax highlighting (Spec 11 integration)
+2. Created `lle/syntax_highlighting.h/.c` - shell-specific lexer and token types
+3. Added `syntax_color_scheme_t` to theme system with 18 token color fields
+4. Updated all 6 built-in themes with dark/light syntax color schemes
+5. Wired theme syntax colors into command_layer via `apply_theme_syntax_to_command_layer()`
+6. Fixed Ctrl+E multiline regression - was moving to buffer end instead of line end
 
 ---
 
@@ -230,7 +238,7 @@ int fuzzy_match_best(const char *pattern, const char **candidates, int num_candi
 | Completion Menu | 23 | ✅ Working | Arrow/vim nav, categories |
 | History System | 09 | ✅ Working | Add-time, navigation-time dedup, Unicode-aware |
 | Widget System | 07 | ⚠️ EMPTY | Registry/hooks exist but ZERO widgets registered |
-| Syntax Highlighting | 11 | ⚠️ PARTIAL | Working but NOT THEMEABLE |
+| Syntax Highlighting | 11 | ✅ COMPLETE | Themeable, integrated with command_layer |
 | Fuzzy Matching | 27 | ✅ COMPLETE | Shared libfuzzy with Unicode support |
 
 ### KEY ISSUES FIXED THIS SESSION
@@ -238,17 +246,21 @@ int fuzzy_match_best(const char *pattern, const char **candidates, int num_candi
 1. **~~History Dedup Not Active~~**: **FIXED** - Both add-time and navigation-time dedup now active
 2. **~~Byte-level comparison only~~**: **FIXED** - Unicode NFC normalization now used by default
 3. **~~Fuzzy matching duplicated~~**: **FIXED** - Consolidated into shared libfuzzy library
+4. **~~Syntax highlighting not themeable~~**: **FIXED** - Theme syntax colors now flow to command_layer
+5. **~~Ctrl+E multiline regression~~**: **FIXED** - Now moves to end of current line, not buffer
 
 ---
 
 ## Remaining Priority Items
 
-### Priority 4: Themeable Syntax Highlighting
-**Effort: Medium | Value: Core Philosophy**
+### ~~Priority 4: Themeable Syntax Highlighting~~ ✅ COMPLETE
+~~**Effort: Medium | Value: Core Philosophy**~~
 
-- Current implementation has hardcoded colors
-- Should integrate with theme system
-- "Themeable everything" is lusush core design philosophy
+- **DONE**: Created `include/lle/syntax_highlighting.h` and `src/lle/syntax_highlighting.c`
+- **DONE**: Added `syntax_color_scheme_t` to `theme_definition_t` with 18 token color fields
+- **DONE**: Updated all 6 built-in themes with dark/light syntax colors
+- **DONE**: Created `apply_theme_syntax_to_command_layer()` to wire theme → command_layer
+- **DONE**: Theme changes now update syntax highlighting colors in real-time
 
 ### ~~Priority 5: Fuzzy Matching Shared Library~~ ✅ COMPLETE
 ~~**Effort: Low | Value: Architecture**~~
@@ -257,7 +269,7 @@ int fuzzy_match_best(const char *pattern, const char **candidates, int num_candi
 - ~~Used by: autocorrect, completion ranking, fuzzy history search~~
 - **DONE**: Created `include/fuzzy_match.h` and `src/libfuzzy/fuzzy_match.c`
 
-### Priority 5: Wire LibFuzzy into Completion System
+### Priority 4: Wire LibFuzzy into Completion System
 **Effort: Low-Medium | Value: User Experience + Spec Compliance**
 
 The completion system currently uses byte-level `strcmp`/`strncmp` for prefix matching only.
@@ -274,10 +286,10 @@ Spec 12 Section 6 ("Fuzzy Matching and Ranking Engine") explicitly calls for fuz
 3. Update relevance scoring to incorporate fuzzy scores
 4. Consider Unicode-aware prefix matching for file paths (especially macOS NFD normalization)
 
-**Rationale for deferring:**
-- Themeable syntax highlighting is higher priority (core philosophy: "themeable everything")
+**Rationale:**
 - LibFuzzy is already complete and waiting - integration will be straightforward
 - Current prefix-only completion is functional, just not as powerful as spec envisions
+- This is now the next priority after themeable syntax highlighting completion
 
 **LibFuzzy functions ready for use:**
 - `fuzzy_subsequence_score()` - for "gco" → "git checkout" style matching
