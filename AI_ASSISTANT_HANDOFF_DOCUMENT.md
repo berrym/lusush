@@ -35,6 +35,11 @@
 4. Updated all 6 built-in themes with dark/light syntax color schemes
 5. Wired theme syntax colors into command_layer via `apply_theme_syntax_to_command_layer()`
 6. Fixed Ctrl+E multiline regression - was moving to buffer end instead of line end
+7. Implemented unique-only history navigation (`lle.dedup_navigation_unique`)
+   - Tracks seen commands via hash set during navigation session
+   - Each command shown at most once per navigation (no duplicates even non-adjacent)
+   - Reset when returning to current line or typing new characters
+   - Non-destructive: history file remains intact, only navigation filtered
 
 ---
 
@@ -248,6 +253,7 @@ int fuzzy_match_best(const char *pattern, const char **candidates, int num_candi
 3. **~~Fuzzy matching duplicated~~**: **FIXED** - Consolidated into shared libfuzzy library
 4. **~~Syntax highlighting not themeable~~**: **FIXED** - Theme syntax colors now flow to command_layer
 5. **~~Ctrl+E multiline regression~~**: **FIXED** - Now moves to end of current line, not buffer
+6. **~~Unique-only history navigation~~**: **FIXED** - New `lle.dedup_navigation_unique` option (default: true)
 
 ---
 

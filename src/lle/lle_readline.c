@@ -785,6 +785,8 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
     /* This follows bash/readline behavior: typing exits history mode */
     if (ctx->editor && ctx->editor->history_navigation_pos > 0) {
         ctx->editor->history_navigation_pos = 0;
+        /* Clear the seen set for unique-only navigation mode */
+        ctx->editor->history_nav_seen_count = 0;
     }
     
     /* Clear completion menu on character input */
@@ -1999,6 +2001,8 @@ char *lle_readline(const char *prompt)
         /* CRITICAL: Reset history navigation position for new readline session */
         /* Each readline() call starts fresh - not in history navigation mode */
         global_lle_editor->history_navigation_pos = 0;
+        /* Clear the seen set for unique-only navigation mode */
+        global_lle_editor->history_nav_seen_count = 0;
     }
     
     /* === STEP 6.6: Create keybinding manager and load Emacs preset === */

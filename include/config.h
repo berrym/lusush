@@ -127,6 +127,7 @@ typedef struct {
     lle_dedup_scope_t lle_dedup_scope;
     lle_dedup_strategy_t lle_dedup_strategy;      // Dedup strategy (default: KEEP_RECENT)
     bool lle_dedup_navigation;                     // Skip duplicates during history navigation (default: true)
+    bool lle_dedup_navigation_unique;              // Show only unique entries during navigation session (default: true)
     bool lle_dedup_unicode_normalize;              // Use Unicode NFC normalization for comparison (default: true)
 
     // Performance

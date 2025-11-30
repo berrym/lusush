@@ -88,6 +88,8 @@ static config_option_t config_options[] = {
      &config.lle_dedup_strategy, "Deduplication strategy", config_validate_lle_dedup_strategy},
     {"lle.dedup_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_dedup_navigation, "Skip duplicates during history navigation", config_validate_bool},
+    {"lle.dedup_navigation_unique", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_navigation_unique, "Show only unique entries during navigation session", config_validate_bool},
     {"lle.dedup_unicode_normalize", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_dedup_unicode_normalize, "Use Unicode NFC normalization for dedup comparison", config_validate_bool},
     {"lle.enable_history_cache", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
@@ -1020,6 +1022,7 @@ void config_set_defaults(void) {
     config.lle_dedup_scope = LLE_DEDUP_SCOPE_SESSION;
     config.lle_dedup_strategy = LLE_DEDUP_STRATEGY_KEEP_RECENT;
     config.lle_dedup_navigation = true;  // Skip duplicates when navigating history
+    config.lle_dedup_navigation_unique = true;  // Show only unique entries during navigation session
     config.lle_dedup_unicode_normalize = true;  // Use Unicode NFC normalization for comparison
     config.lle_enable_history_cache = true;
     config.lle_cache_size = 100;

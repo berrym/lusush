@@ -1455,6 +1455,76 @@ static bool history_nav_strings_equal(const char *s1, const char *s2) {
     }
 }
 
+/**
+ * Simple FNV-1a hash for command strings (used for unique-only navigation)
+ */
+static uint32_t hash_command_string(const char *cmd) {
+    if (!cmd) return 0;
+    
+    uint32_t hash = 2166136261u;  /* FNV offset basis */
+    while (*cmd) {
+        hash ^= (uint8_t)*cmd++;
+        hash *= 16777619u;  /* FNV prime */
+    }
+    return hash;
+}
+
+/**
+ * Clear the navigation seen set (called when navigation resets to pos 0)
+ */
+static void history_nav_clear_seen(lle_editor_t *editor) {
+    if (editor) {
+        editor->history_nav_seen_count = 0;
+    }
+}
+
+/**
+ * Check if a command hash has been seen during this navigation session
+ */
+static bool history_nav_is_seen(lle_editor_t *editor, uint32_t hash) {
+    if (!editor || !editor->history_nav_seen_hashes) {
+        return false;
+    }
+    
+    for (size_t i = 0; i < editor->history_nav_seen_count; i++) {
+        if (editor->history_nav_seen_hashes[i] == hash) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Add a command hash to the seen set
+ */
+static void history_nav_mark_seen(lle_editor_t *editor, uint32_t hash) {
+    if (!editor) return;
+    
+    /* Lazy initialization of seen hash array */
+    if (!editor->history_nav_seen_hashes) {
+        editor->history_nav_seen_capacity = 64;  /* Reasonable initial capacity */
+        editor->history_nav_seen_hashes = calloc(editor->history_nav_seen_capacity, sizeof(uint32_t));
+        if (!editor->history_nav_seen_hashes) {
+            return;  /* Allocation failed, degrade gracefully */
+        }
+        editor->history_nav_seen_count = 0;
+    }
+    
+    /* Grow array if needed */
+    if (editor->history_nav_seen_count >= editor->history_nav_seen_capacity) {
+        size_t new_capacity = editor->history_nav_seen_capacity * 2;
+        uint32_t *new_hashes = realloc(editor->history_nav_seen_hashes, 
+                                        new_capacity * sizeof(uint32_t));
+        if (!new_hashes) {
+            return;  /* Allocation failed, degrade gracefully */
+        }
+        editor->history_nav_seen_hashes = new_hashes;
+        editor->history_nav_seen_capacity = new_capacity;
+    }
+    
+    editor->history_nav_seen_hashes[editor->history_nav_seen_count++] = hash;
+}
+
 lle_result_t lle_history_previous(lle_editor_t *editor) {
     if (!editor || !editor->buffer || !editor->history_system) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -1468,6 +1538,10 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
     
     /* Check if navigation-time deduplication is enabled (default: true) */
     bool dedup_enabled = config.lle_dedup_navigation;
+    
+    /* Check if unique-only navigation is enabled (default: true)
+     * When enabled, each command is shown at most once per navigation session */
+    bool unique_only = config.lle_dedup_navigation_unique;
     
     /* Get current buffer content for deduplication comparison */
     const char *current_content = dedup_enabled ? get_current_buffer_content(editor) : NULL;
@@ -1484,6 +1558,16 @@ lle_result_t lle_history_previous(lle_editor_t *editor) {
             /* Skip if dedup enabled and this entry matches current buffer content */
             if (dedup_enabled && current_content && history_nav_strings_equal(entry->command, current_content)) {
                 continue;  /* Skip duplicate, try next older entry */
+            }
+            
+            /* Skip if unique-only mode and we've already seen this command */
+            if (unique_only) {
+                uint32_t cmd_hash = hash_command_string(entry->command);
+                if (history_nav_is_seen(editor, cmd_hash)) {
+                    continue;  /* Already shown this command, skip it */
+                }
+                /* Mark as seen for future navigation */
+                history_nav_mark_seen(editor, cmd_hash);
             }
             
             /* Found entry to display */
@@ -1516,6 +1600,9 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
     /* Check if navigation-time deduplication is enabled (default: true) */
     bool dedup_enabled = config.lle_dedup_navigation;
     
+    /* Check if unique-only navigation is enabled (default: true) */
+    bool unique_only = config.lle_dedup_navigation_unique;
+    
     /* Get current buffer content for deduplication comparison */
     const char *current_content = dedup_enabled ? get_current_buffer_content(editor) : NULL;
     
@@ -1524,8 +1611,9 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
         editor->history_navigation_pos--;
         
         if (editor->history_navigation_pos == 0) {
-            /* Back to current line - clear buffer */
+            /* Back to current line - clear buffer and reset seen set */
             lle_buffer_clear(editor->buffer);
+            history_nav_clear_seen(editor);  /* Reset for next navigation session */
             break;
         }
         
@@ -1537,6 +1625,16 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
             /* Skip if dedup enabled and this entry matches current buffer content */
             if (dedup_enabled && current_content && history_nav_strings_equal(entry->command, current_content)) {
                 continue;  /* Skip duplicate, try next newer entry */
+            }
+            
+            /* Skip if unique-only mode and we've already seen this command
+             * Note: For forward navigation, we still skip seen entries but don't
+             * add new ones - the seen set was built during backward navigation */
+            if (unique_only) {
+                uint32_t cmd_hash = hash_command_string(entry->command);
+                if (history_nav_is_seen(editor, cmd_hash)) {
+                    continue;  /* Already shown this command, skip it */
+                }
             }
             
             /* Found entry to display */

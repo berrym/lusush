@@ -90,6 +90,11 @@ typedef struct lle_editor {
     bool history_search_active;                        /* Interactive search active */
     int history_search_direction;                      /* 1=forward, -1=reverse */
     
+    /* Unique-only navigation tracking (for lle_dedup_navigation_unique) */
+    uint32_t *history_nav_seen_hashes;                 /* Hash set of commands seen this session */
+    size_t history_nav_seen_count;                     /* Number of seen hashes */
+    size_t history_nav_seen_capacity;                  /* Capacity of seen hash array */
+    
     /* Display and output */
     lle_display_controller_t *display_controller;      /* Display management */
     
