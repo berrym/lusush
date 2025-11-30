@@ -1,6 +1,6 @@
 # AI Assistant Handoff Document - Session 35
 
-**Date**: 2025-11-29  
+**Date**: 2025-11-30  
 **Session Type**: Widget System Implementation  
 **Status**: COMPLETE - Widget System Fully Implemented  
 
@@ -50,6 +50,10 @@
    - Initialize widget_registry and widget_hooks_manager in lle_editor_create()
    - Create builtin_widgets.c with 24 core widgets
    - Add lifecycle hook triggers (LINE_INIT, LINE_FINISH, TERMINAL_RESIZE)
+6. **Unicode-Aware File Path Completion**:
+   - Fixed visual_width() in completion_menu_renderer.c to use lle_utf8_string_width()
+   - Proper display width for CJK (2 cols), emoji (2 cols), combining marks (0 cols)
+   - Completion menu columns now align correctly with Unicode filenames
 
 **COMMITS**:
 - `7fe94fa` - Add CLAUDE.md with build directory enforcement

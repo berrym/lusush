@@ -1,10 +1,14 @@
 /**
  * @file completion_menu_renderer.c
  * @brief Completion Menu Renderer Implementation
+ * 
+ * Unicode-aware menu rendering with proper display width calculation
+ * for CJK characters, emoji, combining marks, and other Unicode.
  */
 
 #include "lle/completion/completion_menu_renderer.h"
 #include "lle/completion/completion_types.h"
+#include "lle/utf8_support.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -31,59 +35,66 @@ static const char *get_type_category_name(lle_completion_type_t type) {
 /**
  * Calculate visual width of string, skipping ANSI escape sequences
  * 
+ * Uses lle_utf8_string_width() for proper Unicode display width calculation:
+ * - CJK characters: 2 columns
+ * - Emoji: 2 columns  
+ * - Combining marks: 0 columns
+ * - Regular ASCII/Latin: 1 column
+ * 
  * ANSI escape sequences have zero visual width but take up bytes.
  * Format: ESC [ ... final_byte (where final_byte is 0x40-0x7E)
  */
 static size_t visual_width(const char *str) {
     if (!str) return 0;
     
+    size_t len = strlen(str);
+    if (len == 0) return 0;
+    
+    /* Fast path: no ANSI escape sequences */
+    const char *esc = memchr(str, 0x1B, len);
+    if (!esc) {
+        /* No escape sequences - use lle_utf8_string_width directly */
+        return lle_utf8_string_width(str, len);
+    }
+    
+    /* Slow path: string contains ANSI escape sequences
+     * Process segments between escape sequences */
     size_t width = 0;
     size_t i = 0;
-    size_t len = strlen(str);
     
     while (i < len) {
         unsigned char c = (unsigned char)str[i];
         
-        // Check for ANSI escape sequence (ESC = 0x1B)
+        /* Check for ANSI escape sequence (ESC = 0x1B) */
         if (c == 0x1B && i + 1 < len) {
             unsigned char next = (unsigned char)str[i + 1];
             if (next == '[') {
-                // CSI sequence: ESC [ ... final_byte
-                // Skip until we find the final byte (0x40-0x7E)
-                i += 2;  // Skip ESC [
+                /* CSI sequence: ESC [ ... final_byte
+                 * Skip until we find the final byte (0x40-0x7E) */
+                i += 2;  /* Skip ESC [ */
                 while (i < len) {
                     unsigned char seq_char = (unsigned char)str[i];
                     i++;
                     if (seq_char >= 0x40 && seq_char <= 0x7E) {
-                        break;  // Found final byte, sequence complete
+                        break;  /* Found final byte, sequence complete */
                     }
                 }
-                continue;  // Don't add to width, continue to next character
+                continue;  /* Don't add to width, continue to next character */
             }
-            // Other escape sequences (ESC + single char)
+            /* Other escape sequences (ESC + single char) */
             i += 2;
             continue;
         }
         
-        // UTF-8 character width calculation
-        if ((c & 0x80) == 0) {
-            // ASCII: 1 byte, 1 column
-            width++;
+        /* Find length of text segment until next escape or end */
+        size_t segment_start = i;
+        while (i < len && (unsigned char)str[i] != 0x1B) {
             i++;
-        } else if ((c & 0xE0) == 0xC0) {
-            // 2-byte UTF-8
-            width++;
-            i += 2;
-        } else if ((c & 0xF0) == 0xE0) {
-            // 3-byte UTF-8 (could be wide character)
-            width++;
-            i += 3;
-        } else if ((c & 0xF8) == 0xF0) {
-            // 4-byte UTF-8 (emoji, wide)
-            width += 2;  // Assume wide
-            i += 4;
-        } else {
-            i++;
+        }
+        
+        /* Calculate width of this segment using proper UTF-8 width */
+        if (i > segment_start) {
+            width += lle_utf8_string_width(str + segment_start, i - segment_start);
         }
     }
     
