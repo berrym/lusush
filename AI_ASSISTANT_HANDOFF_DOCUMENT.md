@@ -59,6 +59,11 @@
    - Now checks for active completion menu FIRST before autosuggestion logic
    - Delegates to lle_forward_char() which handles multi-column menu navigation
    - Also fixes Ctrl+F which uses the same function
+8. **Ctrl+G Tiered Dismissal**:
+   - Now clears autosuggestion before aborting line
+   - Behavior: completion menu (1st) -> autosuggestion (2nd) -> abort (3rd)
+   - No-op on empty buffer (prevents display glitch)
+   - More intuitive UX - user can dismiss ghost text without losing input
 
 **COMMITS**:
 - `7fe94fa` - Add CLAUDE.md with build directory enforcement

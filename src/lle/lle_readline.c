@@ -1238,9 +1238,11 @@ static lle_result_t handle_abort(lle_event_t *event, void *user_data)
  * Unlike the flag-based simple action approach, this directly sets done/final_line,
  * eliminating the need for abort_requested flag and preventing state persistence bugs.
  * 
- * BEHAVIOR:
- * - If completion menu is visible: dismiss menu (first press)
- * - If no completion menu: abort line (second press or no menu active)
+ * BEHAVIOR (tiered dismissal):
+ * 1. If completion menu is visible: dismiss menu (first press)
+ * 2. If autosuggestion is visible: clear suggestion (second press)
+ * 3. If buffer is empty: no-op (nothing to abort)
+ * 4. If nothing to dismiss and buffer has content: abort line and return to shell
  * 
  * @param ctx Readline context with full access to done/final_line
  * @return LLE_SUCCESS
@@ -1292,7 +1294,30 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
         }
     }
     
-    /* No completion menu active - abort the line */
+    /* Check if autosuggestion is visible - if so, clear it first */
+    if (has_autosuggestion(ctx)) {
+        /* Clear the autosuggestion */
+        ctx->current_suggestion[0] = '\0';
+        
+        /* Clear from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_set_autosuggestion(dc, NULL);
+        }
+        
+        /* Refresh display to clear suggestion from screen */
+        refresh_display(ctx);
+        
+        return LLE_SUCCESS;  /* Suggestion cleared, don't abort line */
+    }
+    
+    /* No completion menu or autosuggestion active - abort the line */
+    
+    /* If buffer is empty, just ignore Ctrl+G - nothing to abort */
+    if (ctx->buffer && ctx->buffer->length == 0) {
+        return LLE_SUCCESS;  /* No-op on empty buffer */
+    }
+    
     *ctx->done = true;
     *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
     
