@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 35
+# AI Assistant Handoff Document - Session 36
 
 **Date**: 2025-11-30  
-**Session Type**: Widget System Implementation  
-**Status**: COMPLETE - Widget System Fully Implemented  
+**Session Type**: Ctrl+G ZSH-style Recovery Behavior  
+**Status**: COMPLETE - Ctrl+G Always Aborts for Clean State Recovery  
 
 ---
 
@@ -62,8 +62,14 @@
 8. **Ctrl+G Tiered Dismissal**:
    - Now clears autosuggestion before aborting line
    - Behavior: completion menu (1st) -> autosuggestion (2nd) -> abort (3rd)
-   - No-op on empty buffer (prevents display glitch)
    - More intuitive UX - user can dismiss ghost text without losing input
+
+**Session 36 (This Session)**:
+1. **Ctrl+G ZSH-style Always-Abort Behavior**:
+   - Changed from no-op on empty buffer to always aborting
+   - Follows ZSH's ZLE behavior - Ctrl+G is an escape hatch for state recovery
+   - If display/editor gets into weird state, Ctrl+G guarantees fresh prompt
+   - Tiered dismissal preserved: menu (1st) -> suggestion (2nd) -> abort (3rd)
 
 **COMMITS**:
 - `7fe94fa` - Add CLAUDE.md with build directory enforcement
@@ -202,10 +208,7 @@ Required for cross-platform release:
 
 ## Files Modified This Session
 
-- `src/lle/lle_editor.c` - Widget system initialization/cleanup
-- `src/lle/lle_readline.c` - Lifecycle hook triggers
-- `src/lle/meson.build` - Added builtin_widgets.c to build
-- `src/lle/builtin_widgets.c` - NEW: 24 builtin widget implementations
+- `src/lle/lle_readline.c` - Ctrl+G always-abort behavior (ZSH-style recovery)
 
 ---
 

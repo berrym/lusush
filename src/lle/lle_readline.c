@@ -1311,13 +1311,13 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
         return LLE_SUCCESS;  /* Suggestion cleared, don't abort line */
     }
     
-    /* No completion menu or autosuggestion active - abort the line */
-    
-    /* If buffer is empty, just ignore Ctrl+G - nothing to abort */
-    if (ctx->buffer && ctx->buffer->length == 0) {
-        return LLE_SUCCESS;  /* No-op on empty buffer */
-    }
-    
+    /* No completion menu or autosuggestion active - abort the line
+     * 
+     * ZSH-style behavior: Always abort, even on empty buffer.
+     * This serves as a recovery mechanism - if the display or editor gets into
+     * a weird state, Ctrl+G guarantees a fresh start with a new prompt.
+     * Unlike the no-op approach, this ensures users always have an escape hatch.
+     */
     *ctx->done = true;
     *ctx->final_line = strdup("");  /* Return empty string, not NULL (NULL signals EOF) */
     
