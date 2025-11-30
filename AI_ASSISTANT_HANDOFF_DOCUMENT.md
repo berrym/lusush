@@ -70,6 +70,11 @@
    - Follows ZSH's ZLE behavior - Ctrl+G is an escape hatch for state recovery
    - If display/editor gets into weird state, Ctrl+G guarantees fresh prompt
    - Tiered dismissal preserved: menu (1st) -> suggestion (2nd) -> abort (3rd)
+2. **Fix Ctrl+G Autosuggestion Clearing Bug**:
+   - Bug: Ctrl+G cleared autosuggestion but refresh_display() immediately regenerated it
+   - Added `suppress_autosuggestion` flag to readline_context_t
+   - Flag set before clearing, checked in update_autosuggestion() to skip regeneration
+   - Flag reset when user types next character (re-enables suggestions)
 
 **COMMITS**:
 - `7fe94fa` - Add CLAUDE.md with build directory enforcement

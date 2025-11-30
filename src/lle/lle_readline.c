@@ -184,6 +184,7 @@ typedef struct readline_context {
     /* Fish-style autosuggestions - direct LLE history integration */
     char *current_suggestion;      /* Current suggestion text (the part to append) */
     size_t suggestion_alloc_size;  /* Allocated size of suggestion buffer */
+    bool suppress_autosuggestion;  /* Temporarily suppress autosuggestion regeneration */
 } readline_context_t;
 
 /**
@@ -210,6 +211,11 @@ static void update_autosuggestion(readline_context_t *ctx)
     
     /* Bail out conditions */
     if (!ctx || !ctx->buffer || !ctx->editor || !ctx->editor->history_system) {
+        return;
+    }
+    
+    /* Check if autosuggestion regeneration is suppressed (e.g., during Ctrl+G clear) */
+    if (ctx->suppress_autosuggestion) {
         return;
     }
     
@@ -813,6 +819,9 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         ctx->editor->history_nav_seen_count = 0;
     }
     
+    /* Re-enable autosuggestion if it was suppressed (e.g., by Ctrl+G) */
+    ctx->suppress_autosuggestion = false;
+    
     /* Clear completion menu on character input */
     if (ctx->editor) {
         bool menu_cleared = false;
@@ -1298,6 +1307,10 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
     if (has_autosuggestion(ctx)) {
         /* Clear the autosuggestion */
         ctx->current_suggestion[0] = '\0';
+        
+        /* Suppress autosuggestion regeneration during this refresh
+         * Otherwise refresh_display() will immediately regenerate it */
+        ctx->suppress_autosuggestion = true;
         
         /* Clear from display controller */
         display_controller_t *dc = display_integration_get_controller();
@@ -2108,7 +2121,8 @@ char *lle_readline(const char *prompt)
         
         /* Fish-style autosuggestions - LLE history integration */
         .current_suggestion = NULL,
-        .suggestion_alloc_size = 0
+        .suggestion_alloc_size = 0,
+        .suppress_autosuggestion = false
     };
     
     /* CRITICAL: Reset per-readline-call flags on global editor
