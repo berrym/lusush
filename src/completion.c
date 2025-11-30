@@ -4,6 +4,7 @@
 #include "../include/alias.h"
 #include "../include/builtins.h"
 #include "../include/config.h"
+#include "../include/fuzzy_match.h"
 #include "../include/libhashtable/ht.h"
 #include "../include/readline_integration.h"
 #include "../include/lusush.h"
@@ -23,11 +24,38 @@
 // Global flag to enable/disable typed completions
 static bool g_use_typed_completions = false;
 
+// Cached fuzzy match options based on config
+static fuzzy_match_options_t g_fuzzy_options = {
+    .case_sensitive = false,
+    .unicode_normalize = true,
+    .use_damerau = true,
+    .max_distance = 0
+};
+
 /**
- * Fuzzy matching algorithm for enhanced completion
- * Returns a score (0-100) indicating how well the candidate matches the pattern
+ * Update fuzzy match options from config
+ * Called when config changes or at initialization
  */
-static int fuzzy_match_score(const char *pattern, const char *candidate) {
+static void update_fuzzy_options_from_config(void) {
+    g_fuzzy_options.case_sensitive = config.completion_case_sensitive;
+    // Use fast mode (no unicode normalization) for better performance
+    // unless explicitly needed
+    g_fuzzy_options.unicode_normalize = false;
+    g_fuzzy_options.use_damerau = true;  // Better typo detection
+    g_fuzzy_options.max_distance = 0;    // No limit
+}
+
+/**
+ * Fuzzy matching for completion using libfuzzy
+ * Returns a score (0-100) indicating how well the candidate matches the pattern
+ * 
+ * Uses the Unicode-aware libfuzzy implementation which combines:
+ * - Levenshtein/Damerau-Levenshtein distance (40%)
+ * - Jaro-Winkler similarity (30%)
+ * - Common prefix bonus (20%)
+ * - Subsequence score (10%)
+ */
+static int completion_fuzzy_score(const char *pattern, const char *candidate) {
     if (!pattern || !candidate) {
         return 0;
     }
@@ -43,52 +71,26 @@ static int fuzzy_match_score(const char *pattern, const char *candidate) {
         return 0; // Empty candidate matches nothing
     }
 
-    // Simple prefix matching gets highest score
+    // Exact prefix match gets highest score (fast path)
     if (strncmp(pattern, candidate, pattern_len) == 0) {
-        return 95;
+        return 98;
     }
 
-    // Case-insensitive prefix matching
-    int case_match = 1;
+    // Case-insensitive prefix match (fast path)
+    // Use manual comparison since strncasecmp may not be available
+    bool case_match = true;
     for (int i = 0; i < pattern_len; i++) {
-        if (tolower(pattern[i]) != tolower(candidate[i])) {
-            case_match = 0;
+        if (tolower((unsigned char)pattern[i]) != tolower((unsigned char)candidate[i])) {
+            case_match = false;
             break;
         }
     }
     if (case_match) {
-        return 90;
+        return 95;
     }
 
-    // Subsequence matching - all pattern chars must appear in order
-    int matches = 0;
-    int pattern_idx = 0;
-    int consecutive_matches = 0;
-    int max_consecutive = 0;
-
-    for (int i = 0; i < candidate_len && pattern_idx < pattern_len; i++) {
-        if (tolower(candidate[i]) == tolower(pattern[pattern_idx])) {
-            matches++;
-            pattern_idx++;
-            consecutive_matches++;
-            if (consecutive_matches > max_consecutive) {
-                max_consecutive = consecutive_matches;
-            }
-        } else {
-            consecutive_matches = 0;
-        }
-    }
-
-    // All pattern characters must be found
-    if (pattern_idx < pattern_len) {
-        return 0;
-    }
-
-    // Score based on match ratio and consecutive matches
-    int match_ratio = (matches * 100) / pattern_len;
-    int consecutive_bonus = (max_consecutive * 20) / pattern_len;
-
-    return (match_ratio + consecutive_bonus) / 2;
+    // Use libfuzzy for comprehensive fuzzy matching
+    return fuzzy_match_score(pattern, candidate, &g_fuzzy_options);
 }
 
 /**
@@ -104,7 +106,7 @@ static void prioritize_completions(lusush_completions_t *lc,
 static void add_fuzzy_completion(lusush_completions_t *lc, const char *pattern,
                                  const char *candidate, const char *suffix,
                                  int min_score) {
-    int score = fuzzy_match_score(pattern, candidate);
+    int score = completion_fuzzy_score(pattern, candidate);
     if (score >= min_score) {
         add_completion_with_suffix(lc, candidate, suffix);
     }
@@ -117,6 +119,9 @@ void lusush_completion_callback(const char *buf, lusush_completions_t *lc) {
     if (!buf || !lc) {
         return;
     }
+
+    // Update fuzzy options from config (in case config changed)
+    update_fuzzy_options_from_config();
 
     // Get terminal capabilities for completion optimization
     const terminal_info_t *term_info = termcap_get_info();
@@ -405,7 +410,7 @@ void complete_files(const char *text, lusush_completions_t *lc) {
             bool fuzzy_match = false;
 
             if (!exact_match && prefix_len > 0) {
-                int score = fuzzy_match_score(file_prefix, entry->d_name);
+                int score = completion_fuzzy_score(file_prefix, entry->d_name);
                 fuzzy_match = (score >= 50); // Lower threshold for files
             }
 
@@ -473,7 +478,7 @@ void complete_variables(const char *text, lusush_completions_t *lc) {
                 char var_part[var_len + 1];
                 strncpy(var_part, *env, var_len);
                 var_part[var_len] = '\0';
-                int score = fuzzy_match_score(var_prefix, var_part);
+                int score = completion_fuzzy_score(var_prefix, var_part);
                 fuzzy_match = (score >= 60);
             }
 
@@ -601,8 +606,8 @@ static void prioritize_completions(lusush_completions_t *lc,
     // Simple bubble sort by fuzzy match score (for small lists)
     for (size_t i = 0; i < lc->len - 1; i++) {
         for (size_t j = 0; j < lc->len - i - 1; j++) {
-            int score1 = fuzzy_match_score(pattern, lc->cvec[j]);
-            int score2 = fuzzy_match_score(pattern, lc->cvec[j + 1]);
+            int score1 = completion_fuzzy_score(pattern, lc->cvec[j]);
+            int score2 = completion_fuzzy_score(pattern, lc->cvec[j + 1]);
 
             if (score1 < score2) {
                 // Swap
@@ -671,7 +676,7 @@ char *get_best_completion_match(const char *text) {
 
     // Find the best scoring match
     for (size_t i = 0; i < lc.len; i++) {
-        int score = fuzzy_match_score(text, lc.cvec[i]);
+        int score = completion_fuzzy_score(text, lc.cvec[i]);
         if (score > best_score && score >= 70) { // Minimum threshold
             best_score = score;
             free(best_match);
@@ -764,7 +769,7 @@ char *generate_file_hint(const char *buf) {
         size_t best_idx = 0;
 
         for (size_t i = 0; i < lc.len; i++) {
-            int score = fuzzy_match_score(word, lc.cvec[i]);
+            int score = completion_fuzzy_score(word, lc.cvec[i]);
             if (score > best_score) {
                 best_score = score;
                 best_idx = i;
@@ -819,7 +824,7 @@ char *generate_variable_hint(const char *buf) {
         size_t best_idx = 0;
 
         for (size_t i = 0; i < lc.len; i++) {
-            int score = fuzzy_match_score(word, lc.cvec[i]);
+            int score = completion_fuzzy_score(word, lc.cvec[i]);
             if (score > best_score) {
                 best_score = score;
                 best_idx = i;
