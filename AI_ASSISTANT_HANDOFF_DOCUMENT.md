@@ -95,6 +95,22 @@
    - Ctrl+C with autosuggestion: clears suggestion, aborts line ✅
    - No terminal corruption or resource leaks ✅
 
+2. **Fix Child Process Interruption with Ctrl+C**:
+   
+   **Problem**: waitpid() calls weren't handling EINTR (signal interruption) and 
+   weren't properly reporting signal-terminated exit codes.
+   
+   **Solution** (`src/executor.c`):
+   - All foreground waitpid() calls now retry on EINTR
+   - Signal-terminated processes return 128 + signal_number (bash convention)
+   - Fixed in: external commands, pipelines, subshells, command substitution, builtins
+   
+   **Behavior**:
+   - Ctrl+C during `sleep 100` sends SIGINT to child and terminates it ✅
+   - Exit code is 130 (128 + 2) for SIGINT-terminated processes ✅
+   - Pipeline commands are properly interrupted ✅
+   - Command substitution is properly interrupted ✅
+
 ---
 
 ## Current Implementation Status
@@ -145,6 +161,7 @@ Completion Menu (dismiss) → Autosuggestion (clear) → Abort Line (new prompt)
 - `src/signals.c` - Added LLE coordination flags and functions for SIGINT
 - `include/signals.h` - Declared `set_lle_readline_active()` and `check_and_clear_sigint_flag()`
 - `src/lle/lle_readline.c` - SIGINT check in input loop, set/clear active flag
+- `src/executor.c` - EINTR handling for all foreground waitpid() calls, proper signal exit codes
 - `docs/development/LLE_RELEASE_ROADMAP.md` - Updated P1 as complete
 
 ---

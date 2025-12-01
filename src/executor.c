@@ -1024,7 +1024,7 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
         set_executor_error(executor, "Failed to fork for pipeline");
         close(pipe_fd[0]);
         close(pipe_fd[1]);
-        waitpid(left_pid, NULL, 0);
+        while (waitpid(left_pid, NULL, 0) == -1 && errno == EINTR);
         return 1;
     }
 
@@ -1043,12 +1043,15 @@ static int execute_pipeline(executor_t *executor, node_t *pipeline) {
     close(pipe_fd[1]);
 
     int left_status, right_status;
-    waitpid(left_pid, &left_status, 0);
-    waitpid(right_pid, &right_status, 0);
+    // Wait for children, retrying on EINTR (signal interruption)
+    while (waitpid(left_pid, &left_status, 0) == -1 && errno == EINTR);
+    while (waitpid(right_pid, &right_status, 0) == -1 && errno == EINTR);
 
-    // Extract exit codes
-    int left_exit = WEXITSTATUS(left_status);
-    int right_exit = WEXITSTATUS(right_status);
+    // Extract exit codes - handle signal termination
+    int left_exit = WIFEXITED(left_status) ? WEXITSTATUS(left_status) :
+                    (WIFSIGNALED(left_status) ? 128 + WTERMSIG(left_status) : 1);
+    int right_exit = WIFEXITED(right_status) ? WEXITSTATUS(right_status) :
+                     (WIFSIGNALED(right_status) ? 128 + WTERMSIG(right_status) : 1);
 
     // Pipefail behavior: return failure if ANY command in pipeline fails
     if (is_pipefail_enabled()) {
@@ -2122,12 +2125,27 @@ static int execute_external_command_with_redirection(executor_t *executor,
         DEBUG_PROFILE_ENTER(argv[0]);
 
         int status;
-        waitpid(pid, &status, 0);
+        // Wait for child, retrying on EINTR (signal interruption)
+        while (waitpid(pid, &status, 0) == -1) {
+            if (errno != EINTR) {
+                // Real error - child may have already been reaped
+                clear_current_child_pid();
+                return 1;
+            }
+            // EINTR - signal interrupted wait, continue waiting
+        }
         clear_current_child_pid();
 
         DEBUG_PROFILE_EXIT(argv[0]);
 
-        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+        // Handle exit status properly - child may have exited or been signaled
+        if (WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            // Child was killed by signal - return 128 + signal number (bash convention)
+            return 128 + WTERMSIG(status);
+        }
+        return 1;
     }
 }
 
@@ -2181,11 +2199,15 @@ static int execute_subshell(executor_t *executor, node_t *subshell) {
     } else {
         // Parent process - wait for subshell to complete
         int status;
-        waitpid(pid, &status, 0);
+        // Wait for child, retrying on EINTR (signal interruption)
+        while (waitpid(pid, &status, 0) == -1 && errno == EINTR);
 
         int result;
         if (WIFEXITED(status)) {
             result = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            // Child was killed by signal - return 128 + signal number (bash convention)
+            result = 128 + WTERMSIG(status);
         } else {
             result = 1; // Abnormal termination
         }
@@ -2536,12 +2558,27 @@ static int execute_external_command_with_setup(executor_t *executor,
         DEBUG_PROFILE_ENTER(argv[0]);
 
         int status;
-        waitpid(pid, &status, 0);
+        // Wait for child, retrying on EINTR (signal interruption)
+        while (waitpid(pid, &status, 0) == -1) {
+            if (errno != EINTR) {
+                // Real error - child may have already been reaped
+                clear_current_child_pid();
+                return 1;
+            }
+            // EINTR - signal interrupted wait, continue waiting
+        }
         clear_current_child_pid();
 
         DEBUG_PROFILE_EXIT(argv[0]);
 
-        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+        // Handle exit status properly - child may have exited or been signaled
+        if (WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            // Child was killed by signal - return 128 + signal number (bash convention)
+            return 128 + WTERMSIG(status);
+        }
+        return 1;
     }
 }
 
@@ -4676,16 +4713,16 @@ static char *expand_command_substitution(executor_t *executor,
 
         if (!output) {
             close(pipefd[0]);
-            waitpid(pid, NULL, 0);
+            while (waitpid(pid, NULL, 0) == -1 && errno == EINTR);
             return strdup("");
         }
 
         ssize_t bytes_read;
         char buffer[256];
 
-        // Wait for child process to complete first
+        // Wait for child process to complete first, retrying on EINTR
         int status;
-        waitpid(pid, &status, 0);
+        while (waitpid(pid, &status, 0) == -1 && errno == EINTR);
 
         // Then read all available output
         while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
@@ -5575,12 +5612,15 @@ static int execute_builtin_with_captured_stdout(executor_t *executor,
         int result = execute_builtin_command(executor, argv);
         exit(result);
     } else {
-        // Parent process - wait for child
+        // Parent process - wait for child, retrying on EINTR
         int status;
-        if (waitpid(pid, &status, 0) == -1) {
-            set_executor_error(executor,
-                               "Failed to wait for builtin child process");
-            return 1;
+        while (waitpid(pid, &status, 0) == -1) {
+            if (errno != EINTR) {
+                set_executor_error(executor,
+                                   "Failed to wait for builtin child process");
+                return 1;
+            }
+            // EINTR - signal interrupted wait, continue waiting
         }
 
         if (WIFEXITED(status)) {
