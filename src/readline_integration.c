@@ -2918,109 +2918,42 @@ static bool detect_multiline_theme(void) {
 // ============================================================================
 
 static int lusush_getc(FILE *stream) {
-    int c;
-    
-    // Retry loop for handling EINTR (signal interruption)
-    // This is critical for proper Ctrl+C handling - when SIGINT arrives,
-    // getc() returns EOF with errno=EINTR, but we should retry rather than
-    // propagate EOF which would cause readline to return NULL and exit shell
-    while ((c = getc(stream)) == EOF) {
+    int c = getc(stream);
+
+    // Handle EOF properly - let readline handle EINTR internally
+    // Fighting readline's signal handling causes more problems than it solves
+    if (c == EOF) {
         if (feof(stream)) {
-            // Real EOF (Ctrl+D)
             return EOF;
         } else if (ferror(stream)) {
-            // Error reading - check if it was just a signal interruption
-            if (errno == EINTR) {
-                // Signal interrupted the read (e.g., SIGINT from Ctrl+C)
-                // Clear error state
-                clearerr(stream);
-                
-                // CRITICAL: After SIGINT, we need to reset readline's display state
-                // The signal handler already printed \n, now we need to:
-                // 1. Clear readline's line buffer (abort current input)
-                // 2. Tell readline we're on a new line
-                // 3. Redraw the prompt
-                // This gives bash-like behavior: ^C cancels input and shows fresh prompt
-                rl_free_line_state();    // Free any partial state
-                rl_cleanup_after_signal(); // Clean up readline's internal state
-                rl_line_buffer[0] = '\0'; // Clear the line buffer
-                rl_point = rl_end = 0;    // Reset cursor position
-                rl_on_new_line();         // Tell readline cursor is on new line
-                rl_redisplay();           // Redraw prompt
-                
-                continue;  // Retry getc()
-            }
-            // Real error - clear and return EOF
             clearerr(stream);
             return EOF;
         }
-        // Neither feof nor ferror - shouldn't happen, but handle it
-        break;
     }
-    
-    // v1.3.0: Syntax highlighting disabled for stability
-    // if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
-    //     lusush_highlight_previous_word();
-    // }
-    
+
     // Update typing state
     typing_state.last_char = c;
-    
+
     return c;
 }
 
 // Enhanced getc function with autosuggestion triggering
 static int lusush_getc_with_autosuggestions(FILE *stream) {
-    int c;
-    
-    // Retry loop for handling EINTR (signal interruption)
-    // This is critical for proper Ctrl+C handling - when SIGINT arrives,
-    // getc() returns EOF with errno=EINTR, but we should retry rather than
-    // propagate EOF which would cause readline to return NULL and exit shell
-    while ((c = getc(stream)) == EOF) {
+    int c = getc(stream);
+
+    // Handle EOF properly - let readline handle EINTR internally
+    // Fighting readline's signal handling causes more problems than it solves
+    if (c == EOF) {
         if (feof(stream)) {
-            // Real EOF (Ctrl+D)
             return EOF;
         } else if (ferror(stream)) {
-            // Error reading - check if it was just a signal interruption
-            if (errno == EINTR) {
-                // Signal interrupted the read (e.g., SIGINT from Ctrl+C)
-                // Clear error state
-                clearerr(stream);
-                
-                // CRITICAL: After SIGINT, we need to reset readline's display state
-                // The signal handler already printed \n, now we need to:
-                // 1. Clear readline's line buffer (abort current input)
-                // 2. Tell readline we're on a new line
-                // 3. Redraw the prompt
-                // This gives bash-like behavior: ^C cancels input and shows fresh prompt
-                rl_free_line_state();    // Free any partial state
-                rl_cleanup_after_signal(); // Clean up readline's internal state
-                rl_line_buffer[0] = '\0'; // Clear the line buffer
-                rl_point = rl_end = 0;    // Reset cursor position
-                rl_on_new_line();         // Tell readline cursor is on new line
-                rl_redisplay();           // Redraw prompt
-                
-                continue;  // Retry getc()
-            }
-            // Real error - clear and return EOF
             clearerr(stream);
             return EOF;
         }
-        // Neither feof nor ferror - shouldn't happen, but handle it
-        break;
     }
-    
-    // v1.3.0: Syntax highlighting disabled for stability  
-    // if (syntax_highlighting_enabled && should_trigger_highlighting(c)) {
-    //     lusush_highlight_previous_word();
-    // }
-    
+
     // Update typing state
     typing_state.last_char = c;
-    
-    // AUTOSUGGESTION TRIGGER: Removed forced updates to prevent display corruption
-    // Autosuggestions will be shown during normal redisplay cycles instead
-    
+
     return c;
 }

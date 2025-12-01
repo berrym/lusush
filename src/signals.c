@@ -49,9 +49,10 @@ static void sigint_handler(int signo) {
         sigint_received_during_readline = 1;
         // Don't print newline here - LLE will handle display cleanup
     } else {
-        // No active child process and not in LLE readline
-        // Just print newline and return to prompt
-        // The shell will handle returning to the prompt naturally
+        // No active child process and not in LLE readline (GNU readline mode)
+        // Set the flag so the main loop knows this was SIGINT, not EOF
+        sigint_received_during_readline = 1;
+        // Print newline to move past current input
         printf("\n");
         fflush(stdout);
     }
