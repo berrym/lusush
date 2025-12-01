@@ -23,6 +23,11 @@ void set_sigsegv_handler(void);
 void set_current_child_pid(pid_t pid);
 void clear_current_child_pid(void);
 
+// LLE readline integration for proper Ctrl+C handling
+// These functions coordinate SIGINT handling between the shell and LLE
+void set_lle_readline_active(int active);  // Call with 1 when entering lle_readline, 0 when exiting
+int check_and_clear_sigint_flag(void);     // Returns 1 if SIGINT was received, clears the flag
+
 // Trap management functions
 int set_trap(int signal, const char *command);
 int remove_trap(int signal);

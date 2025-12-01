@@ -31,7 +31,10 @@
  * - SIGWINCH: Window resize events trigger display refresh
  * - SIGTSTP: Ctrl-Z handled by terminal_unix_interface (exits raw mode before suspend)
  * - SIGCONT: Resume handled by terminal_unix_interface (re-enters raw mode)
- * - SIGINT: Ctrl-C handled by terminal_unix_interface (restores terminal, exits)
+ * - SIGINT: Ctrl-C coordinated with lusush's signal handler (src/signals.c)
+ *   - Signal handler sets flag when SIGINT received during readline
+ *   - Input loop checks flag and aborts line with ^C echo (bash-like behavior)
+ *   - User gets fresh prompt without exiting shell
  * - All signal handlers installed by lle_unix_interface_install_signal_handlers()
  * 
  * Step 5 Enhancement - Complete Emacs Keybindings:
@@ -69,6 +72,7 @@
 #include "display/prompt_layer.h"
 #include "display/autosuggestions_layer.h"  /* For AUTOSUGGESTIONS_LAYER_MAX_SUGGESTION_LENGTH */
 #include "config.h"                   /* For config_values_t and history config options */
+#include "signals.h"                  /* For SIGINT flag coordination with LLE */
 
 /* Forward declarations for history action functions */
 lle_result_t lle_history_previous(lle_editor_t *editor);
@@ -2018,6 +2022,11 @@ char *lle_readline(const char *prompt)
         return NULL;
     }
     
+    /* Notify signal handler that LLE readline is active
+     * This allows SIGINT (Ctrl+C) to be handled properly by setting a flag
+     * that we check in the input loop, rather than using the default behavior */
+    set_lle_readline_active(1);
+    
     /* === STEP 4: Create buffer for line editing === */
     lle_buffer_t *buffer = NULL;
     result = lle_buffer_create(&buffer, global_memory_pool, 256);
@@ -2219,6 +2228,45 @@ char *lle_readline(const char *prompt)
     /* === STEP 8: Main input loop === */
     
     while (!done) {
+        
+        /* Check if SIGINT was received (Ctrl+C)
+         * The signal handler sets a flag instead of interrupting directly,
+         * allowing us to handle it cleanly here in the input loop.
+         * This provides bash-like behavior: Ctrl+C aborts current line and
+         * displays a fresh prompt, rather than exiting the shell. */
+        if (check_and_clear_sigint_flag()) {
+            /* Echo ^C to show user that Ctrl+C was pressed */
+            write(STDOUT_FILENO, "^C\n", 3);
+            
+            /* Clear any completion menu or autosuggestion */
+            if (ctx.editor) {
+                if (ctx.editor->completion_system_v2) {
+                    lle_completion_system_v2_clear(ctx.editor->completion_system_v2);
+                }
+                if (ctx.editor->completion_system) {
+                    lle_completion_system_clear(ctx.editor->completion_system);
+                }
+            }
+            display_controller_t *dc = display_integration_get_controller();
+            if (dc) {
+                display_controller_set_autosuggestion(dc, NULL);
+                display_controller_clear_completion_menu(dc);
+            }
+            
+            /* Clear local suggestion buffer */
+            if (ctx.current_suggestion) {
+                ctx.current_suggestion[0] = '\0';
+            }
+            ctx.suppress_autosuggestion = true;
+            
+            /* Reset display state for fresh prompt */
+            dc_reset_prompt_display_state();
+            
+            /* Abort line - return empty string (not NULL, which signals EOF) */
+            done = true;
+            final_line = strdup("");
+            continue;
+        }
         
         /* Read next input event */
         lle_input_event_t *event = NULL;
@@ -2510,6 +2558,11 @@ char *lle_readline(const char *prompt)
     }
     
     /* === STEP 10: Exit raw mode and finalize input === */
+    
+    /* Clear the LLE readline active flag before exiting raw mode
+     * This ensures the signal handler knows we're no longer in readline */
+    set_lle_readline_active(0);
+    
     lle_unix_interface_exit_raw_mode(unix_iface);
     
     /* If we got a line, tell display system to finalize input.

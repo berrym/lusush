@@ -16,6 +16,26 @@ trap_entry_t *trap_list = NULL;
 // Global variable to track if we're running a child process
 static pid_t current_child_pid = 0;
 
+// Global flag for LLE integration: set when SIGINT received during readline
+// This is volatile because it's modified by signal handler and read by main code
+static volatile sig_atomic_t sigint_received_during_readline = 0;
+
+// Check and clear the SIGINT flag (called by LLE)
+int check_and_clear_sigint_flag(void) {
+    if (sigint_received_during_readline) {
+        sigint_received_during_readline = 0;
+        return 1;
+    }
+    return 0;
+}
+
+// Set a flag indicating LLE readline is active (for SIGINT handler to know)
+static volatile sig_atomic_t lle_readline_active = 0;
+
+void set_lle_readline_active(int active) {
+    lle_readline_active = active;
+}
+
 // SIGINT handler that properly manages shell vs child process behavior
 static void sigint_handler(int signo) {
     (void)signo; // Suppress unused parameter warning
@@ -23,8 +43,14 @@ static void sigint_handler(int signo) {
     if (current_child_pid > 0) {
         // We have an active child process - send SIGINT to it
         kill(current_child_pid, SIGINT);
+    } else if (lle_readline_active) {
+        // LLE readline is active - set flag for LLE to handle
+        // LLE will check this flag in its input loop and abort the current line
+        sigint_received_during_readline = 1;
+        // Don't print newline here - LLE will handle display cleanup
     } else {
-        // No active child process - just print newline and return to prompt
+        // No active child process and not in LLE readline
+        // Just print newline and return to prompt
         // The shell will handle returning to the prompt naturally
         printf("\n");
         fflush(stdout);

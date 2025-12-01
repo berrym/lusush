@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 37
+# AI Assistant Handoff Document - Session 38
 
 **Date**: 2025-11-30  
-**Session Type**: Ctrl+G Empty Buffer Fix - Event Pipeline Debugging  
-**Status**: COMPLETE - All Ctrl+G scenarios working correctly  
+**Session Type**: Ctrl+C Signal Handling with LLE Integration  
+**Status**: COMPLETE - P1 (Ctrl+C) implemented and working  
 
 ---
 
@@ -50,7 +50,7 @@
 1. **Ctrl+G ZSH-style Always-Abort Behavior**: Changed from no-op on empty buffer to always aborting
 2. **Fix Ctrl+G Autosuggestion Clearing Bug**: Added `suppress_autosuggestion` flag
 
-**Session 37 (This Session)**:
+**Session 37**:
 1. **Fix Autosuggestion Layer Event Publishing**:
    - Bug: Clearing autosuggestion didn't trigger `dc_handle_redraw_needed()` 
    - Cause: `autosuggestions_layer_publish_change()` only published `LAYER_EVENT_CONTENT_CHANGED`
@@ -65,12 +65,35 @@
    - Fix: Reset `command_layer->update_sequence_number = 0` in `dc_reset_prompt_display_state()`
    - Location: `src/display/display_controller.c:153-169`
 
-3. **Debugging Journey** (for future reference):
-   - Added call counters to trace event flow
-   - Discovered `refresh_display()` was called but no events processed (0 events)
-   - Traced through: refresh_display → display_bridge_send_output → command_layer_set_command
-   - Found early return at line 308 when `!command_changed && !cursor_changed && !is_first_render`
-   - Key insight: `is_first_render` was FALSE because `update_sequence_number > 0` persisted
+3. **Created LLE Release Roadmap**: `docs/development/LLE_RELEASE_ROADMAP.md`
+
+**Session 38 (This Session)**:
+1. **Implement Ctrl+C Signal Handling with LLE (P1 COMPLETE)**:
+   
+   **Problem**: Ctrl+C didn't work properly with LLE readline. SIGINT was caught by
+   lusush's handler in `src/signals.c`, which just printed newline. LLE's input loop
+   never received the signal as an event, leaving the user stuck.
+
+   **Solution Architecture**:
+   - Added `lle_readline_active` volatile flag in `src/signals.c`
+   - Added `sigint_received_during_readline` volatile flag set by SIGINT handler
+   - LLE calls `set_lle_readline_active(1)` after entering raw mode
+   - SIGINT handler checks flag: if LLE active, sets signal flag instead of printing
+   - LLE input loop checks `check_and_clear_sigint_flag()` at start of each iteration
+   - On SIGINT: echoes `^C\n`, clears completion/autosuggestion, returns empty string
+   - LLE calls `set_lle_readline_active(0)` before cleanup
+   
+   **Files Modified**:
+   - `src/signals.c` - Added LLE coordination flags and functions
+   - `include/signals.h` - Declared new API functions
+   - `src/lle/lle_readline.c` - Added SIGINT check in input loop, set/clear active flag
+   
+   **Behavior** (bash-like):
+   - Ctrl+C on empty buffer: shows `^C` and new prompt ✅
+   - Ctrl+C mid-input: clears line, shows `^C` and new prompt ✅
+   - Ctrl+C with completion menu: dismisses menu, aborts line ✅
+   - Ctrl+C with autosuggestion: clears suggestion, aborts line ✅
+   - No terminal corruption or resource leaks ✅
 
 ---
 
@@ -92,6 +115,7 @@
 | Fuzzy Matching | 27 | ✅ COMPLETE | Shared libfuzzy, wired into completion |
 | Config System | - | ✅ Enhanced | reset-defaults command, comprehensive template |
 | Ctrl+G Abort | - | ✅ COMPLETE | ZSH-style, tiered dismissal, empty buffer works |
+| Ctrl+C Signal | - | ✅ COMPLETE | Coordinated with lusush signal handler |
 
 ---
 
@@ -118,28 +142,34 @@ Completion Menu (dismiss) → Autosuggestion (clear) → Abort Line (new prompt)
 
 ## Files Modified This Session
 
-- `src/display/autosuggestions_layer.c` - Publish REDRAW_NEEDED on suggestion change
-- `src/display/display_controller.c` - Reset command_layer update_sequence_number
+- `src/signals.c` - Added LLE coordination flags and functions for SIGINT
+- `include/signals.h` - Declared `set_lle_readline_active()` and `check_and_clear_sigint_flag()`
+- `src/lle/lle_readline.c` - SIGINT check in input loop, set/clear active flag
+- `docs/development/LLE_RELEASE_ROADMAP.md` - Updated P1 as complete
 
 ---
 
 ## Priority Roadmap
 
-### Priority 1: macOS Compatibility Sprint
+See `docs/development/LLE_RELEASE_ROADMAP.md` for full details.
+
+| Priority | Feature | Status |
+|----------|---------|--------|
+| P1 | Ctrl+C signal handling | ✅ COMPLETE |
+| P2 | macOS compatibility | Pending |
+| P3 | Ctrl+R history search | Pending |
+| P4 | Undo/Redo | Pending |
+| P5 | `display lle` subcommands | Pending |
+| P6 | Builtin completion context | Pending |
+| P7 | Make readline optional | Pending |
+
+### Next Priority: P2 macOS Compatibility Sprint
 **Effort: Medium | Value: High | Status: Pending**
 
 Required for cross-platform release:
 - Test and fix termios differences
 - Handle macOS terminal quirks
 - Verify all LLE features work on macOS
-
-### Priority 2: Vi Keybindings Implementation
-**Effort: High | Value: Medium-High | Status: Pending**
-
-- Implement modal editing (normal/insert/visual modes)
-- Create `lle_keybinding_manager_load_vi_preset()`
-- Add vi state management to lle_editor_t
-- Implement vi-specific widgets (motion, text objects)
 
 ---
 
@@ -190,7 +220,7 @@ lle_readline()
 
 ## Next Session Recommendations
 
-1. **macOS Testing**: Build and test on macOS, fix any compatibility issues
-2. **Vi Keybindings**: Begin implementing vi mode (high effort but valuable)
-3. **Performance Profiling**: May want to profile with complex prompts
-4. **Documentation**: Update user-facing docs with Ctrl+G behavior
+1. **P2 macOS Compatibility**: Build and test on macOS, fix any compatibility issues
+2. **P3 Ctrl+R History Search**: Implement reverse incremental search
+3. **P4 Undo/Redo**: Implement editing undo/redo functionality
+4. **Test Ctrl+C**: Manual testing of the new Ctrl+C implementation
