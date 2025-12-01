@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 38
+# AI Assistant Handoff Document - Session 39
 
-**Date**: 2025-11-30  
-**Session Type**: Ctrl+C Signal Handling with LLE Integration  
-**Status**: COMPLETE - P1 (Ctrl+C) implemented and working  
+**Date**: 2025-12-01  
+**Session Type**: Ctrl+R Interactive History Search Integration  
+**Status**: IN PROGRESS - P3 (Ctrl+R) implemented, P1 fixed for GNU readline  
 
 ---
 
@@ -126,12 +126,14 @@
 | Completion System | 12 | ✅ Working | Type classification, fuzzy matching via libfuzzy |
 | Completion Menu | 23 | ✅ Working | Arrow/vim nav, categories |
 | History System | 09 | ✅ Working | Add-time, navigation-time dedup, Unicode-aware |
+| History Search | 09 | ✅ COMPLETE | Ctrl+R reverse incremental search |
 | Widget System | 07 | ✅ COMPLETE | 24 builtin widgets, lifecycle hooks |
 | Syntax Highlighting | 11 | ✅ COMPLETE | Themeable, integrated with command_layer |
 | Fuzzy Matching | 27 | ✅ COMPLETE | Shared libfuzzy, wired into completion |
 | Config System | - | ✅ Enhanced | reset-defaults command, comprehensive template |
 | Ctrl+G Abort | - | ✅ COMPLETE | ZSH-style, tiered dismissal, empty buffer works |
-| Ctrl+C Signal | - | ✅ COMPLETE | Coordinated with lusush signal handler |
+| Ctrl+C Signal | - | ✅ COMPLETE | Both LLE and GNU readline modes |
+| Ctrl+R Search | - | ✅ COMPLETE | Wired into LLE input loop |
 
 ---
 
@@ -172,15 +174,70 @@ See `docs/development/LLE_RELEASE_ROADMAP.md` for full details.
 
 | Priority | Feature | Status |
 |----------|---------|--------|
-| P1 | Ctrl+C signal handling | ✅ COMPLETE |
-| P2 | macOS compatibility | Pending |
-| P3 | Ctrl+R history search | Pending |
+| P1 | Ctrl+C signal handling | ✅ COMPLETE (both LLE and GNU readline) |
+| P2 | macOS compatibility | Pending (moved to last) |
+| P3 | Ctrl+R history search | ✅ COMPLETE |
 | P4 | Undo/Redo | Pending |
 | P5 | `display lle` subcommands | Pending |
 | P6 | Builtin completion context | Pending |
 | P7 | Make readline optional | Pending |
 
-### Next Priority: P2 macOS Compatibility Sprint
+### Session 39 Accomplishments
+
+**1. Fixed Ctrl+C for GNU Readline Mode (P1 Complete)**
+
+The original P1 implementation only fixed LLE mode. Testing revealed GNU readline
+mode was broken - Ctrl+C caused immediate shell exit.
+
+**Root Cause**: When SIGINT arrived during readline, the main loop in `lusush.c`
+treated NULL return as EOF and exited. The signal handler wasn't setting a flag
+for the GNU readline code path.
+
+**Fix**:
+- Signal handler now sets `sigint_received_during_readline = 1` for ALL non-child cases
+- Main loop in `lusush.c` checks `check_and_clear_sigint_flag()` when input is NULL
+- If flag set → continue (show new prompt), not exit
+
+**Key Lesson**: Don't fight GNU readline. The custom `lusush_getc()` EINTR handling
+we tried caused display corruption. Simple is better - let readline handle its internals.
+
+**Files Modified**:
+- `src/signals.c` - Set flag in else branch (GNU readline case)
+- `src/lusush.c` - Check flag when `get_unified_input()` returns NULL
+- `src/readline_integration.c` - Reverted to simple getc without EINTR handling
+
+**2. Implemented Ctrl+R Interactive History Search (P3 Complete)**
+
+Wired the existing `history_interactive_search.c` module into the LLE input loop.
+
+**Features**:
+- Ctrl+R enters reverse incremental search mode
+- Typing updates search query, shows matches in real-time
+- Ctrl+R cycles to next (older) match, Ctrl+S to previous (newer)
+- Enter accepts match and restores normal prompt with syntax highlighting
+- Ctrl+G/Ctrl+C/Escape cancels and restores original line
+- Arrow keys accept match and process the key normally
+
+**Implementation**:
+- Added `handle_interactive_search_start()` handler for Ctrl+R
+- Added `handle_search_mode_input()` to route keys during search
+- Added `refresh_search_display()` for search UI (direct terminal output)
+- Added `exit_search_mode_and_refresh()` for clean display restoration
+- Search mode check added at top of main input loop
+
+**Display Approach**: Uses direct terminal output (`\r\033[K` + write) during search
+for simplicity, rather than the complex rendering pipeline. Clean restoration via
+`dc_reset_prompt_display_state()` and `refresh_display()`.
+
+**Files Modified**:
+- `src/lle/lle_readline.c` - All search integration code
+
+### Next Priority: P4 Undo/Redo
+**Effort: Medium | Value: Medium | Status: Pending**
+
+Implement Ctrl+_ (undo) and possibly Ctrl+Shift+_ (redo) for line editing.
+
+### P2 macOS Compatibility (Do Last)
 **Effort: Medium | Value: High | Status: Pending**
 
 Required for cross-platform release:

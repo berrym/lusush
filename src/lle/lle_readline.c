@@ -1897,6 +1897,247 @@ static lle_result_t handle_arrow_down(lle_event_t *event, void *user_data)
     return result;
 }
 
+/* ============================================================================
+ * CTRL+R INTERACTIVE HISTORY SEARCH
+ * ============================================================================ */
+
+/**
+ * @brief Refresh display during interactive search mode
+ * 
+ * Updates the display to show the search prompt and current match.
+ * The search prompt replaces the normal prompt during search.
+ * 
+ * Uses direct terminal output for simplicity since we're in a modal
+ * search state that doesn't need the full rendering pipeline.
+ */
+static void refresh_search_display(readline_context_t *ctx)
+{
+    if (!ctx) return;
+    
+    /* Get the search prompt (e.g., "(reverse-i-search)`query': ") */
+    const char *search_prompt = lle_history_interactive_search_get_prompt();
+    
+    /* Get the currently matched command (to show in buffer area) */
+    const char *current_match = lle_history_interactive_search_get_current_command();
+    
+    /* Clear line and move to beginning */
+    /* \r = carriage return, \033[K = clear to end of line */
+    write(STDOUT_FILENO, "\r\033[K", 4);
+    
+    /* Write the search prompt */
+    if (search_prompt && *search_prompt) {
+        write(STDOUT_FILENO, search_prompt, strlen(search_prompt));
+    }
+    
+    /* Write the matched command */
+    if (current_match && *current_match) {
+        write(STDOUT_FILENO, current_match, strlen(current_match));
+    }
+}
+
+/**
+ * @brief Exit search mode and restore normal display
+ * 
+ * Clears the search display, restores the normal prompt, and
+ * triggers a full redraw with the buffer content.
+ */
+static void exit_search_mode_and_refresh(readline_context_t *ctx)
+{
+    if (!ctx) return;
+    
+    /* Clear the search line */
+    write(STDOUT_FILENO, "\r\033[K", 4);
+    
+    /* Clear autosuggestion to prevent ghost text */
+    display_controller_t *dc = display_integration_get_controller();
+    if (dc) {
+        display_controller_set_autosuggestion(dc, NULL);
+    }
+    
+    /* Suppress autosuggestion regeneration temporarily */
+    ctx->suppress_autosuggestion = true;
+    
+    /* Restore normal prompt in the prompt layer */
+    if (dc && dc->compositor && dc->compositor->prompt_layer && ctx->prompt) {
+        prompt_layer_set_content(dc->compositor->prompt_layer, ctx->prompt);
+    }
+    
+    /* Reset the prompt display state to force full redraw */
+    dc_reset_prompt_display_state();
+    
+    /* Refresh display with the buffer content */
+    refresh_display(ctx);
+    
+    /* Re-enable autosuggestion */
+    ctx->suppress_autosuggestion = false;
+}
+
+/**
+ * @brief Enter interactive search mode (Ctrl+R handler)
+ */
+static lle_result_t handle_interactive_search_start(lle_event_t *event, void *user_data)
+{
+    (void)event;
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (!ctx || !ctx->editor || !ctx->editor->history_system) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* editor->history_system IS the history_core directly */
+    lle_history_core_t *history_core = ctx->editor->history_system;
+    
+    /* Save current buffer content and cursor for cancel operation */
+    const char *current_line = ctx->buffer->data ? ctx->buffer->data : "";
+    size_t cursor_pos = ctx->buffer->cursor.byte_offset;
+    
+    /* Initialize search session */
+    lle_result_t result = lle_history_interactive_search_init(
+        history_core,
+        current_line,
+        cursor_pos
+    );
+    
+    if (result == LLE_SUCCESS) {
+        /* Refresh display to show search prompt */
+        refresh_search_display(ctx);
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Handle input during interactive search mode
+ * 
+ * Routes input to appropriate search functions based on key pressed.
+ * Returns true if the input was handled (search mode processed it),
+ * false if search mode should exit and the key should be processed normally.
+ * 
+ * @param ctx Readline context
+ * @param codepoint Unicode codepoint of the key pressed
+ * @param is_ctrl True if Ctrl modifier was held
+ * @param special_key Special key code (0 if regular character)
+ * @return true if handled by search mode, false to exit search and process key normally
+ */
+static bool handle_search_mode_input(readline_context_t *ctx, uint32_t codepoint, 
+                                     bool is_ctrl, uint32_t special_key)
+{
+    if (!lle_history_interactive_search_is_active()) {
+        return false;  /* Not in search mode */
+    }
+    
+    /* Ctrl+R during search: move to next (older) match */
+    if (is_ctrl && codepoint == 'R') {
+        lle_history_interactive_search_next();
+        refresh_search_display(ctx);
+        return true;
+    }
+    
+    /* Ctrl+S during search: move to previous (newer) match */
+    if (is_ctrl && codepoint == 'S') {
+        lle_history_interactive_search_prev();
+        refresh_search_display(ctx);
+        return true;
+    }
+    
+    /* Ctrl+G or Ctrl+C: cancel search, restore original line */
+    if (is_ctrl && (codepoint == 'G' || codepoint == 'C')) {
+        const char *original = lle_history_interactive_search_cancel();
+        
+        /* Restore original buffer content */
+        lle_buffer_clear(ctx->buffer);
+        if (original && *original) {
+            lle_buffer_insert_text(ctx->buffer, 0, original, strlen(original));
+        }
+        
+        /* Exit search mode and restore display */
+        exit_search_mode_and_refresh(ctx);
+        return true;
+    }
+    
+    /* Enter: accept current match */
+    if (codepoint == '\n' || codepoint == '\r' || special_key == LLE_KEY_ENTER) {
+        const char *selected = lle_history_interactive_search_accept();
+        
+        /* Put selected command in buffer */
+        lle_buffer_clear(ctx->buffer);
+        if (selected && *selected) {
+            lle_buffer_insert_text(ctx->buffer, 0, selected, strlen(selected));
+            /* Move cursor to end */
+            ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+            ctx->buffer->cursor.grapheme_index = ctx->buffer->length;  /* Approximate */
+        }
+        
+        /* Exit search mode and restore display */
+        exit_search_mode_and_refresh(ctx);
+        return true;
+    }
+    
+    /* Backspace: remove last character from query */
+    if (codepoint == 127 || codepoint == 8) {
+        lle_history_interactive_search_backspace();
+        refresh_search_display(ctx);
+        return true;
+    }
+    
+    /* Escape: cancel search */
+    if (codepoint == 0x1B || special_key == LLE_KEY_ESCAPE) {
+        const char *original = lle_history_interactive_search_cancel();
+        
+        /* Restore original buffer content */
+        lle_buffer_clear(ctx->buffer);
+        if (original && *original) {
+            lle_buffer_insert_text(ctx->buffer, 0, original, strlen(original));
+        }
+        
+        /* Exit search mode and restore display */
+        exit_search_mode_and_refresh(ctx);
+        return true;
+    }
+    
+    /* Printable characters: add to search query */
+    if (codepoint >= 32 && codepoint < 127 && !is_ctrl) {
+        lle_history_interactive_search_update_query((char)codepoint);
+        refresh_search_display(ctx);
+        return true;
+    }
+    
+    /* Arrow keys and other special keys: exit search mode, process key normally */
+    if (special_key == LLE_KEY_UP || special_key == LLE_KEY_DOWN ||
+        special_key == LLE_KEY_LEFT || special_key == LLE_KEY_RIGHT) {
+        /* Accept current match and exit search */
+        const char *selected = lle_history_interactive_search_accept();
+        
+        /* Put selected command in buffer */
+        lle_buffer_clear(ctx->buffer);
+        if (selected && *selected) {
+            lle_buffer_insert_text(ctx->buffer, 0, selected, strlen(selected));
+            ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+            ctx->buffer->cursor.grapheme_index = ctx->buffer->length;
+        }
+        
+        /* Exit search mode and restore display */
+        exit_search_mode_and_refresh(ctx);
+        
+        /* Return false so the arrow key gets processed normally */
+        return false;
+    }
+    
+    /* Any other key: exit search mode and let the key be processed normally */
+    const char *selected = lle_history_interactive_search_accept();
+    lle_buffer_clear(ctx->buffer);
+    if (selected && *selected) {
+        lle_buffer_insert_text(ctx->buffer, 0, selected, strlen(selected));
+        ctx->buffer->cursor.byte_offset = ctx->buffer->length;
+        ctx->buffer->cursor.grapheme_index = ctx->buffer->length;
+    }
+    
+    /* Exit search mode and restore display */
+    exit_search_mode_and_refresh(ctx);
+    
+    return false;  /* Let caller process the key */
+}
+
 /**
  * @brief Execute a keybinding action via the keybinding manager
  * Group 1+ migration: Routes key sequences through keybinding manager
@@ -2294,6 +2535,28 @@ char *lle_readline(const char *prompt)
             continue;
         }
         
+        /* === INTERACTIVE SEARCH MODE HANDLING === */
+        /* When Ctrl+R search is active, route input to search handler first */
+        if (lle_history_interactive_search_is_active()) {
+            bool handled = false;
+            
+            if (event->type == LLE_INPUT_TYPE_CHARACTER) {
+                uint32_t codepoint = event->data.character.codepoint;
+                handled = handle_search_mode_input(&ctx, codepoint, false, 0);
+            }
+            else if (event->type == LLE_INPUT_TYPE_SPECIAL_KEY) {
+                uint32_t keycode = event->data.special_key.keycode;
+                bool is_ctrl = (event->data.special_key.modifiers & LLE_MOD_CTRL) != 0;
+                uint32_t special = event->data.special_key.key;
+                handled = handle_search_mode_input(&ctx, keycode, is_ctrl, special);
+            }
+            
+            if (handled) {
+                continue;  /* Search mode consumed the input */
+            }
+            /* If not handled, fall through to normal processing */
+        }
+        
         /* === STEP 9: Convert input event to LLE event and dispatch === */
         /* Step 3: Use event system instead of direct buffer manipulation */
         
@@ -2438,6 +2701,12 @@ char *lle_readline(const char *prompt)
                             break;
                         case 'P':  /* Ctrl-P: Previous history (always navigate history) */
                             execute_keybinding_action(&ctx, "C-p", NULL);
+                            break;
+                        case 'R':  /* Ctrl-R: Interactive history search */
+                            execute_keybinding_action(&ctx, "C-r", handle_interactive_search_start);
+                            break;
+                        case 'S':  /* Ctrl-S: Forward search (when in search mode, handled there) */
+                            /* In normal mode, Ctrl-S is often flow control (XOFF) - ignore */
                             break;
                         case 'U':  /* Ctrl-U: Kill entire line */
                             execute_keybinding_action(&ctx, "C-u", handle_kill_line);
