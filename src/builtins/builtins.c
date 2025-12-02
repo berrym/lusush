@@ -22,6 +22,7 @@
 #include "../../include/lusush_memory_pool.h"
 #include "../../include/lle/lle_editor.h"
 #include "../../include/lle/history.h"
+#include "../../include/lle/keybinding.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -4350,17 +4351,19 @@ int bin_display(int argc, char **argv) {
         if (argc < 3) {
             printf("LLE (Lusush Line Editor) Commands\n");
             printf("Usage: display lle <command> [options]\n");
-            printf("\nCommands:\n");
-            printf("  enable         - Enable LLE for this session (takes effect immediately)\n");
-            printf("  disable        - Disable LLE for this session (takes effect immediately)\n");
-            printf("  status         - Show LLE status and history info\n");
-            printf("  history-import - Import GNU Readline history into LLE\n");
-            printf("\nNote: Changes apply immediately. Use 'config set editor.use_lle true'\n");
-            printf("      and 'config save' to persist across sessions.\n");
-            printf("\nHistory:\n");
-            printf("  LLE uses separate history file: ~/.lusush_history_lle\n");
-            printf("  GNU Readline uses: ~/.lusush_history\n");
-            printf("  Use 'history-import' to copy commands from Readline to LLE (one-time)\n");
+            printf("\nCore Commands:\n");
+            printf("  enable           - Enable LLE for this session\n");
+            printf("  disable          - Disable LLE for this session\n");
+            printf("  status           - Show LLE status and configuration\n");
+            printf("\nFeature Control:\n");
+            printf("  autosuggestions on|off  - Control Fish-style autosuggestions\n");
+            printf("  syntax on|off           - Control syntax highlighting\n");
+            printf("  multiline on|off        - Control multiline editing\n");
+            printf("\nInformation:\n");
+            printf("  keybindings      - Show active keybindings\n");
+            printf("  diagnostics      - Show LLE diagnostics and health\n");
+            printf("  history-import   - Import GNU Readline history into LLE\n");
+            printf("\nNote: Changes apply immediately. Use 'config save' to persist.\n");
             return 0;
         }
         
@@ -4442,6 +4445,228 @@ int bin_display(int argc, char **argv) {
                 return 1;
             }
 
+        } else if (strcmp(lle_cmd, "keybindings") == 0) {
+            /* Show active keybindings */
+            extern lle_editor_t *lle_get_global_editor(void);
+            lle_editor_t *editor = lle_get_global_editor();
+            
+            printf("LLE Active Keybindings (Emacs mode)\n");
+            printf("====================================\n");
+            
+            if (editor && editor->keybinding_manager) {
+                lle_keybinding_info_t *bindings = NULL;
+                size_t count = 0;
+                
+                if (lle_keybinding_manager_list_bindings(editor->keybinding_manager, 
+                                                         &bindings, &count) == LLE_SUCCESS) {
+                    printf("\nNavigation:\n");
+                    for (size_t i = 0; i < count; i++) {
+                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        if (strstr(name, "beginning") || strstr(name, "end") || 
+                            strstr(name, "forward") || strstr(name, "backward") ||
+                            strstr(name, "left") || strstr(name, "right") ||
+                            strstr(name, "up") || strstr(name, "down")) {
+                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                        }
+                    }
+                    
+                    printf("\nEditing:\n");
+                    for (size_t i = 0; i < count; i++) {
+                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        if (strstr(name, "delete") || strstr(name, "kill") || 
+                            strstr(name, "yank") || strstr(name, "undo") ||
+                            strstr(name, "redo") || strstr(name, "transpose")) {
+                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                        }
+                    }
+                    
+                    printf("\nHistory:\n");
+                    for (size_t i = 0; i < count; i++) {
+                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        if (strstr(name, "history") || strstr(name, "search") ||
+                            strstr(name, "previous") || strstr(name, "next")) {
+                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                        }
+                    }
+                    
+                    printf("\nOther:\n");
+                    for (size_t i = 0; i < count; i++) {
+                        const char *name = bindings[i].function_name ? bindings[i].function_name : "unknown";
+                        if (strstr(name, "accept") || strstr(name, "abort") ||
+                            strstr(name, "clear") || strstr(name, "complete")) {
+                            printf("  %-12s  %s\n", bindings[i].key_sequence, name);
+                        }
+                    }
+                    
+                    printf("\nTotal: %zu keybindings\n", count);
+                } else {
+                    printf("  (Unable to retrieve keybindings)\n");
+                }
+            } else {
+                /* Show default keybindings when LLE not active */
+                printf("\nNavigation:\n");
+                printf("  C-a          beginning-of-line\n");
+                printf("  C-e          end-of-line\n");
+                printf("  C-f / RIGHT  forward-char\n");
+                printf("  C-b / LEFT   backward-char\n");
+                printf("  M-f          forward-word\n");
+                printf("  M-b          backward-word\n");
+                printf("\nEditing:\n");
+                printf("  C-d / DEL    delete-char\n");
+                printf("  BACKSPACE    backward-delete-char\n");
+                printf("  C-k          kill-line\n");
+                printf("  C-u          unix-line-discard\n");
+                printf("  C-w          backward-kill-word\n");
+                printf("  C-y          yank\n");
+                printf("  C-_          undo\n");
+                printf("  C-^          redo\n");
+                printf("\nHistory:\n");
+                printf("  C-p / UP     previous-history\n");
+                printf("  C-n / DOWN   next-history\n");
+                printf("  C-r          reverse-search-history\n");
+                printf("\nOther:\n");
+                printf("  RET          accept-line\n");
+                printf("  C-c          abort\n");
+                printf("  C-l          clear-screen\n");
+                printf("  TAB          complete\n");
+            }
+            return 0;
+            
+        } else if (strcmp(lle_cmd, "autosuggestions") == 0) {
+            /* Control autosuggestions */
+            extern config_values_t config;
+            
+            if (argc < 4) {
+                printf("Autosuggestions: %s\n", config.display_autosuggestions ? "enabled" : "disabled");
+                printf("Usage: display lle autosuggestions on|off\n");
+                return 0;
+            }
+            
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                config.display_autosuggestions = true;
+                printf("✓ Autosuggestions enabled\n");
+                return 0;
+            } else if (strcmp(state, "off") == 0) {
+                config.display_autosuggestions = false;
+                printf("✓ Autosuggestions disabled\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display lle autosuggestions: Invalid option '%s' (use 'on' or 'off')\n", state);
+                return 1;
+            }
+            
+        } else if (strcmp(lle_cmd, "syntax") == 0) {
+            /* Control syntax highlighting */
+            extern config_values_t config;
+            
+            if (argc < 4) {
+                printf("Syntax highlighting: %s\n", config.display_syntax_highlighting ? "enabled" : "disabled");
+                printf("Usage: display lle syntax on|off\n");
+                return 0;
+            }
+            
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                config.display_syntax_highlighting = true;
+                printf("✓ Syntax highlighting enabled\n");
+                return 0;
+            } else if (strcmp(state, "off") == 0) {
+                config.display_syntax_highlighting = false;
+                printf("✓ Syntax highlighting disabled\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display lle syntax: Invalid option '%s' (use 'on' or 'off')\n", state);
+                return 1;
+            }
+            
+        } else if (strcmp(lle_cmd, "multiline") == 0) {
+            /* Control multiline editing */
+            extern config_values_t config;
+            
+            if (argc < 4) {
+                printf("Multiline editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
+                printf("Usage: display lle multiline on|off\n");
+                return 0;
+            }
+            
+            const char *state = argv[3];
+            if (strcmp(state, "on") == 0) {
+                config.lle_enable_multiline_editing = true;
+                printf("✓ Multiline editing enabled\n");
+                return 0;
+            } else if (strcmp(state, "off") == 0) {
+                config.lle_enable_multiline_editing = false;
+                printf("✓ Multiline editing disabled\n");
+                return 0;
+            } else {
+                fprintf(stderr, "display lle multiline: Invalid option '%s' (use 'on' or 'off')\n", state);
+                return 1;
+            }
+            
+        } else if (strcmp(lle_cmd, "diagnostics") == 0) {
+            /* Show LLE diagnostics */
+            extern config_values_t config;
+            extern lle_editor_t *lle_get_global_editor(void);
+            lle_editor_t *editor = lle_get_global_editor();
+            
+            printf("LLE Diagnostics\n");
+            printf("===============\n");
+            
+            printf("\nSystem Status:\n");
+            printf("  LLE mode: %s\n", config.use_lle ? "active" : "inactive (using GNU Readline)");
+            printf("  Global editor: %s\n", editor ? "initialized" : "not initialized");
+            
+            if (editor) {
+                printf("\nSubsystems:\n");
+                printf("  Buffer: %s\n", editor->buffer ? "OK" : "MISSING");
+                printf("  History: %s\n", editor->history_system ? "OK" : "MISSING");
+                printf("  Keybindings: %s\n", editor->keybinding_manager ? "OK" : "MISSING");
+                printf("  Kill ring: %s\n", editor->kill_ring ? "OK" : "MISSING");
+                printf("  Change tracker: %s\n", editor->change_tracker ? "OK" : "MISSING");
+                printf("  Cursor manager: %s\n", editor->cursor_manager ? "OK" : "MISSING");
+                
+                if (editor->history_system) {
+                    size_t count = 0;
+                    lle_history_get_entry_count(editor->history_system, &count);
+                    printf("\nHistory:\n");
+                    printf("  Entries loaded: %zu\n", count);
+                }
+                
+                if (editor->keybinding_manager) {
+                    size_t kb_count = 0;
+                    lle_keybinding_manager_get_count(editor->keybinding_manager, &kb_count);
+                    printf("\nKeybindings:\n");
+                    printf("  Bindings registered: %zu\n", kb_count);
+                    
+                    uint64_t avg_us = 0, max_us = 0;
+                    if (lle_keybinding_manager_get_stats(editor->keybinding_manager, &avg_us, &max_us) == LLE_SUCCESS) {
+                        printf("  Avg lookup time: %lu µs\n", (unsigned long)avg_us);
+                        printf("  Max lookup time: %lu µs\n", (unsigned long)max_us);
+                        printf("  Performance: %s\n", max_us < 50 ? "OK (<50µs)" : "SLOW (>50µs)");
+                    }
+                }
+            }
+            
+            printf("\nFeature Configuration:\n");
+            printf("  Autosuggestions: %s\n", config.display_autosuggestions ? "enabled" : "disabled");
+            printf("  Syntax highlighting: %s\n", config.display_syntax_highlighting ? "enabled" : "disabled");
+            printf("  Multiline editing: %s\n", config.lle_enable_multiline_editing ? "enabled" : "disabled");
+            printf("  History deduplication: %s\n", config.lle_enable_deduplication ? "enabled" : "disabled");
+            printf("  Interactive search: %s\n", config.lle_enable_interactive_search ? "enabled" : "disabled");
+            
+            printf("\nHealth: ");
+            if (!config.use_lle) {
+                printf("N/A (LLE not active)\n");
+            } else if (!editor) {
+                printf("ERROR (editor not initialized)\n");
+            } else if (!editor->buffer || !editor->history_system || !editor->keybinding_manager) {
+                printf("DEGRADED (missing subsystems)\n");
+            } else {
+                printf("OK\n");
+            }
+            
+            return 0;
             
         } else {
             fprintf(stderr, "display lle: Unknown command '%s'\n", lle_cmd);

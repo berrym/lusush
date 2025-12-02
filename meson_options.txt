@@ -5,3 +5,8 @@ option('enable_debug',
        type : 'boolean',
        value : false,
        description : 'Enable debug output and debugging symbols')
+
+option('readline_support',
+       type : 'boolean',
+       value : true,
+       description : 'Enable GNU Readline support (disable for LLE-only builds)')

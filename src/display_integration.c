@@ -60,8 +60,20 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <sys/time.h>
+
+#if HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
+#else
+/* Stub definitions when readline is disabled */
+static char *rl_line_buffer = NULL;
+static int rl_end = 0;
+static int rl_point = 0;
+static inline void rl_redisplay(void) {}
+static inline void rl_clear_visible_line(void) {}
+static inline void rl_on_new_line(void) {}
+static inline int rl_clear_screen(int count, int key) { (void)count; (void)key; return 0; }
+#endif
 
 // ============================================================================
 // FORWARD DECLARATIONS

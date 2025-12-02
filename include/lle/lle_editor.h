@@ -82,6 +82,7 @@ typedef struct lle_editor {
     lle_cursor_manager_t *cursor_manager;              /* Cursor position management */
     lle_kill_ring_t *kill_ring;                        /* Kill/yank ring */
     lle_keybinding_manager_t *keybinding_manager;      /* Key bindings */
+    lle_change_tracker_t *change_tracker;              /* Undo/redo change tracking */
     
     /* History and search */
     lle_history_core_t *history_system;                /* Command history */

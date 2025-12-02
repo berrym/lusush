@@ -191,6 +191,70 @@ typedef struct readline_context {
     bool suppress_autosuggestion;  /* Temporarily suppress autosuggestion regeneration */
 } readline_context_t;
 
+/* ============================================================================
+ * CHANGE TRACKING HELPERS
+ * 
+ * These helpers wrap buffer modifications in change sequences for undo/redo.
+ * Each user action (keystroke, delete, etc.) is tracked as a sequence.
+ * ============================================================================
+ */
+
+/**
+ * @brief Begin a change sequence for tracking
+ * 
+ * Call before making buffer modifications. Sets up buffer->current_sequence
+ * so that buffer operations can record changes for undo.
+ * 
+ * @param ctx Readline context with editor and buffer
+ * @param description Description of the change (for debugging)
+ * @return true if sequence started successfully, false otherwise
+ */
+static bool begin_change_sequence(readline_context_t *ctx, const char *description)
+{
+    if (!ctx || !ctx->editor || !ctx->editor->change_tracker || !ctx->buffer) {
+        return false;
+    }
+    
+    /* Don't start a new sequence if one is already in progress */
+    if (ctx->buffer->current_sequence) {
+        return true;  /* Already have a sequence */
+    }
+    
+    lle_change_sequence_t *seq = NULL;
+    lle_result_t result = lle_change_tracker_begin_sequence(
+        ctx->editor->change_tracker,
+        description,
+        &seq
+    );
+    
+    if (result == LLE_SUCCESS && seq) {
+        ctx->buffer->current_sequence = seq;
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * @brief Complete the current change sequence
+ * 
+ * Call after buffer modifications are done. Finalizes the sequence
+ * so it can be undone as a single unit.
+ * 
+ * @param ctx Readline context with editor and buffer
+ */
+static void end_change_sequence(readline_context_t *ctx)
+{
+    if (!ctx || !ctx->editor || !ctx->editor->change_tracker || !ctx->buffer) {
+        return;
+    }
+    
+    if (ctx->buffer->current_sequence) {
+        lle_change_tracker_complete_sequence(ctx->editor->change_tracker);
+        ctx->buffer->current_sequence = NULL;
+    }
+}
+
 /**
  * @brief Update autosuggestion based on current buffer content
  * 
@@ -873,6 +937,9 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         }
     }
     
+    /* Begin change sequence for undo tracking */
+    begin_change_sequence(ctx, "insert char");
+    
     /* Insert character into buffer at cursor position */
     lle_result_t result = lle_buffer_insert_text(
         ctx->buffer,
@@ -880,6 +947,9 @@ static lle_result_t handle_character_input(lle_event_t *event, void *user_data)
         utf8_char,
         char_len
     );
+    
+    /* End change sequence */
+    end_change_sequence(ctx);
     
     /* Synchronize cursor fields after insert (PHASE 2 STEP 0 FIX) */
     if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
@@ -927,8 +997,14 @@ static lle_result_t handle_backspace(lle_event_t *event, void *user_data)
             size_t grapheme_start = ctx->buffer->cursor.byte_offset;
             size_t grapheme_len = current_byte - grapheme_start;
             
+            /* Begin change sequence for undo tracking */
+            begin_change_sequence(ctx, "backspace");
+            
             /* Delete the entire grapheme cluster */
             result = lle_buffer_delete_text(ctx->buffer, grapheme_start, grapheme_len);
+            
+            /* End change sequence */
+            end_change_sequence(ctx);
             
             /* Refresh display after buffer modification */
             if (result == LLE_SUCCESS) {
@@ -1525,8 +1601,14 @@ static lle_result_t handle_kill_word(lle_event_t *event, void *user_data)
             ctx->kill_buffer[kill_len] = '\0';
         }
         
+        /* Begin change sequence for undo tracking */
+        begin_change_sequence(ctx, "kill-word");
+        
         /* Delete the word */
         lle_result_t result = lle_buffer_delete_text(ctx->buffer, word_start, kill_len);
+        
+        /* End change sequence */
+        end_change_sequence(ctx);
         
         if (result == LLE_SUCCESS) {
             refresh_display(ctx);
@@ -1550,12 +1632,19 @@ static lle_result_t handle_yank(lle_event_t *event, void *user_data)
     /* Insert kill buffer contents at cursor if we have something */
     if (ctx->kill_buffer && ctx->kill_buffer[0] != '\0') {
         size_t kill_len = strlen(ctx->kill_buffer);
+        
+        /* Begin change sequence for undo tracking */
+        begin_change_sequence(ctx, "yank");
+        
         lle_result_t result = lle_buffer_insert_text(
             ctx->buffer,
             ctx->buffer->cursor.byte_offset,
             ctx->kill_buffer,
             kill_len
         );
+        
+        /* End change sequence */
+        end_change_sequence(ctx);
         
         /* Synchronize cursor fields after insert (PHASE 2 STEP 0 FIX) */
         if (result == LLE_SUCCESS && ctx->editor && ctx->editor->cursor_manager) {
@@ -1573,6 +1662,84 @@ static lle_result_t handle_yank(lle_event_t *event, void *user_data)
     }
     
     return LLE_SUCCESS;
+}
+
+/**
+ * @brief Event handler for Ctrl+_ (undo)
+ * Undoes the last change sequence using change_tracker
+ */
+static lle_result_t handle_undo(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (!ctx || !ctx->editor || !ctx->editor->change_tracker) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check if undo is available */
+    if (!lle_change_tracker_can_undo(ctx->editor->change_tracker)) {
+        /* Nothing to undo - could beep here */
+        return LLE_SUCCESS;
+    }
+    
+    /* Perform undo */
+    lle_result_t result = lle_change_tracker_undo(
+        ctx->editor->change_tracker,
+        ctx->buffer
+    );
+    
+    if (result == LLE_SUCCESS) {
+        /* Sync cursor manager with buffer cursor position */
+        if (ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
+        refresh_display(ctx);
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Event handler for Alt+_ or Ctrl+Shift+_ (redo)
+ * Redoes the last undone change sequence using change_tracker
+ */
+static lle_result_t handle_redo(lle_event_t *event, void *user_data)
+{
+    (void)event;  /* Unused */
+    readline_context_t *ctx = (readline_context_t *)user_data;
+    
+    if (!ctx || !ctx->editor || !ctx->editor->change_tracker) {
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
+    
+    /* Check if redo is available */
+    if (!lle_change_tracker_can_redo(ctx->editor->change_tracker)) {
+        /* Nothing to redo - could beep here */
+        return LLE_SUCCESS;
+    }
+    
+    /* Perform redo */
+    lle_result_t result = lle_change_tracker_redo(
+        ctx->editor->change_tracker,
+        ctx->buffer
+    );
+    
+    if (result == LLE_SUCCESS) {
+        /* Sync cursor manager with buffer cursor position */
+        if (ctx->editor->cursor_manager) {
+            lle_cursor_manager_move_to_byte_offset(
+                ctx->editor->cursor_manager,
+                ctx->buffer->cursor.byte_offset
+            );
+        }
+        refresh_display(ctx);
+    }
+    
+    return result;
 }
 
 /**
@@ -1737,8 +1904,14 @@ static lle_result_t handle_delete(lle_event_t *event, void *user_data)
             size_t grapheme_end = ctx->buffer->cursor.byte_offset;
             size_t grapheme_len = grapheme_end - grapheme_start;
             
+            /* Begin change sequence for undo tracking */
+            begin_change_sequence(ctx, "delete");
+            
             /* Delete the entire grapheme cluster */
             result = lle_buffer_delete_text(ctx->buffer, grapheme_start, grapheme_len);
+            
+            /* End change sequence */
+            end_change_sequence(ctx);
             
             /* Refresh display after buffer modification */
             if (result == LLE_SUCCESS) {
@@ -1782,11 +1955,17 @@ static lle_result_t handle_kill_to_end(lle_event_t *event, void *user_data)
             ctx->kill_buffer[delete_length] = '\0';
         }
         
+        /* Begin change sequence for undo tracking */
+        begin_change_sequence(ctx, "kill-to-end");
+        
         lle_result_t result = lle_buffer_delete_text(
             ctx->buffer,
             ctx->buffer->cursor.byte_offset,
             delete_length
         );
+        
+        /* End change sequence */
+        end_change_sequence(ctx);
         
         if (result == LLE_SUCCESS) {
             refresh_display(ctx);
@@ -1826,11 +2005,17 @@ static lle_result_t handle_kill_line(lle_event_t *event, void *user_data)
             ctx->kill_buffer[kill_length] = '\0';
         }
         
+        /* Begin change sequence for undo tracking */
+        begin_change_sequence(ctx, "kill-line");
+        
         lle_result_t result = lle_buffer_delete_text(
             ctx->buffer,
             0,
             kill_length
         );
+        
+        /* End change sequence */
+        end_change_sequence(ctx);
         
         if (result == LLE_SUCCESS) {
             /* Cursor automatically moves to position 0 after deleting from start */
@@ -2278,6 +2463,9 @@ char *lle_readline(const char *prompt)
         return NULL;
     }
     
+    /* Enable change tracking for undo/redo support */
+    buffer->change_tracking_enabled = true;
+    
     /* === STEP 5: Create event system === */
     /* Step 3: Add event system for decoupled architecture */
     lle_event_system_t *event_system = NULL;
@@ -2595,6 +2783,19 @@ char *lle_readline(const char *prompt)
                     break;
                 }
                 
+                /* Check for Ctrl+_ (0x1F = 31) - undo */
+                if (codepoint == 0x1F) {
+                    execute_keybinding_action(&ctx, "C-_", handle_undo);
+                    break;
+                }
+                
+                /* Check for Ctrl+^ (0x1E = 30) - redo 
+                 * Note: Ctrl+^ is typed as Ctrl+Shift+6 on most keyboards */
+                if (codepoint == 0x1E) {
+                    execute_keybinding_action(&ctx, "C-^", handle_redo);
+                    break;
+                }
+                
                 /* Regular character - create LLE event and dispatch */
                 lle_event_t *lle_event = NULL;
                 result = lle_event_create(event_system, LLE_EVENT_KEY_PRESS, 
@@ -2751,6 +2952,9 @@ char *lle_readline(const char *prompt)
                             break;
                         case 'u':  /* Alt-U: Upcase word */
                             execute_keybinding_action(&ctx, "M-u", NULL);
+                            break;
+                        case '_':  /* Alt-_: Redo (undo the undo) */
+                            execute_keybinding_action(&ctx, "M-_", handle_redo);
                             break;
                         default:
                             /* Unknown Alt+letter - ignore */

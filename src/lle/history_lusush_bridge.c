@@ -30,9 +30,12 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-/* GNU Readline headers */
+/* GNU Readline headers - conditionally included */
+#include "readline_integration.h"  /* Gets HAVE_READLINE definition */
+#if HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
+#endif
 
 /* ============================================================================
  * BRIDGE STATE AND CONFIGURATION
@@ -231,6 +234,7 @@ bool lle_history_bridge_is_initialized(void) {
  * Import history from GNU Readline
  */
 lle_result_t lle_history_bridge_import_from_readline(void) {
+#if HAVE_READLINE
     if (!g_bridge || !g_bridge->initialized) {
         return LLE_ERROR_NOT_INITIALIZED;
     }
@@ -274,12 +278,18 @@ lle_result_t lle_history_bridge_import_from_readline(void) {
     g_bridge->readline_imports += imported;
     
     return LLE_SUCCESS;
+#else
+    /* Readline not available */
+    (void)g_bridge;
+    return LLE_SUCCESS;
+#endif
 }
 
 /**
  * Export history to GNU Readline
  */
 lle_result_t lle_history_bridge_export_to_readline(void) {
+#if HAVE_READLINE
     if (!g_bridge || !g_bridge->initialized) {
         return LLE_ERROR_NOT_INITIALIZED;
     }
@@ -319,12 +329,17 @@ lle_result_t lle_history_bridge_export_to_readline(void) {
     g_bridge->readline_exports += exported;
     
     return LLE_SUCCESS;
+#else
+    /* Readline not available */
+    return LLE_SUCCESS;
+#endif
 }
 
 /**
  * Sync single entry to readline
  */
 lle_result_t lle_history_bridge_sync_entry_to_readline(const lle_history_entry_t *entry) {
+#if HAVE_READLINE
     if (!g_bridge || !g_bridge->initialized) {
         return LLE_ERROR_NOT_INITIALIZED;
     }
@@ -342,12 +357,17 @@ lle_result_t lle_history_bridge_sync_entry_to_readline(const lle_history_entry_t
     g_bridge->readline_exports++;
     
     return LLE_SUCCESS;
+#else
+    (void)entry;
+    return LLE_SUCCESS;
+#endif
 }
 
 /**
  * Clear readline history
  */
 lle_result_t lle_history_bridge_clear_readline(void) {
+#if HAVE_READLINE
     if (!g_bridge || !g_bridge->initialized) {
         return LLE_ERROR_NOT_INITIALIZED;
     }
@@ -359,6 +379,9 @@ lle_result_t lle_history_bridge_clear_readline(void) {
     clear_history();
     
     return LLE_SUCCESS;
+#else
+    return LLE_SUCCESS;
+#endif
 }
 
 /* ============================================================================

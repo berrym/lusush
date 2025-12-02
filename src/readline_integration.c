@@ -42,6 +42,7 @@
 
 #include "../include/readline_integration.h"
 #include "../include/display_integration.h"
+#include "../include/libhashtable/ht.h"
 #include "../include/lusush.h"
 #include "../include/prompt.h"
 #include "../include/themes.h"
@@ -141,6 +142,9 @@ static void apply_syntax_highlighting(void);
 static void lusush_simple_syntax_display(void);
 static char **lusush_git_subcommand_completion(const char *text);
 static char **lusush_config_subcommand_completion(const char *text);
+static char **lusush_display_subcommand_completion(const char *text, const char *line_buffer);
+static char **lusush_history_subcommand_completion(const char *text);
+static char **lusush_alias_completion(const char *text);
 static char **lusush_path_completion(const char *text);
 static char **lusush_directory_only_completion(const char *text);
 static bool lusush_is_shell_keyword(const char *word, size_t length);
@@ -859,6 +863,31 @@ static char **lusush_tab_completion(const char *text, int start, int end __attri
         if (matches) return matches;
     }
     
+    // display command - supports nested subcommands (display lle, display performance)
+    if (cmd_len == 7 && memcmp(cmd_start, "display", 7) == 0 && start >= 8) {
+        matches = lusush_display_subcommand_completion(text, line_buffer);
+        if (matches) return matches;
+    }
+    
+    // history command subcommands
+    if (cmd_len == 7 && memcmp(cmd_start, "history", 7) == 0 && start >= 8) {
+        matches = lusush_history_subcommand_completion(text);
+        if (matches) return matches;
+    }
+    
+    // unalias command - complete with defined alias names
+    if (cmd_len == 7 && memcmp(cmd_start, "unalias", 7) == 0 && start >= 8) {
+        matches = lusush_alias_completion(text);
+        if (matches) return matches;
+    }
+    
+    // source/. command - complete with files only (not directories)
+    if ((cmd_len == 6 && memcmp(cmd_start, "source", 6) == 0 && start >= 7) ||
+        (cmd_len == 1 && *cmd_start == '.' && start >= 2)) {
+        matches = lusush_path_completion(text);
+        if (matches) return matches;
+    }
+    
     // Final simple attempt: enable path completion for all file contexts
     if (context == CONTEXT_FILE && text && strlen(text) > 0) {
         matches = lusush_path_completion(text);
@@ -1114,6 +1143,198 @@ static char **lusush_config_subcommand_completion(const char *text) {
         }
         matches[match_idx] = NULL;
     }
+    
+    return matches;
+}
+
+/**
+ * @brief Display subcommand completion for display command
+ * Supports nested subcommands like "display lle keybindings"
+ */
+static char **lusush_display_subcommand_completion(const char *text, const char *line_buffer) {
+    static const char *display_subcommands[] = {
+        "status", "config", "stats", "diagnostics", "lle", 
+        "performance", "test", "help", NULL
+    };
+    
+    static const char *display_lle_subcommands[] = {
+        "enable", "disable", "status", "keybindings", "diagnostics",
+        "autosuggestions", "syntax", "multiline", "history-import", NULL
+    };
+    
+    static const char *display_performance_subcommands[] = {
+        "init", "report", "layers", "memory", "baseline", 
+        "reset", "targets", "monitoring", "debug", NULL
+    };
+    
+    const char **subcommands = display_subcommands;
+    
+    // Check for nested subcommand context
+    if (line_buffer) {
+        // Check for "display lle " context
+        if (strstr(line_buffer, "display lle ") == line_buffer ||
+            strstr(line_buffer, "display  lle ")) {
+            subcommands = display_lle_subcommands;
+        }
+        // Check for "display performance " context  
+        else if (strstr(line_buffer, "display performance ") == line_buffer ||
+                 strstr(line_buffer, "display  performance ")) {
+            subcommands = display_performance_subcommands;
+        }
+    }
+    
+    char **matches = NULL;
+    int count = 0;
+    size_t text_len = strlen(text);
+    
+    // Count matching subcommands
+    for (int i = 0; subcommands[i]; i++) {
+        if (strncmp(text, subcommands[i], text_len) == 0) {
+            count++;
+        }
+    }
+    
+    if (count == 0) return NULL;
+    
+    // Allocate matches array
+    matches = malloc((count + 2) * sizeof(char*));
+    if (!matches) return NULL;
+    
+    if (count == 1) {
+        // Single match
+        for (int i = 0; subcommands[i]; i++) {
+            if (strncmp(text, subcommands[i], text_len) == 0) {
+                matches[0] = strdup(subcommands[i]);
+                matches[1] = strdup(subcommands[i]);
+                matches[2] = NULL;
+                break;
+            }
+        }
+    } else {
+        // Multiple matches
+        matches[0] = strdup(text);
+        int match_idx = 1;
+        for (int i = 0; subcommands[i] && match_idx <= count; i++) {
+            if (strncmp(text, subcommands[i], text_len) == 0) {
+                matches[match_idx] = strdup(subcommands[i]);
+                match_idx++;
+            }
+        }
+        matches[match_idx] = NULL;
+    }
+    
+    return matches;
+}
+
+/**
+ * @brief History subcommand completion for history command
+ */
+static char **lusush_history_subcommand_completion(const char *text) {
+    static const char *history_subcommands[] = {
+        "show", "clear", "delete", "search", NULL
+    };
+    
+    char **matches = NULL;
+    int count = 0;
+    size_t text_len = strlen(text);
+    
+    // Count matching subcommands
+    for (int i = 0; history_subcommands[i]; i++) {
+        if (strncmp(text, history_subcommands[i], text_len) == 0) {
+            count++;
+        }
+    }
+    
+    if (count == 0) return NULL;
+    
+    // Allocate matches array
+    matches = malloc((count + 2) * sizeof(char*));
+    if (!matches) return NULL;
+    
+    if (count == 1) {
+        for (int i = 0; history_subcommands[i]; i++) {
+            if (strncmp(text, history_subcommands[i], text_len) == 0) {
+                matches[0] = strdup(history_subcommands[i]);
+                matches[1] = strdup(history_subcommands[i]);
+                matches[2] = NULL;
+                break;
+            }
+        }
+    } else {
+        matches[0] = strdup(text);
+        int match_idx = 1;
+        for (int i = 0; history_subcommands[i] && match_idx <= count; i++) {
+            if (strncmp(text, history_subcommands[i], text_len) == 0) {
+                matches[match_idx] = strdup(history_subcommands[i]);
+                match_idx++;
+            }
+        }
+        matches[match_idx] = NULL;
+    }
+    
+    return matches;
+}
+
+/**
+ * @brief Alias name completion for alias/unalias commands
+ */
+static char **lusush_alias_completion(const char *text) {
+    extern ht_strstr_t *aliases;
+    
+    if (!aliases) return NULL;
+    
+    char **matches = NULL;
+    int count = 0;
+    size_t text_len = strlen(text);
+    
+    // First pass: count matching aliases
+    ht_enum_t *e = ht_strstr_enum_create(aliases);
+    if (!e) return NULL;
+    
+    const char *key;
+    const char *value;
+    
+    while (ht_strstr_enum_next(e, &key, &value)) {
+        if (strncmp(text, key, text_len) == 0) {
+            count++;
+        }
+    }
+    ht_strstr_enum_destroy(e);
+    
+    if (count == 0) return NULL;
+    
+    // Allocate matches array
+    matches = malloc((count + 2) * sizeof(char*));
+    if (!matches) return NULL;
+    
+    // Second pass: collect matching aliases
+    e = ht_strstr_enum_create(aliases);
+    if (!e) {
+        free(matches);
+        return NULL;
+    }
+    
+    if (count == 1) {
+        while (ht_strstr_enum_next(e, &key, &value)) {
+            if (strncmp(text, key, text_len) == 0) {
+                matches[0] = strdup(key);
+                matches[1] = strdup(key);
+                matches[2] = NULL;
+                break;
+            }
+        }
+    } else {
+        matches[0] = strdup(text);
+        int match_idx = 1;
+        while (ht_strstr_enum_next(e, &key, &value) && match_idx <= count) {
+            if (strncmp(text, key, text_len) == 0) {
+                matches[match_idx] = strdup(key);
+                match_idx++;
+            }
+        }
+        matches[match_idx] = NULL;
+    }
+    ht_strstr_enum_destroy(e);
     
     return matches;
 }

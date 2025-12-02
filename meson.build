@@ -98,7 +98,6 @@ src = ['src/builtins/alias.c',
        'src/libhashtable/ht_strfloat.c',
        'src/libhashtable/ht_strint.c',
        'src/libhashtable/ht_strstr.c',
-       'src/readline_integration.c',
        'src/lusush.c',
        'src/termcap.c',
        'src/termcap_test.c',
@@ -119,8 +118,23 @@ add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
-# Find readline dependency
-readline_dep = dependency('readline', required: true)
+# Readline support option
+readline_support = get_option('readline_support')
+
+# Find readline dependency (optional based on build option)
+if readline_support
+  readline_dep = dependency('readline', required: true)
+  add_project_arguments('-DHAVE_READLINE=1', language: 'c')
+  # Add readline_integration.c only when readline is enabled
+  src += 'src/readline_integration.c'
+  message('GNU Readline support: ENABLED')
+else
+  readline_dep = dependency('', required: false)
+  add_project_arguments('-DHAVE_READLINE=0', language: 'c')
+  # Add stub implementations when readline is disabled
+  src += 'src/readline_stubs.c'
+  message('GNU Readline support: DISABLED (LLE-only build)')
+endif
 
 # Find ncurses dependency (required by LLE terminal capabilities)
 ncurses_dep = dependency('ncurses', required: true)

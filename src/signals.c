@@ -61,6 +61,10 @@ static void sigint_handler(int signo) {
 void init_signal_handlers(void) {
     set_signal_handler(SIGINT, sigint_handler);
     set_signal_handler(SIGSEGV, sigsegv_handler);
+    
+    // Ignore SIGQUIT (Ctrl+\) like bash/zsh do
+    // This prevents accidental core dumps from Ctrl+\ keypresses
+    set_signal_handler(SIGQUIT, SIG_IGN);
 }
 
 // Function to set the current child PID (called when forking)

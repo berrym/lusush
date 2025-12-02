@@ -21,8 +21,19 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+
+/* HAVE_READLINE is defined by meson build system based on readline_support option */
+#ifndef HAVE_READLINE
+#define HAVE_READLINE 1  /* Default to enabled for backwards compatibility */
+#endif
+
+#if HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
+#else
+/* Stub type definitions when readline is disabled */
+typedef int (*rl_command_func_t)(int, int);
+#endif
 
 #ifdef __cplusplus
 extern "C" {

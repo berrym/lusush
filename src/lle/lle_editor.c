@@ -105,9 +105,24 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         return result;
     }
     
+    /* Create change tracker for undo/redo support */
+    result = lle_change_tracker_init(&ed->change_tracker, pool, LLE_BUFFER_MAX_UNDO_LEVELS);
+    if (result != LLE_SUCCESS) {
+        lle_kill_ring_destroy(ed->kill_ring);
+        lle_cursor_manager_destroy(ed->cursor_manager);
+        lle_buffer_destroy(ed->buffer);
+        lle_memory_pool_destroy(ed->lle_pool);
+        lle_pool_free(ed);
+        return result;
+    }
+    
+    /* Enable change tracking on the buffer */
+    ed->buffer->change_tracking_enabled = true;
+    
     /* Create completion system using unified pool */
     result = lle_completion_system_create(ed->lle_pool, &ed->completion_system);
     if (result != LLE_SUCCESS) {
+        lle_change_tracker_destroy(ed->change_tracker);
         lle_kill_ring_destroy(ed->kill_ring);
         lle_cursor_manager_destroy(ed->cursor_manager);
         lle_buffer_destroy(ed->buffer);
@@ -120,6 +135,7 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
     result = lle_completion_system_v2_create(ed->lle_pool, &ed->completion_system_v2);
     if (result != LLE_SUCCESS) {
         lle_completion_system_destroy(ed->completion_system);
+        lle_change_tracker_destroy(ed->change_tracker);
         lle_kill_ring_destroy(ed->kill_ring);
         lle_cursor_manager_destroy(ed->cursor_manager);
         lle_buffer_destroy(ed->buffer);
@@ -221,6 +237,12 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
     if (editor->completion_system) {
         lle_completion_system_destroy(editor->completion_system);
         editor->completion_system = NULL;
+    }
+    
+    /* Destroy change tracker */
+    if (editor->change_tracker) {
+        lle_change_tracker_destroy(editor->change_tracker);
+        editor->change_tracker = NULL;
     }
     
     /* Destroy kill ring */
