@@ -1,24 +1,45 @@
-# AI Assistant Handoff Document - Session 43
+# AI Assistant Handoff Document - Session 44
 
 **Date**: 2025-12-03  
-**Session Type**: Linux Regression Testing After macOS Compatibility  
-**Status**: AUTOMATED TESTS PASS - MANUAL INTERACTIVE TESTING REQUIRED  
+**Session Type**: Linux Manual Regression Testing & Bug Fixes  
+**Status**: MANUAL TESTING COMPLETE - ALL TESTS PASS  
 **Branch**: `feature/lle`
 
 ---
 
-## IMMEDIATE NEXT STEP: Manual Interactive Testing on Linux
+## Session 43 Accomplishments (2025-12-03)
 
-**The automated tests pass, but manual testing in a real interactive terminal is REQUIRED.**
+### Linux Manual Regression Testing - COMPLETE
 
-Automated tests cannot verify the actual interactive user experience. A human must test
-in a real terminal with full TTY access to verify:
-- Key combinations feel responsive (especially ESC+key with 400ms timeout)
-- Display renders correctly without visual glitches
-- Cursor positioning is accurate
-- All interactive features work as expected
+Performed manual interactive testing on Linux (Fedora 43) to verify macOS compatibility
+changes did not introduce regressions.
 
-**See checklist in:** `docs/lle_implementation/LINUX_REGRESSION_TEST_PLAN.md`
+**Test Results:**
+- Alt+b/f word movement: PASS
+- ESC+b/f word movement (new macOS feature): PASS  
+- Arrow key navigation (Left/Right/Home/End): PASS
+- History navigation (Up arrow / Ctrl+P): PASS
+- Tab completion menu: PASS
+- Autosuggestions: PASS
+- Multiline editing: PASS
+- Ctrl+A/E/K/U/W/Y/R/C/D: PASS
+- 400ms ESC timeout: Acceptable
+
+### Bug Fix: History Forward Navigation (Down/Ctrl+N)
+
+**Issue Found:** Down arrow and Ctrl+N were not working correctly. No matter how many
+history entries you navigated back with Up arrow, pressing Down would immediately
+return to a blank prompt instead of stepping forward through history.
+
+**Root Cause:** The `unique_only` deduplication mode in `lle_history_next()` was
+incorrectly skipping entries that had been marked as "seen" during backward navigation.
+Since all visited entries were marked seen, forward navigation skipped them all.
+
+**Fix Applied:** `src/lle/keybinding_actions.c` - Removed the `history_nav_is_seen()`
+check from forward navigation. The seen set is only for preventing duplicates when
+going backward; forward navigation should revisit all previously viewed entries.
+
+**Note:** This bug existed on both Linux and macOS.
 
 ---
 

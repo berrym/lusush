@@ -1627,15 +1627,11 @@ lle_result_t lle_history_next(lle_editor_t *editor) {
                 continue;  /* Skip duplicate, try next newer entry */
             }
             
-            /* Skip if unique-only mode and we've already seen this command
-             * Note: For forward navigation, we still skip seen entries but don't
-             * add new ones - the seen set was built during backward navigation */
-            if (unique_only) {
-                uint32_t cmd_hash = hash_command_string(entry->command);
-                if (history_nav_is_seen(editor, cmd_hash)) {
-                    continue;  /* Already shown this command, skip it */
-                }
-            }
+            /* Note: unique_only mode does NOT skip seen entries on forward navigation.
+             * The seen set is only used during backward navigation to avoid showing
+             * the same command multiple times. When going forward, we're intentionally
+             * revisiting previously viewed entries to get back to the current line. */
+            (void)unique_only;  /* Suppress unused warning - kept for clarity */
             
             /* Found entry to display */
             lle_buffer_clear(editor->buffer);
