@@ -204,6 +204,13 @@ command_layer_t *command_layer_create(void) {
     layer->prompt_layer = NULL;
     layer->prompt_integration_enabled = false;
     
+    // Initialize completion menu state
+    layer->completion_menu_visible = false;
+    layer->completion_menu_content = NULL;
+    layer->completion_menu_content_size = 0;
+    layer->completion_menu_lines = 0;
+    layer->completion_menu_selected_index = 0;
+    
     // Initialize performance monitoring
     clock_gettime(CLOCK_MONOTONIC, &layer->last_update_time);
     layer->update_sequence_number = 0;
@@ -509,6 +516,16 @@ command_layer_error_t command_layer_cleanup(command_layer_t *layer) {
         layer->cache[i].is_valid = false;
     }
     layer->cache_size = 0;
+    
+    // Free completion menu content
+    if (layer->completion_menu_content) {
+        free(layer->completion_menu_content);
+        layer->completion_menu_content = NULL;
+        layer->completion_menu_content_size = 0;
+    }
+    layer->completion_menu_visible = false;
+    layer->completion_menu_lines = 0;
+    layer->completion_menu_selected_index = 0;
     
     // Reset state
     reset_layer_state(layer);
@@ -1659,4 +1676,138 @@ const char *command_layer_get_error_message(command_layer_error_t error) {
         default:
             return "Unknown error";
     }
+}
+
+// ============================================================================
+// COMPLETION MENU INTEGRATION
+// ============================================================================
+
+command_layer_error_t command_layer_set_completion_menu(
+    command_layer_t *layer,
+    const char *menu_content,
+    int num_lines,
+    int selected_index)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return COMMAND_LAYER_ERROR_INVALID_PARAM;
+    }
+    
+    if (!menu_content || num_lines <= 0) {
+        // Clear menu if invalid input
+        return command_layer_clear_completion_menu(layer);
+    }
+    
+    size_t content_len = strlen(menu_content);
+    size_t needed_size = content_len + 1;
+    
+    // Allocate or reallocate buffer if needed
+    if (layer->completion_menu_content_size < needed_size) {
+        char *new_buffer = realloc(layer->completion_menu_content, needed_size);
+        if (!new_buffer) {
+            return COMMAND_LAYER_ERROR_MEMORY_ALLOCATION;
+        }
+        layer->completion_menu_content = new_buffer;
+        layer->completion_menu_content_size = needed_size;
+    }
+    
+    // Copy menu content
+    memcpy(layer->completion_menu_content, menu_content, content_len + 1);
+    
+    // Update state
+    layer->completion_menu_visible = true;
+    layer->completion_menu_lines = num_lines;
+    layer->completion_menu_selected_index = selected_index;
+    layer->needs_redraw = true;
+    
+    // Publish redraw event
+    if (layer->event_system) {
+        layer_event_t event = {
+            .type = LAYER_EVENT_REDRAW_NEEDED,
+            .source_layer = LAYER_ID_COMMAND_LAYER,
+            .timestamp = 0
+        };
+        layer_events_publish(layer->event_system, &event);
+    }
+    
+    return COMMAND_LAYER_SUCCESS;
+}
+
+command_layer_error_t command_layer_clear_completion_menu(command_layer_t *layer)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return COMMAND_LAYER_ERROR_INVALID_PARAM;
+    }
+    
+    bool was_visible = layer->completion_menu_visible;
+    
+    layer->completion_menu_visible = false;
+    layer->completion_menu_lines = 0;
+    layer->completion_menu_selected_index = 0;
+    
+    // Don't free the buffer - keep it for reuse
+    // Just mark as not visible
+    
+    if (was_visible) {
+        layer->needs_redraw = true;
+        
+        // Publish redraw event
+        if (layer->event_system) {
+            layer_event_t event = {
+                .type = LAYER_EVENT_REDRAW_NEEDED,
+                .source_layer = LAYER_ID_COMMAND_LAYER,
+                .timestamp = 0
+            };
+            layer_events_publish(layer->event_system, &event);
+        }
+    }
+    
+    return COMMAND_LAYER_SUCCESS;
+}
+
+bool command_layer_is_menu_visible(const command_layer_t *layer)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return false;
+    }
+    return layer->completion_menu_visible;
+}
+
+const char *command_layer_get_menu_content(const command_layer_t *layer)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return NULL;
+    }
+    if (!layer->completion_menu_visible) {
+        return NULL;
+    }
+    return layer->completion_menu_content;
+}
+
+int command_layer_get_menu_lines(const command_layer_t *layer)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return 0;
+    }
+    if (!layer->completion_menu_visible) {
+        return 0;
+    }
+    return layer->completion_menu_lines;
+}
+
+command_layer_error_t command_layer_set_menu_selection(
+    command_layer_t *layer,
+    int selected_index)
+{
+    if (!layer || layer->magic != COMMAND_LAYER_MAGIC) {
+        return COMMAND_LAYER_ERROR_INVALID_PARAM;
+    }
+    
+    if (!layer->completion_menu_visible) {
+        return COMMAND_LAYER_ERROR_NOT_INITIALIZED;
+    }
+    
+    layer->completion_menu_selected_index = selected_index;
+    layer->needs_redraw = true;
+    
+    return COMMAND_LAYER_SUCCESS;
 }

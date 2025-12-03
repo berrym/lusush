@@ -4,7 +4,64 @@
 **Purpose**: Integrate completion menu rendering with screen_buffer to fix all display issues  
 **Based on**: Continuation prompt success pattern + Claude Opus analysis  
 
+**Status**: IMPLEMENTED (2025-12-03)
+
 ---
+
+## Implementation Summary
+
+This plan was successfully implemented on 2025-12-03. The key insight was correct:
+**menu rows are just more content rows** - by adding them to screen_buffer, cursor
+positioning calculations become correct automatically.
+
+### What Was Implemented
+
+1. **Extended `screen_buffer_t`** (`include/display/screen_buffer.h`):
+   - Added `menu_lines`, `ghost_text_lines`, `total_display_rows` fields
+   - Added `command_end_row`, `command_end_col` to track where command ends
+
+2. **Added `screen_buffer_add_text_rows()`** (`src/display/screen_buffer_menu.c`):
+   - Adds menu text as additional rows to screen_buffer AFTER command rendering
+   - Properly handles ANSI escape codes (skips them in width calculation)
+   - Handles UTF-8 and wide characters (CJK, emoji)
+   - Updates `num_rows` to include menu rows
+
+3. **Added `screen_buffer_get_rows_below_cursor()`** (`src/display/screen_buffer_menu.c`):
+   - Returns `(num_rows - 1) - cursor_row`
+   - Used by display_controller for cursor movement calculation
+
+4. **Modified `dc_handle_redraw_needed()`** (`src/display/display_controller.c`):
+   - Calls `screen_buffer_add_text_rows()` after `screen_buffer_render()`
+   - Uses `screen_buffer_get_rows_below_cursor()` for cursor positioning
+   - Simplified Step 5 cursor movement logic
+
+### Why Differential Updates Were Not Used
+
+The original plan suggested using `screen_buffer_diff()` and `screen_buffer_apply_diff()`
+for efficient updates. This was NOT implemented because:
+
+1. The current diff implementation has known issues and is not production-ready
+2. The simple "clear to end of screen and redraw" approach works reliably
+3. Adding menu rows to screen_buffer fixes cursor positioning regardless of
+   whether differential or full redraw is used
+
+The differential update system can be revisited later as a performance optimization,
+but the core fix (tracking menu rows in screen_buffer) is independent of that.
+
+### Testing Results
+
+Tested on macOS with various scenarios:
+- Menu display at top, middle, and bottom of terminal
+- Arrow key navigation through menu items
+- TAB cycling through completions
+- Terminal scrolling behavior
+- Multi-line commands with menu
+
+All tests passed without display glitches.
+
+---
+
+## Original Analysis (Historical Reference)
 
 ## Executive Summary
 

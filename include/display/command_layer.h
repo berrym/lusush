@@ -240,6 +240,16 @@ typedef struct command_layer_s {
     size_t cursor_screen_column;                // Cursor column on screen (0-based)
     bool cursor_screen_position_valid;          // True if screen position is valid
     
+    // Completion menu state (tracked as extension of command layer)
+    // The menu is conceptually part of the command - it shows completions FOR
+    // the command being typed. By tracking it here, screen_buffer can include
+    // menu rows in cursor calculations, fixing the display bug.
+    bool completion_menu_visible;               // Menu is currently displayed
+    char *completion_menu_content;              // Rendered menu text (with ANSI)
+    size_t completion_menu_content_size;        // Size of allocated buffer
+    int completion_menu_lines;                  // Number of lines menu occupies
+    int completion_menu_selected_index;         // Currently selected item index
+    
     // Syntax highlighting state
     command_highlight_region_t highlight_regions[COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS];
     size_t region_count;                        // Number of highlight regions
@@ -354,9 +364,80 @@ command_layer_error_t command_layer_update(command_layer_t *layer);
 command_layer_error_t command_layer_clear(command_layer_t *layer);
 
 // ============================================================================
-// NOTE: Completion menu integration moved to display_controller
-// This follows proper architecture where display_controller composes layers
+// COMPLETION MENU INTEGRATION
+// 
+// The completion menu is tracked as an extension of the command layer because
+// it is conceptually part of the command input - showing completions FOR the
+// command being typed. By tracking the menu here, screen_buffer can include
+// menu rows in cursor position calculations, ensuring correct cursor placement
+// regardless of terminal scrolling.
 // ============================================================================
+
+/**
+ * Set completion menu content
+ * 
+ * Sets the rendered menu content to be displayed below the command.
+ * The menu becomes part of the command layer's output and is tracked
+ * for proper cursor positioning.
+ * 
+ * @param layer Command layer instance
+ * @param menu_content Rendered menu text with ANSI codes (will be copied)
+ * @param num_lines Number of lines the menu occupies
+ * @param selected_index Currently selected item index
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_set_completion_menu(
+    command_layer_t *layer,
+    const char *menu_content,
+    int num_lines,
+    int selected_index);
+
+/**
+ * Clear completion menu
+ * 
+ * Removes the completion menu from the command layer display.
+ * 
+ * @param layer Command layer instance
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_clear_completion_menu(command_layer_t *layer);
+
+/**
+ * Check if completion menu is visible
+ * 
+ * @param layer Command layer instance
+ * @return true if menu is visible, false otherwise
+ */
+bool command_layer_is_menu_visible(const command_layer_t *layer);
+
+/**
+ * Get completion menu content
+ * 
+ * @param layer Command layer instance
+ * @return Menu content string, or NULL if no menu is visible
+ */
+const char *command_layer_get_menu_content(const command_layer_t *layer);
+
+/**
+ * Get completion menu line count
+ * 
+ * @param layer Command layer instance
+ * @return Number of lines the menu occupies, or 0 if no menu
+ */
+int command_layer_get_menu_lines(const command_layer_t *layer);
+
+/**
+ * Update completion menu selection
+ * 
+ * Updates just the selected index without re-rendering the full menu.
+ * 
+ * @param layer Command layer instance
+ * @param selected_index New selected item index
+ * @return COMMAND_LAYER_SUCCESS on success, error code on failure
+ */
+command_layer_error_t command_layer_set_menu_selection(
+    command_layer_t *layer,
+    int selected_index);
 
 // ============================================================================
 // LIFECYCLE MANAGEMENT

@@ -98,15 +98,27 @@ typedef struct {
 
 /**
  * Virtual screen buffer
+ * 
+ * Tracks the complete display state including command text and any menu/overlay
+ * content. By tracking the menu as part of the buffer, cursor positioning
+ * calculations work correctly regardless of terminal scrolling.
  */
 typedef struct {
     screen_line_t lines[SCREEN_BUFFER_MAX_ROWS];
-    int num_rows;           // Number of rows currently used
+    int num_rows;           // Number of rows currently used (command only)
     int terminal_width;     // Terminal width in columns
-    int cursor_row;         // Cursor row position (0-based)
+    int cursor_row;         // Cursor row position (0-based, within command)
     int cursor_col;         // Cursor column position (0-based)
     int command_start_row;  // Row where command text starts (after prompt)
     int command_start_col;  // Column where command text starts (after prompt)
+    
+    // Menu/overlay tracking - tracks content displayed after command text
+    // This allows cursor positioning to account for all displayed content
+    int menu_lines;         // Number of lines the menu occupies (0 if none)
+    int ghost_text_lines;   // Extra lines from autosuggestion wrapping (0 if none)
+    int total_display_rows; // Total rows: num_rows + ghost_text_lines + menu_lines
+    int command_end_row;    // Row where command text ends (before ghost/menu)
+    int command_end_col;    // Column where command text ends
 } screen_buffer_t;
 
 /**
@@ -470,6 +482,53 @@ int screen_buffer_render_menu(screen_buffer_t *buffer,
  * @return Maximum line width in the menu
  */
 int screen_buffer_calculate_menu_width(const char *menu_text);
+
+/**
+ * Add plain text rows to screen buffer (for menu, hints, etc.)
+ * 
+ * Parses text line-by-line and adds each line as a new row starting
+ * at the specified row. Updates buffer->num_rows to include new rows.
+ * 
+ * This is for adding content AFTER the main command text, like menus.
+ * The cursor position is NOT modified - it stays in the command area.
+ * 
+ * Handles:
+ * - ANSI escape sequences (colors, bold, etc.) - skip in width calc
+ * - UTF-8 characters with proper width calculation
+ * - Wide characters (CJK, emoji) - 2 columns
+ * - Line wrapping at terminal_width
+ * - Explicit newlines in text
+ * 
+ * @param buffer Screen buffer to modify
+ * @param start_row Row number to start adding (usually buffer->num_rows)
+ * @param text Multi-line text to add (may contain \n, ANSI codes, UTF-8)
+ * @return Number of rows added, or -1 on error
+ */
+int screen_buffer_add_text_rows(
+    screen_buffer_t *buffer,
+    int start_row,
+    const char *text);
+
+/**
+ * Get total display rows including any added text rows
+ * 
+ * Returns buffer->num_rows which includes command + menu rows.
+ * 
+ * @param buffer Screen buffer
+ * @return Total display rows
+ */
+int screen_buffer_get_total_display_rows(const screen_buffer_t *buffer);
+
+/**
+ * Calculate rows from cursor to end of display
+ * 
+ * Returns how many rows need to be moved up from the end of all
+ * displayed content to reach the cursor position.
+ * 
+ * @param buffer Screen buffer
+ * @return Number of rows from end of display to cursor
+ */
+int screen_buffer_get_rows_below_cursor(const screen_buffer_t *buffer);
 
 #ifdef __cplusplus
 }

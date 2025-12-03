@@ -42,6 +42,13 @@ void screen_buffer_init(screen_buffer_t *buffer, int terminal_width) {
     buffer->command_start_row = 0;
     buffer->command_start_col = 0;
     
+    // Initialize menu/overlay tracking fields
+    buffer->menu_lines = 0;
+    buffer->ghost_text_lines = 0;
+    buffer->total_display_rows = 0;
+    buffer->command_end_row = 0;
+    buffer->command_end_col = 0;
+    
     // Initialize all prefix pointers to NULL
     for (int i = 0; i < SCREEN_BUFFER_MAX_ROWS; i++) {
         buffer->lines[i].prefix = NULL;
@@ -65,6 +72,13 @@ void screen_buffer_clear(screen_buffer_t *buffer) {
     buffer->num_rows = 0;
     buffer->cursor_row = 0;
     buffer->cursor_col = 0;
+    
+    // Reset menu/overlay tracking fields
+    buffer->menu_lines = 0;
+    buffer->ghost_text_lines = 0;
+    buffer->total_display_rows = 0;
+    buffer->command_end_row = 0;
+    buffer->command_end_col = 0;
 }
 
 void screen_buffer_cleanup(screen_buffer_t *buffer) {
@@ -436,6 +450,10 @@ void screen_buffer_render(
             cursor_set = true;
         }
         
+        // Track where command text ends (for menu/ghost text positioning)
+        buffer->command_end_row = row;
+        buffer->command_end_col = col;
+        
         // Keep cursor positions as ABSOLUTE screen coordinates for screen_buffer_diff/apply_diff
         // (they use ESC[row;colH which expects absolute positions)
     }
@@ -444,6 +462,9 @@ void screen_buffer_render(
     if (buffer->num_rows == 0) {
         buffer->num_rows = 1;
     }
+    
+    // Initialize total display rows (will be updated by caller if menu/ghost text added)
+    buffer->total_display_rows = buffer->num_rows;
 }
 
 void screen_buffer_render_with_continuation(
@@ -699,11 +720,18 @@ void screen_buffer_render_with_continuation(
             buffer->cursor_col = col;
             cursor_set = true;
         }
+        
+        // Track where command text ends (for menu/ghost text positioning)
+        buffer->command_end_row = row;
+        buffer->command_end_col = col;
     }
     
     if (buffer->num_rows == 0) {
         buffer->num_rows = 1;
     }
+    
+    // Initialize total display rows (will be updated by caller if menu/ghost text added)
+    buffer->total_display_rows = buffer->num_rows;
 }
 
 // ============================================================================

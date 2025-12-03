@@ -341,6 +341,28 @@ static layer_events_error_t dc_handle_redraw_needed(
             DC_DEBUG("  Row %d has prefix: '%s'", r, prefix);
         }
     }
+    
+    /* Add menu rows to screen_buffer per SCREEN_BUFFER_MENU_INTEGRATION_PLAN.md
+     * 
+     * This is the key fix: by adding menu rows to screen_buffer AFTER rendering
+     * command text, the buffer knows the total display height. This allows
+     * screen_buffer_get_rows_below_cursor() to return the correct value for
+     * cursor positioning, fixing the "upward row consumption" bug.
+     * 
+     * Cursor position (cursor_row, cursor_col) stays in the command area -
+     * menu rows are added AFTER and don't affect cursor tracking.
+     */
+    int menu_rows_added = 0;
+    if (menu_text && *menu_text) {
+        /* Add menu starting at row after command ends.
+         * Note: We add a newline before menu, so start at num_rows (which is
+         * one past the last command row). */
+        int menu_start_row = desired_screen.num_rows;
+        menu_rows_added = screen_buffer_add_text_rows(&desired_screen, menu_start_row, menu_text);
+        
+        DC_DEBUG("Added menu to screen_buffer: start_row=%d, rows_added=%d, new_num_rows=%d",
+                 menu_start_row, menu_rows_added, desired_screen.num_rows);
+    }
 
     /* PROMPT-ONCE ARCHITECTURE per MODERN_EDITOR_WRAPPING_RESEARCH.md
      * 
@@ -564,17 +586,20 @@ static layer_events_error_t dc_handle_redraw_needed(
      * After drawing command text, ghost text, and menu, terminal cursor is at the end.
      * We need to position it where the user's cursor actually is (in the command).
      * 
-     * screen_buffer calculated cursor position relative to command text only.
-     * We need to account for ghost text and menu lines that were written after.
+     * With the new architecture (per SCREEN_BUFFER_MENU_INTEGRATION_PLAN.md):
+     * - Menu rows were added to desired_screen via screen_buffer_add_text_rows()
+     * - desired_screen.num_rows now includes menu rows
+     * - desired_screen.cursor_row is still in the command area (unaffected by menu)
+     * - screen_buffer_get_rows_below_cursor() gives us the exact count
      * 
-     * Use absolute positioning to avoid moving through column 0.
+     * Ghost text is not yet tracked in screen_buffer, so we still calculate it separately.
      */
     int cursor_row = desired_screen.cursor_row;
     int cursor_col = desired_screen.cursor_col;
-    int final_row = desired_screen.num_rows - 1;
     
     /* Calculate extra rows added by ghost text (autosuggestion)
-     * Ghost text may wrap to additional lines beyond the command text */
+     * Ghost text may wrap to additional lines beyond the command text.
+     * TODO: Add ghost text to screen_buffer for unified tracking. */
     int ghost_text_extra_rows = 0;
     if (controller->autosuggestions_enabled && 
         controller->autosuggestions_layer &&
@@ -586,58 +611,28 @@ static layer_events_error_t dc_handle_redraw_needed(
         );
         
         if (suggestion && *suggestion) {
-            /* Calculate how many extra rows the ghost text adds
-             * 
-             * After command text, cursor is at some column. Ghost text continues
-             * from there and may wrap. We need to know the final row.
-             * 
-             * command_end_col = column after last char of command (on final_row)
-             * suggestion_width = display width of suggestion (handles UTF-8, wide chars)
-             * 
-             * Use lle_utf8_string_width() for proper grapheme cluster and
-             * wide character (CJK, emoji) support.
-             */
             size_t suggestion_width = lle_utf8_string_width(suggestion, strlen(suggestion));
-            
-            /* Get the column where command text ends (where ghost text starts) */
-            int command_end_col = desired_screen.cursor_col;  /* cursor is at end for suggestions */
-            
-            /* Calculate total columns needed for ghost text from that position */
+            int command_end_col = desired_screen.command_end_col;
             int total_cols_needed = command_end_col + (int)suggestion_width;
             
-            /* How many extra rows does this create? */
             if (total_cols_needed > term_width) {
                 ghost_text_extra_rows = (total_cols_needed - 1) / term_width;
             }
         }
     }
     
-    /* Use screen_buffer to properly count menu lines (handles ANSI codes) */
-    int menu_lines = 0;
-    if (menu_text && *menu_text) {
-        /* screen_buffer_render_menu returns the actual number of lines the menu occupies */
-        menu_lines = screen_buffer_render_menu(&desired_screen, menu_text, term_width);
-        /* Note: We write a separator newline before the menu, but we don't need to add it
-         * to menu_lines for cursor positioning calculations */
-    }
-    
-    /* Move cursor back to correct position in command text
-     * After writing content (ghost text and menu if present), terminal cursor is at end.
-     * We need to move it back to where it should be in the command.
+    /* Calculate rows to move up using screen_buffer's tracked state.
      * 
-     * Layout after rendering (0-indexed rows from prompt start):
-     * Row 0..final_row: Command text (cursor should be at cursor_row)
-     * Row final_row (continuing): Ghost text may wrap to additional rows
-     * If menu present: rows after ghost text end
-     * 
-     * Terminal cursor position after writing:
-     * - After ghost text: at end of row (final_row + ghost_text_extra_rows)
-     * - With menu: at end of row (final_row + ghost_text_extra_rows + menu_lines)
-     * 
-     * We need to move cursor back to cursor_row.
+     * screen_buffer_get_rows_below_cursor() returns: (num_rows - 1) - cursor_row
+     * This accounts for menu rows that were added via screen_buffer_add_text_rows().
+     * We still need to add ghost_text_extra_rows since those aren't in screen_buffer yet.
      */
-    int current_terminal_row = final_row + ghost_text_extra_rows + menu_lines;
-    int rows_to_move_up = current_terminal_row - cursor_row;
+    int rows_to_move_up = screen_buffer_get_rows_below_cursor(&desired_screen) + ghost_text_extra_rows;
+    
+    DC_DEBUG("Step5: cursor=(%d,%d), num_rows=%d, rows_below=%d, ghost=%d, total_up=%d",
+             cursor_row, cursor_col, desired_screen.num_rows,
+             screen_buffer_get_rows_below_cursor(&desired_screen),
+             ghost_text_extra_rows, rows_to_move_up);
     
     if (rows_to_move_up > 0) {
         char up_seq[16];
@@ -659,9 +654,14 @@ static layer_events_error_t dc_handle_redraw_needed(
     screen_buffer_copy(&current_screen, &desired_screen);
     prompt_rendered = true;
     
-    /* Track where the terminal cursor actually ended up (including ghost text/menu)
-     * This is needed by Step 2 on the next render to move up the correct amount */
-    last_terminal_end_row = current_terminal_row;
+    /* Track where the terminal display actually ends (including ghost text/menu)
+     * This is needed by Step 2 on the next render to move up the correct amount.
+     * 
+     * With menu rows now tracked in screen_buffer:
+     * - (num_rows - 1) gives the last row index in the buffer (includes menu)
+     * - ghost_text_extra_rows adds any additional wrapping from autosuggestions
+     */
+    last_terminal_end_row = (desired_screen.num_rows - 1) + ghost_text_extra_rows;
 
     /* NOTE: fsync() was causing input timeouts after cursor positioning - removed
      * stdout is line-buffered by default and terminal I/O doesn't need fsync */
