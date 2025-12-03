@@ -480,6 +480,15 @@ TEST(test_multiple_events_sequence) {
     lle_input_event_t event;
     result = lle_unix_interface_read_event(interface, &event, 100);
     assert(result == LLE_SUCCESS);
+    if (event.type != LLE_INPUT_TYPE_TIMEOUT) {
+        fprintf(stderr, "\nExpected TIMEOUT (5), got event type: %d\n", event.type);
+        if (event.type == LLE_INPUT_TYPE_CHARACTER) {
+            fprintf(stderr, "Character codepoint: %u ('%c')\n", 
+                    event.data.character.codepoint,
+                    event.data.character.codepoint >= 32 && event.data.character.codepoint < 127 
+                        ? (char)event.data.character.codepoint : '?');
+        }
+    }
     assert(event.type == LLE_INPUT_TYPE_TIMEOUT);
     
     dup2(saved_stdin, STDIN_FILENO);

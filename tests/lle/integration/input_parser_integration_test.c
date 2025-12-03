@@ -223,9 +223,9 @@ static int test_sequence_timeout_exceeded(void) {
     
     uint64_t current_time = lle_event_get_timestamp_us();
     
-    /* Partial sequence exceeded timeout */
+    /* Partial sequence exceeded timeout (must be > LLE_MAX_SEQUENCE_TIMEOUT_US = 400ms) */
     seq_parser.buffer_pos = 5;
-    seq_parser.sequence_start_time = current_time - 200000; /* 200ms ago */
+    seq_parser.sequence_start_time = current_time - 500000; /* 500ms ago */
     bool timeout = lle_input_parser_check_sequence_timeout(&parser_sys, current_time);
     TEST_ASSERT(timeout, "Timeout not detected");
     
