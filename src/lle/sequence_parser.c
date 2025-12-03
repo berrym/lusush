@@ -330,9 +330,28 @@ lle_result_t lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
                     // SS2 sequence
                     parser->type = LLE_SEQ_TYPE_SS2;
                     parser->state = LLE_PARSER_STATE_KEY_SEQUENCE;
+                } else if (c >= 0x20 && c < 0x7F) {
+                    // ESC + printable ASCII = Meta/Alt + character
+                    // This is how macOS Terminal sends Alt+key when Option is Meta,
+                    // or when user physically presses ESC then a letter (e.g., ESC f for M-f)
+                    lle_parsed_input_t *result = lle_pool_alloc(sizeof(lle_parsed_input_t));
+                    if (!result) {
+                        lle_sequence_parser_reset_state(parser);
+                        return LLE_ERROR_OUT_OF_MEMORY;
+                    }
+                    
+                    memset(result, 0, sizeof(lle_parsed_input_t));
+                    result->type = LLE_PARSED_INPUT_TYPE_KEY;
+                    result->data.key_info.type = LLE_KEY_TYPE_REGULAR;
+                    result->data.key_info.keycode = c;
+                    result->data.key_info.modifiers = LLE_KEY_MOD_ALT;
+                    result->handled = false;
+                    
+                    *parsed_input = result;
+                    lle_sequence_parser_reset_state(parser);
+                    return LLE_SUCCESS;
                 } else {
-                    // Simple two-character escape sequence (might be complete)
-                    // Some escape sequences are just ESC + one character
+                    // Other two-character escape sequence
                     lle_result_t result = process_control_char(parser, c, parsed_input);
                     lle_sequence_parser_reset_state(parser);
                     return result;

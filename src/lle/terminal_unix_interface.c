@@ -904,7 +904,7 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
             lle_parsed_input_t *timeout_input = NULL;
             lle_result_t timeout_result = lle_sequence_parser_check_timeout(
                 interface->sequence_parser,
-                50000,  /* 50ms timeout for ESC key */
+                300000,  /* 300ms timeout for ESC+key (Meta) sequences */
                 &timeout_input
             );
             
@@ -1044,7 +1044,7 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
             lle_parsed_input_t *timeout_input = NULL;
             lle_result_t timeout_result = lle_sequence_parser_check_timeout(
                 interface->sequence_parser,
-                50000,  /* 50ms timeout for ESC key */
+                300000,  /* 300ms timeout for ESC+key (Meta) sequences */
                 &timeout_input
             );
             
@@ -1073,7 +1073,7 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
         FD_ZERO(&read_fds);
         FD_SET(interface->terminal_fd, &read_fds);
         escape_timeout.tv_sec = 0;
-        escape_timeout.tv_usec = 10000;  /* 10ms timeout for escape sequence */
+        escape_timeout.tv_usec = 100000;  /* 100ms timeout for ESC+key (Meta) sequences */
         
         int ready = select(interface->terminal_fd + 1, &read_fds, NULL, NULL, &escape_timeout);
         
@@ -1148,11 +1148,26 @@ lle_result_t lle_unix_interface_read_event(lle_unix_interface_t *interface,
                             break;
                     }
                 }
+            } else if (read2 == 1 && second_byte >= 0x20 && second_byte < 0x7F) {
+                /* ESC + printable ASCII character = Meta/Alt + character
+                 * This is how macOS Terminal and other terminals send Alt+key
+                 * when the Option key is configured as Meta, or when user
+                 * physically presses ESC then a letter (e.g., ESC f for Alt-f).
+                 * 
+                 * Range 0x20-0x7E covers printable ASCII (space through tilde).
+                 * This enables M-f (forward-word), M-b (backward-word), etc.
+                 */
+                event->type = LLE_INPUT_TYPE_SPECIAL_KEY;
+                event->timestamp = lle_get_current_time_microseconds();
+                event->data.special_key.key = LLE_KEY_UNKNOWN;
+                event->data.special_key.modifiers = LLE_MOD_ALT;
+                event->data.special_key.keycode = second_byte;
+                return LLE_SUCCESS;
             }
         }
         
-        /* If we get here, it's just a plain ESC key or unrecognized sequence */
-        /* Return ESC as a regular character */
+        /* If we get here, it's just a plain ESC key (no second byte within timeout)
+         * or an unrecognized sequence - return ESC as a regular character */
     }
     
     /* Decode UTF-8 character */

@@ -53,7 +53,7 @@ extern "C" {
 #define LLE_KEYBINDING_LOOKUP_TARGET_US       10       /* 10μs keybinding lookup */
 
 /* Timeouts */
-#define LLE_MAX_SEQUENCE_TIMEOUT_US           100000   /* 100ms sequence timeout */
+#define LLE_MAX_SEQUENCE_TIMEOUT_US           400000   /* 400ms sequence timeout for ESC+key (Meta) */
 #define LLE_KEY_SEQUENCE_TIMEOUT_US           100000   /* 100ms key timeout */
 #define LLE_MOUSE_DOUBLE_CLICK_TIME_MS        500      /* 500ms double-click */
 #define LLE_MOUSE_TRIPLE_CLICK_TIME_MS        750      /* 750ms triple-click */

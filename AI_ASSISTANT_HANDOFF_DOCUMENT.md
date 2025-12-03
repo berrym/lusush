@@ -54,10 +54,15 @@ Issues tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`:
   - Tab insertion expands to spaces at input time based on visual column
   - Display layer uses `config.tab_width` as fallback for external tabs
 
+- **ESC+key as Meta**: ✅ FIXED - macOS word movement now works naturally
+  - ESC+b (backward-word) and ESC+f (forward-word) work like zsh
+  - Fixed sequence_parser.c to create proper Meta key events for ESC+printable
+  - Increased `LLE_MAX_SEQUENCE_TIMEOUT_US` to 400ms for comfortable human timing
+  - Also fixed timeout values in terminal_unix_interface.c (300ms)
+
 ### Remaining Work
 
 - [ ] Verify no Linux regressions
-- [ ] Implement macOS-friendly word movement (ESC+b/f or Ctrl-Left/Right)
 
 ---
 
