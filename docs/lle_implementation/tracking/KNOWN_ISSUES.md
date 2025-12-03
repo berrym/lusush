@@ -106,56 +106,52 @@ None currently - git information simply doesn't appear in prompts.
 ### Issue #15: Tab Character Handling Uses Formula-Based Calculation
 **Severity**: LOW  
 **Discovered**: 2025-12-02 (macOS LLE compatibility session)  
-**Status**: Not yet fixed (documented)  
-**Component**: src/display/screen_buffer.c - tab expansion  
+**Status**: ✅ FIXED (2025-12-02)  
+**Component**: src/lle/keybinding_actions.c, src/display/screen_buffer.c, src/lle/display_bridge.c  
 
 **Description**:
-Tab character handling in the screen buffer uses the formula `8 - (col % 8)` to calculate tab width. This violates LLE's character-by-character design principle and has several issues:
+Tab character handling had two issues:
+1. Hardcoded 8-column tab stops instead of using `config.tab_width` (default 4)
+2. Inserting literal `\t` characters violated character-by-character design principle
 
-1. **Hardcoded tab stops**: Uses fixed 8-column tab stops, ignoring `config.tab_width` setting (default 4)
-2. **Modulo division**: Formula-based calculation is not portable across all scenarios
-3. **Not character-by-character**: Should use proper tab stop tracking or preprocessing
+**Fix Applied (Two-Part Solution)**:
 
-**Affected Code Locations**:
-- `src/display/screen_buffer.c:380-393` - `screen_buffer_render()` command text tab handling
-- `src/display/screen_buffer.c:648-661` - `screen_buffer_render_with_continuation()` tab handling
-- `src/display/screen_buffer.c:276-289` - prompt text tab handling
-- `src/lle/display_bridge.c:619-620` - display bridge tab handling
+**Part 1: Tab Input Expansion** (`src/lle/keybinding_actions.c`)
+The `lle_tab_insert()` function now expands tabs to spaces at input time based on
+the current visual column position. This ensures the buffer never contains literal
+tab characters, maintaining true character-by-character tracking:
 
-**Current Code**:
 ```c
-// TODO comment added to document the issue:
-// Tab handling uses formula-based calculation (8 - col % 8) which
-// violates LLE's character-by-character design principle. This approach:
-// 1. Assumes fixed 8-column tab stops (config has tab_width setting)
-// 2. Uses modulo division which is not portable across all scenarios
-// 3. Should be replaced with proper tab stop tracking or preprocessing
-// See: config.tab_width for user-configurable tab width
+lle_result_t lle_tab_insert(lle_editor_t *editor) {
+    /* Expand tab to spaces based on visual column position */
+    int tab_width = config.tab_width > 0 ? config.tab_width : 4;
+    size_t visual_col = editor->buffer->cursor.visual_column;
+    size_t spaces_to_insert = tab_width - (visual_col % tab_width);
+    
+    char spaces[16];
+    memset(spaces, ' ', spaces_to_insert);
+    spaces[spaces_to_insert] = '\0';
+    
+    return lle_buffer_insert_text(editor->buffer, ..., spaces, spaces_to_insert);
+}
+```
+
+**Part 2: Display Layer Fallback** (`screen_buffer.c`, `display_bridge.c`)
+Updated all 6 display locations to use `config.tab_width` as a fallback for any
+tabs that may come from external sources (pasted text, history, etc.):
+
+```c
 if (ch == '\t') {
-    size_t tab_width = 8 - (col % 8);
-    col += tab_width;
+    int tw = config.tab_width > 0 ? config.tab_width : 4;
+    size_t tab_width = tw - (col % tw);
     // ...
 }
 ```
 
-**Proper Fix Strategy**:
-Options to consider:
-1. **Query config**: Use `config.tab_width` instead of hardcoded 8
-2. **Tab preprocessing**: Expand tabs to spaces before reaching screen buffer
-3. **Tab stop tracking**: Implement explicit tab stop positions
-4. **Character-by-character**: Track position without using modulo formula
-
-**Impact**:
-- Tabs may display incorrectly if user expects different tab width
-- Inconsistent with `config.tab_width` setting
-- Not following LLE design principles
-
-**Current Workaround**:
-Avoid using tab characters in command input. Most shell commands don't require literal tabs.
-
-**Priority**: LOW (tabs in command input are rare, doesn't affect most users)
-
-**Status**: DOCUMENTED - Fix deferred, approach needs design discussion
+**Resolution**: 
+- Tab insertion now expands to spaces at input time (character-by-character compliant)
+- Display layer respects `config.tab_width` for any tabs from external sources
+- User's `behavior.tab_width` setting is now honored throughout
 
 ---
 

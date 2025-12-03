@@ -21,6 +21,7 @@
 #include "display/screen_buffer.h"
 #include "lle/utf8_support.h"
 #include "lle/unicode_grapheme.h"
+#include "../include/config.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -273,7 +274,8 @@ void screen_buffer_render(
             
             // Handle tabs
             if (ch == '\t') {
-                size_t tab_width = 8 - (col % 8);
+                int tw = config.tab_width > 0 ? config.tab_width : 4;
+                size_t tab_width = tw - (col % tw);
                 col += tab_width;
                 if (col >= buffer->terminal_width) {
                     row++;
@@ -377,7 +379,8 @@ void screen_buffer_render(
             
             // Handle tabs
             if (ch == '\t') {
-                size_t tab_width = 8 - (col % 8);
+                int tw = config.tab_width > 0 ? config.tab_width : 4;
+                size_t tab_width = tw - (col % tw);
                 col += tab_width;
                 if (col >= buffer->terminal_width) {
                     row++;
@@ -510,7 +513,8 @@ void screen_buffer_render_with_continuation(
             }
             
             if (ch == '\t') {
-                size_t tab_width = 8 - (col % 8);
+                int tw = config.tab_width > 0 ? config.tab_width : 4;
+                size_t tab_width = tw - (col % tw);
                 col += tab_width;
                 if (col >= buffer->terminal_width) {
                     row++;
@@ -644,7 +648,8 @@ void screen_buffer_render_with_continuation(
             
             // Handle tabs
             if (ch == '\t') {
-                size_t tab_width = 8 - (col % 8);
+                int tw = config.tab_width > 0 ? config.tab_width : 4;
+                size_t tab_width = tw - (col % tw);
                 col += tab_width;
                 if (col >= buffer->terminal_width) {
                     row++;
@@ -1142,7 +1147,8 @@ size_t screen_buffer_calculate_visual_width(const char *text, size_t start_col) 
         
         // Handle tab expansion
         if (ch == '\t') {
-            size_t tab_width = 8 - (col % 8);
+            int tw = config.tab_width > 0 ? config.tab_width : 4;
+            size_t tab_width = tw - (col % tw);
             visual_width += tab_width;
             col += tab_width;
             i++;

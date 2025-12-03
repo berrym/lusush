@@ -42,22 +42,22 @@ The core issue was that continuation prompts (like `quote>`) were not appearing 
 - `src/readline_stubs.c` - Fixed prompt generation
 - `src/config.c` - CONFIG_TYPE_ENUM implementation
 
-### Known Issues Documented
+### Known Issues - Status Update
 
-Two new issues added to `docs/lle_implementation/tracking/KNOWN_ISSUES.md`:
+Issues tracked in `docs/lle_implementation/tracking/KNOWN_ISSUES.md`:
 
-- **Issue #14**: Git-aware prompt not displaying git information (MEDIUM)
-  - Caused by stderr redirection fix, needs investigation
-- **Issue #15**: Tab handling uses formula-based calculation (LOW)
-  - Uses `8 - (col % 8)` instead of config.tab_width
-  - Violates LLE character-by-character principle
+- **Issue #14**: ✅ FIXED - Git-aware prompt now displays correctly
+  - Root cause: SIGPIPE in `run_command()` when not draining pipe before pclose()
+  - Also fixed memory corruption (pool_free vs free mismatch)
+  
+- **Issue #15**: ✅ FIXED - Tab handling now uses character-by-character approach
+  - Tab insertion expands to spaces at input time based on visual column
+  - Display layer uses `config.tab_width` as fallback for external tabs
 
 ### Remaining Work
 
-- [ ] Fix git-aware prompt (Issue #14) - stdout capture with stderr redirection
 - [ ] Verify no Linux regressions
 - [ ] Implement macOS-friendly word movement (ESC+b/f or Ctrl-Left/Right)
-- [ ] Fix tab handling (Issue #15) - lower priority
 
 ---
 

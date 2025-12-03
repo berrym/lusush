@@ -22,6 +22,7 @@
 #include "lle/utf8_support.h"      /* For UTF-8 utilities */
 #include "display/command_layer.h"
 #include "display/layer_events.h"
+#include "../include/config.h"     /* For config.tab_width */
 #include <string.h>
 #include <time.h>
 #include <wchar.h>   /* For wcwidth() */
@@ -614,9 +615,10 @@ static void calculate_cursor_screen_position(const char *text,
             continue;
         }
         
-        /* Handle tab (expand to next 8-column boundary) */
+        /* Handle tab (expand to next tab stop based on config.tab_width) */
         if (ch == '\t') {
-            size_t tab_width = 8 - (x % 8);
+            int tw = config.tab_width > 0 ? config.tab_width : 4;
+            size_t tab_width = tw - (x % tw);
             x += tab_width;
             /* Handle wrapping for tabs */
             if (x >= terminal_width) {

@@ -2347,11 +2347,27 @@ lle_result_t lle_tab_insert(lle_editor_t *editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Insert tab at cursor */
+    /* Expand tab to spaces based on visual column position.
+     * This ensures true character-by-character tracking in the display layer
+     * since each space is a single character with width 1, rather than a
+     * tab character that requires formula-based expansion during rendering.
+     */
+    int tab_width = config.tab_width > 0 ? config.tab_width : 4;
+    size_t visual_col = editor->buffer->cursor.visual_column;
+    size_t spaces_to_insert = tab_width - (visual_col % tab_width);
+    
+    /* Create a string of spaces */
+    char spaces[16];  /* Max reasonable tab width */
+    if (spaces_to_insert > sizeof(spaces) - 1) {
+        spaces_to_insert = sizeof(spaces) - 1;
+    }
+    memset(spaces, ' ', spaces_to_insert);
+    spaces[spaces_to_insert] = '\0';
+    
     return lle_buffer_insert_text(editor->buffer,
                                    editor->buffer->cursor.byte_offset,
-                                   "\t",
-                                   1);
+                                   spaces,
+                                   spaces_to_insert);
 }
 
 /* ============================================================================
