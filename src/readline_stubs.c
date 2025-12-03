@@ -18,6 +18,7 @@
 #include "../include/prompt.h"
 #include "../include/display_integration.h"
 #include "../include/symtable.h"
+#include "../include/lusush_memory_pool.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -51,9 +52,10 @@ char *lusush_readline_with_prompt(const char *prompt) {
     
     char *line = lle_readline(actual_prompt);
     
-    /* Free themed prompt if we allocated it */
+    /* Free themed prompt if we allocated it - use pool_free since
+     * lusush_generate_prompt() returns pool-allocated memory */
     if (themed_prompt) {
-        free(themed_prompt);
+        lusush_pool_free(themed_prompt);
     }
     
     return line;

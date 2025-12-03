@@ -204,6 +204,7 @@ static int build_colors(void) {
 static int run_command(const char *cmd, char *output, size_t output_size) {
     FILE *fp;
     int status;
+    char drain_buffer[256];
 
     if (output) {
         output[0] = '\0';
@@ -222,6 +223,11 @@ static int run_command(const char *cmd, char *output, size_t output_size) {
                 output[len - 1] = '\0';
             }
         }
+    }
+    
+    // Drain any remaining output to prevent SIGPIPE to child process
+    while (fgets(drain_buffer, sizeof(drain_buffer), fp) != NULL) {
+        // Discard
     }
 
     status = pclose(fp);
