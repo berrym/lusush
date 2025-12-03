@@ -33,6 +33,63 @@ static config_section_t current_section = CONFIG_SECTION_NONE;
 // Error handling
 static char last_error[256] = "";
 
+// ============================================================================
+// ENUM MAPPING DEFINITIONS
+// ============================================================================
+
+// LLE Arrow Key Mode mappings
+static const config_enum_mapping_t lle_arrow_mode_mappings[] = {
+    {"context-aware",   LLE_ARROW_MODE_CONTEXT_AWARE},
+    {"classic",         LLE_ARROW_MODE_CLASSIC},
+    {"always-history",  LLE_ARROW_MODE_ALWAYS_HISTORY},
+    {"multiline-first", LLE_ARROW_MODE_MULTILINE_FIRST},
+    {NULL, 0}  // Sentinel
+};
+static const config_enum_def_t lle_arrow_mode_enum = {
+    lle_arrow_mode_mappings, LLE_ARROW_MODE_CONTEXT_AWARE
+};
+
+// LLE Storage Mode mappings
+static const config_enum_mapping_t lle_storage_mode_mappings[] = {
+    {"lle-only",        LLE_STORAGE_MODE_LLE_ONLY},
+    {"bash-only",       LLE_STORAGE_MODE_BASH_ONLY},
+    {"dual",            LLE_STORAGE_MODE_DUAL},
+    {"readline-compat", LLE_STORAGE_MODE_READLINE_COMPAT},
+    {NULL, 0}  // Sentinel
+};
+static const config_enum_def_t lle_storage_mode_enum = {
+    lle_storage_mode_mappings, LLE_STORAGE_MODE_DUAL
+};
+
+// LLE Dedup Scope mappings
+static const config_enum_mapping_t lle_dedup_scope_mappings[] = {
+    {"none",    LLE_DEDUP_SCOPE_NONE},
+    {"session", LLE_DEDUP_SCOPE_SESSION},
+    {"recent",  LLE_DEDUP_SCOPE_RECENT},
+    {"global",  LLE_DEDUP_SCOPE_GLOBAL},
+    {NULL, 0}  // Sentinel
+};
+static const config_enum_def_t lle_dedup_scope_enum = {
+    lle_dedup_scope_mappings, LLE_DEDUP_SCOPE_SESSION
+};
+
+// LLE Dedup Strategy mappings
+static const config_enum_mapping_t lle_dedup_strategy_mappings[] = {
+    {"ignore",        LLE_DEDUP_STRATEGY_IGNORE},
+    {"keep-recent",   LLE_DEDUP_STRATEGY_KEEP_RECENT},
+    {"keep-frequent", LLE_DEDUP_STRATEGY_KEEP_FREQUENT},
+    {"merge",         LLE_DEDUP_STRATEGY_MERGE},
+    {"keep-all",      LLE_DEDUP_STRATEGY_KEEP_ALL},
+    {NULL, 0}  // Sentinel
+};
+static const config_enum_def_t lle_dedup_strategy_enum = {
+    lle_dedup_strategy_mappings, LLE_DEDUP_STRATEGY_KEEP_RECENT
+};
+
+// ============================================================================
+// CONFIGURATION OPTION DEFINITIONS
+// ============================================================================
+
 // Configuration option definitions
 static config_option_t config_options[] = {
     // History settings
@@ -50,8 +107,9 @@ static config_option_t config_options[] = {
      &config.history_file,                             "History file path",       config_validate_string       },
 
     // LLE History Configuration
-    {"lle.arrow_key_mode", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
-     &config.lle_arrow_key_mode, "Arrow key behavior mode", config_validate_lle_arrow_mode},
+    {"lle.arrow_key_mode", CONFIG_TYPE_ENUM, CONFIG_SECTION_HISTORY,
+     &config.lle_arrow_key_mode, "Arrow key behavior mode", config_validate_lle_arrow_mode,
+     &lle_arrow_mode_enum},
     {"lle.enable_multiline_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_enable_multiline_navigation, "Enable vertical cursor navigation in multiline", config_validate_bool},
     {"lle.wrap_history_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
@@ -70,8 +128,9 @@ static config_option_t config_options[] = {
      &config.lle_search_fuzzy_matching, "Use fuzzy matching in search", config_validate_bool},
     {"lle.search_case_sensitive", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_search_case_sensitive, "Case sensitive history search", config_validate_bool},
-    {"lle.storage_mode", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
-     &config.lle_storage_mode, "History storage mode", config_validate_lle_storage_mode},
+    {"lle.storage_mode", CONFIG_TYPE_ENUM, CONFIG_SECTION_HISTORY,
+     &config.lle_storage_mode, "History storage mode", config_validate_lle_storage_mode,
+     &lle_storage_mode_enum},
     {"lle.history_file", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
      &config.lle_history_file, "LLE history file path", config_validate_string},
     {"lle.sync_with_readline", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
@@ -82,10 +141,12 @@ static config_option_t config_options[] = {
      &config.lle_enable_forensic_tracking, "Track metadata (timestamps, exit codes, cwd)", config_validate_bool},
     {"lle.enable_deduplication", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_enable_deduplication, "Enable history deduplication", config_validate_bool},
-    {"lle.dedup_scope", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
-     &config.lle_dedup_scope, "Deduplication scope", config_validate_lle_dedup_scope},
-    {"lle.dedup_strategy", CONFIG_TYPE_STRING, CONFIG_SECTION_HISTORY,
-     &config.lle_dedup_strategy, "Deduplication strategy", config_validate_lle_dedup_strategy},
+    {"lle.dedup_scope", CONFIG_TYPE_ENUM, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_scope, "Deduplication scope", config_validate_lle_dedup_scope,
+     &lle_dedup_scope_enum},
+    {"lle.dedup_strategy", CONFIG_TYPE_ENUM, CONFIG_SECTION_HISTORY,
+     &config.lle_dedup_strategy, "Deduplication strategy", config_validate_lle_dedup_strategy,
+     &lle_dedup_strategy_enum},
     {"lle.dedup_navigation", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
      &config.lle_dedup_navigation, "Skip duplicates during history navigation", config_validate_bool},
     {"lle.dedup_navigation_unique", CONFIG_TYPE_BOOL, CONFIG_SECTION_HISTORY,
@@ -1345,10 +1406,15 @@ void config_set_defaults(void) {
     // Script execution defaults
     config.script_execution = true;
     
-    // Line editor defaults - GNU readline by default, LLE opt-in
-    // Check environment variable for testing purposes
+    // Line editor defaults
+#if HAVE_READLINE
+    // GNU readline available - LLE is opt-in via environment or config
     const char *lle_env = getenv("LLE_ENABLED");
     config.use_lle = (lle_env && strcmp(lle_env, "1") == 0);
+#else
+    // No readline - LLE is the only option, always enabled
+    config.use_lle = true;
+#endif
 }
 
 /**
@@ -1649,6 +1715,20 @@ int config_parse_option(const char *key, const char *value) {
             case CONFIG_TYPE_INT: {
                 int int_val = atoi(value);
                 *(int *)opt->value_ptr = int_val;
+                break;
+            }
+            case CONFIG_TYPE_ENUM: {
+                /* Look up string value in enum mapping table */
+                int enum_val = opt->enum_def->default_value;
+                if (opt->enum_def && opt->enum_def->mappings) {
+                    for (const config_enum_mapping_t *m = opt->enum_def->mappings; m->name; m++) {
+                        if (strcmp(value, m->name) == 0) {
+                            enum_val = m->value;
+                            break;
+                        }
+                    }
+                }
+                *(int *)opt->value_ptr = enum_val;
                 break;
             }
             case CONFIG_TYPE_STRING: {

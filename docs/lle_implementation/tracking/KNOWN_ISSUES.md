@@ -10,7 +10,9 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **3 Active Issues** - Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **5 Active Issues** - Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
+- ✅ **Issue #15 Documented** - Tab handling uses formula-based calculation (2025-12-02)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
 - ✅ **Issue #10 Fixed** - Arrow key navigation (Session 25)
 - ✅ **Issue #11 Fixed** - Menu dismissal (Session 26)
@@ -32,6 +34,130 @@
 ---
 
 ## Active Issues
+
+### Issue #14: Git-Aware Prompt Not Displaying Git Information
+**Severity**: MEDIUM  
+**Discovered**: 2025-12-02 (macOS LLE compatibility session)  
+**Status**: Not yet fixed  
+**Component**: src/prompt.c - git status integration  
+
+**Description**:
+The git-aware themed prompt is not displaying any git information (branch name, status indicators). The prompt shows username, hostname, and path correctly, but the git branch/status section is missing entirely.
+
+**Reproduction**:
+```bash
+$ ./builddir/lusush
+[mberry@Michaels-Mac-mini.local] ~/Lab/c/lusush $
+# ^ No git branch shown, should show branch and status in a git repository
+```
+
+**Expected Behavior**:
+```bash
+[mberry@Michaels-Mac-mini.local] ~/Lab/c/lusush (feature/lle) $
+# Or with status indicators like *, +, etc.
+```
+
+**Root Cause**:
+A blanket fix was applied to suppress git stderr messages (which were causing display corruption when running `cd /tmp` outside of a git repository). The fix added `2>/dev/null` redirection to git commands in `src/prompt.c`:
+
+```c
+// In get_git_branch():
+return run_command("git branch --show-current 2>/dev/null", branch, branch_size);
+
+// In get_git_status():
+if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
+    return; // Not in a git repository
+}
+```
+
+The stderr redirection is correct, but the issue is likely that:
+1. The `run_command()` function may not be returning output correctly with the redirection
+2. Or the git commands are failing for another reason on macOS
+3. Or there's a PATH issue where git isn't being found
+
+**Investigation Needed**:
+1. Check if `run_command()` properly captures stdout while redirecting stderr
+2. Verify git is in PATH when lusush runs
+3. Test git commands directly to ensure they work
+4. May need to use `2>/dev/null` only for the stderr while still capturing stdout
+
+**Original Issue Being Fixed**:
+When `cd /tmp` was executed (outside a git repo), git commands output:
+```
+fatal: not a git repository (or any of the parent directories): .git
+```
+This stderr output corrupted the display because it wasn't being suppressed.
+
+**Proper Fix Strategy**:
+The stderr redirection is correct for suppressing error messages, but we need to ensure stdout is still captured. The issue may be in how `run_command()` handles the command string with shell redirection.
+
+**Workaround**:
+None currently - git information simply doesn't appear in prompts.
+
+**Priority**: MEDIUM (affects user experience but shell is functional)
+
+**Files Involved**:
+- `src/prompt.c` - `get_git_branch()` and `get_git_status()` functions
+
+**Status**: DOCUMENTED - Needs investigation
+
+---
+
+### Issue #15: Tab Character Handling Uses Formula-Based Calculation
+**Severity**: LOW  
+**Discovered**: 2025-12-02 (macOS LLE compatibility session)  
+**Status**: Not yet fixed (documented)  
+**Component**: src/display/screen_buffer.c - tab expansion  
+
+**Description**:
+Tab character handling in the screen buffer uses the formula `8 - (col % 8)` to calculate tab width. This violates LLE's character-by-character design principle and has several issues:
+
+1. **Hardcoded tab stops**: Uses fixed 8-column tab stops, ignoring `config.tab_width` setting (default 4)
+2. **Modulo division**: Formula-based calculation is not portable across all scenarios
+3. **Not character-by-character**: Should use proper tab stop tracking or preprocessing
+
+**Affected Code Locations**:
+- `src/display/screen_buffer.c:380-393` - `screen_buffer_render()` command text tab handling
+- `src/display/screen_buffer.c:648-661` - `screen_buffer_render_with_continuation()` tab handling
+- `src/display/screen_buffer.c:276-289` - prompt text tab handling
+- `src/lle/display_bridge.c:619-620` - display bridge tab handling
+
+**Current Code**:
+```c
+// TODO comment added to document the issue:
+// Tab handling uses formula-based calculation (8 - col % 8) which
+// violates LLE's character-by-character design principle. This approach:
+// 1. Assumes fixed 8-column tab stops (config has tab_width setting)
+// 2. Uses modulo division which is not portable across all scenarios
+// 3. Should be replaced with proper tab stop tracking or preprocessing
+// See: config.tab_width for user-configurable tab width
+if (ch == '\t') {
+    size_t tab_width = 8 - (col % 8);
+    col += tab_width;
+    // ...
+}
+```
+
+**Proper Fix Strategy**:
+Options to consider:
+1. **Query config**: Use `config.tab_width` instead of hardcoded 8
+2. **Tab preprocessing**: Expand tabs to spaces before reaching screen buffer
+3. **Tab stop tracking**: Implement explicit tab stop positions
+4. **Character-by-character**: Track position without using modulo formula
+
+**Impact**:
+- Tabs may display incorrectly if user expects different tab width
+- Inconsistent with `config.tab_width` setting
+- Not following LLE design principles
+
+**Current Workaround**:
+Avoid using tab characters in command input. Most shell commands don't require literal tabs.
+
+**Priority**: LOW (tabs in command input are rare, doesn't affect most users)
+
+**Status**: DOCUMENTED - Fix deferred, approach needs design discussion
+
+---
 
 ### Issue #7: Completion Menu - Category Disambiguation Not Implemented
 **Severity**: MEDIUM  
@@ -803,19 +929,21 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 3  
+**Active Issues**: 5  
 **Blockers**: 0  
 **High Priority**: 0  
-**Medium Priority**: 3 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation)  
-**Low Priority**: 1 (Issue #8 - menu display format)  
-**Fixed This Session**: 5 (Issues #9, #10, #11, #12, #13 - cursor, navigation, dismissal, column shifting, column preservation)
-**Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
+**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt)  
+**Low Priority**: 2 (Issue #8 - menu display format; #15 - tab handling)  
+**Fixed This Session (2025-12-02)**: Multiline continuation prompts with line wrapping (character-by-character visual row tracking)
+**Implementation Status**: Spec 12 v2 completion integrated, menu fully functional, macOS LLE compatibility improved  
 **Next Action**: 
+- (Immediate) Fix git-aware prompt (Issue #14)
+- (Future) Fix tab handling to use config.tab_width (Issue #15)
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-11-26  
+**Last Updated**: 2025-12-02  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

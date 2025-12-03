@@ -233,7 +233,7 @@ static int run_command(const char *cmd, char *output, size_t output_size) {
  *      Get the current git branch name.
  */
 static int get_git_branch(char *branch, size_t branch_size) {
-    return run_command("git branch --show-current", branch, branch_size);
+    return run_command("git branch --show-current 2>/dev/null", branch, branch_size);
 }
 
 /**
@@ -246,8 +246,8 @@ static void get_git_status(git_info_t *info) {
     // Reset info
     memset(info, 0, sizeof(git_info_t));
 
-    // Check if we're in a git repository
-    if (run_command("git rev-parse --git-dir", NULL, 0) != 0) {
+    // Check if we're in a git repository (suppress stderr to avoid "fatal:" messages)
+    if (run_command("git rev-parse --git-dir 2>/dev/null", NULL, 0) != 0) {
         return; // Not in a git repository
     }
 

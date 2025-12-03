@@ -443,6 +443,264 @@ void screen_buffer_render(
     }
 }
 
+void screen_buffer_render_with_continuation(
+    screen_buffer_t *buffer,
+    const char *prompt_text,
+    const char *command_text,
+    size_t cursor_byte_offset,
+    screen_buffer_continuation_cb continuation_cb,
+    void *user_data
+) {
+    if (!buffer) return;
+    
+    // Clear buffer (prefixes persist across clears per design)
+    screen_buffer_clear(buffer);
+    
+    // Also clear any old prefixes from previous render
+    for (int r = 0; r < SCREEN_BUFFER_MAX_ROWS; r++) {
+        screen_buffer_clear_line_prefix(buffer, r);
+    }
+    
+    int row = 0;
+    int col = 0;
+    bool cursor_set = false;
+    
+    // Render prompt - same as screen_buffer_render
+    if (prompt_text) {
+        size_t i = 0;
+        size_t text_len = strlen(prompt_text);
+        bool in_readline_marker = false;
+        
+        while (i < text_len) {
+            unsigned char ch = (unsigned char)prompt_text[i];
+            
+            if (ch == '\001') { in_readline_marker = true; i++; continue; }
+            if (ch == '\002') { in_readline_marker = false; i++; continue; }
+            if (in_readline_marker) { i++; continue; }
+            
+            if (ch == '\033' || ch == '\x1b') {
+                i++;
+                if (i < text_len && prompt_text[i] == '[') {
+                    i++;
+                    while (i < text_len) {
+                        char c = prompt_text[i++];
+                        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                            c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G') {
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+            
+            if (ch == '\n') {
+                row++;
+                col = 0;
+                if (row >= buffer->num_rows) {
+                    buffer->num_rows = row + 1;
+                }
+                i++;
+                continue;
+            }
+            
+            if (ch == '\r') {
+                col = 0;
+                i++;
+                continue;
+            }
+            
+            if (ch == '\t') {
+                size_t tab_width = 8 - (col % 8);
+                col += tab_width;
+                if (col >= buffer->terminal_width) {
+                    row++;
+                    col = 0;
+                    if (row >= buffer->num_rows) {
+                        buffer->num_rows = row + 1;
+                    }
+                }
+                i++;
+                continue;
+            }
+            
+            uint32_t codepoint;
+            int bytes = lle_utf8_decode_codepoint(prompt_text + i, text_len - i, &codepoint);
+            
+            if (bytes > 0 && codepoint >= 32) {
+                int visual_width = lle_utf8_codepoint_width(codepoint);
+                if (visual_width > 0) {
+                    write_char_to_buffer(buffer, prompt_text + i, bytes, visual_width,
+                                        true, &row, &col);
+                    if (visual_width == 2) {
+                        col++;
+                        if (col >= buffer->terminal_width) {
+                            row++;
+                            col = 0;
+                            if (row >= buffer->num_rows) {
+                                buffer->num_rows = row + 1;
+                            }
+                        }
+                    }
+                }
+                i += bytes;
+            } else {
+                i++;
+            }
+        }
+    }
+    
+    buffer->command_start_row = row;
+    buffer->command_start_col = col;
+    
+    // Render command text with continuation prompt support
+    if (command_text) {
+        size_t i = 0;
+        size_t text_len = strlen(command_text);
+        size_t bytes_processed = 0;
+        
+        // Track current line for continuation callback
+        int logical_line = 0;
+        size_t line_start_byte = 0;  // Start of current line in command_text
+        
+        // Buffer for plain text of current line (ANSI stripped)
+        char plain_line[4096];
+        size_t plain_pos = 0;
+        bool in_ansi = false;
+        
+        while (i < text_len) {
+            if (!cursor_set && bytes_processed == cursor_byte_offset) {
+                buffer->cursor_row = row;
+                buffer->cursor_col = col;
+                cursor_set = true;
+            }
+            
+            unsigned char ch = (unsigned char)command_text[i];
+            
+            // Handle ANSI escape sequences
+            if (ch == '\033' || ch == '\x1b') {
+                in_ansi = true;
+                i++;
+                if (i < text_len && command_text[i] == '[') {
+                    i++;
+                    while (i < text_len) {
+                        char c = command_text[i++];
+                        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                            c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G' ||
+                            c == 'f' || c == 's' || c == 'u') {
+                            in_ansi = false;
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+            
+            // Handle newlines - this is where we call the continuation callback
+            if (ch == '\n') {
+                // Null-terminate the plain text buffer for this line
+                plain_line[plain_pos] = '\0';
+                
+                // Move to next row
+                row++;
+                if (row >= buffer->num_rows) {
+                    buffer->num_rows = row + 1;
+                }
+                
+                // Call continuation callback to get prompt for the next line
+                if (continuation_cb) {
+                    const char *cont_prompt = continuation_cb(
+                        plain_line, plain_pos, logical_line, user_data);
+                    
+                    if (cont_prompt) {
+                        // Set the prefix on the CURRENT row (which is the new row after newline)
+                        screen_buffer_set_line_prefix(buffer, row, cont_prompt);
+                    }
+                }
+                
+                // Get prefix width for cursor positioning
+                size_t prefix_width = screen_buffer_get_line_prefix_visual_width(buffer, row);
+                col = (int)prefix_width;
+                
+                // Reset for next line
+                logical_line++;
+                line_start_byte = i + 1;
+                plain_pos = 0;
+                
+                i++;
+                bytes_processed++;
+                continue;
+            }
+            
+            // Accumulate plain text (skip if still in ANSI sequence)
+            if (!in_ansi && plain_pos < sizeof(plain_line) - 1) {
+                // For non-ANSI characters, add to plain buffer
+                int seq_len = lle_utf8_sequence_length(ch);
+                if (seq_len > 0 && i + seq_len <= text_len) {
+                    for (int j = 0; j < seq_len && plain_pos < sizeof(plain_line) - 1; j++) {
+                        plain_line[plain_pos++] = command_text[i + j];
+                    }
+                }
+            }
+            
+            // Handle tabs
+            if (ch == '\t') {
+                size_t tab_width = 8 - (col % 8);
+                col += tab_width;
+                if (col >= buffer->terminal_width) {
+                    row++;
+                    col = 0;
+                    if (row >= buffer->num_rows) {
+                        buffer->num_rows = row + 1;
+                    }
+                }
+                i++;
+                bytes_processed++;
+                continue;
+            }
+            
+            // Decode UTF-8 and render
+            uint32_t codepoint;
+            int char_bytes = lle_utf8_decode_codepoint(command_text + i, text_len - i, &codepoint);
+            
+            if (char_bytes > 0 && codepoint >= 32) {
+                int visual_width = lle_utf8_codepoint_width(codepoint);
+                
+                if (visual_width > 0) {
+                    write_char_to_buffer(buffer, command_text + i, char_bytes, visual_width,
+                                        false, &row, &col);
+                    
+                    if (visual_width == 2) {
+                        col++;
+                        if (col >= buffer->terminal_width) {
+                            row++;
+                            col = 0;
+                            if (row >= buffer->num_rows) {
+                                buffer->num_rows = row + 1;
+                            }
+                        }
+                    }
+                }
+                
+                i += char_bytes;
+                bytes_processed += char_bytes;
+            } else {
+                i++;
+                bytes_processed++;
+            }
+        }
+        
+        if (!cursor_set && bytes_processed == cursor_byte_offset) {
+            buffer->cursor_row = row;
+            buffer->cursor_col = col;
+            cursor_set = true;
+        }
+    }
+    
+    if (buffer->num_rows == 0) {
+        buffer->num_rows = 1;
+    }
+}
+
 // ============================================================================
 // DIFFERENTIAL COMPARISON
 // ============================================================================

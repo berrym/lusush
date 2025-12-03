@@ -31,8 +31,21 @@ typedef enum {
     CONFIG_TYPE_BOOL,
     CONFIG_TYPE_INT,
     CONFIG_TYPE_STRING,
-    CONFIG_TYPE_COLOR
+    CONFIG_TYPE_COLOR,
+    CONFIG_TYPE_ENUM      // String-to-integer enum mapping
 } config_type_t;
+
+// Enum value mapping for CONFIG_TYPE_ENUM
+typedef struct {
+    const char *name;     // String representation in config file
+    int value;            // Corresponding enum/integer value
+} config_enum_mapping_t;
+
+// Enum definition for CONFIG_TYPE_ENUM options
+typedef struct {
+    const config_enum_mapping_t *mappings;  // NULL-terminated array of mappings
+    int default_value;                       // Default if no match found
+} config_enum_def_t;
 
 // LLE History - Arrow key behavior modes
 typedef enum {
@@ -75,6 +88,7 @@ typedef struct {
     void *value_ptr;
     const char *description;
     bool (*validator)(const char *value);
+    const config_enum_def_t *enum_def;  // For CONFIG_TYPE_ENUM: mapping definition
 } config_option_t;
 
 // Configuration context

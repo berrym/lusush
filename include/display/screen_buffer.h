@@ -187,6 +187,52 @@ void screen_buffer_render(
 );
 
 /**
+ * Callback type for continuation prompt generation during rendering.
+ * 
+ * Called when screen_buffer_render_with_continuation encounters a newline.
+ * The callback receives the plain text content of the line that just ended
+ * (with ANSI codes stripped) and should return the continuation prompt
+ * to display on the next line.
+ * 
+ * @param line_text Plain text content of the line that ended (no ANSI codes)
+ * @param line_len Length of line_text in bytes
+ * @param line_number The logical line number (0-based, line that just ended)
+ * @param user_data Opaque pointer passed to screen_buffer_render_with_continuation
+ * @return Continuation prompt string for next line, or NULL for no prefix.
+ *         String must remain valid until next callback or render completes.
+ */
+typedef const char *(*screen_buffer_continuation_cb)(
+    const char *line_text,
+    size_t line_len,
+    int line_number,
+    void *user_data
+);
+
+/**
+ * Render prompt and command into screen buffer with continuation prompt support.
+ * 
+ * Like screen_buffer_render but calls a callback on each newline to get
+ * context-aware continuation prompts. This enables proper character-by-character
+ * tracking where prompts are set at the exact visual row determined during
+ * rendering, not pre-calculated.
+ * 
+ * @param buffer Buffer to render into
+ * @param prompt_text Prompt string (may contain ANSI codes)
+ * @param command_text Command string (may contain ANSI codes)
+ * @param cursor_byte_offset Cursor position in command_text (byte offset)
+ * @param continuation_cb Callback to get continuation prompt after each newline
+ * @param user_data Opaque pointer passed to continuation_cb
+ */
+void screen_buffer_render_with_continuation(
+    screen_buffer_t *buffer,
+    const char *prompt_text,
+    const char *command_text,
+    size_t cursor_byte_offset,
+    screen_buffer_continuation_cb continuation_cb,
+    void *user_data
+);
+
+/**
  * Calculate visual width of text, handling ANSI codes and UTF-8
  * 
  * @param text Text to measure

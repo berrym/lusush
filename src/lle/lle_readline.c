@@ -804,7 +804,7 @@ static void refresh_display(readline_context_t *ctx)
     /* Get the global Spec 08 display integration instance */
     lle_display_integration_t *display_integration = lle_display_integration_get_global();
     if (!display_integration) {
-        /* Fallback: If Spec 08 not initialized, display nothing rather than crash */
+        /* Spec 08 display integration not initialized - cannot render */
         return;
     }
 
@@ -2501,7 +2501,7 @@ char *lle_readline(const char *prompt)
             display,
             (lle_memory_pool_t *)global_memory_pool
         );
-        /* Note: Initialization failure is non-fatal - LLE can work without it */
+        /* Non-fatal if display integration fails - LLE will still work for input */
     }
     
     /* === STEP 6: Register event handlers === */

@@ -190,6 +190,43 @@ static void dc_invalidate_prompt_cache(void) {
     /* No-op: we always redraw everything now */
 }
 
+/**
+ * Callback for screen_buffer_render_with_continuation.
+ * 
+ * Called when a newline is encountered during character-by-character rendering.
+ * Analyzes the line that just ended and returns the continuation prompt for
+ * the next line based on the current parsing state.
+ * 
+ * @param line_text Plain text of the line that just ended (ANSI stripped)
+ * @param line_len Length of line_text
+ * @param line_number Logical line number (0-based)
+ * @param user_data Pointer to continuation_state_t
+ * @return Continuation prompt string, or NULL
+ */
+static const char *dc_continuation_prompt_callback(
+    const char *line_text,
+    size_t line_len,
+    int line_number,
+    void *user_data
+) {
+    continuation_state_t *cont_state = (continuation_state_t *)user_data;
+    if (!cont_state) {
+        return "> ";  /* Fallback */
+    }
+    
+    /* Analyze this line to update continuation state */
+    continuation_analyze_line(line_text, cont_state);
+    
+    /* Get the continuation prompt based on updated state */
+    const char *prompt = continuation_get_prompt(cont_state);
+    
+    DC_DEBUG("Continuation callback: line=%d, text='%.40s%s', prompt='%s'",
+             line_number, line_text, line_len > 40 ? "..." : "", 
+             prompt ? prompt : "(null)");
+    
+    return prompt;
+}
+
 static layer_events_error_t dc_handle_redraw_needed(
     const layer_event_t *event,
     void *user_data) {
@@ -259,95 +296,51 @@ static layer_events_error_t dc_handle_redraw_needed(
 
     /* CONTINUATION PROMPT SUPPORT:
      * 
-     * Detect multiline input and set continuation prompt prefixes on screen_buffer.
-     * This allows screen_buffer_render() to account for continuation prompt widths
-     * when calculating cursor positions for lines after newlines.
+     * Use screen_buffer_render_with_continuation() which calls back on each newline
+     * to get the context-aware continuation prompt. This is the architecturally
+     * correct approach: prompts are set at the exact visual row where each newline
+     * lands during character-by-character rendering, not pre-calculated.
      * 
-     * The continuation prompts are NOT rendered into the screen_buffer cells -
-     * they're tracked separately as line prefixes and output during terminal writes.
+     * The callback receives the plain text of each line (ANSI stripped) and updates
+     * the continuation state to determine the appropriate prompt.
      */
     int newline_count = count_newlines(command_buffer);
     bool is_multiline = (newline_count > 0);
     
+    size_t cursor_byte_offset = cmd_layer->cursor_position;
+    
     if (is_multiline) {
-        /* Parse command text line-by-line to get context-aware continuation prompts.
-         * We need to analyze the text incrementally to track state changes:
-         * - After "for i in 1 2 3; do" → in_for_loop = true → "loop>"
-         * - After "if [ ... ]; then" → in_if_statement = true → "if>"
-         * etc.
-         */
+        /* Use callback-based rendering for proper visual row tracking */
         continuation_state_t cont_state;
         continuation_state_init(&cont_state);
         
-        int logical_line = 0;
-        const char *line_start = command_buffer;
-        char line_buffer[4096];
-        
-        while (line_start && *line_start) {
-            const char *newline_pos = strchr(line_start, '\n');
-            
-            if (newline_pos) {
-                /* Extract this line into a buffer for analysis */
-                size_t line_len = newline_pos - line_start;
-                if (line_len >= sizeof(line_buffer)) {
-                    line_len = sizeof(line_buffer) - 1;
-                }
-                memcpy(line_buffer, line_start, line_len);
-                line_buffer[line_len] = '\0';
-                
-                /* Strip ANSI escape sequences before analyzing
-                 * The command_buffer from command_layer includes syntax highlighting,
-                 * but continuation_analyze_line() expects plain text */
-                char plain_buffer[4096];
-                size_t plain_pos = 0;
-                bool in_ansi = false;
-                
-                for (size_t i = 0; i < line_len && plain_pos < sizeof(plain_buffer) - 1; i++) {
-                    if (line_buffer[i] == '\033' || line_buffer[i] == '\x1b') {
-                        in_ansi = true;
-                        continue;
-                    }
-                    if (in_ansi) {
-                        if ((line_buffer[i] >= 'A' && line_buffer[i] <= 'Z') || 
-                            (line_buffer[i] >= 'a' && line_buffer[i] <= 'z') ||
-                            line_buffer[i] == 'm') {
-                            in_ansi = false;
-                        }
-                        continue;
-                    }
-                    plain_buffer[plain_pos++] = line_buffer[i];
-                }
-                plain_buffer[plain_pos] = '\0';
-                
-                /* Analyze this line to update continuation state */
-                continuation_analyze_line(plain_buffer, &cont_state);
-                
-                logical_line++;
-                line_start = newline_pos + 1;
-                
-                /* Get continuation prompt for the NEXT line based on current state */
-                const char *cont_prompt = continuation_get_prompt(&cont_state);
-                if (cont_prompt) {
-                    /* DEBUG: Log continuation prompt generation */
-                    DC_DEBUG("Line %d: analyzed='%s', prompt='%s', in_for=%d, in_while=%d, in_if=%d",
-                             logical_line, line_buffer, cont_prompt, 
-                             cont_state.in_for_loop, cont_state.in_while_loop, cont_state.in_if_statement);
-                    
-                    /* Set prefix for the visual row where this logical line starts */
-                    screen_buffer_set_line_prefix(&desired_screen, 
-                                                   desired_screen.command_start_row + logical_line,
-                                                   cont_prompt);
-                }
-            } else {
-                break;
-            }
-        }
+        screen_buffer_render_with_continuation(
+            &desired_screen, 
+            prompt_buffer, 
+            command_buffer, 
+            cursor_byte_offset,
+            dc_continuation_prompt_callback,
+            &cont_state
+        );
         
         continuation_state_cleanup(&cont_state);
+    } else {
+        /* No newlines - use simple render */
+        screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
     }
+
+    /* DEBUG: Log what screen_buffer_render produced */
+    DC_DEBUG("After render: num_rows=%d, command_start_row=%d, cursor=(%d,%d), term_width=%d",
+             desired_screen.num_rows, desired_screen.command_start_row,
+             desired_screen.cursor_row, desired_screen.cursor_col, term_width);
     
-    size_t cursor_byte_offset = cmd_layer->cursor_position;
-    screen_buffer_render(&desired_screen, prompt_buffer, command_buffer, cursor_byte_offset);
+    /* DEBUG: Log prefixes set on each row */
+    for (int r = 0; r < desired_screen.num_rows && r < 10; r++) {
+        const char *prefix = screen_buffer_get_line_prefix(&desired_screen, r);
+        if (prefix) {
+            DC_DEBUG("  Row %d has prefix: '%s'", r, prefix);
+        }
+    }
 
     /* PROMPT-ONCE ARCHITECTURE per MODERN_EDITOR_WRAPPING_RESEARCH.md
      * 
@@ -433,49 +426,97 @@ static layer_events_error_t dc_handle_redraw_needed(
     /* Step 4: Write command text with continuation prompts
      * 
      * For multiline input, we need to insert continuation prompts after each newline.
-     * This ensures the visual display matches the cursor position calculations done
-     * by screen_buffer_render() which accounts for continuation prompt widths.
+     * The screen_buffer has prefixes set at visual rows (accounting for wrapping),
+     * so we must track visual rows during output to find the correct prefix.
+     * 
+     * This uses character-by-character tracking to match how screen_buffer_render
+     * calculated visual rows, ensuring prefixes appear on the correct lines.
      */
     if (command_buffer[0]) {
         if (is_multiline) {
-            /* Write command text line by line with continuation prompts */
-            const char *line = command_buffer;
-            int line_num = 0;
+            /* Write command text character by character, tracking visual rows
+             * to output continuation prompts at the correct positions */
+            size_t i = 0;
+            size_t text_len = strlen(command_buffer);
+            int visual_row = desired_screen.command_start_row;
+            int visual_col = desired_screen.command_start_col;
             
-            while (*line) {
-                const char *nl = strchr(line, '\n');
+            while (i < text_len) {
+                unsigned char ch = (unsigned char)command_buffer[i];
                 
-                if (nl) {
-                    /* Write line up to newline */
-                    write(STDOUT_FILENO, line, nl - line);
+                /* Handle ANSI escape sequences - pass through without affecting position */
+                if (ch == '\033' || ch == '\x1b') {
+                    size_t seq_start = i;
+                    i++;
+                    if (i < text_len && command_buffer[i] == '[') {
+                        i++;
+                        while (i < text_len) {
+                            char c = command_buffer[i++];
+                            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                                c == 'm' || c == 'H' || c == 'J' || c == 'K' || c == 'G' ||
+                                c == 'f' || c == 's' || c == 'u') {
+                                break;
+                            }
+                        }
+                    }
+                    /* Write the ANSI sequence */
+                    write(STDOUT_FILENO, command_buffer + seq_start, i - seq_start);
+                    continue;
+                }
+                
+                /* Handle newlines - move to next visual row and output continuation prompt */
+                if (ch == '\n') {
                     write(STDOUT_FILENO, "\n", 1);
+                    visual_row++;
                     
-                    line_num++;
-                    line = nl + 1;
-                    
-                    /* Write continuation prompt for next line
-                     * This must happen even if the line is empty (cursor at end after newline)
-                     * so the prompt appears immediately, not just after typing a character */
+                    /* Get continuation prompt for this visual row */
                     const char *cont_prompt = screen_buffer_get_line_prefix(
-                        &desired_screen, 
-                        desired_screen.command_start_row + line_num
-                    );
+                        &desired_screen, visual_row);
                     if (cont_prompt) {
-                        /* CRITICAL: Reset ANSI state before writing continuation prompt.
-                         * Without this, syntax highlighting from the previous line
-                         * (e.g., yellow for unclosed quotes) leaks into the prompt. */
+                        /* Reset ANSI state before writing continuation prompt */
                         write(STDOUT_FILENO, "\033[0m", 4);
                         write(STDOUT_FILENO, cont_prompt, strlen(cont_prompt));
+                        visual_col = (int)screen_buffer_get_line_prefix_visual_width(
+                            &desired_screen, visual_row);
+                    } else {
+                        visual_col = 0;
                     }
                     
-                    /* If no more content, we're done */
-                    if (!*line) {
-                        break;
+                    i++;
+                    continue;
+                }
+                
+                /* Handle regular characters - track visual column for wrapping */
+                uint32_t codepoint;
+                int char_bytes = lle_utf8_decode_codepoint(command_buffer + i, text_len - i, &codepoint);
+                
+                if (char_bytes > 0) {
+                    int char_width = lle_utf8_codepoint_width(codepoint);
+                    
+                    /* Write the character */
+                    write(STDOUT_FILENO, command_buffer + i, char_bytes);
+                    
+                    /* Update visual position */
+                    visual_col += char_width;
+                    
+                    /* Check for line wrap */
+                    if (visual_col >= term_width) {
+                        visual_row++;
+                        visual_col = 0;
+                        /* Note: wrapped lines don't get continuation prompts,
+                         * only lines after explicit newlines do */
                     }
+                    
+                    i += char_bytes;
                 } else {
-                    /* Last line - write remaining content */
-                    write(STDOUT_FILENO, line, strlen(line));
-                    break;
+                    /* Invalid UTF-8, write single byte */
+                    write(STDOUT_FILENO, command_buffer + i, 1);
+                    visual_col++;
+                    if (visual_col >= term_width) {
+                        visual_row++;
+                        visual_col = 0;
+                    }
+                    i++;
                 }
             }
         } else {
@@ -1179,6 +1220,61 @@ display_controller_error_t display_controller_init(
     if (tc_result != TERMINAL_CONTROL_SUCCESS) {
         DC_ERROR("Failed to initialize terminal control (error %d) - using defaults", tc_result);
         // Non-fatal - will use default 80x24
+    }
+    
+    // ========================================================================
+    // EAGER COMPOSITOR INITIALIZATION
+    // Initialize composition engine layers NOW so they're ready when LLE needs them.
+    // This fixes the startup issue where lle_display_integration_init fails because
+    // compositor->command_layer is NULL (was previously lazily initialized).
+    // ========================================================================
+    {
+        DC_DEBUG("Eagerly initializing compositor layers");
+        
+        // Create prompt and command layers
+        prompt_layer_t *prompt_layer = prompt_layer_create();
+        command_layer_t *command_layer = command_layer_create();
+        
+        if (!prompt_layer || !command_layer) {
+            DC_ERROR("Failed to create display layers during eager init");
+            if (prompt_layer) prompt_layer_destroy(prompt_layer);
+            if (command_layer) command_layer_destroy(command_layer);
+            // Non-fatal - fall back to lazy initialization
+        } else {
+            // Initialize prompt layer
+            prompt_layer_error_t prompt_result = prompt_layer_init(prompt_layer, controller->event_system);
+            if (prompt_result != PROMPT_LAYER_SUCCESS) {
+                DC_ERROR("Failed to initialize prompt layer: error %d", prompt_result);
+                prompt_layer_destroy(prompt_layer);
+                command_layer_destroy(command_layer);
+                // Non-fatal - fall back to lazy initialization
+            } else {
+                // Initialize command layer
+                command_layer_error_t command_result = command_layer_init(command_layer, controller->event_system);
+                if (command_result != COMMAND_LAYER_SUCCESS) {
+                    DC_ERROR("Failed to initialize command layer: error %d", command_result);
+                    prompt_layer_cleanup(prompt_layer);
+                    prompt_layer_destroy(prompt_layer);
+                    command_layer_destroy(command_layer);
+                    // Non-fatal - fall back to lazy initialization
+                } else {
+                    // Initialize composition engine with the layers
+                    composition_engine_error_t comp_result = composition_engine_init(
+                        controller->compositor, prompt_layer, command_layer, controller->event_system);
+                    
+                    if (comp_result != COMPOSITION_ENGINE_SUCCESS) {
+                        DC_ERROR("Failed to initialize composition engine: error %d", comp_result);
+                        prompt_layer_cleanup(prompt_layer);
+                        prompt_layer_destroy(prompt_layer);
+                        command_layer_cleanup(command_layer);
+                        command_layer_destroy(command_layer);
+                        // Non-fatal - fall back to lazy initialization
+                    } else {
+                        DC_DEBUG("Compositor layers initialized successfully (eager init)");
+                    }
+                }
+            }
+        }
     }
     
     // Initialize caching system

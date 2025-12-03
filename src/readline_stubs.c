@@ -5,38 +5,58 @@
  * This file provides stub implementations of readline_integration functions
  * when GNU Readline support is disabled (-Dreadline_support=false).
  * 
- * In LLE-only builds, these functions either:
- * - Return appropriate default values
- * - Do nothing (for configuration functions)
- * - Return false/NULL to indicate unavailability
+ * In LLE-only builds, these functions delegate to LLE (Lusush Line Editor)
+ * for actual line editing functionality, while returning appropriate defaults
+ * for functions not needed when using LLE.
  *
  * This allows the rest of the codebase to compile without #ifdef guards
  * everywhere, while LLE handles all actual line editing.
  */
 
 #include "../include/readline_integration.h"
+#include "../include/lle/lle_readline.h"
+#include "../include/prompt.h"
+#include "../include/display_integration.h"
+#include "../include/symtable.h"
 #include <stdlib.h>
 #include <string.h>
 
 #if !HAVE_READLINE
 
 /* ============================================================================
- * MAIN READLINE INTERFACE - Stubs
+ * MAIN READLINE INTERFACE - LLE Delegation
  * ============================================================================ */
 
 bool lusush_readline_init(void) {
-    /* Readline not available - LLE will be used instead */
-    return false;
+    /* Readline not available but LLE will handle line editing */
+    return true;
 }
 
 char *lusush_readline(void) {
-    /* Should not be called when readline is disabled */
-    return NULL;
+    return lusush_readline_with_prompt(NULL);
 }
 
 char *lusush_readline_with_prompt(const char *prompt) {
-    (void)prompt;
-    return NULL;
+    /* Delegate to LLE for line editing */
+    const char *actual_prompt = prompt;
+    char *themed_prompt = NULL;
+    
+    /* Generate themed prompt if none provided */
+    if (!prompt) {
+        themed_prompt = lusush_generate_prompt();
+        if (themed_prompt) {
+            actual_prompt = themed_prompt;
+        }
+    }
+    
+    char *line = lle_readline(actual_prompt);
+    
+    /* Free themed prompt if we allocated it */
+    if (themed_prompt) {
+        free(themed_prompt);
+    }
+    
+    return line;
 }
 
 void lusush_readline_cleanup(void) {
@@ -65,7 +85,7 @@ void lusush_history_save(void) {
 }
 
 bool lusush_history_load(void) {
-    return false;  /* LLE handles its own history */
+    return true;  /* LLE handles its own history - return success */
 }
 
 void lusush_history_clear(void) {
@@ -141,7 +161,22 @@ void lusush_syntax_highlighting_configure(const char *commands_color,
  * ============================================================================ */
 
 char *lusush_generate_prompt(void) {
-    return NULL;  /* LLE handles prompts */
+    /* Generate themed prompt using Lusush's prompt system */
+    
+    /* Try to get enhanced prompt from display integration first */
+    if (display_integration_is_layered_active()) {
+        char *enhanced_prompt = NULL;
+        if (display_integration_get_enhanced_prompt(&enhanced_prompt)) {
+            if (enhanced_prompt) {
+                return enhanced_prompt;
+            }
+        }
+    }
+    
+    /* Fallback: Build prompt and get PS1 from symbol table */
+    build_prompt();
+    const char *ps1 = symtable_get_global_default("PS1", "$ ");
+    return strdup(ps1 ? ps1 : "$ ");
 }
 
 void lusush_prompt_update(void) {

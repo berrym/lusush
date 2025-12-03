@@ -32,16 +32,17 @@
 #endif
 
 /* Detect explicit_bzero availability */
+/* Note: macOS does NOT have explicit_bzero - it uses memset_s instead,
+ * but memset_s requires __STDC_WANT_LIB_EXT1__ before any headers.
+ * We use the volatile pointer fallback on macOS which is equally safe. */
 #if defined(__OpenBSD__) || \
     (defined(__FreeBSD__) && __FreeBSD__ >= 11) || \
-    (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 25) || \
-    (defined(__APPLE__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && \
-     __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
+    (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 25)
     #define LLE_HAVE_EXPLICIT_BZERO 1
     #if defined(__OpenBSD__) || defined(__FreeBSD__)
         #include <strings.h>  /* BSD location */
     #else
-        #include <string.h>   /* glibc/macOS location */
+        #include <string.h>   /* glibc location */
     #endif
     /* Declare explicit_bzero if not already declared */
     #ifndef explicit_bzero

@@ -12,6 +12,11 @@
  * Week 8: Production Validation
  */
 
+/* macOS compatibility: Enable full POSIX + BSD extensions for rusage */
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE
+#endif
+
 #include "lle/display_integration.h"
 #include "lle/buffer_management.h"
 #include "lle/error_handling.h"
@@ -63,7 +68,13 @@ static uint64_t get_nanos(void) {
 static size_t get_memory_usage_kb(void) {
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);
+#ifdef __APPLE__
+    /* macOS returns ru_maxrss in bytes, convert to KB */
+    return (size_t)(usage.ru_maxrss / 1024);
+#else
+    /* Linux returns ru_maxrss in KB */
     return (size_t)usage.ru_maxrss;
+#endif
 }
 
 /* Test tracking */

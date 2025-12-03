@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <pthread.h>
+#include <sys/types.h>  /* For pid_t, uid_t, gid_t */
 
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"

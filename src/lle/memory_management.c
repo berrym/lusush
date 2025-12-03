@@ -27,6 +27,14 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>  /* For O_CREAT, O_EXCL on macOS sem_open */
+
+/* macOS uses named semaphores (sem_open) instead of unnamed (sem_init) */
+#ifdef __APPLE__
+#define LLE_USE_NAMED_SEMAPHORES 1
+#else
+#define LLE_USE_NAMED_SEMAPHORES 0
+#endif
 
 /* ============================================================================
  * INTERNAL STRUCTURES - Complete Pool Implementations
@@ -610,7 +618,12 @@ struct lle_lusush_memory_integration_complete_t {
     struct {
         pthread_mutex_t integration_mutex;
         pthread_rwlock_t shared_memory_lock;
-        sem_t resource_semaphore;
+#if LLE_USE_NAMED_SEMAPHORES
+        sem_t *resource_semaphore;      /* macOS: named semaphore (pointer) */
+        char semaphore_name[64];        /* Name for sem_unlink cleanup */
+#else
+        sem_t resource_semaphore;       /* Linux: unnamed semaphore */
+#endif
         volatile bool coordination_active;
     } synchronization;
     
@@ -2996,11 +3009,37 @@ lle_result_t lle_initialize_complete_memory_integration(
         return LLE_ERROR_SYSTEM_CALL;
     }
     
+    /* Initialize semaphore - platform-specific implementation */
+#if LLE_USE_NAMED_SEMAPHORES
+    /* macOS: Use named semaphores (sem_open) since sem_init is deprecated */
+    snprintf(integration->synchronization.semaphore_name,
+             sizeof(integration->synchronization.semaphore_name),
+             "/lle_mem_%d_%p", getpid(), (void*)integration);
+    
+    /* Unlink any stale semaphore with this name first (ignore errors) */
+    sem_unlink(integration->synchronization.semaphore_name);
+    errno = 0;  /* Clear errno after sem_unlink which may set it */
+    
+    integration->synchronization.resource_semaphore = sem_open(
+        integration->synchronization.semaphore_name,
+        O_CREAT | O_EXCL,
+        0600,
+        1  /* Initial value */
+    );
+    
+    if (integration->synchronization.resource_semaphore == SEM_FAILED) {
+        pthread_rwlock_destroy(&integration->synchronization.shared_memory_lock);
+        pthread_mutex_destroy(&integration->synchronization.integration_mutex);
+        return LLE_ERROR_SYSTEM_CALL;
+    }
+#else
+    /* Linux: Use unnamed semaphores (sem_init) */
     if (sem_init(&integration->synchronization.resource_semaphore, 0, 1) != 0) {
         pthread_rwlock_destroy(&integration->synchronization.shared_memory_lock);
         pthread_mutex_destroy(&integration->synchronization.integration_mutex);
         return LLE_ERROR_SYSTEM_CALL;
     }
+#endif
     
     integration->synchronization.coordination_active = true;
     
@@ -3035,6 +3074,20 @@ lle_result_t lle_initialize_complete_memory_integration(
 void lle_cleanup_integration_sync(lle_lusush_memory_integration_complete_t *integration) {
     if (!integration) return;
     integration->synchronization.coordination_active = false;
+    
+    /* Clean up semaphore - platform-specific */
+#if LLE_USE_NAMED_SEMAPHORES
+    /* macOS: Close and unlink named semaphore */
+    if (integration->synchronization.resource_semaphore != SEM_FAILED &&
+        integration->synchronization.resource_semaphore != NULL) {
+        sem_close(integration->synchronization.resource_semaphore);
+        sem_unlink(integration->synchronization.semaphore_name);
+    }
+#else
+    /* Linux: Destroy unnamed semaphore */
+    sem_destroy(&integration->synchronization.resource_semaphore);
+#endif
+    
     pthread_mutex_destroy(&integration->synchronization.integration_mutex);
     pthread_rwlock_destroy(&integration->synchronization.shared_memory_lock);
 }

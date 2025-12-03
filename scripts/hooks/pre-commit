@@ -1,0 +1,400 @@
+#!/bin/bash
+# LLE Development Pre-commit Hook with Living Document & Documentation Policy Enforcement
+
+echo "Running pre-commit checks..."
+
+# Track if any checks fail
+# ============================================================================
+# GAP 2 FIX: Detect git amend and check ALL files in commit (BLOCKING)
+# ============================================================================
+
+# Detect if this is an amend by checking if HEAD exists and has differences
+IS_AMEND=0
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    if git diff HEAD --name-only | grep -q .; then
+        IS_AMEND=1
+        echo "Git amend detected - checking all files in commit..."
+    fi
+fi
+
+# Helper function to get all changed files (handles both normal and amend)
+get_all_changed_files() {
+    if [ $IS_AMEND -eq 1 ]; then
+        git diff HEAD --name-only
+        git diff --cached --name-only
+    else
+        git diff --cached --name-only
+    fi | sort -u
+}
+
+CHECKS_FAILED=0
+
+# ============================================================================
+# DOCUMENTATION POLICY ENFORCEMENT (SAFE | ORGANIZED | CLEAN | PRUNED)
+# ============================================================================
+
+echo "Checking documentation policy compliance..."
+
+# Rule 1: Root Directory Cleanliness
+# Check for prohibited files in root
+PROHIBITED_IN_ROOT=$(git diff --cached --name-only | grep -E "^[^/]*\.(o|log)$|^core\." || true)
+if [ -n "$PROHIBITED_IN_ROOT" ]; then
+    echo "❌ POLICY VIOLATION: Prohibited files in root directory"
+    echo "   Build artifacts and logs must not be in root"
+    echo "   Files:"
+    echo "$PROHIBITED_IN_ROOT"
+    echo ""
+    CHECKS_FAILED=1
+fi
+
+# Check for markdown files in root (excluding allowed files)
+ROOT_MD=$(git diff --cached --name-only | grep "^[^/]*\.md$" | grep -v "^README\.md$" | grep -v "^AI_ASSISTANT_HANDOFF_DOCUMENT\.md$" || true)
+if [ -n "$ROOT_MD" ]; then
+    echo "❌ POLICY VIOLATION: Markdown files must be in docs/ subdirectories"
+    echo "   Only AI_ASSISTANT_HANDOFF_DOCUMENT.md and README.md allowed in root"
+    echo "   Files:"
+    echo "$ROOT_MD"
+    echo ""
+    CHECKS_FAILED=1
+fi
+
+# Rule 2: Documentation Structure Warnings
+NEW_DOCS=$(git diff --cached --name-only --diff-filter=A | grep "\.md$" || true)
+if [ -n "$NEW_DOCS" ]; then
+    for doc in $NEW_DOCS; do
+        if ! echo "$doc" | grep -qE "^docs/(user|project|development|lle_specification|lle_implementation|archived)/|^docs/DOCUMENTATION_POLICY\.md$|^(README\.md|AI_ASSISTANT_HANDOFF_DOCUMENT\.md)$"; then
+            echo "⚠ WARNING: New markdown file outside documented structure: $doc"
+            echo "   Consider placing in docs/project/ or appropriate subdirectory"
+            echo "   See docs/DOCUMENTATION_POLICY.md for structure"
+            echo ""
+        fi
+    done
+fi
+
+# Rule 3: Deletion Justification
+DELETED_FILES=$(git diff --cached --name-only --diff-filter=D | grep -E "\.(md|c|h)$" || true)
+if [ -n "$DELETED_FILES" ]; then
+    COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null || cat .git/COMMIT_EDITMSG 2>/dev/null || echo "")
+    if ! echo "$COMMIT_MSG" | grep -qE "PRUNED|DELETED|REMOVED|DELETE"; then
+        echo "⚠ WARNING: File deletions detected without justification"
+        echo "   Deleted files:"
+        echo "$DELETED_FILES" | head -5
+        echo ""
+        echo "   Good practice: Add justification to commit message"
+        echo "   Example: 'PRUNED: obsolete test results from phase 1'"
+        echo ""
+    fi
+fi
+
+echo "✓ Documentation policy checks complete"
+echo ""
+
+# ============================================================================
+# LLE-SPECIFIC ENFORCEMENT
+# ============================================================================
+
+# Check if any LLE files are being committed
+LLE_FILES_CHANGED=$(git diff --cached --name-only | grep -E "include/lle/|src/lle/|tests/lle/" || true)
+
+if [ -n "$LLE_FILES_CHANGED" ]; then
+    echo "LLE source files detected in commit..."
+
+    # MANDATORY: Check if living documents were updated
+    LIVING_DOCS_UPDATED=$(git diff --cached --name-only | grep -E "AI_ASSISTANT_HANDOFF_DOCUMENT.md|docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md|docs/lle_implementation/LLE_IMPLEMENTATION_GUIDE.md" || true)
+
+    if [ -z "$LIVING_DOCS_UPDATED" ]; then
+        echo "❌ COMPLIANCE VIOLATION: LLE code changed but living documents NOT updated"
+        echo ""
+        echo "MANDATORY: When committing LLE code, you MUST update:"
+        echo "  - AI_ASSISTANT_HANDOFF_DOCUMENT.md (current status)"
+        echo "  - docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md (if spec completed)"
+        echo ""
+        echo "This is enforced to prevent context loss and ensure documentation stays current."
+        echo ""
+        CHECKS_FAILED=1
+    else
+        echo "✓ Living documents updated with LLE code changes"
+    fi
+
+    # Check for TODO/STUB markers in committed LLE CODE (FORBIDDEN)
+    # Only check actual code files (.c, .h), not documentation (.md)
+    LLE_CODE_FILES=$(git diff --cached --name-only | grep -E "include/lle/.*\.(h|c)$|src/lle/.*\.(h|c)$|tests/lle/.*\.(h|c)$" || true)
+
+    if [ -n "$LLE_CODE_FILES" ]; then
+        # Check each code file for forbidden markers AND actual stubs
+        TODO_FOUND=""
+        STUB_FOUND=""
+        SIMPLIFIED_FOUND=""
+        DEFERRED_FOUND=""
+
+        for file in $LLE_CODE_FILES; do
+            # Check for TODO/STUB/FIXME in comments
+            if git diff --cached "$file" | grep -E "^\+.*TODO|^\+.*STUB|^\+.*FIXME" > /dev/null; then
+                TODO_FOUND="yes"
+            fi
+
+            # Check for actual stub implementations
+            if git diff --cached "$file" | grep -E "^\+.*return LLE_ERROR_FEATURE_NOT_AVAILABLE|^\+.*return LLE_ERROR_NOT_IMPLEMENTED" > /dev/null; then
+                STUB_FOUND="yes"
+            fi
+
+            # ZERO TOLERANCE: Check for "simplified" language in code/comments
+            if git diff --cached "$file" | grep -iE "^\+.*(simplified|simplification)" > /dev/null; then
+                SIMPLIFIED_FOUND="yes"
+            fi
+
+            # ZERO TOLERANCE: Check for "deferred" language in code/comments
+            if git diff --cached "$file" | grep -iE "^\+.*(deferred|defer to later|TODO.*phase)" > /dev/null; then
+                DEFERRED_FOUND="yes"
+            fi
+        done
+
+        if [ -n "$TODO_FOUND" ]; then
+            echo "❌ COMPLIANCE VIOLATION: TODO/STUB/FIXME markers found in LLE code"
+            echo ""
+            echo "FORBIDDEN: LLE code must be complete. No stubs, no TODOs allowed."
+            echo "User mandate: 'we will have to completely implement the specs no stubs or todos'"
+            echo ""
+            echo "Found in:"
+            for file in $LLE_CODE_FILES; do
+                git diff --cached "$file" | grep -E "^\+.*TODO|^\+.*STUB|^\+.*FIXME" | head -2 || true
+            done
+            echo ""
+            CHECKS_FAILED=1
+        fi
+
+        if [ -n "$STUB_FOUND" ]; then
+            echo "❌ COMPLIANCE VIOLATION: Actual stub implementations found in LLE code"
+            echo ""
+            echo "FORBIDDEN: Functions cannot just return error codes without implementation."
+            echo "Found functions returning LLE_ERROR_FEATURE_NOT_AVAILABLE or LLE_ERROR_NOT_IMPLEMENTED"
+            echo ""
+            echo "Found in:"
+            for file in $LLE_CODE_FILES; do
+                git diff --cached "$file" | grep -B3 -E "^\+.*return LLE_ERROR_FEATURE_NOT_AVAILABLE|^\+.*return LLE_ERROR_NOT_IMPLEMENTED" | head -10 || true
+            done
+            echo ""
+            CHECKS_FAILED=1
+        fi
+
+        if [ -n "$SIMPLIFIED_FOUND" ]; then
+            echo "❌ ZERO TOLERANCE VIOLATION: 'Simplified' language found in LLE code"
+            echo ""
+            echo "FORBIDDEN: Code or comments indicating simplified implementations"
+            echo "violate the zero-tolerance policy."
+            echo ""
+            echo "All LLE implementations must be 100% spec-compliant."
+            echo "No simplified algorithms, no partial implementations."
+            echo ""
+            echo "Found in:"
+            for file in $LLE_CODE_FILES; do
+                git diff --cached "$file" | grep -iE "^\+.*(simplified|simplification)" | head -5 || true
+            done
+            echo ""
+            CHECKS_FAILED=1
+        fi
+
+        if [ -n "$DEFERRED_FOUND" ]; then
+            echo "❌ ZERO TOLERANCE VIOLATION: 'Deferred' language found in LLE code"
+            echo ""
+            echo "FORBIDDEN: Code or comments indicating deferred work"
+            echo "violate the zero-tolerance policy."
+            echo ""
+            echo "All LLE code must be complete when committed."
+            echo "No deferred implementations, no 'TODO in phase X' comments."
+            echo ""
+            echo "Found in:"
+            for file in $LLE_CODE_FILES; do
+                git diff --cached "$file" | grep -iE "^\+.*(deferred|defer to later|TODO.*phase)" | head -5 || true
+            done
+            echo ""
+            CHECKS_FAILED=1
+        fi
+    fi
+
+    # Check for basic compilation (if build system is available)
+    if [ -f "meson.build" ] && [ -d "builddir" ]; then
+        echo "Verifying LLE compilation..."
+        if meson compile -C builddir 2>/dev/null 1>/dev/null; then
+            echo "✓ LLE files compile successfully"
+        else
+            echo "⚠ Warning: LLE compilation check failed (may be incomplete implementation)"
+        fi
+    fi
+
+    # ZERO TOLERANCE ENFORCEMENT: Run spec compliance tests
+    echo "Running LLE specification compliance tests..."
+    if [ -f "tests/lle/run_compliance_tests.sh" ]; then
+        # Run compliance tests in silent mode (only show failures)
+        if tests/lle/run_compliance_tests.sh > /tmp/lle_compliance_output 2>&1; then
+            echo "✓ All spec compliance tests PASSED"
+        else
+            echo "❌ ZERO TOLERANCE VIOLATION: Spec compliance tests FAILED"
+            echo ""
+            echo "COMPLIANCE TEST OUTPUT:"
+            echo "========================================================"
+            cat /tmp/lle_compliance_output
+            echo "========================================================"
+            echo ""
+            echo "FORBIDDEN: All LLE implementations must be 100% spec-compliant"
+            echo "Fix the violations above before committing."
+            echo ""
+            rm -f /tmp/lle_compliance_output
+            CHECKS_FAILED=1
+        fi
+        rm -f /tmp/lle_compliance_output
+    else
+        echo "⚠ Warning: Compliance test suite not found at tests/lle/run_compliance_tests.sh"
+    fi
+
+    # MANDATORY POLICY ENFORCEMENT: Compliance tests must exist for all specs
+    echo "Checking compliance test coverage..."
+
+    # Check if any new spec implementation files are being added
+    NEW_SPEC_IMPLS=$(git diff --cached --name-only --diff-filter=A | grep -E "src/lle/.*\.(c|h)$|include/lle/.*\.h$" || true)
+
+    if [ -n "$NEW_SPEC_IMPLS" ]; then
+        echo "⚠ MANDATORY POLICY: New LLE implementation files detected"
+        echo ""
+        echo "Files:"
+        echo "$NEW_SPEC_IMPLS"
+        echo ""
+        echo "REQUIRED: Compliance tests MUST be created for all spec implementations"
+        echo "Location: tests/lle/compliance/spec_XX_name_compliance.c"
+        echo ""
+        echo "Policy: Any commit adding spec implementation code MUST also include"
+        echo "compliance tests that verify 100% spec accuracy."
+        echo ""
+        echo "If you are adding new spec implementation, ensure compliance test exists."
+        echo "If updating existing spec, compliance tests will verify correctness."
+        echo ""
+        sleep 2
+    fi
+fi
+
+# ============================================================================
+# LLE COMMIT MESSAGE PREFIX ENFORCEMENT
+# ============================================================================
+
+# ============================================================================
+# COMMIT MESSAGE VALIDATION
+# ============================================================================
+# Commit message checks (LLE prefix, emoji, etc.) are in commit-msg hook.
+# Pre-commit runs BEFORE the message is written, so message validation
+# must be deferred to the commit-msg hook which receives the message file.
+
+# Check if living documents were updated (even without code changes)
+LIVING_DOCS_IN_COMMIT=$(git diff --cached --name-only | grep -E "AI_ASSISTANT_HANDOFF_DOCUMENT.md|SPEC_IMPLEMENTATION_ORDER.md|LLE_IMPLEMENTATION_GUIDE.md|LLE_DEVELOPMENT_STRATEGY.md|KNOWN_ISSUES.md" || true)
+
+if [ -n "$LIVING_DOCS_IN_COMMIT" ]; then
+    echo "Living document changes detected..."
+
+    # Verify AI_ASSISTANT_HANDOFF_DOCUMENT.md has current date (BLOCKING)
+    if echo "$LIVING_DOCS_IN_COMMIT" | grep -q "AI_ASSISTANT_HANDOFF_DOCUMENT.md"; then
+        # Check the actual file content, not just the diff (date might already be correct)
+        HANDOFF_DATE=$(head -10 AI_ASSISTANT_HANDOFF_DOCUMENT.md | grep -E "^\*\*Date\*\*:" | head -1 | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}" || true)
+        CURRENT_DATE=$(date +%Y-%m-%d)
+
+        if [ "$HANDOFF_DATE" != "$CURRENT_DATE" ]; then
+            echo "❌ LIVING DOCUMENT VIOLATION: AI_ASSISTANT_HANDOFF_DOCUMENT.md date is not current"
+            echo ""
+            echo "REQUIRED: The **Date** field must be updated to today's date when committing."
+            echo "   Found: $HANDOFF_DATE"
+            echo "   Today: $CURRENT_DATE"
+            echo ""
+            echo "This is a BLOCKING error. Living documents must be accurate and current."
+            echo ""
+            CHECKS_FAILED=1
+        else
+            echo "✓ Handoff document date is current"
+        fi
+    fi
+
+    # Check for consistency between living documents
+    if [ -f "AI_ASSISTANT_HANDOFF_DOCUMENT.md" ] && [ -f "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" ]; then
+        echo "✓ Core living documents exist"
+    fi
+fi
+
+# ============================================================================
+# LLE LIVING DOCUMENT ACCURACY ENFORCEMENT (BLOCKING)
+# ============================================================================
+
+# When committing LLE code changes, verify living documents don't show obviously outdated status
+if [ -n "$LLE_FILES_CHANGED" ]; then
+    echo "Checking living document accuracy for LLE code changes..."
+
+    OUTDATED_STATUS_FOUND=0
+
+    # Check AI_ASSISTANT_HANDOFF_DOCUMENT.md for outdated status markers
+    # Only check the header status line (first 10 lines) to avoid false positives from history sections
+    if [ -f "AI_ASSISTANT_HANDOFF_DOCUMENT.md" ]; then
+        # Look for obviously outdated status indicators in header only
+        if head -10 "AI_ASSISTANT_HANDOFF_DOCUMENT.md" | grep -q "\*\*Status\*\*:.*CLEAN SLATE\|\*\*Status\*\*:.*NOT STARTED\|\*\*Next\*\*: Begin Layer"; then
+            echo "❌ LIVING DOCUMENT VIOLATION: AI_ASSISTANT_HANDOFF_DOCUMENT.md shows outdated status"
+            echo ""
+            echo "FOUND: Document header shows outdated status like 'CLEAN SLATE' or 'NOT STARTED'"
+            echo "BUT: You are committing LLE code changes"
+            echo ""
+            echo "REQUIRED: Update the **Status** and **Next** fields in the header to reflect"
+            echo "current implementation progress before committing LLE code changes."
+            echo ""
+            OUTDATED_STATUS_FOUND=1
+        fi
+    fi
+
+    # Check LLE_DEVELOPMENT_STRATEGY.md for outdated status (header only)
+    if [ -f "docs/lle_implementation/LLE_DEVELOPMENT_STRATEGY.md" ]; then
+        if head -20 "docs/lle_implementation/LLE_DEVELOPMENT_STRATEGY.md" | grep -q "\*\*Status\*\*:.*CLEAN SLATE\|\*\*Code Status\*\*: ZERO LLE code exists\|Implementation Progress\*\*: 0%"; then
+            echo "❌ LIVING DOCUMENT VIOLATION: LLE_DEVELOPMENT_STRATEGY.md shows outdated status"
+            echo ""
+            echo "FOUND: Document header shows '0% complete' or 'ZERO LLE code exists'"
+            echo "BUT: You are committing LLE code changes"
+            echo ""
+            echo "REQUIRED: Update Current Status section to reflect actual implementation progress."
+            echo ""
+            OUTDATED_STATUS_FOUND=1
+        fi
+    fi
+
+    # Check SPEC_IMPLEMENTATION_ORDER.md for outdated status (header only)
+    if [ -f "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" ]; then
+        if head -10 "docs/lle_implementation/SPEC_IMPLEMENTATION_ORDER.md" | grep -q "\*\*Status\*\*: Implementation Plan (Post-Nuclear Option #2)"; then
+            echo "❌ LIVING DOCUMENT VIOLATION: SPEC_IMPLEMENTATION_ORDER.md shows outdated status"
+            echo ""
+            echo "FOUND: Document header still shows 'Implementation Plan (Post-Nuclear Option #2)'"
+            echo "BUT: You are committing LLE code changes"
+            echo ""
+            echo "REQUIRED: Update status to 'Active Development' and add current status section."
+            echo ""
+            OUTDATED_STATUS_FOUND=1
+        fi
+    fi
+
+    if [ $OUTDATED_STATUS_FOUND -eq 1 ]; then
+        echo "========================================="
+        echo "Living documents must accurately reflect current implementation state."
+        echo "Update all relevant documents before committing LLE code."
+        echo "========================================="
+        echo ""
+        CHECKS_FAILED=1
+    else
+        echo "✓ Living documents appear current"
+    fi
+fi
+
+# Final result
+if [ $CHECKS_FAILED -eq 1 ]; then
+    echo ""
+    echo "========================================="
+    echo "❌ PRE-COMMIT CHECKS FAILED"
+    echo "========================================="
+    echo "Fix the violations above before committing."
+    echo ""
+    exit 1
+else
+    echo ""
+    echo "Pre-commit checks complete ✓"
+    echo ""
+    exit 0
+fi

@@ -26,6 +26,7 @@
 #include "lle/memory_management.h"
 #include <string.h>
 #include <time.h>
+#include <stdatomic.h>
 
 /* ========================================================================== */
 /*                           GLOBAL STATE                                     */
@@ -49,7 +50,7 @@ static uint64_t get_current_time_us(void) {
  * Get next event sequence number
  */
 static uint64_t get_next_event_sequence(void) {
-    return __atomic_fetch_add(&g_event_sequence, 1, __ATOMIC_SEQ_CST);
+    return atomic_fetch_add(&g_event_sequence, 1);
 }
 
 /*
@@ -260,12 +261,12 @@ lle_result_t lle_input_parser_generate_events(lle_input_parser_system_t *parser_
  * Get current event sequence number (for testing/debugging)
  */
 uint64_t lle_input_parser_get_event_sequence(void) {
-    return __atomic_load_n(&g_event_sequence, __ATOMIC_SEQ_CST);
+    return atomic_load(&g_event_sequence);
 }
 
 /*
  * Reset event sequence number (for testing)
  */
 void lle_input_parser_reset_event_sequence(void) {
-    __atomic_store_n(&g_event_sequence, 0, __ATOMIC_SEQ_CST);
+    atomic_store(&g_event_sequence, 0);
 }

@@ -32,6 +32,15 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
+/* macOS compatibility */
+#ifdef __APPLE__
+#include <pthread.h>
+/* macOS doesn't have CLOCK_MONOTONIC_COARSE, use CLOCK_MONOTONIC instead */
+#ifndef CLOCK_MONOTONIC_COARSE
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#endif
+#endif
+
 /* ============================================================================
  * GLOBAL STATE AND PRE-ALLOCATED STRUCTURES
  * ============================================================================
@@ -124,7 +133,13 @@ uint64_t lle_get_fast_timestamp_ns(void) {
  * @brief Get current thread ID
  */
 uint64_t lle_get_thread_id(void) {
+#ifdef __APPLE__
+    uint64_t tid;
+    pthread_threadid_np(NULL, &tid);
+    return tid;
+#else
     return (uint64_t)syscall(SYS_gettid);
+#endif
 }
 
 /**
