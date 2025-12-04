@@ -1739,7 +1739,11 @@ lle_result_t lle_complete(lle_editor_t *editor) {
      * This is standard shell behavior: TAB cycles through completions
      */
     if (use_v2) {
-        if (lle_completion_system_v2_is_active(editor->completion_system_v2)) {
+        bool is_active = lle_completion_system_v2_is_active(editor->completion_system_v2);
+        bool is_menu_visible = lle_completion_system_v2_is_menu_visible(editor->completion_system_v2);
+        
+        if (is_active && is_menu_visible) {
+            /* Completion is active WITH a visible menu - cycle through items */
             lle_completion_menu_state_t *menu = 
                 lle_completion_system_v2_get_menu(editor->completion_system_v2);
             if (menu) {
@@ -1759,8 +1763,14 @@ lle_result_t lle_complete(lle_editor_t *editor) {
                 if (dc) {
                     dc->menu_state_changed = true;
                 }
+                return LLE_SUCCESS;
             }
-            return LLE_SUCCESS;
+            /* Menu is NULL despite is_menu_visible - fall through to regenerate */
+        }
+        
+        /* If is_active but no menu, clear stale state before regenerating */
+        if (is_active && !is_menu_visible) {
+            lle_completion_system_v2_clear(editor->completion_system_v2);
         }
     } else {
         /* Legacy system */
@@ -1843,6 +1853,13 @@ lle_result_t lle_complete(lle_editor_t *editor) {
             editor, context.word_start, context.word_length, completion_text);
         lle_completion_result_free(result);
         
+        /* Clear completion system state since we auto-inserted the single completion.
+         * Without this, the state remains active (is_active=true) but with no menu,
+         * causing subsequent TAB presses to not regenerate completions. */
+        if (use_v2 && editor->completion_system_v2) {
+            lle_completion_system_v2_clear(editor->completion_system_v2);
+        }
+        
         /* Trigger display refresh */
         display_controller_t *dc = display_integration_get_controller();
         if (dc) {
@@ -1859,6 +1876,8 @@ lle_result_t lle_complete(lle_editor_t *editor) {
         lle_completion_menu_state_t *menu = 
             lle_completion_system_v2_get_menu(editor->completion_system_v2);
         if (!menu) {
+            /* No menu despite multiple completions - clear state to avoid stuck active flag */
+            lle_completion_system_v2_clear(editor->completion_system_v2);
             lle_completion_result_free(result);
             return LLE_SUCCESS;
         }

@@ -1436,6 +1436,17 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
     
     /* Clear display before aborting to ensure clean state
      * This clears any ghost text, completion menu residue, etc. */
+    
+    /* Clear completion system state (CRITICAL: must clear both system AND display) */
+    if (ctx->editor) {
+        if (ctx->editor->completion_system_v2) {
+            lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+        }
+        if (ctx->editor->completion_system) {
+            lle_completion_system_clear(ctx->editor->completion_system);
+        }
+    }
+    
     display_controller_t *dc = display_integration_get_controller();
     if (dc) {
         /* Clear autosuggestion from display */

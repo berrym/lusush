@@ -2,7 +2,7 @@
 
 **Date**: 2025-12-03  
 **Session Type**: Linux Manual Regression Testing & Bug Fixes  
-**Status**: MANUAL TESTING COMPLETE - ALL TESTS PASS  
+**Status**: COMPLETION MENU STATE BUG FIXED - NEEDS macOS VERIFICATION  
 **Branch**: `feature/lle`
 
 ---
@@ -19,7 +19,7 @@ changes did not introduce regressions.
 - ESC+b/f word movement (new macOS feature): PASS  
 - Arrow key navigation (Left/Right/Home/End): PASS
 - History navigation (Up arrow / Ctrl+P): PASS
-- Tab completion menu: PASS
+- Tab completion menu: PASS (after bug fix below)
 - Autosuggestions: PASS
 - Multiline editing: PASS
 - Ctrl+A/E/K/U/W/Y/R/C/D: PASS
@@ -40,6 +40,41 @@ check from forward navigation. The seen set is only for preventing duplicates wh
 going backward; forward navigation should revisit all previously viewed entries.
 
 **Note:** This bug existed on both Linux and macOS.
+
+### Bug Fix: Completion Menu State Not Resetting (Works Once Then Never Again)
+
+**Issue Found:** Tab completion menu worked perfectly on first invocation, but after
+dismissing with ESC, subsequent TAB presses would not show the menu again.
+
+**Root Cause:** Multiple state management issues in the completion system:
+
+1. **Ctrl+G abort path** (`lle_readline.c`): Was clearing `display_controller` menu
+   but NOT clearing `completion_system_v2` state, leaving `is_active=true`.
+
+2. **Single completion auto-insert** (`keybinding_actions.c:lle_complete`): When only
+   one completion matched, it was auto-inserted but the completion state remained
+   active (`is_active=true, is_menu_visible=false`). Subsequent TAB presses would
+   see `is_active=true` and try to cycle a non-existent menu, then return early
+   without generating new completions.
+
+3. **Early return logic**: The code checked `if (is_active)` and returned early even
+   when no menu existed to cycle through.
+
+**Fixes Applied:**
+
+1. `src/lle/lle_readline.c`: Added `lle_completion_system_v2_clear()` call in the
+   Ctrl+G abort path before clearing display controller.
+
+2. `src/lle/keybinding_actions.c:lle_complete()`:
+   - Changed condition from `if (is_active)` to `if (is_active && is_menu_visible)`
+   - Added clearing of stale state when `is_active && !is_menu_visible`
+   - Added `lle_completion_system_v2_clear()` after single-completion auto-insert
+   - Added `lle_completion_system_v2_clear()` in edge case where menu is NULL
+
+**Known Issue:** TAB on empty line does not show completion menu on Linux but works
+on macOS. This is a separate issue to investigate.
+
+**Status:** Needs verification on macOS.
 
 ---
 
