@@ -1,9 +1,69 @@
-# AI Assistant Handoff Document - Session 44
+# AI Assistant Handoff Document - Session 45
 
 **Date**: 2025-12-03  
-**Session Type**: Linux Manual Regression Testing & Bug Fixes  
-**Status**: COMPLETION MENU STATE BUG FIXED - NEEDS macOS VERIFICATION  
+**Session Type**: Linux TAB on Empty Line Bug Fix  
+**Status**: TAB ON EMPTY LINE BUG FIXED - LINUX/macOS PARITY ACHIEVED  
 **Branch**: `feature/lle`
+
+---
+
+## Session 45 Accomplishments (2025-12-03)
+
+### Bug Fix: TAB on Empty Line Not Working on Linux
+
+**Issue Found:** TAB on empty line produced no completions on Linux, but worked on
+macOS (showing builtins). This was identified as a known issue from Session 44.
+
+**Root Cause:** Uninitialized memory bug in `extract_word()` function in
+`src/lle/completion/context_analyzer.c`.
+
+When the buffer is empty (start==end==0), the code allocated 1 byte for an empty
+string but **never null-terminated it**:
+```c
+if (end <= start) {
+    return lle_pool_alloc(1);  /* BUG: Garbage in memory! */
+}
+```
+
+This left uninitialized garbage in `partial_word` (e.g., `'ub�#'`), which was then
+used as the completion prefix. Since no commands match garbage, zero completions
+were returned.
+
+**Why it worked on macOS:** macOS happened to have zeroed memory in this case
+(undefined behavior luck), while Linux exposed the bug with actual garbage bytes.
+
+**Fix Applied:** `src/lle/completion/context_analyzer.c` - Properly null-terminate
+the empty string allocation:
+```c
+if (end <= start) {
+    /* Empty string - must null-terminate! */
+    char *empty = lle_pool_alloc(1);
+    if (empty) {
+        empty[0] = '\0';
+    }
+    return empty;
+}
+```
+
+**Testing Confirmed:**
+- Empty line TAB now shows 49 builtins + 4000+ PATH commands on Linux
+- Menu navigation cycles through all categories correctly (builtins → external commands)
+- Behavior now matches macOS
+- Deduplication reduced 10,053 raw completions to 4,443 unique entries
+
+---
+
+## Session 44 Accomplishments (2025-12-03)
+
+### Completion Menu State Bug Fix & macOS Verification - COMPLETE
+
+Verified the completion menu state reset fix (from Session 43) works correctly on
+macOS. The fix did not cause any regressions.
+
+### TAB on Empty Line Known Issue Identified
+
+During Session 44, it was discovered that TAB on empty line worked on macOS (showing
+builtins) but not on Linux. This was flagged for investigation and fixed in Session 45.
 
 ---
 
@@ -71,10 +131,7 @@ dismissing with ESC, subsequent TAB presses would not show the menu again.
    - Added `lle_completion_system_v2_clear()` after single-completion auto-insert
    - Added `lle_completion_system_v2_clear()` in edge case where menu is NULL
 
-**Known Issue:** TAB on empty line does not show completion menu on Linux but works
-on macOS. This is a separate issue to investigate.
-
-**Status:** Needs verification on macOS.
+**Status:** Fixed and verified on Linux. macOS verification completed in Session 44.
 
 ---
 

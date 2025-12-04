@@ -55,7 +55,12 @@ static size_t find_word_start(const char *buffer, size_t cursor_pos) {
 static char *extract_word(const char *buffer, size_t start, size_t end,
                          lle_memory_pool_t *pool) {
     if (end <= start) {
-        return lle_pool_alloc(1);  /* Empty string */
+        /* Empty string - must null-terminate! */
+        char *empty = lle_pool_alloc(1);
+        if (empty) {
+            empty[0] = '\0';
+        }
+        return empty;
     }
     
     size_t len = end - start;
