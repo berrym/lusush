@@ -54,6 +54,8 @@
 #include "display/terminal_control.h"
 #include "termcap.h"
 #include "alias.h"
+#include "builtins.h"
+#include "lle/syntax_highlighting.h"
 
 // Note: Completion menu support moved to display_controller (proper architecture)
 
@@ -82,27 +84,9 @@
 #define CACHE_HASH_MULTIPLIER 31
 #define CACHE_CLEANUP_THRESHOLD 0.8
 
-// Syntax highlighting constants
-#define MAX_TOKEN_SIZE 256
-#define MAX_WORD_SIZE 128
-
 // ============================================================================
 // INTERNAL STRUCTURES AND STATE
 // ============================================================================
-
-/**
- * Internal token parsing state
- */
-typedef struct {
-    const char *text;
-    size_t length;
-    size_t position;
-    char current_char;
-    bool in_string;
-    char string_delimiter;
-    bool in_comment;
-    bool escaped;
-} token_parser_t;
 
 /**
  * Syntax highlighting statistics
@@ -135,13 +119,8 @@ static command_layer_error_t add_to_cache(command_layer_t *layer, const char *co
 static void expire_old_cache_entries(command_layer_t *layer);
 
 // Syntax highlighting implementation
-static void init_token_parser(token_parser_t *parser, const char *text);
-static command_token_type_t get_next_token(token_parser_t *parser, size_t *token_start, size_t *token_length);
-static command_token_type_t classify_token(const char *token, size_t length, bool is_first_token);
-static bool command_exists_in_path(const char *command);
-static bool is_shell_keyword(const char *token, size_t length);
-static bool is_shell_builtin(const char *token, size_t length);
 static const char *get_token_color(command_layer_t *layer, command_token_type_t token_type);
+static command_token_type_t map_spec_token_type(lle_syntax_token_type_t spec_type);
 
 // Event handling
 static layer_events_error_t handle_layer_event(const layer_event_t *event, void *user_data);
@@ -214,6 +193,13 @@ command_layer_t *command_layer_create(void) {
     // Initialize performance monitoring
     clock_gettime(CLOCK_MONOTONIC, &layer->last_update_time);
     layer->update_sequence_number = 0;
+    
+    // Initialize spec-compliant syntax highlighter (Spec 11)
+    layer->spec_highlighter = NULL;
+    if (lle_syntax_highlighter_create(&layer->spec_highlighter) != 0) {
+        // Highlighter creation failed - continue without it, fall back to inline
+        layer->spec_highlighter = NULL;
+    }
     
     return layer;
 }
@@ -544,6 +530,12 @@ void command_layer_destroy(command_layer_t *layer) {
         command_layer_cleanup(layer);
     }
     
+    // Destroy spec highlighter
+    if (layer->spec_highlighter) {
+        lle_syntax_highlighter_destroy(layer->spec_highlighter);
+        layer->spec_highlighter = NULL;
+    }
+    
     // Clear magic number
     layer->magic = 0;
     
@@ -555,6 +547,65 @@ void command_layer_destroy(command_layer_t *layer) {
 // SYNTAX HIGHLIGHTING IMPLEMENTATION
 // ============================================================================
 
+/**
+ * Map spec token type to command layer token type
+ */
+static command_token_type_t map_spec_token_type(lle_syntax_token_type_t spec_type) {
+    switch (spec_type) {
+        case LLE_TOKEN_COMMAND_VALID:
+        case LLE_TOKEN_COMMAND_BUILTIN:
+        case LLE_TOKEN_COMMAND_ALIAS:
+        case LLE_TOKEN_COMMAND_FUNCTION:
+            return COMMAND_TOKEN_COMMAND;
+        case LLE_TOKEN_COMMAND_INVALID:
+            return COMMAND_TOKEN_ERROR;
+        case LLE_TOKEN_KEYWORD:
+            return COMMAND_TOKEN_KEYWORD;
+        case LLE_TOKEN_STRING_SINGLE:
+        case LLE_TOKEN_STRING_DOUBLE:
+        case LLE_TOKEN_STRING_BACKTICK:
+            return COMMAND_TOKEN_STRING;
+        case LLE_TOKEN_VARIABLE:
+        case LLE_TOKEN_VARIABLE_SPECIAL:
+            return COMMAND_TOKEN_VARIABLE;
+        case LLE_TOKEN_PATH_VALID:
+        case LLE_TOKEN_PATH_INVALID:
+            return COMMAND_TOKEN_PATH;
+        case LLE_TOKEN_PIPE:
+            return COMMAND_TOKEN_PIPE;
+        case LLE_TOKEN_REDIRECT:
+            return COMMAND_TOKEN_REDIRECT;
+        case LLE_TOKEN_AND:
+        case LLE_TOKEN_OR:
+        case LLE_TOKEN_BACKGROUND:
+        case LLE_TOKEN_SEMICOLON:
+        case LLE_TOKEN_SUBSHELL_START:
+        case LLE_TOKEN_SUBSHELL_END:
+        case LLE_TOKEN_BRACE_START:
+        case LLE_TOKEN_BRACE_END:
+            return COMMAND_TOKEN_OPERATOR;
+        case LLE_TOKEN_COMMENT:
+            return COMMAND_TOKEN_COMMENT;
+        case LLE_TOKEN_NUMBER:
+            return COMMAND_TOKEN_NUMBER;
+        case LLE_TOKEN_OPTION:
+            return COMMAND_TOKEN_OPTION;
+        case LLE_TOKEN_ARGUMENT:
+        case LLE_TOKEN_GLOB:
+            return COMMAND_TOKEN_ARGUMENT;
+        case LLE_TOKEN_ERROR:
+        case LLE_TOKEN_UNCLOSED_STRING:
+        case LLE_TOKEN_UNCLOSED_SUBSHELL:
+            return COMMAND_TOKEN_ERROR;
+        default:
+            return COMMAND_TOKEN_NONE;
+    }
+}
+
+/**
+ * Primary syntax highlighting using spec-compliant system (Spec 11)
+ * Falls back to inline implementation if spec highlighter unavailable
+ */
 static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer) {
     if (!layer->syntax_config.enabled) {
         // If highlighting is disabled, just copy the command text
@@ -575,443 +626,138 @@ static command_layer_error_t perform_syntax_highlighting(command_layer_t *layer)
         return COMMAND_LAYER_SUCCESS;
     }
     
-    // Initialize token parser
-    token_parser_t parser;
-    init_token_parser(&parser, layer->command_text);
-    
-    size_t output_pos = 0;
-    size_t token_start, token_length;
-    command_token_type_t token_type;
-    bool is_command_position = true;  // Start in command position
-    
-    // Parse and highlight tokens
-    size_t last_token_end = 0;  // Track position after last token
-    
-    while ((token_type = get_next_token(&parser, &token_start, &token_length)) != COMMAND_TOKEN_NONE) {
-        // Skip if we've exceeded region limit
-        if (layer->region_count >= COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS) {
-            break;
-        }
+    // Use spec-compliant highlighter if available
+    if (layer->spec_highlighter) {
+        size_t command_len = strlen(layer->command_text);
         
-        // Check for newlines in whitespace between tokens - they reset command position
-        if (last_token_end < token_start) {
-            for (size_t i = last_token_end; i < token_start; i++) {
-                if (layer->command_text[i] == '\n') {
-                    is_command_position = true;
-                    break;
-                }
-            }
-        }
+        // Tokenize using spec highlighter
+        int token_count = lle_syntax_highlight(layer->spec_highlighter, 
+                                                layer->command_text, 
+                                                command_len);
         
-        // Add any whitespace between previous token and this token
-        if (last_token_end < token_start) {
-            size_t whitespace_len = token_start - last_token_end;
-            if (output_pos + whitespace_len < sizeof(layer->highlighted_text) - 1) {
-                strncpy(layer->highlighted_text + output_pos,
-                       layer->command_text + last_token_end, whitespace_len);
-                output_pos += whitespace_len;
-                layer->highlighted_text[output_pos] = '\0';
-            }
-        }
-        
-        // Classify the token if it's not already classified
-        if (token_type == COMMAND_TOKEN_ARGUMENT) {
-            token_type = classify_token(layer->command_text + token_start, token_length, is_command_position);
-        }
-        
-        // Get color for this token type
-        const char *color = get_token_color(layer, token_type);
-        
-        // Add color code to output if colors are enabled
-        bool has_color = layer->syntax_config.use_colors && color && color[0];
-        if (has_color) {
-            size_t color_len = strlen(color);
-            if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
-                strcpy(layer->highlighted_text + output_pos, color);
-                output_pos += color_len;
-            }
-        }
-        
-        // Add the token text, re-applying color after any embedded newlines
-        // This ensures multiline tokens (like strings) maintain their color
-        // after continuation prompts are inserted during display
-        const char *token_text = layer->command_text + token_start;
-        for (size_t i = 0; i < token_length && output_pos < sizeof(layer->highlighted_text) - 1; i++) {
-            layer->highlighted_text[output_pos++] = token_text[i];
+        if (token_count >= 0) {
+            // Get tokens from spec highlighter
+            size_t spec_token_count;
+            const lle_syntax_token_t *spec_tokens = lle_syntax_get_tokens(
+                layer->spec_highlighter, &spec_token_count);
             
-            // After a newline within a colored token, re-apply the color
-            if (token_text[i] == '\n' && has_color && i + 1 < token_length) {
-                size_t color_len = strlen(color);
-                if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
-                    strcpy(layer->highlighted_text + output_pos, color);
-                    output_pos += color_len;
+            // Build highlighted output using command layer's color scheme
+            // This preserves the command layer's theme integration
+            size_t output_pos = 0;
+            size_t last_end = 0;
+            
+            for (size_t i = 0; i < spec_token_count && 
+                 layer->region_count < COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS; i++) {
+                const lle_syntax_token_t *tok = &spec_tokens[i];
+                
+                // Add any whitespace/text between tokens
+                if (last_end < tok->start) {
+                    size_t gap_len = tok->start - last_end;
+                    if (output_pos + gap_len < sizeof(layer->highlighted_text) - 1) {
+                        memcpy(layer->highlighted_text + output_pos,
+                               layer->command_text + last_end, gap_len);
+                        output_pos += gap_len;
+                    }
+                }
+                
+                // Map spec token type to command layer type
+                command_token_type_t cmd_type = map_spec_token_type(tok->type);
+                
+                // Skip whitespace tokens for coloring
+                if (tok->type == LLE_TOKEN_WHITESPACE) {
+                    size_t tok_len = tok->end - tok->start;
+                    if (output_pos + tok_len < sizeof(layer->highlighted_text) - 1) {
+                        memcpy(layer->highlighted_text + output_pos,
+                               layer->command_text + tok->start, tok_len);
+                        output_pos += tok_len;
+                    }
+                    last_end = tok->end;
+                    continue;
+                }
+                
+                // Get color from command layer's color scheme
+                const char *color = get_token_color(layer, cmd_type);
+                bool has_color = layer->syntax_config.use_colors && color && color[0];
+                
+                // Add color code
+                if (has_color) {
+                    size_t color_len = strlen(color);
+                    if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
+                        memcpy(layer->highlighted_text + output_pos, color, color_len);
+                        output_pos += color_len;
+                    }
+                }
+                
+                // Add token text, re-applying color after newlines for multiline tokens
+                size_t tok_len = tok->end - tok->start;
+                const char *tok_text = layer->command_text + tok->start;
+                for (size_t j = 0; j < tok_len && 
+                     output_pos < sizeof(layer->highlighted_text) - 1; j++) {
+                    layer->highlighted_text[output_pos++] = tok_text[j];
+                    
+                    // Re-apply color after newlines within tokens
+                    if (tok_text[j] == '\n' && has_color && j + 1 < tok_len) {
+                        size_t color_len = strlen(color);
+                        if (output_pos + color_len < sizeof(layer->highlighted_text) - 1) {
+                            memcpy(layer->highlighted_text + output_pos, color, color_len);
+                            output_pos += color_len;
+                        }
+                    }
+                }
+                
+                // Add reset code
+                if (has_color) {
+                    const char *reset = layer->syntax_config.color_scheme.reset_color;
+                    size_t reset_len = strlen(reset);
+                    if (output_pos + reset_len < sizeof(layer->highlighted_text) - 1) {
+                        memcpy(layer->highlighted_text + output_pos, reset, reset_len);
+                        output_pos += reset_len;
+                    }
+                }
+                
+                // Store region info
+                command_highlight_region_t *region = &layer->highlight_regions[layer->region_count];
+                region->start = tok->start;
+                region->length = tok->end - tok->start;
+                region->token_type = cmd_type;
+                if (color) {
+                    safe_string_copy(region->color_code, color, sizeof(region->color_code));
+                } else {
+                    region->color_code[0] = '\0';
+                }
+                layer->region_count++;
+                
+                last_end = tok->end;
+                g_highlighting_stats.tokens_parsed++;
+            }
+            
+            // Add any remaining text
+            if (last_end < command_len) {
+                size_t remaining = command_len - last_end;
+                if (output_pos + remaining < sizeof(layer->highlighted_text) - 1) {
+                    memcpy(layer->highlighted_text + output_pos,
+                           layer->command_text + last_end, remaining);
+                    output_pos += remaining;
                 }
             }
-        }
-        layer->highlighted_text[output_pos] = '\0';
-        
-        // Add reset color code if colors are enabled
-        if (has_color) {
-            const char *reset = layer->syntax_config.color_scheme.reset_color;
-            size_t reset_len = strlen(reset);
-            if (output_pos + reset_len < sizeof(layer->highlighted_text) - 1) {
-                strcpy(layer->highlighted_text + output_pos, reset);
-                output_pos += reset_len;
-            }
-        }
-        
-        // Store highlight region information
-        if (layer->region_count < COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS) {
-            command_highlight_region_t *region = &layer->highlight_regions[layer->region_count];
-            region->start = token_start;
-            region->length = token_length;
-            region->token_type = token_type;
-            if (color) {
-                safe_string_copy(region->color_code, color, sizeof(region->color_code));
-            } else {
-                region->color_code[0] = '\0';
-            }
-            layer->region_count++;
-        }
-        
-        // Update command position context for next token
-        // After these tokens, the next word should be treated as a command:
-        // - Pipe operators: |, ||
-        // - Logical operators: &&
-        // - Command separators: ;
-        // - Control flow keywords: do, then, else, elif
-        // - Block delimiters: {, (
-        if (token_type == COMMAND_TOKEN_PIPE ||
-            token_type == COMMAND_TOKEN_OPERATOR) {
-            // Check if it's a command-starting operator
-            const char *tok = layer->command_text + token_start;
-            if (token_length == 1 && (tok[0] == ';' || tok[0] == '|' || tok[0] == '{' || tok[0] == '(')) {
-                is_command_position = true;
-            } else if (token_length == 2 && ((tok[0] == '&' && tok[1] == '&') ||
-                                              (tok[0] == '|' && tok[1] == '|'))) {
-                is_command_position = true;
-            } else {
-                is_command_position = false;
-            }
-        } else if (token_type == COMMAND_TOKEN_KEYWORD) {
-            // After do, then, else, elif - next token is a command
-            const char *tok = layer->command_text + token_start;
-            if ((token_length == 2 && strncmp(tok, "do", 2) == 0) ||
-                (token_length == 4 && strncmp(tok, "then", 4) == 0) ||
-                (token_length == 4 && strncmp(tok, "else", 4) == 0) ||
-                (token_length == 4 && strncmp(tok, "elif", 4) == 0)) {
-                is_command_position = true;
-            } else {
-                is_command_position = false;
-            }
-        } else {
-            // After most tokens, we're not in command position
-            is_command_position = false;
-        }
-
-        // Update tracking for next iteration
-        last_token_end = token_start + token_length;
-        g_highlighting_stats.tokens_parsed++;
-    }
-    
-    // Add any remaining text after the last token
-    size_t command_len = strlen(layer->command_text);
-    if (last_token_end < command_len) {
-        size_t remaining_len = command_len - last_token_end;
-        if (output_pos + remaining_len < sizeof(layer->highlighted_text) - 1) {
-            strncpy(layer->highlighted_text + output_pos,
-                   layer->command_text + last_token_end, remaining_len);
-            output_pos += remaining_len;
+            
             layer->highlighted_text[output_pos] = '\0';
+            
+            uint64_t highlighting_time = get_current_time_ns() - start_time;
+            g_highlighting_stats.highlighting_time_ns += highlighting_time;
+            g_highlighting_stats.regions_created += layer->region_count;
+            
+            return COMMAND_LAYER_SUCCESS;
         }
+        // Spec highlighting returned error - fall through to plain text
     }
     
-    // Ensure null termination
-    layer->highlighted_text[sizeof(layer->highlighted_text) - 1] = '\0';
-
-
-    
-    uint64_t highlighting_time = get_current_time_ns() - start_time;
-    g_highlighting_stats.highlighting_time_ns += highlighting_time;
-    g_highlighting_stats.regions_created += layer->region_count;
-    
+    // No spec highlighter available or it failed - just copy plain text
+    // This is a graceful degradation: syntax highlighting is cosmetic,
+    // so we show unhighlighted text rather than failing
+    safe_string_copy(layer->highlighted_text, layer->command_text,
+                     sizeof(layer->highlighted_text));
     return COMMAND_LAYER_SUCCESS;
-}
-
-static void init_token_parser(token_parser_t *parser, const char *text) {
-    parser->text = text;
-    parser->length = strlen(text);
-    parser->position = 0;
-    parser->current_char = (parser->length > 0) ? text[0] : '\0';
-    parser->in_string = false;
-    parser->string_delimiter = '\0';
-    parser->in_comment = false;
-    parser->escaped = false;
-}
-
-static command_token_type_t get_next_token(token_parser_t *parser, size_t *token_start, size_t *token_length) {
-    // Skip whitespace
-    while (parser->position < parser->length && isspace(parser->current_char)) {
-        parser->position++;
-        parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-    }
-    
-    if (parser->position >= parser->length) {
-        return COMMAND_TOKEN_NONE;
-    }
-    
-    *token_start = parser->position;
-    
-    // Handle comments
-    if (parser->current_char == '#') {
-        // Comment extends to end of line or end of string
-        while (parser->position < parser->length && parser->current_char != '\n') {
-            parser->position++;
-            parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        }
-        *token_length = parser->position - *token_start;
-        return COMMAND_TOKEN_COMMENT;
-    }
-    
-    // Handle quoted strings
-    if (parser->current_char == '"' || parser->current_char == '\'' || parser->current_char == '`') {
-        char quote_char = parser->current_char;
-        parser->position++; // Skip opening quote
-        parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        
-        while (parser->position < parser->length && parser->current_char != quote_char) {
-            if (parser->current_char == '\\' && quote_char != '\'') {
-                parser->position++; // Skip escape character
-                if (parser->position < parser->length) {
-                    parser->position++; // Skip escaped character
-                }
-            } else {
-                parser->position++;
-            }
-            parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        }
-        
-        if (parser->position < parser->length && parser->current_char == quote_char) {
-            parser->position++; // Skip closing quote
-            parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        }
-        
-        *token_length = parser->position - *token_start;
-        return COMMAND_TOKEN_STRING;
-    }
-    
-    // Handle variables
-    if (parser->current_char == '$') {
-        parser->position++;
-        parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        
-        // Handle ${var} syntax
-        if (parser->current_char == '{') {
-            parser->position++;
-            while (parser->position < parser->length && parser->current_char != '}') {
-                parser->position++;
-                parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-            }
-            if (parser->position < parser->length && parser->current_char == '}') {
-                parser->position++;
-                parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-            }
-        } else {
-            // Handle $var syntax
-            while (parser->position < parser->length && 
-                   (isalnum(parser->current_char) || parser->current_char == '_')) {
-                parser->position++;
-                parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-            }
-        }
-        
-        *token_length = parser->position - *token_start;
-        return COMMAND_TOKEN_VARIABLE;
-    }
-    
-    // Handle operators and special characters
-    if (strchr("|&;<>(){}[]", parser->current_char)) {
-        char first_char = parser->current_char;
-        parser->position++;
-        parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        
-        // Handle multi-character operators
-        if ((first_char == '|' && parser->current_char == '|') ||
-            (first_char == '&' && parser->current_char == '&') ||
-            (first_char == '>' && parser->current_char == '>') ||
-            (first_char == '<' && parser->current_char == '<')) {
-            parser->position++;
-            parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-        }
-        
-        *token_length = parser->position - *token_start;
-        
-        if (first_char == '|') {
-            return COMMAND_TOKEN_PIPE;
-        } else if (strchr("<>", first_char)) {
-            return COMMAND_TOKEN_REDIRECT;
-        } else {
-            return COMMAND_TOKEN_OPERATOR;
-        }
-    }
-    
-    // Handle regular words/tokens
-    while (parser->position < parser->length && 
-           !isspace(parser->current_char) && 
-           !strchr("|&;<>(){}[]\"'`$#", parser->current_char)) {
-        parser->position++;
-        parser->current_char = (parser->position < parser->length) ? parser->text[parser->position] : '\0';
-    }
-    
-    *token_length = parser->position - *token_start;
-    return COMMAND_TOKEN_ARGUMENT; // Will be reclassified later
-}
-
-static command_token_type_t classify_token(const char *token, size_t length, bool is_first_token) {
-    if (length == 0) {
-        return COMMAND_TOKEN_NONE;
-    }
-    
-    // Check for options (start with -)
-    if (token[0] == '-') {
-        return COMMAND_TOKEN_OPTION;
-    }
-    
-    // Check for numbers
-    bool is_number = true;
-    for (size_t i = 0; i < length; i++) {
-        if (!isdigit(token[i]) && token[i] != '.' && token[i] != '-' && token[i] != '+') {
-            is_number = false;
-            break;
-        }
-    }
-    if (is_number) {
-        return COMMAND_TOKEN_NUMBER;
-    }
-    
-    // Check for shell keywords
-    if (is_shell_keyword(token, length)) {
-        return COMMAND_TOKEN_KEYWORD;
-    }
-    
-    // If it's the first token, validate it's a real command
-    if (is_first_token) {
-        // Check if it's a builtin command first (most common)
-        if (is_shell_builtin(token, length)) {
-            return COMMAND_TOKEN_COMMAND;
-        }
-        
-        // Check if command exists in PATH
-        // Create null-terminated string for validation
-        char command_name[MAX_TOKEN_SIZE];
-        size_t copy_len = (length < sizeof(command_name) - 1) ? length : sizeof(command_name) - 1;
-        strncpy(command_name, token, copy_len);
-        command_name[copy_len] = '\0';
-        
-        // Check if it's an alias
-        // NOTE: lookup_alias returns internal hash table pointer - do NOT free
-        if (lookup_alias(command_name) != NULL) {
-            return COMMAND_TOKEN_COMMAND;
-        }
-        
-        // Check if executable exists in PATH
-        if (command_exists_in_path(command_name)) {
-            return COMMAND_TOKEN_COMMAND;
-        }
-        
-        // Command doesn't exist - mark as error
-        return COMMAND_TOKEN_ERROR;
-    }
-    
-    // Check if it looks like a path
-    if (strchr(token, '/') || (length > 1 && token[0] == '.' && token[1] == '/') ||
-        (length > 2 && token[0] == '.' && token[1] == '.' && token[2] == '/')) {
-        return COMMAND_TOKEN_PATH;
-    }
-    
-    return COMMAND_TOKEN_ARGUMENT;
-}
-
-/**
- * Check if a command exists in PATH
- * Returns true if the command is an executable file in any PATH directory
- */
-static bool command_exists_in_path(const char *command) {
-    if (!command || !*command) {
-        return false;
-    }
-    
-    // Get PATH environment variable
-    const char *path_env = getenv("PATH");
-    if (!path_env) {
-        return false;
-    }
-    
-    // Make a copy of PATH since strtok modifies the string
-    char *path_copy = strdup(path_env);
-    if (!path_copy) {
-        return false;
-    }
-    
-    bool found = false;
-    char *path_dir = strtok(path_copy, ":");
-    
-    while (path_dir && !found) {
-        // Build full path: dir/command
-        char full_path[PATH_MAX];
-        int ret = snprintf(full_path, sizeof(full_path), "%s/%s", path_dir, command);
-        
-        if (ret > 0 && (size_t)ret < sizeof(full_path)) {
-            // Check if file exists and is executable
-            struct stat st;
-            if (stat(full_path, &st) == 0 && 
-                S_ISREG(st.st_mode) && 
-                (st.st_mode & S_IXUSR)) {
-                found = true;
-            }
-        }
-        
-        path_dir = strtok(NULL, ":");
-    }
-    
-    free(path_copy);
-    return found;
-}
-
-static bool is_shell_keyword(const char *token, size_t length) {
-    static const char *keywords[] = {
-        "if", "then", "else", "elif", "fi",
-        "for", "while", "until", "do", "done",
-        "case", "esac", "function", "in",
-        "select", "time", "coproc", "{", "}"
-    };
-    
-    for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
-        if (strlen(keywords[i]) == length && strncmp(token, keywords[i], length) == 0) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-static bool is_shell_builtin(const char *token, size_t length) {
-    static const char *builtins[] = {
-        "cd", "pwd", "echo", "printf", "read", "exit",
-        "export", "unset", "source", ".", "eval",
-        "exec", "set", "unset", "alias", "unalias",
-        "history", "jobs", "fg", "bg", "kill",
-        "wait", "suspend", "disown", "help", "type",
-        "which", "command", "builtin", "enable"
-    };
-    
-    for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
-        if (strlen(builtins[i]) == length && strncmp(token, builtins[i], length) == 0) {
-            return true;
-        }
-    }
-    
-    return false;
 }
 
 static const char *get_token_color(command_layer_t *layer, command_token_type_t token_type) {

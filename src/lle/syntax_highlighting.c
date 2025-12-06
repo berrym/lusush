@@ -165,9 +165,8 @@ static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
 /*                         COMMAND CHECKING                                   */
 /* ========================================================================== */
 
-/* Forward declare external functions */
-extern bool is_builtin_command(const char *cmd);
-extern bool is_alias(const char *cmd);
+/* Use is_builtin() from builtins.h (already included above) */
+/* Use is_alias() from alias.h (already included above) */
 
 static bool command_exists_in_path(const char *command) {
     /* Check if command contains a path separator */
@@ -220,9 +219,9 @@ lle_syntax_token_type_t lle_syntax_check_command(lle_syntax_highlighter_t *highl
     /* Check command type */
     lle_syntax_token_type_t type;
     
-    if (is_builtin_command(command)) {
+    if (is_builtin(command)) {
         type = LLE_TOKEN_COMMAND_BUILTIN;
-    } else if (is_alias(command)) {
+    } else if (lookup_alias(command) != NULL) {
         type = LLE_TOKEN_COMMAND_ALIAS;
     } else if (command_exists_in_path(command)) {
         type = LLE_TOKEN_COMMAND_VALID;

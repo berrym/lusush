@@ -61,6 +61,7 @@
 
 #include "layer_events.h"
 #include "prompt_layer.h"
+#include "lle/syntax_highlighting.h"
 
 // Forward declaration for LLE types (no longer needed in command_layer)
 // Completion menu state moved to display_controller (proper architecture)
@@ -254,6 +255,7 @@ typedef struct command_layer_s {
     command_highlight_region_t highlight_regions[COMMAND_LAYER_MAX_HIGHLIGHT_REGIONS];
     size_t region_count;                        // Number of highlight regions
     command_syntax_config_t syntax_config;      // Highlighting configuration
+    lle_syntax_highlighter_t *spec_highlighter; // Spec-compliant highlighter (Spec 11)
     
     // Metrics and positioning
     command_metrics_t metrics;                  // Command metrics

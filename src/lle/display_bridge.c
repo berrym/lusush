@@ -24,6 +24,8 @@
 #include "display/layer_events.h"
 #include "../include/config.h"     /* For config.tab_width */
 #include <string.h>
+#include <stdlib.h>  /* For getenv() */
+#include <stdio.h>   /* For fprintf() */
 #include <time.h>
 #include <wchar.h>   /* For wcwidth() */
 #include <locale.h>  /* For UTF-8 locale support */

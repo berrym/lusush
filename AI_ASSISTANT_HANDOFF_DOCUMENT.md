@@ -1,9 +1,73 @@
-# AI Assistant Handoff Document - Session 45
+# AI Assistant Handoff Document - Session 46
 
-**Date**: 2025-12-03  
-**Session Type**: Linux TAB on Empty Line Bug Fix  
-**Status**: TAB ON EMPTY LINE BUG FIXED - LINUX/macOS PARITY ACHIEVED  
+**Date**: 2025-12-05  
+**Session Type**: Syntax Highlighting Architecture Refactor  
+**Status**: SPEC-COMPLIANT SYNTAX HIGHLIGHTING INTEGRATED - ARCHITECTURE CLEANED  
 **Branch**: `feature/lle`
+
+---
+
+## Session 46 Accomplishments (2025-12-05)
+
+### Major Architecture Fix: Syntax Highlighting System Integration
+
+**Issue Found:** Builtins `config`, `display`, `theme`, and `ehistory` were highlighting
+red (invalid command) instead of green (valid command) when typed.
+
+**Root Cause Discovery:** The codebase had **two competing syntax highlighting systems**:
+1. `src/lle/syntax_highlighting.c` - Spec-compliant implementation (Spec 11) but **NEVER CALLED**
+2. `src/display/command_layer.c` - Inline implementation with hardcoded builtin list
+
+The inline implementation in `command_layer.c` had a hardcoded list of builtins that
+was missing the newer lusush-specific builtins (`config`, `display`, `theme`, `ehistory`).
+
+**Solution:** Instead of just adding the missing builtins to another hardcoded list,
+we properly integrated the spec-compliant syntax highlighting system:
+
+### Changes Made
+
+1. **`include/display/command_layer.h`**:
+   - Added `#include "lle/syntax_highlighting.h"`
+   - Added `lle_syntax_highlighter_t *spec_highlighter` field to `command_layer_t`
+
+2. **`src/display/command_layer.c`**:
+   - Initialize spec highlighter in `command_layer_create()`
+   - Cleanup in `command_layer_destroy()`
+   - Added `map_spec_token_type()` to convert spec token types to command layer types
+   - Rewrote `perform_syntax_highlighting()` to use spec system as primary
+   - **Removed ~435 lines of duplicate fallback code**:
+     - `token_parser_t` struct
+     - `perform_syntax_highlighting_fallback()`
+     - `init_token_parser()`
+     - `get_next_token()`
+     - `classify_token()`
+     - `command_exists_in_path()`
+     - `is_shell_keyword()`
+     - `is_shell_builtin()`
+
+3. **Added unit test**: `tests/lle/unit/test_lle_syntax_highlighting.c`
+   - 17 tests covering builtins, external commands, invalid commands, keywords,
+     operators, variables, and ANSI rendering
+
+### Architectural Decision: No Fallback
+
+After analysis, we decided to **remove the fallback code entirely** rather than keep
+it as a safety net. Rationale:
+
+- The spec highlighter only fails on malloc failure (system is already in trouble)
+- Fallback code creates false sense of security (untested path)
+- Two implementations means two places for bugs
+- Clean code principle: simplest solution that works
+
+If spec highlighter fails, syntax highlighting is disabled gracefully (plain text).
+
+### Results
+
+- All 17 unit tests pass
+- `config`, `display`, `theme`, `ehistory` now correctly highlight green
+- Single source of truth for syntax highlighting (Spec 11 compliant)
+- ~435 lines of duplicate code removed
+- Cleaner, more maintainable architecture
 
 ---
 
@@ -430,7 +494,7 @@ ldd ./builddir/lusush  # Shows only libtinfo, libc - no libreadline
 | History Search | 09 | Working | Ctrl+R reverse incremental search |
 | Undo/Redo | - | Working | Ctrl+_ undo, Ctrl+^ redo |
 | Widget System | 07 | Working | 24 builtin widgets, lifecycle hooks |
-| Syntax Highlighting | 11 | Working | Themeable, integrated with command_layer |
+| Syntax Highlighting | 11 | Working | Spec-compliant system now primary, ~435 LOC removed |
 | Fuzzy Matching | 27 | Working | Shared libfuzzy |
 | Ctrl+C Signal | - | Working | Both LLE and GNU readline modes |
 | Ctrl+G Abort | - | Working | ZSH-style tiered dismissal |

@@ -452,6 +452,16 @@ if lle_sources.length() > 0
        suite: 'lle-unit',
        timeout: 30)
 
+  # Syntax highlighting unit tests (Spec 11)
+  test_lle_syntax_highlighting = executable('test_lle_syntax_highlighting',
+                                            'tests/lle/unit/test_lle_syntax_highlighting.c',
+                                            include_directories: inc,
+                                            dependencies: [lle_dep, readline_dep])
+
+  test('LLE Syntax Highlighting', test_lle_syntax_highlighting,
+       suite: 'lle-unit',
+       timeout: 30)
+
   # Render pipeline unit tests
   test_render_pipeline = executable('test_render_pipeline',
                                     'tests/lle/unit/test_render_pipeline.c',
