@@ -1478,11 +1478,15 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx)
 }
 
 /**
- * @brief Context-aware ESC action - Dismiss completion menu
+ * @brief Context-aware ESC action - Dismiss completion menu and autosuggestion
  * 
- * ESC dismisses the completion menu and restores the original text.
- * Unlike Ctrl-G, ESC does NOT abort the line if no menu is visible -
- * it's a no-op in that case.
+ * ESC dismisses completion menus and autosuggestions (tiered dismissal).
+ * Unlike Ctrl-G, ESC does NOT abort the line - it only clears visual overlays.
+ * 
+ * BEHAVIOR (tiered dismissal, like Ctrl-G but without abort):
+ * 1. If completion menu is visible: dismiss menu (first press)
+ * 2. If autosuggestion is visible: clear suggestion (second press)
+ * 3. If nothing to dismiss: no-op (does NOT abort line)
  * 
  * @param ctx Readline context with full access
  * @return LLE_SUCCESS
@@ -1493,7 +1497,7 @@ lle_result_t lle_escape_context(readline_context_t *ctx)
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
-    /* Check if completion menu is active */
+    /* Tier 1: Check if completion menu is active - dismiss it first */
     if (ctx->editor) {
         bool menu_visible = false;
         
@@ -1534,10 +1538,35 @@ lle_result_t lle_escape_context(readline_context_t *ctx)
             
             /* Refresh display to clear menu from screen */
             refresh_display(ctx);
+            
+            return LLE_SUCCESS;  /* Menu dismissed, stop here */
         }
     }
     
-    /* ESC is a no-op if no completion menu is visible */
+    /* Tier 2: Check if autosuggestion is visible - clear it */
+    if (has_autosuggestion(ctx)) {
+        /* Clear the local autosuggestion buffer */
+        if (ctx->current_suggestion) {
+            ctx->current_suggestion[0] = '\0';
+        }
+        
+        /* Suppress autosuggestion regeneration during this refresh
+         * Otherwise refresh_display() will immediately regenerate it */
+        ctx->suppress_autosuggestion = true;
+        
+        /* Clear from display controller */
+        display_controller_t *dc = display_integration_get_controller();
+        if (dc) {
+            display_controller_set_autosuggestion(dc, NULL);
+        }
+        
+        /* Refresh display to redraw without ghost text */
+        refresh_display(ctx);
+        
+        return LLE_SUCCESS;  /* Suggestion cleared, stop here */
+    }
+    
+    /* Tier 3: Nothing to dismiss - ESC is a no-op (unlike Ctrl-G which aborts) */
     return LLE_SUCCESS;
 }
 

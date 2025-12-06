@@ -1,9 +1,40 @@
-# AI Assistant Handoff Document - Session 46
+# AI Assistant Handoff Document - Session 47
 
 **Date**: 2025-12-05  
-**Session Type**: Syntax Highlighting Architecture Refactor  
-**Status**: SPEC-COMPLIANT SYNTAX HIGHLIGHTING INTEGRATED - ARCHITECTURE CLEANED  
+**Session Type**: ESC Key Behavior Enhancement  
+**Status**: ESC NOW CLEARS AUTOSUGGESTIONS - TIERED DISMISSAL COMPLETE  
 **Branch**: `feature/lle`
+
+---
+
+## Session 47 Accomplishments (2025-12-05)
+
+### ESC Key Behavior Enhancement
+
+**User Request:** ESC should clear completion menus AND autosuggestions (like Ctrl-G),
+but ESC should NOT abort the line (unlike Ctrl-G).
+
+**Implementation:** Enhanced `lle_escape_context()` in `src/lle/lle_readline.c` to use
+tiered dismissal matching Ctrl-G's behavior but without the abort step:
+
+**ESC Behavior (tiered dismissal):**
+1. First press: Dismiss completion menu (if visible)
+2. Second press: Clear autosuggestion (if visible)
+3. No abort: ESC is a no-op if nothing to dismiss (unlike Ctrl-G which aborts)
+
+**Ctrl-G Behavior (for comparison):**
+1. First press: Dismiss completion menu (if visible)
+2. Second press: Clear autosuggestion (if visible)
+3. Third press: Abort line and return to fresh prompt
+
+**Changes Made:**
+- `src/lle/lle_readline.c`: Modified `lle_escape_context()` to add autosuggestion
+  clearing logic (Tier 2) between menu dismissal (Tier 1) and no-op (Tier 3)
+- Added `suppress_autosuggestion = true` to prevent immediate regeneration
+- Added display controller autosuggestion clearing
+
+**Result:** ESC is now a non-destructive escape key that clears visual overlays
+(completion menus and fish-style autosuggestions) without discarding user input.
 
 ---
 
