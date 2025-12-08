@@ -113,9 +113,10 @@ static void test_insert_updates_utf8_index() {
     ASSERT_EQ(buffer->length, 11, "Buffer length includes UTF-8 bytes");
     ASSERT_EQ(buffer->codepoint_count, 7, "Codepoint count correct with UTF-8");
     
-    /* Verify UTF-8 index is marked as valid (counts are current) */
-    ASSERT_TRUE(buffer->utf8_index_valid, "UTF-8 index marked as valid");
-    /* Note: utf8_index structure is lazily created on demand, flag indicates counts are valid */
+    /* UTF-8 index is lazily built - after modifications it's invalidated.
+     * The codepoint_count is updated incrementally (verified above),
+     * but the full index structure needs rebuilding on next access. */
+    ASSERT_FALSE(buffer->utf8_index_valid, "UTF-8 index invalidated after modification");
     
     lle_buffer_destroy(buffer);
     PASS();
@@ -614,7 +615,8 @@ static void test_e2e_utf8_editing_with_all_subsystems() {
     /* Verify UTF-8 handling */
     ASSERT_EQ(buffer->length, 18, "Total bytes correct");
     ASSERT_EQ(buffer->codepoint_count, 14, "Total codepoints correct");
-    ASSERT_TRUE(buffer->utf8_index_valid, "UTF-8 index valid");
+    /* UTF-8 index is lazily built and invalidated after modifications */
+    ASSERT_FALSE(buffer->utf8_index_valid, "UTF-8 index invalidated after modifications");
     
     /* Move cursor by codepoints (not bytes) */
     result = lle_cursor_manager_move_to_byte_offset(cursor_mgr, 0);

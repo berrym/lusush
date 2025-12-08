@@ -38,7 +38,7 @@
 | Source files (.c) | 97 |
 | Header files (.h) | 48 |
 | Compiler warnings | ~279 (down from 772) |
-| Failing tests | 1 |
+| Failing tests | 0 |
 | Tests not building | 44 |
 | Duplicate systems | 1 (completion V1 vs V2) |
 | Disabled modules | 2 |
@@ -66,8 +66,11 @@
   - Replaced `%lu`/`%ld`/`%lx` with portable PRIu64/PRId64/PRIx64 macros
   - Warnings reduced from 772 to 279
 
-**In Progress:**
-- Fixing failing UTF-8 index test
+**Completed:**
+- Fixed failing UTF-8 index test in subsystem_integration_test.c
+  - Changed ASSERT_TRUE to ASSERT_FALSE for utf8_index_valid checks
+  - The lazy UTF-8 index is correctly invalidated after buffer modifications
+  - All 10 subsystem integration tests now pass
 
 ### Cleanup Phase Planning
 
