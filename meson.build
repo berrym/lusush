@@ -1,6 +1,6 @@
 project('lusush',
         'c',
-        default_options: ['c_std=c99',
+        default_options: ['c_std=c11',
                           'optimization=3',
                           'warning_level=2'
                          ],
