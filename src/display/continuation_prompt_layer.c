@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 // ============================================================================
 // INTERNAL STRUCTURES
@@ -71,7 +72,7 @@ static void calculate_command_hash(const char *command, char *hash_out, size_t h
         command++;
     }
     
-    snprintf(hash_out, hash_size, "%016lx", hash);
+    snprintf(hash_out, hash_size, "%016" PRIx64, hash);
 }
 
 /**

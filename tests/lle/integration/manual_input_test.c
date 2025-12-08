@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <termios.h>
@@ -173,7 +174,7 @@ static void print_stats(test_context_t *ctx) {
     double input_lag = (now.tv_sec - ctx->last_input_time.tv_sec) +
                        (now.tv_usec - ctx->last_input_time.tv_usec) / 1e6;
     
-    printf("\r[Stats: %.1fs | %lu bytes | %lu sequences | %lu UTF-8 chars | Lag: %.0fms]",
+    printf("\r[Stats: %.1fs | %" PRIu64 " bytes | %" PRIu64 " sequences | %" PRIu64 " UTF-8 chars | Lag: %.0fms]",
            elapsed, ctx->byte_count, ctx->sequence_count, ctx->utf8_char_count,
            input_lag * 1000);
     fflush(stdout);
@@ -303,9 +304,9 @@ int main(void) {
     printf("========================================================================\n");
     printf("                        Test Completed\n");
     printf("========================================================================\n");
-    printf("Total Bytes:       %lu\n", ctx->byte_count);
-    printf("Sequences:         %lu\n", ctx->sequence_count);
-    printf("UTF-8 Characters:  %lu\n", ctx->utf8_char_count);
+    printf("Total Bytes:       %" PRIu64 "\n", ctx->byte_count);
+    printf("Sequences:         %" PRIu64 "\n", ctx->sequence_count);
+    printf("UTF-8 Characters:  %" PRIu64 "\n", ctx->utf8_char_count);
     printf("\n");
     printf("Manual Verification Questions:\n");
     printf("  - Did all typed characters appear?\n");

@@ -50,6 +50,7 @@ bool is_posix_mode_enabled(void);
 
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -4314,8 +4315,8 @@ int bin_display(int argc, char **argv) {
             phase_2b_performance_metrics_t metrics;
             if (display_integration_get_phase_2b_metrics(&metrics)) {
                 printf("  Monitoring initialized: YES\n");
-                printf("  Cache operations recorded: %lu\n", metrics.cache_operations_total);
-                printf("  Display operations recorded: %lu\n", metrics.display_operations_measured);
+                printf("  Cache operations recorded: %" PRIu64 "\n", metrics.cache_operations_total);
+                printf("  Display operations recorded: %" PRIu64 "\n", metrics.display_operations_measured);
                 printf("  Monitoring active: %s\n", metrics.monitoring_active ? "YES" : "NO");
                 printf("  Last measurement time: %ld\n", metrics.last_measurement_time);
             } else {
@@ -4325,9 +4326,9 @@ int bin_display(int argc, char **argv) {
             // Check integration stats
             display_integration_stats_t stats;
             if (display_integration_get_stats(&stats)) {
-                printf("  Total display calls: %lu\n", stats.total_display_calls);
-                printf("  Layered display calls: %lu\n", stats.layered_display_calls);
-                printf("  Fallback calls: %lu\n", stats.fallback_calls);
+                printf("  Total display calls: %" PRIu64 "\n", stats.total_display_calls);
+                printf("  Layered display calls: %" PRIu64 "\n", stats.layered_display_calls);
+                printf("  Fallback calls: %" PRIu64 "\n", stats.fallback_calls);
                 printf("  Integration active: %s\n", display_integration_is_layered_active() ? "YES" : "NO");
             }
             

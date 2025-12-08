@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdbool.h>
 
 /* ============================================================================
@@ -600,11 +601,11 @@ void lle_history_interactive_search_print_stats(void) {
            session->state == LLE_SEARCH_STATE_NO_RESULTS ? "no results" :
            "failed");
     printf("  Query: \"%s\" (len=%zu)\n", session->query, session->query_len);
-    printf("  Total Searches: %lu\n", session->searches_performed);
-    printf("  Total Time: %lu μs\n", session->total_search_time_us);
+    printf("  Total Searches: %" PRIu64 "\n", session->searches_performed);
+    printf("  Total Time: %" PRIu64 " μs\n", session->total_search_time_us);
     
     if (session->searches_performed > 0) {
-        printf("  Avg Time: %lu μs\n", 
+        printf("  Avg Time: %" PRIu64 " μs\n", 
                session->total_search_time_us / session->searches_performed);
     }
     

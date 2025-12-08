@@ -60,6 +60,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <sys/time.h>
+#include <inttypes.h>
 
 #if HAVE_READLINE
 #include <readline/readline.h>
@@ -1148,9 +1149,9 @@ void display_integration_print_diagnostics(void) {
 
     display_integration_stats_t stats;
     if (display_integration_get_stats(&stats)) {
-        printf("Total display calls: %lu\n", stats.total_display_calls);
-        printf("Layered display calls: %lu\n", stats.layered_display_calls);
-        printf("Fallback calls: %lu\n", stats.fallback_calls);
+        printf("Total display calls: %" PRIu64 "\n", stats.total_display_calls);
+        printf("Layered display calls: %" PRIu64 "\n", stats.layered_display_calls);
+        printf("Fallback calls: %" PRIu64 "\n", stats.fallback_calls);
         
         if (stats.total_display_calls > 0) {
             double layered_rate = (double)stats.layered_display_calls / stats.total_display_calls * 100.0;
@@ -1697,7 +1698,7 @@ bool display_integration_establish_baseline(void) {
     if (enhanced_perf_metrics.display_operations_measured < 10 || 
         enhanced_perf_metrics.cache_operations_total < 20) {
         if (current_config.debug_mode) {
-            printf("Performance Baseline: Insufficient data (display ops: %lu, cache ops: %lu)\n",
+            printf("Performance Baseline: Insufficient data (display ops: %" PRIu64 ", cache ops: %" PRIu64 ")\n",
                    enhanced_perf_metrics.display_operations_measured, enhanced_perf_metrics.cache_operations_total);
         }
         return false;
@@ -1769,7 +1770,7 @@ void display_integration_print_layer_cache_report(void) {
     if (dc_total > 0) {
         double dc_hit_rate = (100.0 * layer_cache_stats.display_controller_hits) / dc_total;
         printf("Display Controller Cache:\n");
-        printf("  Operations: %lu total (%lu hits, %lu misses)\n", 
+        printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n", 
                dc_total, layer_cache_stats.display_controller_hits, layer_cache_stats.display_controller_misses);
         printf("  Hit Rate: %.1f%% %s\n", dc_hit_rate, 
                dc_hit_rate >= 75.0 ? "✓" : "✗");
@@ -1782,7 +1783,7 @@ void display_integration_print_layer_cache_report(void) {
     if (ce_total > 0) {
         double ce_hit_rate = (100.0 * layer_cache_stats.composition_engine_hits) / ce_total;
         printf("Composition Engine Cache:\n");
-        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+        printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n",
                ce_total, layer_cache_stats.composition_engine_hits, layer_cache_stats.composition_engine_misses);
         printf("  Hit Rate: %.1f%% %s\n", ce_hit_rate,
                ce_hit_rate >= 75.0 ? "✓" : "✗");
@@ -1795,7 +1796,7 @@ void display_integration_print_layer_cache_report(void) {
     if (cl_total > 0) {
         double cl_hit_rate = (100.0 * layer_cache_stats.command_layer_hits) / cl_total;
         printf("Command Layer Cache:\n");
-        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+        printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n",
                cl_total, layer_cache_stats.command_layer_hits, layer_cache_stats.command_layer_misses);
         printf("  Hit Rate: %.1f%% %s\n", cl_hit_rate,
                cl_hit_rate >= 80.0 ? "✓" : "✗");  // Command layer has 80% target
@@ -1808,7 +1809,7 @@ void display_integration_print_layer_cache_report(void) {
     if (as_total > 0) {
         double as_hit_rate = (100.0 * layer_cache_stats.autosuggestions_hits) / as_total;
         printf("Autosuggestions Cache:\n");
-        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+        printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n",
                as_total, layer_cache_stats.autosuggestions_hits, layer_cache_stats.autosuggestions_misses);
         printf("  Hit Rate: %.1f%% %s\n", as_hit_rate,
                as_hit_rate >= 70.0 ? "✓" : "✗");  // Autosuggestions has 70% target
@@ -1821,7 +1822,7 @@ void display_integration_print_layer_cache_report(void) {
     if (pl_total > 0) {
         double pl_hit_rate = (100.0 * layer_cache_stats.prompt_layer_hits) / pl_total;
         printf("Prompt Layer Cache:\n");
-        printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+        printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n",
                pl_total, layer_cache_stats.prompt_layer_hits, layer_cache_stats.prompt_layer_misses);
         printf("  Hit Rate: %.1f%% %s\n", pl_hit_rate,
                pl_hit_rate >= 75.0 ? "✓" : "✗");
@@ -1852,7 +1853,7 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
     
     // Cache Performance Analysis
     printf("Cache Performance:\n");
-    printf("  Operations: %lu total (%lu hits, %lu misses)\n",
+    printf("  Operations: %" PRIu64 " total (%" PRIu64 " hits, %" PRIu64 " misses)\n",
            enhanced_perf_metrics.cache_operations_total,
            enhanced_perf_metrics.cache_hits_global,
            enhanced_perf_metrics.cache_misses_global);
@@ -1863,7 +1864,7 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
     
     // Display Timing Analysis
     printf("Display Timing:\n");
-    printf("  Operations: %lu measured\n", enhanced_perf_metrics.display_operations_measured);
+    printf("  Operations: %" PRIu64 " measured\n", enhanced_perf_metrics.display_operations_measured);
     printf("  Average: %.2fms (Target: <%.1fms) %s\n",
            enhanced_perf_metrics.display_time_avg_ms,
            enhanced_perf_metrics.display_time_target_ms,
@@ -1894,14 +1895,14 @@ bool display_integration_generate_phase_2b_report(bool detailed) {
     if (global_memory_pool && global_memory_pool->initialized) {
         lusush_pool_stats_t pool_stats = lusush_pool_get_stats();
         printf("Memory Pool Performance:\n");
-        printf("  Pool allocations: %lu (%.1f%% hit rate)\n", 
+        printf("  Pool allocations: %" PRIu64 " (%.1f%% hit rate)\n", 
                pool_stats.pool_hits, pool_stats.pool_hit_rate);
-        printf("  Malloc fallbacks: %lu\n", pool_stats.malloc_fallbacks);
+        printf("  Malloc fallbacks: %" PRIu64 "\n", pool_stats.malloc_fallbacks);
         printf("  Active allocations: %u\n", pool_stats.active_allocations);
-        printf("  Pool memory usage: %lu bytes (peak: %lu bytes)\n",
+        printf("  Pool memory usage: %" PRIu64 " bytes (peak: %" PRIu64 " bytes)\n",
                pool_stats.current_pool_usage, pool_stats.peak_pool_usage);
         if (pool_stats.avg_allocation_time_ns > 0) {
-            printf("  Avg allocation time: %lu ns\n", pool_stats.avg_allocation_time_ns);
+            printf("  Avg allocation time: %" PRIu64 " ns\n", pool_stats.avg_allocation_time_ns);
         }
         
         // Memory pool efficiency assessment

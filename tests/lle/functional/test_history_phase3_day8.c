@@ -17,6 +17,7 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include <inttypes.h>
 #include "lle/history.h"
 #include "lle/error_handling.h"
 
@@ -590,7 +591,7 @@ void test_search_performance_large_history(void) {
     ASSERT_NOT_NULL(results, "Search should succeed");
     
     uint64_t time_us = lle_history_search_results_get_time_us(results);
-    printf("  Search time: %lu μs\n", time_us);
+    printf("  Search time: %" PRIu64 " μs\n", time_us);
     
     /* Should complete in reasonable time (< 50ms for 1000 entries) */
     ASSERT_TRUE(time_us < 50000, "Search should complete in < 50ms");

@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <inttypes.h>
 
 /* ========================================================================== */
 /*                      LRU CACHE POLICY CONSTANTS                            */
@@ -63,7 +64,7 @@ static char* serialize_cache_entry(const lle_cached_entry_t *entry) {
     
     /* Write metadata header */
     int header_len = snprintf(serialized, header_size,
-                             "%zu:%lu:%lu:%u:%d|",
+                             "%zu:%" PRIu64 ":%" PRIu64 ":%u:%d|",
                              entry->data_size,
                              entry->timestamp,
                              entry->last_access,
@@ -95,12 +96,12 @@ static lle_result_t deserialize_cache_entry(const char *serialized,
     }
     
     /* Parse metadata header */
-    unsigned long timestamp, last_access;
+    uint64_t timestamp, last_access;
     unsigned int access_count;
     int valid;
     size_t data_size;
     
-    int fields = sscanf(serialized, "%zu:%lu:%lu:%u:%d|",
+    int fields = sscanf(serialized, "%zu:%" SCNu64 ":%" SCNu64 ":%u:%d|",
                        &data_size, &timestamp, &last_access,
                        &access_count, &valid);
     
@@ -438,7 +439,7 @@ lle_result_t lle_display_cache_store(lle_display_cache_t *cache,
     
     /* Step 2: Convert key to string */
     char key_str[32];
-    snprintf(key_str, sizeof(key_str), "%lu", key);
+    snprintf(key_str, sizeof(key_str), "%" PRIu64, key);
     
     /* Step 3: Create cache entry */
     lle_cached_entry_t entry;
@@ -497,7 +498,7 @@ lle_result_t lle_display_cache_lookup(lle_display_cache_t *cache,
     
     /* Step 2: Convert key to string */
     char key_str[32];
-    snprintf(key_str, sizeof(key_str), "%lu", key);
+    snprintf(key_str, sizeof(key_str), "%" PRIu64, key);
     
     /* Step 3: Acquire read lock */
     pthread_rwlock_rdlock(&cache->cache_lock);
@@ -554,7 +555,7 @@ lle_result_t lle_display_cache_invalidate(lle_display_cache_t *cache,
     
     /* Convert key to string */
     char key_str[32];
-    snprintf(key_str, sizeof(key_str), "%lu", key);
+    snprintf(key_str, sizeof(key_str), "%" PRIu64, key);
     
     /* Acquire write lock */
     pthread_rwlock_wrlock(&cache->cache_lock);

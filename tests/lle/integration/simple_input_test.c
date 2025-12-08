@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <termios.h>
@@ -71,7 +72,7 @@ int main(void) {
             }
             
             /* Show what we got */
-            printf("\nRead %zd bytes (total: %lu): ", n, total);
+            printf("\nRead %zd bytes (total: %" PRIu64 "): ", n, total);
             for (ssize_t i = 0; i < n; i++) {
                 printf("%02X ", buf[i]);
             }
@@ -85,7 +86,7 @@ int main(void) {
         }
     }
     
-    printf("\n\nTest complete. Total bytes: %lu\n", total);
+    printf("\n\nTest complete. Total bytes: %" PRIu64 "\n", total);
     
     restore_terminal();
     return 0;

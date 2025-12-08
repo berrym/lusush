@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <pthread.h>
 #include <assert.h>
@@ -674,19 +675,19 @@ void lusush_pool_print_status_report(void) {
     
     lusush_pool_stats_t *stats = &global_memory_pool->stats;
     printf("Overall Statistics:\n");
-    printf("  Total allocations: %lu\n", stats->total_allocations);
-    printf("  Pool hits: %lu (%.2f%%)\n", stats->pool_hits, stats->pool_hit_rate);
-    printf("  Malloc fallbacks: %lu\n", stats->malloc_fallbacks);
+    printf("  Total allocations: %" PRIu64 "\n", stats->total_allocations);
+    printf("  Pool hits: %" PRIu64 " (%.2f%%)\n", stats->pool_hits, stats->pool_hit_rate);
+    printf("  Malloc fallbacks: %" PRIu64 "\n", stats->malloc_fallbacks);
     printf("  Active allocations: %u\n", stats->active_allocations);
-    printf("  Pool memory usage: %lu bytes (peak: %lu bytes)\n", 
+    printf("  Pool memory usage: %" PRIu64 " bytes (peak: %" PRIu64 " bytes)\n", 
            stats->current_pool_usage, stats->peak_pool_usage);
-    printf("  Average allocation time: %lu ns\n", stats->avg_allocation_time_ns);
+    printf("  Average allocation time: %" PRIu64 " ns\n", stats->avg_allocation_time_ns);
 
     printf("\nIndividual Pool Status:\n");
     const char* pool_names[] = {"Small", "Medium", "Large", "XLarge"};
     for (int i = 0; i < LUSUSH_POOL_COUNT; i++) {
         lusush_pool_t *pool = &global_memory_pool->pools[i];
-        printf("  %s Pool (%zu bytes): %zu/%zu blocks free, %lu allocs, %lu deallocs\n",
+        printf("  %s Pool (%zu bytes): %zu/%zu blocks free, %" PRIu64 " allocs, %" PRIu64 " deallocs\n",
                pool_names[i], pool->block_size, pool->free_blocks, pool->current_blocks,
                pool->pool_allocations, pool->pool_deallocations);
     }

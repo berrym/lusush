@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 
 /* ============================================================================
  * CONSTANTS AND MACROS
@@ -323,7 +324,7 @@ static lle_result_t expand_single_reference(const char *expansion_str, lle_expan
         
         if (res != LLE_SUCCESS || !entry) {
             char err[128];
-            snprintf(err, sizeof(err), "!%s%ld: event not found", 
+            snprintf(err, sizeof(err), "!%s%" PRId64 ": event not found", 
                     is_relative ? "-" : "", number);
             /* Error - details in return code */
             return LLE_ERROR_NOT_FOUND;

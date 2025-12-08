@@ -33,6 +33,7 @@
 #include <stdio.h>    /* for printf */
 #include <ctype.h>
 #include <time.h>
+#include <inttypes.h>
 #include <strings.h>  /* for strncasecmp - must be after other includes */
 
 /* ============================================================================
@@ -754,7 +755,7 @@ void lle_history_search_results_print(
            results->search_type == LLE_SEARCH_TYPE_SUBSTRING ? "substring" :
            "fuzzy");
     printf("  Count: %zu / %zu\n", results->count, results->capacity);
-    printf("  Time: %lu μs\n", results->search_time_us);
+    printf("  Time: %" PRIu64 " μs\n", results->search_time_us);
     printf("  Results:\n");
     
     for (size_t i = 0; i < results->count; i++) {

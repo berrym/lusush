@@ -58,6 +58,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -1744,7 +1745,7 @@ display_controller_error_t display_controller_display(
         controller->last_cache_cleanup = current_time;
     }
     
-    DC_DEBUG("Display operation completed (time: %lu ns)", operation_time);
+    DC_DEBUG("Display operation completed (time: %" PRIu64 " ns)", operation_time);
     return DISPLAY_CONTROLLER_SUCCESS;
 }
 
@@ -2848,8 +2849,8 @@ display_controller_error_t display_controller_generate_diagnostic_report(
         "Integration Mode: %s\n"
         "Optimization Level: %d\n"
         "\nPerformance Metrics:\n"
-        "  Total Operations: %lu\n"
-        "  Average Time: %lu ns\n"
+        "  Total Operations: %" PRIu64 "\n"
+        "  Average Time: %" PRIu64 " ns\n"
         "  Cache Hit Rate: %.2f%%\n"
         "  Cache Entries: %zu/%zu\n"
         "\nConfiguration:\n"

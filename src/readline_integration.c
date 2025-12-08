@@ -37,6 +37,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -2099,11 +2100,11 @@ static void lusush_report_performance(void) {
                            (perf_stats.cache_hits + perf_stats.cache_misses) * 100.0;
     
     printf("Syntax Highlighting Performance Report:\n");
-    printf("  Total updates: %lu\n", perf_stats.total_updates);
-    printf("  Cache hits: %lu (%.1f%%)\n", perf_stats.cache_hits, cache_hit_rate);
-    printf("  Cache misses: %lu\n", perf_stats.cache_misses);
-    printf("  Full updates: %lu\n", perf_stats.full_updates);
-    printf("  Incremental updates: %lu\n", perf_stats.incremental_updates);
+    printf("  Total updates: %" PRIu64 "\n", perf_stats.total_updates);
+    printf("  Cache hits: %" PRIu64 " (%.1f%%)\n", perf_stats.cache_hits, cache_hit_rate);
+    printf("  Cache misses: %" PRIu64 "\n", perf_stats.cache_misses);
+    printf("  Full updates: %" PRIu64 "\n", perf_stats.full_updates);
+    printf("  Incremental updates: %" PRIu64 "\n", perf_stats.incremental_updates);
     printf("  Average update time: %.3f ms\n", perf_stats.avg_update_time);
     printf("  Peak update time: %.3f ms\n", perf_stats.peak_update_time);
 }

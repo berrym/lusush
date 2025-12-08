@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 
 /* ========================================================================== */
 /*                         TEST FRAMEWORK                                     */
@@ -164,7 +165,7 @@ TEST(cache_store_multiple_entries) {
     /* Store multiple entries */
     for (uint64_t i = 0; i < 5; i++) {
         char data[32];
-        snprintf(data, sizeof(data), "data_%lu", i);
+        snprintf(data, sizeof(data), "data_%" PRIu64, i);
         
         lle_result_t result = lle_display_cache_store(cache, i, data, strlen(data));
         ASSERT_EQ(result, LLE_SUCCESS, "Each store should succeed");
@@ -238,7 +239,7 @@ TEST(cache_store_and_lookup_cycle) {
     /* Store then lookup multiple entries */
     for (uint64_t i = 0; i < 3; i++) {
         char store_data[32];
-        snprintf(store_data, sizeof(store_data), "entry_%lu", i);
+        snprintf(store_data, sizeof(store_data), "entry_%" PRIu64, i);
         
         /* Store */
         lle_display_cache_store(cache, i, store_data, strlen(store_data));
@@ -299,7 +300,7 @@ TEST(cache_invalidate_all_success) {
     /* Store multiple entries */
     for (uint64_t i = 0; i < 5; i++) {
         char data[16];
-        snprintf(data, sizeof(data), "entry%lu", i);
+        snprintf(data, sizeof(data), "entry%" PRIu64, i);
         lle_display_cache_store(cache, i, data, strlen(data));
     }
     
