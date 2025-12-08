@@ -13,35 +13,9 @@
 #include <string.h>
 #include <stdbool.h>
 
-/* Mock memory pool instance */
+/* Mock memory pool instance - uses liblle.a implementations via linking */
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t*)&mock_pool_dummy;
-
-/* Stubs for Lusush core functions (not tested in unit tests) */
-theme_definition_t *theme_load(const char *name) {
-    (void)name;
-    return NULL;
-}
-
-lusush_memory_pool_system_t *global_memory_pool = NULL;
-
-void *lusush_pool_alloc(size_t size) {
-    return malloc(size);
-}
-
-void lusush_pool_free(void *ptr) {
-    free(ptr);
-}
-
-lusush_pool_config_t lusush_pool_get_default_config(void) {
-    lusush_pool_config_t config = {0};
-    return config;
-}
-
-lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
-    (void)config;
-    return 0;  /* SUCCESS */
-}
 
 /* ========================================================================== */
 /*                         TEST FRAMEWORK MACROS                              */

@@ -83,14 +83,7 @@ static int tests_failed = 0;
 /*                            MOCK OBJECTS                                    */
 /* ========================================================================== */
 
-/**
- * Mock implementation of display_controller_get_event_system
- * Returns NULL since we don't need a real event system for unit tests
- */
-layer_event_system_t* display_controller_get_event_system(const display_controller_t *controller) {
-    (void)controller; /* Unused */
-    return NULL; /* Bridge can handle NULL event system */
-}
+/* Note: display_controller_get_event_system is provided by libdisplay.a */
 
 /**
  * Mock display controller for testing

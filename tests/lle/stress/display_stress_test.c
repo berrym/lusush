@@ -27,36 +27,10 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-/* Mock memory pools */
+/* Mock memory pools - uses liblle.a implementations via linking */
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t*)&mock_pool_dummy;
 static lusush_memory_pool_t *mock_lusush_pool = (lusush_memory_pool_t*)&mock_pool_dummy;
-
-/* Lusush function stubs */
-lusush_memory_pool_system_t *global_memory_pool = NULL;
-
-void *lusush_pool_alloc(size_t size) {
-    return malloc(size);
-}
-
-void lusush_pool_free(void *ptr) {
-    free(ptr);
-}
-
-theme_definition_t *theme_load(const char *name) {
-    (void)name;
-    return NULL;
-}
-
-lusush_pool_config_t lusush_pool_get_default_config(void) {
-    lusush_pool_config_t config = {0};
-    return config;
-}
-
-lusush_pool_error_t lusush_pool_init(const lusush_pool_config_t *config) {
-    (void)config;
-    return 0;
-}
 
 /* Helper functions */
 static uint64_t get_nanos(void) {
