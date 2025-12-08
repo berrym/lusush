@@ -91,17 +91,18 @@ static theme_definition_t create_mock_theme(void) {
     strcpy(theme.description, "Test theme for unit tests");
     theme.category = THEME_CATEGORY_DEVELOPER;
     
-    /* Set up color scheme with recognizable ANSI codes */
-    strcpy(theme.colors.primary, "\033[38;2;255;100;50m");       /* RGB: FF6432 */
-    strcpy(theme.colors.secondary, "\033[38;2;100;150;200m");    /* RGB: 6496C8 */
-    strcpy(theme.colors.success, "\033[38;2;0;255;0m");          /* RGB: 00FF00 */
-    strcpy(theme.colors.warning, "\033[38;2;255;255;0m");        /* RGB: FFFF00 */
-    strcpy(theme.colors.error, "\033[38;2;255;0;0m");            /* RGB: FF0000 */
-    strcpy(theme.colors.info, "\033[38;2;0;100;255m");           /* RGB: 0064FF */
-    strcpy(theme.colors.text, "\033[38;2;200;200;200m");         /* RGB: C8C8C8 */
-    strcpy(theme.colors.text_dim, "\033[38;2;128;128;128m");     /* RGB: 808080 */
-    strcpy(theme.colors.background, "\033[38;2;30;30;30m");      /* RGB: 1E1E1E */
-    strcpy(theme.colors.highlight, "\033[38;2;255;255;100m");    /* RGB: FFFF64 */
+    /* Set up color scheme with ANSI codes that fit in COLOR_CODE_MAX (16 bytes) */
+    /* Using 256-color codes: \033[38;5;XXXm (max 14 chars + NUL = 15 bytes) */
+    strcpy(theme.colors.primary, "\033[38;5;202m");     /* Orange */
+    strcpy(theme.colors.secondary, "\033[38;5;110m");   /* Light blue */
+    strcpy(theme.colors.success, "\033[38;5;46m");      /* Green */
+    strcpy(theme.colors.warning, "\033[38;5;226m");     /* Yellow */
+    strcpy(theme.colors.error, "\033[38;5;196m");       /* Red */
+    strcpy(theme.colors.info, "\033[38;5;33m");         /* Blue */
+    strcpy(theme.colors.text, "\033[38;5;252m");        /* Light gray */
+    strcpy(theme.colors.text_dim, "\033[38;5;244m");    /* Gray */
+    strcpy(theme.colors.background, "\033[38;5;235m");  /* Dark gray */
+    strcpy(theme.colors.highlight, "\033[38;5;228m");   /* Light yellow */
     
     return theme;
 }
