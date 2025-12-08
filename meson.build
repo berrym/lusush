@@ -476,18 +476,15 @@ if lle_sources.length() > 0
   # Render Controller Unit Tests (Spec 08)
   # Unit tests for render controller initialization, cleanup, and sub-component setup
   # Tests sub-components: buffer renderer, cursor renderer, frame scheduler, cache, etc.
-  # NOTE: DISABLED - duplicate symbol conflict between display_integration.c and render_controller.c
-  #       Both files define lle_render_controller_init, lle_render_buffer_content, etc.
-  #       This will be fixed in Cleanup Phase 2 (Code Deduplication)
-  # test_render_controller = executable('test_render_controller',
-  #                                     ['tests/lle/unit/test_render_controller.c',
-  #                                      'tests/lle/functional/display_test_stubs.c'],
-  #                                     include_directories: inc,
-  #                                     dependencies: [lle_dep, display_dep, readline_dep])
-  #
-  # test('LLE Render Controller', test_render_controller,
-  #      suite: 'lle-unit',
-  #      timeout: 30)
+  test_render_controller = executable('test_render_controller',
+                                      ['tests/lle/unit/test_render_controller.c',
+                                       'tests/lle/functional/display_test_stubs.c'],
+                                      include_directories: inc,
+                                      dependencies: [lle_dep, display_dep, readline_dep])
+
+  test('LLE Render Controller', test_render_controller,
+       suite: 'lle-unit',
+       timeout: 30)
 
   # Terminal adapter unit tests
   # NOTE: Disabled due to terminal_adapter.c bugs - terminal type enum and capability structure mismatches
