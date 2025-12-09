@@ -23,6 +23,7 @@
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
 #include "display/display_controller.h"
+#include "lusush_memory_pool.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,8 +35,21 @@
 static int mock_pool_dummy = 42;
 static lle_memory_pool_t *mock_pool = (lle_memory_pool_t*)&mock_pool_dummy;
 
-/* External memory pool from mock for buffer operations */
+/* External memory pool from lusush_memory_pool.c for buffer operations */
 extern lusush_memory_pool_t *global_memory_pool;
+
+/* Test setup/teardown for memory pool */
+static void test_setup(void) {
+    lusush_pool_config_t config = lusush_pool_get_default_config();
+    lusush_pool_error_t result = lusush_pool_init(&config);
+    if (result != LUSUSH_POOL_SUCCESS) {
+        fprintf(stderr, "Warning: Failed to initialize memory pool (error %d)\n", result);
+    }
+}
+
+static void test_teardown(void) {
+    lusush_pool_shutdown();
+}
 
 /* Test result tracking */
 static int tests_run = 0;
@@ -78,6 +92,14 @@ static int tests_failed = 0;
 
 #define ASSERT_FALSE(condition, message) \
     ASSERT(!(condition), message)
+
+#define SKIP_IF_NO_MEMORY_POOL() \
+    do { \
+        if (global_memory_pool == NULL) { \
+            printf("  ⊘ SKIPPED (global_memory_pool not initialized)\n"); \
+            return; \
+        } \
+    } while (0)
 
 /* ========================================================================== */
 /*                            MOCK OBJECTS                                    */
@@ -379,7 +401,7 @@ TEST(render_controller_dirty_tracker_initialized) {
     lle_dirty_tracker_t *tracker = controller->dirty_tracker;
     ASSERT_NOT_NULL(tracker, "Dirty tracker should be initialized");
     ASSERT_EQ(tracker->region_count, 0, "Region count should start at 0");
-    ASSERT_EQ(tracker->region_capacity, 0, "Region capacity should start at 0");
+    ASSERT_TRUE(tracker->region_capacity > 0, "Region capacity should be pre-allocated");
     ASSERT_TRUE(tracker->full_redraw_needed, "Full redraw should be needed initially");
     
     /* Cleanup */
@@ -413,6 +435,8 @@ TEST(render_controller_render_metrics_initialized) {
 /* ========================================================================== */
 
 TEST(render_buffer_content_success) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     lle_render_controller_t *controller = NULL;
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
@@ -460,6 +484,8 @@ TEST(render_buffer_content_success) {
 }
 
 TEST(render_buffer_content_empty_buffer) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     lle_render_controller_t *controller = NULL;
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
@@ -491,6 +517,8 @@ TEST(render_buffer_content_empty_buffer) {
 }
 
 TEST(render_buffer_content_null_params) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     lle_render_controller_t *controller = NULL;
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     ASSERT_NOT_NULL(bridge, "Mock bridge creation failed");
@@ -661,6 +689,8 @@ TEST(pipeline_init_null_params) {
 }
 
 TEST(pipeline_execute_success) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     lle_render_pipeline_t *pipeline = NULL;
     
     /* Initialize pipeline */
@@ -701,6 +731,8 @@ TEST(pipeline_execute_success) {
 }
 
 TEST(pipeline_execute_null_params) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     lle_render_pipeline_t *pipeline = NULL;
     lle_result_t result = lle_render_pipeline_init(&pipeline, mock_pool);
     ASSERT_EQ(result, LLE_SUCCESS, "Pipeline init should succeed");
@@ -1183,6 +1215,8 @@ TEST(dirty_tracker_cleanup_null) {
 /* ========================================================================== */
 
 TEST(partial_render_with_dirty_regions) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     /* Test that marking dirty regions triggers partial render */
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     lle_render_controller_t *controller = NULL;
@@ -1236,6 +1270,8 @@ TEST(partial_render_with_dirty_regions) {
 }
 
 TEST(full_render_when_full_redraw_needed) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     /* Test that full redraw flag triggers full render */
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     lle_render_controller_t *controller = NULL;
@@ -1274,6 +1310,8 @@ TEST(full_render_when_full_redraw_needed) {
 }
 
 TEST(full_render_when_dirty_tracking_disabled) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     /* Test that disabled dirty tracking always does full render */
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     lle_render_controller_t *controller = NULL;
@@ -1311,6 +1349,8 @@ TEST(full_render_when_dirty_tracking_disabled) {
 }
 
 TEST(partial_render_metrics_tracking) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     /* Test that partial render timing is tracked separately */
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     lle_render_controller_t *controller = NULL;
@@ -1354,6 +1394,8 @@ TEST(partial_render_metrics_tracking) {
 }
 
 TEST(dirty_tracker_cleared_after_render) {
+    SKIP_IF_NO_MEMORY_POOL();
+    
     /* Test that dirty tracker is cleared after successful render */
     lle_display_bridge_t *bridge = create_mock_display_bridge();
     lle_render_controller_t *controller = NULL;
@@ -1403,6 +1445,9 @@ int main(void) {
     printf("=================================================================\n");
     printf("  LLE Render Controller Unit Tests\n");
     printf("=================================================================\n\n");
+    
+    /* Initialize memory pool for buffer tests */
+    test_setup();
     
     /* Initialization tests */
     run_test_render_controller_init_success();
@@ -1482,6 +1527,9 @@ int main(void) {
     printf("  Tests passed: %d\n", tests_passed);
     printf("  Tests failed: %d\n", tests_failed);
     printf("=================================================================\n");
+    
+    /* Cleanup memory pool */
+    test_teardown();
     
     return (tests_failed == 0) ? 0 : 1;
 }

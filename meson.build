@@ -308,19 +308,6 @@ if lle_sources.length() > 0
          timeout: 60)
   endif
 
-  # LLE Readline Step 1 Test
-  # Manual integration test for minimal lle_readline() implementation
-  # TODO: DISABLED - undefined reference to `display_integration_get_controller'
-  #       This test calls functions that don't exist or aren't linked properly.
-  # if fs.exists('tests/lle/integration/test_lle_readline_step1.c')
-  #   test_readline_step1 = executable('test_lle_readline_step1',
-  #                                    'tests/lle/integration/test_lle_readline_step1.c',
-  #                                    include_directories: inc,
-  #                                    dependencies: [lle_dep])
-  #   # Note: This is a manual test requiring user interaction
-  #   # Run manually with: ./build/test_lle_readline_step1
-  # endif
-
   # End-to-end realistic scenario tests
   # Tests complete editing workflows that simulate real-world usage
   test_e2e_scenarios = executable('test_realistic_scenarios',
@@ -383,20 +370,6 @@ if lle_sources.length() > 0
   test('LLE Display Bridge', test_display_bridge,
        suite: 'lle-unit',
        timeout: 30)
-
-  # Event Coordinator Unit Tests (Spec 08)
-  # Unit tests for event coordinator initialization, cleanup, and event processing
-  # Tests sub-components: translator, router, filter, queue, metrics
-  # NOTE: Disabled due to event_coordinator.c bugs - lle_event_filter_t structure mismatch
-  # test_event_coordinator = executable('test_event_coordinator',
-  #                                     ['tests/lle/unit/test_event_coordinator.c',
-  #                                      'tests/lle/functional/test_memory_mock.c'],
-  #                                     include_directories: inc,
-  #                                     dependencies: [lle_dep, readline_dep])
-  #
-  # test('LLE Event Coordinator', test_event_coordinator,
-  #      suite: 'lle-unit',
-  #      timeout: 30)
 
   # Event System Unit Tests (Spec 04 Phase 1)
   # Tests core event system infrastructure: lifecycle, events, queues, handlers
@@ -485,18 +458,6 @@ if lle_sources.length() > 0
   test('LLE Render Controller', test_render_controller,
        suite: 'lle-unit',
        timeout: 30)
-
-  # Terminal adapter unit tests
-  # NOTE: Disabled due to terminal_adapter.c bugs - terminal type enum and capability structure mismatches
-  # test_terminal_adapter = executable('test_terminal_adapter',
-  #                                    ['tests/lle/unit/test_terminal_adapter.c',
-  #                                     'tests/lle/functional/test_memory_mock.c'],
-  #                                    include_directories: inc,
-  #                                    dependencies: [lle_dep, readline_dep])
-  #
-  # test('LLE Terminal Adapter', test_terminal_adapter,
-  #      suite: 'lle-unit',
-  #      timeout: 30)
 
   # Theme integration unit tests
   test_theme_integration = executable('test_theme_integration',
@@ -680,22 +641,6 @@ endif
          timeout: 30)
   endif
 
-  # History Lusush Bridge Functional Tests (Phase 2 Day 5)
-  # Tests bidirectional sync with Lusush history
-  # TODO: DISABLED - test uses non-existent pool APIs (lusush_pool_create/destroy)
-  #       and references g_pool throughout (19 times). Needs comprehensive rewrite.
-  #       Implementation exists in src/lle/history_lusush_bridge.c but is untested.
-  # if fs.exists('tests/lle/functional/test_history_phase2_day5.c')
-  #   test_history_bridge = executable('test_history_phase2_day5',
-  #                                    ['tests/lle/functional/test_history_phase2_day5.c',
-  #                                     'tests/lle/functional/test_memory_mock.c'],
-  #                                    include_directories: inc,
-  #                                    dependencies: [lle_dep])
-  #   test('LLE History Lusush Bridge', test_history_bridge,
-  #        suite: 'lle-functional',
-  #        timeout: 30)
-  # endif
-
   # History Phase 1 Integration Tests
   # Tests integration between core, indexing, and persistence
   if fs.exists('tests/lle/integration/test_history_phase1_integration.c')
@@ -708,22 +653,6 @@ endif
          suite: 'lle-integration',
          timeout: 60)
   endif
-
-  # History Phase 2 Integration Tests
-  # Tests integration between bridge, events, and all Phase 1 components
-  # TODO: DISABLED - test uses lle_event_system_create (should be _init),
-  #       non-existent event data types (lle_history_entry_event_data_t),
-  #       and g_pool references throughout. Needs comprehensive API fixes.
-  # if fs.exists('tests/lle/integration/test_history_phase2_integration.c')
-  #   test_history_phase2_integration = executable('test_history_phase2_integration',
-  #                                                ['tests/lle/integration/test_history_phase2_integration.c',
-  #                                                 'tests/lle/functional/test_memory_mock.c'],
-  #                                                include_directories: inc,
-  #                                                dependencies: [lle_dep])
-  #   test('LLE History Phase 2 Integration', test_history_phase2_integration,
-  #        suite: 'lle-integration',
-  #        timeout: 60)
-  # endif
 
   # History Phase 3 Day 8 Tests - Search Engine
   # Tests exact, prefix, substring, and fuzzy search functionality

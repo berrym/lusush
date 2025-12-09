@@ -18,7 +18,6 @@
 #include "lle/keybinding.h"
 #include "lle/memory_management.h"
 #include "lle/error_handling.h"
-#include "lle/completion/completion_system.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -100,7 +99,6 @@ typedef struct lle_editor {
     lle_display_controller_t *display_controller;      /* Display management */
     
     /* Completion */
-    lle_completion_system_t *completion_system;        /* Tab completion (legacy) */
     struct lle_completion_system_v2 *completion_system_v2;  /* Tab completion (Spec 12) */
     
     /* Editing mode and state */

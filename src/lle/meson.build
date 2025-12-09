@@ -235,14 +235,11 @@ endif
 if fs.exists('display_integration.c')
   lle_sources += files('display_integration.c')
 endif
-# Phase 1: Foundation - Display Bridge and Event Coordination
+# Phase 1: Foundation - Display Bridge
 if fs.exists('display_bridge.c')
   lle_sources += files('display_bridge.c')
 endif
-# NOTE: event_coordinator.c temporarily disabled - has type conflicts with event_system.h
-# if fs.exists('event_coordinator.c')
-#   lle_sources += files('event_coordinator.c')
-# endif
+
 # Phase 2: Rendering System - Render Controller
 if fs.exists('render_controller.c')
   lle_sources += files('render_controller.c')
@@ -262,12 +259,6 @@ endif
 if fs.exists('dirty_tracker.c')
   lle_sources += files('dirty_tracker.c')
 endif
-
-# NOTE: terminal_adapter.c temporarily disabled - has type conflicts with terminal_abstraction.h
-# Phase 2: Rendering System - Terminal Adapter
-# if fs.exists('terminal_adapter.c')
-#   lle_sources += files('terminal_adapter.c')
-# endif
 
 # Phase 2: Rendering System - Theme Integration
 if fs.exists('theme_integration.c')
@@ -461,10 +452,7 @@ endif
 if fs.exists('completion/completion_menu_renderer.c')
   lle_sources += files('completion/completion_menu_renderer.c')
 endif
-# Phase 5.4: Completion System (Runtime State)
-if fs.exists('completion/completion_system.c')
-  lle_sources += files('completion/completion_system.c')
-endif
+# NOTE: completion_system.c (V1) has been removed - now using completion_system_v2.c exclusively
 # Spec 12 Core: Context Analyzer
 if fs.exists('completion/context_analyzer.c')
   lle_sources += files('completion/context_analyzer.c')

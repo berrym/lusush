@@ -395,7 +395,8 @@ static lle_result_t lle_render_cache_init_internal(lle_render_cache_t **cache,
 /**
  * @brief Initialize dirty tracker
  * 
- * Creates and initializes a dirty region tracker for efficient updates.
+ * Wrapper that calls the proper lle_dirty_tracker_init() from dirty_tracker.c
+ * which allocates the dirty_regions array with proper initial capacity.
  * 
  * @param tracker Output pointer to receive initialized tracker
  * @param memory_pool Memory pool for allocations
@@ -403,27 +404,8 @@ static lle_result_t lle_render_cache_init_internal(lle_render_cache_t **cache,
  */
 static lle_result_t lle_dirty_tracker_init_internal(lle_dirty_tracker_t **tracker,
                                                     lle_memory_pool_t *memory_pool) {
-    lle_dirty_tracker_t *dt = NULL;
-    
-    if (!tracker || !memory_pool) {
-        return LLE_ERROR_INVALID_PARAMETER;
-    }
-    
-    /* Allocate tracker structure */
-    dt = lle_pool_alloc(sizeof(lle_dirty_tracker_t));
-    if (!dt) {
-        return LLE_ERROR_OUT_OF_MEMORY;
-    }
-    memset(dt, 0, sizeof(lle_dirty_tracker_t));
-    
-    /* Initialize state */
-    dt->dirty_regions = NULL; /* Will be allocated when regions are tracked */
-    dt->region_count = 0;
-    dt->region_capacity = 0;
-    dt->full_redraw_needed = true; /* Initial render is always full */
-    
-    *tracker = dt;
-    return LLE_SUCCESS;
+    /* Use the proper implementation from dirty_tracker.c */
+    return lle_dirty_tracker_init(tracker, memory_pool);
 }
 
 /**
