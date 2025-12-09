@@ -81,7 +81,29 @@ src/lle/
 
 ### All Cleanup Phases Complete
 
-All 6 cleanup phases are now complete. The LLE codebase is ready for merge to master.
+All 6 cleanup phases are now complete. 
+
+### Pre-Merge Requirements
+
+Before merging to master, comprehensive Linux regression testing is required:
+
+1. **Automated Tests**: Run full test suite on Linux to verify all 55 tests pass
+2. **Manual Testing**: Verify the following work correctly on Linux:
+   - UTF-8/Unicode display (café, naïve, résumé - the regression we fixed)
+   - Ctrl+T transpose characters
+   - Alt+T transpose words  
+   - Word operations (Alt+D, Alt+Backspace, Ctrl+W)
+   - Word navigation (Alt+F, Alt+B)
+   - Case conversion (Alt+U, Alt+L, Alt+C)
+   - Completion menu display and navigation
+   - Syntax highlighting for builtins and commands
+   - History navigation and search (Ctrl+R)
+
+**Note**: The cleanup process exposed a previously undiscovered UTF-8 display 
+regression caused by the syntax highlighting engine refactor. The `is_word_char()` 
+function in `syntax_highlighting.c` was only handling ASCII, causing multi-byte 
+UTF-8 characters to be split during tokenization. This reinforces the importance 
+of thorough cross-platform regression testing before merge.
 
 ### Additional Fixes (Session 49)
 
