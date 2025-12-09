@@ -42,7 +42,30 @@
 
 4. **Automated tests**: All 55/55 tests pass on Linux (Fedora 43)
 
-5. **Manual testing**: In progress
+5. **Manual testing**: Complete - all core features verified working:
+   - UTF-8/Unicode display (café, naïve, résumé)
+   - All keybindings including UTF-8 operations
+   - Syntax highlighting (valid/invalid commands, builtins)
+   - History navigation and Ctrl+R search
+   - Completion menu TAB cycling and arrow navigation
+
+6. **Fixed Alt+Backspace**: The sequence parser wasn't recognizing ESC+0x7F as 
+   Alt+Backspace. Fixed by including 0x7F in the Alt+key detection range and
+   setting key type to SPECIAL so it maps to LLE_KEY_BACKSPACE.
+
+### Known Issues (Non-Blocking)
+
+1. **Completion menu display corruption**: Intermittent corruption on rapid arrow
+   key navigation. Recoverable with Ctrl+G.
+
+2. **Prompt boundary corruption**: Intermittent issue where prompt gets corrupted.
+   Recoverable with Ctrl+G.
+
+3. **Missing alias completion source**: Alias source exists but not registered in
+   source_manager.c - completions show builtins/commands but not aliases.
+
+4. **Directory completion not context-aware**: `cd /` shows builtins instead of
+   directories. File source is registered but context detection may need work.
 
 ---
 

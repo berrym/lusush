@@ -338,11 +338,11 @@ lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
                 // SS2 sequence
                 parser->type = LLE_SEQ_TYPE_SS2;
                 parser->state = LLE_PARSER_STATE_KEY_SEQUENCE;
-            } else if (c >= 0x20 && c < 0x7F) {
-                // ESC + printable ASCII = Meta/Alt + character
+            } else if ((c >= 0x20 && c < 0x7F) || c == 0x7F) {
+                // ESC + printable ASCII or DEL = Meta/Alt + character
                 // This is how macOS Terminal sends Alt+key when Option is Meta,
                 // or when user physically presses ESC then a letter (e.g., ESC
-                // f for M-f)
+                // f for M-f). 0x7F (DEL/Backspace) is included for Alt+Backspace.
                 lle_parsed_input_t *result =
                     lle_pool_alloc(sizeof(lle_parsed_input_t));
                 if (!result) {
@@ -352,7 +352,9 @@ lle_sequence_parser_process_data(lle_sequence_parser_t *parser,
 
                 memset(result, 0, sizeof(lle_parsed_input_t));
                 result->type = LLE_PARSED_INPUT_TYPE_KEY;
-                result->data.key_info.type = LLE_KEY_TYPE_REGULAR;
+                // 0x7F (DEL/Backspace) needs SPECIAL type to be recognized
+                result->data.key_info.type =
+                    (c == 0x7F) ? LLE_KEY_TYPE_SPECIAL : LLE_KEY_TYPE_REGULAR;
                 result->data.key_info.keycode = c;
                 result->data.key_info.modifiers = LLE_KEY_MOD_ALT;
                 result->handled = false;
