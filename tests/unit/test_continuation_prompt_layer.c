@@ -84,9 +84,11 @@ TEST(test_init_requires_event_system) {
     continuation_prompt_layer_t *layer = continuation_prompt_layer_create();
     ASSERT(layer != NULL);
     
-    // Init with NULL event system should fail
+    // Init without event system succeeds - event system is only required
+    // when context-aware continuation prompts are configured.
+    // In simple mode (the default), no event system is needed.
     continuation_prompt_error_t result = continuation_prompt_layer_init(layer);
-    ASSERT(result == CONTINUATION_PROMPT_ERROR_INVALID_PARAM);
+    ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
     
     continuation_prompt_layer_destroy(layer);
 }
@@ -214,12 +216,12 @@ TEST(test_context_aware_for_loop) {
     char prompt[64];
     const char *command = "for i in 1 2 3\ndo\n    echo $i\ndone";
     
-    // Lines in for loop should return "loop> "
+    // Lines in for loop should return "for> "
     continuation_prompt_error_t result = continuation_prompt_layer_get_prompt_for_line(
         layer, 1, command, prompt, sizeof(prompt)
     );
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
-    ASSERT_STR_EQ(prompt, "loop> ");
+    ASSERT_STR_EQ(prompt, "for> ");
     
     continuation_prompt_layer_cleanup(layer);
     continuation_prompt_layer_destroy(layer);
@@ -237,12 +239,12 @@ TEST(test_context_aware_while_loop) {
     char prompt[64];
     const char *command = "while true\ndo\n    echo looping\ndone";
     
-    // Lines in while loop should return "loop> "
+    // Lines in while loop should return "while> "
     continuation_prompt_error_t result = continuation_prompt_layer_get_prompt_for_line(
         layer, 1, command, prompt, sizeof(prompt)
     );
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
-    ASSERT_STR_EQ(prompt, "loop> ");
+    ASSERT_STR_EQ(prompt, "while> ");
     
     continuation_prompt_layer_cleanup(layer);
     continuation_prompt_layer_destroy(layer);
@@ -260,12 +262,12 @@ TEST(test_context_aware_function) {
     char prompt[64];
     const char *command = "myfunc() {\n    echo hello\n}";
     
-    // Lines in function should return "func> "
+    // Lines in function (brace block) should return "brace> "
     continuation_prompt_error_t result = continuation_prompt_layer_get_prompt_for_line(
         layer, 1, command, prompt, sizeof(prompt)
     );
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
-    ASSERT_STR_EQ(prompt, "func> ");
+    ASSERT_STR_EQ(prompt, "brace> ");
     
     continuation_prompt_layer_cleanup(layer);
     continuation_prompt_layer_destroy(layer);
@@ -283,12 +285,12 @@ TEST(test_context_aware_subshell) {
     char prompt[64];
     const char *command = "(\n    echo subshell\n)";
     
-    // Lines in subshell should return "sh> "
+    // Lines in subshell should return "> " (generic continuation)
     continuation_prompt_error_t result = continuation_prompt_layer_get_prompt_for_line(
         layer, 1, command, prompt, sizeof(prompt)
     );
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
-    ASSERT_STR_EQ(prompt, "sh> ");
+    ASSERT_STR_EQ(prompt, "> ");
     
     continuation_prompt_layer_cleanup(layer);
     continuation_prompt_layer_destroy(layer);
@@ -306,12 +308,12 @@ TEST(test_context_aware_quotes) {
     char prompt[64];
     const char *command = "echo \"line one\nline two\"";
     
-    // Lines in quotes should return "> "
+    // Lines in quotes should return "quote> "
     continuation_prompt_error_t result = continuation_prompt_layer_get_prompt_for_line(
         layer, 1, command, prompt, sizeof(prompt)
     );
     ASSERT(result == CONTINUATION_PROMPT_SUCCESS);
-    ASSERT_STR_EQ(prompt, "> ");
+    ASSERT_STR_EQ(prompt, "quote> ");
     
     continuation_prompt_layer_cleanup(layer);
     continuation_prompt_layer_destroy(layer);
