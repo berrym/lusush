@@ -47,7 +47,7 @@ Thumbs.db
 *~
 
 # Core dumps and debug files
-core
+/core
 *.core
 *.dSYM/
 
