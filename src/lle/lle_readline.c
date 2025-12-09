@@ -2817,7 +2817,8 @@ char *lle_readline(const char *prompt) {
                 break;
             }
 
-            /* Check for Ctrl+_ (0x1F = 31) - undo */
+            /* Check for Ctrl+_ or Ctrl+/ (both send 0x1F = 31) - undo
+             * Both are standard Emacs/readline undo keybindings */
             if (codepoint == 0x1F) {
                 execute_keybinding_action(&ctx, "C-_", handle_undo);
                 break;

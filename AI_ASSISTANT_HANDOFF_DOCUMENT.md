@@ -109,6 +109,12 @@ src/lle/
 | Flat files in src/lle/ | 84 | 2 (+12 subdirs) |
 | Tests passing | 53/55 | 55/55 |
 
+### Ctrl+/ Undo Keybinding (Session 49)
+
+Documented that Ctrl+/ works as undo (same as Ctrl+_). Both keybindings send 
+0x1F at the terminal level, so they were already working - just needed the 
+comment updated in lle_readline.c to document this standard Emacs keybinding.
+
 ### Code Formatting (Session 49)
 
 Applied `clang-format` to all 136 LLE source and header files using the project's 
