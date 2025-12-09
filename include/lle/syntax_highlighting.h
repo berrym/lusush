@@ -31,58 +31,60 @@ extern "C" {
  * @brief Shell-specific syntax token types
  */
 typedef enum lle_syntax_token_type {
-    LLE_TOKEN_UNKNOWN = 0,           /**< Unknown/unclassified */
-    LLE_TOKEN_WHITESPACE,            /**< Whitespace */
-    
+    LLE_TOKEN_UNKNOWN = 0, /**< Unknown/unclassified */
+    LLE_TOKEN_WHITESPACE,  /**< Whitespace */
+
     /* Commands */
-    LLE_TOKEN_COMMAND_VALID,         /**< Valid external command */
-    LLE_TOKEN_COMMAND_INVALID,       /**< Non-existent command */
-    LLE_TOKEN_COMMAND_BUILTIN,       /**< Shell builtin (cd, echo, etc.) */
-    LLE_TOKEN_COMMAND_ALIAS,         /**< Defined alias */
-    LLE_TOKEN_COMMAND_FUNCTION,      /**< Shell function */
-    
+    LLE_TOKEN_COMMAND_VALID,    /**< Valid external command */
+    LLE_TOKEN_COMMAND_INVALID,  /**< Non-existent command */
+    LLE_TOKEN_COMMAND_BUILTIN,  /**< Shell builtin (cd, echo, etc.) */
+    LLE_TOKEN_COMMAND_ALIAS,    /**< Defined alias */
+    LLE_TOKEN_COMMAND_FUNCTION, /**< Shell function */
+
     /* Keywords */
-    LLE_TOKEN_KEYWORD,               /**< Shell keyword (if, then, else, fi, for, while, do, done, case, esac) */
-    
+    LLE_TOKEN_KEYWORD, /**< Shell keyword (if, then, else, fi, for, while, do,
+                          done, case, esac) */
+
     /* Literals */
-    LLE_TOKEN_STRING_SINGLE,         /**< Single-quoted string */
-    LLE_TOKEN_STRING_DOUBLE,         /**< Double-quoted string */
-    LLE_TOKEN_STRING_BACKTICK,       /**< Backtick command substitution */
-    LLE_TOKEN_NUMBER,                /**< Numeric literal */
-    
+    LLE_TOKEN_STRING_SINGLE,   /**< Single-quoted string */
+    LLE_TOKEN_STRING_DOUBLE,   /**< Double-quoted string */
+    LLE_TOKEN_STRING_BACKTICK, /**< Backtick command substitution */
+    LLE_TOKEN_NUMBER,          /**< Numeric literal */
+
     /* Variables */
-    LLE_TOKEN_VARIABLE,              /**< Variable reference ($var, ${var}) */
-    LLE_TOKEN_VARIABLE_SPECIAL,      /**< Special variable ($?, $#, $@, $$, $!, $0-$9) */
-    
+    LLE_TOKEN_VARIABLE,         /**< Variable reference ($var, ${var}) */
+    LLE_TOKEN_VARIABLE_SPECIAL, /**< Special variable ($?, $#, $@, $$, $!,
+                                   $0-$9) */
+
     /* Paths */
-    LLE_TOKEN_PATH_VALID,            /**< Valid file/directory path */
-    LLE_TOKEN_PATH_INVALID,          /**< Non-existent path */
-    
+    LLE_TOKEN_PATH_VALID,   /**< Valid file/directory path */
+    LLE_TOKEN_PATH_INVALID, /**< Non-existent path */
+
     /* Operators */
-    LLE_TOKEN_PIPE,                  /**< Pipe (|) */
-    LLE_TOKEN_REDIRECT,              /**< Redirection (>, <, >>, 2>, &>, etc.) */
-    LLE_TOKEN_BACKGROUND,            /**< Background (&) */
-    LLE_TOKEN_SEMICOLON,             /**< Command separator (;) */
-    LLE_TOKEN_AND,                   /**< Logical AND (&&) */
-    LLE_TOKEN_OR,                    /**< Logical OR (||) */
-    LLE_TOKEN_SUBSHELL_START,        /**< Subshell start ( */
-    LLE_TOKEN_SUBSHELL_END,          /**< Subshell end ) */
-    LLE_TOKEN_BRACE_START,           /**< Brace group start { */
-    LLE_TOKEN_BRACE_END,             /**< Brace group end } */
-    
+    LLE_TOKEN_PIPE,           /**< Pipe (|) */
+    LLE_TOKEN_REDIRECT,       /**< Redirection (>, <, >>, 2>, &>, etc.) */
+    LLE_TOKEN_BACKGROUND,     /**< Background (&) */
+    LLE_TOKEN_SEMICOLON,      /**< Command separator (;) */
+    LLE_TOKEN_AND,            /**< Logical AND (&&) */
+    LLE_TOKEN_OR,             /**< Logical OR (||) */
+    LLE_TOKEN_SUBSHELL_START, /**< Subshell start ( */
+    LLE_TOKEN_SUBSHELL_END,   /**< Subshell end ) */
+    LLE_TOKEN_BRACE_START,    /**< Brace group start { */
+    LLE_TOKEN_BRACE_END,      /**< Brace group end } */
+
     /* Other */
-    LLE_TOKEN_COMMENT,               /**< Comment (# ...) */
-    LLE_TOKEN_OPTION,                /**< Command option (-v, --verbose) */
-    LLE_TOKEN_ARGUMENT,              /**< Generic argument */
-    LLE_TOKEN_GLOB,                  /**< Glob pattern (*, ?, [...]) */
-    LLE_TOKEN_ESCAPE,                /**< Escape sequence (\x) */
-    
+    LLE_TOKEN_COMMENT,  /**< Comment (# ...) */
+    LLE_TOKEN_OPTION,   /**< Command option (-v, --verbose) */
+    LLE_TOKEN_ARGUMENT, /**< Generic argument */
+    LLE_TOKEN_GLOB,     /**< Glob pattern (*, ?, [...]) */
+    LLE_TOKEN_ESCAPE,   /**< Escape sequence (\x) */
+
     /* Errors */
-    LLE_TOKEN_ERROR,                 /**< Syntax error */
-    LLE_TOKEN_UNCLOSED_STRING,       /**< Unclosed quote */
-    LLE_TOKEN_UNCLOSED_SUBSHELL,     /**< Unclosed subshell/brace */
-    
-    LLE_TOKEN_TYPE_COUNT             /**< Number of token types */
+    LLE_TOKEN_ERROR,             /**< Syntax error */
+    LLE_TOKEN_UNCLOSED_STRING,   /**< Unclosed quote */
+    LLE_TOKEN_UNCLOSED_SUBSHELL, /**< Unclosed subshell/brace */
+
+    LLE_TOKEN_TYPE_COUNT /**< Number of token types */
 } lle_syntax_token_type_t;
 
 /* ========================================================================== */
@@ -91,55 +93,55 @@ typedef enum lle_syntax_token_type {
 
 /**
  * @brief Syntax highlighting color scheme
- * 
+ *
  * Colors are stored as RGB uint32_t (0x00RRGGBB format).
  * A value of 0 means "use default/inherited color".
  */
 typedef struct lle_syntax_colors {
     /* Commands */
-    uint32_t command_valid;          /**< Valid external command (typically green) */
-    uint32_t command_invalid;        /**< Invalid command (typically red) */
-    uint32_t command_builtin;        /**< Shell builtin (typically cyan) */
-    uint32_t command_alias;          /**< Alias (typically cyan) */
-    uint32_t command_function;       /**< Function (typically blue) */
-    
+    uint32_t command_valid;    /**< Valid external command (typically green) */
+    uint32_t command_invalid;  /**< Invalid command (typically red) */
+    uint32_t command_builtin;  /**< Shell builtin (typically cyan) */
+    uint32_t command_alias;    /**< Alias (typically cyan) */
+    uint32_t command_function; /**< Function (typically blue) */
+
     /* Keywords */
-    uint32_t keyword;                /**< Shell keywords (typically blue/magenta) */
-    
+    uint32_t keyword; /**< Shell keywords (typically blue/magenta) */
+
     /* Strings */
-    uint32_t string;                 /**< Quoted strings (typically yellow) */
-    uint32_t string_escape;          /**< Escape sequences in strings */
-    
+    uint32_t string;        /**< Quoted strings (typically yellow) */
+    uint32_t string_escape; /**< Escape sequences in strings */
+
     /* Variables */
-    uint32_t variable;               /**< Variables (typically magenta/purple) */
-    uint32_t variable_special;       /**< Special variables */
-    
+    uint32_t variable;         /**< Variables (typically magenta/purple) */
+    uint32_t variable_special; /**< Special variables */
+
     /* Paths */
-    uint32_t path_valid;             /**< Valid paths (typically underlined green) */
-    uint32_t path_invalid;           /**< Invalid paths (typically underlined red) */
-    
+    uint32_t path_valid;   /**< Valid paths (typically underlined green) */
+    uint32_t path_invalid; /**< Invalid paths (typically underlined red) */
+
     /* Operators */
-    uint32_t pipe;                   /**< Pipe operator */
-    uint32_t redirect;               /**< Redirection operators */
-    uint32_t operator_other;         /**< Other operators (&, ;, &&, ||) */
-    
+    uint32_t pipe;           /**< Pipe operator */
+    uint32_t redirect;       /**< Redirection operators */
+    uint32_t operator_other; /**< Other operators (&, ;, &&, ||) */
+
     /* Other */
-    uint32_t comment;                /**< Comments (typically dim/gray) */
-    uint32_t number;                 /**< Numbers (typically cyan) */
-    uint32_t option;                 /**< Options (typically white/default) */
-    uint32_t glob;                   /**< Glob patterns */
-    uint32_t argument;               /**< Generic arguments (default) */
-    
+    uint32_t comment;  /**< Comments (typically dim/gray) */
+    uint32_t number;   /**< Numbers (typically cyan) */
+    uint32_t option;   /**< Options (typically white/default) */
+    uint32_t glob;     /**< Glob patterns */
+    uint32_t argument; /**< Generic arguments (default) */
+
     /* Errors */
-    uint32_t error;                  /**< Syntax errors (typically red bg) */
-    uint32_t error_fg;               /**< Error foreground (typically white) */
-    
+    uint32_t error;    /**< Syntax errors (typically red bg) */
+    uint32_t error_fg; /**< Error foreground (typically white) */
+
     /* Text attributes (bitmask) */
-    uint8_t keyword_bold;            /**< Bold keywords */
-    uint8_t command_bold;            /**< Bold valid commands */
-    uint8_t error_underline;         /**< Underline errors */
-    uint8_t path_underline;          /**< Underline paths */
-    uint8_t comment_dim;             /**< Dim comments */
+    uint8_t keyword_bold;    /**< Bold keywords */
+    uint8_t command_bold;    /**< Bold valid commands */
+    uint8_t error_underline; /**< Underline errors */
+    uint8_t path_underline;  /**< Underline paths */
+    uint8_t comment_dim;     /**< Dim comments */
 } lle_syntax_colors_t;
 
 /* ========================================================================== */
@@ -150,21 +152,21 @@ typedef struct lle_syntax_colors {
  * @brief A single syntax token
  */
 typedef struct lle_syntax_token {
-    lle_syntax_token_type_t type;    /**< Token type */
-    size_t start;                    /**< Start position in input */
-    size_t end;                      /**< End position (exclusive) */
-    uint32_t color;                  /**< Resolved color for this token */
-    uint8_t attributes;              /**< Text attributes (bold, underline, dim) */
+    lle_syntax_token_type_t type; /**< Token type */
+    size_t start;                 /**< Start position in input */
+    size_t end;                   /**< End position (exclusive) */
+    uint32_t color;               /**< Resolved color for this token */
+    uint8_t attributes;           /**< Text attributes (bold, underline, dim) */
 } lle_syntax_token_t;
 
 /* Text attribute flags */
-#define LLE_ATTR_NONE      0x00
-#define LLE_ATTR_BOLD      0x01
-#define LLE_ATTR_DIM       0x02
-#define LLE_ATTR_ITALIC    0x04
+#define LLE_ATTR_NONE 0x00
+#define LLE_ATTR_BOLD 0x01
+#define LLE_ATTR_DIM 0x02
+#define LLE_ATTR_ITALIC 0x04
 #define LLE_ATTR_UNDERLINE 0x08
-#define LLE_ATTR_BLINK     0x10
-#define LLE_ATTR_REVERSE   0x20
+#define LLE_ATTR_BLINK 0x10
+#define LLE_ATTR_REVERSE 0x20
 
 /* ========================================================================== */
 /*                         HIGHLIGHTER CONTEXT                                */
@@ -176,23 +178,23 @@ typedef struct lle_syntax_token {
 typedef struct lle_syntax_highlighter {
     /* Color scheme */
     lle_syntax_colors_t colors;
-    
+
     /* Token buffer */
     lle_syntax_token_t *tokens;
     size_t token_count;
     size_t token_capacity;
-    
+
     /* Configuration */
     bool enabled;
-    bool validate_commands;          /**< Check if commands exist */
-    bool validate_paths;             /**< Check if paths exist */
-    bool highlight_errors;           /**< Highlight syntax errors */
-    
+    bool validate_commands; /**< Check if commands exist */
+    bool validate_paths;    /**< Check if paths exist */
+    bool highlight_errors;  /**< Highlight syntax errors */
+
     /* Terminal capabilities */
-    int color_depth;                 /**< 0=none, 1=8, 2=256, 3=truecolor */
-    
+    int color_depth; /**< 0=none, 1=8, 2=256, 3=truecolor */
+
     /* Cache for command existence checks */
-    void *command_cache;             /**< Opaque pointer to cache */
+    void *command_cache; /**< Opaque pointer to cache */
 } lle_syntax_highlighter_t;
 
 /* ========================================================================== */
@@ -234,8 +236,7 @@ void lle_syntax_colors_get_default(lle_syntax_colors_t *colors);
  * @return Number of tokens, or -1 on error
  */
 int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
-                         const char *input,
-                         size_t input_len);
+                         const char *input, size_t input_len);
 
 /**
  * @brief Get tokens from last highlight operation
@@ -243,8 +244,8 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
  * @param count Output: number of tokens
  * @return Pointer to token array (valid until next highlight call)
  */
-const lle_syntax_token_t *lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter,
-                                                 size_t *count);
+const lle_syntax_token_t *
+lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter, size_t *count);
 
 /**
  * @brief Generate ANSI-colored output string
@@ -255,9 +256,7 @@ const lle_syntax_token_t *lle_syntax_get_tokens(lle_syntax_highlighter_t *highli
  * @return Length of output, or -1 on error
  */
 int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
-                           const char *input,
-                           char *output,
-                           size_t output_size);
+                           const char *input, char *output, size_t output_size);
 
 /**
  * @brief Convert RGB color to ANSI escape sequence
@@ -268,20 +267,19 @@ int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
  * @param output_size Size of output buffer
  * @return Length of escape sequence
  */
-int lle_syntax_color_to_ansi(uint32_t color,
-                             uint8_t attributes,
-                             int color_depth,
-                             char *output,
-                             size_t output_size);
+int lle_syntax_color_to_ansi(uint32_t color, uint8_t attributes,
+                             int color_depth, char *output, size_t output_size);
 
 /**
  * @brief Check if a command exists
  * @param highlighter Highlighter context (uses cache)
  * @param command Command name
- * @return Token type (COMMAND_VALID, COMMAND_BUILTIN, COMMAND_ALIAS, or COMMAND_INVALID)
+ * @return Token type (COMMAND_VALID, COMMAND_BUILTIN, COMMAND_ALIAS, or
+ * COMMAND_INVALID)
  */
-lle_syntax_token_type_t lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
-                                                  const char *command);
+lle_syntax_token_type_t
+lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
+                         const char *command);
 
 /**
  * @brief Clear command existence cache

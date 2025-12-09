@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 /* LLE Specification 22: History-Buffer Integration - Phase 3 */
-/* History-Buffer Bridge: Bidirectional integration between history and buffer */
+/* History-Buffer Bridge: Bidirectional integration between history and buffer
+ */
 
 #ifndef LLE_HISTORY_BUFFER_BRIDGE_H
 #define LLE_HISTORY_BUFFER_BRIDGE_H
 
+#include "lle/command_structure.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "lle/command_structure.h"
-#include <stddef.h>
+
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,8 +30,8 @@ typedef struct lle_buffer_t lle_buffer_t;
  * Transfer direction
  */
 typedef enum lle_transfer_direction {
-    LLE_TRANSFER_HISTORY_TO_BUFFER = 0,  /* Load from history into buffer */
-    LLE_TRANSFER_BUFFER_TO_HISTORY       /* Save from buffer to history */
+    LLE_TRANSFER_HISTORY_TO_BUFFER = 0, /* Load from history into buffer */
+    LLE_TRANSFER_BUFFER_TO_HISTORY      /* Save from buffer to history */
 } lle_transfer_direction_t;
 
 /**
@@ -38,16 +40,16 @@ typedef enum lle_transfer_direction {
 typedef struct lle_transfer_options {
     /* Apply reconstruction when loading to buffer */
     bool apply_reconstruction;
-    
+
     /* Parse multiline structure when loading */
     bool parse_multiline;
-    
+
     /* Preserve indentation */
     bool preserve_indentation;
-    
+
     /* Create new entry vs update existing */
     bool create_new_entry;
-    
+
     /* Reserved for future use */
     void *reserved[4];
 } lle_transfer_options_t;
@@ -58,19 +60,19 @@ typedef struct lle_transfer_options {
 typedef struct lle_transfer_result {
     /* Success flag */
     bool success;
-    
+
     /* Entry index (for history operations) */
     size_t entry_index;
-    
+
     /* Buffer position (for buffer operations) */
     size_t buffer_position;
-    
+
     /* Bytes transferred */
     size_t bytes_transferred;
-    
+
     /* Whether multiline structure was detected */
     bool is_multiline;
-    
+
     /* Reserved for future use */
     void *reserved[2];
 } lle_transfer_result_t;
@@ -86,10 +88,8 @@ typedef struct lle_transfer_result {
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_history_buffer_bridge_create(
-    lle_history_buffer_bridge_t **bridge,
-    lle_memory_pool_t *memory_pool,
-    lle_history_core_t *history_core,
-    lle_multiline_parser_t *parser,
+    lle_history_buffer_bridge_t **bridge, lle_memory_pool_t *memory_pool,
+    lle_history_core_t *history_core, lle_multiline_parser_t *parser,
     lle_reconstruction_engine_t *reconstruction);
 
 /**
@@ -98,8 +98,8 @@ lle_result_t lle_history_buffer_bridge_create(
  * @param bridge Bridge to destroy
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_history_buffer_bridge_destroy(
-    lle_history_buffer_bridge_t *bridge);
+lle_result_t
+lle_history_buffer_bridge_destroy(lle_history_buffer_bridge_t *bridge);
 
 /**
  * Transfer a history entry to a buffer
@@ -112,10 +112,8 @@ lle_result_t lle_history_buffer_bridge_destroy(
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_history_buffer_bridge_load_to_buffer(
-    lle_history_buffer_bridge_t *bridge,
-    size_t history_index,
-    lle_buffer_t *buffer,
-    const lle_transfer_options_t *options,
+    lle_history_buffer_bridge_t *bridge, size_t history_index,
+    lle_buffer_t *buffer, const lle_transfer_options_t *options,
     lle_transfer_result_t *result);
 
 /**
@@ -128,10 +126,8 @@ lle_result_t lle_history_buffer_bridge_load_to_buffer(
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_history_buffer_bridge_save_from_buffer(
-    lle_history_buffer_bridge_t *bridge,
-    lle_buffer_t *buffer,
-    const lle_transfer_options_t *options,
-    lle_transfer_result_t *result);
+    lle_history_buffer_bridge_t *bridge, lle_buffer_t *buffer,
+    const lle_transfer_options_t *options, lle_transfer_result_t *result);
 
 /**
  * Get buffer contents as string
@@ -142,11 +138,10 @@ lle_result_t lle_history_buffer_bridge_save_from_buffer(
  * @param length Output parameter for text length
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_history_buffer_bridge_get_buffer_text(
-    lle_history_buffer_bridge_t *bridge,
-    lle_buffer_t *buffer,
-    char **text,
-    size_t *length);
+lle_result_t
+lle_history_buffer_bridge_get_buffer_text(lle_history_buffer_bridge_t *bridge,
+                                          lle_buffer_t *buffer, char **text,
+                                          size_t *length);
 
 /**
  * Set buffer contents from string
@@ -157,11 +152,10 @@ lle_result_t lle_history_buffer_bridge_get_buffer_text(
  * @param length Text length
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_history_buffer_bridge_set_buffer_text(
-    lle_history_buffer_bridge_t *bridge,
-    lle_buffer_t *buffer,
-    const char *text,
-    size_t length);
+lle_result_t
+lle_history_buffer_bridge_set_buffer_text(lle_history_buffer_bridge_t *bridge,
+                                          lle_buffer_t *buffer,
+                                          const char *text, size_t length);
 
 /**
  * Clear buffer contents
@@ -170,9 +164,9 @@ lle_result_t lle_history_buffer_bridge_set_buffer_text(
  * @param buffer Buffer to clear
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_history_buffer_bridge_clear_buffer(
-    lle_history_buffer_bridge_t *bridge,
-    lle_buffer_t *buffer);
+lle_result_t
+lle_history_buffer_bridge_clear_buffer(lle_history_buffer_bridge_t *bridge,
+                                       lle_buffer_t *buffer);
 
 /**
  * Get default transfer options
@@ -180,8 +174,8 @@ lle_result_t lle_history_buffer_bridge_clear_buffer(
  * @param options Options structure to fill with defaults
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_history_buffer_bridge_get_default_options(
-    lle_transfer_options_t *options);
+lle_result_t
+lle_history_buffer_bridge_get_default_options(lle_transfer_options_t *options);
 
 #ifdef __cplusplus
 }

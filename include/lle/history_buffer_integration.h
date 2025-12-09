@@ -15,19 +15,21 @@
 #ifndef LLE_HISTORY_BUFFER_INTEGRATION_H
 #define LLE_HISTORY_BUFFER_INTEGRATION_H
 
+#include "lle/buffer_management.h"
 #include "lle/error_handling.h"
+#include "lle/event_system.h"
+#include "lle/history.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
-#include "lle/history.h"
-#include "lle/buffer_management.h"
-#include "lle/event_system.h"
+
 #include <pthread.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /* ============================================================================
  * FORWARD DECLARATIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 typedef struct lle_history_buffer_integration lle_history_buffer_integration_t;
 typedef struct lle_edit_session lle_edit_session_t;
@@ -49,7 +51,8 @@ typedef struct lle_edit_change lle_edit_change_t;
 
 /* ============================================================================
  * ENUMERATIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /* Edit session state enum is defined in edit_session_manager.h */
 /* Include that header to get the enum definition */
@@ -59,34 +62,35 @@ typedef struct lle_edit_change lle_edit_change_t;
  * Command structure type (shell constructs)
  */
 typedef enum lle_command_type {
-    LLE_CMD_TYPE_SIMPLE = 0,            /* Simple command */
-    LLE_CMD_TYPE_PIPELINE,              /* Pipeline (|) */
-    LLE_CMD_TYPE_COMPOUND,              /* Compound command (&&, ||, ;) */
-    LLE_CMD_TYPE_FOR_LOOP,              /* for loop */
-    LLE_CMD_TYPE_WHILE_LOOP,            /* while loop */
-    LLE_CMD_TYPE_UNTIL_LOOP,            /* until loop */
-    LLE_CMD_TYPE_IF_STATEMENT,          /* if statement */
-    LLE_CMD_TYPE_CASE_STATEMENT,        /* case statement */
-    LLE_CMD_TYPE_FUNCTION,              /* Function definition */
-    LLE_CMD_TYPE_SUBSHELL,              /* Subshell ( ) */
-    LLE_CMD_TYPE_COMMAND_GROUP,         /* Command group { } */
-    LLE_CMD_TYPE_UNKNOWN                /* Unknown/unparseable */
+    LLE_CMD_TYPE_SIMPLE = 0,     /* Simple command */
+    LLE_CMD_TYPE_PIPELINE,       /* Pipeline (|) */
+    LLE_CMD_TYPE_COMPOUND,       /* Compound command (&&, ||, ;) */
+    LLE_CMD_TYPE_FOR_LOOP,       /* for loop */
+    LLE_CMD_TYPE_WHILE_LOOP,     /* while loop */
+    LLE_CMD_TYPE_UNTIL_LOOP,     /* until loop */
+    LLE_CMD_TYPE_IF_STATEMENT,   /* if statement */
+    LLE_CMD_TYPE_CASE_STATEMENT, /* case statement */
+    LLE_CMD_TYPE_FUNCTION,       /* Function definition */
+    LLE_CMD_TYPE_SUBSHELL,       /* Subshell ( ) */
+    LLE_CMD_TYPE_COMMAND_GROUP,  /* Command group { } */
+    LLE_CMD_TYPE_UNKNOWN         /* Unknown/unparseable */
 } lle_command_type_t;
 
 /**
  * Integration state tracking
  */
 typedef enum lle_integration_state_type {
-    LLE_INTEGRATION_UNINITIALIZED = 0,  /* System not initialized */
-    LLE_INTEGRATION_READY,              /* Ready for operations */
-    LLE_INTEGRATION_BUSY,               /* Operation in progress */
-    LLE_INTEGRATION_ERROR,              /* Error state */
-    LLE_INTEGRATION_SHUTDOWN            /* Shutting down */
+    LLE_INTEGRATION_UNINITIALIZED = 0, /* System not initialized */
+    LLE_INTEGRATION_READY,             /* Ready for operations */
+    LLE_INTEGRATION_BUSY,              /* Operation in progress */
+    LLE_INTEGRATION_ERROR,             /* Error state */
+    LLE_INTEGRATION_SHUTDOWN           /* Shutting down */
 } lle_integration_state_type_t;
 
 /* ============================================================================
  * CALLBACK TYPES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Callback for edit session start
@@ -94,10 +98,8 @@ typedef enum lle_integration_state_type {
  * @param user_data User-provided context
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_edit_start_callback_t)(
-    lle_history_entry_t *entry,
-    void *user_data
-);
+typedef lle_result_t (*lle_edit_start_callback_t)(lle_history_entry_t *entry,
+                                                  void *user_data);
 
 /**
  * Callback for edit session completion
@@ -105,10 +107,8 @@ typedef lle_result_t (*lle_edit_start_callback_t)(
  * @param user_data User-provided context
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_edit_complete_callback_t)(
-    lle_history_entry_t *entry,
-    void *user_data
-);
+typedef lle_result_t (*lle_edit_complete_callback_t)(lle_history_entry_t *entry,
+                                                     void *user_data);
 
 /**
  * Callback for edit session cancellation
@@ -116,10 +116,8 @@ typedef lle_result_t (*lle_edit_complete_callback_t)(
  * @param user_data User-provided context
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_edit_cancel_callback_t)(
-    lle_history_entry_t *entry,
-    void *user_data
-);
+typedef lle_result_t (*lle_edit_cancel_callback_t)(lle_history_entry_t *entry,
+                                                   void *user_data);
 
 /**
  * Callback for buffer loaded with reconstructed content
@@ -128,11 +126,9 @@ typedef lle_result_t (*lle_edit_cancel_callback_t)(
  * @param user_data User-provided context
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_buffer_loaded_callback_t)(
-    lle_buffer_t *buffer,
-    lle_history_entry_t *entry,
-    void *user_data
-);
+typedef lle_result_t (*lle_buffer_loaded_callback_t)(lle_buffer_t *buffer,
+                                                     lle_history_entry_t *entry,
+                                                     void *user_data);
 
 /**
  * Callback for structure reconstruction completion
@@ -141,9 +137,7 @@ typedef lle_result_t (*lle_buffer_loaded_callback_t)(
  * @return LLE_SUCCESS or error code
  */
 typedef lle_result_t (*lle_structure_reconstructed_callback_t)(
-    lle_multiline_info_t *multiline,
-    void *user_data
-);
+    lle_multiline_info_t *multiline, void *user_data);
 
 /**
  * Callback for buffer modification during editing
@@ -152,11 +146,9 @@ typedef lle_result_t (*lle_structure_reconstructed_callback_t)(
  * @param user_data User-provided context
  * @return LLE_SUCCESS or error code
  */
-typedef lle_result_t (*lle_edit_modified_callback_t)(
-    lle_buffer_t *buffer,
-    lle_edit_change_t *change,
-    void *user_data
-);
+typedef lle_result_t (*lle_edit_modified_callback_t)(lle_buffer_t *buffer,
+                                                     lle_edit_change_t *change,
+                                                     void *user_data);
 
 /**
  * Callback for save request
@@ -166,14 +158,12 @@ typedef lle_result_t (*lle_edit_modified_callback_t)(
  * @return LLE_SUCCESS or error code
  */
 typedef lle_result_t (*lle_save_requested_callback_t)(
-    lle_buffer_t *buffer,
-    lle_history_entry_t *entry,
-    void *user_data
-);
+    lle_buffer_t *buffer, lle_history_entry_t *entry, void *user_data);
 
 /* ============================================================================
  * CORE STRUCTURES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Callback framework structure
@@ -193,27 +183,27 @@ struct lle_history_edit_callbacks {
  * Integration configuration
  */
 struct lle_integration_config {
-    bool enable_multiline_reconstruction;    /* Enable multiline reconstruction */
-    bool preserve_original_formatting;       /* Preserve original indentation */
-    bool enable_structure_analysis;          /* Enable shell construct analysis */
-    bool enable_edit_caching;                /* Enable reconstruction caching */
-    uint32_t max_cache_entries;              /* Maximum cache entries */
-    uint32_t max_reconstruction_depth;       /* Maximum nesting depth */
-    uint32_t reconstruction_timeout_ms;      /* Reconstruction timeout */
+    bool enable_multiline_reconstruction; /* Enable multiline reconstruction */
+    bool preserve_original_formatting;    /* Preserve original indentation */
+    bool enable_structure_analysis;       /* Enable shell construct analysis */
+    bool enable_edit_caching;             /* Enable reconstruction caching */
+    uint32_t max_cache_entries;           /* Maximum cache entries */
+    uint32_t max_reconstruction_depth;    /* Maximum nesting depth */
+    uint32_t reconstruction_timeout_ms;   /* Reconstruction timeout */
 };
 
 /**
  * Integration state
  */
 struct lle_integration_state {
-    lle_integration_state_type_t state;      /* Current state */
-    uint64_t active_sessions;                /* Number of active edit sessions */
-    uint64_t total_edits;                    /* Total edits performed */
-    uint64_t successful_reconstructions;     /* Successful reconstructions */
-    uint64_t failed_reconstructions;         /* Failed reconstructions */
-    uint64_t cache_hits;                     /* Cache hits */
-    uint64_t cache_misses;                   /* Cache misses */
-    uint64_t last_operation_time_us;         /* Last operation time (microseconds) */
+    lle_integration_state_type_t state;  /* Current state */
+    uint64_t active_sessions;            /* Number of active edit sessions */
+    uint64_t total_edits;                /* Total edits performed */
+    uint64_t successful_reconstructions; /* Successful reconstructions */
+    uint64_t failed_reconstructions;     /* Failed reconstructions */
+    uint64_t cache_hits;                 /* Cache hits */
+    uint64_t cache_misses;               /* Cache misses */
+    uint64_t last_operation_time_us; /* Last operation time (microseconds) */
 };
 
 /**
@@ -221,41 +211,43 @@ struct lle_integration_state {
  */
 struct lle_history_buffer_integration {
     /* Core components */
-    lle_history_core_t *history_core;                /* History core reference */
-    lle_buffer_t *editing_buffer;                     /* Buffer system reference */
-    lle_reconstruction_engine_t *reconstruction;     /* Command reconstruction engine */
-    lle_edit_session_manager_t *session_manager;     /* Edit session management */
-    
+    lle_history_core_t *history_core; /* History core reference */
+    lle_buffer_t *editing_buffer;     /* Buffer system reference */
+    lle_reconstruction_engine_t
+        *reconstruction; /* Command reconstruction engine */
+    lle_edit_session_manager_t *session_manager; /* Edit session management */
+
     /* Multiline support */
-    lle_multiline_parser_t *multiline_parser;        /* Multiline structure parser */
-    lle_structure_analyzer_t *structure_analyzer;    /* Shell construct analyzer */
-    lle_formatting_engine_t *formatter;              /* Intelligent formatting engine */
-    
+    lle_multiline_parser_t *multiline_parser; /* Multiline structure parser */
+    lle_structure_analyzer_t *structure_analyzer; /* Shell construct analyzer */
+    lle_formatting_engine_t *formatter; /* Intelligent formatting engine */
+
     /* Callback system */
-    lle_history_edit_callbacks_t *edit_callbacks;    /* Edit event callbacks */
-    lle_callback_registry_t *callback_registry;      /* Callback management */
-    
+    lle_history_edit_callbacks_t *edit_callbacks; /* Edit event callbacks */
+    lle_callback_registry_t *callback_registry;   /* Callback management */
+
     /* Performance optimization */
-    lle_edit_cache_t *edit_cache;                     /* Edit operation caching */
-    lle_memory_pool_t *memory_pool;                   /* Memory pool integration */
-    lle_performance_monitor_t *perf_monitor;          /* Performance monitoring */
-    
+    lle_edit_cache_t *edit_cache;            /* Edit operation caching */
+    lle_memory_pool_t *memory_pool;          /* Memory pool integration */
+    lle_performance_monitor_t *perf_monitor; /* Performance monitoring */
+
     /* Configuration and state */
-    lle_integration_config_t *config;                /* Integration configuration */
-    lle_integration_state_t *current_state;          /* Current integration state */
-    
+    lle_integration_config_t *config;       /* Integration configuration */
+    lle_integration_state_t *current_state; /* Current integration state */
+
     /* Event system integration */
-    lle_event_system_t *event_system;                /* Event system reference */
-    
+    lle_event_system_t *event_system; /* Event system reference */
+
     /* Synchronization */
-    pthread_rwlock_t integration_lock;               /* Thread-safe access */
-    bool system_active;                              /* Integration system status */
-    uint64_t session_counter;                        /* Edit session counter */
+    pthread_rwlock_t integration_lock; /* Thread-safe access */
+    bool system_active;                /* Integration system status */
+    uint64_t session_counter;          /* Edit session counter */
 };
 
 /* ============================================================================
  * SYSTEM LIFECYCLE FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Create and initialize history-buffer integration system
@@ -268,10 +260,8 @@ struct lle_history_buffer_integration {
  */
 lle_result_t lle_history_buffer_integration_create(
     lle_history_buffer_integration_t **integration,
-    lle_history_core_t *history_core,
-    lle_memory_pool_t *memory_pool,
-    lle_event_system_t *event_system
-);
+    lle_history_core_t *history_core, lle_memory_pool_t *memory_pool,
+    lle_event_system_t *event_system);
 
 /**
  * Destroy history-buffer integration system
@@ -280,8 +270,7 @@ lle_result_t lle_history_buffer_integration_create(
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_history_buffer_integration_destroy(
-    lle_history_buffer_integration_t *integration
-);
+    lle_history_buffer_integration_t *integration);
 
 /**
  * Set integration configuration
@@ -292,8 +281,7 @@ lle_result_t lle_history_buffer_integration_destroy(
  */
 lle_result_t lle_history_buffer_integration_set_config(
     lle_history_buffer_integration_t *integration,
-    const lle_integration_config_t *config
-);
+    const lle_integration_config_t *config);
 
 /**
  * Get current integration configuration
@@ -304,8 +292,7 @@ lle_result_t lle_history_buffer_integration_set_config(
  */
 lle_result_t lle_history_buffer_integration_get_config(
     lle_history_buffer_integration_t *integration,
-    lle_integration_config_t *config
-);
+    lle_integration_config_t *config);
 
 /**
  * Get current integration state
@@ -316,12 +303,12 @@ lle_result_t lle_history_buffer_integration_get_config(
  */
 lle_result_t lle_history_buffer_integration_get_state(
     lle_history_buffer_integration_t *integration,
-    lle_integration_state_t *state
-);
+    lle_integration_state_t *state);
 
 /* ============================================================================
  * CALLBACK REGISTRATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Register edit callbacks
@@ -332,8 +319,7 @@ lle_result_t lle_history_buffer_integration_get_state(
  */
 lle_result_t lle_history_buffer_integration_register_callbacks(
     lle_history_buffer_integration_t *integration,
-    const lle_history_edit_callbacks_t *callbacks
-);
+    const lle_history_edit_callbacks_t *callbacks);
 
 /**
  * Unregister all callbacks
@@ -342,12 +328,12 @@ lle_result_t lle_history_buffer_integration_register_callbacks(
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_history_buffer_integration_unregister_callbacks(
-    lle_history_buffer_integration_t *integration
-);
+    lle_history_buffer_integration_t *integration);
 
 /* ============================================================================
  * PHASE 3 - INTERACTIVE EDITING FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Start interactive editing of a history entry
@@ -360,11 +346,9 @@ lle_result_t lle_history_buffer_integration_unregister_callbacks(
  * @param buffer Buffer to load entry into
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_history_edit_entry(
-    lle_history_buffer_integration_t *integration,
-    size_t entry_index,
-    lle_buffer_t *buffer
-);
+lle_result_t
+lle_history_edit_entry(lle_history_buffer_integration_t *integration,
+                       size_t entry_index, lle_buffer_t *buffer);
 
 /**
  * Complete an edit session and save changes
@@ -376,10 +360,9 @@ lle_result_t lle_history_edit_entry(
  * @param buffer Buffer with edited content
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_history_session_complete(
-    lle_history_buffer_integration_t *integration,
-    lle_buffer_t *buffer
-);
+lle_result_t
+lle_history_session_complete(lle_history_buffer_integration_t *integration,
+                             lle_buffer_t *buffer);
 
 /**
  * Cancel an edit session without saving
@@ -390,13 +373,13 @@ lle_result_t lle_history_session_complete(
  * @param integration Integration system
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_history_session_cancel(
-    lle_history_buffer_integration_t *integration
-);
+lle_result_t
+lle_history_session_cancel(lle_history_buffer_integration_t *integration);
 
 /* ============================================================================
  * PHASE 4 - PERFORMANCE MONITORING FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /* Forward declaration for cache stats */
 typedef struct lle_edit_cache_stats lle_edit_cache_stats_t;
@@ -416,8 +399,7 @@ typedef struct lle_edit_cache_stats lle_edit_cache_stats_t;
  */
 lle_result_t lle_history_buffer_integration_get_cache_stats(
     lle_history_buffer_integration_t *integration,
-    lle_edit_cache_stats_t *stats
-);
+    lle_edit_cache_stats_t *stats);
 
 /**
  * Clear all cache entries
@@ -429,8 +411,7 @@ lle_result_t lle_history_buffer_integration_get_cache_stats(
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_history_buffer_integration_clear_cache(
-    lle_history_buffer_integration_t *integration
-);
+    lle_history_buffer_integration_t *integration);
 
 /**
  * Perform cache maintenance
@@ -439,12 +420,11 @@ lle_result_t lle_history_buffer_integration_clear_cache(
  * Should be called periodically to prevent unbounded growth.
  *
  * @param integration Integration system
- * @param expired_count Output parameter for number of entries evicted (optional)
+ * @param expired_count Output parameter for number of entries evicted
+ * (optional)
  * @return LLE_SUCCESS or error code
  */
 lle_result_t lle_history_buffer_integration_maintain_cache(
-    lle_history_buffer_integration_t *integration,
-    size_t *expired_count
-);
+    lle_history_buffer_integration_t *integration, size_t *expired_count);
 
 #endif /* LLE_HISTORY_BUFFER_INTEGRATION_H */

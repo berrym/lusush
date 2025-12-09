@@ -1,50 +1,60 @@
 /**
  * @file render_controller.c
  * @brief LLE Render Controller Implementation
- * 
+ *
  * Coordinates all rendering operations for LLE display integration. Manages
  * buffer rendering, cursor rendering, render caching, dirty tracking, and
  * frame scheduling for optimal performance.
- * 
+ *
  * SPECIFICATION: docs/lle_specification/08_display_integration_complete.md
  * IMPLEMENTATION PLAN: docs/lle_implementation/SPEC_08_IMPLEMENTATION_PLAN.md
- * 
+ *
  * ZERO-TOLERANCE COMPLIANCE:
  * - Complete implementations (no stubs)
  * - Full error handling
  * - 100% spec-compliant
  */
 
+#include "lle/buffer_management.h"
 #include "lle/display_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "lle/buffer_management.h"
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <stdio.h>
 
 /* ========================================================================== */
 /*                       HELPER FUNCTION DECLARATIONS                         */
 /* ========================================================================== */
 
-static lle_result_t lle_buffer_renderer_init_internal(lle_buffer_renderer_t **renderer,
-                                                      lle_memory_pool_t *memory_pool);
-static lle_result_t lle_cursor_renderer_init_internal(lle_cursor_renderer_t **renderer,
-                                                      lle_memory_pool_t *memory_pool);
-static lle_result_t lle_frame_scheduler_init_internal(lle_frame_scheduler_t **scheduler,
-                                                      lle_memory_pool_t *memory_pool);
-static lle_result_t lle_render_cache_init_internal(lle_render_cache_t **cache,
-                                                   lle_memory_pool_t *memory_pool);
-static lle_result_t lle_dirty_tracker_init_internal(lle_dirty_tracker_t **tracker,
-                                                    lle_memory_pool_t *memory_pool);
-static lle_result_t lle_render_metrics_init_internal(lle_render_metrics_t **metrics,
-                                                     lle_memory_pool_t *memory_pool);
-static lle_result_t lle_render_config_init_internal(lle_render_config_t **config,
-                                                    lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_buffer_renderer_init_internal(lle_buffer_renderer_t **renderer,
+                                  lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_cursor_renderer_init_internal(lle_cursor_renderer_t **renderer,
+                                  lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_frame_scheduler_init_internal(lle_frame_scheduler_t **scheduler,
+                                  lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_render_cache_init_internal(lle_render_cache_t **cache,
+                               lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_dirty_tracker_init_internal(lle_dirty_tracker_t **tracker,
+                                lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_render_metrics_init_internal(lle_render_metrics_t **metrics,
+                                 lle_memory_pool_t *memory_pool);
+static lle_result_t
+lle_render_config_init_internal(lle_render_config_t **config,
+                                lle_memory_pool_t *memory_pool);
 
-static lle_result_t lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer);
-static lle_result_t lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer);
-static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler);
+static lle_result_t
+lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer);
+static lle_result_t
+lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer);
+static lle_result_t
+lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler);
 /* lle_render_cache_cleanup now implemented in render_cache.c */
 /* lle_dirty_tracker_cleanup now implemented in dirty_tracker.c */
 static lle_result_t lle_render_metrics_cleanup(lle_render_metrics_t *metrics);
@@ -56,16 +66,16 @@ static lle_result_t lle_render_config_cleanup(lle_render_config_t *config);
 
 /**
  * @brief Initialize render controller
- * 
+ *
  * Creates and initializes a render controller that manages all rendering
  * operations for the LLE display integration. Initializes buffer renderer,
  * cursor renderer, cache, dirty tracker, metrics, and configuration.
- * 
+ *
  * @param controller Output pointer to receive initialized controller
  * @param bridge Display bridge for communication with Lusush
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
- * 
+ *
  * SPEC COMPLIANCE: Section 3.4 "Rendering System"
  * ERROR HANDLING: All allocation failures handled, proper cleanup on error
  */
@@ -74,7 +84,7 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
                                         lle_memory_pool_t *memory_pool) {
     lle_result_t result = LLE_SUCCESS;
     lle_render_controller_t *ctrl = NULL;
-    
+
     /* Step 1: Validate parameters */
     if (!controller) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -82,33 +92,35 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
     if (!bridge || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Step 2: Allocate controller structure */
     ctrl = lle_pool_alloc(sizeof(lle_render_controller_t));
     if (!ctrl) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(ctrl, 0, sizeof(lle_render_controller_t));
-    
+
     /* Step 3: Store references */
     ctrl->bridge = bridge;
     ctrl->memory_pool = memory_pool;
-    
+
     /* Step 4: Initialize buffer renderer */
-    result = lle_buffer_renderer_init_internal(&ctrl->buffer_renderer, memory_pool);
+    result =
+        lle_buffer_renderer_init_internal(&ctrl->buffer_renderer, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 5: Initialize cursor renderer */
-    result = lle_cursor_renderer_init_internal(&ctrl->cursor_renderer, memory_pool);
+    result =
+        lle_cursor_renderer_init_internal(&ctrl->cursor_renderer, memory_pool);
     if (result != LLE_SUCCESS) {
         lle_buffer_renderer_cleanup(ctrl->buffer_renderer);
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 6: Initialize frame scheduler */
     result = lle_frame_scheduler_init_internal(&ctrl->scheduler, memory_pool);
     if (result != LLE_SUCCESS) {
@@ -117,7 +129,7 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 7: Initialize render cache */
     result = lle_render_cache_init_internal(&ctrl->cache, memory_pool);
     if (result != LLE_SUCCESS) {
@@ -127,7 +139,7 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 8: Initialize dirty tracker */
     result = lle_dirty_tracker_init_internal(&ctrl->dirty_tracker, memory_pool);
     if (result != LLE_SUCCESS) {
@@ -138,7 +150,7 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 9: Initialize render metrics */
     result = lle_render_metrics_init_internal(&ctrl->metrics, memory_pool);
     if (result != LLE_SUCCESS) {
@@ -150,7 +162,7 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
         lle_pool_free(ctrl);
         return result;
     }
-    
+
     /* Step 10: Initialize render configuration */
     result = lle_render_config_init_internal(&ctrl->config, memory_pool);
     if (result != LLE_SUCCESS) {
@@ -163,10 +175,11 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
         lle_pool_free(ctrl);
         return result;
     }
-    
-    /* Note: pipeline will be initialized when rendering operations are implemented */
+
+    /* Note: pipeline will be initialized when rendering operations are
+     * implemented */
     ctrl->pipeline = NULL;
-    
+
     /* Success - return initialized controller */
     *controller = ctrl;
     return LLE_SUCCESS;
@@ -174,80 +187,81 @@ lle_result_t lle_render_controller_init(lle_render_controller_t **controller,
 
 /**
  * @brief Clean up render controller
- * 
+ *
  * Releases all resources associated with the render controller including
  * renderers, cache, metrics, and configuration. The controller pointer
  * becomes invalid after this call.
- * 
+ *
  * @param controller Render controller to clean up
  * @return LLE_SUCCESS on success, error code on failure
- * 
+ *
  * SPEC COMPLIANCE: Standard cleanup pattern
  * ERROR HANDLING: Handles NULL gracefully, cleans up in reverse order
  */
-lle_result_t lle_render_controller_cleanup(lle_render_controller_t *controller) {
+lle_result_t
+lle_render_controller_cleanup(lle_render_controller_t *controller) {
     if (!controller) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Clean up in reverse order of initialization */
-    
+
     /* Step 1: Clean up configuration */
     if (controller->config) {
         lle_render_config_cleanup(controller->config);
         controller->config = NULL;
     }
-    
+
     /* Step 2: Clean up metrics */
     if (controller->metrics) {
         lle_render_metrics_cleanup(controller->metrics);
         controller->metrics = NULL;
     }
-    
+
     /* Step 3: Clean up dirty tracker */
     if (controller->dirty_tracker) {
         lle_dirty_tracker_cleanup(controller->dirty_tracker);
         controller->dirty_tracker = NULL;
     }
-    
+
     /* Step 4: Clean up render cache */
     if (controller->cache) {
         lle_render_cache_cleanup(controller->cache);
         controller->cache = NULL;
     }
-    
+
     /* Step 5: Clean up frame scheduler */
     if (controller->scheduler) {
         lle_frame_scheduler_cleanup(controller->scheduler);
         controller->scheduler = NULL;
     }
-    
+
     /* Step 6: Clean up cursor renderer */
     if (controller->cursor_renderer) {
         lle_cursor_renderer_cleanup(controller->cursor_renderer);
         controller->cursor_renderer = NULL;
     }
-    
+
     /* Step 7: Clean up buffer renderer */
     if (controller->buffer_renderer) {
         lle_buffer_renderer_cleanup(controller->buffer_renderer);
         controller->buffer_renderer = NULL;
     }
-    
+
     /* Step 8: Clean up pipeline (if initialized) */
     if (controller->pipeline) {
         /* Pipeline cleanup will be implemented in future phase */
         controller->pipeline = NULL;
     }
-    
+
     /* Clear references (not owned by controller) */
     controller->bridge = NULL;
     controller->memory_pool = NULL;
-    
+
     /* Note: The controller structure itself is not freed here.
      * It should be freed by the caller using the same memory pool
      * that was used to allocate it. */
-    
+
     return LLE_SUCCESS;
 }
 
@@ -257,181 +271,188 @@ lle_result_t lle_render_controller_cleanup(lle_render_controller_t *controller) 
 
 /**
  * @brief Initialize buffer renderer
- * 
+ *
  * Creates and initializes a buffer renderer for converting buffer content
  * to display output.
- * 
+ *
  * @param renderer Output pointer to receive initialized renderer
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_buffer_renderer_init_internal(lle_buffer_renderer_t **renderer,
-                                                      lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_buffer_renderer_init_internal(lle_buffer_renderer_t **renderer,
+                                  lle_memory_pool_t *memory_pool) {
     lle_buffer_renderer_t *rend = NULL;
-    
+
     if (!renderer || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate renderer structure */
     rend = lle_pool_alloc(sizeof(lle_buffer_renderer_t));
     if (!rend) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(rend, 0, sizeof(lle_buffer_renderer_t));
-    
+
     /* Initialize state */
     rend->memory_pool = memory_pool;
-    rend->pipeline = NULL; /* Will be set when pipeline is created */
-    rend->color_table = NULL; /* Will be set when theme is integrated */
+    rend->pipeline = NULL;     /* Will be set when pipeline is created */
+    rend->color_table = NULL;  /* Will be set when theme is integrated */
     rend->max_render_size = 0; /* Will be determined dynamically */
-    
+
     *renderer = rend;
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Initialize cursor renderer
- * 
+ *
  * Creates and initializes a cursor renderer for displaying cursor position.
- * 
+ *
  * @param renderer Output pointer to receive initialized renderer
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_cursor_renderer_init_internal(lle_cursor_renderer_t **renderer,
-                                                      lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_cursor_renderer_init_internal(lle_cursor_renderer_t **renderer,
+                                  lle_memory_pool_t *memory_pool) {
     lle_cursor_renderer_t *rend = NULL;
-    
+
     if (!renderer || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate renderer structure */
     rend = lle_pool_alloc(sizeof(lle_cursor_renderer_t));
     if (!rend) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(rend, 0, sizeof(lle_cursor_renderer_t));
-    
+
     /* Initialize state */
     rend->memory_pool = memory_pool;
-    rend->colors = NULL; /* Will be set when theme is integrated */
+    rend->colors = NULL;         /* Will be set when theme is integrated */
     rend->cursor_visible = true; /* Cursor visible by default */
-    rend->cursor_style = 0; /* Default cursor style (block) */
-    
+    rend->cursor_style = 0;      /* Default cursor style (block) */
+
     *renderer = rend;
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Initialize frame scheduler
- * 
+ *
  * Creates and initializes a frame scheduler for coordinating render timing.
- * 
+ *
  * @param scheduler Output pointer to receive initialized scheduler
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_frame_scheduler_init_internal(lle_frame_scheduler_t **scheduler,
-                                                      lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_frame_scheduler_init_internal(lle_frame_scheduler_t **scheduler,
+                                  lle_memory_pool_t *memory_pool) {
     lle_frame_scheduler_t *sched = NULL;
-    
+
     if (!scheduler || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate scheduler structure */
     sched = lle_pool_alloc(sizeof(lle_frame_scheduler_t));
     if (!sched) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(sched, 0, sizeof(lle_frame_scheduler_t));
-    
+
     /* Initialize state */
     sched->target_frame_time_us = 16667; /* 60 FPS = 16.667ms per frame */
     sched->last_frame_time = 0;
     sched->frames_rendered = 0;
     sched->frames_skipped = 0;
     sched->throttling_enabled = true;
-    
+
     *scheduler = sched;
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Initialize render cache
- * 
+ *
  * Creates and initializes a render cache for storing rendered output.
- * 
+ *
  * @param cache Output pointer to receive initialized cache
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_render_cache_init_internal(lle_render_cache_t **cache,
-                                                   lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_render_cache_init_internal(lle_render_cache_t **cache,
+                               lle_memory_pool_t *memory_pool) {
     lle_render_cache_t *c = NULL;
-    
+
     if (!cache || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate cache structure */
     c = lle_pool_alloc(sizeof(lle_render_cache_t));
     if (!c) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(c, 0, sizeof(lle_render_cache_t));
-    
+
     /* Initialize state */
-    c->base_cache = NULL; /* Will be initialized when display_cache is created */
+    c->base_cache =
+        NULL; /* Will be initialized when display_cache is created */
     c->max_render_size = 0; /* Will be determined dynamically */
     c->cache_ttl_ms = 5000; /* Default 5 seconds */
-    
+
     *cache = c;
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Initialize dirty tracker
- * 
+ *
  * Wrapper that calls the proper lle_dirty_tracker_init() from dirty_tracker.c
  * which allocates the dirty_regions array with proper initial capacity.
- * 
+ *
  * @param tracker Output pointer to receive initialized tracker
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_dirty_tracker_init_internal(lle_dirty_tracker_t **tracker,
-                                                    lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_dirty_tracker_init_internal(lle_dirty_tracker_t **tracker,
+                                lle_memory_pool_t *memory_pool) {
     /* Use the proper implementation from dirty_tracker.c */
     return lle_dirty_tracker_init(tracker, memory_pool);
 }
 
 /**
  * @brief Initialize render metrics
- * 
+ *
  * Creates and initializes render metrics tracking.
- * 
+ *
  * @param metrics Output pointer to receive initialized metrics
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_render_metrics_init_internal(lle_render_metrics_t **metrics,
-                                                     lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_render_metrics_init_internal(lle_render_metrics_t **metrics,
+                                 lle_memory_pool_t *memory_pool) {
     lle_render_metrics_t *m = NULL;
-    
+
     if (!metrics || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate metrics structure */
     m = lle_pool_alloc(sizeof(lle_render_metrics_t));
     if (!m) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(m, 0, sizeof(lle_render_metrics_t));
-    
+
     /* Initialize metrics to zero */
     m->total_renders = 0;
     m->cache_hits = 0;
@@ -439,42 +460,43 @@ static lle_result_t lle_render_metrics_init_internal(lle_render_metrics_t **metr
     m->avg_render_time_ns = 0;
     m->max_render_time_ns = 0;
     m->min_render_time_ns = UINT64_MAX; /* Start with max value */
-    
+
     *metrics = m;
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Initialize render configuration
- * 
+ *
  * Creates and initializes render configuration with default settings.
- * 
+ *
  * @param config Output pointer to receive initialized configuration
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-static lle_result_t lle_render_config_init_internal(lle_render_config_t **config,
-                                                    lle_memory_pool_t *memory_pool) {
+static lle_result_t
+lle_render_config_init_internal(lle_render_config_t **config,
+                                lle_memory_pool_t *memory_pool) {
     lle_render_config_t *cfg = NULL;
-    
+
     if (!config || !memory_pool) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Allocate config structure */
     cfg = lle_pool_alloc(sizeof(lle_render_config_t));
     if (!cfg) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(cfg, 0, sizeof(lle_render_config_t));
-    
+
     /* Initialize with default settings */
     cfg->syntax_highlighting_enabled = true;
     cfg->caching_enabled = true;
     cfg->dirty_tracking_enabled = true;
     cfg->max_cache_entries = 128;
     cfg->cache_ttl_ms = 5000; /* 5 seconds */
-    
+
     *config = cfg;
     return LLE_SUCCESS;
 }
@@ -482,7 +504,8 @@ static lle_result_t lle_render_config_init_internal(lle_render_config_t **config
 /**
  * @brief Clean up buffer renderer
  */
-static lle_result_t lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer) {
+static lle_result_t
+lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer) {
     if (!renderer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -496,7 +519,8 @@ static lle_result_t lle_buffer_renderer_cleanup(lle_buffer_renderer_t *renderer)
 /**
  * @brief Clean up cursor renderer
  */
-static lle_result_t lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer) {
+static lle_result_t
+lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer) {
     if (!renderer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -507,7 +531,8 @@ static lle_result_t lle_cursor_renderer_cleanup(lle_cursor_renderer_t *renderer)
 /**
  * @brief Clean up frame scheduler
  */
-static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler) {
+static lle_result_t
+lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler) {
     if (!scheduler) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -517,7 +542,7 @@ static lle_result_t lle_frame_scheduler_cleanup(lle_frame_scheduler_t *scheduler
 
 /**
  * @brief Clean up dirty tracker
- * 
+ *
  * Now implemented in dirty_tracker.c as public function.
  */
 
@@ -571,11 +596,12 @@ lle_result_t lle_frame_scheduler_init(lle_frame_scheduler_t **scheduler,
     return lle_frame_scheduler_init_internal(scheduler, memory_pool);
 }
 
-/* lle_render_cache_init now implemented in render_cache.c (libhashtable version) */
+/* lle_render_cache_init now implemented in render_cache.c (libhashtable
+ * version) */
 
 /**
  * @brief Initialize dirty tracker (public API)
- * 
+ *
  * Now implemented in dirty_tracker.c as public function.
  */
 
@@ -601,17 +627,17 @@ lle_result_t lle_render_config_init(lle_render_config_t **config,
 
 /**
  * @brief Render buffer content to display output
- * 
+ *
  * Converts buffer content to rendered display output with cursor positioning.
  * This is the main rendering entry point that coordinates buffer-to-display
  * conversion with performance optimization.
- * 
+ *
  * @param controller Render controller managing the rendering process
  * @param buffer Buffer containing content to render
  * @param cursor Current cursor position
  * @param output Output pointer to receive rendered output
  * @return LLE_SUCCESS on success, error code on failure
- * 
+ *
  * SPEC COMPLIANCE: Section 3.4 "Rendering System"
  * PERFORMANCE: Uses render metrics for timing tracking
  */
@@ -621,36 +647,42 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
                                        lle_render_output_t **output) {
     struct timespec start_time, end_time;
     bool is_partial_render = false;
-    
+
     /* Step 1: Performance monitoring start */
     clock_gettime(CLOCK_MONOTONIC, &start_time);
-    
+
     /* Step 2: Validate input parameters */
     if (!controller || !buffer || !cursor || !output) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Step 3: Check dirty tracker for partial render opportunity */
     bool needs_full_render = true;
-    if (controller->dirty_tracker && controller->config->dirty_tracking_enabled) {
-        needs_full_render = lle_dirty_tracker_needs_full_redraw(controller->dirty_tracker);
-        
-        /* If we have dirty regions but not full redraw, attempt partial render */
+    if (controller->dirty_tracker &&
+        controller->config->dirty_tracking_enabled) {
+        needs_full_render =
+            lle_dirty_tracker_needs_full_redraw(controller->dirty_tracker);
+
+        /* If we have dirty regions but not full redraw, attempt partial render
+         */
         if (!needs_full_render && controller->dirty_tracker->region_count > 0) {
             is_partial_render = true;
         }
     }
-    
+
     /* Step 4: Allocate render output structure */
-    lle_render_output_t *render_out = lle_pool_alloc(sizeof(lle_render_output_t));
+    lle_render_output_t *render_out =
+        lle_pool_alloc(sizeof(lle_render_output_t));
     if (!render_out) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     memset(render_out, 0, sizeof(lle_render_output_t));
-    
-    /* Step 5: Estimate required output size (buffer length + ANSI codes overhead) */
-    size_t estimated_size = buffer->length + 256; /* Extra space for ANSI codes */
-    
+
+    /* Step 5: Estimate required output size (buffer length + ANSI codes
+     * overhead) */
+    size_t estimated_size =
+        buffer->length + 256; /* Extra space for ANSI codes */
+
     /* Step 6: Allocate output content buffer */
     render_out->content = lle_pool_alloc(estimated_size);
     if (!render_out->content) {
@@ -658,116 +690,126 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     render_out->content_capacity = estimated_size;
-    
+
     /* Step 7: Render content based on dirty tracking */
     if (is_partial_render) {
         /* PARTIAL RENDER: Only copy dirty regions */
         size_t bytes_copied = 0;
-        
+
         /* Iterate through dirty regions and copy them */
         for (size_t i = 0; i < controller->dirty_tracker->region_count; i++) {
             size_t offset = controller->dirty_tracker->dirty_regions[i];
-            
+
             /* Copy region around the dirty offset (with some context) */
             size_t region_start = (offset > 64) ? (offset - 64) : 0;
-            size_t region_end = (offset + 64 < buffer->length) ? (offset + 64) : buffer->length;
+            size_t region_end =
+                (offset + 64 < buffer->length) ? (offset + 64) : buffer->length;
             size_t region_size = region_end - region_start;
-            
+
             /* Ensure we have space in output buffer */
             if (bytes_copied + region_size > render_out->content_capacity) {
                 /* Fall back to full render if partial would overflow */
                 is_partial_render = false;
                 break;
             }
-            
+
             /* Copy dirty region to output */
-            memcpy(render_out->content + bytes_copied, 
-                   buffer->data + region_start, 
-                   region_size);
+            memcpy(render_out->content + bytes_copied,
+                   buffer->data + region_start, region_size);
             bytes_copied += region_size;
         }
-        
+
         if (is_partial_render) {
-            render_out->content[bytes_copied] = '\0';  /* CRITICAL: Null-terminate for string functions */
+            render_out->content[bytes_copied] =
+                '\0'; /* CRITICAL: Null-terminate for string functions */
             render_out->content_length = bytes_copied;
         }
     }
-    
+
     /* Step 8: Full render if needed or partial render failed */
     if (!is_partial_render) {
         if (buffer->length > 0) {
             memcpy(render_out->content, buffer->data, buffer->length);
-            render_out->content[buffer->length] = '\0';  /* CRITICAL: Null-terminate for string functions */
+            render_out->content[buffer->length] =
+                '\0'; /* CRITICAL: Null-terminate for string functions */
             render_out->content_length = buffer->length;
         } else {
             render_out->content[0] = '\0';
             render_out->content_length = 0;
         }
     }
-    
+
     /* Step 9: Set render timestamp */
     clock_gettime(CLOCK_MONOTONIC, &end_time);
-    render_out->timestamp = (uint64_t)end_time.tv_sec * 1000000ULL + 
+    render_out->timestamp = (uint64_t)end_time.tv_sec * 1000000ULL +
                             (uint64_t)end_time.tv_nsec / 1000ULL;
-    
+
     /* Step 10: Update render metrics */
-    uint64_t render_time_ns = (end_time.tv_sec - start_time.tv_sec) * 1000000000ULL +
-                              (end_time.tv_nsec - start_time.tv_nsec);
-    
+    uint64_t render_time_ns =
+        (end_time.tv_sec - start_time.tv_sec) * 1000000000ULL +
+        (end_time.tv_nsec - start_time.tv_nsec);
+
     controller->metrics->total_renders++;
-    
+
     /* Track partial vs full render counts and timing */
     if (is_partial_render) {
         controller->metrics->partial_renders++;
-        
+
         /* Update average partial render time */
         if (controller->metrics->partial_renders == 1) {
             controller->metrics->avg_partial_render_time_ns = render_time_ns;
         } else {
-            controller->metrics->avg_partial_render_time_ns = 
-                (controller->metrics->avg_partial_render_time_ns * (controller->metrics->partial_renders - 1) + 
-                 render_time_ns) / controller->metrics->partial_renders;
+            controller->metrics->avg_partial_render_time_ns =
+                (controller->metrics->avg_partial_render_time_ns *
+                     (controller->metrics->partial_renders - 1) +
+                 render_time_ns) /
+                controller->metrics->partial_renders;
         }
     } else {
         controller->metrics->full_renders++;
-        
+
         /* Update average full render time */
         if (controller->metrics->full_renders == 1) {
             controller->metrics->avg_full_render_time_ns = render_time_ns;
         } else {
-            controller->metrics->avg_full_render_time_ns = 
-                (controller->metrics->avg_full_render_time_ns * (controller->metrics->full_renders - 1) + 
-                 render_time_ns) / controller->metrics->full_renders;
+            controller->metrics->avg_full_render_time_ns =
+                (controller->metrics->avg_full_render_time_ns *
+                     (controller->metrics->full_renders - 1) +
+                 render_time_ns) /
+                controller->metrics->full_renders;
         }
     }
-    
+
     /* Update global min/max render times */
-    if (render_time_ns < controller->metrics->min_render_time_ns || 
+    if (render_time_ns < controller->metrics->min_render_time_ns ||
         controller->metrics->min_render_time_ns == 0) {
         controller->metrics->min_render_time_ns = render_time_ns;
     }
     if (render_time_ns > controller->metrics->max_render_time_ns) {
         controller->metrics->max_render_time_ns = render_time_ns;
     }
-    
+
     /* Update average render time (all renders) */
     if (controller->metrics->total_renders == 1) {
         controller->metrics->avg_render_time_ns = render_time_ns;
     } else {
-        controller->metrics->avg_render_time_ns = 
-            (controller->metrics->avg_render_time_ns * (controller->metrics->total_renders - 1) + 
-             render_time_ns) / controller->metrics->total_renders;
+        controller->metrics->avg_render_time_ns =
+            (controller->metrics->avg_render_time_ns *
+                 (controller->metrics->total_renders - 1) +
+             render_time_ns) /
+            controller->metrics->total_renders;
     }
-    
+
     /* Step 11: Clear dirty tracker after successful render */
     if (controller->dirty_tracker) {
-        lle_result_t clear_result = lle_dirty_tracker_clear(controller->dirty_tracker);
+        lle_result_t clear_result =
+            lle_dirty_tracker_clear(controller->dirty_tracker);
         if (clear_result != LLE_SUCCESS) {
             /* Log warning but don't fail the render */
             /* In production, this would use proper logging */
         }
     }
-    
+
     /* Step 12: Return rendered output */
     *output = render_out;
     return LLE_SUCCESS;
@@ -775,24 +817,23 @@ lle_result_t lle_render_buffer_content(lle_render_controller_t *controller,
 
 /**
  * @brief Render cursor position to terminal escape codes
- * 
+ *
  * Generates ANSI escape sequences to position the cursor at the specified
  * location. Handles coordinate translation from buffer positions to screen
  * positions.
- * 
+ *
  * @param controller Render controller
  * @param cursor Cursor position to render
  * @param output Output buffer for escape codes
  * @param output_size Size of output buffer
  * @param bytes_written Number of bytes written to output
  * @return LLE_SUCCESS on success, error code on failure
- * 
+ *
  * SPEC COMPLIANCE: Section 3.4.2 "Cursor Rendering"
  */
 lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
                                         lle_cursor_position_t *cursor,
-                                        char *output,
-                                        size_t output_size,
+                                        char *output, size_t output_size,
                                         size_t *bytes_written) {
     /* Step 1: Validate parameters */
     if (!controller || !cursor || !output || !bytes_written) {
@@ -801,7 +842,7 @@ lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
     if (output_size < 32) { /* Minimum space for ANSI cursor positioning */
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Step 2: Check cursor visibility */
     if (!controller->cursor_renderer->cursor_visible) {
         /* Cursor hidden - generate hide cursor sequence */
@@ -812,33 +853,34 @@ lle_result_t lle_render_cursor_position(lle_render_controller_t *controller,
         *bytes_written = (size_t)written;
         return LLE_SUCCESS;
     }
-    
+
     /* Step 3: Calculate screen position from buffer position */
     /* For now, use simple 1:1 mapping (line_number, visual_column) */
     /* Terminal coordinates are 1-based, so add 1 to both */
     size_t screen_row = cursor->line_number + 1;
     size_t screen_col = cursor->visual_column + 1;
-    
+
     /* Step 4: Generate ANSI cursor positioning sequence */
     /* Format: ESC[row;colH */
-    int written = snprintf(output, output_size, "\033[%zu;%zuH", screen_row, screen_col);
+    int written =
+        snprintf(output, output_size, "\033[%zu;%zuH", screen_row, screen_col);
     if (written < 0 || (size_t)written >= output_size) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     *bytes_written = (size_t)written;
-    
+
     /* Step 5: Update cursor renderer state (if needed for tracking) */
     /* For basic implementation, no additional state tracking needed */
-    
+
     return LLE_SUCCESS;
 }
 
 /**
  * @brief Free render output structure
- * 
+ *
  * Releases memory allocated for render output.
- * 
+ *
  * @param output Render output to free
  * @return LLE_SUCCESS on success, error code on failure
  */
@@ -846,21 +888,21 @@ lle_result_t lle_render_output_free(lle_render_output_t *output) {
     if (!output) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Free content buffer if allocated */
     if (output->content) {
         lle_pool_free(output->content);
         output->content = NULL;
     }
-    
+
     /* Free attributes if allocated */
     if (output->attributes) {
         lle_pool_free(output->attributes);
         output->attributes = NULL;
     }
-    
+
     /* Free output structure itself */
     lle_pool_free(output);
-    
+
     return LLE_SUCCESS;
 }

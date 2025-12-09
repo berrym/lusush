@@ -5,27 +5,29 @@
  * Implements the lifecycle functions for lle_editor_t, including creation,
  * initialization, and destruction of the editor context and all its subsystems.
  *
- * Specification: docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
- * Date: 2025-11-06
+ * Specification:
+ * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md Date:
+ * 2025-11-06
  */
 
 #include "lle/lle_editor.h"
 #include "lle/buffer_management.h"
+#include "lle/completion/completion_system_v2.h"
+#include "lle/error_handling.h"
 #include "lle/kill_ring.h"
 #include "lle/memory_management.h"
-#include "lle/error_handling.h"
-#include "lle/completion/completion_system_v2.h"
-#include "lle/widget_system.h"
 #include "lle/widget_hooks.h"
-#include <string.h>
+#include "lle/widget_system.h"
 #include <stdlib.h>
+#include <string.h>
 
 /* Forward declaration for builtin widget registration */
 lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry);
 
 /* ============================================================================
  * EDITOR LIFECYCLE FUNCTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Create a new editor context
@@ -42,51 +44,50 @@ lle_result_t lle_register_builtin_widgets(lle_widget_registry_t *registry);
  * @param pool Memory pool for allocations (NULL = use global pool)
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool) {
+lle_result_t lle_editor_create(lle_editor_t **editor,
+                               lusush_memory_pool_t *pool) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Use global pool if none provided */
     if (!pool) {
         extern lusush_memory_pool_t *global_memory_pool;
         pool = global_memory_pool;
     }
-    
+
     /* Allocate editor structure */
     lle_editor_t *ed = (lle_editor_t *)lle_pool_alloc(sizeof(lle_editor_t));
     if (!ed) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Zero-initialize entire structure */
     memset(ed, 0, sizeof(lle_editor_t));
-    
+
     /* Store Lusush memory pool reference */
     ed->lusush_pool = pool;
-    
+
     /* Create LLE memory pool wrapper for unified memory management */
     lle_result_t result = lle_memory_pool_create_from_lusush(
-        &ed->lle_pool, 
-        pool, 
-        LLE_POOL_BUFFER  /* Editor uses buffer pool type */
+        &ed->lle_pool, pool, LLE_POOL_BUFFER /* Editor uses buffer pool type */
     );
     if (result != LLE_SUCCESS) {
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Initialize editing mode to Emacs (default) */
     ed->editing_mode = LLE_EDITING_MODE_EMACS;
     ed->current_keymap = LLE_KEYMAP_EMACS;
-    
+
     /* Create buffer (core subsystem) */
     result = lle_buffer_create(&ed->buffer, pool, 0);
     if (result != LLE_SUCCESS) {
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Create cursor manager (depends on buffer) */
     result = lle_cursor_manager_init(&ed->cursor_manager, ed->buffer);
     if (result != LLE_SUCCESS) {
@@ -94,7 +95,7 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Create kill ring with default max entries (100) using unified pool */
     result = lle_kill_ring_create(&ed->kill_ring, 100, ed->lle_pool);
     if (result != LLE_SUCCESS) {
@@ -104,9 +105,10 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Create change tracker for undo/redo support */
-    result = lle_change_tracker_init(&ed->change_tracker, pool, LLE_BUFFER_MAX_UNDO_LEVELS);
+    result = lle_change_tracker_init(&ed->change_tracker, pool,
+                                     LLE_BUFFER_MAX_UNDO_LEVELS);
     if (result != LLE_SUCCESS) {
         lle_kill_ring_destroy(ed->kill_ring);
         lle_cursor_manager_destroy(ed->cursor_manager);
@@ -115,12 +117,13 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Enable change tracking on the buffer */
     ed->buffer->change_tracking_enabled = true;
-    
+
     /* Create completion system (Spec 12) using unified pool */
-    result = lle_completion_system_v2_create(ed->lle_pool, &ed->completion_system_v2);
+    result = lle_completion_system_v2_create(ed->lle_pool,
+                                             &ed->completion_system_v2);
     if (result != LLE_SUCCESS) {
         lle_change_tracker_destroy(ed->change_tracker);
         lle_kill_ring_destroy(ed->kill_ring);
@@ -130,12 +133,12 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
         lle_pool_free(ed);
         return result;
     }
-    
+
     /* Initialize statistics */
     ed->total_keystrokes = 0;
     ed->command_count = 0;
-    ed->edit_session_start = 0;  /* Will be set when editing starts */
-    
+    ed->edit_session_start = 0; /* Will be set when editing starts */
+
     /* Other subsystems (history, display, etc.) are initialized on-demand */
     ed->history_system = NULL;
     ed->history_buffer_integration = NULL;
@@ -145,33 +148,33 @@ lle_result_t lle_editor_create(lle_editor_t **editor, lusush_memory_pool_t *pool
     ed->plugin_manager = NULL;
     ed->script_integration = NULL;
     ed->history_edit_callbacks = NULL;
-    
+
     /* Initialize state flags */
     ed->history_search_active = false;
     ed->history_search_direction = 0;
     ed->quoted_insert_mode = false;
-    
+
     /* === Widget System Initialization (Spec 07) === */
     /* Initialize widget registry for ZSH-style widget system */
     result = lle_widget_registry_init(&ed->widget_registry, ed->lle_pool);
     if (result != LLE_SUCCESS) {
-        /* Widget system initialization failed - non-fatal, continue without widgets */
+        /* Widget system initialization failed - non-fatal, continue without
+         * widgets */
         ed->widget_registry = NULL;
         ed->widget_hooks_manager = NULL;
     } else {
         /* Register builtin widgets */
         lle_register_builtin_widgets(ed->widget_registry);
-        
+
         /* Initialize widget hooks manager */
-        result = lle_widget_hooks_manager_init(&ed->widget_hooks_manager,
-                                               ed->widget_registry,
-                                               ed->lle_pool);
+        result = lle_widget_hooks_manager_init(
+            &ed->widget_hooks_manager, ed->widget_registry, ed->lle_pool);
         if (result != LLE_SUCCESS) {
             /* Hooks manager failed - widgets work but hooks won't trigger */
             ed->widget_hooks_manager = NULL;
         }
     }
-    
+
     *editor = ed;
     return LLE_SUCCESS;
 }
@@ -189,72 +192,72 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Destroy subsystems in reverse order of dependencies */
-    
+
     /* Destroy widget hooks manager first (depends on widget registry) */
     if (editor->widget_hooks_manager) {
         lle_widget_hooks_manager_destroy(editor->widget_hooks_manager);
         editor->widget_hooks_manager = NULL;
     }
-    
+
     /* Destroy widget registry */
     if (editor->widget_registry) {
         lle_widget_registry_destroy(editor->widget_registry);
         editor->widget_registry = NULL;
     }
-    
+
     /* Destroy optional subsystems if allocated */
     if (editor->vi_state) {
         lle_pool_free(editor->vi_state);
         editor->vi_state = NULL;
     }
-    
+
     /* Note: history_system, keybinding_manager, display_controller, etc.
      * should have their own destroy functions called if they're not NULL.
      * For now, we only handle the core subsystems we initialize. */
-    
+
     /* Destroy completion system v2 (Spec 12) */
     if (editor->completion_system_v2) {
         lle_completion_system_v2_destroy(editor->completion_system_v2);
         editor->completion_system_v2 = NULL;
     }
-    
+
     /* Destroy change tracker */
     if (editor->change_tracker) {
         lle_change_tracker_destroy(editor->change_tracker);
         editor->change_tracker = NULL;
     }
-    
+
     /* Destroy kill ring */
     if (editor->kill_ring) {
         lle_kill_ring_destroy(editor->kill_ring);
         editor->kill_ring = NULL;
     }
-    
+
     /* Destroy cursor manager */
     if (editor->cursor_manager) {
         lle_cursor_manager_destroy(editor->cursor_manager);
         editor->cursor_manager = NULL;
     }
-    
+
     /* Destroy buffer */
     if (editor->buffer) {
         lle_buffer_destroy(editor->buffer);
         editor->buffer = NULL;
     }
-    
+
     /* Destroy LLE memory pool wrapper */
     if (editor->lle_pool) {
         lle_memory_pool_destroy(editor->lle_pool);
         editor->lle_pool = NULL;
     }
-    
+
     /* Note: lusush_pool is not destroyed here - it's managed externally */
-    
+
     /* Free editor structure */
     lle_pool_free(editor);
-    
+
     return LLE_SUCCESS;
 }
 
@@ -271,28 +274,29 @@ lle_result_t lle_editor_reset(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Clear buffer */
     lle_result_t result = lle_buffer_clear(editor->buffer);
     if (result != LLE_SUCCESS) {
         return result;
     }
-    
+
     /* Reset cursor to beginning */
     if (editor->cursor_manager) {
-        result = lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
+        result =
+            lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, 0);
         if (result != LLE_SUCCESS) {
             return result;
         }
     }
-    
+
     /* Clear history search state */
     editor->history_search_active = false;
     editor->history_search_direction = 0;
-    
+
     /* Clear quoted insert mode */
     editor->quoted_insert_mode = false;
-    
+
     return LLE_SUCCESS;
 }
 
@@ -309,7 +313,7 @@ const char *lle_editor_get_content(const lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return NULL;
     }
-    
+
     return editor->buffer->data;
 }
 
@@ -323,7 +327,7 @@ bool lle_editor_has_unsaved_changes(const lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
         return false;
     }
-    
+
     return editor->buffer->modification_count > 0;
 }
 
@@ -340,18 +344,18 @@ lle_result_t lle_editor_cancel_operation(lle_editor_t *editor) {
     if (!editor) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Cancel history search if active */
     editor->history_search_active = false;
     editor->history_search_direction = 0;
-    
+
     /* Exit quoted insert mode */
     editor->quoted_insert_mode = false;
-    
+
     /* If in vi command mode, return to insert mode */
     if (editor->editing_mode == LLE_EDITING_MODE_VI_COMMAND) {
         editor->editing_mode = LLE_EDITING_MODE_VI_INSERT;
     }
-    
+
     return LLE_SUCCESS;
 }

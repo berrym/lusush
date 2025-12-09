@@ -14,47 +14,48 @@
 #ifndef LLE_SECURE_MEMORY_H
 #define LLE_SECURE_MEMORY_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 /* ============================================================================
  * PLATFORM DETECTION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /* Detect mlock availability (POSIX systems) */
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || \
-    defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || \
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) ||        \
+    defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) ||           \
     defined(_AIX) || defined(__hpux)
-    #define LLE_HAVE_MLOCK 1
-    #include <sys/mman.h>
+#define LLE_HAVE_MLOCK 1
+#include <sys/mman.h>
 #else
-    #define LLE_HAVE_MLOCK 0
+#define LLE_HAVE_MLOCK 0
 #endif
 
 /* Detect explicit_bzero availability */
 /* Note: macOS does NOT have explicit_bzero - it uses memset_s instead,
  * but memset_s requires __STDC_WANT_LIB_EXT1__ before any headers.
  * We use the volatile pointer fallback on macOS which is equally safe. */
-#if defined(__OpenBSD__) || \
-    (defined(__FreeBSD__) && __FreeBSD__ >= 11) || \
+#if defined(__OpenBSD__) || (defined(__FreeBSD__) && __FreeBSD__ >= 11) ||     \
     (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 25)
-    #define LLE_HAVE_EXPLICIT_BZERO 1
-    #if defined(__OpenBSD__) || defined(__FreeBSD__)
-        #include <strings.h>  /* BSD location */
-    #else
-        #include <string.h>   /* glibc location */
-    #endif
-    /* Declare explicit_bzero if not already declared */
-    #ifndef explicit_bzero
-        extern void explicit_bzero(void *, size_t);
-    #endif
+#define LLE_HAVE_EXPLICIT_BZERO 1
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+#include <strings.h> /* BSD location */
 #else
-    #define LLE_HAVE_EXPLICIT_BZERO 0
+#include <string.h> /* glibc location */
+#endif
+/* Declare explicit_bzero if not already declared */
+#ifndef explicit_bzero
+extern void explicit_bzero(void *, size_t);
+#endif
+#else
+#define LLE_HAVE_EXPLICIT_BZERO 0
 #endif
 
 /* ============================================================================
  * SECURE MEMORY WIPE
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Securely wipe memory contents
@@ -84,7 +85,8 @@ static inline void lle_secure_wipe(void *ptr, size_t len) {
 
 /* ============================================================================
  * MEMORY LOCKING (PREVENT SWAPPING)
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Lock memory to prevent swapping to disk
@@ -130,7 +132,7 @@ static inline bool lle_memory_lock(void *addr, size_t len) {
  */
 static inline bool lle_memory_unlock(void *addr, size_t len) {
     if (!addr || len == 0) {
-        return true;  /* Nothing to unlock */
+        return true; /* Nothing to unlock */
     }
 
 #if LLE_HAVE_MLOCK

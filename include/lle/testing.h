@@ -1,13 +1,13 @@
 /**
  * @file testing.h
  * @brief LLE Testing Framework - Type Definitions and Function Declarations
- * 
+ *
  * Specification: Spec 17 - Testing Framework Complete Specification
  * Version: 1.0.0
- * 
+ *
  * This header contains ALL type definitions and function declarations for the
  * LLE testing framework. NO implementations are included here.
- * 
+ *
  * Layer 0: Type Definitions Only
  * Layer 1: Implementations in src/lle/testing.c (separate file)
  */
@@ -15,10 +15,10 @@
 #ifndef LLE_TESTING_H
 #define LLE_TESTING_H
 
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
-#include <stdarg.h>
 #include <sys/types.h>
 
 /* Include LLE dependencies */
@@ -32,73 +32,76 @@
  */
 
 /* Performance Constants */
-#define LLE_PERF_MAX_RESPONSE_TIME_NS      500000ULL    /* 500μs */
-#define LLE_PERF_MAX_ALLOCATION_TIME_NS    100000ULL    /* 100μs */
-#define LLE_PERF_MAX_RENDER_TIME_NS        1000000ULL   /* 1ms */
-#define LLE_PERF_MAX_EVENT_PROCESSING_NS   250000ULL    /* 250μs */
-#define LLE_PERF_MIN_CACHE_HIT_RATE        75.0         /* 75% */
-#define LLE_PERF_MIN_MEMORY_UTILIZATION    85.0         /* 85% */
-#define LLE_PERF_MAX_REGRESSION_PERCENT    10.0         /* 10% */
+#define LLE_PERF_MAX_RESPONSE_TIME_NS 500000ULL    /* 500μs */
+#define LLE_PERF_MAX_ALLOCATION_TIME_NS 100000ULL  /* 100μs */
+#define LLE_PERF_MAX_RENDER_TIME_NS 1000000ULL     /* 1ms */
+#define LLE_PERF_MAX_EVENT_PROCESSING_NS 250000ULL /* 250μs */
+#define LLE_PERF_MIN_CACHE_HIT_RATE 75.0           /* 75% */
+#define LLE_PERF_MIN_MEMORY_UTILIZATION 85.0       /* 85% */
+#define LLE_PERF_MAX_REGRESSION_PERCENT 10.0       /* 10% */
 
 /* Size/Limit Constants */
-#define LLE_MAX_TEST_NAME_LENGTH           256
-#define LLE_MAX_TEST_DESC_LENGTH           1024
-#define LLE_MAX_TEST_DEPENDENCIES          32
-#define LLE_MAX_PATH_LENGTH                4096
+#define LLE_MAX_TEST_NAME_LENGTH 256
+#define LLE_MAX_TEST_DESC_LENGTH 1024
+#define LLE_MAX_TEST_DEPENDENCIES 32
+#define LLE_MAX_PATH_LENGTH 4096
 
 /* Test Registration Macros */
-#define LLE_REGISTER_TEST(name, type, priority, description) \
-    static lle_test_result_t test_##name(lle_test_context_t *ctx); \
-    static lle_test_case_t __attribute__((section("lle_tests"))) \
-    test_case_##name = { \
-        .test_name = #name, \
-        .test_description = description, \
-        .test_type = type, \
-        .priority = priority, \
-        .test_function = test_##name, \
-        .setup_function = NULL, \
-        .teardown_function = NULL, \
-    }; \
+#define LLE_REGISTER_TEST(name, type, priority, description)                   \
+    static lle_test_result_t test_##name(lle_test_context_t *ctx);             \
+    static lle_test_case_t                                                     \
+        __attribute__((section("lle_tests"))) test_case_##name = {             \
+            .test_name = #name,                                                \
+            .test_description = description,                                   \
+            .test_type = type,                                                 \
+            .priority = priority,                                              \
+            .test_function = test_##name,                                      \
+            .setup_function = NULL,                                            \
+            .teardown_function = NULL,                                         \
+    };                                                                         \
     static lle_test_result_t test_##name(lle_test_context_t *ctx)
 
 /* Assertion Macros */
-#define LLE_ASSERT_EQ(expected, actual, message) \
-    do { \
-        if ((expected) != (actual)) { \
-            lle_test_record_assertion_failure(ctx, __FILE__, __LINE__, \
-                "Expected: %s, Actual: %s, Message: %s", \
-                #expected, #actual, message); \
-            return LLE_TEST_RESULT_ASSERTION_FAILED; \
-        } \
-        lle_test_record_assertion_success(ctx, __FILE__, __LINE__); \
-    } while(0)
+#define LLE_ASSERT_EQ(expected, actual, message)                               \
+    do {                                                                       \
+        if ((expected) != (actual)) {                                          \
+            lle_test_record_assertion_failure(                                 \
+                ctx, __FILE__, __LINE__,                                       \
+                "Expected: %s, Actual: %s, Message: %s", #expected, #actual,   \
+                message);                                                      \
+            return LLE_TEST_RESULT_ASSERTION_FAILED;                           \
+        }                                                                      \
+        lle_test_record_assertion_success(ctx, __FILE__, __LINE__);            \
+    } while (0)
 
-#define LLE_ASSERT_NULL(ptr, message) \
-    LLE_ASSERT_EQ(NULL, ptr, message)
+#define LLE_ASSERT_NULL(ptr, message) LLE_ASSERT_EQ(NULL, ptr, message)
 
-#define LLE_ASSERT_NOT_NULL(ptr, message) \
-    do { \
-        if ((ptr) == NULL) { \
-            lle_test_record_assertion_failure(ctx, __FILE__, __LINE__, \
-                "Expected non-null pointer, Message: %s", message); \
-            return LLE_TEST_RESULT_ASSERTION_FAILED; \
-        } \
-        lle_test_record_assertion_success(ctx, __FILE__, __LINE__); \
-    } while(0)
+#define LLE_ASSERT_NOT_NULL(ptr, message)                                      \
+    do {                                                                       \
+        if ((ptr) == NULL) {                                                   \
+            lle_test_record_assertion_failure(                                 \
+                ctx, __FILE__, __LINE__,                                       \
+                "Expected non-null pointer, Message: %s", message);            \
+            return LLE_TEST_RESULT_ASSERTION_FAILED;                           \
+        }                                                                      \
+        lle_test_record_assertion_success(ctx, __FILE__, __LINE__);            \
+    } while (0)
 
-#define LLE_ASSERT_PERFORMANCE(operation, max_duration_us, message) \
-    do { \
-        uint64_t start_time = lle_get_microsecond_timestamp(); \
-        operation; \
-        uint64_t duration = lle_get_microsecond_timestamp() - start_time; \
-        if (duration > (max_duration_us)) { \
-            lle_test_record_performance_failure(ctx, __FILE__, __LINE__, \
-                "Performance exceeded: %llu us > %llu us, Message: %s", \
-                duration, (uint64_t)(max_duration_us), message); \
-            return LLE_TEST_RESULT_PERFORMANCE_FAILED; \
-        } \
-        lle_test_record_performance_success(ctx, __FILE__, __LINE__, duration); \
-    } while(0)
+#define LLE_ASSERT_PERFORMANCE(operation, max_duration_us, message)            \
+    do {                                                                       \
+        uint64_t start_time = lle_get_microsecond_timestamp();                 \
+        operation;                                                             \
+        uint64_t duration = lle_get_microsecond_timestamp() - start_time;      \
+        if (duration > (max_duration_us)) {                                    \
+            lle_test_record_performance_failure(                               \
+                ctx, __FILE__, __LINE__,                                       \
+                "Performance exceeded: %llu us > %llu us, Message: %s",        \
+                duration, (uint64_t)(max_duration_us), message);               \
+            return LLE_TEST_RESULT_PERFORMANCE_FAILED;                         \
+        }                                                                      \
+        lle_test_record_performance_success(ctx, __FILE__, __LINE__,           \
+                                            duration);                         \
+    } while (0)
 
 /* ============================================================================
  * FORWARD DECLARATIONS
@@ -131,7 +134,8 @@ typedef struct lle_performance_expectations_t lle_performance_expectations_t;
 typedef struct lle_error_scenarios_t lle_error_scenarios_t;
 
 /* Performance testing types */
-typedef struct lle_performance_testing_framework_t lle_performance_testing_framework_t;
+typedef struct lle_performance_testing_framework_t
+    lle_performance_testing_framework_t;
 typedef struct lle_regression_analyzer_t lle_regression_analyzer_t;
 typedef struct lle_performance_reporter_t lle_performance_reporter_t;
 
@@ -354,7 +358,8 @@ typedef enum {
 typedef lle_test_result_t (*lle_test_function_t)(lle_test_context_t *ctx);
 typedef lle_result_t (*lle_test_setup_function_t)(lle_test_context_t *ctx);
 typedef lle_result_t (*lle_test_teardown_function_t)(lle_test_context_t *ctx);
-typedef lle_result_t (*lle_performance_test_function_t)(void *context, lle_cache_performance_metrics_t *metrics);
+typedef lle_result_t (*lle_performance_test_function_t)(
+    void *context, lle_cache_performance_metrics_t *metrics);
 
 /**
  * @brief Test Case Definition
@@ -367,12 +372,12 @@ struct lle_test_case_t {
     lle_test_function_t test_function;
     lle_test_setup_function_t setup_function;
     lle_test_teardown_function_t teardown_function;
-    
+
     /* Test requirements and dependencies */
     char *required_components[LLE_MAX_TEST_DEPENDENCIES];
     double expected_max_duration_ms;
     size_t expected_max_memory_bytes;
-    
+
     /* Test validation criteria */
     lle_test_assertion_list_t *assertions;
     lle_performance_expectations_t *perf_expectations;
@@ -391,12 +396,12 @@ struct lle_testing_framework_t {
     lle_error_injector_t *error_injector;
     lle_coverage_analyzer_t *coverage_analyzer;
     lle_regression_detector_t *regression_detector;
-    
+
     /* Test execution context */
     lle_test_environment_t *test_environment;
     lle_mock_system_t *mock_system;
     lle_fixture_manager_t *fixture_manager;
-    
+
     /* Quality assurance metrics */
     lle_quality_metrics_t *quality_metrics;
     lle_test_statistics_t *test_statistics;
@@ -413,7 +418,7 @@ typedef struct {
     double regression_threshold_percent;
     uint64_t last_updated_timestamp;
     uint32_t sample_count;
-    
+
     /* Statistical analysis */
     double mean_duration_us;
     double std_deviation_us;
@@ -453,7 +458,7 @@ struct lle_performance_testing_framework_t {
     lle_performance_monitor_t *monitor;
     lle_regression_analyzer_t *analyzer;
     lle_performance_reporter_t *reporter;
-    
+
     /* Test configuration */
     uint32_t warmup_iterations;
     uint32_t measurement_iterations;
@@ -504,14 +509,14 @@ struct lle_memory_safety_framework_t {
     lle_leak_detector_t *leak_detector;
     lle_corruption_detector_t *corruption_detector;
     lle_usage_analyzer_t *usage_analyzer;
-    
+
     /* Testing configuration */
     bool enable_allocation_tracking;
     bool enable_leak_detection;
     bool enable_corruption_detection;
     bool enable_double_free_detection;
     bool enable_use_after_free_detection;
-    
+
     /* Memory testing statistics */
     uint64_t total_allocations;
     uint64_t total_deallocations;
@@ -614,14 +619,14 @@ typedef struct {
     uint64_t start_timestamp;
     uint64_t end_timestamp;
     uint64_t total_duration_us;
-    
+
     size_t total_tests;
     size_t passed_tests;
     size_t failed_tests;
-    
+
     uint64_t total_execution_time_us;
     uint64_t peak_memory_usage;
-    
+
     lle_test_failure_info_t *failures;
     size_t failure_count;
 } lle_test_results_t;
@@ -668,12 +673,12 @@ typedef struct {
     uint64_t total_duration_us;
     lle_ci_trigger_type_t trigger_type;
     lle_ci_status_t pipeline_status;
-    
+
     lle_ci_stage_result_t stage_results[16];
     size_t stage_count;
     size_t passed_stages;
     size_t failed_stages;
-    
+
     const char *failure_reason;
 } lle_ci_results_t;
 
@@ -687,7 +692,7 @@ struct lle_ci_pipeline_t {
     size_t stage_count;
     lle_artifact_manager_t *artifact_manager;
     lle_notification_system_t *notifications;
-    
+
     /* Pipeline configuration */
     bool parallel_stage_execution;
     uint32_t max_concurrent_jobs;
@@ -704,7 +709,7 @@ struct lle_test_reporting_framework_t {
     lle_analytics_engine_t *analytics;
     lle_trend_analyzer_t *trend_analyzer;
     lle_dashboard_manager_t *dashboard;
-    
+
     /* Reporting configuration */
     lle_report_format_t supported_formats;
     char output_directory[LLE_MAX_PATH_LENGTH];
@@ -721,32 +726,32 @@ typedef struct {
     uint64_t successful_runs;
     uint64_t failed_runs;
     double success_rate_percent;
-    
+
     /* Performance analytics */
     double average_execution_time_ms;
     double median_execution_time_ms;
     double percentile_95_execution_time_ms;
     uint64_t fastest_test_time_us;
     uint64_t slowest_test_time_us;
-    
+
     /* Memory usage analytics */
     uint64_t average_memory_usage_bytes;
     uint64_t peak_memory_usage_bytes;
     uint32_t memory_leak_incidents;
     uint32_t memory_corruption_incidents;
-    
+
     /* Reliability metrics */
     double test_stability_score;
     uint32_t flaky_test_count;
     double mean_time_between_failures_hours;
     double mean_time_to_recovery_minutes;
-    
+
     /* Coverage metrics */
     double code_coverage_percent;
     double branch_coverage_percent;
     uint32_t uncovered_lines;
     uint32_t uncovered_branches;
-    
+
     /* Trend analysis */
     lle_trend_data_t *performance_trends;
     lle_trend_data_t *reliability_trends;
@@ -840,7 +845,7 @@ typedef struct {
 
 /**
  * @brief Terminal Capabilities
- * 
+ *
  * Note: Testing-specific version. When terminal_abstraction.h is included
  * (Spec 02), that provides the authoritative complete definition.
  */
@@ -878,7 +883,7 @@ typedef struct {
 
 /**
  * @brief Cursor Position
- * 
+ *
  * Note: Testing framework version. When buffer_management.h is included,
  * use the complete lle_cursor_position_t from Spec 03.
  */
@@ -946,10 +951,11 @@ typedef struct {
     const char *plugin_version;
     lle_test_runner_interface_t *interface;
     lle_plugin_capabilities_t capabilities;
-    
+
     /* Plugin functions */
     lle_result_t (*initialize)(void *config);
-    lle_result_t (*execute_test)(lle_test_case_t *test, lle_test_result_t *result);
+    lle_result_t (*execute_test)(lle_test_case_t *test,
+                                 lle_test_result_t *result);
     lle_result_t (*cleanup)(void);
     lle_result_t (*get_performance_metrics)(lle_test_metrics_t *metrics);
 } lle_test_runner_plugin_t;
@@ -963,7 +969,7 @@ typedef struct {
     lle_report_plugin_registry_t *report_plugins;
     lle_metrics_plugin_registry_t *metrics_plugins;
     lle_analytics_engine_t *analytics_engine;
-    
+
     /* Extensibility configuration */
     bool enable_plugin_system;
     bool enable_custom_metrics;
@@ -976,19 +982,21 @@ typedef struct {
  * ============================================================================
  */
 
-lle_result_t lle_testing_framework_initialize(lle_testing_framework_t **framework);
+lle_result_t
+lle_testing_framework_initialize(lle_testing_framework_t **framework);
 lle_result_t lle_testing_framework_destroy(lle_testing_framework_t *framework);
-lle_result_t lle_testing_framework_run_all_tests(
-    lle_testing_framework_t *framework,
-    lle_test_run_config_t *config,
-    lle_test_results_t *results);
+lle_result_t
+lle_testing_framework_run_all_tests(lle_testing_framework_t *framework,
+                                    lle_test_run_config_t *config,
+                                    lle_test_results_t *results);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Test Discovery and Registration
  * ============================================================================
  */
 
-lle_result_t lle_test_discovery_scan_and_register(lle_testing_framework_t *framework);
+lle_result_t
+lle_test_discovery_scan_and_register(lle_testing_framework_t *framework);
 const char *lle_test_type_to_suite_name(lle_test_type_t test_type);
 
 /* ============================================================================
@@ -998,32 +1006,33 @@ const char *lle_test_type_to_suite_name(lle_test_type_t test_type);
 
 lle_test_suite_registry_t *lle_test_suite_registry_create(void);
 void lle_test_suite_registry_destroy(lle_test_suite_registry_t *registry);
-lle_result_t lle_test_suite_registry_get_all_suites(
-    lle_test_suite_registry_t *registry,
-    lle_test_suite_t ***suites,
-    size_t *suite_count);
-lle_test_suite_t *lle_test_suite_registry_find_suite(
-    lle_test_suite_registry_t *registry,
-    const char *suite_name);
-lle_result_t lle_test_suite_registry_add_suite(
-    lle_test_suite_registry_t *registry,
-    lle_test_suite_t *suite);
+lle_result_t
+lle_test_suite_registry_get_all_suites(lle_test_suite_registry_t *registry,
+                                       lle_test_suite_t ***suites,
+                                       size_t *suite_count);
+lle_test_suite_t *
+lle_test_suite_registry_find_suite(lle_test_suite_registry_t *registry,
+                                   const char *suite_name);
+lle_result_t
+lle_test_suite_registry_add_suite(lle_test_suite_registry_t *registry,
+                                  lle_test_suite_t *suite);
 
 lle_test_suite_t *lle_test_suite_create(const char *name, lle_test_type_t type);
 void lle_test_suite_destroy(lle_test_suite_t *suite);
-lle_result_t lle_test_suite_add_test_case(lle_test_suite_t *suite, lle_test_case_t *test_case);
-lle_result_t lle_test_suite_get_tests_by_priority(
-    lle_test_suite_t *suite,
-    lle_test_priority_t priority,
-    lle_test_case_t ***tests,
-    size_t *test_count);
+lle_result_t lle_test_suite_add_test_case(lle_test_suite_t *suite,
+                                          lle_test_case_t *test_case);
+lle_result_t lle_test_suite_get_tests_by_priority(lle_test_suite_t *suite,
+                                                  lle_test_priority_t priority,
+                                                  lle_test_case_t ***tests,
+                                                  size_t *test_count);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Test Context Management
  * ============================================================================
  */
 
-lle_test_context_t *lle_test_context_create(lle_test_case_t *test_case, lle_testing_framework_t *framework);
+lle_test_context_t *lle_test_context_create(lle_test_case_t *test_case,
+                                            lle_testing_framework_t *framework);
 void lle_test_context_destroy(lle_test_context_t *ctx);
 
 /* ============================================================================
@@ -1031,67 +1040,53 @@ void lle_test_context_destroy(lle_test_context_t *ctx);
  * ============================================================================
  */
 
-lle_test_runner_t *lle_test_runner_create_with_config(lle_test_runner_config_t *config);
+lle_test_runner_t *
+lle_test_runner_create_with_config(lle_test_runner_config_t *config);
 void lle_test_runner_destroy(lle_test_runner_t *runner);
-lle_result_t lle_test_runner_execute_test(
-    lle_test_runner_t *runner,
-    lle_test_context_t *ctx,
-    lle_test_execution_result_t *result);
+lle_result_t lle_test_runner_execute_test(lle_test_runner_t *runner,
+                                          lle_test_context_t *ctx,
+                                          lle_test_execution_result_t *result);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Assertion Recording
  * ============================================================================
  */
 
-void lle_test_record_assertion_failure(
-    lle_test_context_t *ctx,
-    const char *file,
-    int line,
-    const char *format,
-    ...);
+void lle_test_record_assertion_failure(lle_test_context_t *ctx,
+                                       const char *file, int line,
+                                       const char *format, ...);
 
-void lle_test_record_assertion_success(
-    lle_test_context_t *ctx,
-    const char *file,
-    int line);
+void lle_test_record_assertion_success(lle_test_context_t *ctx,
+                                       const char *file, int line);
 
-void lle_test_record_performance_failure(
-    lle_test_context_t *ctx,
-    const char *file,
-    int line,
-    const char *format,
-    ...);
+void lle_test_record_performance_failure(lle_test_context_t *ctx,
+                                         const char *file, int line,
+                                         const char *format, ...);
 
-void lle_test_record_performance_success(
-    lle_test_context_t *ctx,
-    const char *file,
-    int line,
-    uint64_t duration_us);
+void lle_test_record_performance_success(lle_test_context_t *ctx,
+                                         const char *file, int line,
+                                         uint64_t duration_us);
 
-void lle_test_record_failure(
-    lle_test_context_t *ctx,
-    const char *file,
-    int line,
-    const char *format,
-    ...);
+void lle_test_record_failure(lle_test_context_t *ctx, const char *file,
+                             int line, const char *format, ...);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Performance Testing
  * ============================================================================
  */
 
-lle_performance_testing_framework_t *lle_performance_testing_framework_create(void);
-void lle_performance_testing_framework_destroy(lle_performance_testing_framework_t *framework);
+lle_performance_testing_framework_t *
+lle_performance_testing_framework_create(void);
+void lle_performance_testing_framework_destroy(
+    lle_performance_testing_framework_t *framework);
 lle_result_t lle_performance_test_execute(
-    lle_performance_testing_framework_t *framework,
-    const char *test_name,
-    lle_performance_test_function_t test_function,
-    void *test_context,
+    lle_performance_testing_framework_t *framework, const char *test_name,
+    lle_performance_test_function_t test_function, void *test_context,
     lle_performance_result_t *result);
-lle_result_t lle_calculate_performance_statistics(
-    uint64_t *sample_durations,
-    uint32_t sample_count,
-    lle_performance_statistics_t *stats);
+lle_result_t
+lle_calculate_performance_statistics(uint64_t *sample_durations,
+                                     uint32_t sample_count,
+                                     lle_performance_statistics_t *stats);
 lle_result_t lle_performance_testing_generate_report(
     lle_performance_testing_framework_t *framework,
     lle_performance_report_t *report);
@@ -1106,13 +1101,15 @@ void lle_error_injection_system_destroy(lle_error_injection_system_t *system);
 lle_result_t lle_error_injection_system_add_config(
     lle_error_injection_system_t *system,
     lle_test_error_injection_config_t *config);
-lle_result_t lle_error_injection_system_enable(lle_error_injection_system_t *system);
-lle_result_t lle_error_injection_system_disable(lle_error_injection_system_t *system);
+lle_result_t
+lle_error_injection_system_enable(lle_error_injection_system_t *system);
+lle_result_t
+lle_error_injection_system_disable(lle_error_injection_system_t *system);
 lle_result_t lle_get_last_recovery_info(lle_recovery_info_t *info);
 lle_result_t lle_get_last_error(void);
-lle_recovery_action_t lle_error_get_recommended_recovery(
-    lle_result_t error_type,
-    lle_error_context_t *ctx);
+lle_recovery_action_t
+lle_error_get_recommended_recovery(lle_result_t error_type,
+                                   lle_error_context_t *ctx);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Memory Safety Testing
@@ -1120,17 +1117,21 @@ lle_recovery_action_t lle_error_get_recommended_recovery(
  */
 
 lle_memory_safety_framework_t *lle_memory_safety_framework_create(void);
-void lle_memory_safety_framework_destroy(lle_memory_safety_framework_t *framework);
-lle_result_t lle_memory_safety_framework_enable(lle_memory_safety_framework_t *framework);
-uint32_t lle_memory_safety_framework_get_corruption_count(lle_memory_safety_framework_t *framework);
-uint32_t lle_memory_safety_framework_get_double_free_count(lle_memory_safety_framework_t *framework);
-uint32_t lle_memory_safety_framework_get_use_after_free_count(lle_memory_safety_framework_t *framework);
+void lle_memory_safety_framework_destroy(
+    lle_memory_safety_framework_t *framework);
+lle_result_t
+lle_memory_safety_framework_enable(lle_memory_safety_framework_t *framework);
+uint32_t lle_memory_safety_framework_get_corruption_count(
+    lle_memory_safety_framework_t *framework);
+uint32_t lle_memory_safety_framework_get_double_free_count(
+    lle_memory_safety_framework_t *framework);
+uint32_t lle_memory_safety_framework_get_use_after_free_count(
+    lle_memory_safety_framework_t *framework);
 
 lle_result_t lle_memory_take_snapshot(lle_memory_snapshot_t *snapshot);
-lle_result_t lle_memory_compare_snapshots(
-    lle_memory_snapshot_t *initial,
-    lle_memory_snapshot_t *final,
-    lle_memory_leak_report_t *report);
+lle_result_t lle_memory_compare_snapshots(lle_memory_snapshot_t *initial,
+                                          lle_memory_snapshot_t *final,
+                                          lle_memory_leak_report_t *report);
 lle_result_t lle_memory_get_leak_report(lle_memory_leak_report_t *report);
 bool lle_memory_corruption_check(void *ptr);
 
@@ -1141,36 +1142,36 @@ bool lle_memory_corruption_check(void *ptr);
 
 lle_ci_pipeline_t *lle_ci_pipeline_create(void);
 void lle_ci_pipeline_destroy(lle_ci_pipeline_t *pipeline);
-lle_result_t lle_ci_pipeline_execute(
-    lle_ci_pipeline_t *pipeline,
-    lle_ci_trigger_context_t *trigger_context,
-    lle_ci_results_t *results);
-bool lle_ci_stage_should_run(lle_test_stage_t *stage, lle_ci_trigger_type_t trigger_type);
-lle_result_t lle_ci_stage_execute(
-    lle_test_stage_t *stage,
-    lle_ci_trigger_context_t *trigger_context,
-    lle_ci_stage_result_t *result);
-lle_result_t lle_ci_generate_artifacts(lle_artifact_manager_t *manager, lle_ci_results_t *results);
-lle_result_t lle_ci_send_notifications(lle_notification_system_t *notifications, lle_ci_results_t *results);
+lle_result_t lle_ci_pipeline_execute(lle_ci_pipeline_t *pipeline,
+                                     lle_ci_trigger_context_t *trigger_context,
+                                     lle_ci_results_t *results);
+bool lle_ci_stage_should_run(lle_test_stage_t *stage,
+                             lle_ci_trigger_type_t trigger_type);
+lle_result_t lle_ci_stage_execute(lle_test_stage_t *stage,
+                                  lle_ci_trigger_context_t *trigger_context,
+                                  lle_ci_stage_result_t *result);
+lle_result_t lle_ci_generate_artifacts(lle_artifact_manager_t *manager,
+                                       lle_ci_results_t *results);
+lle_result_t lle_ci_send_notifications(lle_notification_system_t *notifications,
+                                       lle_ci_results_t *results);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Test Reporting
  * ============================================================================
  */
 
-lle_test_reporter_t *lle_test_reporter_create_with_formats(lle_report_format_t formats);
+lle_test_reporter_t *
+lle_test_reporter_create_with_formats(lle_report_format_t formats);
 void lle_test_reporter_destroy(lle_test_reporter_t *reporter);
-lle_result_t lle_test_reporter_generate_report(
-    lle_test_reporter_t *reporter,
-    lle_test_results_t *results,
-    lle_test_report_t *report);
-lle_result_t lle_test_results_add_failure(lle_test_results_t *results, lle_test_failure_info_t *failure);
+lle_result_t lle_test_reporter_generate_report(lle_test_reporter_t *reporter,
+                                               lle_test_results_t *results,
+                                               lle_test_report_t *report);
+lle_result_t lle_test_results_add_failure(lle_test_results_t *results,
+                                          lle_test_failure_info_t *failure);
 
 lle_result_t lle_generate_html_dashboard(
-    lle_test_reporting_framework_t *framework,
-    lle_test_results_t *results,
-    lle_test_analytics_t *analytics,
-    const char *output_path);
+    lle_test_reporting_framework_t *framework, lle_test_results_t *results,
+    lle_test_analytics_t *analytics, const char *output_path);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Utility Functions
@@ -1184,7 +1185,7 @@ const char *lle_format_bytes(uint64_t bytes);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Buffer Operations
- * 
+ *
  * Note: Testing framework helpers. When buffer_management.h is included
  * (Spec 03), use those authoritative APIs instead.
  * ============================================================================
@@ -1194,8 +1195,10 @@ const char *lle_format_bytes(uint64_t bytes);
 lle_buffer_t *lle_buffer_create(size_t initial_capacity);
 lle_buffer_t *lle_buffer_create_with_size(lle_buffer_t **buffer, size_t size);
 void lle_buffer_destroy(lle_buffer_t *buffer);
-lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer, const char *text, ssize_t position);
-lle_result_t lle_buffer_delete_range(lle_buffer_t *buffer, size_t start, size_t end);
+lle_result_t lle_buffer_insert_text(lle_buffer_t *buffer, const char *text,
+                                    ssize_t position);
+lle_result_t lle_buffer_delete_range(lle_buffer_t *buffer, size_t start,
+                                     size_t end);
 lle_result_t lle_buffer_clear(lle_buffer_t *buffer);
 char *lle_buffer_get_text(lle_buffer_t *buffer);
 size_t lle_buffer_get_grapheme_cluster_count(lle_buffer_t *buffer);
@@ -1216,14 +1219,13 @@ size_t lle_utf8_count_grapheme_clusters(const char *text);
 
 lle_unix_terminal_t *lle_unix_terminal_create(void);
 void lle_unix_terminal_destroy(lle_unix_terminal_t *terminal);
-lle_result_t lle_unix_terminal_detect_capabilities(
-    lle_unix_terminal_t *terminal,
-    lle_terminal_capabilities_t *caps,
-    uint32_t timeout_ms);
-lle_result_t lle_unix_terminal_read_input(
-    lle_unix_terminal_t *terminal,
-    lle_test_input_event_t *event,
-    uint32_t timeout_ms);
+lle_result_t
+lle_unix_terminal_detect_capabilities(lle_unix_terminal_t *terminal,
+                                      lle_terminal_capabilities_t *caps,
+                                      uint32_t timeout_ms);
+lle_result_t lle_unix_terminal_read_input(lle_unix_terminal_t *terminal,
+                                          lle_test_input_event_t *event,
+                                          uint32_t timeout_ms);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Event System Operations
@@ -1232,9 +1234,12 @@ lle_result_t lle_unix_terminal_read_input(
 
 lle_event_system_t *lle_event_system_create(void);
 void lle_event_system_destroy(lle_event_system_t *event_system);
-lle_result_t lle_event_system_process_event(lle_event_system_t *system, lle_test_input_event_t *event);
-lle_result_t lle_event_system_queue_event(lle_event_system_t *system, lle_test_input_event_t *event);
-lle_result_t lle_event_system_process_pending_events(lle_event_system_t *system);
+lle_result_t lle_event_system_process_event(lle_event_system_t *system,
+                                            lle_test_input_event_t *event);
+lle_result_t lle_event_system_queue_event(lle_event_system_t *system,
+                                          lle_test_input_event_t *event);
+lle_result_t
+lle_event_system_process_pending_events(lle_event_system_t *system);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Display Integration
@@ -1243,11 +1248,12 @@ lle_result_t lle_event_system_process_pending_events(lle_event_system_t *system)
 
 lle_display_integration_t *lle_display_integration_create(void);
 void lle_display_integration_destroy(lle_display_integration_t *integration);
-lle_result_t lle_display_integration_render_buffer(
-    lle_display_integration_t *integration,
-    lle_buffer_t *buffer,
-    lusush_display_controller_t *display);
-lle_result_t lle_display_render_buffer(lle_display_context_t *ctx, lle_buffer_t *buffer);
+lle_result_t
+lle_display_integration_render_buffer(lle_display_integration_t *integration,
+                                      lle_buffer_t *buffer,
+                                      lusush_display_controller_t *display);
+lle_result_t lle_display_render_buffer(lle_display_context_t *ctx,
+                                       lle_buffer_t *buffer);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Lusush Display Operations
@@ -1255,7 +1261,8 @@ lle_result_t lle_display_render_buffer(lle_display_context_t *ctx, lle_buffer_t 
  */
 
 lusush_display_controller_t *lusush_display_controller_get_instance(void);
-lusush_cursor_info_t lusush_display_get_cursor_info(lusush_display_controller_t *display);
+lusush_cursor_info_t
+lusush_display_get_cursor_info(lusush_display_controller_t *display);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - History and Autosuggestions
@@ -1264,15 +1271,15 @@ lusush_cursor_info_t lusush_display_get_cursor_info(lusush_display_controller_t 
 
 lle_history_system_t *lle_history_system_create(void);
 void lle_history_system_destroy(lle_history_system_t *history);
-lle_result_t lle_history_add_command(lle_history_system_t *history, const char *command, bool persist);
+lle_result_t lle_history_add_command(lle_history_system_t *history,
+                                     const char *command, bool persist);
 
 lle_autosuggestions_t *lle_autosuggestions_create(void);
 void lle_autosuggestions_destroy(lle_autosuggestions_t *suggestions);
-lle_result_t lle_autosuggestions_generate(
-    lle_autosuggestions_t *suggestions,
-    lle_buffer_t *buffer,
-    lle_history_system_t *history,
-    lle_suggestion_result_t *result);
+lle_result_t lle_autosuggestions_generate(lle_autosuggestions_t *suggestions,
+                                          lle_buffer_t *buffer,
+                                          lle_history_system_t *history,
+                                          lle_suggestion_result_t *result);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Plugin System
@@ -1283,28 +1290,36 @@ lle_plugin_manager_t *lle_plugin_manager_create(void);
 void lle_plugin_manager_destroy(lle_plugin_manager_t *manager);
 lle_plugin_t *lle_plugin_create(lle_plugin_config_t *config);
 void lle_plugin_destroy(lle_plugin_t *plugin);
-lle_result_t lle_plugin_call_function(lle_plugin_t *plugin, const char *function_name, void *arg);
+lle_result_t lle_plugin_call_function(lle_plugin_t *plugin,
+                                      const char *function_name, void *arg);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - System Integration
  * ============================================================================
  */
 
-lle_result_t lle_system_initialize(lle_system_t **system, lle_integration_requirements_t *requirements);
+lle_result_t
+lle_system_initialize(lle_system_t **system,
+                      lle_integration_requirements_t *requirements);
 void lle_system_destroy(lle_system_t *system);
-lle_result_t lle_system_get_memory_stats(lle_system_t *system, lle_memory_pool_stats_t *stats);
+lle_result_t lle_system_get_memory_stats(lle_system_t *system,
+                                         lle_memory_pool_stats_t *stats);
 void *lle_system_allocate(lle_system_t *system, size_t size);
 void lle_system_deallocate(lle_system_t *system, void *ptr);
 lle_display_context_t *lle_system_get_display_context(lle_system_t *system);
-lle_result_t lle_testing_get_performance_metrics(lle_system_t *system, lle_performance_metrics_t *metrics);
+lle_result_t
+lle_testing_get_performance_metrics(lle_system_t *system,
+                                    lle_performance_metrics_t *metrics);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Hash Table Operations
  * ============================================================================
  */
 
-lle_result_t lle_hashtable_get(lle_hashtable_t *table, const char *key, void **value);
-lle_result_t lle_hashtable_set(lle_hashtable_t *table, const char *key, void *value);
+lle_result_t lle_hashtable_get(lle_hashtable_t *table, const char *key,
+                               void **value);
+lle_result_t lle_hashtable_set(lle_hashtable_t *table, const char *key,
+                               void *value);
 
 /* ============================================================================
  * FUNCTION DECLARATIONS - Error Context

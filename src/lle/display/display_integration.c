@@ -1,28 +1,28 @@
 /**
  * @file display_integration.c
  * @brief LLE Display Integration - Implementation (Layer 1)
- * 
+ *
  * SPECIFICATION: docs/lle_specification/08_display_integration_complete.md
  * IMPLEMENTATION PLAN: docs/lle_implementation/SPEC_08_IMPLEMENTATION_PLAN.md
- * 
+ *
  * This file implements the Spec 08 display integration layer that connects
  * LLE's buffer system with Lusush's layered display architecture.
- * 
+ *
  * ZERO-TOLERANCE COMPLIANCE:
  * - Complete implementations only
- * - 100% spec-compliant implementations  
+ * - 100% spec-compliant implementations
  * - Complete error handling for all functions
  */
 
 #include "lle/display_integration.h"
-#include "lle/lle_readline.h"
 #include "display/command_layer.h"
-#include "display/prompt_layer.h"
 #include "display/layer_events.h"
+#include "display/prompt_layer.h"
 #include "display_integration.h"
-#include <string.h>
+#include "lle/lle_readline.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* ========================================================================== */
 /*                         GLOBAL STATE                                       */
@@ -30,7 +30,7 @@
 
 /**
  * @brief Global display integration singleton instance
- * 
+ *
  * This is initialized once during LLE startup and provides the bridge
  * between LLE and Lusush display systems.
  */
@@ -42,38 +42,36 @@ static lle_display_integration_t *global_display_integration = NULL;
 
 /**
  * @brief Get the global display integration instance
- * 
+ *
  * @return Pointer to global display integration, or NULL if not initialized
  */
-lle_display_integration_t *lle_display_integration_get_global(void)
-{
+lle_display_integration_t *lle_display_integration_get_global(void) {
     return global_display_integration;
 }
 
 /**
  * @brief Initialize the display integration system
- * 
+ *
  * Creates and initializes the global display integration instance that connects
  * LLE's editing system with Lusush's display layers.
- * 
+ *
  * @param integration Output pointer for created integration instance
  * @param editor LLE editor instance (opaque)
  * @param lusush_display Lusush display controller
  * @param memory_pool Memory pool for allocations
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_display_integration_init(
-    lle_display_integration_t **integration,
-    void *editor,
-    display_controller_t *lusush_display,
-    lle_memory_pool_t *memory_pool)
-{
+lle_result_t
+lle_display_integration_init(lle_display_integration_t **integration,
+                             void *editor, display_controller_t *lusush_display,
+                             lle_memory_pool_t *memory_pool) {
     if (!integration || !lusush_display) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     /* Allocate main integration structure */
-    lle_display_integration_t *integ = calloc(1, sizeof(lle_display_integration_t));
+    lle_display_integration_t *integ =
+        calloc(1, sizeof(lle_display_integration_t));
     if (!integ) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -93,11 +91,7 @@ lle_result_t lle_display_integration_init(
 
     /* Initialize display bridge */
     lle_result_t result = lle_display_bridge_init(
-        &integ->display_bridge,
-        editor,
-        lusush_display,
-        memory_pool
-    );
+        &integ->display_bridge, editor, lusush_display, memory_pool);
 
     if (result != LLE_SUCCESS) {
         pthread_rwlock_destroy(&integ->integration_lock);
@@ -106,11 +100,8 @@ lle_result_t lle_display_integration_init(
     }
 
     /* Initialize render controller */
-    result = lle_render_controller_init(
-        &integ->render_controller,
-        integ->display_bridge,
-        memory_pool
-    );
+    result = lle_render_controller_init(&integ->render_controller,
+                                        integ->display_bridge, memory_pool);
 
     if (result != LLE_SUCCESS) {
         lle_display_bridge_cleanup(integ->display_bridge);
@@ -142,7 +133,7 @@ lle_result_t lle_display_integration_init(
 
     /* Set default config */
     integ->config->enable_syntax_highlighting = true;
-    integ->config->enable_caching = false;  /* Disabled for now */
+    integ->config->enable_caching = false; /* Disabled for now */
     integ->config->enable_performance_monitoring = false;
 
     /* Allocate display state */
@@ -166,12 +157,12 @@ lle_result_t lle_display_integration_init(
 
 /**
  * @brief Cleanup the display integration system
- * 
+ *
  * @param integration Display integration instance to cleanup
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_display_integration_cleanup(lle_display_integration_t *integration)
-{
+lle_result_t
+lle_display_integration_cleanup(lle_display_integration_t *integration) {
     if (!integration) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -213,9 +204,10 @@ lle_result_t lle_display_integration_cleanup(lle_display_integration_t *integrat
  * display_bridge.c to avoid duplication. */
 
 /* NOTE: Render controller functions (lle_render_controller_init,
- * lle_render_controller_cleanup, lle_render_buffer_content, lle_render_output_free)
- * are implemented in render_controller.c - the spec-compliant implementation
- * with full sub-component support (buffer renderer, cursor renderer, cache, etc.) */
+ * lle_render_controller_cleanup, lle_render_buffer_content,
+ * lle_render_output_free) are implemented in render_controller.c - the
+ * spec-compliant implementation with full sub-component support (buffer
+ * renderer, cursor renderer, cache, etc.) */
 
 /* ========================================================================== */
 /*                      DIRTY TRACKING FUNCTIONS                              */

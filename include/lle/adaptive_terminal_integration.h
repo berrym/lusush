@@ -10,7 +10,8 @@
  * - Control method selection based on detected capabilities
  * - Universal compatibility with graceful degradation
  *
- * Specification: docs/lle_specification/critical_gaps/26_adaptive_terminal_integration_complete.md
+ * Specification:
+ * docs/lle_specification/critical_gaps/26_adaptive_terminal_integration_complete.md
  * Date: 2025-11-02
  */
 
@@ -18,12 +19,13 @@
 #define LLE_ADAPTIVE_TERMINAL_INTEGRATION_H
 
 #include "lle/error_handling.h"
-#include "lle/terminal_abstraction.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
-#include <stdint.h>
+#include "lle/terminal_abstraction.h"
+
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,53 +33,57 @@ extern "C" {
 
 /* ============================================================================
  * INTEGRATION MODES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Adaptive mode determines how LLE interfaces with the terminal environment.
  * Separate from terminal type - mode is selected based on capabilities.
  */
 typedef enum {
-    LLE_ADAPTIVE_MODE_NONE = 0,     /**< Non-interactive (scripts, pipes) */
-    LLE_ADAPTIVE_MODE_MINIMAL,      /**< Basic line editing, no terminal control */
-    LLE_ADAPTIVE_MODE_ENHANCED,     /**< Editor terminals, display client approach */
-    LLE_ADAPTIVE_MODE_NATIVE,       /**< Traditional TTY, full terminal control */
-    LLE_ADAPTIVE_MODE_MULTIPLEXED   /**< Terminal multiplexers (tmux/screen) */
+    LLE_ADAPTIVE_MODE_NONE = 0, /**< Non-interactive (scripts, pipes) */
+    LLE_ADAPTIVE_MODE_MINIMAL,  /**< Basic line editing, no terminal control */
+    LLE_ADAPTIVE_MODE_ENHANCED, /**< Editor terminals, display client approach
+                                 */
+    LLE_ADAPTIVE_MODE_NATIVE,   /**< Traditional TTY, full terminal control */
+    LLE_ADAPTIVE_MODE_MULTIPLEXED /**< Terminal multiplexers (tmux/screen) */
 } lle_adaptive_mode_t;
 
 /**
  * Capability level indicates feature richness available in the environment.
  */
 typedef enum {
-    LLE_CAPABILITY_NONE = 0,        /**< No interactive capabilities */
-    LLE_CAPABILITY_BASIC,           /**< Basic text I/O only */
-    LLE_CAPABILITY_STANDARD,        /**< Colors, basic formatting */
-    LLE_CAPABILITY_FULL,            /**< 256 colors, cursor control */
-    LLE_CAPABILITY_PREMIUM          /**< Truecolor, advanced features */
+    LLE_CAPABILITY_NONE = 0, /**< No interactive capabilities */
+    LLE_CAPABILITY_BASIC,    /**< Basic text I/O only */
+    LLE_CAPABILITY_STANDARD, /**< Colors, basic formatting */
+    LLE_CAPABILITY_FULL,     /**< 256 colors, cursor control */
+    LLE_CAPABILITY_PREMIUM   /**< Truecolor, advanced features */
 } lle_capability_level_t;
 
 /* ============================================================================
  * TERMINAL SIGNATURE DATABASE
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Terminal signature for pattern-based identification.
  * Describes known terminal characteristics and preferred handling.
  */
 typedef struct {
-    const char *name;                           /**< Terminal identifier */
-    const char *term_program_pattern;          /**< TERM_PROGRAM pattern */
-    const char *term_pattern;                  /**< TERM variable pattern */
-    const char *env_var_check;                 /**< Additional env var */
-    lle_capability_level_t capability_level;   /**< Expected capabilities */
-    lle_adaptive_mode_t preferred_mode;        /**< Preferred mode */
-    bool force_interactive;                    /**< Override stdin check */
-    bool requires_special_handling;            /**< Mode-specific code */
+    const char *name;                        /**< Terminal identifier */
+    const char *term_program_pattern;        /**< TERM_PROGRAM pattern */
+    const char *term_pattern;                /**< TERM variable pattern */
+    const char *env_var_check;               /**< Additional env var */
+    lle_capability_level_t capability_level; /**< Expected capabilities */
+    lle_adaptive_mode_t preferred_mode;      /**< Preferred mode */
+    bool force_interactive;                  /**< Override stdin check */
+    bool requires_special_handling;          /**< Mode-specific code */
 } lle_terminal_signature_t;
 
 /* ============================================================================
  * DETECTION SYSTEM
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Comprehensive terminal detection result.
@@ -88,12 +94,12 @@ typedef struct {
     bool stdin_is_tty;
     bool stdout_is_tty;
     bool stderr_is_tty;
-    
+
     /* Environment analysis results */
     char term_name[64];
     char term_program[64];
     char colorterm[32];
-    
+
     /* Detected capabilities */
     bool supports_colors;
     bool supports_256_colors;
@@ -103,13 +109,13 @@ typedef struct {
     bool supports_mouse;
     bool supports_bracketed_paste;
     bool supports_unicode;
-    
+
     /* Terminal classification */
     const lle_terminal_signature_t *matched_signature;
     lle_capability_level_t capability_level;
     lle_adaptive_mode_t recommended_mode;
     bool detection_confidence_high;
-    
+
     /* Timing and performance */
     uint64_t detection_time_us;
     bool probing_successful;
@@ -129,7 +135,8 @@ typedef struct {
 
 /* ============================================================================
  * MULTIPLEXER TYPES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Terminal multiplexer type for special handling.
@@ -143,7 +150,8 @@ typedef enum {
 
 /* ============================================================================
  * MODE-SPECIFIC CONTROLLERS (Forward Declarations)
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /* Opaque types - defined in implementation files */
 typedef struct lle_native_controller_t lle_native_controller_t;
@@ -156,7 +164,8 @@ typedef struct lle_multiplexer_adapter_t lle_multiplexer_adapter_t;
 
 /* ============================================================================
  * ADAPTIVE CONTEXT
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Main adaptive integration context.
@@ -165,7 +174,7 @@ typedef struct lle_multiplexer_adapter_t lle_multiplexer_adapter_t;
 typedef struct {
     lle_adaptive_mode_t mode;
     lle_terminal_detection_result_t *detection_result;
-    
+
     /* Control method implementations (mode-specific) */
     union {
         lle_native_controller_t *native;
@@ -173,20 +182,20 @@ typedef struct {
         lle_multiplexer_controller_t *mux;
         lle_minimal_controller_t *minimal;
     } controller;
-    
+
     /* Common systems (available in all modes) */
-    void *buffer;              /* lle_buffer_t - avoid circular dependency */
-    void *history;             /* lle_history_core_t */
-    void *completion;          /* lle_completion_system_t */
-    void *input_processor;     /* lle_input_processor_t */
-    
+    void *buffer;          /* lle_buffer_t - avoid circular dependency */
+    void *history;         /* lle_history_core_t */
+    void *completion;      /* lle_completion_system_t */
+    void *input_processor; /* lle_input_processor_t */
+
     /* Integration with Lusush systems */
     lusush_memory_pool_t *memory_pool;
-    void *display_context;     /* lusush_display_context_t */
-    
+    void *display_context; /* lusush_display_context_t */
+
     /* Performance monitoring */
     lle_performance_monitor_t *performance_monitor;
-    
+
     /* Health status */
     bool healthy;
     uint32_t error_count;
@@ -195,40 +204,38 @@ typedef struct {
 
 /* ============================================================================
  * ADAPTIVE INTERFACE
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Unified LLE interface - provides consistent API across all modes.
  */
 typedef struct {
     lle_adaptive_context_t *adaptive_context;
-    
+
     /* Unified operation interface */
-    lle_result_t (*read_line)(lle_adaptive_context_t *ctx,
-                             const char *prompt,
-                             char **line);
-    
+    lle_result_t (*read_line)(lle_adaptive_context_t *ctx, const char *prompt,
+                              char **line);
+
     lle_result_t (*process_input)(lle_adaptive_context_t *ctx,
-                                 const char *input,
-                                 size_t length,
-                                 void **events);
-    
+                                  const char *input, size_t length,
+                                  void **events);
+
     lle_result_t (*update_display)(lle_adaptive_context_t *ctx);
-    
-    lle_result_t (*handle_resize)(lle_adaptive_context_t *ctx,
-                                 int new_width,
-                                 int new_height);
-    
+
+    lle_result_t (*handle_resize)(lle_adaptive_context_t *ctx, int new_width,
+                                  int new_height);
+
     lle_result_t (*set_configuration)(lle_adaptive_context_t *ctx,
-                                     void *config);
-    
-    lle_result_t (*get_status)(lle_adaptive_context_t *ctx,
-                              void *status);
+                                      void *config);
+
+    lle_result_t (*get_status)(lle_adaptive_context_t *ctx, void *status);
 } lle_adaptive_interface_t;
 
 /* ============================================================================
  * CONFIGURATION RECOMMENDATIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Configuration recommendations based on detected capabilities.
@@ -241,13 +248,14 @@ typedef struct {
     bool enable_history;
     bool enable_multiline_editing;
     bool enable_undo_redo;
-    int color_support_level;              /**< 0=none, 1=basic, 2=256, 3=true */
+    int color_support_level; /**< 0=none, 1=basic, 2=256, 3=true */
     lle_adaptive_mode_t recommended_mode;
 } lle_adaptive_config_recommendation_t;
 
 /* ============================================================================
  * ERROR CODES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Adaptive integration specific error codes.
@@ -264,15 +272,16 @@ typedef enum {
 
 /* ============================================================================
  * CORE DETECTION API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Perform comprehensive terminal capability detection.
- * 
+ *
  * Detects terminal type, capabilities, and recommends integration mode.
  * Uses multi-tier detection: environment analysis, signature matching,
  * and safe runtime probing.
- * 
+ *
  * @param result Output detection result (caller must free)
  * @return LLE_SUCCESS or error code
  */
@@ -281,7 +290,7 @@ lle_result_t lle_detect_terminal_capabilities_comprehensive(
 
 /**
  * Optimized detection with caching (30-second TTL).
- * 
+ *
  * @param result Output detection result (caller must free)
  * @return LLE_SUCCESS or error code
  */
@@ -290,17 +299,18 @@ lle_result_t lle_detect_terminal_capabilities_optimized(
 
 /**
  * Free detection result.
- * 
+ *
  * @param result Detection result to free
  */
-void lle_terminal_detection_result_destroy(lle_terminal_detection_result_t *result);
+void lle_terminal_detection_result_destroy(
+    lle_terminal_detection_result_t *result);
 
 /**
  * Safe terminal capability probing with timeout protection.
- * 
+ *
  * Only probes if stdout is TTY. Uses progressive testing with
  * appropriate timeouts for each capability.
- * 
+ *
  * @param detection Detection result to populate
  * @return LLE_SUCCESS or error code
  */
@@ -309,48 +319,49 @@ lle_result_t lle_probe_terminal_capabilities_safe(
 
 /**
  * Match terminal signature from database.
- * 
+ *
  * @param detection Detection result with environment data
  * @return Matched signature or NULL if no match
  */
-const lle_terminal_signature_t *lle_match_terminal_signature(
-    const lle_terminal_detection_result_t *detection);
+const lle_terminal_signature_t *
+lle_match_terminal_signature(const lle_terminal_detection_result_t *detection);
 
 /**
  * Get terminal signature database.
- * 
+ *
  * @param count Output signature count
  * @return Array of signatures
  */
-const lle_terminal_signature_t *lle_get_terminal_signature_database(size_t *count);
+const lle_terminal_signature_t *
+lle_get_terminal_signature_database(size_t *count);
 
 /* ============================================================================
  * INITIALIZATION API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Create adaptive interface with automatic detection.
- * 
+ *
  * Performs capability detection and initializes appropriate controller.
- * 
+ *
  * @param interface Output interface (caller must destroy)
  * @param config Optional configuration (NULL for defaults)
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_create_adaptive_interface(
-    lle_adaptive_interface_t **interface,
-    void *config);
+lle_result_t lle_create_adaptive_interface(lle_adaptive_interface_t **interface,
+                                           void *config);
 
 /**
  * Destroy adaptive interface and free resources.
- * 
+ *
  * @param interface Interface to destroy
  */
 void lle_adaptive_interface_destroy(lle_adaptive_interface_t *interface);
 
 /**
  * Initialize adaptive context with detected mode.
- * 
+ *
  * @param context Output context (caller must destroy)
  * @param detection_result Detection result to use
  * @param memory_pool Memory pool for allocations
@@ -363,34 +374,34 @@ lle_result_t lle_initialize_adaptive_context(
 
 /**
  * Destroy adaptive context and free resources.
- * 
+ *
  * @param context Context to destroy
  */
 void lle_adaptive_context_destroy(lle_adaptive_context_t *context);
 
 /* ============================================================================
  * SHELL INTEGRATION API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Determine if shell should be interactive.
- * 
+ *
  * Drop-in replacement for traditional shell interactive detection.
  * Considers adaptive detection results including force_interactive flags.
- * 
+ *
  * @param forced_interactive Force interactive mode (-i flag)
  * @param has_script_file Has script file argument
  * @param stdin_mode Stdin redirection mode
  * @return true if shell should be interactive
  */
-bool lle_adaptive_should_shell_be_interactive(
-    bool forced_interactive,
-    bool has_script_file,
-    bool stdin_mode);
+bool lle_adaptive_should_shell_be_interactive(bool forced_interactive,
+                                              bool has_script_file,
+                                              bool stdin_mode);
 
 /**
  * Get configuration recommendations based on detected capabilities.
- * 
+ *
  * @param config Output configuration recommendations
  */
 void lle_adaptive_get_recommended_config(
@@ -398,16 +409,17 @@ void lle_adaptive_get_recommended_config(
 
 /* ============================================================================
  * PERFORMANCE MONITORING API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Get detection performance statistics.
- * 
+ *
  * @param stats Output statistics
  * @return LLE_SUCCESS or error code
  */
-lle_result_t lle_adaptive_get_detection_stats(
-    lle_detection_performance_stats_t *stats);
+lle_result_t
+lle_adaptive_get_detection_stats(lle_detection_performance_stats_t *stats);
 
 /**
  * Reset detection performance statistics.
@@ -416,11 +428,12 @@ void lle_adaptive_reset_detection_stats(void);
 
 /* ============================================================================
  * HEALTH MONITORING API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Perform health check on adaptive context.
- * 
+ *
  * @param context Context to check
  * @return true if healthy
  */
@@ -428,7 +441,7 @@ bool lle_adaptive_perform_health_check(lle_adaptive_context_t *context);
 
 /**
  * Try fallback mode if current mode fails.
- * 
+ *
  * @param context Context to update
  * @return LLE_SUCCESS if fallback succeeded
  */
@@ -436,11 +449,12 @@ lle_result_t lle_adaptive_try_fallback_mode(lle_adaptive_context_t *context);
 
 /* ============================================================================
  * UTILITY API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Get human-readable mode name.
- * 
+ *
  * @param mode Integration mode
  * @return Mode name string (static, do not free)
  */
@@ -448,7 +462,7 @@ const char *lle_adaptive_mode_to_string(lle_adaptive_mode_t mode);
 
 /**
  * Get human-readable capability level name.
- * 
+ *
  * @param level Capability level
  * @return Level name string (static, do not free)
  */

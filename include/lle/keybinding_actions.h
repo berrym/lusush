@@ -18,19 +18,21 @@
  * - All actions complete within 100 microseconds
  * - Optimized for interactive use
  *
- * Specification: docs/lle_specification/critical_gaps/25_default_keybindings_complete.md
- * Date: 2025-11-02
+ * Specification:
+ * docs/lle_specification/critical_gaps/25_default_keybindings_complete.md Date:
+ * 2025-11-02
  */
 
 #ifndef LLE_KEYBINDING_ACTIONS_H
 #define LLE_KEYBINDING_ACTIONS_H
 
-#include "lle/lle_editor.h"
 #include "lle/error_handling.h"
+#include "lle/lle_editor.h"
 
 /* ============================================================================
  * MOVEMENT ACTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Move cursor to beginning of line (Ctrl-A)
@@ -70,7 +72,8 @@ lle_result_t lle_backward_word(lle_editor_t *editor);
 
 /* ============================================================================
  * EDITING ACTIONS - DELETION AND KILLING
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Delete character at cursor (Ctrl-D)
@@ -111,7 +114,8 @@ lle_result_t lle_backward_kill_word(lle_editor_t *editor);
 
 /* ============================================================================
  * EDITING ACTIONS - YANK AND TRANSPOSE
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Yank (paste) most recent kill (Ctrl-Y)
@@ -139,7 +143,8 @@ lle_result_t lle_transpose_words(lle_editor_t *editor);
 
 /* ============================================================================
  * EDITING ACTIONS - CASE CHANGES
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Convert word to uppercase (Meta-U)
@@ -161,7 +166,8 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor);
 
 /* ============================================================================
  * HISTORY NAVIGATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Previous history entry (Ctrl-P, UP arrow)
@@ -201,7 +207,8 @@ lle_result_t lle_history_search_forward(lle_editor_t *editor);
 
 /* ============================================================================
  * LINE AND BUFFER NAVIGATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Previous line (multiline buffer navigation)
@@ -247,7 +254,8 @@ lle_result_t lle_smart_down_arrow(lle_editor_t *editor);
 
 /* ============================================================================
  * COMPLETION ACTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Complete current word (TAB)
@@ -269,33 +277,38 @@ lle_result_t lle_insert_completions(lle_editor_t *editor);
 
 /* ============================================================================
  * SHELL-SPECIFIC OPERATIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Accept line (Return, Ctrl-M, Ctrl-J)
  * Accepts current line for execution
  * For multiline: checks if command is complete before accepting
- * 
+ *
  * NOTE: This is a legacy simple action that sets the line_accepted flag.
- * New code should use lle_accept_line_context() for direct readline integration.
+ * New code should use lle_accept_line_context() for direct readline
+ * integration.
  */
 lle_result_t lle_accept_line(lle_editor_t *editor);
 
 /**
  * Accept line with context (Return, Ctrl-M, Ctrl-J) - Context-Aware Action
- * 
+ *
  * Full readline-aware ENTER key handler with direct access to readline context.
- * Checks for incomplete input using continuation state, handles history integration,
- * and directly manages readline completion (done/final_line).
- * 
+ * Checks for incomplete input using continuation state, handles history
+ * integration, and directly manages readline completion (done/final_line).
+ *
  * Behavior:
- * - Incomplete input: Inserts newline, syncs cursor, refreshes display, continues editing
+ * - Incomplete input: Inserts newline, syncs cursor, refreshes display,
+ * continues editing
  * - Complete input: Adds to history, sets done=true, returns final line
- * 
+ *
  * This is a context-aware action that requires readline_context_t access.
- * See docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md for architecture details.
- * 
- * @param ctx Readline context with full access to buffer, history, completion state
+ * See docs/lle_implementation/DUAL_ACTION_ARCHITECTURE.md for architecture
+ * details.
+ *
+ * @param ctx Readline context with full access to buffer, history, completion
+ * state
  * @return LLE_SUCCESS on successful handling
  */
 lle_result_t lle_accept_line_context(struct readline_context *ctx);
@@ -303,7 +316,7 @@ lle_result_t lle_accept_line_context(struct readline_context *ctx);
 /**
  * Abort current operation (Ctrl-G)
  * Clears buffer, cancels search/completion, resets to clean state
- * 
+ *
  * NOTE: This is a legacy simple action. New code should use
  * lle_abort_line_context() for direct readline integration.
  */
@@ -311,13 +324,14 @@ lle_result_t lle_abort_line(lle_editor_t *editor);
 
 /**
  * Abort line with context (Ctrl-G) - Context-Aware Action
- * 
+ *
  * Emacs-style abort that cancels current input and returns empty line to shell.
- * Directly manages readline completion state (done/final_line) without using flags.
- * 
- * This eliminates the abort_requested flag pattern which caused state persistence
- * bugs across readline sessions.
- * 
+ * Directly manages readline completion state (done/final_line) without using
+ * flags.
+ *
+ * This eliminates the abort_requested flag pattern which caused state
+ * persistence bugs across readline sessions.
+ *
  * @param ctx Readline context with full access to done/final_line
  * @return LLE_SUCCESS
  */
@@ -349,7 +363,8 @@ lle_result_t lle_clear_screen(lle_editor_t *editor);
 
 /* ============================================================================
  * UTILITY ACTIONS
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Quoted insert (Ctrl-Q, Ctrl-V)
@@ -390,7 +405,8 @@ lle_result_t lle_newline(lle_editor_t *editor);
 /**
  * Insert literal newline (Shift-Enter, Alt-Enter)
  * Inserts a newline at cursor position regardless of completion status.
- * Useful for editing complete multiline commands when adding lines in the middle.
+ * Useful for editing complete multiline commands when adding lines in the
+ * middle.
  */
 lle_result_t lle_insert_newline_literal(lle_editor_t *editor);
 
@@ -402,7 +418,8 @@ lle_result_t lle_tab_insert(lle_editor_t *editor);
 
 /* ============================================================================
  * PRESET MANAGEMENT
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Load Emacs preset keybindings

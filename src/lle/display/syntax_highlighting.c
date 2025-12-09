@@ -14,15 +14,15 @@
 
 #include "lle/syntax_highlighting.h"
 #include "lle/error_handling.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /* Include lusush headers for command/alias/builtin checks */
-#include "builtins.h"
 #include "alias.h"
+#include "builtins.h"
 
 /* ========================================================================== */
 /*                         DEFAULT COLOR SCHEME                               */
@@ -31,49 +31,49 @@
 /* Default colors (solarized-inspired dark theme) */
 static const lle_syntax_colors_t default_colors = {
     /* Commands */
-    .command_valid      = 0x00859900,  /* Green */
-    .command_invalid    = 0x00DC322F,  /* Red */
-    .command_builtin    = 0x002AA198,  /* Cyan */
-    .command_alias      = 0x002AA198,  /* Cyan */
-    .command_function   = 0x00268BD2,  /* Blue */
-    
+    .command_valid = 0x00859900,    /* Green */
+    .command_invalid = 0x00DC322F,  /* Red */
+    .command_builtin = 0x002AA198,  /* Cyan */
+    .command_alias = 0x002AA198,    /* Cyan */
+    .command_function = 0x00268BD2, /* Blue */
+
     /* Keywords */
-    .keyword            = 0x00CB4B16,  /* Orange */
-    
+    .keyword = 0x00CB4B16, /* Orange */
+
     /* Strings */
-    .string             = 0x00B58900,  /* Yellow */
-    .string_escape      = 0x00DC322F,  /* Red */
-    
+    .string = 0x00B58900,        /* Yellow */
+    .string_escape = 0x00DC322F, /* Red */
+
     /* Variables */
-    .variable           = 0x006C71C4,  /* Violet */
-    .variable_special   = 0x00D33682,  /* Magenta */
-    
+    .variable = 0x006C71C4,         /* Violet */
+    .variable_special = 0x00D33682, /* Magenta */
+
     /* Paths */
-    .path_valid         = 0x00859900,  /* Green */
-    .path_invalid       = 0x00DC322F,  /* Red */
-    
+    .path_valid = 0x00859900,   /* Green */
+    .path_invalid = 0x00DC322F, /* Red */
+
     /* Operators */
-    .pipe               = 0x00268BD2,  /* Blue */
-    .redirect           = 0x00D33682,  /* Magenta */
-    .operator_other     = 0x00839496,  /* Base0 (default fg) */
-    
+    .pipe = 0x00268BD2,           /* Blue */
+    .redirect = 0x00D33682,       /* Magenta */
+    .operator_other = 0x00839496, /* Base0 (default fg) */
+
     /* Other */
-    .comment            = 0x00586E75,  /* Base01 (dim) */
-    .number             = 0x002AA198,  /* Cyan */
-    .option             = 0x00839496,  /* Base0 */
-    .glob               = 0x00CB4B16,  /* Orange */
-    .argument           = 0x00839496,  /* Base0 */
-    
+    .comment = 0x00586E75,  /* Base01 (dim) */
+    .number = 0x002AA198,   /* Cyan */
+    .option = 0x00839496,   /* Base0 */
+    .glob = 0x00CB4B16,     /* Orange */
+    .argument = 0x00839496, /* Base0 */
+
     /* Errors */
-    .error              = 0x00DC322F,  /* Red bg */
-    .error_fg           = 0x00FFFFFF,  /* White fg */
-    
+    .error = 0x00DC322F,    /* Red bg */
+    .error_fg = 0x00FFFFFF, /* White fg */
+
     /* Attributes */
-    .keyword_bold       = 1,
-    .command_bold       = 1,
-    .error_underline    = 1,
-    .path_underline     = 1,
-    .comment_dim        = 1,
+    .keyword_bold = 1,
+    .command_bold = 1,
+    .error_underline = 1,
+    .path_underline = 1,
+    .comment_dim = 1,
 };
 
 /* ========================================================================== */
@@ -81,7 +81,7 @@ static const lle_syntax_colors_t default_colors = {
 /* ========================================================================== */
 
 #define CMD_CACHE_SIZE 128
-#define CMD_CACHE_TTL  30  /* seconds */
+#define CMD_CACHE_TTL 30 /* seconds */
 
 typedef struct cmd_cache_entry {
     char *command;
@@ -107,18 +107,9 @@ static unsigned int hash_string(const char *str) {
 /* ========================================================================== */
 
 static const char *shell_keywords[] = {
-    "if", "then", "else", "elif", "fi",
-    "for", "in", "do", "done",
-    "while", "until",
-    "case", "esac",
-    "select",
-    "function",
-    "time",
-    "coproc",
-    "!", "{", "}",
-    "[[", "]]",
-    NULL
-};
+    "if",     "then",  "else",  "elif", "fi",   "for",    "in",       "do",
+    "done",   "while", "until", "case", "esac", "select", "function", "time",
+    "coproc", "!",     "{",     "}",    "[[",   "]]",     NULL};
 
 static bool is_shell_keyword(const char *word, size_t len) {
     for (int i = 0; shell_keywords[i]; i++) {
@@ -136,19 +127,21 @@ static bool is_shell_keyword(const char *word, size_t len) {
 
 static bool is_word_char(char c) {
     unsigned char uc = (unsigned char)c;
-    
-    /* UTF-8 continuation bytes (10xxxxxx) and lead bytes (11xxxxxx) are part of words.
-     * This ensures multi-byte UTF-8 characters like 'é' (0xC3 0xA9) are not split. */
+
+    /* UTF-8 continuation bytes (10xxxxxx) and lead bytes (11xxxxxx) are part of
+     * words. This ensures multi-byte UTF-8 characters like 'é' (0xC3 0xA9) are
+     * not split. */
     if (uc >= 0x80) {
-        return true;  /* Any non-ASCII byte is part of a word */
+        return true; /* Any non-ASCII byte is part of a word */
     }
-    
-    return isalnum(uc) || c == '_' || c == '-' || c == '.' || 
-           c == '/' || c == '~' || c == '+' || c == '@' || c == ':';
+
+    return isalnum(uc) || c == '_' || c == '-' || c == '.' || c == '/' ||
+           c == '~' || c == '+' || c == '@' || c == ':';
 }
 
 static bool is_option_start(const char *s, size_t remaining) {
-    return remaining >= 2 && s[0] == '-' && (isalnum((unsigned char)s[1]) || s[1] == '-');
+    return remaining >= 2 && s[0] == '-' &&
+           (isalnum((unsigned char)s[1]) || s[1] == '-');
 }
 
 /* is_variable_start - currently inlined in tokenizer, kept for future use */
@@ -158,9 +151,7 @@ static bool is_variable_start(char c) {
 }
 #endif
 
-static bool is_glob_char(char c) {
-    return c == '*' || c == '?' || c == '[';
-}
+static bool is_glob_char(char c) { return c == '*' || c == '?' || c == '['; }
 
 static size_t skip_whitespace(const char *input, size_t pos, size_t len) {
     while (pos < len && isspace((unsigned char)input[pos])) {
@@ -181,16 +172,18 @@ static bool command_exists_in_path(const char *command) {
     if (strchr(command, '/')) {
         return access(command, X_OK) == 0;
     }
-    
+
     const char *path_env = getenv("PATH");
-    if (!path_env) return false;
-    
+    if (!path_env)
+        return false;
+
     char *path_copy = strdup(path_env);
-    if (!path_copy) return false;
-    
+    if (!path_copy)
+        return false;
+
     bool found = false;
     char *dir = strtok(path_copy, ":");
-    
+
     while (dir && !found) {
         char full_path[4096];
         snprintf(full_path, sizeof(full_path), "%s/%s", dir, command);
@@ -199,23 +192,24 @@ static bool command_exists_in_path(const char *command) {
         }
         dir = strtok(NULL, ":");
     }
-    
+
     free(path_copy);
     return found;
 }
 
-lle_syntax_token_type_t lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
-                                                  const char *command) {
+lle_syntax_token_type_t
+lle_syntax_check_command(lle_syntax_highlighter_t *highlighter,
+                         const char *command) {
     if (!command || !*command) {
         return LLE_TOKEN_UNKNOWN;
     }
-    
+
     /* Check cache first */
     if (highlighter && highlighter->command_cache) {
         cmd_cache_t *cache = (cmd_cache_t *)highlighter->command_cache;
         unsigned int idx = hash_string(command);
         cmd_cache_entry_t *entry = &cache->entries[idx];
-        
+
         if (entry->command && strcmp(entry->command, command) == 0) {
             time_t now = time(NULL);
             if (now - entry->timestamp < CMD_CACHE_TTL) {
@@ -223,10 +217,10 @@ lle_syntax_token_type_t lle_syntax_check_command(lle_syntax_highlighter_t *highl
             }
         }
     }
-    
+
     /* Check command type */
     lle_syntax_token_type_t type;
-    
+
     if (is_builtin(command)) {
         type = LLE_TOKEN_COMMAND_BUILTIN;
     } else if (lookup_alias(command) != NULL) {
@@ -236,19 +230,19 @@ lle_syntax_token_type_t lle_syntax_check_command(lle_syntax_highlighter_t *highl
     } else {
         type = LLE_TOKEN_COMMAND_INVALID;
     }
-    
+
     /* Update cache */
     if (highlighter && highlighter->command_cache) {
         cmd_cache_t *cache = (cmd_cache_t *)highlighter->command_cache;
         unsigned int idx = hash_string(command);
         cmd_cache_entry_t *entry = &cache->entries[idx];
-        
+
         free(entry->command);
         entry->command = strdup(command);
         entry->type = type;
         entry->timestamp = time(NULL);
     }
-    
+
     return type;
 }
 
@@ -262,44 +256,48 @@ static bool path_exists(const char *path) {
 /* ========================================================================== */
 
 static int ensure_token_capacity(lle_syntax_highlighter_t *h, size_t needed) {
-    if (needed <= h->token_capacity) return 0;
-    
+    if (needed <= h->token_capacity)
+        return 0;
+
     size_t new_cap = h->token_capacity ? h->token_capacity * 2 : 32;
-    while (new_cap < needed) new_cap *= 2;
-    
-    lle_syntax_token_t *new_tokens = realloc(h->tokens, new_cap * sizeof(lle_syntax_token_t));
-    if (!new_tokens) return -1;
-    
+    while (new_cap < needed)
+        new_cap *= 2;
+
+    lle_syntax_token_t *new_tokens =
+        realloc(h->tokens, new_cap * sizeof(lle_syntax_token_t));
+    if (!new_tokens)
+        return -1;
+
     h->tokens = new_tokens;
     h->token_capacity = new_cap;
     return 0;
 }
 
-static int add_token(lle_syntax_highlighter_t *h, 
-                     lle_syntax_token_type_t type,
+static int add_token(lle_syntax_highlighter_t *h, lle_syntax_token_type_t type,
                      size_t start, size_t end) {
-    if (ensure_token_capacity(h, h->token_count + 1) < 0) return -1;
-    
+    if (ensure_token_capacity(h, h->token_count + 1) < 0)
+        return -1;
+
     lle_syntax_token_t *tok = &h->tokens[h->token_count++];
     tok->type = type;
     tok->start = start;
     tok->end = end;
     tok->color = 0;
     tok->attributes = LLE_ATTR_NONE;
-    
+
     return 0;
 }
 
 int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
-                         const char *input,
-                         size_t input_len) {
-    if (!highlighter || !input) return -1;
-    
+                         const char *input, size_t input_len) {
+    if (!highlighter || !input)
+        return -1;
+
     highlighter->token_count = 0;
-    
+
     size_t pos = 0;
-    bool expect_command = true;  /* Next word is a command */
-    
+    bool expect_command = true; /* Next word is a command */
+
     while (pos < input_len) {
         /* Skip whitespace */
         size_t ws_start = pos;
@@ -307,67 +305,77 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
         if (pos > ws_start) {
             add_token(highlighter, LLE_TOKEN_WHITESPACE, ws_start, pos);
         }
-        if (pos >= input_len) break;
-        
+        if (pos >= input_len)
+            break;
+
         char c = input[pos];
         size_t token_start = pos;
-        
+
         /* Comment */
         if (c == '#') {
-            while (pos < input_len && input[pos] != '\n') pos++;
+            while (pos < input_len && input[pos] != '\n')
+                pos++;
             add_token(highlighter, LLE_TOKEN_COMMENT, token_start, pos);
             continue;
         }
-        
+
         /* Single-quoted string */
         if (c == '\'') {
             pos++;
-            while (pos < input_len && input[pos] != '\'') pos++;
-            if (pos < input_len) pos++;  /* Skip closing quote */
-            add_token(highlighter, 
-                      pos <= input_len && input[pos-1] == '\'' ? 
-                          LLE_TOKEN_STRING_SINGLE : LLE_TOKEN_UNCLOSED_STRING,
+            while (pos < input_len && input[pos] != '\'')
+                pos++;
+            if (pos < input_len)
+                pos++; /* Skip closing quote */
+            add_token(highlighter,
+                      pos <= input_len && input[pos - 1] == '\''
+                          ? LLE_TOKEN_STRING_SINGLE
+                          : LLE_TOKEN_UNCLOSED_STRING,
                       token_start, pos);
             expect_command = false;
             continue;
         }
-        
+
         /* Double-quoted string */
         if (c == '"') {
             pos++;
             while (pos < input_len && input[pos] != '"') {
-                if (input[pos] == '\\' && pos + 1 < input_len) pos++;
+                if (input[pos] == '\\' && pos + 1 < input_len)
+                    pos++;
                 pos++;
             }
-            if (pos < input_len) pos++;  /* Skip closing quote */
+            if (pos < input_len)
+                pos++; /* Skip closing quote */
             add_token(highlighter,
-                      pos <= input_len && input[pos-1] == '"' ?
-                          LLE_TOKEN_STRING_DOUBLE : LLE_TOKEN_UNCLOSED_STRING,
+                      pos <= input_len && input[pos - 1] == '"'
+                          ? LLE_TOKEN_STRING_DOUBLE
+                          : LLE_TOKEN_UNCLOSED_STRING,
                       token_start, pos);
             expect_command = false;
             continue;
         }
-        
+
         /* Backtick command substitution */
         if (c == '`') {
             pos++;
             while (pos < input_len && input[pos] != '`') {
-                if (input[pos] == '\\' && pos + 1 < input_len) pos++;
+                if (input[pos] == '\\' && pos + 1 < input_len)
+                    pos++;
                 pos++;
             }
-            if (pos < input_len) pos++;
+            if (pos < input_len)
+                pos++;
             add_token(highlighter, LLE_TOKEN_STRING_BACKTICK, token_start, pos);
             expect_command = false;
             continue;
         }
-        
+
         /* Variable */
         if (c == '$') {
             pos++;
             if (pos < input_len) {
                 char next = input[pos];
                 lle_syntax_token_type_t vtype = LLE_TOKEN_VARIABLE;
-                
+
                 /* Special variables */
                 if (next == '?' || next == '#' || next == '@' || next == '*' ||
                     next == '$' || next == '!' || next == '-' || next == '_' ||
@@ -381,26 +389,29 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                     int depth = 1;
                     pos++;
                     while (pos < input_len && depth > 0) {
-                        if (input[pos] == next) depth++;
-                        else if (input[pos] == close) depth--;
+                        if (input[pos] == next)
+                            depth++;
+                        else if (input[pos] == close)
+                            depth--;
                         pos++;
                     }
                 }
                 /* Simple $VAR */
                 else if (isalpha((unsigned char)next) || next == '_') {
                     pos++;
-                    while (pos < input_len && 
-                           (isalnum((unsigned char)input[pos]) || input[pos] == '_')) {
+                    while (pos < input_len &&
+                           (isalnum((unsigned char)input[pos]) ||
+                            input[pos] == '_')) {
                         pos++;
                     }
                 }
-                
+
                 add_token(highlighter, vtype, token_start, pos);
                 expect_command = false;
                 continue;
             }
         }
-        
+
         /* Operators */
         if (c == '|') {
             pos++;
@@ -413,7 +424,7 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             expect_command = true;
             continue;
         }
-        
+
         if (c == '&') {
             pos++;
             if (pos < input_len && input[pos] == '&') {
@@ -425,19 +436,19 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             }
             continue;
         }
-        
+
         if (c == ';') {
             pos++;
             add_token(highlighter, LLE_TOKEN_SEMICOLON, token_start, pos);
             expect_command = true;
             continue;
         }
-        
+
         if (c == '>' || c == '<') {
             pos++;
             /* Handle >>, <<, >&, <&, etc. */
-            while (pos < input_len && 
-                   (input[pos] == '>' || input[pos] == '<' || 
+            while (pos < input_len &&
+                   (input[pos] == '>' || input[pos] == '<' ||
                     input[pos] == '&' || isdigit((unsigned char)input[pos]))) {
                 pos++;
             }
@@ -445,65 +456,69 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
             expect_command = false;
             continue;
         }
-        
+
         if (c == '(') {
             pos++;
             add_token(highlighter, LLE_TOKEN_SUBSHELL_START, token_start, pos);
             expect_command = true;
             continue;
         }
-        
+
         if (c == ')') {
             pos++;
             add_token(highlighter, LLE_TOKEN_SUBSHELL_END, token_start, pos);
             expect_command = false;
             continue;
         }
-        
+
         if (c == '{') {
             pos++;
             add_token(highlighter, LLE_TOKEN_BRACE_START, token_start, pos);
             expect_command = true;
             continue;
         }
-        
+
         if (c == '}') {
             pos++;
             add_token(highlighter, LLE_TOKEN_BRACE_END, token_start, pos);
             expect_command = false;
             continue;
         }
-        
+
         /* Word (command, argument, path, option, etc.) */
         if (is_word_char(c) || c == '\\') {
             /* Scan the word */
             bool has_glob = false;
             bool has_slash = false;
-            
+
             while (pos < input_len) {
                 char ch = input[pos];
                 if (ch == '\\' && pos + 1 < input_len) {
                     pos += 2;
                     continue;
                 }
-                if (is_glob_char(ch)) has_glob = true;
-                if (ch == '/') has_slash = true;
-                if (!is_word_char(ch) && !is_glob_char(ch)) break;
+                if (is_glob_char(ch))
+                    has_glob = true;
+                if (ch == '/')
+                    has_slash = true;
+                if (!is_word_char(ch) && !is_glob_char(ch))
+                    break;
                 pos++;
             }
-            
+
             size_t word_len = pos - token_start;
-            
+
             /* Determine token type */
             lle_syntax_token_type_t type;
-            
+
             if (expect_command) {
                 /* Extract word for checking */
                 char word[256];
-                size_t copy_len = word_len < sizeof(word) - 1 ? word_len : sizeof(word) - 1;
+                size_t copy_len =
+                    word_len < sizeof(word) - 1 ? word_len : sizeof(word) - 1;
                 memcpy(word, input + token_start, copy_len);
                 word[copy_len] = '\0';
-                
+
                 if (is_shell_keyword(input + token_start, word_len)) {
                     type = LLE_TOKEN_KEYWORD;
                     /* Keywords like 'if', 'for' expect command after them */
@@ -512,7 +527,8 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                     type = lle_syntax_check_command(highlighter, word);
                     expect_command = false;
                 } else {
-                    type = LLE_TOKEN_COMMAND_VALID;  /* Assume valid if not checking */
+                    type = LLE_TOKEN_COMMAND_VALID; /* Assume valid if not
+                                                       checking */
                     expect_command = false;
                 }
             } else {
@@ -524,135 +540,150 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
                 } else if (has_slash && highlighter->validate_paths) {
                     /* Looks like a path - check if it exists */
                     char path[4096];
-                    size_t copy_len = word_len < sizeof(path) - 1 ? word_len : sizeof(path) - 1;
+                    size_t copy_len = word_len < sizeof(path) - 1
+                                          ? word_len
+                                          : sizeof(path) - 1;
                     memcpy(path, input + token_start, copy_len);
                     path[copy_len] = '\0';
-                    
+
                     /* Expand ~ if present */
                     if (path[0] == '~') {
                         const char *home = getenv("HOME");
                         if (home) {
                             char expanded[4096];
-                            snprintf(expanded, sizeof(expanded), "%s%s", home, path + 1);
-                            type = path_exists(expanded) ? LLE_TOKEN_PATH_VALID : LLE_TOKEN_PATH_INVALID;
+                            snprintf(expanded, sizeof(expanded), "%s%s", home,
+                                     path + 1);
+                            type = path_exists(expanded)
+                                       ? LLE_TOKEN_PATH_VALID
+                                       : LLE_TOKEN_PATH_INVALID;
                         } else {
                             type = LLE_TOKEN_PATH_INVALID;
                         }
                     } else {
-                        type = path_exists(path) ? LLE_TOKEN_PATH_VALID : LLE_TOKEN_PATH_INVALID;
+                        type = path_exists(path) ? LLE_TOKEN_PATH_VALID
+                                                 : LLE_TOKEN_PATH_INVALID;
                     }
                 } else if (has_slash) {
-                    type = LLE_TOKEN_ARGUMENT;  /* Path-like but not validating */
+                    type =
+                        LLE_TOKEN_ARGUMENT; /* Path-like but not validating */
                 } else {
                     /* Check if it's a number */
                     bool is_num = true;
                     for (size_t i = token_start; i < pos && is_num; i++) {
-                        if (!isdigit((unsigned char)input[i]) && input[i] != '.' && 
-                            input[i] != '-' && input[i] != '+') {
+                        if (!isdigit((unsigned char)input[i]) &&
+                            input[i] != '.' && input[i] != '-' &&
+                            input[i] != '+') {
                             is_num = false;
                         }
                     }
                     type = is_num ? LLE_TOKEN_NUMBER : LLE_TOKEN_ARGUMENT;
                 }
             }
-            
+
             add_token(highlighter, type, token_start, pos);
             continue;
         }
-        
+
         /* Unknown character - skip it */
         pos++;
         add_token(highlighter, LLE_TOKEN_UNKNOWN, token_start, pos);
     }
-    
+
     /* Apply colors to tokens */
     for (size_t i = 0; i < highlighter->token_count; i++) {
         lle_syntax_token_t *tok = &highlighter->tokens[i];
         const lle_syntax_colors_t *c = &highlighter->colors;
-        
+
         switch (tok->type) {
-            case LLE_TOKEN_COMMAND_VALID:
-                tok->color = c->command_valid;
-                if (c->command_bold) tok->attributes |= LLE_ATTR_BOLD;
-                break;
-            case LLE_TOKEN_COMMAND_INVALID:
-                tok->color = c->command_invalid;
-                break;
-            case LLE_TOKEN_COMMAND_BUILTIN:
-            case LLE_TOKEN_COMMAND_ALIAS:
-                tok->color = c->command_builtin;
-                if (c->command_bold) tok->attributes |= LLE_ATTR_BOLD;
-                break;
-            case LLE_TOKEN_COMMAND_FUNCTION:
-                tok->color = c->command_function;
-                break;
-            case LLE_TOKEN_KEYWORD:
-                tok->color = c->keyword;
-                if (c->keyword_bold) tok->attributes |= LLE_ATTR_BOLD;
-                break;
-            case LLE_TOKEN_STRING_SINGLE:
-            case LLE_TOKEN_STRING_DOUBLE:
-            case LLE_TOKEN_STRING_BACKTICK:
-                tok->color = c->string;
-                break;
-            case LLE_TOKEN_VARIABLE:
-                tok->color = c->variable;
-                break;
-            case LLE_TOKEN_VARIABLE_SPECIAL:
-                tok->color = c->variable_special;
-                break;
-            case LLE_TOKEN_PATH_VALID:
-                tok->color = c->path_valid;
-                if (c->path_underline) tok->attributes |= LLE_ATTR_UNDERLINE;
-                break;
-            case LLE_TOKEN_PATH_INVALID:
-                tok->color = c->path_invalid;
-                if (c->path_underline) tok->attributes |= LLE_ATTR_UNDERLINE;
-                break;
-            case LLE_TOKEN_PIPE:
-                tok->color = c->pipe;
-                break;
-            case LLE_TOKEN_REDIRECT:
-                tok->color = c->redirect;
-                break;
-            case LLE_TOKEN_AND:
-            case LLE_TOKEN_OR:
-            case LLE_TOKEN_BACKGROUND:
-            case LLE_TOKEN_SEMICOLON:
-            case LLE_TOKEN_SUBSHELL_START:
-            case LLE_TOKEN_SUBSHELL_END:
-            case LLE_TOKEN_BRACE_START:
-            case LLE_TOKEN_BRACE_END:
-                tok->color = c->operator_other;
-                break;
-            case LLE_TOKEN_COMMENT:
-                tok->color = c->comment;
-                if (c->comment_dim) tok->attributes |= LLE_ATTR_DIM;
-                break;
-            case LLE_TOKEN_NUMBER:
-                tok->color = c->number;
-                break;
-            case LLE_TOKEN_OPTION:
-                tok->color = c->option;
-                break;
-            case LLE_TOKEN_GLOB:
-                tok->color = c->glob;
-                break;
-            case LLE_TOKEN_ARGUMENT:
-                tok->color = c->argument;
-                break;
-            case LLE_TOKEN_ERROR:
-            case LLE_TOKEN_UNCLOSED_STRING:
-            case LLE_TOKEN_UNCLOSED_SUBSHELL:
-                tok->color = c->error;
-                if (c->error_underline) tok->attributes |= LLE_ATTR_UNDERLINE;
-                break;
-            default:
-                tok->color = 0;
-                break;
+        case LLE_TOKEN_COMMAND_VALID:
+            tok->color = c->command_valid;
+            if (c->command_bold)
+                tok->attributes |= LLE_ATTR_BOLD;
+            break;
+        case LLE_TOKEN_COMMAND_INVALID:
+            tok->color = c->command_invalid;
+            break;
+        case LLE_TOKEN_COMMAND_BUILTIN:
+        case LLE_TOKEN_COMMAND_ALIAS:
+            tok->color = c->command_builtin;
+            if (c->command_bold)
+                tok->attributes |= LLE_ATTR_BOLD;
+            break;
+        case LLE_TOKEN_COMMAND_FUNCTION:
+            tok->color = c->command_function;
+            break;
+        case LLE_TOKEN_KEYWORD:
+            tok->color = c->keyword;
+            if (c->keyword_bold)
+                tok->attributes |= LLE_ATTR_BOLD;
+            break;
+        case LLE_TOKEN_STRING_SINGLE:
+        case LLE_TOKEN_STRING_DOUBLE:
+        case LLE_TOKEN_STRING_BACKTICK:
+            tok->color = c->string;
+            break;
+        case LLE_TOKEN_VARIABLE:
+            tok->color = c->variable;
+            break;
+        case LLE_TOKEN_VARIABLE_SPECIAL:
+            tok->color = c->variable_special;
+            break;
+        case LLE_TOKEN_PATH_VALID:
+            tok->color = c->path_valid;
+            if (c->path_underline)
+                tok->attributes |= LLE_ATTR_UNDERLINE;
+            break;
+        case LLE_TOKEN_PATH_INVALID:
+            tok->color = c->path_invalid;
+            if (c->path_underline)
+                tok->attributes |= LLE_ATTR_UNDERLINE;
+            break;
+        case LLE_TOKEN_PIPE:
+            tok->color = c->pipe;
+            break;
+        case LLE_TOKEN_REDIRECT:
+            tok->color = c->redirect;
+            break;
+        case LLE_TOKEN_AND:
+        case LLE_TOKEN_OR:
+        case LLE_TOKEN_BACKGROUND:
+        case LLE_TOKEN_SEMICOLON:
+        case LLE_TOKEN_SUBSHELL_START:
+        case LLE_TOKEN_SUBSHELL_END:
+        case LLE_TOKEN_BRACE_START:
+        case LLE_TOKEN_BRACE_END:
+            tok->color = c->operator_other;
+            break;
+        case LLE_TOKEN_COMMENT:
+            tok->color = c->comment;
+            if (c->comment_dim)
+                tok->attributes |= LLE_ATTR_DIM;
+            break;
+        case LLE_TOKEN_NUMBER:
+            tok->color = c->number;
+            break;
+        case LLE_TOKEN_OPTION:
+            tok->color = c->option;
+            break;
+        case LLE_TOKEN_GLOB:
+            tok->color = c->glob;
+            break;
+        case LLE_TOKEN_ARGUMENT:
+            tok->color = c->argument;
+            break;
+        case LLE_TOKEN_ERROR:
+        case LLE_TOKEN_UNCLOSED_STRING:
+        case LLE_TOKEN_UNCLOSED_SUBSHELL:
+            tok->color = c->error;
+            if (c->error_underline)
+                tok->attributes |= LLE_ATTR_UNDERLINE;
+            break;
+        default:
+            tok->color = 0;
+            break;
         }
     }
-    
+
     return (int)highlighter->token_count;
 }
 
@@ -660,19 +691,18 @@ int lle_syntax_highlight(lle_syntax_highlighter_t *highlighter,
 /*                         ANSI RENDERING                                     */
 /* ========================================================================== */
 
-int lle_syntax_color_to_ansi(uint32_t color,
-                             uint8_t attributes,
-                             int color_depth,
-                             char *output,
+int lle_syntax_color_to_ansi(uint32_t color, uint8_t attributes,
+                             int color_depth, char *output,
                              size_t output_size) {
-    if (!output || output_size < 2) return -1;
-    
+    if (!output || output_size < 2)
+        return -1;
+
     char *p = output;
     char *end = output + output_size - 1;
-    
+
     /* Start escape sequence */
     p += snprintf(p, end - p, "\x1b[");
-    
+
     /* Attributes */
     bool need_sep = false;
     if (attributes & LLE_ATTR_BOLD) {
@@ -691,24 +721,28 @@ int lle_syntax_color_to_ansi(uint32_t color,
         p += snprintf(p, end - p, "%s4", need_sep ? ";" : "");
         need_sep = true;
     }
-    
+
     /* Color */
     if (color != 0 && color_depth > 0) {
         uint8_t r = (color >> 16) & 0xFF;
         uint8_t g = (color >> 8) & 0xFF;
         uint8_t b = color & 0xFF;
-        
+
         if (color_depth >= 3) {
             /* Truecolor */
-            p += snprintf(p, end - p, "%s38;2;%d;%d;%d", need_sep ? ";" : "", r, g, b);
+            p += snprintf(p, end - p, "%s38;2;%d;%d;%d", need_sep ? ";" : "", r,
+                          g, b);
         } else if (color_depth == 2) {
             /* 256 color - convert RGB to 256 color index */
             int idx;
             if (r == g && g == b) {
                 /* Grayscale */
-                if (r < 8) idx = 16;
-                else if (r > 248) idx = 231;
-                else idx = 232 + (r - 8) / 10;
+                if (r < 8)
+                    idx = 16;
+                else if (r > 248)
+                    idx = 231;
+                else
+                    idx = 232 + (r - 8) / 10;
             } else {
                 /* Color cube */
                 idx = 16 + (r / 51) * 36 + (g / 51) * 6 + (b / 51);
@@ -717,9 +751,12 @@ int lle_syntax_color_to_ansi(uint32_t color,
         } else {
             /* 8 color - pick closest basic color */
             int basic = 0;
-            if (r > 127) basic |= 1;
-            if (g > 127) basic |= 2;
-            if (b > 127) basic |= 4;
+            if (r > 127)
+                basic |= 1;
+            if (g > 127)
+                basic |= 2;
+            if (b > 127)
+                basic |= 4;
             /* Use bright if any component is very bright */
             if (r > 200 || g > 200 || b > 200) {
                 p += snprintf(p, end - p, "%s9%d", need_sep ? ";" : "", basic);
@@ -728,51 +765,54 @@ int lle_syntax_color_to_ansi(uint32_t color,
             }
         }
     }
-    
+
     p += snprintf(p, end - p, "m");
-    
+
     return (int)(p - output);
 }
 
 int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
-                           const char *input,
-                           char *output,
+                           const char *input, char *output,
                            size_t output_size) {
-    if (!highlighter || !input || !output || output_size == 0) return -1;
-    
+    if (!highlighter || !input || !output || output_size == 0)
+        return -1;
+
     char *p = output;
     char *end = output + output_size - 1;
-    
+
     for (size_t i = 0; i < highlighter->token_count && p < end; i++) {
         lle_syntax_token_t *tok = &highlighter->tokens[i];
-        
+
         /* Skip whitespace and unknown tokens - just copy them */
-        if (tok->type == LLE_TOKEN_WHITESPACE || tok->type == LLE_TOKEN_UNKNOWN) {
+        if (tok->type == LLE_TOKEN_WHITESPACE ||
+            tok->type == LLE_TOKEN_UNKNOWN) {
             size_t len = tok->end - tok->start;
-            if (p + len >= end) len = end - p;
+            if (p + len >= end)
+                len = end - p;
             memcpy(p, input + tok->start, len);
             p += len;
             continue;
         }
-        
+
         /* Apply color */
         if (tok->color != 0 || tok->attributes != 0) {
             char color_seq[64];
-            int seq_len = lle_syntax_color_to_ansi(tok->color, tok->attributes,
-                                                    highlighter->color_depth,
-                                                    color_seq, sizeof(color_seq));
+            int seq_len = lle_syntax_color_to_ansi(
+                tok->color, tok->attributes, highlighter->color_depth,
+                color_seq, sizeof(color_seq));
             if (seq_len > 0 && p + seq_len < end) {
                 memcpy(p, color_seq, seq_len);
                 p += seq_len;
             }
         }
-        
+
         /* Copy token text */
         size_t len = tok->end - tok->start;
-        if (p + len >= end) len = end - p;
+        if (p + len >= end)
+            len = end - p;
         memcpy(p, input + tok->start, len);
         p += len;
-        
+
         /* Reset after token */
         if (tok->color != 0 || tok->attributes != 0) {
             const char *reset = "\x1b[0m";
@@ -783,7 +823,7 @@ int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
             }
         }
     }
-    
+
     *p = '\0';
     return (int)(p - output);
 }
@@ -793,29 +833,32 @@ int lle_syntax_render_ansi(lle_syntax_highlighter_t *highlighter,
 /* ========================================================================== */
 
 int lle_syntax_highlighter_create(lle_syntax_highlighter_t **highlighter) {
-    if (!highlighter) return -1;
-    
+    if (!highlighter)
+        return -1;
+
     lle_syntax_highlighter_t *h = calloc(1, sizeof(lle_syntax_highlighter_t));
-    if (!h) return -1;
-    
+    if (!h)
+        return -1;
+
     /* Set defaults */
     h->colors = default_colors;
     h->enabled = true;
     h->validate_commands = true;
     h->validate_paths = true;
     h->highlight_errors = true;
-    h->color_depth = 3;  /* Assume truecolor */
-    
+    h->color_depth = 3; /* Assume truecolor */
+
     /* Create command cache */
     h->command_cache = calloc(1, sizeof(cmd_cache_t));
-    
+
     *highlighter = h;
     return 0;
 }
 
 void lle_syntax_highlighter_destroy(lle_syntax_highlighter_t *highlighter) {
-    if (!highlighter) return;
-    
+    if (!highlighter)
+        return;
+
     /* Free command cache */
     if (highlighter->command_cache) {
         cmd_cache_t *cache = (cmd_cache_t *)highlighter->command_cache;
@@ -824,35 +867,40 @@ void lle_syntax_highlighter_destroy(lle_syntax_highlighter_t *highlighter) {
         }
         free(cache);
     }
-    
+
     free(highlighter->tokens);
     free(highlighter);
 }
 
 void lle_syntax_highlighter_set_colors(lle_syntax_highlighter_t *highlighter,
                                        const lle_syntax_colors_t *colors) {
-    if (!highlighter || !colors) return;
+    if (!highlighter || !colors)
+        return;
     highlighter->colors = *colors;
 }
 
 void lle_syntax_colors_get_default(lle_syntax_colors_t *colors) {
-    if (!colors) return;
+    if (!colors)
+        return;
     *colors = default_colors;
 }
 
-const lle_syntax_token_t *lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter,
-                                                 size_t *count) {
+const lle_syntax_token_t *
+lle_syntax_get_tokens(lle_syntax_highlighter_t *highlighter, size_t *count) {
     if (!highlighter) {
-        if (count) *count = 0;
+        if (count)
+            *count = 0;
         return NULL;
     }
-    if (count) *count = highlighter->token_count;
+    if (count)
+        *count = highlighter->token_count;
     return highlighter->tokens;
 }
 
 void lle_syntax_clear_cache(lle_syntax_highlighter_t *highlighter) {
-    if (!highlighter || !highlighter->command_cache) return;
-    
+    if (!highlighter || !highlighter->command_cache)
+        return;
+
     cmd_cache_t *cache = (cmd_cache_t *)highlighter->command_cache;
     for (int i = 0; i < CMD_CACHE_SIZE; i++) {
         free(cache->entries[i].command);

@@ -18,14 +18,15 @@
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <unistd.h>
 
 /* ============================================================================
  * DISPLAY CLIENT CONTROLLER STRUCTURE
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Display content rendering pipeline.
@@ -36,22 +37,22 @@ typedef struct {
     bool color_enabled;
     bool cursor_control_enabled;
     bool clear_enabled;
-    int color_depth;              /* 0=none, 1=8, 2=256, 3=truecolor */
-    
+    int color_depth; /* 0=none, 1=8, 2=256, 3=truecolor */
+
     /* Content buffers */
     char *prompt_buffer;
     size_t prompt_buffer_size;
     char *content_buffer;
     size_t content_buffer_size;
     size_t content_length;
-    
+
     /* Formatting state */
     bool bold_active;
     bool italic_active;
     bool underline_active;
     int current_fg_color;
     int current_bg_color;
-    
+
     /* Performance */
     uint64_t renders_completed;
     uint64_t total_render_time_us;
@@ -66,16 +67,16 @@ struct lle_enhanced_input_processor_t {
     char *input_buffer;
     size_t buffer_size;
     size_t buffer_used;
-    
+
     /* Input state */
     bool echo_enabled;
     bool line_buffered;
     bool utf8_mode;
-    
+
     /* Special key handling */
     bool handle_ctrl_sequences;
     bool handle_escape_sequences;
-    
+
     /* Performance */
     uint64_t bytes_processed;
     uint64_t lines_processed;
@@ -90,20 +91,20 @@ struct lle_display_content_generator_t {
     bool supports_colors;
     bool supports_cursor;
     bool supports_unicode;
-    
+
     /* Content generation state */
     char *generated_content;
     size_t content_capacity;
     size_t content_length;
-    
+
     /* Formatting functions */
     char *(*format_prompt)(struct lle_display_content_generator_t *gen,
-                          const char *prompt);
+                           const char *prompt);
     char *(*format_line)(struct lle_display_content_generator_t *gen,
-                        const char *line);
+                         const char *line);
     char *(*format_completion)(struct lle_display_content_generator_t *gen,
-                              const char *completion);
-    
+                               const char *completion);
+
     /* Performance */
     uint64_t generations_completed;
 };
@@ -118,20 +119,20 @@ struct lle_display_client_controller_t {
     bool supports_clear_operations;
     int terminal_width;
     int terminal_height;
-    
+
     /* Core components */
     lle_enhanced_input_processor_t *input_processor;
     lle_display_content_generator_t *content_generator;
     lle_render_pipeline_t *render_pipeline;
-    
+
     /* Display state */
     char *current_prompt;
     char *current_line;
     size_t cursor_position;
-    
+
     /* Memory management */
     lusush_memory_pool_t *memory_pool;
-    
+
     /* Statistics */
     uint64_t lines_read;
     uint64_t displays_updated;
@@ -140,27 +141,27 @@ struct lle_display_client_controller_t {
 
 /* ============================================================================
  * RENDER PIPELINE IMPLEMENTATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Create render pipeline.
  */
-static lle_result_t lle_render_pipeline_create(
-    lle_render_pipeline_t **pipeline,
-    bool color_enabled,
-    bool cursor_enabled,
-    int color_depth) {
-    
+static lle_result_t lle_render_pipeline_create(lle_render_pipeline_t **pipeline,
+                                               bool color_enabled,
+                                               bool cursor_enabled,
+                                               int color_depth) {
+
     lle_render_pipeline_t *pipe = calloc(1, sizeof(lle_render_pipeline_t));
     if (!pipe) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     pipe->color_enabled = color_enabled;
     pipe->cursor_control_enabled = cursor_enabled;
     pipe->clear_enabled = cursor_enabled; /* Clear requires cursor control */
     pipe->color_depth = color_depth;
-    
+
     /* Allocate rendering buffers */
     pipe->prompt_buffer_size = 1024;
     pipe->prompt_buffer = malloc(pipe->prompt_buffer_size);
@@ -168,7 +169,7 @@ static lle_result_t lle_render_pipeline_create(
         free(pipe);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     pipe->content_buffer_size = 4096;
     pipe->content_buffer = malloc(pipe->content_buffer_size);
     if (!pipe->content_buffer) {
@@ -176,10 +177,10 @@ static lle_result_t lle_render_pipeline_create(
         free(pipe);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     pipe->current_fg_color = -1; /* No color */
     pipe->current_bg_color = -1;
-    
+
     *pipeline = pipe;
     return LLE_SUCCESS;
 }
@@ -191,7 +192,7 @@ static void lle_render_pipeline_destroy(lle_render_pipeline_t *pipeline) {
     if (!pipeline) {
         return;
     }
-    
+
     free(pipeline->prompt_buffer);
     free(pipeline->content_buffer);
     free(pipeline);
@@ -200,20 +201,19 @@ static void lle_render_pipeline_destroy(lle_render_pipeline_t *pipeline) {
 /**
  * Generate ANSI color escape sequence.
  */
-static void lle_render_pipeline_append_color(
-    lle_render_pipeline_t *pipe,
-    int fg_color,
-    int bg_color) {
-    
+static void lle_render_pipeline_append_color(lle_render_pipeline_t *pipe,
+                                             int fg_color, int bg_color) {
+
     if (!pipe->color_enabled || pipe->color_depth == 0) {
         return;
     }
-    
+
     /* Optimize: only emit if changed */
-    if (fg_color == pipe->current_fg_color && bg_color == pipe->current_bg_color) {
+    if (fg_color == pipe->current_fg_color &&
+        bg_color == pipe->current_bg_color) {
         return;
     }
-    
+
     /* Ensure buffer capacity */
     size_t needed = pipe->content_length + 32; /* Max ANSI sequence length */
     if (needed >= pipe->content_buffer_size) {
@@ -225,26 +225,26 @@ static void lle_render_pipeline_append_color(
         pipe->content_buffer = new_buffer;
         pipe->content_buffer_size = new_size;
     }
-    
+
     /* Generate appropriate color sequence based on depth */
     if (pipe->color_depth >= 2 && fg_color >= 0) {
         /* 256 color mode */
         int written = snprintf(pipe->content_buffer + pipe->content_length,
-                              pipe->content_buffer_size - pipe->content_length,
-                              "\x1b[38;5;%dm", fg_color);
+                               pipe->content_buffer_size - pipe->content_length,
+                               "\x1b[38;5;%dm", fg_color);
         if (written > 0) {
             pipe->content_length += written;
         }
     } else if (pipe->color_depth == 1 && fg_color >= 0 && fg_color < 8) {
         /* Basic 8 color mode */
         int written = snprintf(pipe->content_buffer + pipe->content_length,
-                              pipe->content_buffer_size - pipe->content_length,
-                              "\x1b[%dm", 30 + fg_color);
+                               pipe->content_buffer_size - pipe->content_length,
+                               "\x1b[%dm", 30 + fg_color);
         if (written > 0) {
             pipe->content_length += written;
         }
     }
-    
+
     pipe->current_fg_color = fg_color;
     pipe->current_bg_color = bg_color;
 }
@@ -252,15 +252,14 @@ static void lle_render_pipeline_append_color(
 /**
  * Append text to render buffer.
  */
-static lle_result_t lle_render_pipeline_append_text(
-    lle_render_pipeline_t *pipe,
-    const char *text,
-    size_t length) {
-    
+static lle_result_t lle_render_pipeline_append_text(lle_render_pipeline_t *pipe,
+                                                    const char *text,
+                                                    size_t length) {
+
     if (!text || length == 0) {
         return LLE_SUCCESS;
     }
-    
+
     /* Ensure buffer capacity */
     size_t needed = pipe->content_length + length + 1;
     if (needed >= pipe->content_buffer_size) {
@@ -275,11 +274,11 @@ static lle_result_t lle_render_pipeline_append_text(
         pipe->content_buffer = new_buffer;
         pipe->content_buffer_size = new_size;
     }
-    
+
     memcpy(pipe->content_buffer + pipe->content_length, text, length);
     pipe->content_length += length;
     pipe->content_buffer[pipe->content_length] = '\0';
-    
+
     return LLE_SUCCESS;
 }
 
@@ -290,7 +289,7 @@ static void lle_render_pipeline_reset_formatting(lle_render_pipeline_t *pipe) {
     if (!pipe->color_enabled) {
         return;
     }
-    
+
     const char *reset_seq = "\x1b[0m";
     lle_render_pipeline_append_text(pipe, reset_seq, strlen(reset_seq));
     pipe->current_fg_color = -1;
@@ -303,30 +302,32 @@ static void lle_render_pipeline_reset_formatting(lle_render_pipeline_t *pipe) {
 /**
  * Render prompt with formatting.
  */
-static lle_result_t lle_render_pipeline_render_prompt(
-    lle_render_pipeline_t *pipe,
-    const char *prompt) {
-    
+static lle_result_t
+lle_render_pipeline_render_prompt(lle_render_pipeline_t *pipe,
+                                  const char *prompt) {
+
     pipe->content_length = 0;
-    
+
     /* Apply prompt color (green) if colors enabled */
     if (pipe->color_enabled && pipe->color_depth > 0) {
         lle_render_pipeline_append_color(pipe, 2, -1); /* Green foreground */
     }
-    
-    lle_result_t result = lle_render_pipeline_append_text(pipe, prompt, strlen(prompt));
+
+    lle_result_t result =
+        lle_render_pipeline_append_text(pipe, prompt, strlen(prompt));
     if (result != LLE_SUCCESS) {
         return result;
     }
-    
+
     lle_render_pipeline_reset_formatting(pipe);
-    
+
     return LLE_SUCCESS;
 }
 
 /* ============================================================================
  * ENHANCED INPUT PROCESSOR IMPLEMENTATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Create enhanced input processor.
@@ -334,13 +335,13 @@ static lle_result_t lle_render_pipeline_render_prompt(
 lle_result_t lle_enhanced_input_processor_create(
     lle_enhanced_input_processor_t **processor,
     const lle_terminal_detection_result_t *detection) {
-    
-    lle_enhanced_input_processor_t *proc = calloc(1,
-        sizeof(lle_enhanced_input_processor_t));
+
+    lle_enhanced_input_processor_t *proc =
+        calloc(1, sizeof(lle_enhanced_input_processor_t));
     if (!proc) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Initialize input buffer */
     proc->buffer_size = 4096;
     proc->input_buffer = malloc(proc->buffer_size);
@@ -348,14 +349,15 @@ lle_result_t lle_enhanced_input_processor_create(
         free(proc);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Configure based on detection */
     proc->echo_enabled = detection->stdout_is_tty;
-    proc->line_buffered = !detection->stdin_is_tty; /* Cooked mode for non-TTY */
+    proc->line_buffered =
+        !detection->stdin_is_tty; /* Cooked mode for non-TTY */
     proc->utf8_mode = detection->supports_unicode;
     proc->handle_ctrl_sequences = true;
     proc->handle_escape_sequences = detection->stdin_is_tty;
-    
+
     *processor = proc;
     return LLE_SUCCESS;
 }
@@ -365,11 +367,11 @@ lle_result_t lle_enhanced_input_processor_create(
  */
 static void lle_enhanced_input_processor_destroy(
     lle_enhanced_input_processor_t *processor) {
-    
+
     if (!processor) {
         return;
     }
-    
+
     free(processor->input_buffer);
     free(processor);
 }
@@ -378,12 +380,10 @@ static void lle_enhanced_input_processor_destroy(
  * Read line from input processor.
  */
 static lle_result_t lle_enhanced_input_processor_read_line(
-    lle_enhanced_input_processor_t *processor,
-    char **line,
-    size_t *length) {
-    
+    lle_enhanced_input_processor_t *processor, char **line, size_t *length) {
+
     processor->buffer_used = 0;
-    
+
     /* Read line using standard fgets (cooked mode) */
     if (!fgets(processor->input_buffer, processor->buffer_size, stdin)) {
         if (feof(stdin)) {
@@ -391,39 +391,40 @@ static lle_result_t lle_enhanced_input_processor_read_line(
         }
         return LLE_ERROR_INPUT_PARSING;
     }
-    
+
     processor->buffer_used = strlen(processor->input_buffer);
-    
+
     /* Remove trailing newline */
     if (processor->buffer_used > 0 &&
         processor->input_buffer[processor->buffer_used - 1] == '\n') {
         processor->input_buffer[processor->buffer_used - 1] = '\0';
         processor->buffer_used--;
     }
-    
+
     processor->lines_processed++;
     processor->bytes_processed += processor->buffer_used;
-    
+
     *line = processor->input_buffer;
     *length = processor->buffer_used;
-    
+
     return LLE_SUCCESS;
 }
 
 /* ============================================================================
  * DISPLAY CONTENT GENERATOR IMPLEMENTATION
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Format prompt for display.
  */
-static char *lle_content_generator_format_prompt(
-    lle_display_content_generator_t *gen,
-    const char *prompt) {
-    
+static char *
+lle_content_generator_format_prompt(lle_display_content_generator_t *gen,
+                                    const char *prompt) {
+
     size_t prompt_len = strlen(prompt);
     size_t needed = prompt_len + 64; /* Extra for formatting */
-    
+
     if (needed > gen->content_capacity) {
         char *new_content = realloc(gen->generated_content, needed);
         if (!new_content) {
@@ -432,15 +433,15 @@ static char *lle_content_generator_format_prompt(
         gen->generated_content = new_content;
         gen->content_capacity = needed;
     }
-    
+
     if (gen->supports_colors) {
         snprintf(gen->generated_content, gen->content_capacity,
-                "\x1b[32m%s\x1b[0m", prompt);
+                 "\x1b[32m%s\x1b[0m", prompt);
     } else {
         strncpy(gen->generated_content, prompt, gen->content_capacity - 1);
         gen->generated_content[gen->content_capacity - 1] = '\0';
     }
-    
+
     gen->generations_completed++;
     return gen->generated_content;
 }
@@ -448,13 +449,13 @@ static char *lle_content_generator_format_prompt(
 /**
  * Format line for display.
  */
-static char *lle_content_generator_format_line(
-    lle_display_content_generator_t *gen,
-    const char *line) {
-    
+static char *
+lle_content_generator_format_line(lle_display_content_generator_t *gen,
+                                  const char *line) {
+
     size_t line_len = strlen(line);
     size_t needed = line_len + 1;
-    
+
     if (needed > gen->content_capacity) {
         char *new_content = realloc(gen->generated_content, needed);
         if (!new_content) {
@@ -463,23 +464,23 @@ static char *lle_content_generator_format_line(
         gen->generated_content = new_content;
         gen->content_capacity = needed;
     }
-    
+
     strncpy(gen->generated_content, line, gen->content_capacity - 1);
     gen->generated_content[gen->content_capacity - 1] = '\0';
-    
+
     return gen->generated_content;
 }
 
 /**
  * Format completion suggestion for display.
  */
-static char *lle_content_generator_format_completion(
-    lle_display_content_generator_t *gen,
-    const char *completion) {
-    
+static char *
+lle_content_generator_format_completion(lle_display_content_generator_t *gen,
+                                        const char *completion) {
+
     size_t completion_len = strlen(completion);
     size_t needed = completion_len + 64;
-    
+
     if (needed > gen->content_capacity) {
         char *new_content = realloc(gen->generated_content, needed);
         if (!new_content) {
@@ -488,16 +489,16 @@ static char *lle_content_generator_format_completion(
         gen->generated_content = new_content;
         gen->content_capacity = needed;
     }
-    
+
     if (gen->supports_colors) {
         /* Gray color for completion suggestion */
         snprintf(gen->generated_content, gen->content_capacity,
-                "\x1b[90m%s\x1b[0m", completion);
+                 "\x1b[90m%s\x1b[0m", completion);
     } else {
         strncpy(gen->generated_content, completion, gen->content_capacity - 1);
         gen->generated_content[gen->content_capacity - 1] = '\0';
     }
-    
+
     return gen->generated_content;
 }
 
@@ -505,20 +506,19 @@ static char *lle_content_generator_format_completion(
  * Create display content generator.
  */
 lle_result_t lle_display_content_generator_create(
-    lle_display_content_generator_t **generator,
-    bool supports_colors,
+    lle_display_content_generator_t **generator, bool supports_colors,
     bool supports_cursor) {
-    
-    lle_display_content_generator_t *gen = calloc(1,
-        sizeof(lle_display_content_generator_t));
+
+    lle_display_content_generator_t *gen =
+        calloc(1, sizeof(lle_display_content_generator_t));
     if (!gen) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     gen->supports_colors = supports_colors;
     gen->supports_cursor = supports_cursor;
     gen->supports_unicode = true; /* Assume UTF-8 for enhanced mode */
-    
+
     /* Allocate initial content buffer */
     gen->content_capacity = 4096;
     gen->generated_content = malloc(gen->content_capacity);
@@ -526,12 +526,12 @@ lle_result_t lle_display_content_generator_create(
         free(gen);
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Assign formatting functions */
     gen->format_prompt = lle_content_generator_format_prompt;
     gen->format_line = lle_content_generator_format_line;
     gen->format_completion = lle_content_generator_format_completion;
-    
+
     *generator = gen;
     return LLE_SUCCESS;
 }
@@ -541,41 +541,44 @@ lle_result_t lle_display_content_generator_create(
  */
 void lle_display_content_generator_destroy(
     lle_display_content_generator_t *generator) {
-    
+
     if (!generator) {
         return;
     }
-    
+
     free(generator->generated_content);
     free(generator);
 }
 
 /* ============================================================================
  * DISPLAY CLIENT CONTROLLER API
- * ============================================================================ */
+ * ============================================================================
+ */
 
 /**
  * Initialize display client controller (Enhanced mode).
  */
-lle_result_t lle_initialize_display_client_controller(
-    lle_adaptive_context_t *context,
-    lusush_memory_pool_t *memory_pool) {
-    
-    lle_display_client_controller_t *client = calloc(1,
-        sizeof(lle_display_client_controller_t));
+lle_result_t
+lle_initialize_display_client_controller(lle_adaptive_context_t *context,
+                                         lusush_memory_pool_t *memory_pool) {
+
+    lle_display_client_controller_t *client =
+        calloc(1, sizeof(lle_display_client_controller_t));
     if (!client) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Configure capabilities based on detection results */
     client->supports_color_output = context->detection_result->supports_colors;
-    client->supports_cursor_positioning = context->detection_result->supports_cursor_positioning;
-    client->supports_clear_operations = context->detection_result->stdout_is_tty;
-    
+    client->supports_cursor_positioning =
+        context->detection_result->supports_cursor_positioning;
+    client->supports_clear_operations =
+        context->detection_result->stdout_is_tty;
+
     /* Get terminal dimensions (default to 80x24 if unavailable) */
     client->terminal_width = 80;
     client->terminal_height = 24;
-    
+
     /* Determine color depth */
     int color_depth = 0;
     if (context->detection_result->supports_truecolor) {
@@ -585,43 +588,39 @@ lle_result_t lle_initialize_display_client_controller(
     } else if (context->detection_result->supports_colors) {
         color_depth = 1;
     }
-    
+
     /* Initialize content generation pipeline */
     lle_result_t result = lle_display_content_generator_create(
-        &client->content_generator,
-        client->supports_color_output,
+        &client->content_generator, client->supports_color_output,
         client->supports_cursor_positioning);
     if (result != LLE_SUCCESS) {
         free(client);
         return result;
     }
-    
+
     /* Initialize enhanced input processing */
-    result = lle_enhanced_input_processor_create(
-        &client->input_processor,
-        context->detection_result);
+    result = lle_enhanced_input_processor_create(&client->input_processor,
+                                                 context->detection_result);
     if (result != LLE_SUCCESS) {
         lle_display_content_generator_destroy(client->content_generator);
         free(client);
         return result;
     }
-    
+
     /* Initialize render pipeline */
     result = lle_render_pipeline_create(
-        &client->render_pipeline,
-        client->supports_color_output,
-        client->supports_cursor_positioning,
-        color_depth);
+        &client->render_pipeline, client->supports_color_output,
+        client->supports_cursor_positioning, color_depth);
     if (result != LLE_SUCCESS) {
         lle_enhanced_input_processor_destroy(client->input_processor);
         lle_display_content_generator_destroy(client->content_generator);
         free(client);
         return result;
     }
-    
+
     client->memory_pool = memory_pool;
     context->controller.display_client = client;
-    
+
     return LLE_SUCCESS;
 }
 
@@ -630,11 +629,11 @@ lle_result_t lle_initialize_display_client_controller(
  */
 void lle_cleanup_display_client_controller(
     lle_display_client_controller_t *client) {
-    
+
     if (!client) {
         return;
     }
-    
+
     lle_render_pipeline_destroy(client->render_pipeline);
     lle_enhanced_input_processor_destroy(client->input_processor);
     lle_display_content_generator_destroy(client->content_generator);
@@ -646,50 +645,44 @@ void lle_cleanup_display_client_controller(
 /**
  * Read line using display client controller.
  */
-lle_result_t lle_display_client_read_line(
-    lle_display_client_controller_t *client,
-    const char *prompt,
-    char **line) {
-    
+lle_result_t
+lle_display_client_read_line(lle_display_client_controller_t *client,
+                             const char *prompt, char **line) {
+
     if (!client || !prompt || !line) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Render and display prompt */
-    lle_result_t result = lle_render_pipeline_render_prompt(
-        client->render_pipeline,
-        prompt);
+    lle_result_t result =
+        lle_render_pipeline_render_prompt(client->render_pipeline, prompt);
     if (result != LLE_SUCCESS) {
         client->errors_encountered++;
         return result;
     }
-    
+
     /* Write prompt to stdout */
-    fwrite(client->render_pipeline->content_buffer,
-          1,
-          client->render_pipeline->content_length,
-          stdout);
+    fwrite(client->render_pipeline->content_buffer, 1,
+           client->render_pipeline->content_length, stdout);
     fflush(stdout);
-    
+
     /* Read line from input */
     size_t length = 0;
     char *input_line = NULL;
-    result = lle_enhanced_input_processor_read_line(
-        client->input_processor,
-        &input_line,
-        &length);
+    result = lle_enhanced_input_processor_read_line(client->input_processor,
+                                                    &input_line, &length);
     if (result != LLE_SUCCESS) {
         client->errors_encountered++;
         return result;
     }
-    
+
     /* Duplicate line for caller */
     *line = strdup(input_line);
     if (!*line) {
         client->errors_encountered++;
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     client->lines_read++;
     return LLE_SUCCESS;
 }
@@ -697,16 +690,16 @@ lle_result_t lle_display_client_read_line(
 /**
  * Update display client display.
  */
-lle_result_t lle_display_client_update_display(
-    lle_display_client_controller_t *client) {
-    
+lle_result_t
+lle_display_client_update_display(lle_display_client_controller_t *client) {
+
     if (!client) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* For display client mode, display updates are minimal */
     /* Content is rendered on-demand during read_line operations */
-    
+
     client->displays_updated++;
     return LLE_SUCCESS;
 }
@@ -714,34 +707,32 @@ lle_result_t lle_display_client_update_display(
 /**
  * Handle terminal resize in display client mode.
  */
-lle_result_t lle_display_client_handle_resize(
-    lle_display_client_controller_t *client,
-    int new_width,
-    int new_height) {
-    
+lle_result_t
+lle_display_client_handle_resize(lle_display_client_controller_t *client,
+                                 int new_width, int new_height) {
+
     if (!client) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     client->terminal_width = new_width;
     client->terminal_height = new_height;
-    
+
     return LLE_SUCCESS;
 }
 
 /**
  * Get display client statistics.
  */
-lle_result_t lle_display_client_get_stats(
-    const lle_display_client_controller_t *client,
-    uint64_t *lines_read,
-    uint64_t *displays_updated,
-    uint64_t *errors) {
-    
+lle_result_t
+lle_display_client_get_stats(const lle_display_client_controller_t *client,
+                             uint64_t *lines_read, uint64_t *displays_updated,
+                             uint64_t *errors) {
+
     if (!client) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     if (lines_read) {
         *lines_read = client->lines_read;
     }
@@ -751,6 +742,6 @@ lle_result_t lle_display_client_get_stats(
     if (errors) {
         *errors = client->errors_encountered;
     }
-    
+
     return LLE_SUCCESS;
 }

@@ -7,8 +7,9 @@
 
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include <stddef.h>
+
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <time.h>
 
@@ -27,23 +28,23 @@ typedef struct lle_edit_cache_entry {
     /* Entry identification */
     size_t history_index;
     uint64_t entry_id;
-    
+
     /* Cached data */
     char *original_text;
     size_t original_length;
-    
+
     char *reconstructed_text;
     size_t reconstructed_length;
-    
+
     /* Cache metadata */
     struct timespec cached_at;
     struct timespec last_accessed;
     uint64_t access_count;
-    
+
     /* LRU chain */
     struct lle_edit_cache_entry *prev;
     struct lle_edit_cache_entry *next;
-    
+
     /* Reserved for future use */
     void *reserved[2];
 } lle_edit_cache_entry_t;
@@ -54,13 +55,13 @@ typedef struct lle_edit_cache_entry {
 typedef struct lle_edit_cache_config {
     /* Maximum cache entries */
     size_t max_entries;
-    
+
     /* Cache entry TTL (milliseconds, 0 = no expiry) */
     uint32_t entry_ttl_ms;
-    
+
     /* Enable access tracking */
     bool track_access;
-    
+
     /* Reserved for future use */
     void *reserved[4];
 } lle_edit_cache_config_t;
@@ -72,15 +73,15 @@ typedef struct lle_edit_cache_stats {
     /* Hit/miss statistics */
     uint64_t hits;
     uint64_t misses;
-    
+
     /* Cache utilization */
     size_t current_entries;
     size_t max_entries;
-    
+
     /* Eviction statistics */
     uint64_t evictions;
     uint64_t expirations;
-    
+
     /* Reserved for future use */
     void *reserved[2];
 } lle_edit_cache_stats_t;
@@ -93,10 +94,9 @@ typedef struct lle_edit_cache_stats {
  * @param config Configuration (NULL for defaults)
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_create(
-    lle_edit_cache_t **cache,
-    lle_memory_pool_t *memory_pool,
-    const lle_edit_cache_config_t *config);
+lle_result_t lle_edit_cache_create(lle_edit_cache_t **cache,
+                                   lle_memory_pool_t *memory_pool,
+                                   const lle_edit_cache_config_t *config);
 
 /**
  * Destroy an edit cache
@@ -104,8 +104,7 @@ lle_result_t lle_edit_cache_create(
  * @param cache Cache to destroy
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_destroy(
-    lle_edit_cache_t *cache);
+lle_result_t lle_edit_cache_destroy(lle_edit_cache_t *cache);
 
 /**
  * Look up an entry in the cache
@@ -115,10 +114,9 @@ lle_result_t lle_edit_cache_destroy(
  * @param entry Output parameter for cache entry (NULL if not found)
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_lookup(
-    lle_edit_cache_t *cache,
-    size_t history_index,
-    lle_edit_cache_entry_t **entry);
+lle_result_t lle_edit_cache_lookup(lle_edit_cache_t *cache,
+                                   size_t history_index,
+                                   lle_edit_cache_entry_t **entry);
 
 /**
  * Insert an entry into the cache
@@ -132,14 +130,12 @@ lle_result_t lle_edit_cache_lookup(
  * @param reconstructed_length Length of reconstructed text
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_insert(
-    lle_edit_cache_t *cache,
-    size_t history_index,
-    uint64_t entry_id,
-    const char *original_text,
-    size_t original_length,
-    const char *reconstructed_text,
-    size_t reconstructed_length);
+lle_result_t lle_edit_cache_insert(lle_edit_cache_t *cache,
+                                   size_t history_index, uint64_t entry_id,
+                                   const char *original_text,
+                                   size_t original_length,
+                                   const char *reconstructed_text,
+                                   size_t reconstructed_length);
 
 /**
  * Invalidate a specific cache entry
@@ -148,9 +144,8 @@ lle_result_t lle_edit_cache_insert(
  * @param history_index History entry index to invalidate
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_invalidate(
-    lle_edit_cache_t *cache,
-    size_t history_index);
+lle_result_t lle_edit_cache_invalidate(lle_edit_cache_t *cache,
+                                       size_t history_index);
 
 /**
  * Clear all cache entries
@@ -158,8 +153,7 @@ lle_result_t lle_edit_cache_invalidate(
  * @param cache Edit cache
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_clear(
-    lle_edit_cache_t *cache);
+lle_result_t lle_edit_cache_clear(lle_edit_cache_t *cache);
 
 /**
  * Get cache statistics
@@ -168,9 +162,8 @@ lle_result_t lle_edit_cache_clear(
  * @param stats Output parameter for statistics
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_get_stats(
-    lle_edit_cache_t *cache,
-    lle_edit_cache_stats_t *stats);
+lle_result_t lle_edit_cache_get_stats(lle_edit_cache_t *cache,
+                                      lle_edit_cache_stats_t *stats);
 
 /**
  * Evict expired entries
@@ -179,9 +172,8 @@ lle_result_t lle_edit_cache_get_stats(
  * @param expired_count Output parameter for number of entries evicted
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_evict_expired(
-    lle_edit_cache_t *cache,
-    size_t *expired_count);
+lle_result_t lle_edit_cache_evict_expired(lle_edit_cache_t *cache,
+                                          size_t *expired_count);
 
 /**
  * Get default cache configuration
@@ -189,8 +181,7 @@ lle_result_t lle_edit_cache_evict_expired(
  * @param config Configuration structure to fill with defaults
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_edit_cache_get_default_config(
-    lle_edit_cache_config_t *config);
+lle_result_t lle_edit_cache_get_default_config(lle_edit_cache_config_t *config);
 
 #ifdef __cplusplus
 }

@@ -5,11 +5,12 @@
 #ifndef LLE_MULTILINE_PARSER_H
 #define LLE_MULTILINE_PARSER_H
 
+#include "lle/command_structure.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
-#include "lle/command_structure.h"
-#include <stddef.h>
+
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,18 +27,18 @@ typedef struct lle_parsed_line {
     /* Line content */
     char *content;
     size_t length;
-    
+
     /* Line metadata */
     size_t line_number;
     size_t indent_level;
-    
+
     /* Whether line ends with continuation */
     bool has_continuation;
-    
+
     /* Keyword information */
     lle_keyword_type_t primary_keyword;
     size_t keyword_count;
-    
+
     /* Next line in list */
     struct lle_parsed_line *next;
 } lle_parsed_line_t;
@@ -50,18 +51,18 @@ typedef struct lle_multiline_parse_result {
     lle_parsed_line_t *first_line;
     lle_parsed_line_t *last_line;
     size_t line_count;
-    
+
     /* Command structure */
     lle_command_structure_t *structure;
-    
+
     /* Parse metadata */
     bool is_complete;
     bool has_syntax_error;
     size_t total_length;
-    
+
     /* Expected closing keyword (if incomplete) */
     lle_keyword_type_t expected_keyword;
-    
+
     /* Reserved for future use */
     void *reserved[2];
 } lle_multiline_parse_result_t;
@@ -72,16 +73,16 @@ typedef struct lle_multiline_parse_result {
 typedef struct lle_parser_config {
     /* Whether to preserve original indentation */
     bool preserve_indentation;
-    
+
     /* Whether to detect continuation characters */
     bool detect_continuations;
-    
+
     /* Whether to validate syntax */
     bool validate_syntax;
-    
+
     /* Maximum lines to parse (safety limit) */
     size_t max_lines;
-    
+
     /* Reserved for future use */
     void *reserved[4];
 } lle_parser_config_t;
@@ -95,11 +96,10 @@ typedef struct lle_parser_config {
  * @param config Configuration (NULL for defaults)
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_create(
-    lle_multiline_parser_t **parser,
-    lle_memory_pool_t *memory_pool,
-    lle_structure_analyzer_t *analyzer,
-    const lle_parser_config_t *config);
+lle_result_t lle_multiline_parser_create(lle_multiline_parser_t **parser,
+                                         lle_memory_pool_t *memory_pool,
+                                         lle_structure_analyzer_t *analyzer,
+                                         const lle_parser_config_t *config);
 
 /**
  * Destroy a multiline parser instance
@@ -107,8 +107,7 @@ lle_result_t lle_multiline_parser_create(
  * @param parser Parser to destroy
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_destroy(
-    lle_multiline_parser_t *parser);
+lle_result_t lle_multiline_parser_destroy(lle_multiline_parser_t *parser);
 
 /**
  * Parse a multiline command
@@ -119,11 +118,10 @@ lle_result_t lle_multiline_parser_destroy(
  * @param result Output parameter for parse result
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_parse(
-    lle_multiline_parser_t *parser,
-    const char *command_text,
-    size_t command_length,
-    lle_multiline_parse_result_t **result);
+lle_result_t lle_multiline_parser_parse(lle_multiline_parser_t *parser,
+                                        const char *command_text,
+                                        size_t command_length,
+                                        lle_multiline_parse_result_t **result);
 
 /**
  * Split command into individual lines
@@ -135,12 +133,11 @@ lle_result_t lle_multiline_parser_parse(
  * @param line_count Output parameter for number of lines
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_split_lines(
-    lle_multiline_parser_t *parser,
-    const char *command_text,
-    size_t command_length,
-    lle_parsed_line_t ***lines,
-    size_t *line_count);
+lle_result_t lle_multiline_parser_split_lines(lle_multiline_parser_t *parser,
+                                              const char *command_text,
+                                              size_t command_length,
+                                              lle_parsed_line_t ***lines,
+                                              size_t *line_count);
 
 /**
  * Check if a line has a continuation character
@@ -152,9 +149,7 @@ lle_result_t lle_multiline_parser_split_lines(
  * @return LLE_SUCCESS on success, error code on failure
  */
 lle_result_t lle_multiline_parser_check_continuation(
-    lle_multiline_parser_t *parser,
-    const char *line_text,
-    size_t line_length,
+    lle_multiline_parser_t *parser, const char *line_text, size_t line_length,
     bool *has_continuation);
 
 /**
@@ -164,9 +159,9 @@ lle_result_t lle_multiline_parser_check_continuation(
  * @param result Parse result to free
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_free_result(
-    lle_multiline_parser_t *parser,
-    lle_multiline_parse_result_t *result);
+lle_result_t
+lle_multiline_parser_free_result(lle_multiline_parser_t *parser,
+                                 lle_multiline_parse_result_t *result);
 
 /**
  * Get default parser configuration
@@ -174,8 +169,8 @@ lle_result_t lle_multiline_parser_free_result(
  * @param config Configuration structure to fill with defaults
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_get_default_config(
-    lle_parser_config_t *config);
+lle_result_t
+lle_multiline_parser_get_default_config(lle_parser_config_t *config);
 
 /**
  * Reset parser state for reuse
@@ -183,8 +178,7 @@ lle_result_t lle_multiline_parser_get_default_config(
  * @param parser Multiline parser instance
  * @return LLE_SUCCESS on success, error code on failure
  */
-lle_result_t lle_multiline_parser_reset(
-    lle_multiline_parser_t *parser);
+lle_result_t lle_multiline_parser_reset(lle_multiline_parser_t *parser);
 
 #ifdef __cplusplus
 }

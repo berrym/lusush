@@ -8,47 +8,46 @@
  * (at your option) any later version.
  *
  * ============================================================================
- * 
+ *
  * COMPLETION SYSTEM V2 - Spec 12 Core Implementation
- * 
+ *
  * Enhanced completion system with proper architecture.
  * This FIXES the duplicate and categorization bugs.
  */
 
 #include "lle/completion/completion_system_v2.h"
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 // ============================================================================
 // LIFECYCLE FUNCTIONS
 // ============================================================================
 
-lle_result_t lle_completion_system_v2_create(
-    lle_memory_pool_t *pool,
-    lle_completion_system_v2_t **out_system)
-{
+lle_result_t
+lle_completion_system_v2_create(lle_memory_pool_t *pool,
+                                lle_completion_system_v2_t **out_system) {
     if (!pool || !out_system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     lle_completion_system_v2_t *system = lle_pool_alloc(sizeof(*system));
     if (!system) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
-    
+
     /* Create source manager */
     lle_result_t res = lle_source_manager_create(pool, &system->source_manager);
     if (res != LLE_SUCCESS) {
         return res;
     }
-    
+
     system->current_state = NULL;
     system->menu = NULL;
     system->pool = pool;
     system->enable_history_source = true;
-    system->enable_fuzzy_matching = false;  /* Future feature */
+    system->enable_fuzzy_matching = false; /* Future feature */
     system->max_completions = 100;
-    
+
     *out_system = system;
     return LLE_SUCCESS;
 }
@@ -57,17 +56,17 @@ void lle_completion_system_v2_destroy(lle_completion_system_v2_t *system) {
     if (!system) {
         return;
     }
-    
+
     /* Free source manager */
     if (system->source_manager) {
         lle_source_manager_free(system->source_manager);
     }
-    
+
     /* Free current state */
     if (system->current_state) {
         lle_completion_state_free(system->current_state);
     }
-    
+
     /* Memory is pool-allocated */
 }
 
@@ -75,12 +74,12 @@ void lle_completion_system_v2_clear(lle_completion_system_v2_t *system) {
     if (!system) {
         return;
     }
-    
+
     if (system->current_state) {
         lle_completion_state_free(system->current_state);
         system->current_state = NULL;
     }
-    
+
     /* Just set to NULL - menu is pool-allocated and will be freed with pool.
      * NOTE: display_controller also holds a pointer to this menu, so we must
      * not free it here. The display_controller will clear its reference via
@@ -100,12 +99,12 @@ static lle_result_t deduplicate_results(lle_completion_result_t *result) {
     if (!result || result->count <= 1) {
         return LLE_SUCCESS;
     }
-    
+
     size_t write_pos = 0;
-    
+
     for (size_t read_pos = 0; read_pos < result->count; read_pos++) {
         const char *text = result->items[read_pos].text;
-        
+
         /* Check if we've seen this text before */
         bool duplicate = false;
         for (size_t check = 0; check < write_pos; check++) {
@@ -114,7 +113,7 @@ static lle_result_t deduplicate_results(lle_completion_result_t *result) {
                 break;
             }
         }
-        
+
         /* Keep only unique items */
         if (!duplicate) {
             if (write_pos != read_pos) {
@@ -123,7 +122,7 @@ static lle_result_t deduplicate_results(lle_completion_result_t *result) {
             write_pos++;
         }
     }
-    
+
     result->count = write_pos;
     return LLE_SUCCESS;
 }
@@ -134,12 +133,12 @@ static lle_result_t deduplicate_results(lle_completion_result_t *result) {
 static int completion_compare(const void *a, const void *b) {
     const lle_completion_item_t *item_a = (const lle_completion_item_t *)a;
     const lle_completion_item_t *item_b = (const lle_completion_item_t *)b;
-    
+
     /* Sort by type first, then alphabetically */
     if (item_a->type != item_b->type) {
         return item_a->type - item_b->type;
     }
-    
+
     return strcmp(item_a->text, item_b->text);
 }
 
@@ -147,11 +146,10 @@ static lle_result_t sort_results(lle_completion_result_t *result) {
     if (!result || result->count <= 1) {
         return LLE_SUCCESS;
     }
-    
-    qsort(result->items, result->count, 
-          sizeof(lle_completion_item_t),
+
+    qsort(result->items, result->count, sizeof(lle_completion_item_t),
           completion_compare);
-    
+
     return LLE_SUCCESS;
 }
 
@@ -159,23 +157,22 @@ static lle_result_t sort_results(lle_completion_result_t *result) {
 // COMPLETION GENERATION (Spec 12 Core)
 // ============================================================================
 
-lle_result_t lle_completion_system_v2_generate(
-    lle_completion_system_v2_t *system,
-    const char *buffer,
-    size_t cursor_pos,
-    lle_completion_result_t **out_result)
-{
+lle_result_t
+lle_completion_system_v2_generate(lle_completion_system_v2_t *system,
+                                  const char *buffer, size_t cursor_pos,
+                                  lle_completion_result_t **out_result) {
     if (!system || !buffer || !out_result) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
-    
+
     /* Step 1: Analyze context */
     lle_context_analyzer_t *context = NULL;
-    lle_result_t res = lle_context_analyze(buffer, cursor_pos, system->pool, &context);
+    lle_result_t res =
+        lle_context_analyze(buffer, cursor_pos, system->pool, &context);
     if (res != LLE_SUCCESS) {
         return res;
     }
-    
+
     /* Step 2: Create result structure */
     lle_completion_result_t *result = NULL;
     res = lle_completion_result_create(system->pool, 64, &result);
@@ -183,16 +180,17 @@ lle_result_t lle_completion_system_v2_generate(
         lle_context_analyzer_free(context);
         return res;
     }
-    
+
     /* Step 3: Query all applicable sources */
     const char *prefix = context->partial_word ? context->partial_word : "";
-    res = lle_source_manager_query(system->source_manager, context, prefix, result);
+    res = lle_source_manager_query(system->source_manager, context, prefix,
+                                   result);
     if (res != LLE_SUCCESS) {
         lle_completion_result_free(result);
         lle_context_analyzer_free(context);
         return res;
     }
-    
+
     /* Step 4: Deduplicate results - FIXES THE DUPLICATE BUG */
     res = deduplicate_results(result);
     if (res != LLE_SUCCESS) {
@@ -200,7 +198,7 @@ lle_result_t lle_completion_system_v2_generate(
         lle_context_analyzer_free(context);
         return res;
     }
-    
+
     /* Step 5: Sort results */
     res = sort_results(result);
     if (res != LLE_SUCCESS) {
@@ -208,17 +206,17 @@ lle_result_t lle_completion_system_v2_generate(
         lle_context_analyzer_free(context);
         return res;
     }
-    
+
     /* Step 6: Create and store completion state */
     lle_completion_state_t *state = NULL;
-    res = lle_completion_state_create(system->pool, buffer, cursor_pos, 
-                                      context, result, &state);
+    res = lle_completion_state_create(system->pool, buffer, cursor_pos, context,
+                                      result, &state);
     if (res != LLE_SUCCESS) {
         lle_completion_result_free(result);
         lle_context_analyzer_free(context);
         return res;
     }
-    
+
     /* Step 7: Create menu if multiple completions (for display system) */
     lle_completion_menu_state_t *menu = NULL;
     if (result->count > 1) {
@@ -229,10 +227,10 @@ lle_result_t lle_completion_system_v2_generate(
             .show_type_indicators = false,
             .show_descriptions = false,
             .enable_scrolling = true,
-            .min_items_for_menu = 2
-        };
-        
-        res = lle_completion_menu_state_create(system->pool, result, &menu_config, &menu);
+            .min_items_for_menu = 2};
+
+        res = lle_completion_menu_state_create(system->pool, result,
+                                               &menu_config, &menu);
         if (res != LLE_SUCCESS) {
             lle_completion_state_free(state);
             lle_completion_result_free(result);
@@ -240,7 +238,7 @@ lle_result_t lle_completion_system_v2_generate(
             return res;
         }
     }
-    
+
     /* Clear old state and menu */
     if (system->current_state) {
         lle_completion_state_free(system->current_state);
@@ -248,11 +246,11 @@ lle_result_t lle_completion_system_v2_generate(
     if (system->menu) {
         lle_completion_menu_state_free(system->menu);
     }
-    
+
     system->current_state = state;
-    system->menu = menu;  /* NULL if single completion or no completions */
+    system->menu = menu; /* NULL if single completion or no completions */
     *out_result = result;
-    
+
     return LLE_SUCCESS;
 }
 
@@ -260,22 +258,22 @@ lle_result_t lle_completion_system_v2_generate(
 // STATE QUERIES
 // ============================================================================
 
-bool lle_completion_system_v2_is_active(const lle_completion_system_v2_t *system) {
+bool lle_completion_system_v2_is_active(
+    const lle_completion_system_v2_t *system) {
     return system && system->current_state && system->current_state->active;
 }
 
-bool lle_completion_system_v2_is_menu_visible(const lle_completion_system_v2_t *system) {
+bool lle_completion_system_v2_is_menu_visible(
+    const lle_completion_system_v2_t *system) {
     return system && system->menu != NULL;
 }
 
-lle_completion_state_t *lle_completion_system_v2_get_state(
-    lle_completion_system_v2_t *system)
-{
+lle_completion_state_t *
+lle_completion_system_v2_get_state(lle_completion_system_v2_t *system) {
     return system ? system->current_state : NULL;
 }
 
-lle_completion_menu_state_t *lle_completion_system_v2_get_menu(
-    lle_completion_system_v2_t *system)
-{
+lle_completion_menu_state_t *
+lle_completion_system_v2_get_menu(lle_completion_system_v2_t *system) {
     return system ? system->menu : NULL;
 }

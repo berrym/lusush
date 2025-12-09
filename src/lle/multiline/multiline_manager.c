@@ -1,14 +1,14 @@
 /**
  * @file multiline_manager.c
  * @brief LLE Multiline Manager Implementation
- * 
+ *
  * Specification: Spec 03 Phase 7 - Multiline Buffer Operations
- * 
+ *
  * This module wraps the existing input_continuation.c parser to provide
  * LLE-specific multiline state tracking. It delegates core shell construct
  * parsing to the proven shared parser while adding buffer integration and
  * per-line state management.
- * 
+ *
  * Design Philosophy:
  * - Reuse proven code (input_continuation.c) rather than duplicate
  * - Maintain consistency between LLE and main input system
@@ -16,14 +16,14 @@
  * - Expose exact API required by Spec 03
  */
 
+#include "input_continuation.h"
 #include "lle/buffer_management.h"
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
-#include "input_continuation.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* ============================================================================
  * MULTILINE CONTEXT - LIFECYCLE
@@ -37,8 +37,8 @@ lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
     }
 
     /* Allocate context structure */
-    lle_multiline_context_t *context = lle_pool_alloc(
-                                                       sizeof(lle_multiline_context_t));
+    lle_multiline_context_t *context =
+        lle_pool_alloc(sizeof(lle_multiline_context_t));
     if (!context) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -48,7 +48,8 @@ lle_result_t lle_multiline_context_init(lle_multiline_context_t **ctx,
     context->memory_pool = memory_pool;
 
     /* Allocate and initialize core parser state */
-    continuation_state_t *core_state = lle_pool_alloc(sizeof(continuation_state_t));
+    continuation_state_t *core_state =
+        lle_pool_alloc(sizeof(continuation_state_t));
     if (!core_state) {
         lle_pool_free(context);
         return LLE_ERROR_OUT_OF_MEMORY;
@@ -222,7 +223,8 @@ static uint8_t get_nesting_level(const continuation_state_t *state) {
     level += state->compound_command_depth;
 
     /* Quote states don't nest but contribute to depth */
-    if (state->in_single_quote || state->in_double_quote || state->in_backtick) {
+    if (state->in_single_quote || state->in_double_quote ||
+        state->in_backtick) {
         level += 1;
     }
 
@@ -230,8 +232,7 @@ static uint8_t get_nesting_level(const continuation_state_t *state) {
 }
 
 lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
-                                        const char *line,
-                                        size_t length) {
+                                        const char *line, size_t length) {
     if (!ctx || !line) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -248,7 +249,8 @@ lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
     const char *construct = get_construct_name(state);
     if (construct) {
         /* Allocate and copy construct name if changed */
-        if (!ctx->current_construct || strcmp(ctx->current_construct, construct) != 0) {
+        if (!ctx->current_construct ||
+            strcmp(ctx->current_construct, construct) != 0) {
             if (ctx->current_construct) {
                 lle_pool_free(ctx->current_construct);
             }
@@ -286,26 +288,29 @@ lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
 
 bool lle_multiline_is_complete(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
-        return true;  /* No context = complete */
+        return true; /* No context = complete */
     }
 
-    return continuation_is_complete((const continuation_state_t *)ctx->core_state);
+    return continuation_is_complete(
+        (const continuation_state_t *)ctx->core_state);
 }
 
 bool lle_multiline_needs_continuation(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
-        return false;  /* No context = no continuation */
+        return false; /* No context = no continuation */
     }
 
-    return continuation_needs_continuation((const continuation_state_t *)ctx->core_state);
+    return continuation_needs_continuation(
+        (const continuation_state_t *)ctx->core_state);
 }
 
 const char *lle_multiline_get_prompt(const lle_multiline_context_t *ctx) {
     if (!ctx || !ctx->core_state) {
-        return "> ";  /* Default prompt */
+        return "> "; /* Default prompt */
     }
 
-    return continuation_get_prompt((const continuation_state_t *)ctx->core_state);
+    return continuation_get_prompt(
+        (const continuation_state_t *)ctx->core_state);
 }
 
 const char *lle_multiline_get_construct(const lle_multiline_context_t *ctx) {
@@ -328,7 +333,8 @@ lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
     }
 
     /* Allocate manager structure */
-    lle_multiline_manager_t *mgr = lle_pool_alloc(sizeof(lle_multiline_manager_t));
+    lle_multiline_manager_t *mgr =
+        lle_pool_alloc(sizeof(lle_multiline_manager_t));
     if (!mgr) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -338,7 +344,7 @@ lle_result_t lle_multiline_manager_init(lle_multiline_manager_t **manager,
     mgr->memory_pool = memory_pool;
     mgr->analysis_count = 0;
     mgr->line_updates = 0;
-    mgr->perf_monitor = NULL;  /* Optional - can be set later */
+    mgr->perf_monitor = NULL; /* Optional - can be set later */
 
     *manager = mgr;
     return LLE_SUCCESS;
@@ -363,7 +369,8 @@ lle_result_t lle_multiline_manager_destroy(lle_multiline_manager_t *manager) {
 /**
  * @brief Helper to convert continuation_state_t to lle_multiline_state_t
  */
-static lle_multiline_state_t convert_to_lle_state(const continuation_state_t *state) {
+static lle_multiline_state_t
+convert_to_lle_state(const continuation_state_t *state) {
     if (!state) {
         return LLE_MULTILINE_STATE_NONE;
     }
@@ -381,11 +388,13 @@ static lle_multiline_state_t convert_to_lle_state(const continuation_state_t *st
     if (state->in_here_doc) {
         return LLE_MULTILINE_STATE_HEREDOC;
     }
-    /* Control structures - map to generic states since specific ones don't exist */
-    if (state->in_if_statement || state->in_case_statement || 
-        state->in_while_loop || state->in_for_loop || 
-        state->in_until_loop || state->in_function_definition) {
-        return LLE_MULTILINE_STATE_BRACE;  /* Use brace as generic control structure */
+    /* Control structures - map to generic states since specific ones don't
+     * exist */
+    if (state->in_if_statement || state->in_case_statement ||
+        state->in_while_loop || state->in_for_loop || state->in_until_loop ||
+        state->in_function_definition) {
+        return LLE_MULTILINE_STATE_BRACE; /* Use brace as generic control
+                                             structure */
     }
     if (state->brace_count > 0) {
         return LLE_MULTILINE_STATE_BRACE;
@@ -403,8 +412,9 @@ static lle_multiline_state_t convert_to_lle_state(const continuation_state_t *st
     return LLE_MULTILINE_STATE_NONE;
 }
 
-lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manager,
-                                                  lle_buffer_t *buffer) {
+lle_result_t
+lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manager,
+                                     lle_buffer_t *buffer) {
     if (!manager || !buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -413,7 +423,8 @@ lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manag
 
     /* Step 1: Initialize or reset multiline context */
     if (!buffer->multiline_ctx) {
-        result = lle_multiline_context_init(&buffer->multiline_ctx, manager->memory_pool);
+        result = lle_multiline_context_init(&buffer->multiline_ctx,
+                                            manager->memory_pool);
         if (result != LLE_SUCCESS) {
             return result;
         }
@@ -435,19 +446,20 @@ lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manag
                 return LLE_ERROR_BUFFER_OVERFLOW;
             }
 
-            const char *line_content = (const char *)(buffer->data + line->start_offset);
+            const char *line_content =
+                (const char *)(buffer->data + line->start_offset);
             size_t line_length = line->length;
 
             /* Analyze line */
             result = lle_multiline_analyze_line(buffer->multiline_ctx,
-                                                line_content,
-                                                line_length);
+                                                line_content, line_length);
             if (result != LLE_SUCCESS) {
                 return result;
             }
 
             /* Update line multiline state */
-            continuation_state_t *state = (continuation_state_t *)buffer->multiline_ctx->core_state;
+            continuation_state_t *state =
+                (continuation_state_t *)buffer->multiline_ctx->core_state;
             line->ml_state = convert_to_lle_state(state);
 
             /* Update line flags */
@@ -460,10 +472,10 @@ lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manag
             manager->line_updates++;
         }
     } else if (buffer->length > 0) {
-        /* Buffer has text but no line structure - treat entire buffer as one line */
-        result = lle_multiline_analyze_line(buffer->multiline_ctx,
-                                            (const char *)buffer->data,
-                                            buffer->length);
+        /* Buffer has text but no line structure - treat entire buffer as one
+         * line */
+        result = lle_multiline_analyze_line(
+            buffer->multiline_ctx, (const char *)buffer->data, buffer->length);
         if (result != LLE_SUCCESS) {
             return result;
         }
@@ -479,15 +491,15 @@ lle_result_t lle_multiline_manager_analyze_buffer(lle_multiline_manager_t *manag
     return LLE_SUCCESS;
 }
 
-lle_result_t lle_multiline_manager_update_line_state(lle_multiline_manager_t *manager,
-                                                     lle_buffer_t *buffer,
-                                                     size_t line_index) {
+lle_result_t lle_multiline_manager_update_line_state(
+    lle_multiline_manager_t *manager, lle_buffer_t *buffer, size_t line_index) {
     if (!manager || !buffer) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
     if (line_index >= buffer->line_count) {
-        return LLE_ERROR_INVALID_PARAMETER;  /* Use existing error code for out of bounds */
+        return LLE_ERROR_INVALID_PARAMETER; /* Use existing error code for out
+                                               of bounds */
     }
 
     /* For single-line update, we need to re-analyze from the beginning
