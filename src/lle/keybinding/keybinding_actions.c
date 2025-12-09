@@ -23,6 +23,8 @@
 #include "display_integration.h"
 #include "config.h"  /* For lle_dedup_navigation config option */
 #include "lle/unicode_compare.h"  /* For Unicode-aware dedup comparison */
+#include "lle/utf8_support.h"     /* For UTF-8 decoding */
+#include "lle/unicode_grapheme.h" /* For grapheme boundary detection */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -30,6 +32,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <wctype.h>  /* For Unicode-aware iswalpha/iswalnum */
 
 /* ============================================================================
  * DEBUG LOGGING (disabled - enable for debugging)
@@ -57,7 +60,36 @@ static void debug_log(const char *fmt, ...) {
 /* History navigation position is now stored in editor->history_navigation_pos */
 
 /**
+ * Check if a Unicode codepoint is a word character (alphanumeric or underscore)
+ * Uses wctype.h for Unicode-aware character classification.
+ */
+static bool is_word_codepoint(uint32_t cp) {
+    /* Underscore is always a word character */
+    if (cp == '_') return true;
+    
+    /* Use Unicode-aware classification for alphanumeric */
+    return iswalnum((wint_t)cp);
+}
+
+/**
+ * Check if a Unicode codepoint is a shell metacharacter (word boundary)
+ */
+static bool is_shell_metachar(uint32_t cp) {
+    return cp == '|' || cp == '&' || cp == ';' || cp == '(' || cp == ')' ||
+           cp == '<' || cp == '>' || cp == '\'' || cp == '"' || cp == '`' ||
+           cp == '$' || cp == '\\';
+}
+
+/**
+ * Check if a Unicode codepoint is whitespace
+ */
+static bool is_whitespace_codepoint(uint32_t cp) {
+    return iswspace((wint_t)cp);
+}
+
+/**
  * Check if character is a word boundary (whitespace or shell metacharacter)
+ * Legacy byte-based version for compatibility with existing code paths.
  */
 static bool is_word_boundary(char c) {
     return isspace((unsigned char)c) || 
@@ -75,39 +107,137 @@ static bool is_unix_word_boundary(char c) {
 }
 
 /**
- * Find start of current word from position
+ * Find start of previous grapheme cluster from byte position
+ * Returns byte offset of the start of the previous grapheme cluster.
+ */
+static size_t find_prev_grapheme_start(const char *text, size_t len, size_t pos) {
+    if (pos == 0) return 0;
+    
+    const char *start = text;
+    const char *end = text + len;
+    const char *ptr = text + pos;
+    
+    /* Move back one byte at minimum */
+    ptr--;
+    
+    /* Scan backwards until we find a grapheme boundary */
+    while (ptr > start && !lle_is_grapheme_boundary(ptr, start, end)) {
+        ptr--;
+    }
+    
+    return (size_t)(ptr - start);
+}
+
+/**
+ * Find end of current grapheme cluster from byte position
+ * Returns byte offset just past the end of the current grapheme cluster.
+ */
+static size_t find_next_grapheme_end(const char *text, size_t len, size_t pos) {
+    if (pos >= len) return len;
+    
+    const char *start = text;
+    const char *end = text + len;
+    const char *ptr = text + pos;
+    
+    /* Move to next UTF-8 character */
+    int seq_len = lle_utf8_sequence_length((unsigned char)*ptr);
+    if (seq_len <= 0) seq_len = 1;
+    ptr += seq_len;
+    
+    /* Continue until we find a grapheme boundary */
+    while (ptr < end && !lle_is_grapheme_boundary(ptr, start, end)) {
+        seq_len = lle_utf8_sequence_length((unsigned char)*ptr);
+        if (seq_len <= 0) seq_len = 1;
+        ptr += seq_len;
+    }
+    
+    return (size_t)(ptr - start);
+}
+
+/**
+ * Decode codepoint at grapheme cluster start position
+ */
+static uint32_t decode_codepoint_at(const char *text, size_t len, size_t pos) {
+    if (pos >= len) return 0;
+    
+    uint32_t cp = 0;
+    int decoded = lle_utf8_decode_codepoint(text + pos, len - pos, &cp);
+    if (decoded <= 0) {
+        /* Fallback to byte value for invalid UTF-8 */
+        return (unsigned char)text[pos];
+    }
+    return cp;
+}
+
+/**
+ * Find start of current word from position (grapheme-aware)
+ * 
+ * Works by scanning grapheme clusters backwards, checking if each
+ * grapheme's first codepoint is a word character.
  */
 static size_t find_word_start(const char *text, size_t pos) {
     if (pos == 0) return 0;
     
-    /* Skip whitespace backward */
-    while (pos > 0 && isspace((unsigned char)text[pos - 1])) {
-        pos--;
+    size_t len = strlen(text);
+    size_t current = pos;
+    
+    /* Skip whitespace backward (by grapheme clusters) */
+    while (current > 0) {
+        size_t prev = find_prev_grapheme_start(text, len, current);
+        uint32_t cp = decode_codepoint_at(text, len, prev);
+        
+        if (!is_whitespace_codepoint(cp)) {
+            break;
+        }
+        current = prev;
     }
     
-    /* Find beginning of word */
-    while (pos > 0 && !is_word_boundary(text[pos - 1])) {
-        pos--;
+    /* Find beginning of word (by grapheme clusters) */
+    while (current > 0) {
+        size_t prev = find_prev_grapheme_start(text, len, current);
+        uint32_t cp = decode_codepoint_at(text, len, prev);
+        
+        /* Stop at whitespace or shell metacharacters */
+        if (is_whitespace_codepoint(cp) || is_shell_metachar(cp)) {
+            break;
+        }
+        current = prev;
     }
     
-    return pos;
+    return current;
 }
 
 /**
- * Find end of current word from position
+ * Find end of current word from position (grapheme-aware)
+ * 
+ * Works by scanning grapheme clusters forward, checking if each
+ * grapheme's first codepoint is a word character.
  */
 static size_t find_word_end(const char *text, size_t len, size_t pos) {
-    /* Skip whitespace forward */
-    while (pos < len && isspace((unsigned char)text[pos])) {
-        pos++;
+    size_t current = pos;
+    
+    /* Skip whitespace forward (by grapheme clusters) */
+    while (current < len) {
+        uint32_t cp = decode_codepoint_at(text, len, current);
+        
+        if (!is_whitespace_codepoint(cp)) {
+            break;
+        }
+        current = find_next_grapheme_end(text, len, current);
     }
     
-    /* Find end of word */
-    while (pos < len && !is_word_boundary(text[pos])) {
-        pos++;
+    /* Find end of word (by grapheme clusters) */
+    while (current < len) {
+        uint32_t cp = decode_codepoint_at(text, len, current);
+        
+        /* Stop at whitespace or shell metacharacters */
+        if (is_whitespace_codepoint(cp) || is_shell_metachar(cp)) {
+            break;
+        }
+        current = find_next_grapheme_end(text, len, current);
     }
     
-    return pos;
+    return current;
 }
 
 /* ============================================================================
@@ -1096,44 +1226,84 @@ lle_result_t lle_yank_pop(lle_editor_t *editor) {
 }
 
 lle_result_t lle_transpose_chars(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
+    const char *data = editor->buffer->data;
+    size_t len = editor->buffer->length;
     size_t cursor = editor->buffer->cursor.byte_offset;
     
-    /* Need at least 2 characters */
-    if (editor->buffer->length < 2) {
+    /* Need at least 2 graphemes to transpose */
+    if (editor->buffer->grapheme_count < 2) {
         return LLE_SUCCESS;
     }
     
-    /* If at end, transpose last two chars */
-    if (cursor >= editor->buffer->length) {
-        cursor = editor->buffer->length - 1;
-    }
+    /* Find grapheme boundaries around cursor.
+     * Transpose swaps the grapheme before cursor with the one at/after cursor.
+     * If at end of buffer, swap the last two graphemes.
+     */
+    size_t g1_start, g1_end, g2_start, g2_end;
     
-    /* Need at least one char before cursor */
-    if (cursor == 0) {
+    if (cursor >= len) {
+        /* At end of buffer: swap last two graphemes */
+        g2_end = len;
+        g2_start = find_prev_grapheme_start(data, len, g2_end);
+        g1_end = g2_start;
+        g1_start = find_prev_grapheme_start(data, len, g1_end);
+    } else if (cursor == 0) {
+        /* At beginning: nothing before to transpose */
         return LLE_SUCCESS;
+    } else {
+        /* Normal case: swap grapheme before cursor with grapheme at cursor */
+        g1_end = cursor;
+        g1_start = find_prev_grapheme_start(data, len, g1_end);
+        g2_start = cursor;
+        g2_end = find_next_grapheme_end(data, len, g2_start);
     }
     
-    /* Swap characters */
-    char temp = editor->buffer->data[cursor];
-    editor->buffer->data[cursor] = editor->buffer->data[cursor - 1];
-    editor->buffer->data[cursor - 1] = temp;
-    
-    /* Move cursor forward if not at end */
-    if (cursor < editor->buffer->length - 1) {
-        editor->buffer->cursor.byte_offset++;
-        editor->buffer->cursor.codepoint_index++;
-        editor->buffer->cursor.grapheme_index++;
+    /* Validate boundaries */
+    if (g1_start >= g1_end || g2_start >= g2_end || g1_end != g2_start) {
+        return LLE_SUCCESS;  /* Invalid state, no-op */
     }
+    
+    size_t g1_len = g1_end - g1_start;
+    size_t g2_len = g2_end - g2_start;
+    
+    /* Allocate temp buffers for the two graphemes */
+    char *g1_copy = malloc(g1_len);
+    char *g2_copy = malloc(g2_len);
+    if (!g1_copy || !g2_copy) {
+        free(g1_copy);
+        free(g2_copy);
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    /* Copy graphemes */
+    memcpy(g1_copy, data + g1_start, g1_len);
+    memcpy(g2_copy, data + g2_start, g2_len);
+    
+    /* Delete both graphemes (from end to preserve positions) */
+    lle_buffer_delete_text(editor->buffer, g2_start, g2_len);
+    lle_buffer_delete_text(editor->buffer, g1_start, g1_len);
+    
+    /* Insert in swapped order: g2 then g1 */
+    lle_buffer_insert_text(editor->buffer, g1_start, g2_copy, g2_len);
+    lle_buffer_insert_text(editor->buffer, g1_start + g2_len, g1_copy, g1_len);
+    
+    free(g1_copy);
+    free(g2_copy);
+    
+    /* Move cursor to end of the swapped region */
+    size_t new_cursor = g1_start + g1_len + g2_len;
+    lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+    lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
     
     return LLE_SUCCESS;
 }
 
 lle_result_t lle_transpose_words(lle_editor_t *editor) {
-    if (!editor || !editor->buffer) {
+    if (!editor || !editor->buffer || !editor->cursor_manager) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
     
@@ -1141,30 +1311,61 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
     const char *data = editor->buffer->data;
     size_t len = editor->buffer->length;
     
-    /* Find current word boundaries */
+    if (len == 0) {
+        return LLE_SUCCESS;
+    }
+    
+    /* Find word2: the word at or after cursor using grapheme-aware boundaries */
     size_t word2_start = cursor;
-    while (word2_start > 0 && !is_word_boundary(data[word2_start - 1])) {
-        word2_start--;
+    size_t word2_end;
+    
+    /* If cursor is in the middle of a word, find its boundaries */
+    /* First, check if we're inside a word by looking at current position */
+    uint32_t cp_at_cursor = decode_codepoint_at(data, len, cursor);
+    
+    if (cursor < len && !is_whitespace_codepoint(cp_at_cursor) && !is_shell_metachar(cp_at_cursor)) {
+        /* We're inside a word - find its start */
+        word2_start = find_word_start(data, cursor);
+        /* find_word_start returns position at start of word, but we need to 
+         * check if we need to look for next word instead */
     }
     
-    size_t word2_end = cursor;
-    while (word2_end < len && !is_word_boundary(data[word2_end])) {
-        word2_end++;
+    /* Find end of word2 */
+    word2_end = find_word_end(data, len, word2_start);
+    
+    /* If word2 is empty (e.g., cursor was in whitespace), find next word */
+    if (word2_start >= word2_end) {
+        word2_start = find_word_end(data, len, cursor);  /* Skip whitespace */
+        if (word2_start >= len) {
+            return LLE_SUCCESS;  /* No word at or after cursor */
+        }
+        word2_end = find_word_end(data, len, word2_start);
     }
     
-    /* Find previous word */
+    /* Find word1: the word before word2 */
     size_t word1_end = word2_start;
-    while (word1_end > 0 && is_word_boundary(data[word1_end - 1])) {
-        word1_end--;
+    
+    /* Skip whitespace/punctuation backward to find end of word1 */
+    while (word1_end > 0) {
+        size_t prev = find_prev_grapheme_start(data, len, word1_end);
+        uint32_t cp = decode_codepoint_at(data, len, prev);
+        if (!is_whitespace_codepoint(cp) && !is_shell_metachar(cp)) {
+            word1_end = word1_end;  /* This is end of word1 */
+            break;
+        }
+        word1_end = prev;
     }
     
     if (word1_end == 0) {
         return LLE_SUCCESS;  /* No previous word */
     }
     
-    size_t word1_start = word1_end;
-    while (word1_start > 0 && !is_word_boundary(data[word1_start - 1])) {
-        word1_start--;
+    /* Find start of word1 */
+    size_t word1_start = find_word_start(data, word1_end);
+    
+    /* Validate we have two distinct words */
+    if (word1_start >= word1_end || word2_start >= word2_end || word1_end > word2_start) {
+        return LLE_SUCCESS;  /* Invalid word boundaries */
     }
     
     /* Extract words */
@@ -1180,17 +1381,32 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
     
-    /* Replace word1 with word2 */
+    /* Delete word2 first (higher position), then word1 */
+    lle_buffer_delete_text(editor->buffer, word2_start, word2_len);
     lle_buffer_delete_text(editor->buffer, word1_start, word1_len);
-    lle_buffer_insert_text(editor->buffer, word1_start, word2, word2_len);
     
-    /* Replace word2 with word1 (adjust position) */
-    size_t new_word2_start = word2_start - word1_len + word2_len;
-    lle_buffer_delete_text(editor->buffer, new_word2_start, word2_len);
-    lle_buffer_insert_text(editor->buffer, new_word2_start, word1, word1_len);
+    /* Calculate separator between the original words */
+    size_t sep_len = word2_start - word1_end;
+    char *separator = NULL;
+    if (sep_len > 0) {
+        separator = strndup(data + word1_end, sep_len);
+    }
+    
+    /* Insert in swapped order: word2, separator, word1 */
+    lle_buffer_insert_text(editor->buffer, word1_start, word2, word2_len);
+    if (separator) {
+        lle_buffer_insert_text(editor->buffer, word1_start + word2_len, separator, sep_len);
+        free(separator);
+    }
+    lle_buffer_insert_text(editor->buffer, word1_start + word2_len + sep_len, word1, word1_len);
     
     free(word1);
     free(word2);
+    
+    /* Move cursor to end of swapped region */
+    size_t new_cursor = word1_start + word1_len + word2_len + sep_len;
+    lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+    lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
     
     return LLE_SUCCESS;
 }
@@ -1198,6 +1414,115 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
 /* ============================================================================
  * EDITING ACTIONS - CASE CHANGES
  * ============================================================================ */
+
+/**
+ * Helper: Convert a codepoint to uppercase and encode back to UTF-8
+ * Returns number of bytes written, or 0 on error.
+ */
+static size_t codepoint_to_upper_utf8(uint32_t cp, char *out, size_t max_len) {
+    wint_t upper = towupper((wint_t)cp);
+    return (size_t)lle_utf8_encode_codepoint((uint32_t)upper, out);
+}
+
+/**
+ * Helper: Convert a codepoint to lowercase and encode back to UTF-8
+ * Returns number of bytes written, or 0 on error.
+ */
+static size_t codepoint_to_lower_utf8(uint32_t cp, char *out, size_t max_len) {
+    wint_t lower = towlower((wint_t)cp);
+    return (size_t)lle_utf8_encode_codepoint((uint32_t)lower, out);
+}
+
+/**
+ * Helper: Apply case transformation to a word region
+ * mode: 0 = uppercase all, 1 = lowercase all, 2 = capitalize (first upper, rest lower)
+ */
+static lle_result_t transform_word_case(lle_editor_t *editor, size_t word_start, 
+                                        size_t word_end, int mode) {
+    if (!editor || !editor->buffer || word_start >= word_end) {
+        return LLE_SUCCESS;
+    }
+    
+    const char *data = editor->buffer->data;
+    size_t len = editor->buffer->length;
+    
+    /* Build new word with transformed case */
+    size_t word_len = word_end - word_start;
+    /* Allocate generous buffer - case conversion can change byte length */
+    size_t max_new_len = word_len * 4;  /* UTF-8 max 4 bytes per codepoint */
+    char *new_word = malloc(max_new_len + 1);
+    if (!new_word) {
+        return LLE_ERROR_OUT_OF_MEMORY;
+    }
+    
+    size_t new_pos = 0;
+    size_t pos = word_start;
+    bool first_alpha = true;  /* For capitalize mode */
+    
+    while (pos < word_end && pos < len) {
+        /* Decode codepoint */
+        uint32_t cp;
+        int decoded = lle_utf8_decode_codepoint(data + pos, len - pos, &cp);
+        if (decoded <= 0) {
+            /* Invalid UTF-8, copy byte as-is */
+            if (new_pos < max_new_len) {
+                new_word[new_pos++] = data[pos];
+            }
+            pos++;
+            continue;
+        }
+        
+        /* Transform case based on mode */
+        char transformed[4];
+        size_t transformed_len = 0;
+        
+        if (mode == 0) {
+            /* Uppercase all */
+            transformed_len = codepoint_to_upper_utf8(cp, transformed, sizeof(transformed));
+        } else if (mode == 1) {
+            /* Lowercase all */
+            transformed_len = codepoint_to_lower_utf8(cp, transformed, sizeof(transformed));
+        } else if (mode == 2) {
+            /* Capitalize: first alphabetic char uppercase, rest lowercase */
+            if (first_alpha && iswalpha((wint_t)cp)) {
+                transformed_len = codepoint_to_upper_utf8(cp, transformed, sizeof(transformed));
+                first_alpha = false;
+            } else {
+                transformed_len = codepoint_to_lower_utf8(cp, transformed, sizeof(transformed));
+            }
+        }
+        
+        if (transformed_len == 0) {
+            /* Fallback: copy original bytes */
+            if (new_pos + (size_t)decoded <= max_new_len) {
+                memcpy(new_word + new_pos, data + pos, (size_t)decoded);
+                new_pos += (size_t)decoded;
+            }
+        } else if (new_pos + transformed_len <= max_new_len) {
+            memcpy(new_word + new_pos, transformed, transformed_len);
+            new_pos += transformed_len;
+        }
+        
+        pos += (size_t)decoded;
+    }
+    
+    new_word[new_pos] = '\0';
+    
+    /* Replace word in buffer */
+    lle_buffer_delete_text(editor->buffer, word_start, word_len);
+    lle_buffer_insert_text(editor->buffer, word_start, new_word, new_pos);
+    
+    free(new_word);
+    
+    /* Move cursor past transformed word */
+    size_t new_cursor = word_start + new_pos;
+    if (editor->cursor_manager) {
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_cursor);
+        lle_cursor_manager_get_position(editor->cursor_manager, &editor->buffer->cursor);
+    }
+    
+    return LLE_SUCCESS;
+}
 
 lle_result_t lle_upcase_word(lle_editor_t *editor) {
     if (!editor || !editor->buffer) {
@@ -1207,34 +1532,26 @@ lle_result_t lle_upcase_word(lle_editor_t *editor) {
     size_t cursor = editor->buffer->cursor.byte_offset;
     size_t len = editor->buffer->length;
     
-    /* Skip whitespace to find start of next word */
+    /* Find word boundaries using grapheme-aware functions */
     size_t word_start = cursor;
-    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
-        word_start++;
+    
+    /* Skip whitespace forward */
+    while (word_start < len) {
+        uint32_t cp = decode_codepoint_at(editor->buffer->data, len, word_start);
+        if (!is_whitespace_codepoint(cp)) {
+            break;
+        }
+        word_start = find_next_grapheme_end(editor->buffer->data, len, word_start);
     }
     
     /* Find end of word */
-    size_t word_end = word_start;
-    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
-        word_end++;
+    size_t word_end = find_word_end(editor->buffer->data, len, word_start);
+    
+    if (word_start >= word_end) {
+        return LLE_SUCCESS;  /* No word found */
     }
     
-    /* Uppercase from word start to end */
-    for (size_t i = word_start; i < word_end; i++) {
-        editor->buffer->data[i] = (char)toupper((unsigned char)editor->buffer->data[i]);
-    }
-    
-    /* Move cursor past word */
-    editor->buffer->cursor.byte_offset = word_end;
-    editor->buffer->cursor.codepoint_index = word_end;
-    editor->buffer->cursor.grapheme_index = word_end;
-    
-    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
-    if (editor->cursor_manager) {
-        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
-    }
-    
-    return LLE_SUCCESS;
+    return transform_word_case(editor, word_start, word_end, 0);  /* 0 = uppercase */
 }
 
 lle_result_t lle_downcase_word(lle_editor_t *editor) {
@@ -1245,34 +1562,26 @@ lle_result_t lle_downcase_word(lle_editor_t *editor) {
     size_t cursor = editor->buffer->cursor.byte_offset;
     size_t len = editor->buffer->length;
     
-    /* Skip whitespace to find start of next word */
+    /* Find word boundaries using grapheme-aware functions */
     size_t word_start = cursor;
-    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
-        word_start++;
+    
+    /* Skip whitespace forward */
+    while (word_start < len) {
+        uint32_t cp = decode_codepoint_at(editor->buffer->data, len, word_start);
+        if (!is_whitespace_codepoint(cp)) {
+            break;
+        }
+        word_start = find_next_grapheme_end(editor->buffer->data, len, word_start);
     }
     
     /* Find end of word */
-    size_t word_end = word_start;
-    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
-        word_end++;
+    size_t word_end = find_word_end(editor->buffer->data, len, word_start);
+    
+    if (word_start >= word_end) {
+        return LLE_SUCCESS;  /* No word found */
     }
     
-    /* Lowercase from word start to end */
-    for (size_t i = word_start; i < word_end; i++) {
-        editor->buffer->data[i] = (char)tolower((unsigned char)editor->buffer->data[i]);
-    }
-    
-    /* Move cursor past word */
-    editor->buffer->cursor.byte_offset = word_end;
-    editor->buffer->cursor.codepoint_index = word_end;
-    editor->buffer->cursor.grapheme_index = word_end;
-    
-    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
-    if (editor->cursor_manager) {
-        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
-    }
-    
-    return LLE_SUCCESS;
+    return transform_word_case(editor, word_start, word_end, 1);  /* 1 = lowercase */
 }
 
 lle_result_t lle_capitalize_word(lle_editor_t *editor) {
@@ -1283,39 +1592,26 @@ lle_result_t lle_capitalize_word(lle_editor_t *editor) {
     size_t cursor = editor->buffer->cursor.byte_offset;
     size_t len = editor->buffer->length;
     
-    /* Skip whitespace to find start of next word */
+    /* Find word boundaries using grapheme-aware functions */
     size_t word_start = cursor;
-    while (word_start < len && isspace((unsigned char)editor->buffer->data[word_start])) {
-        word_start++;
+    
+    /* Skip whitespace forward */
+    while (word_start < len) {
+        uint32_t cp = decode_codepoint_at(editor->buffer->data, len, word_start);
+        if (!is_whitespace_codepoint(cp)) {
+            break;
+        }
+        word_start = find_next_grapheme_end(editor->buffer->data, len, word_start);
     }
     
     /* Find end of word */
-    size_t word_end = word_start;
-    while (word_end < len && !is_word_boundary(editor->buffer->data[word_end])) {
-        word_end++;
+    size_t word_end = find_word_end(editor->buffer->data, len, word_start);
+    
+    if (word_start >= word_end) {
+        return LLE_SUCCESS;  /* No word found */
     }
     
-    /* Capitalize first letter */
-    if (word_start < word_end) {
-        editor->buffer->data[word_start] = (char)toupper((unsigned char)editor->buffer->data[word_start]);
-    }
-    
-    /* Lowercase rest */
-    for (size_t i = word_start + 1; i < word_end; i++) {
-        editor->buffer->data[i] = (char)tolower((unsigned char)editor->buffer->data[i]);
-    }
-    
-    /* Move cursor past word */
-    editor->buffer->cursor.byte_offset = word_end;
-    editor->buffer->cursor.codepoint_index = word_end;
-    editor->buffer->cursor.grapheme_index = word_end;
-    
-    /* CRITICAL: Sync cursor_manager after modifying buffer cursor */
-    if (editor->cursor_manager) {
-        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, word_end);
-    }
-    
-    return LLE_SUCCESS;
+    return transform_word_case(editor, word_start, word_end, 2);  /* 2 = capitalize */
 }
 
 /* ============================================================================

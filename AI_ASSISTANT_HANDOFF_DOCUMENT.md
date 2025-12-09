@@ -20,7 +20,7 @@
 | 1 | Build System & C11 Standard | CRITICAL | **COMPLETE** |
 | 2 | Code Deduplication | HIGH | **COMPLETE** |
 | 3 | Directory Structure Reorganization | MEDIUM | **COMPLETE** |
-| 4 | Spec Compliance Audit | MEDIUM | Not Started |
+| 4 | Spec Compliance Audit | MEDIUM | **COMPLETE** |
 | 5 | Test Suite Cleanup | LOW | Not Started |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 
@@ -29,6 +29,9 @@
 1. **Phase 2**: Removed V1 completion, dead code (event_coordinator, terminal_adapter), broken tests
 2. **Phase 6**: Reduced docs from 250+ to 54 files (126,470 lines deleted)
 3. **Phase 3**: Reorganized 84 source files into 12 modular subdirectories
+4. **Phase 4**: Spec Compliance Audit
+   - **4.1 Architectural Compliance**: A+ grade - all 4 core principles verified
+   - **4.2 UTF-8/Grapheme Compliance**: Fixed critical gaps in keybinding_actions.c
 
 ### New Directory Structure
 
@@ -62,8 +65,30 @@ src/lle/
 
 ### Remaining Work
 
-- Phase 4: Spec Compliance Audit
-- Phase 5: Test Suite Cleanup (3 failing tests)
+- Phase 5: Test Suite Cleanup (2 failing tests: Theme Integration, Continuation Prompt)
+
+### Phase 4.2: UTF-8/Grapheme Compliance Fixes
+
+**Problem Identified**: keybinding_actions.c had byte-based word operations that could
+corrupt multi-byte UTF-8 sequences and grapheme clusters.
+
+**Functions Fixed**:
+- `find_word_start()` / `find_word_end()` - Now iterate by grapheme clusters using
+  `lle_is_grapheme_boundary()` and use Unicode-aware `iswspace()`/`iswalnum()` for
+  character classification
+- `lle_transpose_chars()` - Now swaps complete grapheme clusters (emoji, combining
+  characters) instead of individual bytes
+- `lle_transpose_words()` - Uses grapheme-aware word boundaries, preserves separators
+- `lle_upcase_word()` / `lle_downcase_word()` / `lle_capitalize_word()` - Use
+  `towupper()`/`towlower()` for Unicode case mapping, handle multi-byte codepoints
+
+**New Helper Functions**:
+- `find_prev_grapheme_start()` - Find start of previous grapheme cluster
+- `find_next_grapheme_end()` - Find end of current grapheme cluster
+- `decode_codepoint_at()` - Decode Unicode codepoint at position
+- `is_word_codepoint()` - Unicode-aware word character check
+- `is_whitespace_codepoint()` - Unicode-aware whitespace check
+- `transform_word_case()` - Generic case transformation helper
 
 ---
 
