@@ -314,8 +314,16 @@ static lle_result_t replace_word_at_cursor(lle_editor_t *editor,
 
     /* Move cursor to end of inserted text */
     size_t new_pos = word_start + strlen(replacement);
-    return lle_cursor_manager_move_to_byte_offset(editor->cursor_manager,
-                                                  new_pos);
+    lle_result_t move_result =
+        lle_cursor_manager_move_to_byte_offset(editor->cursor_manager, new_pos);
+
+    /* CRITICAL: Sync buffer cursor back from cursor manager after movement */
+    if (move_result == LLE_SUCCESS) {
+        lle_cursor_manager_get_position(editor->cursor_manager,
+                                        &editor->buffer->cursor);
+    }
+
+    return move_result;
 }
 
 /**

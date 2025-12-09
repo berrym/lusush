@@ -1,6 +1,6 @@
 # AI Assistant Handoff Document - Session 50
 
-**Date**: 2025-12-08  
+**Date**: 2025-12-09  
 **Session Type**: Pre-Merge Testing Phase  
 **Status**: TESTING - Automated tests pass, manual testing in progress  
 **Branch**: `feature/lle`
@@ -55,11 +55,11 @@
 
 ### Known Issues (Non-Blocking)
 
-1. **Completion menu display corruption**: Intermittent corruption on rapid arrow
-   key navigation. Recoverable with Ctrl+G.
+1. **Completion menu display corruption**: FIXED - Missing cursor sync in
+   `replace_word_at_cursor()` caused buffer cursor to desync from cursor_manager
+   during completion navigation.
 
-2. **Prompt boundary corruption**: Intermittent issue where prompt gets corrupted.
-   Recoverable with Ctrl+G.
+2. **Prompt boundary corruption**: FIXED - Same root cause as above.
 
 3. **Missing alias completion source**: FIXED - Alias source now registered in
    source_manager.c. Also fixed completion sorting to use relevance_score 
