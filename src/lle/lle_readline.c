@@ -85,6 +85,7 @@ extern config_values_t config;
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <ctype.h>
 
 /* External global memory pool */
 extern lusush_memory_pool_t *global_memory_pool;
@@ -2900,9 +2901,13 @@ char *lle_readline(const char *prompt)
                         case 'Y':  /* Ctrl-Y: Yank */
                             execute_keybinding_action(&ctx, "C-y", handle_yank);
                             break;
-                        default:
-                            /* Unknown Ctrl+letter - ignore */
+                        default: {
+                            /* Try keybinding manager for other Ctrl+letter combinations */
+                            char keybind[8];
+                            snprintf(keybind, sizeof(keybind), "C-%c", (char)tolower(keycode));
+                            execute_keybinding_action(&ctx, keybind, NULL);
                             break;
+                        }
                     }
                 }
                 /* Handle Meta/Alt+letter combinations (Group 6 keybindings) */
@@ -2938,9 +2943,13 @@ char *lle_readline(const char *prompt)
                         case '_':  /* Alt-_: Redo (undo the undo) */
                             execute_keybinding_action(&ctx, "M-_", handle_redo);
                             break;
-                        default:
-                            /* Unknown Alt+letter - ignore */
+                        default: {
+                            /* Try keybinding manager for other Alt+letter combinations */
+                            char keybind[8];
+                            snprintf(keybind, sizeof(keybind), "M-%c", (char)keycode);
+                            execute_keybinding_action(&ctx, keybind, NULL);
                             break;
+                        }
                     }
                 }
                 /* Other special keys ignored */

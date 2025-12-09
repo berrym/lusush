@@ -67,6 +67,19 @@ src/lle/
 
 - Phase 5: Test Suite Cleanup (2 failing tests: Theme Integration, Continuation Prompt)
 
+### Additional Fixes (Session 49)
+
+**UTF-8 Display Regression Fix:**
+- `src/lle/display/syntax_highlighting.c`: Fixed `is_word_char()` to treat UTF-8 
+  continuation bytes (0x80+) as word characters, preventing tokenizer from splitting
+  multi-byte characters like 'é' mid-sequence
+
+**Keybinding Dispatch Fix:**
+- `src/lle/lle_readline.c`: Changed default case for Ctrl+letter and Alt+letter
+  handling to dispatch to keybinding manager instead of ignoring. This enables
+  Ctrl+t (transpose-chars), Alt+t (transpose-words), and other bindings that
+  weren't explicitly hardcoded in the switch statement
+
 ### Phase 4.2: UTF-8/Grapheme Compliance Fixes
 
 **Problem Identified**: keybinding_actions.c had byte-based word operations that could

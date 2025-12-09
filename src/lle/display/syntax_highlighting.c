@@ -135,7 +135,15 @@ static bool is_shell_keyword(const char *word, size_t len) {
 /* ========================================================================== */
 
 static bool is_word_char(char c) {
-    return isalnum((unsigned char)c) || c == '_' || c == '-' || c == '.' || 
+    unsigned char uc = (unsigned char)c;
+    
+    /* UTF-8 continuation bytes (10xxxxxx) and lead bytes (11xxxxxx) are part of words.
+     * This ensures multi-byte UTF-8 characters like 'é' (0xC3 0xA9) are not split. */
+    if (uc >= 0x80) {
+        return true;  /* Any non-ASCII byte is part of a word */
+    }
+    
+    return isalnum(uc) || c == '_' || c == '-' || c == '.' || 
            c == '/' || c == '~' || c == '+' || c == '@' || c == ':';
 }
 
