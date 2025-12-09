@@ -2846,6 +2846,11 @@ char *lle_readline(const char *prompt)
                 else if (event->data.special_key.key == LLE_KEY_DELETE) {
                     execute_keybinding_action(&ctx, "DELETE", handle_delete);
                 }
+                /* Alt+Backspace: backward-kill-word */
+                else if (event->data.special_key.key == LLE_KEY_BACKSPACE &&
+                         (event->data.special_key.modifiers & LLE_MOD_ALT)) {
+                    execute_keybinding_action(&ctx, "M-BACKSPACE", NULL);
+                }
                 /* ESC key - dismiss completion menu */
                 else if (event->data.special_key.key == LLE_KEY_ESCAPE) {
                     execute_keybinding_action(&ctx, "ESC", NULL);

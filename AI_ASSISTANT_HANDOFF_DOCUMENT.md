@@ -79,6 +79,13 @@ src/lle/
   handling to dispatch to keybinding manager instead of ignoring. This enables
   Ctrl+t (transpose-chars), Alt+t (transpose-words), and other bindings that
   weren't explicitly hardcoded in the switch statement
+- Added explicit Alt+Backspace dispatch to M-BACKSPACE binding
+
+**Known Limitation (Mac):**
+- Alt+Backspace (backward-kill-word) doesn't work on macOS terminals
+- The terminal doesn't send Alt modifier with Backspace in a detectable way
+- Works on Linux terminals that properly report modifiers
+- Workaround: Use Esc then Backspace, or Ctrl+W for similar functionality
 
 ### Phase 4.2: UTF-8/Grapheme Compliance Fixes
 
