@@ -61,8 +61,9 @@
 2. **Prompt boundary corruption**: Intermittent issue where prompt gets corrupted.
    Recoverable with Ctrl+G.
 
-3. **Missing alias completion source**: Alias source exists but not registered in
-   source_manager.c - completions show builtins/commands but not aliases.
+3. **Missing alias completion source**: FIXED - Alias source now registered in
+   source_manager.c. Also fixed completion sorting to use relevance_score 
+   (was sorting by type enum order, ignoring priority).
 
 4. **Directory completion not context-aware**: `cd /` shows builtins instead of
    directories. File source is registered but context detection may need work.

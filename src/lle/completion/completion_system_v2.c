@@ -134,11 +134,18 @@ static int completion_compare(const void *a, const void *b) {
     const lle_completion_item_t *item_a = (const lle_completion_item_t *)a;
     const lle_completion_item_t *item_b = (const lle_completion_item_t *)b;
 
-    /* Sort by type first, then alphabetically */
+    /* Sort by relevance_score first (higher score = earlier in list) */
+    if (item_a->relevance_score != item_b->relevance_score) {
+        return item_b->relevance_score -
+               item_a->relevance_score; /* Descending order */
+    }
+
+    /* Then by type for items with same score */
     if (item_a->type != item_b->type) {
         return item_a->type - item_b->type;
     }
 
+    /* Finally alphabetically within same type */
     return strcmp(item_a->text, item_b->text);
 }
 

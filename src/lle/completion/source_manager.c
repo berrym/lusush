@@ -16,6 +16,7 @@
 
 #include "lle/completion/source_manager.h"
 #include "lle/completion/completion_generator.h" /* For existing source functions */
+#include "lle/completion/completion_sources.h"   /* For lle_completion_source_aliases */
 #include <string.h>
 
 // ============================================================================
@@ -26,6 +27,13 @@
  * Builtin source: Only applicable at command position
  */
 static bool builtin_source_applicable(const lle_context_analyzer_t *context) {
+    return context->type == LLE_CONTEXT_COMMAND;
+}
+
+/**
+ * Alias source: Only applicable at command position
+ */
+static bool alias_source_applicable(const lle_context_analyzer_t *context) {
     return context->type == LLE_CONTEXT_COMMAND;
 }
 
@@ -75,6 +83,19 @@ builtin_source_generate(lle_memory_pool_t *pool,
 
     /* Call ONLY the builtin source function to avoid duplicates */
     return lle_completion_source_builtins(pool, prefix, result);
+}
+
+/**
+ * Alias command source - shell aliases
+ */
+static lle_result_t
+alias_source_generate(lle_memory_pool_t *pool,
+                      const lle_context_analyzer_t *context, const char *prefix,
+                      lle_completion_result_t *result) {
+    (void)context; /* Not needed for aliases */
+
+    /* Call the alias source function */
+    return lle_completion_source_aliases(pool, prefix, result);
 }
 
 /**
@@ -153,6 +174,13 @@ lle_result_t lle_source_manager_create(lle_memory_pool_t *pool,
     res = lle_source_manager_register(manager, LLE_SOURCE_BUILTINS, "builtins",
                                       builtin_source_generate,
                                       builtin_source_applicable);
+    if (res != LLE_SUCCESS) {
+        return res;
+    }
+
+    res = lle_source_manager_register(manager, LLE_SOURCE_ALIASES, "aliases",
+                                      alias_source_generate,
+                                      alias_source_applicable);
     if (res != LLE_SUCCESS) {
         return res;
     }
