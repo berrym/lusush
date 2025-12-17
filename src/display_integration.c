@@ -50,6 +50,7 @@
 #include "../include/lusush.h"
 #include "../include/config.h"
 #include "../include/lusush_memory_pool.h"
+#include "../include/init.h"
 #include <libgen.h>
 
 #include <stdio.h>
@@ -77,11 +78,13 @@ static inline void rl_on_new_line(void) {}
 
 /**
  * Clear screen helper that works for both LLE and readline modes.
- * Uses ANSI escape sequences when LLE is enabled, readline otherwise.
+ * Uses ANSI escape sequences when LLE is enabled or shell is non-interactive
+ * (readline not initialized), otherwise uses readline's clear screen.
  */
 static void do_clear_screen(void) {
-    if (config.use_lle) {
-        /* LLE mode: Use ANSI escape sequences directly */
+    /* Use ANSI sequences for LLE mode or non-interactive shell
+     * (readline is only initialized in interactive mode) */
+    if (config.use_lle || !is_interactive_shell()) {
         /* ESC[2J clears entire screen, ESC[H moves cursor to home position */
         const char *clear_seq = "\033[2J\033[H";
         if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {

@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 50
+# AI Assistant Handoff Document - Session 51
 
-**Date**: 2025-12-09  
+**Date**: 2025-12-17  
 **Session Type**: Pre-Merge Testing Phase  
-**Status**: TESTING - Automated tests pass, manual testing in progress  
+**Status**: TESTING - Bug fixes in progress  
 **Branch**: `feature/lle`
 
 ---
@@ -52,6 +52,18 @@
 6. **Fixed Alt+Backspace**: The sequence parser wasn't recognizing ESC+0x7F as 
    Alt+Backspace. Fixed by including 0x7F in the Alt+key detection range and
    setting key type to SPECIAL so it maps to LLE_KEY_BACKSPACE.
+
+### Session 51 Accomplishments
+
+1. **Fixed clear builtin segfault with LLE enabled**: The `display_integration_clear_screen()`
+   function was calling `rl_clear_screen()` (GNU readline) which caused a segfault when
+   LLE is enabled. Added `do_clear_screen()` helper that uses ANSI escape sequences
+   (`ESC[2J ESC[H`) when LLE is active.
+
+2. **Fixed clear builtin crash in non-interactive mode**: Extended the fix to also use
+   ANSI sequences when the shell is non-interactive (readline not initialized). Running
+   `clear` via pipe or `-c` flag in readline mode was crashing because `rl_clear_screen()`
+   requires readline initialization.
 
 ### Known Issues (Non-Blocking)
 
