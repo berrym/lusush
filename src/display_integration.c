@@ -73,8 +73,32 @@ static int rl_point = 0;
 static inline void rl_redisplay(void) {}
 static inline void rl_clear_visible_line(void) {}
 static inline void rl_on_new_line(void) {}
-static inline int rl_clear_screen(int count, int key) { (void)count; (void)key; return 0; }
 #endif
+
+/**
+ * Clear screen helper that works for both LLE and readline modes.
+ * Uses ANSI escape sequences when LLE is enabled, readline otherwise.
+ */
+static void do_clear_screen(void) {
+    if (config.use_lle) {
+        /* LLE mode: Use ANSI escape sequences directly */
+        /* ESC[2J clears entire screen, ESC[H moves cursor to home position */
+        const char *clear_seq = "\033[2J\033[H";
+        if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {
+            /* Ignore write errors - terminal may be in unusual state */
+        }
+    } else {
+#if HAVE_READLINE
+        rl_clear_screen(0, 0);
+#else
+        /* Fallback: ANSI clear screen */
+        const char *clear_seq = "\033[2J\033[H";
+        if (write(STDOUT_FILENO, clear_seq, strlen(clear_seq)) < 0) {
+            /* Ignore write errors */
+        }
+#endif
+    }
+}
 
 // ============================================================================
 // FORWARD DECLARATIONS
@@ -639,7 +663,7 @@ void display_integration_clear_screen(void) {
     
     // Prevent recursion
     if (in_clear_screen) {
-        rl_clear_screen(0, 0);
+        do_clear_screen();
         return;
     }
     
@@ -653,7 +677,7 @@ void display_integration_clear_screen(void) {
         log_fallback_event("clear_screen", fallback_reason);
         
         // Graceful fallback to existing system
-        rl_clear_screen(0, 0);
+        do_clear_screen();
         in_clear_screen = false;
         return;
     }
@@ -672,12 +696,11 @@ void display_integration_clear_screen(void) {
         if (error == DISPLAY_CONTROLLER_SUCCESS) {
             integration_stats.layered_display_calls++;
             
-            // CRITICAL FIX: Use readline's clear screen function
-            // Never bypass readline terminal management
-            rl_clear_screen(0, 0);
+            // Use appropriate clear screen for current mode (LLE or readline)
+            do_clear_screen();
             
             if (current_config.debug_mode) {
-                fprintf(stderr, "display_integration: Using readline clear screen\n");
+                fprintf(stderr, "display_integration: Clear screen completed\n");
             }
             
             in_clear_screen = false;
@@ -690,7 +713,7 @@ void display_integration_clear_screen(void) {
     }
     
     // Fallback to existing system
-    rl_clear_screen(0, 0);
+    do_clear_screen();
     in_clear_screen = false;
 }
 
