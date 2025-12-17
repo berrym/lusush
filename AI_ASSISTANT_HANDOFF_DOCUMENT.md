@@ -65,6 +65,27 @@
    `clear` via pipe or `-c` flag in readline mode was crashing because `rl_clear_screen()`
    requires readline initialization.
 
+3. **Removed dead code: enhanced_syntax_highlighting**: Deleted `src/enhanced_syntax_highlighting.c`
+   and `include/enhanced_syntax_highlighting.h` - these were abandoned readline syntax highlighting
+   files that were never integrated into the build system. LLE has complete syntax highlighting
+   in `src/lle/display/syntax_highlighting.c`.
+
+### Legacy Readline Code (Future Cleanup)
+
+The following files contain legacy readline feature implementations that were partially
+abandoned in v1.3.0 but are still in the build with active references as fallbacks:
+
+- `src/autosuggestions.c` - Legacy autosuggestions (disabled in v1.3.0, but cleanup code still runs)
+- `src/rich_completion.c` - Rich completion system (display disabled, but generation still used)
+- `src/completion_menu.c` - Completion menu (used by test suite)
+- `src/completion_menu_theme.c` - Menu theming (used by test suite)
+- `src/completion_types.c` - Type classification (used by tests and completions)
+
+These require careful migration before removal:
+1. Remove fallback paths from `readline_integration.c`
+2. Migrate tests to use LLE completion system
+3. Verify readline mode still works with basic TAB completion
+
 ### Known Issues (Non-Blocking)
 
 1. **Completion menu display corruption**: FIXED - Missing cursor sync in
