@@ -62,7 +62,6 @@
 
 #include "layer_events.h"
 #include "terminal_control.h"
-#include "../autosuggestions.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -37,7 +37,6 @@
 
 #include "../include/display/autosuggestions_layer.h"
 #include "../include/display_integration.h"
-#include "../include/autosuggestions.h"
 #include "../include/config.h"
 #include "../include/termcap.h"
 #include <stdio.h>
@@ -205,7 +204,12 @@ static autosuggestions_layer_error_t add_cache_entry(autosuggestions_layer_t *la
 }
 
 /**
- * Generate suggestion using existing autosuggestions system
+ * Generate suggestion placeholder
+ * 
+ * NOTE: In v1.3.0, suggestions are generated externally by LLE's history system
+ * and set via autosuggestions_layer_set_suggestion(). This function is a stub
+ * that returns NULL - the actual suggestion generation happens in lle_readline.c
+ * which calls autosuggestions_layer_set_suggestion() with history-based suggestions.
  */
 static char* generate_suggestion(autosuggestions_layer_t *layer,
                                const autosuggestions_context_t *context,
@@ -214,28 +218,14 @@ static char* generate_suggestion(autosuggestions_layer_t *layer,
     
     START_TIMING();
     
-    // Use existing autosuggestions system
-    lusush_autosuggestion_t *suggestion = lusush_get_suggestion(context->input_line, 
-                                                               context->cursor_position);
+    // In v1.3.0, suggestion generation is handled externally by LLE.
+    // LLE's readline implementation calls autosuggestions_layer_set_suggestion()
+    // with suggestions from LLE's history system.
+    // This function returns NULL; external callers should use set_suggestion().
     
     END_TIMING(*generation_time_ns);
     
-    char *result = NULL;
-    if (suggestion && suggestion->display_text && *suggestion->display_text) {
-        // Validate suggestion
-        size_t len = strlen(suggestion->display_text);
-        if (len >= AUTOSUGGESTIONS_LAYER_MIN_SUGGESTION_LENGTH &&
-            len <= AUTOSUGGESTIONS_LAYER_MAX_SUGGESTION_LENGTH &&
-            !strchr(suggestion->display_text, '\n')) {
-            
-            result = strdup(suggestion->display_text);
-            layer->metrics.suggestions_generated++;
-        }
-        
-        lusush_free_autosuggestion(suggestion);
-    }
-    
-    return result;
+    return NULL;
 }
 
 /**
@@ -418,12 +408,9 @@ autosuggestions_layer_error_t autosuggestions_layer_init(autosuggestions_layer_t
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }
     
-    // Initialize the core autosuggestions system (history-based suggestions)
-    // This MUST be called before any suggestions can be generated
-    if (!lusush_autosuggestions_init()) {
-        set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_GENERATION_FAILED);
-        return AUTOSUGGESTIONS_LAYER_ERROR_GENERATION_FAILED;
-    }
+    // NOTE: In v1.3.0, suggestion generation is handled externally by LLE's
+    // history system. LLE's readline calls autosuggestions_layer_set_suggestion()
+    // directly with history-based suggestions. No legacy init needed.
     
     // Subscribe to layer events
     autosuggestions_layer_error_t error = autosuggestions_layer_subscribe_events(layer);

@@ -161,4 +161,47 @@ int lle_unicode_decompose(uint32_t codepoint, uint32_t *decomposed,
  */
 bool lle_unicode_compose(uint32_t base, uint32_t combining, uint32_t *composed);
 
+/*
+ * Check if one UTF-8 string is a prefix of another (Unicode-aware)
+ *
+ * This function performs Unicode-normalized prefix matching using NFC
+ * normalization. It correctly handles:
+ * - Precomposed vs decomposed characters (café vs cafe + combining acute)
+ * - Different byte representations of equivalent Unicode sequences
+ * - Grapheme cluster boundaries (won't match partial graphemes)
+ *
+ * For shell autosuggestions, this ensures that typing "café" will match
+ * history entry "café_script.sh" regardless of how either was encoded.
+ *
+ * Parameters:
+ *   prefix     - The prefix string to check (UTF-8)
+ *   prefix_len - Length of prefix in bytes
+ *   str        - The string to check against (UTF-8)
+ *   str_len    - Length of string in bytes
+ *   options    - Comparison options (NULL for defaults with normalization)
+ *
+ * Returns:
+ *   true if prefix is a Unicode-normalized prefix of str, false otherwise
+ */
+bool lle_unicode_is_prefix(const char *prefix, size_t prefix_len,
+                           const char *str, size_t str_len,
+                           const lle_unicode_compare_options_t *options);
+
+/*
+ * Check if one null-terminated UTF-8 string is a prefix of another
+ *
+ * Convenience wrapper around lle_unicode_is_prefix() for null-terminated
+ * strings.
+ *
+ * Parameters:
+ *   prefix  - The prefix string to check (UTF-8, null-terminated)
+ *   str     - The string to check against (UTF-8, null-terminated)
+ *   options - Comparison options (NULL for defaults with normalization)
+ *
+ * Returns:
+ *   true if prefix is a Unicode-normalized prefix of str, false otherwise
+ */
+bool lle_unicode_is_prefix_z(const char *prefix, const char *str,
+                             const lle_unicode_compare_options_t *options);
+
 #endif /* LLE_UNICODE_COMPARE_H */

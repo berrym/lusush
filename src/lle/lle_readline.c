@@ -71,9 +71,10 @@
 #include "lle/lle_editor.h"         /* Proper LLE editor architecture */
 #include "lle/memory_management.h"
 #include "lle/terminal_abstraction.h"
-#include "lle/utf8_support.h" /* UTF-8 support for proper character deletion */
-#include "lle/widget_hooks.h" /* Widget hooks for lifecycle events */
-#include "signals.h"          /* For SIGINT flag coordination with LLE */
+#include "lle/unicode_compare.h" /* TR#29 compliant Unicode prefix matching */
+#include "lle/utf8_support.h"    /* UTF-8 support for proper character deletion */
+#include "lle/widget_hooks.h"    /* Widget hooks for lifecycle events */
+#include "signals.h"             /* For SIGINT flag coordination with LLE */
 
 /* Forward declarations for history action functions */
 lle_result_t lle_history_previous(lle_editor_t *editor);
@@ -355,8 +356,11 @@ static void update_autosuggestion(readline_context_t *ctx) {
             continue;
         }
 
-        /* Check for prefix match */
-        if (strncmp(input, entry->command, input_len) == 0) {
+        /* Check for prefix match using Unicode-aware comparison (TR#29 compliant)
+         * This handles NFC normalization to ensure equivalent Unicode sequences
+         * match regardless of encoding (e.g., precomposed vs decomposed) */
+        if (lle_unicode_is_prefix(input, input_len, entry->command,
+                                  strlen(entry->command), NULL)) {
             /* Found a match - get the remaining text */
             const char *remaining = entry->command + input_len;
 

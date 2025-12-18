@@ -576,6 +576,131 @@ bool lle_unicode_strings_equal(const char *str1, const char *str2,
                                        options);
 }
 
+bool lle_unicode_is_prefix(const char *prefix, size_t prefix_len,
+                           const char *str, size_t str_len,
+                           const lle_unicode_compare_options_t *options) {
+    /* Handle edge cases */
+    if (!prefix || prefix_len == 0) {
+        return true; /* Empty prefix matches everything */
+    }
+    if (!str || str_len == 0) {
+        return false; /* Non-empty prefix can't match empty string */
+    }
+    if (prefix_len > str_len) {
+        return false; /* Prefix longer than string - quick rejection */
+    }
+
+    /* Use default options if none provided */
+    lle_unicode_compare_options_t opts =
+        options ? *options : LLE_UNICODE_COMPARE_DEFAULT;
+
+    /*
+     * Fast path: If no normalization needed, use simple byte comparison.
+     * This handles the common case of ASCII-only input efficiently.
+     */
+    if (!opts.normalize && !opts.case_insensitive) {
+        return memcmp(prefix, str, prefix_len) == 0;
+    }
+
+    /*
+     * Unicode-aware path: Normalize both strings and compare.
+     * We need to be careful about grapheme boundaries - the prefix
+     * should end at a grapheme boundary in the normalized form.
+     */
+#define PREFIX_NORM_BUF_SIZE 4096
+    char norm_prefix[PREFIX_NORM_BUF_SIZE];
+    char norm_str[PREFIX_NORM_BUF_SIZE];
+    size_t norm_prefix_len, norm_str_len;
+
+    /* Normalize prefix */
+    if (opts.normalize) {
+        if (lle_unicode_normalize_nfc(prefix, prefix_len, norm_prefix,
+                                      PREFIX_NORM_BUF_SIZE,
+                                      &norm_prefix_len) != 0) {
+            /* Normalization failed, fall back to byte comparison */
+            return memcmp(prefix, str, prefix_len) == 0;
+        }
+
+        /* Normalize string */
+        if (lle_unicode_normalize_nfc(str, str_len, norm_str,
+                                      PREFIX_NORM_BUF_SIZE,
+                                      &norm_str_len) != 0) {
+            /* Normalization failed, fall back to byte comparison */
+            return memcmp(prefix, str, prefix_len) == 0;
+        }
+    } else {
+        /* No normalization - copy to buffers for uniform handling */
+        if (prefix_len >= PREFIX_NORM_BUF_SIZE ||
+            str_len >= PREFIX_NORM_BUF_SIZE) {
+            /* Strings too long for buffers, fall back */
+            return memcmp(prefix, str, prefix_len) == 0;
+        }
+        memcpy(norm_prefix, prefix, prefix_len);
+        norm_prefix[prefix_len] = '\0';
+        norm_prefix_len = prefix_len;
+        memcpy(norm_str, str, str_len);
+        norm_str[str_len] = '\0';
+        norm_str_len = str_len;
+    }
+
+    /* Quick length check after normalization */
+    if (norm_prefix_len > norm_str_len) {
+        return false;
+    }
+
+    /*
+     * Compare codepoint by codepoint, optionally with case folding.
+     * Track position in both strings to ensure we match exactly
+     * norm_prefix_len worth of normalized prefix.
+     */
+    const char *pp = norm_prefix;
+    const char *pp_end = norm_prefix + norm_prefix_len;
+    const char *sp = norm_str;
+    const char *sp_end = norm_str + norm_str_len;
+
+    if (opts.case_insensitive) {
+        while (pp < pp_end && sp < sp_end) {
+            uint32_t cp_prefix, cp_str;
+            int len_prefix =
+                lle_utf8_decode_codepoint(pp, pp_end - pp, &cp_prefix);
+            int len_str = lle_utf8_decode_codepoint(sp, sp_end - sp, &cp_str);
+
+            if (len_prefix <= 0 || len_str <= 0) {
+                return false; /* Invalid UTF-8 */
+            }
+
+            if (to_lowercase(cp_prefix) != to_lowercase(cp_str)) {
+                return false;
+            }
+
+            pp += len_prefix;
+            sp += len_str;
+        }
+    } else {
+        /* Direct comparison without case folding */
+        if (memcmp(norm_prefix, norm_str, norm_prefix_len) != 0) {
+            return false;
+        }
+        pp = pp_end; /* Mark as fully consumed */
+    }
+
+    /* Prefix matched if we consumed all of it */
+    return (pp >= pp_end);
+}
+
+bool lle_unicode_is_prefix_z(const char *prefix, const char *str,
+                             const lle_unicode_compare_options_t *options) {
+    if (!prefix) {
+        return true; /* NULL prefix matches everything */
+    }
+    if (!str) {
+        return false; /* Non-null prefix can't match NULL string */
+    }
+
+    return lle_unicode_is_prefix(prefix, strlen(prefix), str, strlen(str),
+                                 options);
+}
+
 bool lle_unicode_strings_equal_n(const char *str1, size_t len1,
                                  const char *str2, size_t len2,
                                  const lle_unicode_compare_options_t *options) {

@@ -10,7 +10,7 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **5 Active Issues** - Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **6 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
 - ✅ **Issue #15 Documented** - Tab handling uses formula-based calculation (2025-12-02)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
@@ -34,6 +34,75 @@
 ---
 
 ## Active Issues
+
+### Issue #16: Intermittent Prompt/Cursor Desync Display Corruption
+**Severity**: MEDIUM  
+**Discovered**: 2025-12-17 (Session 52 - manual testing)  
+**Status**: Not yet fixed - intermittent, hard to reproduce  
+**Component**: Display system / cursor synchronization  
+
+**Description**:
+Intermittent display corruption where the prompt and cursor position become desynchronized. The prompt may be partially overwritten or truncated, and typed input may appear in unexpected positions. This bug is sporadic and difficult to reproduce consistently.
+
+**Reproduction** (intermittent):
+The bug was observed after a sequence of commands including `cd /tmp`, `pwd`, then `cd -`. The exact trigger is unknown. Example corrupted output:
+```bash
+[mberry@fedora-xps13.local] /tmp (fcd -
+/home/mberry/Lab/c/lusush
+```
+
+Instead of expected:
+```bash
+[mberry@fedora-xps13.local] /tmp (feature/lle +*) $ cd -
+/home/mberry/Lab/c/lusush
+[mberry@fedora-xps13.local] ~/Lab/c/lusush (feature/lle +*) $
+```
+
+The prompt `(feature/lle +*) $` was truncated to `(f` and the command `cd -` merged into the prompt line.
+
+**Additional Symptom Observed**:
+When first typing "ec" to test autosuggestions, the 'c' character was not displayed although the cursor moved. Backspacing and retyping displayed correctly. Could not reproduce.
+
+**Suspected Root Cause**:
+LLE's display architecture draws the prompt once, then clears from cursor position to end-of-screen for redraws. If the cursor position tracked internally by LLE becomes desynchronized from the actual terminal cursor position, subsequent redraws will clear/write from the wrong position, causing corruption.
+
+Possible triggers:
+- Directory changes that affect prompt length (git branch, path changes)
+- Commands with output that may affect terminal state
+- Rapid typing sequences
+- Terminal resize events (not confirmed)
+
+**Related Issues**:
+- This may be related to previously "fixed" cursor sync issues (#9, #10, #12)
+- Similar symptoms to issues that were addressed in Sessions 25-26
+
+**Impact**:
+- Display corruption requires user to press Ctrl+L or Enter to recover
+- Affects usability when it occurs
+- Unpredictable occurrence makes debugging difficult
+
+**Workaround**:
+- Press Ctrl+L to clear screen and redraw
+- Press Enter to get a fresh prompt
+
+**Priority**: MEDIUM (intermittent, has workaround, but affects UX)
+
+**Investigation Needed**:
+1. Add debug logging to track cursor position assumptions vs actual terminal state
+2. Instrument prompt rendering to log when prompt length changes
+3. Check if git prompt length changes correlate with corruption
+4. Review cursor_manager synchronization with display_controller
+5. Test with various terminal emulators to see if issue is terminal-specific
+
+**Files Likely Involved**:
+- `src/display/display_controller.c` - Cursor positioning logic
+- `src/lle/lle_readline.c` - Main loop cursor management
+- `src/display/screen_buffer.c` - Screen state tracking
+- `src/lle/cursor_manager.c` - Cursor position tracking
+
+**Status**: DOCUMENTED - Needs investigation, hard to reproduce
+
+---
 
 ### Issue #14: Git-Aware Prompt Not Displaying Git Information
 **Severity**: MEDIUM  
@@ -925,14 +994,15 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 5  
+**Active Issues**: 6  
 **Blockers**: 0  
 **High Priority**: 0  
-**Medium Priority**: 4 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt)  
+**Medium Priority**: 5 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt; #16 - cursor desync)  
 **Low Priority**: 2 (Issue #8 - menu display format; #15 - tab handling)  
 **Fixed This Session (2025-12-02)**: Multiline continuation prompts with line wrapping (character-by-character visual row tracking)
 **Implementation Status**: Spec 12 v2 completion integrated, menu fully functional, macOS LLE compatibility improved  
 **Next Action**: 
+- (Immediate) Investigate cursor desync issue #16 (intermittent, hard to reproduce)
 - (Immediate) Fix git-aware prompt (Issue #14)
 - (Future) Fix tab handling to use config.tab_width (Issue #15)
 - (Future) Category disambiguation for completion conflicts
@@ -940,6 +1010,6 @@ To prevent future issues:
 
 ---
 
-**Last Updated**: 2025-12-02  
+**Last Updated**: 2025-12-17  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS

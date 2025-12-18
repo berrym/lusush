@@ -59,12 +59,7 @@ src = ['src/builtins/alias.c',
        'src/arithmetic.c',
        'src/autocorrect.c',
        'src/libfuzzy/fuzzy_match.c',
-       'src/autosuggestions.c',
        'src/completion.c',
-       'src/completion_types.c',
-       'src/completion_menu.c',
-       'src/completion_menu_theme.c',
-       'src/rich_completion.c',
        'src/config.c',
        'src/lusush_memory_pool.c',
        'src/debug/debug_core.c',
@@ -940,88 +935,6 @@ if fs.exists('tests/manual/test_lle_readline_minimal.c')
 endif
 
 # ============================================================================
-# PRAGMATIC COMPLETION SYSTEM TESTS
-# ============================================================================
-
-# Phase 2: Interactive Menu Demo (Manual Test)
-# Demonstrates interactive completion menu with arrow key navigation
-if fs.exists('tests/manual/demo_completion_menu.c')
-  demo_completion_menu = executable('demo_completion_menu',
-                                   ['tests/manual/demo_completion_menu.c',
-                                    'src/completion_types.c',
-                                    'src/completion_menu.c'],
-                                   include_directories: inc,
-                                   dependencies: [readline_dep])
-  # NOTE: This is a manual interactive demo - run with: ./builddir/demo_completion_menu
-endif
-
-# Phase 3: Themed Menu Demo (Manual Test)
-# Demonstrates theme integration with completion menu
-if fs.exists('tests/manual/demo_completion_menu_themed.c')
-  demo_completion_menu_themed = executable('demo_completion_menu_themed',
-                                          ['tests/manual/demo_completion_menu_themed.c',
-                                           'src/completion_types.c',
-                                           'src/completion_menu.c',
-                                           'src/completion_menu_theme.c'],
-                                          include_directories: inc,
-                                          dependencies: [readline_dep])
-  # NOTE: This is a manual demo - run with: ./builddir/demo_completion_menu_themed
-endif
-
-# Phase 1: Classification Tests
-# ============================================================================
-
-# Completion Type Classification Unit Tests
-# Tests completion type system, item management, classification helpers
-# Note: Uses mocks for builtins/aliases to avoid heavyweight dependencies
-if fs.exists('tests/unit/test_completion_classification.c')
-  test_completion_classification = executable('test_completion_classification',
-                                              ['tests/unit/test_completion_classification.c',
-                                               'src/completion_types.c'],
-                                              include_directories: inc,
-                                              dependencies: [readline_dep])
-  test('Completion Classification', test_completion_classification,
-       suite: 'unit',
-       timeout: 30)
-endif
-
-# Phase 2: Interactive Menu Tests
-# ============================================================================
-
-# Completion Menu Unit Tests
-# Tests menu lifecycle, navigation, selection, scrolling, display
-# Note: Uses mocks for builtins/aliases to avoid heavyweight dependencies
-if fs.exists('tests/unit/test_completion_menu.c')
-  test_completion_menu = executable('test_completion_menu',
-                                   ['tests/unit/test_completion_menu.c',
-                                    'src/completion_types.c',
-                                    'src/completion_menu.c'],
-                                   include_directories: inc,
-                                   dependencies: [readline_dep])
-  test('Completion Menu', test_completion_menu,
-       suite: 'unit',
-       timeout: 30)
-endif
-
-# Phase 3: Theme Integration Tests
-# ============================================================================
-
-# Completion Menu Theme Integration Unit Tests
-# Tests theme initialization, color/symbol mapping, themed formatting
-# Note: Uses mocks for theme system to test independently
-if fs.exists('tests/unit/test_completion_menu_theme.c')
-  test_completion_menu_theme = executable('test_completion_menu_theme',
-                                         ['tests/unit/test_completion_menu_theme.c',
-                                          'src/completion_types.c',
-                                          'src/completion_menu.c',
-                                          'src/completion_menu_theme.c'],
-                                         include_directories: inc,
-                                         dependencies: [readline_dep])
-  test('Completion Menu Theme', test_completion_menu_theme,
-       suite: 'unit',
-       timeout: 30)
-endif
-
 # LLE Completion Menu Renderer Unit Tests (Spec 12 Phase 5.1)
 # Tests menu rendering, column layout, category headers, item formatting
 if fs.exists('tests/unit/test_completion_menu_renderer.c')

@@ -1,8 +1,8 @@
-# AI Assistant Handoff Document - Session 51
+# AI Assistant Handoff Document - Session 52
 
 **Date**: 2025-12-17  
 **Session Type**: Pre-Merge Testing Phase  
-**Status**: TESTING - Bug fixes in progress  
+**Status**: TESTING - Legacy cleanup complete, more auditing needed  
 **Branch**: `feature/lle`
 
 ---
@@ -23,6 +23,7 @@
 | 4 | Spec Compliance Audit | MEDIUM | **COMPLETE** |
 | 5 | Test Suite Cleanup | LOW | **COMPLETE** |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
+| 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
 
 ### Session 50 Accomplishments
 
@@ -70,21 +71,54 @@
    files that were never integrated into the build system. LLE has complete syntax highlighting
    in `src/lle/display/syntax_highlighting.c`.
 
-### Legacy Readline Code (Future Cleanup)
+### Session 52 Accomplishments
 
-The following files contain legacy readline feature implementations that were partially
-abandoned in v1.3.0 but are still in the build with active references as fallbacks:
+1. **Removed legacy readline cruft (-8,182 lines)**: Deleted abandoned v1.3.0 code that was
+   not used in real interactive sessions:
+   
+   **Deleted source files:**
+   - `src/autosuggestions.c`, `include/autosuggestions.h` - Legacy autosuggestions
+   - `src/rich_completion.c`, `include/rich_completion.h` - Rich completion (display disabled)
+   - `src/completion_types.c`, `include/completion_types.h` - Type classification
+   - `src/completion_menu.c`, `include/completion_menu.h` - Legacy completion menu
+   - `src/completion_menu_theme.c`, `include/completion_menu_theme.h` - Menu theming
+   
+   **Deleted test files:**
+   - `tests/unit/test_completion_menu.c`
+   - `tests/unit/test_completion_menu_renderer.c`
+   - `tests/unit/test_completion_menu_theme.c`
+   - `tests/unit/test_completion_classification.c`
+   
+   **Cleaned up references in:**
+   - `src/readline_integration.c` - Removed rich_completion code block
+   - `src/completion.c` - Removed typed completion functions
+   - `src/builtins/builtins.c` - Removed testsuggestion debug command
+   - `src/display/autosuggestions_layer.c` - Removed legacy API calls
+   - `meson.build` - Removed deleted source files
 
-- `src/autosuggestions.c` - Legacy autosuggestions (disabled in v1.3.0, but cleanup code still runs)
-- `src/rich_completion.c` - Rich completion system (display disabled, but generation still used)
-- `src/completion_menu.c` - Completion menu (used by test suite)
-- `src/completion_menu_theme.c` - Menu theming (used by test suite)
-- `src/completion_types.c` - Type classification (used by tests and completions)
+2. **Added Unicode-aware prefix matching (TR#29 compliant)**:
+   - Added `lle_unicode_is_prefix()` and `lle_unicode_is_prefix_z()` to `unicode_compare.h`
+   - Implemented NFC-normalized prefix comparison with fast ASCII path
+   - Updated `update_autosuggestion()` in `lle_readline.c` to use Unicode-aware
+     prefix matching instead of `strncmp`
+   - This ensures autosuggestions correctly match history regardless of Unicode
+     encoding (precomposed vs decomposed forms like é vs e+combining acute)
 
-These require careful migration before removal:
-1. Remove fallback paths from `readline_integration.c`
-2. Migrate tests to use LLE completion system
-3. Verify readline mode still works with basic TAB completion
+3. **Verified both modes work correctly**:
+   - GNU Readline mode (default): All features working, clear builtin safe
+   - LLE mode (LLE_ENABLED=1): All features working, autosuggestions use LLE history
+
+### Pre-Merge Documentation Requirements
+
+**Unicode Implementation Guide (NEW - Required before merge):**
+- Document that LLE uses NFC normalization consistently (not NFD)
+- Explain rationale: input methods produce NFC, compact representation, both sides
+  normalized ensures equivalence regardless of source encoding
+- Document usage patterns for `lle_unicode_is_prefix()`, `lle_unicode_strings_equal()`,
+  grapheme iteration APIs
+- Emphasize: "Always use LLE Unicode APIs instead of libc string functions when
+  comparing user input or history"
+- Suggested location: `docs/lle_development/unicode_implementation_guide.md`
 
 ### Known Issues (Non-Blocking)
 
