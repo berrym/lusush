@@ -1,8 +1,8 @@
 # AI Assistant Handoff Document - Session 54
 
 **Date**: 2025-12-21  
-**Session Type**: Bug Fixes and Code Cleanup  
-**Status**: ACTIVE DEVELOPMENT - Completion system v2 rename complete  
+**Session Type**: Bug Fixes, Code Cleanup, and Issue Documentation  
+**Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
 ---
@@ -132,6 +132,29 @@
    **Rationale**: The theme system (Phase 3 Target 2) is the sole prompt generation
    mechanism. The legacy PROMPT_STYLE code was dead weight - `config.prompt_style`
    was parsed but never used to affect prompt rendering.
+
+4. **Documented critical theme/prompt system issues (MERGE BLOCKERS)**:
+   Investigation of theme template variables revealed fundamental architectural
+   problems that violate lusush's core principle of user choice:
+   
+   **Issue #20 - Theme System Overwrites User PS1/PS2** (HIGH - MERGE BLOCKER):
+   - `build_prompt()` unconditionally overwrites PS1/PS2 every time
+   - User customization like `PS1="custom> "` is immediately overwritten
+   - No way to disable theme system and use traditional PS1/PS2
+   - **Fix required**: Detect user customization, add `prompt.use_theme` config option
+   
+   **Issue #21 - Theme System Not User-Extensible** (HIGH - MERGE BLOCKER):
+   - All themes hardcoded as C functions (`theme_get_corporate()`, etc.)
+   - Users cannot create custom themes or modify templates
+   - `theme_load_custom()`, `theme_save_custom()` declared but not implemented
+   - **Fix required**: Theme file format, user directory loading, config integration
+   
+   **Issue #22 - Template Variables Not Implemented** (MEDIUM):
+   - `enable_exit_code`, `enable_job_count` flags exist but are dead code
+   - No `%{exit_code}`, `%{jobs}` template variables implemented
+   - Blocked by Issues #20, #21 - don't add features to broken architecture
+   
+   See `docs/lle_implementation/tracking/KNOWN_ISSUES.md` for full details.
 
 ### Session 53 Accomplishments
 

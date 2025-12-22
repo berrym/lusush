@@ -10,7 +10,8 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **7 Active Issues** - Display controller in editor terminals (1 LOW), Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **10 Active Issues** - Theme/prompt system (3 HIGH - Issues #20, #21, #22), Display controller (1 LOW), Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- 🚫 **MERGE BLOCKED** - Issues #20 and #21 must be resolved before merge (user choice principle violations)
 - ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
 - ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
@@ -36,6 +37,160 @@
 ---
 
 ## Active Issues
+
+### Issue #20: Theme System Overwrites User PS1/PS2 Customization
+**Severity**: HIGH  
+**Discovered**: 2025-12-21 (Session 54 - theme variable investigation)  
+**Status**: Architectural issue - requires design work  
+**Component**: src/prompt.c, src/themes.c  
+
+**Description**:
+The theme system unconditionally overwrites PS1/PS2 shell variables every time `build_prompt()` is called. If a user sets `PS1="custom> "` in their shell or startup scripts, it is immediately overwritten the next time the prompt is regenerated. **User prompt customization is fundamentally broken.**
+
+**This violates lusush's core principle of user choice.**
+
+**Current Behavior**:
+```bash
+# User sets custom prompt
+$ PS1="myshell> "
+# Theme system immediately overwrites it on next prompt regeneration
+$ echo test
+test
+[mberry@hostname] ~/path $   # User's PS1 completely ignored
+```
+
+**Expected Behavior**:
+User-set PS1/PS2 should be respected. The theme system should only generate prompts when:
+1. No user customization exists, OR
+2. User explicitly enables theme-based prompts
+
+**Root Cause**:
+`build_prompt()` in `src/prompt.c` unconditionally calls `theme_generate_primary_prompt()` and sets PS1/PS2 without checking if the user has customized them.
+
+**Related Issues**:
+- Issue #21 (theme system not user-extensible)
+- Issue #22 (template variables not implemented)
+
+**Real Fix Required**:
+1. **Detect user customization**: Track whether PS1/PS2 were set by user vs by theme
+2. **Respect user choice**: If user sets PS1/PS2, don't overwrite unless theme system explicitly enabled
+3. **Config option**: Add `prompt.use_theme = true/false` to allow user to disable theme prompts
+4. **Theme disable**: The `theme` and `config` builtins should have options to disable theme system entirely
+5. **Startup precedence**: User's ~/.lusushrc or startup scripts should be able to override theme defaults
+
+**Note**: The config system has `theme_name` and `theme_*` options, but there's no way to say "don't use themes at all, respect my PS1".
+
+**Workaround**:
+None currently - theme always overwrites PS1/PS2.
+
+**Priority**: HIGH (violates core design principle of user choice)
+
+**Status**: DOCUMENTED - Requires architectural design work before merge
+
+---
+
+### Issue #21: Theme System Not User-Extensible
+**Severity**: HIGH  
+**Discovered**: 2025-12-21 (Session 54 - theme variable investigation)  
+**Status**: Not implemented - design gap  
+**Component**: src/themes.c, include/themes.h  
+
+**Description**:
+The theme system is completely hardcoded in C. Users cannot:
+- Create custom themes
+- Modify existing theme templates
+- Define themes in configuration files
+- Load themes from user directories
+
+All themes are C functions (`theme_get_corporate()`, `theme_get_dark()`, etc.) compiled into the binary.
+
+**This violates lusush's core principle of user extensibility.**
+
+**Current Architecture**:
+```c
+// All themes hardcoded as C functions
+theme_definition_t *theme_get_corporate(void);
+theme_definition_t *theme_get_dark(void);
+theme_definition_t *theme_get_light(void);
+// etc.
+```
+
+**Expected Architecture** (from LLE specs):
+- User theme directory: `~/.config/lusush/themes/`
+- Theme configuration files (TOML, INI, or similar)
+- Runtime theme loading and switching
+- Theme inheritance (extend existing themes)
+- User customization of colors, templates, symbols
+
+**What Exists But Is Dead Code**:
+- `theme_user_config_t` struct (defined but not used)
+- `theme_load_custom()` function (declared but not implemented)
+- `theme_save_custom()` function (declared but not implemented)
+- User theme directory paths (defined but not used)
+
+**Real Fix Required**:
+1. **Design theme file format**: Define configuration file format for themes
+2. **Implement theme loading**: `theme_load_custom()` to load from files
+3. **User directory support**: Scan `~/.config/lusush/themes/` at startup
+4. **Config integration**: `theme_name = "mytheme"` should load user theme
+5. **Template customization**: Allow users to modify prompt templates without C code
+
+**Priority**: HIGH (blocks user customization, core principle violation)
+
+**Status**: DOCUMENTED - Requires significant implementation work before merge
+
+---
+
+### Issue #22: Template Variables exit_code/jobs Not Implemented
+**Severity**: MEDIUM  
+**Discovered**: 2025-12-21 (Session 54 - theme variable investigation)  
+**Status**: Dead code - flags exist but no implementation  
+**Component**: src/themes.c  
+
+**Description**:
+The `prompt_template_t` struct has `enable_exit_code` and `enable_job_count` boolean flags, and some themes set these to `true`, but:
+1. No template variables (`%?`, `%{exit_code}`, `%{jobs}`) are actually implemented
+2. No theme templates use these variables in their template strings
+3. The flags are set but never used to add variables to the template context
+
+**Current State**:
+```c
+// In prompt_template_t:
+bool enable_exit_code;    // Set to true in dark, colorful themes
+bool enable_job_count;    // Set to true in colorful theme
+
+// But NO code adds these variables:
+// Missing: template_add_variable(ctx, "exit_code", ..., NULL, false);
+// Missing: template_add_variable(ctx, "jobs", ..., NULL, false);
+
+// And NO templates use them:
+// No template contains "%?" or "%{exit_code}" or "%{jobs}"
+```
+
+**Available Shell State** (could be used):
+- `last_exit_status` - global in `src/globals.c`
+- `executor->jobs` - linked list with `job_state_t` (RUNNING, STOPPED, DONE)
+
+**Planned Variables** (from conventions in other shells):
+- `%?` or `%{exit_code}` - last command exit status (non-zero typically shown)
+- `%{jobs}` - count of background jobs
+- `%{running_jobs}` - count of running jobs
+- `%{stopped_jobs}` - count of stopped jobs
+
+**Why Not Fixed Now**:
+Given Issues #20 and #21 (theme system architectural problems), adding more features to a broken system is not the right approach. These variables should be added as part of the larger theme system redesign.
+
+**Real Fix Required**:
+1. First fix Issue #20 (respect user PS1/PS2)
+2. First fix Issue #21 (make themes user-extensible)
+3. Then implement these variables in the template context
+4. Update default themes to use them (for users who opt in)
+
+**Priority**: MEDIUM (dead code, but blocked by more fundamental issues)
+
+**Status**: DOCUMENTED - Blocked by Issues #20, #21
+
+---
 
 ### Issue #19: Display Controller Initialization Fails in Editor Terminals
 **Severity**: LOW  
@@ -1105,22 +1260,28 @@ To prevent future issues:
 
 ## Current Status
 
-**Active Issues**: 6  
-**Blockers**: 0  
-**High Priority**: 0  
+**Active Issues**: 10  
+**Merge Blockers**: 2 (Issues #20, #21 - theme system violates user choice principles)  
+**High Priority**: 3 (Issues #20, #21, #22 - theme/prompt system architectural problems)  
 **Medium Priority**: 5 (Issues #5, #6 - syntax highlighting; #7 - category disambiguation; #14 - git prompt; #16 - cursor desync)  
-**Low Priority**: 2 (Issue #8 - menu display format; #15 - tab handling)  
-**Fixed This Session (2025-12-02)**: Multiline continuation prompts with line wrapping (character-by-character visual row tracking)
-**Implementation Status**: Spec 12 v2 completion integrated, menu fully functional, macOS LLE compatibility improved  
+**Low Priority**: 2 (Issue #8 - menu display format; #19 - editor terminal display controller)  
+**Fixed This Session (2025-12-21)**: Legacy PROMPT_STYLE dead code removed, adaptive terminal detection integrated
+**Implementation Status**: Spec 12 v2 completion integrated, menu fully functional  
+
+**Pre-Merge Requirements (BLOCKING)**:
+1. **Issue #20**: Theme system must respect user PS1/PS2 customization
+2. **Issue #21**: Theme system must be user-extensible (config file themes, not hardcoded C)
+
 **Next Action**: 
-- (Immediate) Investigate cursor desync issue #16 (intermittent, hard to reproduce)
-- (Immediate) Fix git-aware prompt (Issue #14)
-- (Future) Fix tab handling to use config.tab_width (Issue #15)
+- (BLOCKING) Design and implement user choice for prompt system
+- (BLOCKING) Implement theme file loading from user directories
+- (Future) Investigate cursor desync issue #16 (intermittent, hard to reproduce)
+- (Future) Fix git-aware prompt (Issue #14)
 - (Future) Category disambiguation for completion conflicts
 - (Future) Multi-column menu display investigation
 
 ---
 
-**Last Updated**: 2025-12-17  
+**Last Updated**: 2025-12-21  
 **Next Review**: Before each commit, after each bug discovery  
 **Maintainer**: Update this file whenever bugs are discovered - NO EXCEPTIONS
