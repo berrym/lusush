@@ -119,8 +119,11 @@ static bool is_directory_only_command(const char *command_name) {
         return false;
     }
 
-    /* Commands that only accept directory arguments */
-    static const char *dir_commands[] = {"cd", "pushd", "popd", "rmdir", NULL};
+    /*
+     * POSIX commands that only accept directory arguments.
+     * Note: pushd/popd are bash extensions, not implemented in lusush.
+     */
+    static const char *dir_commands[] = {"cd", "rmdir", NULL};
 
     for (const char **cmd = dir_commands; *cmd != NULL; cmd++) {
         if (strcmp(command_name, *cmd) == 0) {
@@ -134,7 +137,7 @@ static bool is_directory_only_command(const char *command_name) {
 /**
  * File/directory source - command-aware
  *
- * For commands like cd, pushd, popd: only show directories
+ * For commands like cd, rmdir: only show directories
  * For other commands: show both files and directories
  */
 static lle_result_t file_source_generate(lle_memory_pool_t *pool,

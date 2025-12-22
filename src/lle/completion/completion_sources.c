@@ -218,7 +218,7 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
 /**
  * Internal implementation that supports filtering
  *
- * @param directories_only If true, only return directories (for cd, pushd, etc.)
+ * @param directories_only If true, only return directories (for cd, rmdir)
  */
 static lle_result_t
 lle_completion_source_files_internal(lle_memory_pool_t *memory_pool,

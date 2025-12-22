@@ -10,9 +10,9 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **7 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM + 1 LOW), category disambiguation (1 MEDIUM)
-- ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/pushd/popd (Session 53, 2025-12-21)
-- ⚠️ **Issue #18 Documented** - pushd/popd not highlighted as builtins (2025-12-21)
+- ⚠️ **6 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
+- ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
 - ✅ **Issue #15 Documented** - Tab handling uses formula-based calculation (2025-12-02)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
@@ -37,40 +37,28 @@
 
 ## Active Issues
 
-### Issue #18: pushd/popd Not Highlighted as Builtins
+### Issue #18: pushd/popd Not Implemented (Bash Extension)
 **Severity**: LOW  
 **Discovered**: 2025-12-21 (Session 53 - manual testing)  
-**Status**: Not yet fixed  
-**Component**: Syntax highlighting / builtin detection  
+**Status**: Future work - not a bug  
+**Component**: Shell builtins  
 
 **Description**:
-The `pushd` and `popd` commands are not highlighted green as valid builtins during real-time syntax highlighting. They remain red (invalid command color) even though they are valid shell builtins and execute correctly.
+The `pushd` and `popd` commands are not implemented in lusush. They are highlighted red (invalid command) because they genuinely don't exist - this is correct syntax highlighting behavior.
 
-**Reproduction**:
-```bash
-$ pushd    # remains red while typing, should turn green
-$ popd     # remains red while typing, should turn green
-$ cd       # correctly turns green (for comparison)
-```
+**Background**:
+- `pushd`/`popd` are **bash extensions**, not POSIX shell commands
+- Lusush currently targets POSIX shell compatibility
+- These commands were mistakenly included in the directory completion list
 
-**Expected Behavior**:
-Both `pushd` and `popd` should be highlighted green like other builtins (cd, echo, etc.) since they are valid shell commands.
+**Resolution**:
+- Removed `pushd`/`popd` from the directory-only command list in source_manager.c
+- Only `cd` and `rmdir` (POSIX commands) now trigger directory-only completion
+- Implementing pushd/popd is future work when bash compatibility is expanded
 
-**Suspected Root Cause**:
-The syntax highlighter's builtin detection (`is_shell_builtin()` or similar) may not include `pushd` and `popd` in its list of recognized builtins, or these commands may not be registered in the builtins array that the highlighter checks.
+**Priority**: LOW (future enhancement, not current scope)
 
-**Impact**:
-- Minor visual inconsistency
-- Users may think these commands don't exist when they do
-- Does not affect functionality - commands still work
-
-**Priority**: LOW (cosmetic, commands work correctly)
-
-**Files Likely Involved**:
-- `src/lle/display/syntax_highlighting.c` - Builtin detection
-- `src/builtins/builtins.c` - Builtin registration
-
-**Status**: DOCUMENTED - Fix before merge
+**Status**: DOCUMENTED - Future work when adding bash extensions
 
 ---
 
@@ -550,19 +538,21 @@ quote> world"
 **Component**: src/lle/completion/source_manager.c, src/lle/completion/completion_sources.c  
 
 **Description**:
-When using `cd`, `pushd`, `popd`, or `rmdir` commands, the completion menu showed both files and directories. For these directory-changing commands, only directories should be shown as completion candidates.
+When using `cd` or `rmdir` commands, the completion menu showed both files and directories. For these directory-only commands, only directories should be shown as completion candidates.
 
 **Root Cause**:
 The file source generator ignored the `context->command_name` field, always returning both files and directories regardless of what command was being completed.
 
 **Fix Applied**:
-1. Added `is_directory_only_command()` helper in `source_manager.c` to identify commands that only accept directory arguments (cd, pushd, popd, rmdir)
+1. Added `is_directory_only_command()` helper in `source_manager.c` to identify POSIX commands that only accept directory arguments (cd, rmdir)
 
 2. Added `lle_completion_source_directories()` function in `completion_sources.c` that only returns directories (excludes regular files)
 
 3. Modified `file_source_generate()` to check `context->command_name`:
-   - If command is cd/pushd/popd/rmdir: use `lle_completion_source_directories()`
+   - If command is cd/rmdir: use `lle_completion_source_directories()`
    - Otherwise: use `lle_completion_source_files()` (both files and directories)
+
+**Note**: pushd/popd are bash extensions not implemented in lusush (see Issue #18).
 
 **Files Modified**:
 - `src/lle/completion/source_manager.c` - Command-aware file source generation
@@ -571,7 +561,7 @@ The file source generator ignored the `context->command_name` field, always retu
 
 **Verification**:
 - ✅ `cd <TAB>` shows only directories
-- ✅ `pushd <TAB>` shows only directories
+- ✅ `rmdir <TAB>` shows only directories
 - ✅ `ls <TAB>` shows both files and directories
 - ✅ All 51 tests pass
 

@@ -89,9 +89,10 @@
    - `ls <TAB>` shows both files and directories ✅
    - Multi-column category menu displays correctly ✅
 
-2. **Documented Issue #18**: Discovered that `pushd` and `popd` are not highlighted green
-   as builtins during real-time syntax highlighting (they remain red). Issue documented
-   in KNOWN_ISSUES.md for fix before merge.
+2. **Clarified Issue #18**: Discovered that `pushd` and `popd` are not implemented in
+   lusush - they are bash extensions, not POSIX commands. The red highlighting is correct
+   behavior. Removed pushd/popd from directory-only completion list. Documented as future
+   work when adding bash extensions.
 
 ### Session 52 Accomplishments
 
