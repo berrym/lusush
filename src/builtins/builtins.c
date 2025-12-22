@@ -3173,6 +3173,14 @@ int bin_theme(int argc, char **argv) {
 
     // No arguments - show current theme and available themes
     if (argc == 1) {
+        extern config_values_t config;
+        
+        // Show theme system status first
+        printf("Theme system: %s\n", config.use_theme_prompt ? "enabled" : "disabled");
+        if (!config.use_theme_prompt) {
+            printf("  (User PS1/PS2 is respected. Use 'theme on' to enable themes.)\n\n");
+        }
+        
         theme_definition_t *active = theme_get_active();
         if (active) {
             printf("Current theme: %s\n", active->name);
@@ -3206,6 +3214,26 @@ int bin_theme(int argc, char **argv) {
 
     // Handle subcommands
     if (argc >= 2) {
+        if (strcmp(argv[1], "off") == 0 || strcmp(argv[1], "disable") == 0) {
+            // Disable theme system via config - respect user PS1/PS2
+            config_set_value("prompt.use_theme", "false");
+            printf("Theme system disabled - user PS1/PS2 will be respected\n");
+            printf("Set your prompt with: PS1=\"your prompt> \"\n");
+            printf("To re-enable: theme on\n");
+            printf("To persist: config save\n");
+            return 0;
+        }
+
+        if (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "enable") == 0) {
+            // Enable theme system via config
+            config_set_value("prompt.use_theme", "true");
+            printf("Theme system enabled\n");
+            // Rebuild prompt with theme
+            rebuild_prompt();
+            printf("To persist: config save\n");
+            return 0;
+        }
+
         if (strcmp(argv[1], "list") == 0) {
             // List themes by category
             printf("Available themes:\n\n");
@@ -3526,6 +3554,8 @@ int bin_theme(int argc, char **argv) {
             printf("Theme command usage:\n");
             printf("  theme              - Show current theme and list "
                    "available themes\n");
+            printf("  theme off          - Disable themes, respect user PS1/PS2\n");
+            printf("  theme on           - Enable theme system\n");
             printf("  theme list         - List all themes by category\n");
             printf("  theme set <name>   - Set active theme\n");
             printf("  theme info [name]  - Show detailed theme information\n");
@@ -3543,6 +3573,9 @@ int bin_theme(int argc, char **argv) {
             printf("  colorful   - Vibrant theme for creative workflows\n");
             printf("  minimal    - Ultra-minimal theme for focused work\n");
             printf("  classic    - Traditional shell appearance\n");
+            printf("\nTo use traditional PS1/PS2:\n");
+            printf("  theme off          - Disable theme system\n");
+            printf("  PS1=\"\\u@\\h:\\w\\$ \" - Set your custom prompt\n");
 
             return 0;
         }

@@ -3,6 +3,12 @@
  * 
  * This module provides shared multiline parsing functionality for both the
  * Line Editing Engine (LLE) and the main input system.
+ * 
+ * UTF-8 Support:
+ * This module properly handles multi-byte UTF-8 characters. While shell
+ * syntax characters (quotes, brackets, etc.) are all ASCII, we must
+ * properly skip over UTF-8 multi-byte sequences to avoid misinterpreting
+ * continuation bytes as syntax characters.
  */
 
 #include "../include/input_continuation.h"
@@ -11,6 +17,66 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+
+// ============================================================================
+// UTF-8 HELPER (self-contained, no LLE dependency)
+// ============================================================================
+
+/**
+ * Get the byte length of a UTF-8 character from its first byte.
+ * 
+ * UTF-8 encoding:
+ *   0xxxxxxx = 1 byte  (ASCII, 0x00-0x7F)
+ *   110xxxxx = 2 bytes (0xC0-0xDF)
+ *   1110xxxx = 3 bytes (0xE0-0xEF)
+ *   11110xxx = 4 bytes (0xF0-0xF7)
+ * 
+ * Returns 1 for ASCII, 2-4 for multi-byte, 1 for invalid (safe fallback).
+ */
+static int utf8_char_len(const char *p) {
+    if (!p || !*p) return 0;
+    
+    unsigned char c = (unsigned char)*p;
+    
+    // ASCII (0x00-0x7F) - single byte
+    if (c < 0x80) return 1;
+    
+    // Continuation byte (0x80-0xBF) - invalid as first byte, skip 1
+    if (c < 0xC0) return 1;
+    
+    // 2-byte sequence (0xC0-0xDF)
+    if (c < 0xE0) {
+        // Validate: next byte must be continuation (10xxxxxx)
+        if (((unsigned char)p[1] & 0xC0) == 0x80) {
+            return 2;
+        }
+        return 1;  // Invalid, skip 1
+    }
+    
+    // 3-byte sequence (0xE0-0xEF)
+    if (c < 0xF0) {
+        // Validate: next 2 bytes must be continuations
+        if (((unsigned char)p[1] & 0xC0) == 0x80 &&
+            ((unsigned char)p[2] & 0xC0) == 0x80) {
+            return 3;
+        }
+        return 1;  // Invalid, skip 1
+    }
+    
+    // 4-byte sequence (0xF0-0xF7)
+    if (c < 0xF8) {
+        // Validate: next 3 bytes must be continuations
+        if (((unsigned char)p[1] & 0xC0) == 0x80 &&
+            ((unsigned char)p[2] & 0xC0) == 0x80 &&
+            ((unsigned char)p[3] & 0xC0) == 0x80) {
+            return 4;
+        }
+        return 1;  // Invalid, skip 1
+    }
+    
+    // Invalid first byte (0xF8-0xFF), skip 1
+    return 1;
+}
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -139,7 +205,30 @@ void continuation_analyze_line(const char *line, continuation_state_t *state) {
     int word_pos = 0;
     
     while (*p) {
+        unsigned char uc = (unsigned char)*p;
         char c = *p;
+        
+        // UTF-8 multi-byte sequence handling:
+        // If this is a non-ASCII byte (high bit set), it's part of a UTF-8
+        // multi-byte character. Skip the entire sequence since shell syntax
+        // characters are all ASCII. This prevents misinterpreting UTF-8
+        // continuation bytes as shell metacharacters.
+        if (uc >= 0x80) {
+            int char_len = utf8_char_len(p);
+            
+            // If we're collecting a word, flush it first (UTF-8 chars break words
+            // for keyword detection purposes - keywords are ASCII only)
+            if (word_pos > 0) {
+                word[word_pos] = '\0';
+                // Keywords are ASCII-only, so no need to check here
+                word_pos = 0;
+                memset(word, 0, sizeof(word));
+            }
+            
+            // Skip the entire UTF-8 sequence
+            p += (char_len > 0) ? char_len : 1;
+            continue;
+        }
         
         // Handle escape sequences
         if (state->escaped) {

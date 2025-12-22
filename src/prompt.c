@@ -199,8 +199,26 @@ void format_git_prompt(char *git_prompt, size_t size) {
  * build_prompt:
  *      Builds the user's prompt, either a fancy colored one with
  *      the current working directory or a plain '% or # '.
+ *
+ *      If config.use_theme_prompt is false, this function returns early
+ *      without modifying PS1/PS2, allowing user customization to be respected.
  */
 void build_prompt(void) {
+    // Check if theme system is disabled - respect user PS1/PS2
+    if (!config.use_theme_prompt) {
+        // User has disabled theme prompts - don't overwrite PS1/PS2
+        // If PS1 is not set at all, provide a minimal default
+        const char *current_ps1 = symtable_get_global("PS1");
+        if (!current_ps1 || current_ps1[0] == '\0') {
+            symtable_set_global("PS1", (getuid() > 0) ? "$ " : "# ");
+        }
+        const char *current_ps2 = symtable_get_global("PS2");
+        if (!current_ps2 || current_ps2[0] == '\0') {
+            symtable_set_global("PS2", "> ");
+        }
+        return;
+    }
+
     char prompt[(MAXLINE * 2) + 1] = {'\0'}; // prompt string
 
     // Enhanced Performance Monitoring: Start timing for prompt generation

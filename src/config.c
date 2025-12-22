@@ -178,6 +178,9 @@ static config_option_t config_options[] = {
      &config.hints_enabled,                            "Enable input hints",         config_validate_bool      },
 
     // Prompt settings
+    {              "prompt.use_theme",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
+     &config.use_theme_prompt,        "Use theme system for prompts (false = respect user PS1/PS2)",
+     config_validate_bool                                                                                      },
     {                   "prompt.theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_theme,                            "Prompt color theme",       config_validate_string       },
     {              "prompt.git_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
@@ -1338,6 +1341,7 @@ void config_set_defaults(void) {
     config.hints_enabled = false;
 
     // Prompt defaults
+    config.use_theme_prompt = true;  // Default: use theme system (backwards compatible)
     config.prompt_theme = strdup("default");
     config.git_prompt_enabled = true;
     config.git_cache_timeout = 5;

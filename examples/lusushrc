@@ -19,6 +19,8 @@ completion_show_all = false
 
 # Prompt and Theme Configuration
 [prompt]
+# Set to false to disable themes and use traditional PS1/PS2 customization
+use_theme = true
 prompt_theme = default
 git_prompt_enabled = true
 git_cache_timeout = 5

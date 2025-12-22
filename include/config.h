@@ -160,6 +160,7 @@ typedef struct {
     bool hints_enabled;
 
     // Prompt settings
+    bool use_theme_prompt;    // Use theme system for prompts (false = respect user PS1/PS2)
     char *prompt_theme;
     bool git_prompt_enabled;
     int git_cache_timeout;
