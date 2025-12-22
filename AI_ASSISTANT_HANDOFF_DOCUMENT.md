@@ -112,6 +112,27 @@
    - Display controller init fails in editor terminals (falls back to defaults)
    - Shell still works correctly, cosmetic error only
 
+3. **Removed legacy prompt dead code**: Completely removed the unused `PROMPT_STYLE`
+   system that was superseded by the theme system but never properly removed.
+   
+   **Deleted code (~230 lines):**
+   - `PROMPT_STYLE` enum (NORMAL, COLOR, FANCY, PRO, GIT)
+   - `FG_COLOR`, `BG_COLOR`, `TEXT_ATTRIB` enums and lookup tables
+   - `build_colors()` function and static color variables
+   - `config.prompt_style` field and `config_validate_prompt_style()` validator
+   - Legacy fallback logic in `build_prompt()` - now uses theme system exclusively
+   
+   **Files modified:**
+   - `src/prompt.c` - Simplified to use only theme system with basic fallback
+   - `include/config.h` - Removed `prompt_style` field and validator declaration
+   - `src/config.c` - Removed option, alias, default, validator, and cleanup code
+   - `examples/lusushrc` - Removed deprecated `prompt_style = git` line
+   - `docs/CONFIG_SYSTEM.md` - Removed `prompt_style` from compatibility table
+   
+   **Rationale**: The theme system (Phase 3 Target 2) is the sole prompt generation
+   mechanism. The legacy PROMPT_STYLE code was dead weight - `config.prompt_style`
+   was parsed but never used to affect prompt rendering.
+
 ### Session 53 Accomplishments
 
 1. **Fixed command-aware directory completion (Issue #17)**: Commands like `cd` and

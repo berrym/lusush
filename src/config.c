@@ -178,9 +178,6 @@ static config_option_t config_options[] = {
      &config.hints_enabled,                            "Enable input hints",         config_validate_bool      },
 
     // Prompt settings
-    {                   "prompt.style", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
-     &config.prompt_style, "Prompt style (normal, color, fancy, pro, git)",
-     config_validate_prompt_style                                                                              },
     {                   "prompt.theme", CONFIG_TYPE_STRING,     CONFIG_SECTION_PROMPT,
      &config.prompt_theme,                            "Prompt color theme",       config_validate_string       },
     {              "prompt.git_enabled",   CONFIG_TYPE_BOOL,     CONFIG_SECTION_PROMPT,
@@ -462,7 +459,6 @@ static legacy_option_mapping_t legacy_mappings[] = {
     {"hints_enabled", "completion.hints"},
     
     // Prompt options
-    {"prompt_style", "prompt.style"},
     {"prompt_theme", "prompt.theme"},
     {"git_prompt_enabled", "prompt.git_enabled"},
     {"git_cache_timeout", "prompt.git_cache_timeout"},
@@ -1342,7 +1338,6 @@ void config_set_defaults(void) {
     config.hints_enabled = false;
 
     // Prompt defaults
-    config.prompt_style = strdup("git");
     config.prompt_theme = strdup("default");
     config.git_prompt_enabled = true;
     config.git_cache_timeout = 5;
@@ -1859,12 +1854,6 @@ bool config_validate_color(const char *value) {
     return config_validate_string(value);
 }
 
-bool config_validate_prompt_style(const char *value) {
-    return (strcmp(value, "normal") == 0 || strcmp(value, "color") == 0 ||
-            strcmp(value, "fancy") == 0 || strcmp(value, "pro") == 0 ||
-            strcmp(value, "git") == 0);
-}
-
 bool config_validate_color_scheme(const char *value) {
     return (strcmp(value, "default") == 0 || strcmp(value, "dark") == 0 ||
             strcmp(value, "light") == 0 || strcmp(value, "solarized") == 0);
@@ -2270,9 +2259,6 @@ void config_cleanup(void) {
     }
     if (config_ctx.system_config_path) {
         free(config_ctx.system_config_path);
-    }
-    if (config.prompt_style) {
-        free(config.prompt_style);
     }
     if (config.prompt_theme) {
         free(config.prompt_theme);

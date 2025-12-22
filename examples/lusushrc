@@ -19,7 +19,6 @@ completion_show_all = false
 
 # Prompt and Theme Configuration
 [prompt]
-prompt_style = git
 prompt_theme = default
 git_prompt_enabled = true
 git_cache_timeout = 5

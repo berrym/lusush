@@ -665,7 +665,6 @@ config get history.size                   # Clean, no warnings
 | `history_size` | `history.size` |
 | `completion_enabled` | `completion.enabled` |
 | `fuzzy_completion` | `completion.fuzzy` |
-| `prompt_style` | `prompt.style` |
 | `git_prompt_enabled` | `prompt.git_enabled` |
 | `auto_cd` | `behavior.auto_cd` |
 | `spell_correction` | `behavior.spell_correction` |

@@ -160,7 +160,6 @@ typedef struct {
     bool hints_enabled;
 
     // Prompt settings
-    char *prompt_style;
     char *prompt_theme;
     bool git_prompt_enabled;
     int git_cache_timeout;
@@ -259,7 +258,7 @@ bool config_validate_bool(const char *value);
 bool config_validate_int(const char *value);
 bool config_validate_string(const char *value);
 bool config_validate_color(const char *value);
-bool config_validate_prompt_style(const char *value);
+
 bool config_validate_float(const char *value);
 bool config_validate_path(const char *value);
 bool config_validate_shell_option(const char *value);
