@@ -21,6 +21,7 @@
 #include "../include/version.h"
 #include "../include/display_integration.h"
 #include "../include/lusush_memory_pool.h"
+#include "lle/adaptive_terminal_integration.h"
 
 #include <getopt.h>
 #include <locale.h>
@@ -249,7 +250,7 @@ int init(int argc, char **argv, FILE **in) {
     bool stdin_is_terminal = isatty(STDIN_FILENO);
     
     // Debug: Show TTY detection details
-    const char *debug_env = getenv("READLINE_DEBUG");
+    const char *debug_env = getenv("LUSUSH_DEBUG");
     if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
         fprintf(stderr, "[INIT] TTY Detection: STDIN_FILENO=%d, isatty()=%s\n",
                 STDIN_FILENO, stdin_is_terminal ? "true" : "false");
@@ -311,31 +312,41 @@ int init(int argc, char **argv, FILE **in) {
                 process_shebang(*in);
             }
         }
-    } else if (forced_interactive || (stdin_is_terminal && !shell_opts.stdin_mode)) {
-        // Interactive shell: enhanced detection OR forced with -i
+    } else if (lle_adaptive_should_shell_be_interactive(forced_interactive,
+                                                         has_script_file,
+                                                         shell_opts.stdin_mode)) {
+        /*
+         * Interactive shell detection using LLE adaptive terminal system.
+         * This handles:
+         * - Traditional TTY detection (stdin/stdout are terminals)
+         * - Editor terminals (Zed, VS Code, Cursor) with non-TTY stdin
+         * - Terminal multiplexers (tmux, screen)
+         * - Force interactive flag (-i)
+         */
         IS_INTERACTIVE_SHELL = true;
         SHELL_TYPE = SHELL_INTERACTIVE;
         *in = stdin;
         
         // Debug: Show interactive detection
-        const char *debug_env = getenv("READLINE_DEBUG");
+        const char *debug_env = getenv("LUSUSH_DEBUG");
         if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-            fprintf(stderr, "[INIT] Interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+            fprintf(stderr, "[INIT] Interactive shell detected via adaptive detection\n");
+            fprintf(stderr, "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
                     stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");
-            fprintf(stderr, "[INIT] Using readline integration for interactive terminal\n");
         }
     } else {
-        // Non-interactive: piped input, -s mode, or stdin not a terminal
+        // Non-interactive: piped input, -s mode, or no capable terminal
         IS_INTERACTIVE_SHELL = false;
         SHELL_TYPE = SHELL_NON_INTERACTIVE;
         *in = stdin;
         
         // Debug: Show non-interactive detection
-        const char *debug_env = getenv("READLINE_DEBUG");
+        const char *debug_env = getenv("LUSUSH_DEBUG");
         if (debug_env && (strcmp(debug_env, "1") == 0 || strcmp(debug_env, "true") == 0)) {
-            fprintf(stderr, "[INIT] Non-interactive shell detected: forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
+            fprintf(stderr, "[INIT] Non-interactive shell (adaptive detection)\n");
+            fprintf(stderr, "[INIT]   forced=%s, stdin_is_terminal=%s, stdin_mode=%s\n",
                     forced_interactive ? "true" : "false",
                     stdin_is_terminal ? "true" : "false",
                     shell_opts.stdin_mode ? "true" : "false");

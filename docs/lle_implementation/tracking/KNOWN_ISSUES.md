@@ -10,7 +10,7 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **6 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **7 Active Issues** - Display controller in editor terminals (1 LOW), Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
 - ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/rmdir (Session 53, 2025-12-21)
 - ℹ️ **Issue #18 Clarified** - pushd/popd are bash extensions, not POSIX; not implemented in lusush (future work)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
@@ -36,6 +36,52 @@
 ---
 
 ## Active Issues
+
+### Issue #19: Display Controller Initialization Fails in Editor Terminals
+**Severity**: LOW  
+**Discovered**: 2025-12-21 (Session 54 - adaptive terminal testing)  
+**Status**: Not yet investigated  
+**Component**: src/display/display_controller.c  
+
+**Description**:
+When lusush runs in editor terminals (Zed, VS Code) that have non-TTY stdin but capable stdout, the display controller initialization fails with error 3:
+
+```
+[DC_ERROR] display_controller_init:1199: Failed to initialize base terminal (error 3) - using defaults
+```
+
+The shell still functions correctly because it falls back to defaults, but this indicates the display controller's terminal initialization doesn't handle the enhanced/editor terminal mode properly.
+
+**Reproduction**:
+Run lusush in Zed's terminal panel (or similar editor terminal):
+```bash
+echo "echo test; exit" | ./builddir/lusush
+```
+
+**Context**:
+This was discovered while testing the new adaptive terminal detection integration. The adaptive detection correctly identifies Zed as an interactive terminal (`TERM_PROGRAM=zed`, `force_interactive=true`), but the display controller's base terminal initialization still fails.
+
+**Likely Cause**:
+The display controller's terminal initialization probably checks `isatty(STDIN_FILENO)` and fails when stdin is not a TTY, even though the terminal is capable (stdout is TTY, supports colors, cursor positioning, etc.).
+
+**Impact**:
+- Shell functions correctly (falls back to defaults)
+- Some advanced display features may be disabled
+- Error message visible in debug output
+
+**Workaround**:
+None needed - shell works correctly with fallback defaults.
+
+**Priority**: LOW (shell works, cosmetic error message)
+
+**Resolution Plan**:
+1. Investigate `display_controller_init()` at line 1199
+2. Check if it can use adaptive terminal detection results instead of raw `isatty()` checks
+3. Allow initialization to succeed for enhanced/editor terminal modes
+
+**Status**: DOCUMENTED - Needs investigation
+
+---
 
 ### Issue #18: pushd/popd Not Implemented (Bash Extension)
 **Severity**: LOW  

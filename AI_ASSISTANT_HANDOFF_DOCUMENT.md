@@ -87,6 +87,31 @@
    - Updated `meson.build`
    - Cleaned up all v2/V2 references in comments and test descriptions
 
+2. **Integrated LLE adaptive terminal detection into shell init**: The shell now uses
+   `lle_adaptive_should_shell_be_interactive()` instead of simple `isatty()` checks
+   for determining interactive mode.
+   
+   **Benefits:**
+   - Editor terminals (Zed, VS Code, Cursor) automatically detected as interactive
+   - Terminal multiplexers (tmux, screen) properly handled
+   - No longer requires `-i` flag for capable terminals with non-TTY stdin
+   - Works with both GNU readline (default) and LLE modes
+   
+   **Changes:**
+   - Added `#include "lle/adaptive_terminal_integration.h"` to `src/init.c`
+   - Replaced `forced_interactive || (stdin_is_terminal && !shell_opts.stdin_mode)` 
+     with `lle_adaptive_should_shell_be_interactive()` call
+   - Renamed debug env var from `READLINE_DEBUG` to `LUSUSH_DEBUG` in init.c
+   
+   **Testing in Zed:**
+   - `TERM_PROGRAM=zed` detected correctly
+   - `stdin_is_terminal=false` but still detected as interactive
+   - Shell prompt and features work correctly
+   
+   **Known Issue Documented (Issue #19):**
+   - Display controller init fails in editor terminals (falls back to defaults)
+   - Shell still works correctly, cosmetic error only
+
 ### Session 53 Accomplishments
 
 1. **Fixed command-aware directory completion (Issue #17)**: Commands like `cd` and
