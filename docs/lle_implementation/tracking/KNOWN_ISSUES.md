@@ -71,17 +71,26 @@ User-set PS1/PS2 should be respected. The theme system should only generate prom
 - Issue #21 (theme system not user-extensible)
 - Issue #22 (template variables not implemented)
 
-**Real Fix Required**:
-1. **Detect user customization**: Track whether PS1/PS2 were set by user vs by theme
-2. **Respect user choice**: If user sets PS1/PS2, don't overwrite unless theme system explicitly enabled
-3. **Config option**: Add `prompt.use_theme = true/false` to allow user to disable theme prompts
-4. **Theme disable**: The `theme` and `config` builtins should have options to disable theme system entirely
-5. **Startup precedence**: User's ~/.lusushrc or startup scripts should be able to override theme defaults
+**Existing Builtins Do NOT Help**:
+- `theme` builtin: Only has `list`, `set`, `info`, `colors`, `preview`, `stats`, `symbols`, `help`
+  - **NO `theme off` or `theme disable` command exists**
+- `display` builtin: Controls LLE features (autosuggestions, syntax, multiline)
+  - **Does NOT control theme/prompt system at all**
+- `config` builtin: No `prompt.use_theme` option exists
+  - Cannot disable theme-based prompt generation
 
-**Note**: The config system has `theme_name` and `theme_*` options, but there's no way to say "don't use themes at all, respect my PS1".
+Even disabling LLE with `display lle disable` does NOT stop themes from overwriting PS1/PS2 - the theme system is completely independent of LLE.
+
+**Real Fix Required**:
+1. **Add `theme off|on` commands**: Allow users to disable/enable theme-based prompts
+2. **Add `prompt.use_theme` config option**: Persist the setting
+3. **Detect user customization**: Track whether PS1/PS2 were set by user vs by theme
+4. **Respect user choice**: If themes disabled OR user set PS1/PS2, don't overwrite
+5. **Startup precedence**: User's ~/.lusushrc or startup scripts should be able to override theme defaults
+6. **LLE context-aware prompts**: Should also be configurable (Spec 13 User Customization)
 
 **Workaround**:
-None currently - theme always overwrites PS1/PS2.
+None currently - theme always overwrites PS1/PS2. There is no way to disable themes.
 
 **Priority**: HIGH (violates core design principle of user choice)
 
