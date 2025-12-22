@@ -297,6 +297,17 @@ Instead of expected:
 
 The prompt `(feature/lle +*) $` was truncated to `(f` and the command `cd -` merged into the prompt line.
 
+**Additional Reproduction Notes** (2025-12-22):
+- Bug appears more consistently reproducible when cd'ing into `/tmp` directory on Fedora Linux
+- Fedora uses swap on zram which may affect timing/memory behavior
+- Example reproduction on Fedora:
+  ```bash
+  $ cd /tmp/unicode_test
+  [mberry@fedora-xps13.local] /tmp (fcd /tmp
+  ```
+  The display shows `fcd /tmp` overlaid on the prompt area after the `cd` command completes.
+- May be related to directory changes that significantly alter prompt length (path component changes)
+
 **Additional Symptom Observed**:
 When first typing "ec" to test autosuggestions, the 'c' character was not displayed although the cursor moved. Backspacing and retyping displayed correctly. Could not reproduce.
 
