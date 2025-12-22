@@ -960,7 +960,9 @@ if fs.exists('tests/unit/test_continuation_prompt_layer.c')
                                         'src/display/continuation_prompt_layer.c',
                                         'src/display/layer_events.c',
                                         'src/input_continuation.c',
-                                        'src/symtable.c'],
+                                        'src/symtable.c',
+                                        'src/lle/unicode/utf8_support.c',
+                                        'src/lle/unicode/unicode_grapheme.c'],
                                        include_directories: inc,
                                        dependencies: [readline_dep])
   test('Continuation Prompt Layer', test_continuation_prompt,

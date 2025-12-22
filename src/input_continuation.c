@@ -5,33 +5,28 @@
  * Line Editing Engine (LLE) and the main input system.
  * 
  * UTF-8 Support:
- * This module properly handles multi-byte UTF-8 characters. While shell
- * syntax characters (quotes, brackets, etc.) are all ASCII, we must
- * properly skip over UTF-8 multi-byte sequences to avoid misinterpreting
- * continuation bytes as syntax characters.
+ * This module uses LLE's UTF-8 support to properly handle multi-byte
+ * characters. While shell syntax characters (quotes, brackets, etc.) are
+ * all ASCII, we must properly skip over UTF-8 multi-byte sequences to
+ * avoid misinterpreting continuation bytes as syntax characters.
  */
 
 #include "../include/input_continuation.h"
 #include "../include/symtable.h"
+#include "lle/utf8_support.h"
 
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
 // ============================================================================
-// UTF-8 HELPER (self-contained, no LLE dependency)
+// UTF-8 HELPER (uses LLE's UTF-8 support)
 // ============================================================================
 
 /**
- * Get the byte length of a UTF-8 character from its first byte.
- * 
- * UTF-8 encoding:
- *   0xxxxxxx = 1 byte  (ASCII, 0x00-0x7F)
- *   110xxxxx = 2 bytes (0xC0-0xDF)
- *   1110xxxx = 3 bytes (0xE0-0xEF)
- *   11110xxx = 4 bytes (0xF0-0xF7)
- * 
- * Returns 1 for ASCII, 2-4 for multi-byte, 1 for invalid (safe fallback).
+ * Get the byte length of a UTF-8 character at the given position.
+ * Returns 1 for ASCII characters, 2-4 for multi-byte sequences.
+ * Returns 1 for invalid sequences (safe fallback).
  */
 static int utf8_char_len(const char *p) {
     if (!p || !*p) return 0;
@@ -41,40 +36,15 @@ static int utf8_char_len(const char *p) {
     // ASCII (0x00-0x7F) - single byte
     if (c < 0x80) return 1;
     
-    // Continuation byte (0x80-0xBF) - invalid as first byte, skip 1
-    if (c < 0xC0) return 1;
+    // Use LLE's UTF-8 sequence length detection
+    int len = lle_utf8_sequence_length(c);
     
-    // 2-byte sequence (0xC0-0xDF)
-    if (c < 0xE0) {
-        // Validate: next byte must be continuation (10xxxxxx)
-        if (((unsigned char)p[1] & 0xC0) == 0x80) {
-            return 2;
-        }
-        return 1;  // Invalid, skip 1
+    // Validate the sequence
+    if (len > 1 && lle_utf8_is_valid_sequence(p, len)) {
+        return len;
     }
     
-    // 3-byte sequence (0xE0-0xEF)
-    if (c < 0xF0) {
-        // Validate: next 2 bytes must be continuations
-        if (((unsigned char)p[1] & 0xC0) == 0x80 &&
-            ((unsigned char)p[2] & 0xC0) == 0x80) {
-            return 3;
-        }
-        return 1;  // Invalid, skip 1
-    }
-    
-    // 4-byte sequence (0xF0-0xF7)
-    if (c < 0xF8) {
-        // Validate: next 3 bytes must be continuations
-        if (((unsigned char)p[1] & 0xC0) == 0x80 &&
-            ((unsigned char)p[2] & 0xC0) == 0x80 &&
-            ((unsigned char)p[3] & 0xC0) == 0x80) {
-            return 4;
-        }
-        return 1;  // Invalid, skip 1
-    }
-    
-    // Invalid first byte (0xF8-0xFF), skip 1
+    // Invalid sequence - skip one byte
     return 1;
 }
 

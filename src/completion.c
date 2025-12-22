@@ -10,6 +10,7 @@
 #include "../include/network.h"
 #include "../include/symtable.h"
 #include "../include/termcap.h"
+#include "lle/unicode_compare.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -19,6 +20,22 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+/**
+ * Unicode-aware prefix matching for completion.
+ * 
+ * Uses NFC normalization to handle equivalent Unicode sequences
+ * (e.g., "café" with precomposed é vs decomposed e + combining acute).
+ * 
+ * This is important for file completion where filenames may be stored
+ * with different Unicode normalization forms depending on the filesystem.
+ */
+static bool unicode_prefix_match(const char *prefix, const char *str) {
+    if (!prefix || !str) return false;
+    if (!*prefix) return true;  // Empty prefix matches everything
+    
+    return lle_unicode_is_prefix_z(prefix, str, NULL);
+}
 
 // Cached fuzzy match options based on config
 static fuzzy_match_options_t g_fuzzy_options = {
@@ -400,9 +417,10 @@ void complete_files(const char *text, lusush_completions_t *lc) {
                 continue;
             }
 
-            // Enhanced file completion with fuzzy matching
-            bool exact_match =
-                (strncmp(entry->d_name, file_prefix, prefix_len) == 0);
+            // Enhanced file completion with Unicode-aware prefix matching
+            // Use unicode_prefix_match to handle different normalization forms
+            // (e.g., NFC vs NFD on different filesystems like HFS+ vs ext4)
+            bool exact_match = unicode_prefix_match(file_prefix, entry->d_name);
             bool fuzzy_match = false;
 
             if (!exact_match && prefix_len > 0) {
@@ -503,6 +521,9 @@ void complete_variables(const char *text, lusush_completions_t *lc) {
 
 /**
  * Complete from history (fallback)
+ * 
+ * Uses Unicode-aware prefix matching to handle history entries
+ * that may contain characters with different normalization forms.
  */
 void complete_history(const char *text, lusush_completions_t *lc) {
     if (!text) {
@@ -514,7 +535,8 @@ void complete_history(const char *text, lusush_completions_t *lc) {
     char *line = NULL;
 
     while ((line = (char*)lusush_history_get(i)) != NULL) {
-        if (strncmp(line, text, text_len) == 0 && strlen(line) > text_len) {
+        // Use Unicode prefix matching for history entries
+        if (unicode_prefix_match(text, line) && strlen(line) > text_len) {
             lusush_add_completion(lc, line);
         }
         free(line);

@@ -4,6 +4,10 @@
  * Phase 3 Target 2: Advanced Configuration Themes
  * Comprehensive theming system with color schemes, prompt templates,
  * corporate branding, and enterprise customization capabilities
+ *
+ * UTF-8 Support:
+ * Uses LLE's UTF-8 display width functions for proper alignment of
+ * Unicode text in prompts and branding displays.
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -19,6 +23,7 @@
 #include "../include/strings.h"
 #include "../include/symtable.h"
 #include "../include/termcap.h"
+#include "lle/utf8_support.h"
 
 #include <sys/time.h>
 
@@ -2095,10 +2100,12 @@ void theme_display_startup_branding(void) {
         const char *reset = use_colors ? "\001\033[0m\002" : "";
         
         // Center the company name if terminal is wide enough
+        // Use Unicode display width for proper alignment with CJK/emoji
         if (terminal_width >= 40) {
             char company_text[256];
             snprintf(company_text, sizeof(company_text), "%s Shell Environment", current_branding.company_name);
-            int padding = (terminal_width - strlen(company_text)) / 2;
+            size_t display_width = lle_utf8_string_width(company_text, strlen(company_text));
+            int padding = (terminal_width - (int)display_width) / 2;
             if (padding > 0) {
                 printf("%*s", padding, "");
             }
