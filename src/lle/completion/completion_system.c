@@ -1,5 +1,5 @@
 /*
- * Lusush Shell - LLE Completion System V2 Implementation
+ * Lusush Shell - LLE Completion System Implementation
  * Copyright (C) 2021-2025  Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
@@ -9,13 +9,13 @@
  *
  * ============================================================================
  *
- * COMPLETION SYSTEM V2 - Spec 12 Core Implementation
+ * COMPLETION SYSTEM - Spec 12 Core Implementation
  *
  * Enhanced completion system with proper architecture.
  * This FIXES the duplicate and categorization bugs.
  */
 
-#include "lle/completion/completion_system_v2.h"
+#include "lle/completion/completion_system.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,13 +24,13 @@
 // ============================================================================
 
 lle_result_t
-lle_completion_system_v2_create(lle_memory_pool_t *pool,
-                                lle_completion_system_v2_t **out_system) {
+lle_completion_system_create(lle_memory_pool_t *pool,
+                                lle_completion_system_t **out_system) {
     if (!pool || !out_system) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
 
-    lle_completion_system_v2_t *system = lle_pool_alloc(sizeof(*system));
+    lle_completion_system_t *system = lle_pool_alloc(sizeof(*system));
     if (!system) {
         return LLE_ERROR_OUT_OF_MEMORY;
     }
@@ -52,7 +52,7 @@ lle_completion_system_v2_create(lle_memory_pool_t *pool,
     return LLE_SUCCESS;
 }
 
-void lle_completion_system_v2_destroy(lle_completion_system_v2_t *system) {
+void lle_completion_system_destroy(lle_completion_system_t *system) {
     if (!system) {
         return;
     }
@@ -70,7 +70,7 @@ void lle_completion_system_v2_destroy(lle_completion_system_v2_t *system) {
     /* Memory is pool-allocated */
 }
 
-void lle_completion_system_v2_clear(lle_completion_system_v2_t *system) {
+void lle_completion_system_clear(lle_completion_system_t *system) {
     if (!system) {
         return;
     }
@@ -165,7 +165,7 @@ static lle_result_t sort_results(lle_completion_result_t *result) {
 // ============================================================================
 
 lle_result_t
-lle_completion_system_v2_generate(lle_completion_system_v2_t *system,
+lle_completion_system_generate(lle_completion_system_t *system,
                                   const char *buffer, size_t cursor_pos,
                                   lle_completion_result_t **out_result) {
     if (!system || !buffer || !out_result) {
@@ -265,22 +265,22 @@ lle_completion_system_v2_generate(lle_completion_system_v2_t *system,
 // STATE QUERIES
 // ============================================================================
 
-bool lle_completion_system_v2_is_active(
-    const lle_completion_system_v2_t *system) {
+bool lle_completion_system_is_active(
+    const lle_completion_system_t *system) {
     return system && system->current_state && system->current_state->active;
 }
 
-bool lle_completion_system_v2_is_menu_visible(
-    const lle_completion_system_v2_t *system) {
+bool lle_completion_system_is_menu_visible(
+    const lle_completion_system_t *system) {
     return system && system->menu != NULL;
 }
 
 lle_completion_state_t *
-lle_completion_system_v2_get_state(lle_completion_system_v2_t *system) {
+lle_completion_system_get_state(lle_completion_system_t *system) {
     return system ? system->current_state : NULL;
 }
 
 lle_completion_menu_state_t *
-lle_completion_system_v2_get_menu(lle_completion_system_v2_t *system) {
+lle_completion_system_get_menu(lle_completion_system_t *system) {
     return system ? system->menu : NULL;
 }

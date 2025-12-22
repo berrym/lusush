@@ -215,7 +215,7 @@ lle_sources += files(
   'completion/context_analyzer.c',
   'completion/source_manager.c',
   'completion/completion_state.c',
-  'completion/completion_system_v2.c',
+  'completion/completion_system.c',
 )
 
 # ============================================================================

@@ -12,7 +12,7 @@
 
 #include "lle/lle_editor.h"
 #include "lle/buffer_management.h"
-#include "lle/completion/completion_system_v2.h"
+#include "lle/completion/completion_system.h"
 #include "lle/error_handling.h"
 #include "lle/kill_ring.h"
 #include "lle/memory_management.h"
@@ -122,8 +122,8 @@ lle_result_t lle_editor_create(lle_editor_t **editor,
     ed->buffer->change_tracking_enabled = true;
 
     /* Create completion system (Spec 12) using unified pool */
-    result = lle_completion_system_v2_create(ed->lle_pool,
-                                             &ed->completion_system_v2);
+    result = lle_completion_system_create(ed->lle_pool,
+                                             &ed->completion_system);
     if (result != LLE_SUCCESS) {
         lle_change_tracker_destroy(ed->change_tracker);
         lle_kill_ring_destroy(ed->kill_ring);
@@ -217,10 +217,10 @@ lle_result_t lle_editor_destroy(lle_editor_t *editor) {
      * should have their own destroy functions called if they're not NULL.
      * For now, we only handle the core subsystems we initialize. */
 
-    /* Destroy completion system v2 (Spec 12) */
-    if (editor->completion_system_v2) {
-        lle_completion_system_v2_destroy(editor->completion_system_v2);
-        editor->completion_system_v2 = NULL;
+    /* Destroy completion system (Spec 12) */
+    if (editor->completion_system) {
+        lle_completion_system_destroy(editor->completion_system);
+        editor->completion_system = NULL;
     }
 
     /* Destroy change tracker */

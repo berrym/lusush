@@ -106,8 +106,8 @@ typedef struct lle_editor {
     lle_display_controller_t *display_controller; /* Display management */
 
     /* Completion */
-    struct lle_completion_system_v2
-        *completion_system_v2; /* Tab completion (Spec 12) */
+    struct lle_completion_system
+        *completion_system; /* Tab completion (Spec 12) */
 
     /* Editing mode and state */
     lle_editing_mode_t editing_mode;  /* Current editing mode */

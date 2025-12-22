@@ -1,5 +1,5 @@
 /*
- * Lusush Shell - LLE Completion System V2 (Spec 12)
+ * Lusush Shell - LLE Completion System (Spec 12)
  * Copyright (C) 2021-2025  Michael Berry
  *
  * This program is free software: you can redistribute it and/or modify
@@ -9,7 +9,7 @@
  *
  * ============================================================================
  *
- * COMPLETION SYSTEM V2 - Spec 12 Core Implementation
+ * COMPLETION SYSTEM - Spec 12 Core Implementation
  *
  * Enhanced completion system with proper architecture:
  * - Context analysis (understand what we're completing)
@@ -23,8 +23,8 @@
  * - No context awareness
  */
 
-#ifndef LLE_COMPLETION_SYSTEM_V2_H
-#define LLE_COMPLETION_SYSTEM_V2_H
+#ifndef LLE_COMPLETION_SYSTEM_H
+#define LLE_COMPLETION_SYSTEM_H
 
 #include "lle/completion/completion_menu_state.h"
 #include "lle/completion/completion_state.h"
@@ -41,7 +41,7 @@ extern "C" {
 /**
  * Enhanced completion system - Spec 12 architecture
  */
-typedef struct lle_completion_system_v2 {
+typedef struct lle_completion_system {
     /* Core engines */
     lle_source_manager_t *source_manager; /* Manage completion sources */
 
@@ -56,7 +56,7 @@ typedef struct lle_completion_system_v2 {
     bool enable_history_source; /* Use history as source */
     bool enable_fuzzy_matching; /* Future: fuzzy matching */
     size_t max_completions;     /* Limit results */
-} lle_completion_system_v2_t;
+} lle_completion_system_t;
 
 // ============================================================================
 // LIFECYCLE FUNCTIONS
@@ -70,22 +70,22 @@ typedef struct lle_completion_system_v2 {
  * @return LLE_SUCCESS or error code
  */
 lle_result_t
-lle_completion_system_v2_create(lle_memory_pool_t *pool,
-                                lle_completion_system_v2_t **out_system);
+lle_completion_system_create(lle_memory_pool_t *pool,
+                                lle_completion_system_t **out_system);
 
 /**
  * Destroy enhanced completion system
  *
  * @param system System to destroy
  */
-void lle_completion_system_v2_destroy(lle_completion_system_v2_t *system);
+void lle_completion_system_destroy(lle_completion_system_t *system);
 
 /**
  * Clear active completion
  *
  * @param system Completion system
  */
-void lle_completion_system_v2_clear(lle_completion_system_v2_t *system);
+void lle_completion_system_clear(lle_completion_system_t *system);
 
 // ============================================================================
 // COMPLETION GENERATION (Spec 12 Core)
@@ -107,7 +107,7 @@ void lle_completion_system_v2_clear(lle_completion_system_v2_t *system);
  * @return LLE_SUCCESS or error code
  */
 lle_result_t
-lle_completion_system_v2_generate(lle_completion_system_v2_t *system,
+lle_completion_system_generate(lle_completion_system_t *system,
                                   const char *buffer, size_t cursor_pos,
                                   lle_completion_result_t **out_result);
 
@@ -121,8 +121,8 @@ lle_completion_system_v2_generate(lle_completion_system_v2_t *system,
  * @param system Completion system
  * @return true if active
  */
-bool lle_completion_system_v2_is_active(
-    const lle_completion_system_v2_t *system);
+bool lle_completion_system_is_active(
+    const lle_completion_system_t *system);
 
 /**
  * Check if menu is visible
@@ -130,8 +130,8 @@ bool lle_completion_system_v2_is_active(
  * @param system Completion system
  * @return true if menu visible
  */
-bool lle_completion_system_v2_is_menu_visible(
-    const lle_completion_system_v2_t *system);
+bool lle_completion_system_is_menu_visible(
+    const lle_completion_system_t *system);
 
 /**
  * Get current completion state
@@ -140,7 +140,7 @@ bool lle_completion_system_v2_is_menu_visible(
  * @return Current state or NULL
  */
 lle_completion_state_t *
-lle_completion_system_v2_get_state(lle_completion_system_v2_t *system);
+lle_completion_system_get_state(lle_completion_system_t *system);
 
 /**
  * Get menu state
@@ -149,10 +149,10 @@ lle_completion_system_v2_get_state(lle_completion_system_v2_t *system);
  * @return Menu state or NULL
  */
 lle_completion_menu_state_t *
-lle_completion_system_v2_get_menu(lle_completion_system_v2_t *system);
+lle_completion_system_get_menu(lle_completion_system_t *system);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* LLE_COMPLETION_SYSTEM_V2_H */
+#endif /* LLE_COMPLETION_SYSTEM_H */

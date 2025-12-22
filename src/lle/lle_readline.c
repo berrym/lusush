@@ -61,7 +61,7 @@
 #include "display_integration.h" /* Lusush display integration */
 #include "input_continuation.h"
 #include "lle/buffer_management.h"
-#include "lle/completion/completion_system_v2.h" /* Completion system for menu visibility */
+#include "lle/completion/completion_system.h" /* Completion system for menu visibility */
 #include "lle/display_integration.h" /* Spec 08: Complete display integration */
 #include "lle/error_handling.h"
 #include "lle/event_system.h"
@@ -471,9 +471,9 @@ lle_result_t lle_forward_char_or_accept_suggestion(readline_context_t *ctx) {
     if (ctx->editor) {
         bool menu_active = false;
 
-        if (ctx->editor->completion_system_v2 &&
-            lle_completion_system_v2_is_menu_visible(
-                ctx->editor->completion_system_v2)) {
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
             menu_active = true;
         }
 
@@ -917,11 +917,11 @@ static lle_result_t handle_character_input(lle_event_t *event,
     if (ctx->editor) {
         bool menu_cleared = false;
 
-        /* Check and clear v2 completion system */
-        if (ctx->editor->completion_system_v2 &&
-            lle_completion_system_v2_is_menu_visible(
-                ctx->editor->completion_system_v2)) {
-            lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+        /* Check and clear completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
+            lle_completion_system_clear(ctx->editor->completion_system);
             menu_cleared = true;
         }
 
@@ -1124,14 +1124,14 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
     /* If completion menu is active, accept the selected completion instead of
      * the line */
     if (ctx->editor) {
-        /* Check v2 completion system first */
-        if (ctx->editor->completion_system_v2 &&
-            lle_completion_system_v2_is_menu_visible(
-                ctx->editor->completion_system_v2)) {
+        /* Check completion system first */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
 
             /* NOTE: The inline preview has already updated the buffer with the
              * selected completion text. When navigating completions
-             * (UP/DOWN/TAB), update_inline_completion_v2() replaces the current
+             * (UP/DOWN/TAB), update_inline_completion() replaces the current
              * word with each selected item. So the buffer already contains the
              * correct text.
              *
@@ -1141,7 +1141,7 @@ lle_result_t lle_accept_line_context(readline_context_t *ctx) {
              */
 
             /* Clear the completion menu */
-            lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+            lle_completion_system_clear(ctx->editor->completion_system);
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
                 display_controller_clear_completion_menu(dc);
@@ -1366,18 +1366,18 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
     if (ctx->editor) {
         bool menu_visible = false;
 
-        /* Check v2 completion system */
-        if (ctx->editor->completion_system_v2 &&
-            lle_completion_system_v2_is_menu_visible(
-                ctx->editor->completion_system_v2)) {
+        /* Check completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
             menu_visible = true;
         }
 
         if (menu_visible) {
             /* Dismiss completion menu - don't abort line yet */
-            if (ctx->editor->completion_system_v2) {
-                lle_completion_system_v2_clear(
-                    ctx->editor->completion_system_v2);
+            if (ctx->editor->completion_system) {
+                lle_completion_system_clear(
+                    ctx->editor->completion_system);
             }
 
             /* Clear menu from display controller */
@@ -1430,8 +1430,8 @@ lle_result_t lle_abort_line_context(readline_context_t *ctx) {
 
     /* Clear completion system state (CRITICAL: must clear both system AND
      * display) */
-    if (ctx->editor && ctx->editor->completion_system_v2) {
-        lle_completion_system_v2_clear(ctx->editor->completion_system_v2);
+    if (ctx->editor && ctx->editor->completion_system) {
+        lle_completion_system_clear(ctx->editor->completion_system);
     }
 
     display_controller_t *dc = display_integration_get_controller();
@@ -1489,10 +1489,10 @@ lle_result_t lle_escape_context(readline_context_t *ctx) {
     if (ctx->editor) {
         bool menu_visible = false;
 
-        /* Check v2 completion system */
-        if (ctx->editor->completion_system_v2 &&
-            lle_completion_system_v2_is_menu_visible(
-                ctx->editor->completion_system_v2)) {
+        /* Check completion system */
+        if (ctx->editor->completion_system &&
+            lle_completion_system_is_menu_visible(
+                ctx->editor->completion_system)) {
             menu_visible = true;
         }
 
@@ -1503,9 +1503,9 @@ lle_result_t lle_escape_context(readline_context_t *ctx) {
              * implemented. Current behavior matches many shells where ESC
              * just dismisses the menu without reverting the text. */
 
-            if (ctx->editor->completion_system_v2) {
-                lle_completion_system_v2_clear(
-                    ctx->editor->completion_system_v2);
+            if (ctx->editor->completion_system) {
+                lle_completion_system_clear(
+                    ctx->editor->completion_system);
             }
 
             /* Clear menu from display controller */
@@ -2707,9 +2707,9 @@ char *lle_readline(const char *prompt) {
             write(STDOUT_FILENO, "^C\n", 3);
 
             /* Clear any completion menu or autosuggestion */
-            if (ctx.editor && ctx.editor->completion_system_v2) {
-                lle_completion_system_v2_clear(
-                    ctx.editor->completion_system_v2);
+            if (ctx.editor && ctx.editor->completion_system) {
+                lle_completion_system_clear(
+                    ctx.editor->completion_system);
             }
             display_controller_t *dc = display_integration_get_controller();
             if (dc) {
@@ -3046,10 +3046,10 @@ char *lle_readline(const char *prompt) {
             /* Step 7: Window resize - refresh display with new dimensions */
             /* If completion menu is active, recalculate layout for new terminal
              * width */
-            if (ctx.editor && ctx.editor->completion_system_v2) {
+            if (ctx.editor && ctx.editor->completion_system) {
                 lle_completion_menu_state_t *menu =
-                    lle_completion_system_v2_get_menu(
-                        ctx.editor->completion_system_v2);
+                    lle_completion_system_get_menu(
+                        ctx.editor->completion_system);
                 if (menu && menu->menu_active) {
                     size_t new_width = event->data.resize.new_width;
                     lle_completion_menu_update_layout(menu, new_width);

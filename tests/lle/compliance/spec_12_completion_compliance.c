@@ -23,7 +23,7 @@
 #include "lle/completion/completion_menu_state.h"
 #include "lle/completion/completion_menu_logic.h"
 #include "lle/completion/completion_menu_renderer.h"
-#include "lle/completion/completion_system_v2.h"
+#include "lle/completion/completion_system.h"
 #include "lle/error_handling.h"
 #include <stdio.h>
 #include <string.h>
@@ -364,12 +364,12 @@ void test_phase5_1_api_functions(void) {
 }
 
 /**
- * @brief Test: Verify completion system V2 structure exists (Spec 12)
+ * @brief Test: Verify completion system structure exists (Spec 12)
  */
 void test_completion_system_structure(void) {
-    printf("[ TEST ] Completion system V2 structure (Spec 12)\n");
+    printf("[ TEST ] Completion system structure (Spec 12)\n");
     
-    lle_completion_system_v2_t system;
+    lle_completion_system_t system;
     memset(&system, 0, sizeof(system));
     
     /* Verify all required fields exist */
@@ -396,42 +396,42 @@ void test_completion_system_structure(void) {
     TEST_ASSERT(sizeof(system.max_completions) == sizeof(size_t), 
                 "max_completions field exists");
     
-    printf("[ PASS ] Completion system V2 structure (Spec 12)\n");
+    printf("[ PASS ] Completion system structure (Spec 12)\n");
 }
 
 /**
- * @brief Test: Verify Spec 12 API functions exist (completion_system_v2)
+ * @brief Test: Verify Spec 12 API functions exist (completion_system)
  */
 void test_phase5_4_api_functions(void) {
-    printf("[ TEST ] Spec 12 API functions (completion_system_v2)\n");
+    printf("[ TEST ] Spec 12 API functions (completion_system)\n");
     
     /* Lifecycle functions */
-    void (*create_fn)(void) = (void(*)(void))lle_completion_system_v2_create;
-    TEST_ASSERT(create_fn != NULL, "lle_completion_system_v2_create exists");
+    void (*create_fn)(void) = (void(*)(void))lle_completion_system_create;
+    TEST_ASSERT(create_fn != NULL, "lle_completion_system_create exists");
     
-    void (*destroy_fn)(void) = (void(*)(void))lle_completion_system_v2_destroy;
-    TEST_ASSERT(destroy_fn != NULL, "lle_completion_system_v2_destroy exists");
+    void (*destroy_fn)(void) = (void(*)(void))lle_completion_system_destroy;
+    TEST_ASSERT(destroy_fn != NULL, "lle_completion_system_destroy exists");
     
-    void (*clear_fn)(void) = (void(*)(void))lle_completion_system_v2_clear;
-    TEST_ASSERT(clear_fn != NULL, "lle_completion_system_v2_clear exists");
+    void (*clear_fn)(void) = (void(*)(void))lle_completion_system_clear;
+    TEST_ASSERT(clear_fn != NULL, "lle_completion_system_clear exists");
     
     /* Generation function */
-    void (*generate_fn)(void) = (void(*)(void))lle_completion_system_v2_generate;
-    TEST_ASSERT(generate_fn != NULL, "lle_completion_system_v2_generate exists");
+    void (*generate_fn)(void) = (void(*)(void))lle_completion_system_generate;
+    TEST_ASSERT(generate_fn != NULL, "lle_completion_system_generate exists");
     
     /* State query functions */
-    void (*is_active_fn)(void) = (void(*)(void))lle_completion_system_v2_is_active;
-    TEST_ASSERT(is_active_fn != NULL, "lle_completion_system_v2_is_active exists");
+    void (*is_active_fn)(void) = (void(*)(void))lle_completion_system_is_active;
+    TEST_ASSERT(is_active_fn != NULL, "lle_completion_system_is_active exists");
     
-    void (*is_visible_fn)(void) = (void(*)(void))lle_completion_system_v2_is_menu_visible;
-    TEST_ASSERT(is_visible_fn != NULL, "lle_completion_system_v2_is_menu_visible exists");
+    void (*is_visible_fn)(void) = (void(*)(void))lle_completion_system_is_menu_visible;
+    TEST_ASSERT(is_visible_fn != NULL, "lle_completion_system_is_menu_visible exists");
     
     /* Query functions */
-    void (*get_state_fn)(void) = (void(*)(void))lle_completion_system_v2_get_state;
-    TEST_ASSERT(get_state_fn != NULL, "lle_completion_system_v2_get_state exists");
+    void (*get_state_fn)(void) = (void(*)(void))lle_completion_system_get_state;
+    TEST_ASSERT(get_state_fn != NULL, "lle_completion_system_get_state exists");
     
-    void (*get_menu_fn)(void) = (void(*)(void))lle_completion_system_v2_get_menu;
-    TEST_ASSERT(get_menu_fn != NULL, "lle_completion_system_v2_get_menu exists");
+    void (*get_menu_fn)(void) = (void(*)(void))lle_completion_system_get_menu;
+    TEST_ASSERT(get_menu_fn != NULL, "lle_completion_system_get_menu exists");
     
     printf("[ PASS ] Spec 12 API functions (8 functions verified)\n");
 }

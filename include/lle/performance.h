@@ -46,7 +46,7 @@ typedef struct lle_display_integration_t lle_display_integration_t;
 typedef struct lle_history_system_t lle_history_system_t;
 typedef struct lle_autosuggestions_t lle_autosuggestions_t;
 typedef struct lle_syntax_highlighting_t lle_syntax_highlighting_t;
-typedef struct lle_completion_system_t lle_completion_system_t;
+typedef struct lle_completion_system lle_completion_system_t;
 typedef struct lle_user_customization_t lle_user_customization_t;
 
 /* External library forward declarations */
