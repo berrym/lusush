@@ -1,6 +1,6 @@
 # LLE Known Issues and Blockers
 
-**Date**: 2025-11-25  
+**Date**: 2025-12-21  
 **Status**: ⚠️ ACTIVE DEVELOPMENT - Known Issues Tracked  
 **Implementation Status**: Phase 1 complete, Groups 1-6 keybindings implemented, UTF-8 cell storage complete
 
@@ -10,7 +10,9 @@
 
 **Current State**: Active development - Spec 12 completion system integrated, menu fully functional
 
-- ⚠️ **6 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM), category disambiguation (1 MEDIUM)
+- ⚠️ **7 Active Issues** - Cursor desync (1 MEDIUM), Git prompt (1 MEDIUM), Tab handling (1 LOW), Syntax highlighting (2 MEDIUM + 1 LOW), category disambiguation (1 MEDIUM)
+- ✅ **Issue #17 Fixed** - Command-aware directory completion for cd/pushd/popd (Session 53, 2025-12-21)
+- ⚠️ **Issue #18 Documented** - pushd/popd not highlighted as builtins (2025-12-21)
 - ✅ **Issue #14 Documented** - Git-aware prompt not showing git info (2025-12-02)
 - ✅ **Issue #15 Documented** - Tab handling uses formula-based calculation (2025-12-02)
 - ✅ **Issue #9 Fixed** - Cursor positioning after menu display (Session 25)
@@ -34,6 +36,43 @@
 ---
 
 ## Active Issues
+
+### Issue #18: pushd/popd Not Highlighted as Builtins
+**Severity**: LOW  
+**Discovered**: 2025-12-21 (Session 53 - manual testing)  
+**Status**: Not yet fixed  
+**Component**: Syntax highlighting / builtin detection  
+
+**Description**:
+The `pushd` and `popd` commands are not highlighted green as valid builtins during real-time syntax highlighting. They remain red (invalid command color) even though they are valid shell builtins and execute correctly.
+
+**Reproduction**:
+```bash
+$ pushd    # remains red while typing, should turn green
+$ popd     # remains red while typing, should turn green
+$ cd       # correctly turns green (for comparison)
+```
+
+**Expected Behavior**:
+Both `pushd` and `popd` should be highlighted green like other builtins (cd, echo, etc.) since they are valid shell commands.
+
+**Suspected Root Cause**:
+The syntax highlighter's builtin detection (`is_shell_builtin()` or similar) may not include `pushd` and `popd` in its list of recognized builtins, or these commands may not be registered in the builtins array that the highlighter checks.
+
+**Impact**:
+- Minor visual inconsistency
+- Users may think these commands don't exist when they do
+- Does not affect functionality - commands still work
+
+**Priority**: LOW (cosmetic, commands work correctly)
+
+**Files Likely Involved**:
+- `src/lle/display/syntax_highlighting.c` - Builtin detection
+- `src/builtins/builtins.c` - Builtin registration
+
+**Status**: DOCUMENTED - Fix before merge
+
+---
 
 ### Issue #16: Intermittent Prompt/Cursor Desync Display Corruption
 **Severity**: MEDIUM  
@@ -503,6 +542,42 @@ quote> world"
 ---
 
 ## Resolved Issues
+
+### Issue #17: Command-Aware Directory Completion ✅ FIXED
+**Severity**: MEDIUM  
+**Discovered**: 2025-12-21 (Session 53)  
+**Fixed**: 2025-12-21 (Session 53)  
+**Component**: src/lle/completion/source_manager.c, src/lle/completion/completion_sources.c  
+
+**Description**:
+When using `cd`, `pushd`, `popd`, or `rmdir` commands, the completion menu showed both files and directories. For these directory-changing commands, only directories should be shown as completion candidates.
+
+**Root Cause**:
+The file source generator ignored the `context->command_name` field, always returning both files and directories regardless of what command was being completed.
+
+**Fix Applied**:
+1. Added `is_directory_only_command()` helper in `source_manager.c` to identify commands that only accept directory arguments (cd, pushd, popd, rmdir)
+
+2. Added `lle_completion_source_directories()` function in `completion_sources.c` that only returns directories (excludes regular files)
+
+3. Modified `file_source_generate()` to check `context->command_name`:
+   - If command is cd/pushd/popd/rmdir: use `lle_completion_source_directories()`
+   - Otherwise: use `lle_completion_source_files()` (both files and directories)
+
+**Files Modified**:
+- `src/lle/completion/source_manager.c` - Command-aware file source generation
+- `src/lle/completion/completion_sources.c` - Added `lle_completion_source_directories()`
+- `include/lle/completion/completion_sources.h` - Added function declaration
+
+**Verification**:
+- ✅ `cd <TAB>` shows only directories
+- ✅ `pushd <TAB>` shows only directories
+- ✅ `ls <TAB>` shows both files and directories
+- ✅ All 51 tests pass
+
+**Status**: ✅ FIXED
+
+---
 
 ### Issue #13: UP/DOWN Navigation Doesn't Preserve Column Position ✅ FIXED
 **Severity**: LOW  

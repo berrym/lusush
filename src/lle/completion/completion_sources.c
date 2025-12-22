@@ -215,9 +215,16 @@ lle_result_t lle_completion_source_commands(lle_memory_pool_t *memory_pool,
 // FILES AND DIRECTORIES SOURCE
 // ============================================================================
 
-lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
-                                         const char *prefix,
-                                         lle_completion_result_t *result) {
+/**
+ * Internal implementation that supports filtering
+ *
+ * @param directories_only If true, only return directories (for cd, pushd, etc.)
+ */
+static lle_result_t
+lle_completion_source_files_internal(lle_memory_pool_t *memory_pool,
+                                     const char *prefix,
+                                     lle_completion_result_t *result,
+                                     bool directories_only) {
     if (!memory_pool || !prefix || !result) {
         return LLE_ERROR_INVALID_PARAMETER;
     }
@@ -281,17 +288,24 @@ lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
 
         // Determine if directory or file
         struct stat st;
+        bool is_dir = false;
         lle_completion_type_t type = LLE_COMPLETION_TYPE_FILE;
         const char *suffix = "";
         int32_t score = 600;
 
         if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            is_dir = true;
             type = LLE_COMPLETION_TYPE_DIRECTORY;
             suffix = "/";
             score = 700;
         }
 
         free(full_path);
+
+        // Skip files if directories_only is set
+        if (directories_only && !is_dir) {
+            continue;
+        }
 
         // Build completion text (include directory prefix if present)
         char *completion_text = NULL;
@@ -325,6 +339,21 @@ lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
     free(dir_copy);
 
     return final_result;
+}
+
+lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
+                                         const char *prefix,
+                                         lle_completion_result_t *result) {
+    return lle_completion_source_files_internal(memory_pool, prefix, result,
+                                                false);
+}
+
+lle_result_t
+lle_completion_source_directories(lle_memory_pool_t *memory_pool,
+                                  const char *prefix,
+                                  lle_completion_result_t *result) {
+    return lle_completion_source_files_internal(memory_pool, prefix, result,
+                                                true);
 }
 
 // ============================================================================

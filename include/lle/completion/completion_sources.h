@@ -124,6 +124,18 @@ lle_result_t lle_completion_source_files(lle_memory_pool_t *memory_pool,
                                          lle_completion_result_t *result);
 
 /**
+ * Get directory-only completions (for cd, pushd, popd, etc.)
+ *
+ * @param memory_pool memory pool for allocations
+ * @param prefix path prefix to match (may include directory)
+ * @param result completion result to populate
+ * @return LLE_SUCCESS on success, error code on failure
+ */
+lle_result_t lle_completion_source_directories(lle_memory_pool_t *memory_pool,
+                                               const char *prefix,
+                                               lle_completion_result_t *result);
+
+/**
  * Get environment and shell variable completions
  *
  * @param memory_pool memory pool for allocations

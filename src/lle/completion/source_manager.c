@@ -112,16 +112,42 @@ static lle_result_t external_command_source_generate(
 }
 
 /**
- * File/directory source
+ * Check if command expects only directory arguments
+ */
+static bool is_directory_only_command(const char *command_name) {
+    if (!command_name) {
+        return false;
+    }
+
+    /* Commands that only accept directory arguments */
+    static const char *dir_commands[] = {"cd", "pushd", "popd", "rmdir", NULL};
+
+    for (const char **cmd = dir_commands; *cmd != NULL; cmd++) {
+        if (strcmp(command_name, *cmd) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * File/directory source - command-aware
+ *
+ * For commands like cd, pushd, popd: only show directories
+ * For other commands: show both files and directories
  */
 static lle_result_t file_source_generate(lle_memory_pool_t *pool,
                                          const lle_context_analyzer_t *context,
                                          const char *prefix,
                                          lle_completion_result_t *result) {
-    (void)context; /* Not needed for files */
+    /* Check if command expects directories only */
+    if (context && is_directory_only_command(context->command_name)) {
+        return lle_completion_source_directories(pool, prefix, result);
+    }
 
-    /* Use existing completion function */
-    return lle_completion_generate_arguments(pool, prefix, result);
+    /* Default: show both files and directories */
+    return lle_completion_source_files(pool, prefix, result);
 }
 
 /**
