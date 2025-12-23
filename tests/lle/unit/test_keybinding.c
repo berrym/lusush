@@ -44,7 +44,6 @@ struct lle_editor {
 
 /* Test action functions */
 static int g_action_called = 0;
-static int g_action_result = 0;
 
 static lle_result_t test_action(lle_editor_t *editor) {
     (void)editor;

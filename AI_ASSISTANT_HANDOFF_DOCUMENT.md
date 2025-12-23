@@ -63,6 +63,21 @@
 
 4. **All 51 tests pass** after cleanup.
 
+5. **Build: Fix duplicate -lncurses linker warnings**:
+   Used `partial_dependency()` to separate compile-time and link-time ncurses 
+   dependencies. Static libraries (liblle.a, libdisplay.a) now only get headers 
+   at compile time, while the ncurses link flag is propagated via 
+   `declare_dependency()` to final executables.
+
+6. **Test file warning cleanup**:
+   - Moved internal config types from config.h to config.c (config_type_t, 
+     config_enum_mapping_t, config_enum_def_t, config_option_t)
+   - Fixed inline `#include` hacks in enhanced_history.c and fc.c
+   - Fixed unused variable warnings in 6 test files using (void) casts
+   - Removed unused variables (detection_none, g_action_result)
+   - Fixed sign-compare warning in test_widget_hooks.c
+   - Result: Zero compiler warnings, 51 tests pass
+
 ### Session 50 Accomplishments
 
 1. **Fixed missing core/ directory**: The directory reorganization commit (a29ef22) 

@@ -353,9 +353,8 @@ void test_file_permissions(void) {
     TEST("History file has secure permissions (0600)");
     
     lle_history_core_t *core = NULL;
-    lle_result_t result;
     
-    result = lle_history_core_create(&core, NULL, NULL);
+    (void)lle_history_core_create(&core, NULL, NULL);
     uint64_t id;
     lle_history_add_entry(core, "test command", 0, &id);
     

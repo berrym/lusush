@@ -1,4 +1,5 @@
 #include "../../include/posix_history.h"
+#include "../../include/config.h"
 #include "../../include/errors.h"
 #include "../../include/strings.h"
 #include "../../include/symtable.h"
@@ -289,7 +290,6 @@ static void enhanced_history_usage(void) {
  */
 int bin_enhanced_history(int argc, char **argv) {
     // Check if LLE is enabled - ehistory command uses GNU readline/POSIX history API
-    #include "../../include/config.h"
     extern config_values_t config;
     if (config.use_lle) {
         fprintf(stderr, "ehistory: command disabled when LLE is enabled\n");

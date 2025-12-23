@@ -214,7 +214,7 @@ void test_query_backspace_empty(void) {
     lle_history_interactive_search_init(core, "", 0);
     
     /* Backspace on empty should not crash */
-    lle_result_t result = lle_history_interactive_search_backspace();
+    (void)lle_history_interactive_search_backspace();
     /* Should either succeed or return appropriate error */
     
     const char *query = lle_history_interactive_search_get_query();
@@ -254,7 +254,7 @@ void test_navigation_next(void) {
     ASSERT_EQ(state, LLE_SEARCH_STATE_ACTIVE, "Should have active results");
     
     /* Navigate to next result */
-    lle_result_t result = lle_history_interactive_search_next();
+    (void)lle_history_interactive_search_next();
     /* Should either succeed or indicate end of results */
     
     /* Cleanup */
@@ -281,7 +281,7 @@ void test_navigation_prev(void) {
     
     /* Navigate next then prev */
     lle_history_interactive_search_next();
-    lle_result_t result = lle_history_interactive_search_prev();
+    (void)lle_history_interactive_search_prev();
     /* Should either succeed or indicate start of results */
     
     /* Cleanup */
@@ -389,7 +389,7 @@ void test_accept_no_results(void) {
     lle_history_interactive_search_update_query('x');
     
     /* Accept with no results should not crash */
-    const char *result = lle_history_interactive_search_accept();
+    (void)lle_history_interactive_search_accept();
     /* Should return original or empty string */
     
     lle_history_core_destroy(core);

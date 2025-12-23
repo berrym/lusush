@@ -115,7 +115,7 @@ static void test_multiple_fallbacks(void) {
     
     /* Create a detection result for testing */
     lle_terminal_detection_result_t *detection = NULL;
-    lle_result_t res = lle_detect_terminal_capabilities_comprehensive(&detection);
+    (void)lle_detect_terminal_capabilities_comprehensive(&detection);
     
     if (!detection || detection->recommended_mode == LLE_ADAPTIVE_MODE_NONE) {
         printf("  Skipping multiple fallback tests (non-interactive mode)\n");
@@ -126,7 +126,7 @@ static void test_multiple_fallbacks(void) {
     /* Try to create context with native mode for maximum fallback levels */
     /* Note: We can only test modes that actually initialize */
     lle_adaptive_context_t *context = NULL;
-    res = lle_initialize_adaptive_context(&context, detection, NULL);
+    (void)lle_initialize_adaptive_context(&context, detection, NULL);
     
     if (!context) {
         lle_terminal_detection_result_destroy(detection);
@@ -173,12 +173,6 @@ static void test_fallback_errors(void) {
                "NULL context rejected");
     
     /* Test NONE mode fallback */
-    lle_terminal_detection_result_t detection_none = {
-        .recommended_mode = LLE_ADAPTIVE_MODE_NONE,
-        .stdin_is_tty = false,
-        .stdout_is_tty = false
-    };
-    
     lle_adaptive_context_t *context = calloc(1, sizeof(lle_adaptive_context_t));
     context->mode = LLE_ADAPTIVE_MODE_NONE;
     context->healthy = true;

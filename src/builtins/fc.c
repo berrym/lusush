@@ -1,4 +1,5 @@
 #include "../../include/posix_history.h"
+#include "../../include/config.h"
 #include "../../include/errors.h"
 #include "../../include/executor.h"
 #include "../../include/strings.h"
@@ -432,7 +433,6 @@ static void fc_usage(void) {
  */
 int bin_fc(int argc, char **argv) {
     // Check if LLE is enabled - fc command uses GNU readline/POSIX history API
-    #include "../../include/config.h"
     extern config_values_t config;
     if (config.use_lle) {
         fprintf(stderr, "fc: command disabled when LLE is enabled\n");

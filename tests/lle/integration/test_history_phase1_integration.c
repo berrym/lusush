@@ -318,9 +318,8 @@ void test_memory_efficiency(void) {
     TEST("Memory efficiency with 10000 entries");
     
     lle_history_core_t *core = NULL;
-    lle_result_t result;
     
-    result = lle_history_core_create(&core, NULL, NULL);
+    (void)lle_history_core_create(&core, NULL, NULL);
     
     /* Add 10000 entries */
     for (int i = 0; i < 10000; i++) {

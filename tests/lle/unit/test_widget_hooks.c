@@ -24,6 +24,7 @@ static lle_widget_hook_type_t g_last_hook_type = 0;
 
 /* Test widget callbacks */
 static lle_result_t test_hook_widget_callback(lle_editor_t *editor, void *user_data) {
+    (void)user_data;
     g_hook_callback_called = 1;
     g_hook_callback_count++;
     g_hook_editor_arg = editor;
@@ -31,6 +32,8 @@ static lle_result_t test_hook_widget_callback(lle_editor_t *editor, void *user_d
 }
 
 static lle_result_t test_hook_widget_error(lle_editor_t *editor, void *user_data) {
+    (void)editor;
+    (void)user_data;
     g_hook_callback_called = 1;
     g_hook_callback_count++;
     return LLE_ERROR_INVALID_STATE;
@@ -519,7 +522,7 @@ static void test_hook_count(void) {
         result = lle_widget_hook_register(manager, LLE_HOOK_LINE_FINISH, name);
         assert(result == LLE_SUCCESS);
 
-        assert(lle_widget_hook_get_count(manager, LLE_HOOK_LINE_FINISH) == i + 1);
+        assert(lle_widget_hook_get_count(manager, LLE_HOOK_LINE_FINISH) == (size_t)(i + 1));
     }
 
     /* Cleanup */
