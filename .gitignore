@@ -50,6 +50,15 @@ Thumbs.db
 /core
 *.core
 *.dSYM/
+vgcore.*
+
+# Compiled binaries (ELF/Mach-O executables)
+# Meson builds to builddir/, these patterns catch accidental manual builds
+tests/**/test_*
+!tests/**/*.c
+!tests/**/*.h
+!tests/**/*.sh
+!tests/**/*.md
 
 # Package manager files
 *.deb

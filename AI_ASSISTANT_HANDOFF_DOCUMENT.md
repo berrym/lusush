@@ -78,6 +78,14 @@
    - Fixed sign-compare warning in test_widget_hooks.c
    - Result: Zero compiler warnings, 51 tests pass
 
+7. **Critical repo cleanup - removed 24 ELF binaries and core dump**:
+   - Discovered 24 compiled ELF binaries accidentally committed to git
+   - Removed valgrind core dump (vgcore.651965, 6.7MB)
+   - Removed entire tests/lle/pty/ directory (debug artifacts, ~15 files)
+   - Removed orphaned Makefile from tests/lle/manual/
+   - Updated .gitignore to prevent future binary commits
+   - Total repo bloat removed: ~50+ files, several MB
+
 ### Session 50 Accomplishments
 
 1. **Fixed missing core/ directory**: The directory reorganization commit (a29ef22) 
