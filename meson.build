@@ -132,7 +132,11 @@ else
 endif
 
 # Find ncurses dependency (required by LLE terminal capabilities)
+# We create two versions: one for headers-only (static libs) and one for linking (executables)
 ncurses_dep = dependency('ncurses', required: true)
+# For static libraries, we only need the include directories, not the link flags
+# This prevents duplicate -lncurses warnings when multiple static libs are linked together
+ncurses_compile_dep = ncurses_dep.partial_dependency(compile_args: true, includes: true)
 
 # ============================================================================
 # Fuzzy Matching Library
@@ -165,10 +169,11 @@ if lle_sources.length() > 0
                            sources: lle_sources,
                            include_directories: inc,
                            c_args: lle_c_args,
-                           dependencies: [readline_dep, ncurses_dep, fuzzy_dep])
+                           dependencies: [readline_dep, ncurses_compile_dep, fuzzy_dep])
 
   lle_dep = declare_dependency(link_with: lle_lib,
-                               include_directories: include_directories('include/lle'))
+                               include_directories: include_directories('include/lle'),
+                               dependencies: [ncurses_dep])
 else
   # LLE not yet implemented, create empty dependency
   message('LLE: No modules implemented yet (zero source files)')
@@ -209,10 +214,11 @@ display_sources = [
 display_lib = static_library('display',
                              sources: display_sources,
                              include_directories: inc,
-                             dependencies: [readline_dep, ncurses_dep])
+                             dependencies: [readline_dep, ncurses_compile_dep])
 
 display_dep = declare_dependency(link_with: display_lib,
-                                 include_directories: inc)
+                                 include_directories: inc,
+                                 dependencies: [ncurses_dep])
 
 # Build lusush executable (with or without LLE)
 lusush_exe = executable('lusush',
