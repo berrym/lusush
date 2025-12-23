@@ -1,4 +1,5 @@
 #include "../include/posix_history.h"
+#include "../include/lusush.h"
 #include "../include/errors.h"
 #include "../include/strings.h"
 #include "../include/executor.h"
@@ -114,6 +115,7 @@ static posix_history_entry_t *posix_history_entry_create(const char *command, in
  *
  * @param entry Entry to destroy
  */
+MAYBE_UNUSED
 static void posix_history_entry_destroy(posix_history_entry_t *entry) {
     if (entry) {
         free(entry->command);

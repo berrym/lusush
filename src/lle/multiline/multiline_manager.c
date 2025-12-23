@@ -233,6 +233,7 @@ static uint8_t get_nesting_level(const continuation_state_t *state) {
 
 lle_result_t lle_multiline_analyze_line(lle_multiline_context_t *ctx,
                                         const char *line, size_t length) {
+    (void)length; /* Reserved for length-aware analysis */
     if (!ctx || !line) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

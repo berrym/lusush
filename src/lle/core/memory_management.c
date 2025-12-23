@@ -955,11 +955,13 @@ void* lle_pool_allocate_aligned(lle_memory_pool_t *pool, size_t size, size_t ali
 }
 
 void* lle_pool_allocate_fast(lle_memory_pool_t *pool, size_t size) {
+    LLE_UNUSED(pool);
     /* Fast path - just use standard allocation */
     return lle_pool_alloc(size);
 }
 
 void lle_pool_free_fast(lle_memory_pool_t *pool, void *ptr) {
+    LLE_UNUSED(pool);
     lle_pool_free(ptr);
 }
 
@@ -1449,6 +1451,7 @@ void* lle_allocate_buffer_block(lle_buffer_memory_pool_t *pool, size_t size) {
 }
 
 size_t lle_optimize_buffer_allocation_size(size_t size, lle_buffer_type_t buffer_type) {
+    LLE_UNUSED(buffer_type);
     /* Round up to optimal size */
     return lle_align_memory_size(size, 64);
 }
@@ -1514,11 +1517,13 @@ void* lle_hierarchical_allocate(lle_memory_pool_hierarchy_t *hierarchy,
 }
 
 void* lle_try_primary_allocation(lle_memory_pool_hierarchy_t *hierarchy, size_t size, lle_memory_pool_type_t preferred_type) {
+    LLE_UNUSED(preferred_type);
     if (!hierarchy) return NULL;
     return lle_pool_alloc(size);
 }
 
 void* lle_try_secondary_allocation(lle_memory_pool_hierarchy_t *hierarchy, size_t size, lle_memory_pool_type_t preferred_type) {
+    LLE_UNUSED(preferred_type);
     if (!hierarchy) return NULL;
     return lle_pool_alloc(size);
 }
@@ -2172,6 +2177,7 @@ lle_result_t lle_expand_line_tracking_arrays(lle_multiline_buffer_t *multiline_b
 }
 
 bool lle_buffer_has_space(lle_buffer_memory_t *buffer_memory, size_t required_space) {
+    (void)required_space; /* Reserved for capacity checking */
     if (!buffer_memory) return false;
     return true;
 }
@@ -2195,6 +2201,7 @@ lle_result_t lle_expand_primary_buffer(lle_buffer_memory_t *buffer_memory, size_
 }
 
 size_t lle_calculate_buffer_tail_size(lle_buffer_memory_t *buffer_memory, size_t offset) {
+    (void)offset; /* Reserved for tail size calculation */
     if (!buffer_memory) return 0;
     return 0;
 }
@@ -2516,6 +2523,7 @@ lle_result_t lle_analyze_memory_access_patterns(lle_memory_access_optimizer_t *o
  * ============================================================================ */
 
 lle_result_t lle_measure_pool_performance(lle_memory_pool_t *pool, size_t sample_size, lle_memory_pool_performance_t *performance) {
+    (void)sample_size; /* Reserved for sample-based measurement */
     if (!pool || !performance) return LLE_ERROR_NULL_POINTER;
     
     performance->allocation_rate = 1000000.0;
@@ -2573,6 +2581,7 @@ lle_result_t lle_execute_tuning_action(lle_memory_pool_tuner_t *tuner, lle_tunin
 }
 
 void lle_rollback_tuning_actions(lle_memory_pool_tuner_t *tuner, lle_tuning_action_plan_t *action_plan, size_t action_index) {
+    (void)action_index; /* Reserved for targeted rollback */
     if (!tuner || !action_plan) return;
     if (tuner->tuning_history.history_count > 0) {
         tuner->tuning_history.history_count--;
@@ -2882,7 +2891,6 @@ lle_result_t lle_check_buffer_bounds(lle_buffer_overflow_protection_t *protectio
     }
     
     // Step 2: Check access bounds
-    void *access_start = buffer_ptr;
     void *access_end = (char*)buffer_ptr + access_size;
     void *buffer_end = protection->bounds_checking.tracked_buffers[buffer_index].buffer_end;
     
@@ -3220,6 +3228,7 @@ lle_result_t lle_run_basic_memory_tests(lle_memory_test_framework_t *test_framew
 }
 
 void lle_record_test_failure(lle_memory_test_framework_t *test_framework, lle_test_failure_reason_t reason, lle_result_t result) {
+    (void)result; /* Reserved for detailed failure logging */
     if (!test_framework) return;
     if (test_framework->test_results.failure_count < LLE_MAX_TEST_FAILURES) {
         test_framework->test_results.failure_reasons[test_framework->test_results.failure_count++] = reason;

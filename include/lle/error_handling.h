@@ -15,6 +15,17 @@
 #ifndef LLE_ERROR_HANDLING_H
 #define LLE_ERROR_HANDLING_H
 
+/* Portable macro for marking intentionally unused functions/variables/parameters.
+ * Use for spec-compliant code that is implemented but not yet wired up. */
+#ifdef __GNUC__
+#define LLE_MAYBE_UNUSED __attribute__((unused))
+#else
+#define LLE_MAYBE_UNUSED
+#endif
+
+/* Convenience macro for unused parameters in function bodies */
+#define LLE_UNUSED(x) (void)(x)
+
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>

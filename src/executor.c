@@ -2031,6 +2031,7 @@ char *expand_if_needed(executor_t *executor, const char *text) {
 }
 
 // Execute external command
+MAYBE_UNUSED
 static int execute_external_command(executor_t *executor, char **argv) {
     return execute_external_command_with_redirection(executor, argv, false);
 }
@@ -2641,7 +2642,9 @@ static int execute_builtin_command(executor_t *executor, char **argv) {
 static bool is_builtin_command(const char *cmd) { return is_builtin(cmd); }
 
 // Execute test builtin command
+MAYBE_UNUSED
 static int execute_test_builtin(executor_t *executor, char **argv) {
+    (void)executor; /* Reserved for executor-aware test evaluation */
     if (!argv || !argv[0]) {
         return 1;
     }
@@ -3143,6 +3146,8 @@ void free_function_params(function_param_t *params) {
 
 // Validate function parameters against call arguments
 static int validate_function_parameters(function_def_t *func, char **argv, int argc) {
+    (void)argv; /* Reserved for argument type validation */
+    (void)argc; /* Reserved for arity checking */
     if (!func) {
         return 1;
     }
@@ -4779,6 +4784,7 @@ static char *expand_command_substitution(executor_t *executor,
 }
 
 // Copy function definitions from source executor to destination executor
+MAYBE_UNUSED
 static void copy_function_definitions(executor_t *dest, executor_t *src) {
     if (!dest || !src) {
         return;
@@ -5246,6 +5252,7 @@ static void initialize_job_control(executor_t *executor) {
 }
 
 // Create a new process structure
+MAYBE_UNUSED
 static process_t *create_process(pid_t pid, const char *command) {
     process_t *proc = malloc(sizeof(process_t));
     if (!proc) {
@@ -5434,6 +5441,7 @@ int executor_execute_background(executor_t *executor, node_t *command) {
 
 // Built-in jobs command
 int executor_builtin_jobs(executor_t *executor, char **argv) {
+    (void)argv; /* Reserved for job filtering options */
     if (!executor) {
         return 1;
     }

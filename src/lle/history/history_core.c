@@ -633,6 +633,7 @@ lle_result_t lle_history_add_entry(lle_history_core_t *core,
  * CRITICAL: Caller MUST hold at least a read lock on core->lock
  * Used by dedup engine to avoid deadlock when called from add_entry
  */
+LLE_MAYBE_UNUSED
 static inline lle_result_t
 get_entry_by_index_unlocked(lle_history_core_t *core, size_t index,
                             lle_history_entry_t **entry) {
@@ -769,6 +770,7 @@ lle_result_t lle_history_get_entry_by_id(lle_history_core_t *core,
  * Internal lock-free version of get_entry_count
  * CRITICAL: Caller MUST hold at least a read lock on core->lock
  */
+LLE_MAYBE_UNUSED
 static inline lle_result_t get_entry_count_unlocked(lle_history_core_t *core,
                                                     size_t *count) {
     if (!core || !count) {

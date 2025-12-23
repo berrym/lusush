@@ -994,7 +994,7 @@ composition_engine_error_t composition_engine_compose(composition_engine_t *engi
         // REGULAR PATH: Single-line or continuation prompts disabled
         // ====================================================================
         
-regular_composition_path:
+regular_composition_path:;
         
         // Analyze prompt structure
         uint64_t analysis_start = get_timestamp_ns();
@@ -1907,6 +1907,7 @@ static composition_engine_error_t coordinate_screen_buffer_rendering(
  * @param out_column Output: cursor column number (0-based, includes prompt width)
  * @return COMPOSITION_ENGINE_SUCCESS or error code
  */
+MAYBE_UNUSED
 static composition_engine_error_t translate_cursor_to_screen_position(
     const char *command_text,
     size_t cursor_byte_offset,

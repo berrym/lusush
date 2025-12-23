@@ -134,6 +134,7 @@ static void lle_text_buffer_destroy(lle_text_buffer_t *buffer) {
 /**
  * Clear text buffer.
  */
+LLE_MAYBE_UNUSED
 static void lle_text_buffer_clear(lle_text_buffer_t *buffer) {
     if (!buffer) {
         return;
@@ -306,6 +307,7 @@ static void lle_simple_completion_destroy(lle_simple_completion_t *completion) {
 /**
  * Clear completion list.
  */
+LLE_MAYBE_UNUSED
 static void lle_simple_completion_clear(lle_simple_completion_t *completion) {
     if (!completion) {
         return;

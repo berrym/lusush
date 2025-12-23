@@ -275,6 +275,7 @@ lle_display_generator_generate_content(lle_display_generator_t *generator,
 
     lle_internal_state_t *state = generator->internal_state;
     lle_terminal_capabilities_t *caps = generator->capabilities;
+    (void)caps; /* Reserved for capability-aware rendering */
 
     /* Calculate required display lines */
     size_t required_lines = calculate_display_lines(

@@ -1699,7 +1699,7 @@ lle_result_t lle_handle_buffer_error(
             recovery_result = LLE_SUCCESS;
             break;
             
-        default:
+        default: {
             /* Generic buffer recovery - select best strategy */
             lle_recovery_strategy_t *strategy = lle_select_recovery_strategy(ctx);
             if (strategy && strategy->execute_strategy) {
@@ -1709,6 +1709,7 @@ lle_result_t lle_handle_buffer_error(
                 recovery_result = LLE_SUCCESS;
             }
             break;
+        }
     }
     
     /* Update recovery statistics */
@@ -1824,7 +1825,7 @@ lle_result_t lle_handle_event_system_error(
             recovery_result = LLE_SUCCESS;
             break;
             
-        default:
+        default: {
             /* Generic event system recovery */
             lle_recovery_strategy_t *strategy = lle_select_recovery_strategy(ctx);
             if (strategy && strategy->execute_strategy) {
@@ -1834,6 +1835,7 @@ lle_result_t lle_handle_event_system_error(
                 recovery_result = LLE_SUCCESS;
             }
             break;
+        }
     }
     
     /* Update recovery statistics */

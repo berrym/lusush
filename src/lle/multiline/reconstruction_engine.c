@@ -344,6 +344,7 @@ static size_t
 calculate_indented_size(const char *text, size_t length,
                         lle_command_structure_t *structure,
                         const lle_reconstruction_options_t *options) {
+    (void)text; /* Length used instead of text scanning */
     /* Estimate: original size + (max_depth * spaces_per_level * line_count) */
     size_t line_count = structure->total_lines > 0 ? structure->total_lines : 1;
     size_t max_indent = structure->max_depth * options->spaces_per_level;

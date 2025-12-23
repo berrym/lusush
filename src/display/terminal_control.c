@@ -780,8 +780,8 @@ bool terminal_control_validate_color(terminal_control_t *control,
             return color.value.basic < 16;
         
         case TERMINAL_COLOR_TYPE_256:
-            return terminal_control_has_capability(control, TERMINAL_CAP_COLOR_256) &&
-                   color.value.palette < 256;
+            /* palette is uint8_t, so always < 256 - just check capability */
+            return terminal_control_has_capability(control, TERMINAL_CAP_COLOR_256);
         
         case TERMINAL_COLOR_TYPE_RGB:
             return terminal_control_has_capability(control, TERMINAL_CAP_COLOR_TRUECOLOR);
@@ -922,6 +922,7 @@ static terminal_control_error_t detect_style_support(terminal_control_t *control
 /**
  * Calculate hash for sequence caching
  */
+MAYBE_UNUSED
 static uint32_t calculate_sequence_hash(const char *format, ...) {
     char buffer[128];
     va_list args;
@@ -939,6 +940,7 @@ static uint32_t calculate_sequence_hash(const char *format, ...) {
 /**
  * Find cached sequence
  */
+MAYBE_UNUSED
 static sequence_cache_entry_t *find_cached_sequence(terminal_control_t *control, uint32_t hash) {
     for (int i = 0; i < TERMINAL_CONTROL_CAPABILITY_CACHE_SIZE; i++) {
         if (control->sequence_cache[i].valid && control->sequence_cache[i].hash == hash) {
@@ -951,6 +953,7 @@ static sequence_cache_entry_t *find_cached_sequence(terminal_control_t *control,
 /**
  * Cache a sequence
  */
+MAYBE_UNUSED
 static void cache_sequence(terminal_control_t *control, uint32_t hash, const char *sequence) {
     if (!control->capabilities.sequence_caching_enabled) {
         return;

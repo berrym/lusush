@@ -218,7 +218,7 @@ display_dep = declare_dependency(link_with: display_lib,
 lusush_exe = executable('lusush',
                         src,
                         include_directories: inc,
-                        dependencies: [readline_dep, ncurses_dep, lle_dep])
+                        dependencies: [readline_dep, lle_dep])
 
 # ============================================================================
 # TEST INFRASTRUCTURE
@@ -394,8 +394,7 @@ if lle_sources.length() > 0
   test_terminal_capabilities = executable('test_terminal_capabilities',
                                           'tests/lle/unit/test_terminal_capabilities.c',
                                           include_directories: inc,
-                                          dependencies: [lle_dep, readline_dep],
-                                          link_args: ['-lncurses'])
+                                          dependencies: [lle_dep, readline_dep])
 
   test('LLE Terminal Capabilities', test_terminal_capabilities,
        suite: 'lle-unit',
@@ -930,7 +929,7 @@ if fs.exists('tests/manual/test_lle_readline_minimal.c')
   test_lle_readline_minimal = executable('test_lle_readline_minimal',
                                          ['tests/manual/test_lle_readline_minimal.c'] + minimal_lusush_sources,
                                          include_directories: inc,
-                                         dependencies: [readline_dep, ncurses_dep, lle_dep])
+                                         dependencies: [readline_dep, lle_dep])
   # NOTE: Interactive test - run with: ./builddir/test_lle_readline_minimal
 endif
 

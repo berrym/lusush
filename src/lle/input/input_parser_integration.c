@@ -259,6 +259,26 @@ lle_input_parser_generate_events(lle_input_parser_system_t *parser_sys,
     if (!parser_sys->event_system) {
         return LLE_ERROR_NOT_INITIALIZED;
     }
+
+    /* Dispatch to appropriate event generator based on input type */
+    switch (parsed_input->type) {
+    case LLE_PARSED_INPUT_TYPE_TEXT:
+    case LLE_PARSED_INPUT_TYPE_PASTE:
+        return lle_input_parser_generate_text_events(parser_sys, parsed_input);
+
+    case LLE_PARSED_INPUT_TYPE_KEY:
+    case LLE_PARSED_INPUT_TYPE_SEQUENCE:
+        return lle_input_parser_generate_key_events(parser_sys, parsed_input);
+
+    case LLE_PARSED_INPUT_TYPE_MOUSE:
+        return lle_input_parser_generate_mouse_events(parser_sys, parsed_input);
+
+    case LLE_PARSED_INPUT_TYPE_FOCUS:
+    case LLE_PARSED_INPUT_TYPE_UNKNOWN:
+    default:
+        /* Unsupported input type */
+        return LLE_ERROR_INVALID_PARAMETER;
+    }
 }
 
 /*

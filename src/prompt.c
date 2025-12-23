@@ -355,7 +355,7 @@ bool prompt_cache_is_valid_for_context(void) {
  * Get cached prompt if valid.
  */
 bool prompt_cache_get(lusush_prompt_cache_t *entry) {
-    // Simplified: not needed with direct cache check in build_prompt
+    (void)entry; /* Cache check handled directly in build_prompt */
     return false;
 }
 
@@ -363,7 +363,7 @@ bool prompt_cache_get(lusush_prompt_cache_t *entry) {
  * Cache a prompt with current context.
  */
 void prompt_cache_set(const lusush_prompt_cache_t *entry) {
-    // Simplified: caching handled directly in build_prompt
+    (void)entry; /* Caching handled directly in build_prompt */
 }
 
 /**

@@ -108,7 +108,7 @@ lle_result_t lle_buffer_validate_utf8(lle_buffer_t *buffer,
     if (!lle_utf8_is_valid(buffer->data, buffer->length)) {
         validator->validation_failures++;
         validator->corruption_detections++;
-        return LLE_BUFFER_ERROR_UTF8_VALIDATION_FAILED;
+        return LLE_ERROR_INVALID_ENCODING;
     }
 
     return LLE_SUCCESS;
@@ -165,7 +165,7 @@ lle_buffer_validate_line_structure(lle_buffer_t *buffer,
                 prev_line->start_offset + prev_line->length) {
                 validator->validation_failures++;
                 validator->corruption_detections++;
-                return LLE_BUFFER_ERROR_MULTILINE_CORRUPTION;
+                return LLE_ERROR_MEMORY_CORRUPTION;
             }
         }
     }

@@ -359,6 +359,7 @@ static void update_performance_stats(prompt_layer_t *layer, uint64_t render_time
  * Event callback handler for theme changes
  */
 static layer_events_error_t handle_theme_change_event(const layer_event_t *event, void *user_data) {
+    (void)event; /* Event type already validated by dispatcher */
     prompt_layer_t *layer = (prompt_layer_t *)user_data;
     if (!layer || !validate_layer_memory(layer)) return LAYER_EVENTS_ERROR_INVALID_PARAM;
     
@@ -379,6 +380,7 @@ static layer_events_error_t handle_theme_change_event(const layer_event_t *event
  * Event callback handler for content refresh requests
  */
 static layer_events_error_t handle_content_refresh_event(const layer_event_t *event, void *user_data) {
+    (void)event; /* Event type already validated by dispatcher */
     prompt_layer_t *layer = (prompt_layer_t *)user_data;
     if (!layer || !validate_layer_memory(layer)) return LAYER_EVENTS_ERROR_INVALID_PARAM;
     
@@ -897,6 +899,7 @@ prompt_layer_error_t prompt_layer_optimize(prompt_layer_t *layer) {
     
     // Clean up expired cache entries
     int expired_count = 0;
+    (void)expired_count; /* Reserved for cache cleanup statistics */
     for (int i = 0; i < PROMPT_LAYER_CACHE_SIZE; i++) {
         prompt_cache_entry_t *entry = &layer->cache[i];
         if (entry->is_valid) {

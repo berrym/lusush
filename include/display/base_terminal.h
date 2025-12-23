@@ -54,6 +54,24 @@ extern "C" {
 #endif
 
 // ============================================================================
+// PORTABILITY MACROS
+// ============================================================================
+
+/* Macro to suppress unused warnings for spec-compliant but not-yet-wired code */
+#ifndef MAYBE_UNUSED
+#ifdef __GNUC__
+#define MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAYBE_UNUSED
+#endif
+#endif
+
+/* Macro to explicitly mark a parameter/variable as intentionally unused */
+#ifndef UNUSED
+#define UNUSED(x) (void)(x)
+#endif
+
+// ============================================================================
 // CONSTANTS AND CONFIGURATION
 // ============================================================================
 

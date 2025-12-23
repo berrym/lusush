@@ -570,6 +570,7 @@ static void push_numstackv_with_context(arithm_context_t *ctx,
     ctx->nnumstack++;
 }
 
+MAYBE_UNUSED
 static void push_numstackv(arithm_context_t *ctx, const char *var_name) {
     push_numstackv_with_context(ctx, var_name);
 }
@@ -707,6 +708,7 @@ static char *get_var_name_with_context(arithm_context_t *ctx
     return name;
 }
 
+MAYBE_UNUSED
 static char *get_var_name(const char *expr, int *nchars) {
     return get_var_name_with_context(NULL, expr, nchars);
 }

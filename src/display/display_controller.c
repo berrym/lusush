@@ -96,6 +96,7 @@
 /**
  * Get current timestamp in microseconds.
  */
+MAYBE_UNUSED
 static uint64_t dc_get_timestamp_us(void) {
     struct timeval tv;
     if (gettimeofday(&tv, NULL) != 0) {
@@ -187,6 +188,7 @@ void dc_finalize_input(void) {
  * Mark prompt as needing redraw - called when prompt content changes
  * (No longer needed with always-redraw approach, kept for API compatibility)
  */
+MAYBE_UNUSED
 static void dc_invalidate_prompt_cache(void) {
     /* No-op: we always redraw everything now */
 }
@@ -709,7 +711,7 @@ static uint32_t dc_hash_prompt_semantic(const char *prompt) {
     // For maximum cache hit rates, normalize prompt by removing time-sensitive elements
     char normalized[512] = {0};
     const char *p = prompt;
-    int pos = 0;
+    size_t pos = 0;
     bool in_color_seq = false;
     bool skip_timestamp = false;
     
@@ -813,9 +815,9 @@ static uint32_t dc_hash_command_semantic(const char *command) {
     
     // Extract base command for classification
     char base_cmd[32] = {0};
-    int i = 0;
+    size_t i = 0;
     while (*p && !isspace(*p) && i < sizeof(base_cmd) - 1) {
-        base_cmd[i++] = tolower(*p++);
+        base_cmd[i++] = (char)tolower(*p++);
     }
     
     // Hash the base command
@@ -2303,6 +2305,7 @@ void display_controller_update_autosuggestion(
      * when LLE is active. The actual suggestion generation happens in
      * lle_readline.c using LLE history, then passed via set_autosuggestion().
      */
+    (void)controller;
     (void)buffer_content;
     (void)cursor_position;
     (void)buffer_length;
@@ -2742,6 +2745,7 @@ display_controller_error_t display_controller_get_version(
 display_controller_error_t display_controller_prepare_shell_integration(
     display_controller_t *controller,
     const void *shell_config) {
+    (void)shell_config;  /* Reserved for future use */
     
     if (!controller) {
         return DISPLAY_CONTROLLER_ERROR_NULL_POINTER;

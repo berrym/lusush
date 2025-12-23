@@ -34,6 +34,7 @@ static uint64_t get_time_microseconds(void) {
  * Duplicate string using memory pool
  */
 static char *pool_strdup(lle_memory_pool_t *pool, const char *str) {
+    (void)pool; /* Reserved for pool-based allocation */
     if (!str) {
         return NULL;
     }

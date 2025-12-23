@@ -126,6 +126,7 @@ static lle_multiplexer_type_t lle_detect_multiplexer_type(void) {
 static void lle_configure_multiplexer_capabilities(
     lle_multiplexer_controller_t *mux,
     const lle_terminal_detection_result_t *detection) {
+    (void)detection; /* Reserved for detection-based capability tuning */
 
     switch (mux->multiplexer_type) {
     case LLE_MUX_TYPE_TMUX:

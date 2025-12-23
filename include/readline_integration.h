@@ -153,47 +153,6 @@ char *lusush_completion_generator(const char *text, int state);
 char **lusush_completion_matches(const char *text, int start, int end);
 
 // ============================================================================
-// SYNTAX HIGHLIGHTING
-// ============================================================================
-
-/**
- * Enable or disable syntax highlighting
- * @param enabled true to enable, false to disable
- */
-void lusush_syntax_highlighting_set_enabled(bool enabled);
-
-/**
- * Check if syntax highlighting is enabled
- * @return true if enabled, false otherwise
- */
-bool lusush_syntax_highlighting_is_enabled(void);
-
-/**
- * Apply syntax highlighting to current line buffer
- * Called automatically by readline during editing
- */
-int lusush_syntax_highlight_line(void);
-
-/**
- * Show syntax highlighted preview of command when complete
- * Safe approach that shows colors without interfering with readline
- * @param command the command line to preview with syntax highlighting
- */
-void lusush_show_command_syntax_preview(const char *command);
-
-/**
- * Configure syntax highlighting colors and styles
- * @param commands_color ANSI color code for commands
- * @param strings_color ANSI color code for strings
- * @param comments_color ANSI color code for comments
- * @param keywords_color ANSI color code for keywords
- */
-void lusush_syntax_highlighting_configure(const char *commands_color,
-                                         const char *strings_color,
-                                         const char *comments_color,
-                                         const char *keywords_color);
-
-// ============================================================================
 // PROMPT INTEGRATION WITH LUSUSH THEMES
 // ============================================================================
 
@@ -393,18 +352,6 @@ void lusush_set_pre_input_hook(lusush_pre_input_hook_t hook);
  * @param hook function to call after input
  */
 void lusush_set_post_input_hook(lusush_post_input_hook_t hook);
-
-/**
- * Show syntax highlighting performance statistics
- * Displays cache hit rates, update times, and optimization metrics
- */
-void lusush_show_highlight_performance(void);
-
-/**
- * Enable debug output for Phase 3 optimization
- * @param enabled true to enable debug output, false to disable
- */
-void lusush_set_debug_enabled(bool enabled);
 
 #ifdef __cplusplus
 }

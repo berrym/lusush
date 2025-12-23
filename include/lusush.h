@@ -19,6 +19,21 @@
 #ifndef LUSUSH_H
 #define LUSUSH_H
 
+/* Portable macro for marking intentionally unused functions/variables/parameters.
+ * Use for code that is implemented but not yet wired up. */
+#ifndef MAYBE_UNUSED
+#ifdef __GNUC__
+#define MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAYBE_UNUSED
+#endif
+#endif
+
+/* Convenience macro for unused parameters in function bodies */
+#ifndef UNUSED
+#define UNUSED(x) (void)(x)
+#endif
+
 #include "node.h"
 #include "version.h"
 

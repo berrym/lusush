@@ -642,7 +642,7 @@ convert_parsed_input_to_event(const lle_parsed_input_t *parsed,
             (uint8_t)parsed->data.text_info.utf8_length;
         break;
 
-    case LLE_PARSED_INPUT_TYPE_KEY:
+    case LLE_PARSED_INPUT_TYPE_KEY: {
         /* Key press or combination */
         /* First try to convert to special key */
         lle_special_key_t special_key = convert_key_code(
@@ -677,6 +677,7 @@ convert_parsed_input_to_event(const lle_parsed_input_t *parsed,
         }
         event->timestamp = parsed->data.key_info.timestamp;
         break;
+    }
 
     case LLE_PARSED_INPUT_TYPE_MOUSE:
         /* Mouse events are not directly supported by lle_input_event_t */

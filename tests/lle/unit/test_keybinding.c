@@ -52,6 +52,7 @@ static lle_result_t test_action(lle_editor_t *editor) {
     return LLE_SUCCESS;
 }
 
+LLE_MAYBE_UNUSED
 static lle_result_t test_action_error(lle_editor_t *editor) {
     (void)editor;
     g_action_called++;

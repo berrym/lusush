@@ -457,6 +457,7 @@ lle_result_t lle_history_format_multiline(const char *command, char *formatted,
     size_t remaining = formatted_size - 1;
     bool at_line_start = true;
     size_t indent_added = 0;
+    (void)indent_added; /* Reserved for indentation tracking */
 
     while (*src && remaining > 0) {
         char c = *src++;

@@ -109,6 +109,7 @@ static bool validate_layer(const autosuggestions_layer_t *layer) {
 /**
  * Calculate cache hash for input
  */
+MAYBE_UNUSED
 static uint32_t calculate_cache_hash(const char *input) {
     if (!input) return 0;
     
@@ -555,7 +556,7 @@ autosuggestions_layer_error_t autosuggestions_layer_update(autosuggestions_layer
         autosuggestions_layer_clear(layer);
     }
     
-cleanup:
+cleanup:;
     END_TIMING(generation_time_ns);
     update_performance_metrics(layer, generation_time_ns, 0);
     

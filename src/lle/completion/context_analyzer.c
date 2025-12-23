@@ -53,6 +53,7 @@ static size_t find_word_start(const char *buffer, size_t cursor_pos) {
  */
 static char *extract_word(const char *buffer, size_t start, size_t end,
                           lle_memory_pool_t *pool) {
+    (void)pool; /* Reserved for pool-based allocation */
     if (end <= start) {
         /* Empty string - must null-terminate! */
         char *empty = lle_pool_alloc(1);

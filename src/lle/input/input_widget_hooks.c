@@ -177,14 +177,12 @@ lle_result_t lle_input_trigger_widget_hooks(lle_input_parser_system_t *parser,
     uint64_t start_time = lle_event_get_timestamp_us();
 
     /* Determine which hook to trigger based on input type */
-    lle_widget_hook_type_t hook_type;
     bool should_trigger = false;
 
     /* Map input types to hook types */
     switch (input->type) {
     case LLE_PARSED_INPUT_TYPE_TEXT:
         /* Text input could trigger buffer-modified hook */
-        hook_type = LLE_HOOK_BUFFER_MODIFIED;
         should_trigger = true;
         break;
 

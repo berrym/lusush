@@ -86,6 +86,7 @@ find_last_redoable_sequence(lle_change_tracker_t *tracker) {
  */
 static void free_operation(lle_change_operation_t *op,
                            lusush_memory_pool_t *pool) {
+    (void)pool; /* Reserved for future pool-based deallocation */
     if (!op) {
         return;
     }

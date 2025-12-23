@@ -329,6 +329,7 @@ lle_formatting_engine_free_result(lle_formatting_engine_t *engine,
 static lle_result_t format_compact(lle_formatting_engine_t *engine,
                                    const char *text, size_t length,
                                    char **output, size_t *output_len) {
+    (void)engine; /* Reserved for engine-specific formatting options */
     /* Compact format: minimize whitespace */
     char *result = lle_pool_alloc(length + 1);
     if (!result) {

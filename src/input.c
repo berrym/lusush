@@ -138,6 +138,7 @@ static bool is_control_keyword(const char *word) {
     return false;
 }
 
+MAYBE_UNUSED
 static bool is_terminator(const char *line) {
     // Skip whitespace
     while (*line && isspace(*line)) line++;
@@ -155,7 +156,9 @@ static void analyze_line(const char *line, input_state_t *state) {
     const char *p = line;
     char word[256] = {0};
     int word_pos = 0;
+    (void)word_pos; /* Reserved for word boundary tracking */
     bool at_word_start = true;
+    (void)at_word_start; /* Reserved for word start detection */
     
     while (*p) {
         unsigned char uc = (unsigned char)*p;
@@ -579,6 +582,7 @@ const char *lusush_get_current_continuation_prompt(void) {
     return get_continuation_prompt(&global_state);
 }
 
+MAYBE_UNUSED
 static char *convert_multiline_for_history(const char *input) {
     if (!input) return NULL;
     

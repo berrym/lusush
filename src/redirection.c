@@ -735,9 +735,7 @@ int count_redirections(node_t *command) {
 
     int count = 0;
     node_t *child = command->first_child;
-    int child_num = 0;
     while (child) {
-        child_num++;
 
         if (is_redirection_node(child)) {
             count++;

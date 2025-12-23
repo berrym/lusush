@@ -38,7 +38,7 @@ typedef struct {
 
 static theme_cache_entry_t theme_cache = {0};
 static bool theme_cache_initialized = false;
-static const int THEME_CACHE_VALIDITY_SECONDS = 30;
+#define THEME_CACHE_VALIDITY_SECONDS 30
 
 // Theme-specific cache with symbol compatibility tracking
 static char last_theme_output[1024];
@@ -1928,33 +1928,25 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
 
     
     // Check for malformed escape sequences that cause display truncation
-    bool has_malformed_escapes = false;
     if (success && strlen(temp_output) > 0) {
-
+        bool has_malformed_escapes = false;
         for (size_t i = 0; i < strlen(temp_output) - 1; i++) {
             // Detect \x01\x02 pattern (empty escape sequence)
             if ((unsigned char)temp_output[i] == 0x01 && (unsigned char)temp_output[i+1] == 0x02) {
-
                 has_malformed_escapes = true;
                 break;
             }
-            // Debug: Show any control characters
-
         }
-
+        (void)has_malformed_escapes; /* Reserved for future escape validation */
     }
     
     // Temporarily disable malformed escape detection to test theme fix
     // Only activate fallback for actual failures, not working prompts
-    if (!success) { // Removed has_malformed_escapes check
-
-        
+    if (!success) {
         // Create simple fallback prompt without color codes  
         snprintf(temp_output, sizeof(temp_output), "[%s@%s] %s%s $ ",
                 username, hostname, directory, git_info);
         success = true;
-        has_malformed_escapes = false;
-
     }
     
     // Apply symbol compatibility processing

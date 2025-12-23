@@ -144,7 +144,8 @@ static struct {
     uint64_t prompt_layer_misses;
 } layer_cache_stats = {0};
 
-// Buffer for display output
+// Buffer for display output (reserved for future batch output optimization)
+MAYBE_UNUSED
 static char display_output_buffer[DISPLAY_INTEGRATION_MAX_OUTPUT_SIZE];
 
 // ============================================================================
@@ -446,7 +447,6 @@ void display_integration_redisplay(void) {
     
     in_display_redisplay = true;
     integration_stats.total_display_calls++;
-    integration_fallback_reason_t fallback_reason;
     
     // Enhanced Performance Monitoring: Start timing
     struct timeval start_time, end_time;
@@ -1212,6 +1212,7 @@ void display_integration_print_diagnostics(void) {
  */
 bool safe_layered_display_attempt(const char *function_name, 
                                  integration_fallback_reason_t *fallback_reason) {
+    (void)function_name; /* Reserved for diagnostic logging */
     if (!fallback_reason) {
         return false; // Invalid parameter - cannot proceed safely
     }
@@ -1242,12 +1243,9 @@ bool safe_layered_display_attempt(const char *function_name,
     }
     
     // Check 4: Memory and system resources
-    // Simple check - ensure we have reasonable memory available
-    static char test_buffer[1024];
-    if (!test_buffer) {
-        *fallback_reason = INTEGRATION_FALLBACK_MEMORY_ERROR;
-        return false;
-    }
+    // Static buffer is always valid - memory check placeholder for future
+    // dynamic allocation scenarios
+    (void)0;  /* Memory check placeholder */
     
     // Check 5: Configuration safety
     if (current_config.strict_compatibility_mode) {

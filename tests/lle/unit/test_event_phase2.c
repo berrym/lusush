@@ -64,6 +64,7 @@ static lle_filter_result_t test_filter_block(lle_event_t *event, void *user_data
     return LLE_FILTER_BLOCK;
 }
 
+LLE_MAYBE_UNUSED
 static lle_filter_result_t test_filter_configurable(lle_event_t *event, void *user_data) {
     filter_call_count++;
     (void)event;

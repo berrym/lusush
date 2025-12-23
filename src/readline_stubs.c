@@ -129,36 +129,6 @@ char **lusush_completion_matches(const char *text, int start, int end) {
 }
 
 /* ============================================================================
- * SYNTAX HIGHLIGHTING - Stubs
- * ============================================================================ */
-
-void lusush_syntax_highlighting_set_enabled(bool enabled) {
-    (void)enabled;
-}
-
-bool lusush_syntax_highlighting_is_enabled(void) {
-    return false;
-}
-
-int lusush_syntax_highlight_line(void) {
-    return 0;
-}
-
-void lusush_show_command_syntax_preview(const char *command) {
-    (void)command;
-}
-
-void lusush_syntax_highlighting_configure(const char *commands_color,
-                                         const char *strings_color,
-                                         const char *comments_color,
-                                         const char *keywords_color) {
-    (void)commands_color;
-    (void)strings_color;
-    (void)comments_color;
-    (void)keywords_color;
-}
-
-/* ============================================================================
  * PROMPT INTEGRATION - Stubs
  * ============================================================================ */
 
@@ -320,14 +290,6 @@ void lusush_set_pre_input_hook(lusush_pre_input_hook_t hook) {
 
 void lusush_set_post_input_hook(lusush_post_input_hook_t hook) {
     (void)hook;
-}
-
-void lusush_show_highlight_performance(void) {
-    /* No performance data when readline is disabled */
-}
-
-void lusush_set_debug_enabled(bool enabled) {
-    (void)enabled;
 }
 
 #endif /* !HAVE_READLINE */

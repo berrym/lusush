@@ -81,7 +81,7 @@ typedef enum {
 } lle_dedup_strategy_t;
 
 // Configuration option structure
-typedef struct {
+typedef struct config_option {
     const char *name;
     config_type_t type;
     config_section_t section;

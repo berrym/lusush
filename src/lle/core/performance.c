@@ -39,7 +39,9 @@
  * Note: lle_get_thread_id is defined in error_handling.c, we use a local helper
  */
 static uint32_t perf_get_thread_id(void) {
-    return (uint32_t)pthread_self();
+    /* Cast through uintptr_t first for portability - pthread_t may be a
+     * pointer type on some platforms (e.g., macOS) */
+    return (uint32_t)(uintptr_t)pthread_self();
 }
 
 /**

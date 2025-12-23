@@ -587,6 +587,8 @@ void debug_save_execution_context(debug_context_t *ctx, executor_t *executor, no
 }
 
 void debug_restore_execution_context(debug_context_t *ctx, executor_t *executor, node_t *node) {
+    (void)executor; /* Reserved for execution state restoration */
+    (void)node;     /* Reserved for node-specific restoration */
     if (!ctx) {
         printf("[DEBUG] debug_restore_execution_context: ctx is NULL\n");
         return;

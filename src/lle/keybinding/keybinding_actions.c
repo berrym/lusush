@@ -67,6 +67,7 @@ static void debug_log(const char *fmt, ...) {
  * Check if a Unicode codepoint is a word character (alphanumeric or underscore)
  * Uses wctype.h for Unicode-aware character classification.
  */
+LLE_MAYBE_UNUSED
 static bool is_word_codepoint(uint32_t cp) {
     /* Underscore is always a word character */
     if (cp == '_')
@@ -96,6 +97,7 @@ static bool is_whitespace_codepoint(uint32_t cp) {
  * Check if character is a word boundary (whitespace or shell metacharacter)
  * Legacy byte-based version for compatibility with existing code paths.
  */
+LLE_MAYBE_UNUSED
 static bool is_word_boundary(char c) {
     return isspace((unsigned char)c) || c == '\0' || c == '|' || c == '&' ||
            c == ';' || c == '(' || c == ')' || c == '<' || c == '>' ||
@@ -1440,7 +1442,7 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
         size_t prev = find_prev_grapheme_start(data, len, word1_end);
         uint32_t cp = decode_codepoint_at(data, len, prev);
         if (!is_whitespace_codepoint(cp) && !is_shell_metachar(cp)) {
-            word1_end = word1_end; /* This is end of word1 */
+            /* Found end of word1 */
             break;
         }
         word1_end = prev;
@@ -1515,6 +1517,7 @@ lle_result_t lle_transpose_words(lle_editor_t *editor) {
  * Returns number of bytes written, or 0 on error.
  */
 static size_t codepoint_to_upper_utf8(uint32_t cp, char *out, size_t max_len) {
+    (void)max_len; /* Output buffer assumed sufficient for single codepoint */
     wint_t upper = towupper((wint_t)cp);
     return (size_t)lle_utf8_encode_codepoint((uint32_t)upper, out);
 }
@@ -1524,6 +1527,7 @@ static size_t codepoint_to_upper_utf8(uint32_t cp, char *out, size_t max_len) {
  * Returns number of bytes written, or 0 on error.
  */
 static size_t codepoint_to_lower_utf8(uint32_t cp, char *out, size_t max_len) {
+    (void)max_len; /* Output buffer assumed sufficient for single codepoint */
     wint_t lower = towlower((wint_t)cp);
     return (size_t)lle_utf8_encode_codepoint((uint32_t)lower, out);
 }

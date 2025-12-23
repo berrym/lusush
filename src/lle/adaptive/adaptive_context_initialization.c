@@ -100,6 +100,10 @@ static lle_result_t
 lle_adaptive_interface_process_input(lle_adaptive_context_t *ctx,
                                      const char *input, size_t length,
                                      void **events) {
+    LLE_UNUSED(ctx);
+    LLE_UNUSED(input);
+    LLE_UNUSED(length);
+    LLE_UNUSED(events);
 
     /* This would be fully implemented with input event system */
     /* For now, return success as input processing is handled in read_line */
@@ -126,6 +130,8 @@ lle_adaptive_interface_update_display(lle_adaptive_context_t *ctx) {
 static lle_result_t
 lle_adaptive_interface_handle_resize(lle_adaptive_context_t *ctx, int new_width,
                                      int new_height) {
+    (void)new_width;  /* Reserved for dimension-aware resize handling */
+    (void)new_height;
 
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -144,6 +150,7 @@ lle_adaptive_interface_handle_resize(lle_adaptive_context_t *ctx, int new_width,
 static lle_result_t
 lle_adaptive_interface_set_configuration(lle_adaptive_context_t *ctx,
                                          void *config) {
+    (void)config; /* Reserved for configuration application */
 
     if (!ctx) {
         return LLE_ERROR_INVALID_PARAMETER;
@@ -311,6 +318,7 @@ void lle_adaptive_context_destroy(lle_adaptive_context_t *context) {
  */
 lle_result_t lle_create_adaptive_interface(lle_adaptive_interface_t **interface,
                                            void *config) {
+    (void)config; /* Reserved for configuration-driven initialization */
 
     if (!interface) {
         return LLE_ERROR_INVALID_PARAMETER;

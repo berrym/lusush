@@ -881,6 +881,7 @@ static command_layer_error_t add_to_cache(command_layer_t *layer, const char *co
     return COMMAND_LAYER_SUCCESS;
 }
 
+MAYBE_UNUSED
 static void expire_old_cache_entries(command_layer_t *layer) {
     uint64_t current_time = get_current_time_ns();
     uint64_t expiry_time_ns = layer->syntax_config.cache_expiry_ms * NANOSECONDS_PER_MILLISECOND;

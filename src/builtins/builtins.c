@@ -1689,7 +1689,7 @@ int bin_false(int argc, char **argv) {
  * bin_set:
  *      Manage shell options and behavior flags
  */
-int bin_set(int argc, char **argv) { return builtin_set(argv); }
+int bin_set(int argc, char **argv) { (void)argc; return builtin_set(argv); }
 
 // Global executor pointer for job control builtins
 extern executor_t *current_executor;
@@ -1699,6 +1699,7 @@ extern executor_t *current_executor;
  *      List active jobs
  */
 int bin_jobs(int argc, char **argv) {
+    (void)argc;
     if (current_executor) {
         return executor_builtin_jobs(current_executor, argv);
     }
@@ -1710,6 +1711,7 @@ int bin_jobs(int argc, char **argv) {
  *      Bring job to foreground
  */
 int bin_fg(int argc, char **argv) {
+    (void)argc;
     if (current_executor) {
         return executor_builtin_fg(current_executor, argv);
     }
@@ -1722,6 +1724,7 @@ int bin_fg(int argc, char **argv) {
  *      Send job to background
  */
 int bin_bg(int argc, char **argv) {
+    (void)argc;
     if (current_executor) {
         return executor_builtin_bg(current_executor, argv);
     }
@@ -2057,6 +2060,7 @@ int bin_exec(int argc, char **argv) {
     char *command = NULL;
     char **exec_argv = NULL;
     int exec_argc = 0;
+    (void)exec_argc; /* Reserved for argument count validation */
 
     // Find the first non-redirection argument as the command
     int cmd_start = 1;

@@ -13,7 +13,7 @@
  */
 
 /* macOS compatibility: Enable full POSIX + BSD extensions for rusage */
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
 #define _DARWIN_C_SOURCE
 #endif
 

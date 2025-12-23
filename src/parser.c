@@ -21,6 +21,7 @@
 static node_t *parse_command_list(parser_t *parser);
 static node_t *parse_pipeline(parser_t *parser);
 static node_t *parse_simple_command(parser_t *parser);
+MAYBE_UNUSED
 static node_t *parse_control_structure(parser_t *parser);
 static node_t *parse_brace_group(parser_t *parser);
 static node_t *parse_subshell(parser_t *parser);
@@ -945,11 +946,10 @@ static node_t *parse_redirection(parser_t *parser) {
 // Collect here document content until delimiter is found
 static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
                                      bool strip_tabs, bool expand_variables) {
+    (void)expand_variables; /* Expansion handled during execution phase */
     if (!parser || !delimiter) {
         return NULL;
     }
-
-    // expand_variables is now passed as parameter from tokenizer analysis
 
     tokenizer_t *tokenizer = parser->tokenizer;
 
@@ -975,7 +975,7 @@ static char *collect_heredoc_content(parser_t *parser, const char *delimiter,
 
 
 
-    size_t delimiter_len = strlen(match_delimiter);
+    (void)strlen(match_delimiter); /* Delimiter matching uses strcmp */
 
     for (size_t i = 0; i < tokenizer->input_length - 1; i++) {
         if (tokenizer->input[i] == '<' && tokenizer->input[i + 1] == '<') {
@@ -1809,6 +1809,7 @@ static node_t *parse_function_definition(parser_t *parser) {
     function_param_t *params = NULL;
     function_param_t *last_param = NULL;
     int param_count = 0;
+    (void)param_count; /* Reserved for parameter limit validation */
 
     // Check if we have parameters (not immediate ')')
     current = tokenizer_current(parser->tokenizer);

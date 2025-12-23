@@ -585,7 +585,9 @@ void screen_buffer_render_with_continuation(
         
         // Track current line for continuation callback
         int logical_line = 0;
+        (void)logical_line; /* Reserved for multi-line tracking */
         size_t line_start_byte = 0;  // Start of current line in command_text
+        (void)line_start_byte; /* Reserved for line position tracking */
         
         // Buffer for plain text of current line (ANSI stripped)
         char plain_line[4096];

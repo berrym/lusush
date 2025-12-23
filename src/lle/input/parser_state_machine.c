@@ -109,6 +109,7 @@ lle_result_t
 lle_parser_state_machine_process(lle_parser_state_machine_t *state_machine,
                                  lle_input_parser_system_t *parser_sys,
                                  const char *data, size_t data_len) {
+    (void)parser_sys; /* Reserved for parser-system-aware processing */
     if (!state_machine || !data) {
         return LLE_ERROR_INVALID_PARAMETER;
     }

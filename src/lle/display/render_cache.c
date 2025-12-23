@@ -251,6 +251,7 @@ static void lle_lru_remove_entry(lle_display_cache_policy_t *policy,
  * @param policy LRU policy
  * @param entry Cache entry to move
  */
+LLE_MAYBE_UNUSED
 static void lle_lru_touch_entry(lle_display_cache_policy_t *policy,
                                 lle_cached_entry_t *entry) {
     if (!policy || !entry) {
@@ -269,6 +270,7 @@ static void lle_lru_touch_entry(lle_display_cache_policy_t *policy,
  * @return Least recently used entry, or NULL if list is empty
  */
 static lle_cached_entry_t *
+LLE_MAYBE_UNUSED
 lle_lru_get_eviction_candidate(lle_display_cache_policy_t *policy) {
     if (!policy) {
         return NULL;

@@ -30,7 +30,7 @@
  * ============================================================================
  */
 
-#define LLE_HISTORY_FILE_VERSION "1.0"
+#define LLE_HISTORY_FILE_VERSION_STR "1.0"
 #define LLE_HISTORY_MAGIC_HEADER "# LLE History File v"
 #define LLE_HISTORY_MAX_LINE_LENGTH 65536 /* 64KB per line */
 
@@ -341,7 +341,7 @@ lle_result_t lle_history_save_to_file(lle_history_core_t *core,
     /* Write header */
     char header[256];
     snprintf(header, sizeof(header), "%s%s\n# Generated: %lu\n# Entries: %zu\n",
-             LLE_HISTORY_MAGIC_HEADER, LLE_HISTORY_FILE_VERSION,
+             LLE_HISTORY_MAGIC_HEADER, LLE_HISTORY_FILE_VERSION_STR,
              (unsigned long)time(NULL), core->entry_count);
 
     if (write(fd, header, strlen(header)) < 0) {
@@ -497,7 +497,9 @@ lle_result_t lle_history_load_from_file(lle_history_core_t *core,
     }
 
     size_t loaded_count = 0;
+    (void)loaded_count; /* Reserved for load statistics */
     size_t skipped_count = 0;
+    (void)skipped_count; /* Reserved for skip statistics */
 
     while (fgets(line_buffer, LLE_HISTORY_MAX_LINE_LENGTH, fp) != NULL) {
         lle_history_entry_t *entry = NULL;

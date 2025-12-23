@@ -80,8 +80,8 @@ static const lle_completion_type_info_t TYPE_INFO_DATABASE[] = {
      .indicator = "", /* No symbols by default - user customizable via theme */
      .default_priority = 100}};
 
-static const size_t TYPE_INFO_COUNT =
-    sizeof(TYPE_INFO_DATABASE) / sizeof(TYPE_INFO_DATABASE[0]);
+/* Note: TYPE_INFO_COUNT not currently used but kept for future validation */
+#define TYPE_INFO_COUNT (sizeof(TYPE_INFO_DATABASE) / sizeof(TYPE_INFO_DATABASE[0]))
 
 // ============================================================================
 // TYPE INFORMATION QUERIES

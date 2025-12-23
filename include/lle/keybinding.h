@@ -54,7 +54,9 @@ typedef struct readline_context readline_context_t;
  * Maximum length of a key sequence string
  * Example: "C-x C-s" = 7 characters
  */
+#ifndef LLE_MAX_KEY_SEQUENCE_LENGTH
 #define LLE_MAX_KEY_SEQUENCE_LENGTH 64
+#endif
 
 /**
  * Maximum number of keys in a sequence (chord)

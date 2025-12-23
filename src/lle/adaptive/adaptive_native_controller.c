@@ -158,6 +158,7 @@ static void lle_terminal_state_destroy(lle_terminal_state_t *state) {
 /**
  * Update terminal dimensions.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t
 lle_terminal_state_update_dimensions(lle_terminal_state_t *state) {
 
@@ -321,6 +322,7 @@ static void lle_native_buffer_clear(lle_native_controller_t *native) {
 /**
  * Move cursor to position.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t lle_native_move_cursor(lle_native_controller_t *native,
                                            int row, int col) {
 
@@ -344,6 +346,7 @@ static lle_result_t lle_native_move_cursor(lle_native_controller_t *native,
 /**
  * Clear screen.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t lle_native_clear_screen(lle_native_controller_t *native) {
     const char *seq = "\x1b[2J\x1b[H";
     lle_result_t result = lle_native_buffer_append(native, seq, strlen(seq));
@@ -358,6 +361,7 @@ static lle_result_t lle_native_clear_screen(lle_native_controller_t *native) {
 /**
  * Clear to end of line.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t lle_native_clear_to_eol(lle_native_controller_t *native) {
     const char *seq = "\x1b[K";
     lle_result_t result = lle_native_buffer_append(native, seq, strlen(seq));
@@ -413,6 +417,7 @@ lle_native_reset_formatting(lle_native_controller_t *native) {
 /**
  * Show cursor.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t lle_native_show_cursor(lle_native_controller_t *native) {
     const char *seq = "\x1b[?25h";
     lle_result_t result = lle_native_buffer_append(native, seq, strlen(seq));
@@ -425,6 +430,7 @@ static lle_result_t lle_native_show_cursor(lle_native_controller_t *native) {
 /**
  * Hide cursor.
  */
+LLE_MAYBE_UNUSED
 static lle_result_t lle_native_hide_cursor(lle_native_controller_t *native) {
     const char *seq = "\x1b[?25l";
     lle_result_t result = lle_native_buffer_append(native, seq, strlen(seq));
