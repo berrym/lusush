@@ -27,7 +27,16 @@
 
 ### Session 60 Accomplishments
 
-1. **macOS Build Fix - Readline Include Path**:
+1. **Deleted Orphaned Test File**:
+   Removed `tests/lle/unit/test_terminal_capability.c` - had broken include path
+   (`foundation/terminal/terminal.h` doesn't exist). The file was never registered
+   in meson.build so the error wasn't caught by builds. The correctly-named
+   `test_terminal_capabilities.c` (plural) exists and works.
+   
+   **Note**: ~25 other orphaned test files exist in tests/ that aren't in meson.build.
+   These need future audit to determine which should be wired up vs deleted.
+
+2. **macOS Build Fix - Readline Include Path**:
    Session 58's Linux fix (`partial_dependency(includes: true)`) was too aggressive for macOS.
    It stripped the Homebrew readline include path (`-I/usr/local/Cellar/readline/8.3.1/include`),
    causing `history_list()` to be undeclared (using system libedit instead of GNU readline).
