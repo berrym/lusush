@@ -320,7 +320,7 @@ static token_t *token_new(token_type_t type, const char *text, size_t length,
             free(token);
             return NULL;
         }
-        strncpy(token->text, text, length);
+        memcpy(token->text, text, length);
         token->text[length] = '\0';
     } else {
         // Always allocate text, even for empty strings

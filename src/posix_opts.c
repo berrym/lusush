@@ -355,7 +355,7 @@ int builtin_set(char **args) {
             }
 
             // Update $# (number of positional parameters)
-            char argc_str[4];
+            char argc_str[16];
             snprintf(argc_str, sizeof(argc_str), "%d", new_argc);
             symtable_set_global("#", argc_str);
 

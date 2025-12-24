@@ -653,8 +653,8 @@ static composition_engine_error_t store_in_cache(
     clear_cache_entry(entry);
     
     // Store new entry
-    strncpy(entry->prompt_hash, prompt_hash, sizeof(entry->prompt_hash) - 1);
-    strncpy(entry->command_hash, command_hash, sizeof(entry->command_hash) - 1);
+    snprintf(entry->prompt_hash, sizeof(entry->prompt_hash), "%s", prompt_hash);
+    snprintf(entry->command_hash, sizeof(entry->command_hash), "%s", command_hash);
     entry->cached_analysis = *analysis;
     entry->cached_positioning = *positioning;
     

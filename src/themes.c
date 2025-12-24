@@ -1866,6 +1866,7 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
             char temp[_POSIX_PATH_MAX + 1];
             snprintf(temp, sizeof(temp), "~%s", directory + strlen(home));
             strncpy(directory, temp, sizeof(directory) - 1);
+            directory[sizeof(directory) - 1] = '\0';
         }
     }
 

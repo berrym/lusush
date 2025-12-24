@@ -137,21 +137,21 @@ static void update_prompt_string(void) {
         if (session->results &&
             lle_history_search_results_get_count(session->results) > 0) {
             snprintf(session->prompt_string, SEARCH_PROMPT_MAX_LEN,
-                     "(reverse-i-search)`%s': ", session->query);
+                     "(reverse-i-search)`%.255s': ", session->query);
         } else {
             snprintf(session->prompt_string, SEARCH_PROMPT_MAX_LEN,
-                     "(reverse-i-search)`%s': ", session->query);
+                     "(reverse-i-search)`%.255s': ", session->query);
         }
         break;
 
     case LLE_SEARCH_STATE_NO_RESULTS:
         snprintf(session->prompt_string, SEARCH_PROMPT_MAX_LEN,
-                 "(failed reverse-i-search)`%s': ", session->query);
+                 "(failed reverse-i-search)`%.255s': ", session->query);
         break;
 
     case LLE_SEARCH_STATE_FAILED:
         snprintf(session->prompt_string, SEARCH_PROMPT_MAX_LEN,
-                 "(failed reverse-i-search)`%s': ", session->query);
+                 "(failed reverse-i-search)`%.255s': ", session->query);
         break;
 
     default:

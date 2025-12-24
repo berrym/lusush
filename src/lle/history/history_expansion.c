@@ -373,7 +373,7 @@ static lle_result_t expand_single_reference(const char *expansion_str,
                 lle_history_search_results_destroy(search_results);
             }
             char err[256];
-            snprintf(err, sizeof(err), "!?%s: event not found", search_str);
+            snprintf(err, sizeof(err), "!?%.230s: event not found", search_str);
             /* Error - details in return code */
             return LLE_ERROR_NOT_FOUND;
         }
@@ -415,7 +415,7 @@ static lle_result_t expand_single_reference(const char *expansion_str,
             lle_history_search_results_destroy(search_results);
         }
         char err[256];
-        snprintf(err, sizeof(err), "!%s: event not found", search_str);
+        snprintf(err, sizeof(err), "!%.235s: event not found", search_str);
         /* Error - details in return code */
         return LLE_ERROR_NOT_FOUND;
     }

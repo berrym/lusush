@@ -175,8 +175,8 @@ void format_git_prompt(char *git_prompt, size_t size) {
         strcat(status_indicators, "?");
     }
 
-    // Add ahead/behind indicators
-    char ahead_behind[16] = "";
+    // Add ahead/behind indicators (↑/↓ are 3 bytes each in UTF-8)
+    char ahead_behind[32] = "";
     if (git_info.ahead > 0 && git_info.behind > 0) {
         snprintf(ahead_behind, sizeof(ahead_behind), " ↑%d↓%d", git_info.ahead, git_info.behind);
     } else if (git_info.ahead > 0) {

@@ -212,6 +212,7 @@ int parse_ssh_config(const char *config_path, ssh_host_cache_t *cache) {
                                      sizeof(current_host.alias));
             strncpy(current_host.hostname, current_host.alias,
                     sizeof(current_host.hostname) - 1);
+            current_host.hostname[sizeof(current_host.hostname) - 1] = '\0';
             in_host_block = true;
 
         } else if (in_host_block) {
@@ -441,6 +442,7 @@ int parse_known_hosts_line(const char *line, ssh_host_t *host) {
 
     // Set alias same as hostname for known_hosts entries
     strncpy(host->alias, host->hostname, sizeof(host->alias) - 1);
+    host->alias[sizeof(host->alias) - 1] = '\0';
 
     return host->hostname[0] ? 0 : -1;
 }
@@ -1080,9 +1082,19 @@ void format_ssh_host_completion(const ssh_host_t *host, char *completion,
     const char *name = host->alias[0] ? host->alias : host->hostname;
 
     if (host->user[0]) {
-        snprintf(completion, max_len, "%s@%s", host->user, name);
+        // Format user@host - calculate available space for each part
+        // Reserve 1 for '@' and 1 for null terminator
+        size_t available = max_len > 2 ? max_len - 2 : 0;
+        size_t user_len = strlen(host->user);
+        // Give each part half the space, but use actual length if shorter
+        size_t user_max = user_len < available / 2 ? user_len : available / 2;
+        size_t name_max = available - user_max;
+        snprintf(completion, max_len, "%.*s@%.*s",
+                 (int)user_max, host->user, (int)name_max, name);
     } else {
-        snprintf(completion, max_len, "%s", name);
+        size_t name_len = strlen(name);
+        size_t name_max = name_len < max_len - 1 ? name_len : max_len - 1;
+        snprintf(completion, max_len, "%.*s", (int)name_max, name);
     }
 }
 

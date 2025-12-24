@@ -1070,7 +1070,7 @@ static size_t safe_string_copy(char *dest, const char *src, size_t dest_size) {
     size_t src_len = strlen(src);
     size_t copy_len = (src_len < dest_size - 1) ? src_len : dest_size - 1;
     
-    strncpy(dest, src, copy_len);
+    memcpy(dest, src, copy_len);
     dest[copy_len] = '\0';
     
     return copy_len;
