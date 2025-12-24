@@ -482,8 +482,9 @@ void lusush_pool_free(void *ptr) {
 
     // If not returned to pool, use standard free
     if (!returned_to_pool) {
+        void *freed_ptr = ptr;  // Save address before free for debug logging
         free(ptr);
-        POOL_DEBUG("Standard free: ptr=%p", ptr);
+        POOL_DEBUG("Standard free: ptr=%p", freed_ptr);
         
         // Update statistics for malloc fallback free
         if (global_memory_pool && global_memory_pool->enable_statistics) {

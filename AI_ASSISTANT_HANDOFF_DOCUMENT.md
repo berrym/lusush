@@ -87,7 +87,13 @@
    - `src/display/display_controller.c` - Removed `dc_invalidate_prompt_cache` (no-op)
    - `src/lle/keybinding/keybinding_actions.c` - Removed `is_word_boundary` (Unicode version exists)
 
-8. **All 51 tests pass** on Linux after fixes.
+8. **Additional warning fixes** (114 → 110):
+   - `src/lusush_memory_pool.c` - Fixed use-after-free false positive (save ptr before free for debug log)
+   - `src/lle/adaptive/adaptive_context_initialization.c` - Fixed maybe-uninitialized (init fallback_mode)
+   - `src/lle/unicode/unicode_grapheme.c` - Removed redundant `>= 0` check on unsigned
+   - `tests/lle/unit/test_parser_state_machine.c` - Removed redundant `>= 0` assertion on uint64_t
+
+9. **All 51 tests pass** on Linux after fixes.
 
 ### Session 57 Accomplishments
 

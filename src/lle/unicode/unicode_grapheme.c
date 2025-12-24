@@ -70,7 +70,7 @@ static grapheme_cluster_break_t lle_get_gcb_property(uint32_t codepoint) {
 
     // GB5: Control characters (excluding CR, LF)
     // Control: [\p{Cc}\p{Cf}\p{Zl}\p{Zp}] - CR - LF
-    if ((codepoint >= 0x0000 && codepoint <= 0x001F && codepoint != 0x000A &&
+    if ((codepoint <= 0x001F && codepoint != 0x000A &&
          codepoint != 0x000D) ||                        // C0 controls
         (codepoint >= 0x007F && codepoint <= 0x009F) || // DEL + C1 controls
         codepoint == 0x00AD ||                          // Soft hyphen

@@ -333,7 +333,8 @@ static void test_time_in_state(void) {
     TEST_ASSERT(result == LLE_SUCCESS, "Init should succeed");
     
     uint64_t time1 = lle_parser_state_machine_time_in_state(sm);
-    TEST_ASSERT(time1 >= 0, "Time should be non-negative");
+    /* time1 is uint64_t, always non-negative - just verify we got a value */
+    (void)time1;
     
     /* Wait a bit and check again */
     for (volatile int i = 0; i < 100000; i++);
