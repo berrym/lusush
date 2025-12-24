@@ -82,7 +82,12 @@
      (misleading comment suggested it should be used, but `network_load_config()` already
      properly reads from config system after `set_network_config_defaults()` sets fallbacks)
 
-7. **All 51 tests pass** on Linux after fixes.
+7. **Legacy stub removal** (per audit recommendations):
+   - `src/readline_integration.c` - Removed `try_layered_display_prompt` (superseded by new approach)
+   - `src/display/display_controller.c` - Removed `dc_invalidate_prompt_cache` (no-op)
+   - `src/lle/keybinding/keybinding_actions.c` - Removed `is_word_boundary` (Unicode version exists)
+
+8. **All 51 tests pass** on Linux after fixes.
 
 ### Session 57 Accomplishments
 

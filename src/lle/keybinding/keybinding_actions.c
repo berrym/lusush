@@ -94,17 +94,6 @@ static bool is_whitespace_codepoint(uint32_t cp) {
 }
 
 /**
- * Check if character is a word boundary (whitespace or shell metacharacter)
- * Legacy byte-based version for compatibility with existing code paths.
- */
-LLE_MAYBE_UNUSED
-static bool is_word_boundary(char c) {
-    return isspace((unsigned char)c) || c == '\0' || c == '|' || c == '&' ||
-           c == ';' || c == '(' || c == ')' || c == '<' || c == '>' ||
-           c == '\'' || c == '"' || c == '`' || c == '$' || c == '\\';
-}
-
-/**
  * Check if character is Unix word boundary (whitespace only, for Ctrl-W)
  */
 static bool is_unix_word_boundary(char c) {

@@ -185,15 +185,6 @@ void dc_finalize_input(void) {
 }
 
 /**
- * Mark prompt as needing redraw - called when prompt content changes
- * (No longer needed with always-redraw approach, kept for API compatibility)
- */
-MAYBE_UNUSED
-static void dc_invalidate_prompt_cache(void) {
-    /* No-op: we always redraw everything now */
-}
-
-/**
  * Callback for screen_buffer_render_with_continuation.
  * 
  * Called when a newline is encountered during character-by-character rendering.

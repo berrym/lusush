@@ -43,7 +43,7 @@ spec-compliant future stubs from abandoned cruft.
 | `is_duplicate_in_cache` | src/readline_integration.c:306 | SPEC_STUB | History deduplication support. |
 | `add_to_history_cache` | src/readline_integration.c:318 | SPEC_STUB | History caching with deduplication. |
 | `lusush_readline_with_layered_display` | src/readline_integration.c:1446 | SPEC_STUB | Enhanced readline with layered display. Graceful fallback. |
-| `try_layered_display_prompt` | src/readline_integration.c:1498 | LEGACY | Superseded by new prompt approach. Kept for compatibility. |
+| ~~`try_layered_display_prompt`~~ | src/readline_integration.c | **REMOVED** | Superseded by new prompt approach. Removed Session 58. |
 
 ### Display System
 
@@ -54,7 +54,7 @@ spec-compliant future stubs from abandoned cruft.
 | `find_cached_sequence` | src/display/terminal_control.c:943 | SPEC_STUB | Sequence cache lookup. |
 | `cache_sequence` | src/display/terminal_control.c:956 | SPEC_STUB | Sequence caching storage. |
 | `dc_get_timestamp_us` | src/display/display_controller.c:99 | SPEC_STUB | Performance timing (Spec 14). |
-| `dc_invalidate_prompt_cache` | src/display/display_controller.c:191 | LEGACY | No-op kept for API compatibility. |
+| ~~`dc_invalidate_prompt_cache`~~ | src/display/display_controller.c | **REMOVED** | No-op. Removed Session 58. |
 | `calculate_cache_hash` | src/display/autosuggestions_layer.c:112 | SPEC_STUB | Autosuggestion cache optimization. |
 | `expire_old_cache_entries` | src/display/command_layer.c:884 | SPEC_STUB | Syntax highlighting cache TTL. |
 | `translate_cursor_to_screen_position` | src/display/composition_engine.c:1910 | SPEC_STUB | Multiline cursor positioning. |
@@ -96,7 +96,7 @@ spec-compliant future stubs from abandoned cruft.
 | Function | File | Status | Notes |
 |----------|------|--------|-------|
 | `is_word_codepoint` | src/lle/keybinding/keybinding_actions.c:70 | SPEC_STUB | Unicode-aware word boundary detection (Spec 25). |
-| `is_word_boundary` | src/lle/keybinding/keybinding_actions.c:100 | LEGACY | Byte-based version for compatibility. |
+| ~~`is_word_boundary`~~ | src/lle/keybinding/keybinding_actions.c | **REMOVED** | Byte-based legacy. Unicode version exists. Removed Session 58. |
 
 ### Display Cache
 
@@ -170,10 +170,10 @@ func(void) { }                               // FAILS
 
 ### Future Considerations
 
-**LEGACY items to review for removal:**
-- `try_layered_display_prompt` - Superseded, kept for API compatibility
-- `dc_invalidate_prompt_cache` - No-op, kept for API compatibility  
-- `is_word_boundary` - Byte-based legacy, Unicode version exists
+**LEGACY items - REMOVED in Session 58:**
+- ~~`try_layered_display_prompt`~~ - Superseded, removed
+- ~~`dc_invalidate_prompt_cache`~~ - No-op, removed
+- ~~`is_word_boundary`~~ - Byte-based legacy, removed (Unicode version exists)
 
 **ACTIVE_STUB items to wire up when ready:**
 - `execute_test_builtin` - Enhanced test builtin evaluation

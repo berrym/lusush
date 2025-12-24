@@ -79,7 +79,6 @@ static int history_cache_size = 0;
 
 // Forward declarations for new layered display integration functions
 static char *lusush_readline_with_layered_display(const char *prompt);
-static void try_layered_display_prompt(const char *prompt);
 static int history_cache_capacity = 0;
 
 // Forward declarations
@@ -1488,21 +1487,6 @@ static char *lusush_readline_with_layered_display(const char *prompt) {
             fprintf(stderr, "[READLINE_DEBUG] Failed to generate layered prompt, using fallback\n");
         }
         return NULL;  // Fallback to standard readline
-    }
-}
-
-/**
- * Legacy function - simplified to avoid interfering with readline
- * New approach generates prompt content and lets readline handle display
- */
-MAYBE_UNUSED
-static void try_layered_display_prompt(const char *prompt) {
-    // No longer manually displays prompts - this was causing cursor positioning issues
-    // The new approach generates prompt content and lets readline display it properly
-    (void)prompt;  // Suppress unused parameter warning
-    
-    if (debug_enabled) {
-        fprintf(stderr, "[READLINE_DEBUG] try_layered_display_prompt: using new prompt generation approach\n");
     }
 }
 
