@@ -1,5 +1,4 @@
 #include "config.h"
-#include "readline_integration.h"
 #include "lusush.h"
 #include "symtable.h"
 

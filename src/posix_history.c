@@ -1,8 +1,5 @@
 #include "posix_history.h"
 #include "lusush.h"
-#include "errors.h"
-#include "strings.h"
-#include "executor.h"
 
 #include <errno.h>
 #include <stdio.h>

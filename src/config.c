@@ -2,13 +2,8 @@
 
 #include "alias.h"
 #include "autocorrect.h"
-#include "completion.h"
-#include "errors.h"
-#include "history.h"
 #include "readline_integration.h"
 #include "lusush.h"
-#include "prompt.h"
-#include "strings.h"
 #include "symtable.h"
 
 #include <ctype.h>

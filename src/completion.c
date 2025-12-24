@@ -6,7 +6,6 @@
 #include "ht.h"
 #include "readline_integration.h"
 #include "network.h"
-#include "symtable.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/unicode_compare.h"
 

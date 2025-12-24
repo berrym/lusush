@@ -10,7 +10,6 @@
 #include "node.h"
 #include "tokenizer.h"
 #include "executor.h"
-#include "lusush.h"
 
 #include <stdio.h>
 #include <stdlib.h>

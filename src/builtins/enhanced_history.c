@@ -1,9 +1,6 @@
 #include "posix_history.h"
 #include "config.h"
-#include "errors.h"
-#include "strings.h"
 #include "symtable.h"
-#include "lusush.h"
 
 #include <getopt.h>
 #include <stdio.h>

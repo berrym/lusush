@@ -51,7 +51,6 @@
 #include <stdarg.h>
 
 #include "layer_events.h"
-#include "base_terminal.h"
 
 // ============================================================================
 // CONSTANTS AND CONFIGURATION

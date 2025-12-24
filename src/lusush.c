@@ -22,10 +22,8 @@
 #include "executor.h"
 #include "init.h"
 #include "input.h"
-#include "readline_integration.h"
 #include "posix_history.h"
 #include "signals.h"
-#include "symtable.h"
 #include "display_integration.h"
 
 #include <ctype.h>
