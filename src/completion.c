@@ -1,12 +1,10 @@
 #include "../include/completion.h"
 
-#include "../include/alias.h"
 #include "../include/builtins.h"
 #include "../include/config.h"
 #include "../include/fuzzy_match.h"
 #include "../include/libhashtable/ht.h"
 #include "../include/readline_integration.h"
-#include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/symtable.h"
 #include "lle/adaptive_terminal_integration.h"

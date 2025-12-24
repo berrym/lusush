@@ -51,10 +51,7 @@
 #include "display_integration.h"
 #include "display/display_controller.h"
 #include "display/base_terminal.h"
-#include "display/terminal_control.h"
 #include "lle/adaptive_terminal_integration.h"
-#include "alias.h"
-#include "builtins.h"
 #include "lle/syntax_highlighting.h"
 
 // Note: Completion menu support moved to display_controller (proper architecture)

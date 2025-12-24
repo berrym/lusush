@@ -3,7 +3,6 @@
 #include "../include/alias.h"
 #include "../include/autocorrect.h"
 #include "../include/builtins.h"
-#include "../include/completion.h"
 #include "../include/config.h"
 #include "../include/errors.h"
 #include "../include/history.h"

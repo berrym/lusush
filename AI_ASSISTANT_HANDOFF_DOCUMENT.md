@@ -61,6 +61,16 @@
    - All 51 tests pass
    - meson.build updated to remove termcap source files
 
+5. **Additional Unused Header Cleanup** (post-termcap migration):
+   Removed additional unused includes flagged by clangd after termcap removal:
+   - `adaptive_terminal_integration.h`: Removed `lle/terminal_abstraction.h`
+   - `builtins.c`: Removed `alias.h`, `readline_integration.h`, `version.h`
+   - `completion.c`: Removed `alias.h`, `lusush.h`
+   - `autosuggestions_layer.c`: Removed `config.h`
+   - `command_layer.c`: Removed `terminal_control.h`, `alias.h`, `builtins.h`
+   - `init.c`: Removed `completion.h`
+   - `prompt.c`: Removed `errors.h`, `ht.h`, `strings.h`
+
 ### Session 61 Accomplishments
 
 1. **Removed Unused Header Includes** (clangd warnings):

@@ -21,7 +21,6 @@
 #include "lle/error_handling.h"
 #include "lle/memory_management.h"
 #include "lle/performance.h"
-#include "lle/terminal_abstraction.h"
 
 #include <stdbool.h>
 #include <stddef.h>

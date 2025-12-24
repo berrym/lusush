@@ -37,7 +37,6 @@
 
 #include "../include/display/autosuggestions_layer.h"
 #include "../include/display_integration.h"
-#include "../include/config.h"
 #include "lle/adaptive_terminal_integration.h"
 #include <stdio.h>
 #include <stdlib.h>
