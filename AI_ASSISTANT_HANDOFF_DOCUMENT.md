@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 60
+# AI Assistant Handoff Document - Session 61
 
 **Date**: 2025-12-24  
-**Session Type**: Cross-Platform Build Fix - macOS readline include path  
+**Session Type**: clangd Warning Cleanup and Orphaned Test Audit  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -25,6 +25,35 @@
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 | 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
 
+### Session 61 Accomplishments
+
+1. **Removed Unused Header Includes** (clangd warnings):
+   - `src/autocorrect.c`: Removed `completion.h`, `config.h`, `history.h`, `lusush.h`, `symtable.h`
+   - `src/display/prompt_layer.c`: Removed `terminal_control.h`, `base_terminal.h`
+   - `src/lle/history/history_lusush_bridge.c`: Removed `readline_integration.h`
+   - `src/themes.c`: Removed `config.h`, `lusush.h`, `strings.h`, `symtable.h`
+
+2. **Comprehensive Orphaned Test File Audit**:
+   Audited all test files not registered in meson.build. Deleted clearly obsolete files:
+   
+   **Deleted (empty or broken includes):**
+   - `tests/test_base_terminal.c` (468 lines, orphaned, not in meson.build)
+   - `tests/lle/test_simple.c` (21 lines, minimal stub)
+   - `tests/integration/test_continuation_prompt_integration.c` (empty)
+   - `tests/unit/test_composition_engine_continuation.c` (empty)
+   - `tests/lle/behavioral/test_display_integration_behavioral.c` (broken include)
+   - `tests/lle/behavioral/test_terminal_capabilities_behavioral.c` (broken include)
+   - Removed empty `tests/lle/behavioral/` directory
+   
+   **Kept (intentionally separate from meson):**
+   - `tests/lle/compliance/*.c` (~20 files) - Run via `run_compliance_tests.sh`
+   - `tests/lle/functional/*.c` - Functional test library
+   - `tests/lle/manual/` - Manual test utilities
+
+3. **Build Verification**:
+   - Clean build on macOS (0 warnings)
+   - All 51 tests pass
+
 ### Session 60 Accomplishments
 
 1. **Deleted Orphaned Test File**:
@@ -32,9 +61,6 @@
    (`foundation/terminal/terminal.h` doesn't exist). The file was never registered
    in meson.build so the error wasn't caught by builds. The correctly-named
    `test_terminal_capabilities.c` (plural) exists and works.
-   
-   **Note**: ~25 other orphaned test files exist in tests/ that aren't in meson.build.
-   These need future audit to determine which should be wired up vs deleted.
 
 2. **macOS Build Fix - Readline Include Path**:
    Session 58's Linux fix (`partial_dependency(includes: true)`) was too aggressive for macOS.

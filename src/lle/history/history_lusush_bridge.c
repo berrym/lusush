@@ -19,7 +19,6 @@
 #include "lle/error_handling.h"
 #include "lle/history.h"
 #include "lle/memory_management.h"
-#include "lusush.h"
 #include "posix_history.h"
 
 #include <errno.h>
@@ -31,7 +30,7 @@
 #include <unistd.h>
 
 /* GNU Readline headers - conditionally included */
-#include "readline_integration.h" /* Gets HAVE_READLINE definition */
+/* HAVE_READLINE is defined by meson build system (-DHAVE_READLINE=0/1) */
 #if HAVE_READLINE
 #include <readline/history.h>
 #include <readline/readline.h>

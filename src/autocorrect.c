@@ -11,13 +11,7 @@
 #include "../include/fuzzy_match.h"
 
 #include "../include/builtins.h"
-#include "../include/completion.h"
-#include "../include/config.h"
 #include "../include/executor.h"
-#include "../include/history.h"
-#include "../include/readline_integration.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
 
 #include <ctype.h>
 #include <dirent.h>

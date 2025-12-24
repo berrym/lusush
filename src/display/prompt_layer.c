@@ -42,8 +42,6 @@
  */
 
 #include "../../include/display/prompt_layer.h"
-#include "../../include/display/terminal_control.h"
-#include "../../include/display/base_terminal.h"
 #include "../../include/themes.h"
 #include "../../include/prompt.h"
 #include "../../include/symtable.h"
@@ -55,7 +53,6 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/time.h>
-#include <ctype.h>
 
 // ============================================================================
 // INTERNAL CONSTANTS AND MACROS

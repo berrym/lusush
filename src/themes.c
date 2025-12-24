@@ -12,13 +12,8 @@
 
 #include "../include/themes.h"
 #include "../include/display_integration.h"
-#include "../include/display/display_controller.h"
 
-#include "../include/config.h"
-#include "../include/lusush.h"
 #include "../include/prompt.h"
-#include "../include/strings.h"
-#include "../include/symtable.h"
 #include "../include/termcap.h"
 #include "lle/utf8_support.h"
 
