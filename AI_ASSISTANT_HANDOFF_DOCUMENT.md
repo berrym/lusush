@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 59
+# AI Assistant Handoff Document - Session 60
 
 **Date**: 2025-12-24  
-**Session Type**: Warning Elimination - strncpy and Format Truncation  
+**Session Type**: Cross-Platform Build Fix - macOS readline include path  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -24,6 +24,21 @@
 | 5 | Test Suite Cleanup | LOW | **COMPLETE** |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 | 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
+
+### Session 60 Accomplishments
+
+1. **macOS Build Fix - Readline Include Path**:
+   Session 58's Linux fix (`partial_dependency(includes: true)`) was too aggressive for macOS.
+   It stripped the Homebrew readline include path (`-I/usr/local/Cellar/readline/8.3.1/include`),
+   causing `history_list()` to be undeclared (using system libedit instead of GNU readline).
+   
+   **Build System Fix:**
+   - Made readline partial_dependency platform-aware:
+     - **Linux**: `partial_dependency(includes: true)` - strips `-D_XOPEN_SOURCE=600`
+     - **macOS**: `partial_dependency(compile_args: true, includes: true)` - keeps `-I` path
+   - Added `_DARWIN_C_SOURCE` to project-wide args on macOS for `pthread_threadid_np`
+   
+   **Result:** Clean build on both macOS and Linux, 51/51 tests pass on macOS.
 
 ### Session 59 Accomplishments
 

@@ -113,6 +113,11 @@ add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE=700', language: 'c')
 add_project_arguments('-D_XOPEN_SOURCE_EXTENDED', language: 'c')
 
+# macOS requires _DARWIN_C_SOURCE for BSD-specific functions like pthread_threadid_np
+if host_machine.system() == 'darwin'
+  add_project_arguments('-D_DARWIN_C_SOURCE', language: 'c')
+endif
+
 # Readline support option
 readline_support = get_option('readline_support')
 
@@ -125,12 +130,17 @@ if readline_support
   message('GNU Readline support: ENABLED')
 
   # Some Linux distros (Fedora, RHEL) have readline.pc that defines -D_XOPEN_SOURCE=600,
-  # which conflicts with our project-wide -D_XOPEN_SOURCE=700. We create partial dependencies
-  # to strip those compile_args, preventing redefinition warnings:
-  # - readline_compile_dep: includes only (for static libraries)
-  # - readline_link_dep: includes + link_args (for executables and declared dependencies)
-  readline_compile_dep = readline_dep.partial_dependency(includes: true)
-  readline_link_dep = readline_dep.partial_dependency(includes: true, link_args: true)
+  # which conflicts with our project-wide -D_XOPEN_SOURCE=700. On Linux, we strip compile_args
+  # to prevent redefinition warnings. On macOS, readline's compile_args (-I... -D_DARWIN_C_SOURCE)
+  # don't conflict, so we keep them to get the Homebrew include path.
+  if host_machine.system() == 'linux'
+    readline_compile_dep = readline_dep.partial_dependency(includes: true)
+    readline_link_dep = readline_dep.partial_dependency(includes: true, link_args: true)
+  else
+    # macOS and other platforms: keep full compile_args (includes -I path)
+    readline_compile_dep = readline_dep.partial_dependency(compile_args: true, includes: true)
+    readline_link_dep = readline_dep.partial_dependency(compile_args: true, includes: true, link_args: true)
+  endif
 else
   readline_dep = dependency('', required: false)
   readline_compile_dep = readline_dep
