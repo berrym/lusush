@@ -6,7 +6,7 @@
  * Copyright (c) Michael Berry <trismegustis@gmail.com> 2023
  */
 
-#include "../../include/libhashtable/ht.h"
+#include "ht.h"
 
 #include <stdio.h>
 #include <stdlib.h>

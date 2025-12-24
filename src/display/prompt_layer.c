@@ -41,10 +41,10 @@
  * - Integrates with existing prompt generation (src/prompt.c)
  */
 
-#include "../../include/display/prompt_layer.h"
-#include "../../include/themes.h"
-#include "../../include/prompt.h"
-#include "../../include/symtable.h"
+#include "prompt_layer.h"
+#include "themes.h"
+#include "prompt.h"
+#include "symtable.h"
 
 #include <stdio.h>
 #include <stdlib.h>

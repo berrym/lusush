@@ -1,5 +1,5 @@
-#include "../../include/debug.h"
-#include "../../include/errors.h"
+#include "debug.h"
+#include "errors.h"
 
 #include <limits.h>
 #include <stdio.h>

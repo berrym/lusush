@@ -1,11 +1,11 @@
-#include "../../include/alias.h"
+#include "alias.h"
 
-#include "../../include/builtins.h"
-#include "../../include/errors.h"
-#include "../../include/libhashtable/ht.h"
-#include "../../include/lusush.h"
-#include "../../include/strings.h"
-#include "../../include/tokenizer.h"
+#include "builtins.h"
+#include "errors.h"
+#include "ht.h"
+#include "lusush.h"
+#include "strings.h"
+#include "tokenizer.h"
 
 #include <ctype.h>
 #include <stdio.h>

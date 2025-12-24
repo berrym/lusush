@@ -1,6 +1,6 @@
-#include "../include/errors.h"
+#include "errors.h"
 
-#include "../include/lusush.h"
+#include "lusush.h"
 
 #include <errno.h>
 #include <stdarg.h>

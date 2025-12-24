@@ -1,7 +1,7 @@
-#include "../include/errors.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
-#include "../include/readline_integration.h"
+#include "errors.h"
+#include "lusush.h"
+#include "symtable.h"
+#include "readline_integration.h"
 
 #include <stdbool.h>
 #include <stdio.h>

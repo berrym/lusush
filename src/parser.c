@@ -5,12 +5,12 @@
  * with correct token boundary management and error handling.
  */
 
-#include "../include/parser.h"
+#include "parser.h"
 
-#include "../include/node.h"
-#include "../include/tokenizer.h"
-#include "../include/executor.h"
-#include "../include/lusush.h"
+#include "node.h"
+#include "tokenizer.h"
+#include "executor.h"
+#include "lusush.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -11,8 +11,8 @@
  * avoid misinterpreting continuation bytes as syntax characters.
  */
 
-#include "../include/input_continuation.h"
-#include "../include/symtable.h"
+#include "input_continuation.h"
+#include "symtable.h"
 #include "lle/utf8_support.h"
 
 #include <ctype.h>

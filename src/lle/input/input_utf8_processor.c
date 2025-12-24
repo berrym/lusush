@@ -12,10 +12,10 @@
  * Spec 06: Input Parsing - Phase 2
  */
 
-#include "../../include/lle/error_handling.h"
-#include "../../include/lle/input_parsing.h"
-#include "../../include/lle/unicode_grapheme.h"
-#include "../../include/lle/utf8_support.h"
+#include "lle/error_handling.h"
+#include "lle/input_parsing.h"
+#include "lle/unicode_grapheme.h"
+#include "lle/utf8_support.h"
 #include <string.h>
 
 /*

@@ -50,8 +50,8 @@
 #include <time.h>
 #include <stdarg.h>
 
-#include "../../include/display/layer_events.h"
-#include "../../include/display/base_terminal.h"
+#include "layer_events.h"
+#include "base_terminal.h"
 
 // ============================================================================
 // CONSTANTS AND CONFIGURATION

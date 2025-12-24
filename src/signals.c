@@ -1,6 +1,6 @@
-#include "../include/signals.h"
+#include "signals.h"
 
-#include "../include/errors.h"
+#include "errors.h"
 #include "lle/adaptive_terminal_integration.h"
 
 #include <signal.h>

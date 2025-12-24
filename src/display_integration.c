@@ -40,17 +40,17 @@
  * - Ensure zero memory leaks and resource management
  */
 
-#include "../include/display_integration.h"
-#include "../include/display/display_controller.h"
-#include "../include/display/layer_events.h"
-#include "../include/display/autosuggestions_layer.h"
-#include "../include/readline_integration.h"
-#include "../include/prompt.h"
-#include "../include/themes.h"
-#include "../include/lusush.h"
-#include "../include/config.h"
-#include "../include/lusush_memory_pool.h"
-#include "../include/init.h"
+#include "display_integration.h"
+#include "display/display_controller.h"
+#include "display/layer_events.h"
+#include "display/autosuggestions_layer.h"
+#include "readline_integration.h"
+#include "prompt.h"
+#include "themes.h"
+#include "lusush.h"
+#include "config.h"
+#include "lusush_memory_pool.h"
+#include "init.h"
 #include <libgen.h>
 
 #include <stdio.h>

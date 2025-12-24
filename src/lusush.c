@@ -16,17 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "../include/lusush.h"
+#include "lusush.h"
 
-#include "../include/config.h"
-#include "../include/executor.h"
-#include "../include/init.h"
-#include "../include/input.h"
-#include "../include/readline_integration.h"
-#include "../include/posix_history.h"
-#include "../include/signals.h"
-#include "../include/symtable.h"
-#include "../include/display_integration.h"
+#include "config.h"
+#include "executor.h"
+#include "init.h"
+#include "input.h"
+#include "readline_integration.h"
+#include "posix_history.h"
+#include "signals.h"
+#include "symtable.h"
+#include "display_integration.h"
 
 #include <ctype.h>
 #include <stdbool.h>

@@ -5,8 +5,8 @@
  * manipulation functions.
  */
 
-#include "../../include/lle/utf8_support.h"
-#include "../../include/lle/unicode_grapheme.h"
+#include "lle/utf8_support.h"
+#include "lle/unicode_grapheme.h"
 #include <string.h>
 
 /*

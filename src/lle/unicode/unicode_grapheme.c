@@ -11,8 +11,8 @@
  * All GB1-GB999 rules are fully implemented per specification.
  */
 
-#include "../../include/lle/unicode_grapheme.h"
-#include "../../include/lle/utf8_support.h"
+#include "lle/unicode_grapheme.h"
+#include "lle/utf8_support.h"
 #include <stdbool.h>
 #include <stdint.h>
 

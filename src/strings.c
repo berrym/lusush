@@ -1,8 +1,8 @@
-#include "../include/strings.h"
+#include "strings.h"
 
-#include "../include/errors.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
+#include "errors.h"
+#include "lusush.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <stdbool.h>

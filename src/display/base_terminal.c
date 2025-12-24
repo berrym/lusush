@@ -60,7 +60,7 @@
 #include <sys/event.h>
 #endif
 
-#include "../../include/display/base_terminal.h"
+#include "base_terminal.h"
 
 // ============================================================================
 // CONSTANTS AND CONFIGURATION

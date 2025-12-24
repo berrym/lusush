@@ -1,5 +1,5 @@
-#include "../include/tokenizer.h"
-#include "../include/lle/utf8_support.h"
+#include "tokenizer.h"
+#include "lle/utf8_support.h"
 
 #include <ctype.h>
 #include <stdio.h>

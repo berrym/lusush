@@ -6,7 +6,7 @@
  * Spec 04: Event System - Phase 2C
  */
 
-#include "../../include/lle/event_system.h"
+#include "lle/event_system.h"
 #include <stdlib.h>
 #include <string.h>
 

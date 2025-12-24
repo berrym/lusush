@@ -10,10 +10,10 @@
  * Unicode text in prompts and branding displays.
  */
 
-#include "../include/themes.h"
-#include "../include/display_integration.h"
+#include "themes.h"
+#include "display_integration.h"
 
-#include "../include/prompt.h"
+#include "prompt.h"
 #include "lle/adaptive_terminal_integration.h"
 #include "lle/utf8_support.h"
 

@@ -9,10 +9,10 @@
  * Licensed under GPL-3.0+
  */
 
-#include "../include/network.h"
+#include "network.h"
 
-#include "../include/config.h"
-#include "../include/lusush.h"
+#include "config.h"
+#include "lusush.h"
 
 #include <ctype.h>
 #include <dirent.h>

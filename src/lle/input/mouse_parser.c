@@ -12,8 +12,8 @@
  * Spec 06: Input Parsing - Phase 5
  */
 
-#include "../../include/lle/error_handling.h"
-#include "../../include/lle/input_parsing.h"
+#include "lle/error_handling.h"
+#include "lle/input_parsing.h"
 #include <string.h>
 #include <time.h>
 

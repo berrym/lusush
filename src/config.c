@@ -1,15 +1,15 @@
-#include "../include/config.h"
+#include "config.h"
 
-#include "../include/alias.h"
-#include "../include/autocorrect.h"
-#include "../include/completion.h"
-#include "../include/errors.h"
-#include "../include/history.h"
-#include "../include/readline_integration.h"
-#include "../include/lusush.h"
-#include "../include/prompt.h"
-#include "../include/strings.h"
-#include "../include/symtable.h"
+#include "alias.h"
+#include "autocorrect.h"
+#include "completion.h"
+#include "errors.h"
+#include "history.h"
+#include "readline_integration.h"
+#include "lusush.h"
+#include "prompt.h"
+#include "strings.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <errno.h>

@@ -1,8 +1,8 @@
-#include "../../include/debug.h"
-#include "../../include/errors.h"
-#include "../../include/executor.h"
-#include "../../include/node.h"
-#include "../../include/symtable.h"
+#include "debug.h"
+#include "errors.h"
+#include "executor.h"
+#include "node.h"
+#include "symtable.h"
 
 #include <stdio.h>
 #include <stdlib.h>

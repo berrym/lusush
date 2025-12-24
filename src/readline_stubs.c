@@ -13,12 +13,12 @@
  * everywhere, while LLE handles all actual line editing.
  */
 
-#include "../include/readline_integration.h"
-#include "../include/lle/lle_readline.h"
-#include "../include/prompt.h"
-#include "../include/display_integration.h"
-#include "../include/symtable.h"
-#include "../include/lusush_memory_pool.h"
+#include "readline_integration.h"
+#include "lle/lle_readline.h"
+#include "prompt.h"
+#include "display_integration.h"
+#include "symtable.h"
+#include "lusush_memory_pool.h"
 #include <stdlib.h>
 #include <string.h>
 

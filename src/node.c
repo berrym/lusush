@@ -1,7 +1,7 @@
-#include "../include/node.h"
+#include "node.h"
 
-#include "../include/errors.h"
-#include "../include/strings.h"
+#include "errors.h"
+#include "strings.h"
 
 #include <stdbool.h>
 #include <stdio.h>

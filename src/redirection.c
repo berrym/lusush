@@ -11,12 +11,12 @@
  * - Here documents (<<, <<-)
  */
 
-#include "../include/redirection.h"
+#include "redirection.h"
 
-#include "../include/executor.h"
-#include "../include/lusush.h"
-#include "../include/node.h"
-#include "../include/symtable.h"
+#include "executor.h"
+#include "lusush.h"
+#include "node.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <errno.h>

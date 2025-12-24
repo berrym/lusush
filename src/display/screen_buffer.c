@@ -21,7 +21,7 @@
 #include "display/screen_buffer.h"
 #include "lle/utf8_support.h"
 #include "lle/unicode_grapheme.h"
-#include "../include/config.h"
+#include "config.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>

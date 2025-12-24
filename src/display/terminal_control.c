@@ -51,7 +51,7 @@
 #include <time.h>
 #include <stdarg.h>
 
-#include "../../include/display/terminal_control.h"
+#include "terminal_control.h"
 
 // ============================================================================
 // CONSTANTS AND CONFIGURATION

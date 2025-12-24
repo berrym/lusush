@@ -1,10 +1,10 @@
-#include "../include/prompt.h"
+#include "prompt.h"
 
-#include "../include/config.h"
-#include "../include/display_integration.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
-#include "../include/themes.h"
+#include "config.h"
+#include "display_integration.h"
+#include "lusush.h"
+#include "symtable.h"
+#include "themes.h"
 
 #include <getopt.h>
 #include <limits.h>

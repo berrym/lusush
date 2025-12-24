@@ -41,21 +41,21 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "../include/readline_integration.h"
-#include "../include/display_integration.h"
-#include "../include/libhashtable/ht.h"
-#include "../include/lusush.h"
-#include "../include/prompt.h"
-#include "../include/themes.h"
-#include "../include/completion.h"
-#include "../include/config.h"
-#include "../include/symtable.h"
-#include "../include/lle/lle_readline.h"
-#include "../include/posix_history.h"
+#include "readline_integration.h"
+#include "display_integration.h"
+#include "ht.h"
+#include "lusush.h"
+#include "prompt.h"
+#include "themes.h"
+#include "completion.h"
+#include "config.h"
+#include "symtable.h"
+#include "lle/lle_readline.h"
+#include "posix_history.h"
 
-#include "../include/lusush.h"
-#include "../include/init.h"
-#include "../include/input.h"
+#include "lusush.h"
+#include "init.h"
+#include "input.h"
 
 // Forward declarations
 bool is_emacs_mode_enabled(void);

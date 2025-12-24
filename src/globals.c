@@ -1,5 +1,5 @@
-#include "../include/lusush.h"
-#include "../include/posix_history.h"
+#include "lusush.h"
+#include "posix_history.h"
 
 #include <stdbool.h>
 #include <sys/types.h>

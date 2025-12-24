@@ -12,15 +12,15 @@
  * avoid misinterpreting continuation bytes as syntax characters.
  */
 
-#include "../include/input.h"
-#include "../include/readline_integration.h"
-#include "../include/lusush.h"
-#include "../include/config.h"
-#include "../include/errors.h"
-#include "../include/posix_history.h"
-#include "../include/prompt.h"
-#include "../include/symtable.h"
-#include "../include/init.h"
+#include "input.h"
+#include "readline_integration.h"
+#include "lusush.h"
+#include "config.h"
+#include "errors.h"
+#include "posix_history.h"
+#include "prompt.h"
+#include "symtable.h"
+#include "init.h"
 #include "lle/utf8_support.h"
 
 #include <ctype.h>

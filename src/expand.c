@@ -1,10 +1,10 @@
-#include "../include/expand.h"
+#include "expand.h"
 
-#include "../include/alias.h"
-#include "../include/errors.h"
-#include "../include/lusush.h"
-#include "../include/strings.h"
-#include "../include/symtable.h"
+#include "alias.h"
+#include "errors.h"
+#include "lusush.h"
+#include "strings.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <pwd.h>

@@ -13,11 +13,11 @@
  * Copyright (c) 2024 Michael Berry <trismegustis@gmail.com>
  */
 
-#include "../include/arithmetic.h"
+#include "arithmetic.h"
 
-#include "../include/executor.h"
-#include "../include/lusush.h"
-#include "../include/symtable.h"
+#include "executor.h"
+#include "lusush.h"
+#include "symtable.h"
 
 #include <ctype.h>
 #include <stdbool.h>

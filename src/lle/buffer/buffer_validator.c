@@ -8,9 +8,9 @@
  * cursor positions, and bounds checking to detect corruption early.
  */
 
-#include "../../include/lle/buffer_management.h"
-#include "../../include/lle/error_handling.h"
-#include "../../include/lle/memory_management.h"
+#include "lle/buffer_management.h"
+#include "lle/error_handling.h"
+#include "lle/memory_management.h"
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>

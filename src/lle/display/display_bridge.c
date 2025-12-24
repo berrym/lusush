@@ -15,7 +15,7 @@
  * - 100% spec-compliant
  */
 
-#include "../include/config.h" /* For config.tab_width */
+#include "config.h" /* For config.tab_width */
 #include "display/command_layer.h"
 #include "display/layer_events.h"
 #include "lle/display_integration.h"

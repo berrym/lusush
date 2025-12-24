@@ -1,8 +1,8 @@
-#include "../../include/debug.h"
-#include "../../include/errors.h"
-#include "../../include/node.h"
-#include "../../include/parser.h"
-#include "../../include/tokenizer.h"
+#include "debug.h"
+#include "errors.h"
+#include "node.h"
+#include "parser.h"
+#include "tokenizer.h"
 
 #include <ctype.h>
 #include <stdio.h>

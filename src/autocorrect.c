@@ -7,11 +7,11 @@
  * system
  */
 
-#include "../include/autocorrect.h"
-#include "../include/fuzzy_match.h"
+#include "autocorrect.h"
+#include "fuzzy_match.h"
 
-#include "../include/builtins.h"
-#include "../include/executor.h"
+#include "builtins.h"
+#include "executor.h"
 
 #include <ctype.h>
 #include <dirent.h>

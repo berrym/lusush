@@ -6,24 +6,24 @@
  * variable management with proper POSIX compliance.
  */
 
-#include "../include/executor.h"
+#include "executor.h"
 
-#include "../include/alias.h"
-#include "../include/arithmetic.h"
-#include "../include/autocorrect.h"
-#include "../include/builtins.h"
-#include "../include/config.h"
-#include "../include/debug.h"
-#include "../include/init.h"
-#include "../include/lusush.h"
-#include "../include/node.h"
-#include "../include/parser.h"
-#include "../include/redirection.h"
-#include "../include/signals.h"
-#include "../include/strings.h"
-#include "../include/symtable.h"
-#include "../include/builtins.h"
-#include "../include/libhashtable/ht.h"
+#include "alias.h"
+#include "arithmetic.h"
+#include "autocorrect.h"
+#include "builtins.h"
+#include "config.h"
+#include "debug.h"
+#include "init.h"
+#include "lusush.h"
+#include "node.h"
+#include "parser.h"
+#include "redirection.h"
+#include "signals.h"
+#include "strings.h"
+#include "symtable.h"
+#include "builtins.h"
+#include "ht.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -5229,7 +5229,7 @@ static char *expand_quoted_string(executor_t *executor, const char *str) {
 }
 // ========== JOB CONTROL IMPLEMENTATION ==========
 
-#include "../include/executor.h"
+#include "executor.h"
 
 #include <signal.h>
 #include <stdio.h>

@@ -14,9 +14,9 @@
  * - Automated memory management via libhashtable
  */
 
-#include "../include/symtable.h"
+#include "symtable.h"
 
-#include "../include/libhashtable/ht.h"
+#include "ht.h"
 
 #include <stdbool.h>
 #include <stdio.h>

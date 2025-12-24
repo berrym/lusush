@@ -35,8 +35,8 @@
  * - Zero display corruption through proper layer coordination
  */
 
-#include "../include/display/autosuggestions_layer.h"
-#include "../include/display_integration.h"
+#include "display/autosuggestions_layer.h"
+#include "display_integration.h"
 #include "lle/adaptive_terminal_integration.h"
 #include <stdio.h>
 #include <stdlib.h>

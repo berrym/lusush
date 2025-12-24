@@ -1,7 +1,7 @@
-#include "../../include/debug.h"
-#include "../../include/errors.h"
-#include "../../include/executor.h"
-#include "../../include/lusush.h"
+#include "debug.h"
+#include "errors.h"
+#include "executor.h"
+#include "lusush.h"
 
 #include <stdarg.h>
 #include <stdio.h>
