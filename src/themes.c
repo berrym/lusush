@@ -10,9 +10,6 @@
  * Unicode text in prompts and branding displays.
  */
 
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
-
 #include "../include/themes.h"
 #include "../include/display_integration.h"
 #include "../include/display/display_controller.h"

@@ -17,10 +17,6 @@
  * Phase 1 functions are fully implemented. Phase 2 functions marked for future implementation.
  */
 
-/* Feature test macros must come before includes */
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
-
 #include "lle/error_handling.h"
 #include <string.h>
 #include <stdlib.h>

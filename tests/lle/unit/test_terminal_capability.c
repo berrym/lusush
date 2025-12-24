@@ -3,8 +3,6 @@
 // Terminal Capability Detection Tests
 // Tests work in BOTH TTY and non-TTY environments (CI/CD, AI interfaces, etc.)
 
-#define _POSIX_C_SOURCE 200809L
-
 #include "../../../src/lle/foundation/terminal/terminal.h"
 #include <stdio.h>
 #include <stdlib.h>

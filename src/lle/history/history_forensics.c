@@ -22,8 +22,6 @@
  * @author LLE Implementation Team
  */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include "lle/error_handling.h"
 #include "lle/history.h"
 #include "lle/memory_management.h"

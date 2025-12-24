@@ -7,9 +7,6 @@
  * system
  */
 
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
-
 #include "../include/autocorrect.h"
 #include "../include/fuzzy_match.h"
 

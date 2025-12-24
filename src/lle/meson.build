@@ -7,10 +7,12 @@
 # LLE Compilation Flags
 # ============================================================================
 
+# LLE-specific compile args
+# Note: _DEFAULT_SOURCE, _XOPEN_SOURCE=700, _XOPEN_SOURCE_EXTENDED are set
+# project-wide in the root meson.build via add_project_arguments().
+# Only add flags here that are specific to LLE and not already set globally.
 lle_c_args = [
-  '-D_DEFAULT_SOURCE',
-  '-D_XOPEN_SOURCE=700',
-  '-D_XOPEN_SOURCE_EXTENDED',
+  # POSIX.1-2008 for clock_gettime, strdup, strndup, etc.
   '-D_POSIX_C_SOURCE=200809L',
 ]
 

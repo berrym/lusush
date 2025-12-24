@@ -41,9 +41,6 @@
  * - Integrates with existing prompt generation (src/prompt.c)
  */
 
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
-
 #include "../../include/display/prompt_layer.h"
 #include "../../include/display/terminal_control.h"
 #include "../../include/display/base_terminal.h"

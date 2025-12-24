@@ -123,8 +123,15 @@ if readline_support
   # Add readline_integration.c only when readline is enabled
   src += 'src/readline_integration.c'
   message('GNU Readline support: ENABLED')
+
+  # For static libraries, we only need include directories from readline.
+  # Some Linux distros (Fedora, RHEL) have readline.pc that defines -D_XOPEN_SOURCE=600,
+  # which conflicts with our project-wide -D_XOPEN_SOURCE=700. Using partial_dependency
+  # strips those compile_args, preventing redefinition warnings while preserving includes.
+  readline_compile_dep = readline_dep.partial_dependency(includes: true)
 else
   readline_dep = dependency('', required: false)
+  readline_compile_dep = readline_dep
   add_project_arguments('-DHAVE_READLINE=0', language: 'c')
   # Add stub implementations when readline is disabled
   src += 'src/readline_stubs.c'
@@ -173,7 +180,7 @@ if lle_sources.length() > 0
 
   lle_dep = declare_dependency(link_with: lle_lib,
                                include_directories: include_directories('include/lle'),
-                               dependencies: [ncurses_dep])
+                               dependencies: [ncurses_dep, readline_dep])
 else
   # LLE not yet implemented, create empty dependency
   message('LLE: No modules implemented yet (zero source files)')
@@ -218,7 +225,7 @@ display_lib = static_library('display',
 
 display_dep = declare_dependency(link_with: display_lib,
                                  include_directories: inc,
-                                 dependencies: [ncurses_dep])
+                                 dependencies: [ncurses_dep, readline_dep])
 
 # Build lusush executable (with or without LLE)
 lusush_exe = executable('lusush',

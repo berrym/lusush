@@ -6,8 +6,6 @@
  * variable management with proper POSIX compliance.
  */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include "../include/executor.h"
 
 #include "../include/alias.h"

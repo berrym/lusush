@@ -54,7 +54,6 @@
 #include <sys/types.h>
 #include <time.h>
 
-#define _POSIX_C_SOURCE 200809L
 #include <sys/time.h>
 
 #include "layer_events.h"

@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 56
+# AI Assistant Handoff Document - Session 57
 
-**Date**: 2025-12-23  
-**Session Type**: Warning Cleanup & Dead Code Removal  
+**Date**: 2025-12-24  
+**Session Type**: Build System Cleanup - Feature Macro Consolidation  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -24,6 +24,48 @@
 | 5 | Test Suite Cleanup | LOW | **COMPLETE** |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 | 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
+
+### Session 57 Accomplishments
+
+1. **Feature Macro Consolidation - Fix for Linux _XOPEN_SOURCE Warnings**:
+   Linux builds were showing 200+ `_XOPEN_SOURCE` redefinition warnings due to:
+   - Duplicate definitions in `meson.build` (project-wide) AND `src/lle/meson.build`
+   - Source files with their own `#define _POSIX_C_SOURCE` and `#define _GNU_SOURCE`
+   - Potential conflict with readline's pkg-config on some Linux distros
+   
+   **Build System Changes:**
+   - Removed duplicate `_XOPEN_SOURCE`, `_XOPEN_SOURCE_EXTENDED`, `_DEFAULT_SOURCE` 
+     from `src/lle/meson.build` - these are already set project-wide
+   - Added `readline_compile_dep` using `partial_dependency(includes: true)` to strip
+     readline's compile args for static libraries (prevents `-D_XOPEN_SOURCE=600` 
+     conflict on Fedora/RHEL where readline.pc defines this)
+   - Updated `lle_dep` and `display_dep` to propagate `readline_dep` for proper linking
+   
+   **Source File Cleanup (13 files):**
+   Removed source-level feature macro definitions - build system is now the single 
+   source of truth:
+   - `src/autocorrect.c` - Removed `_POSIX_C_SOURCE`, `_GNU_SOURCE`
+   - `src/themes.c` - Removed `_POSIX_C_SOURCE`, `_GNU_SOURCE`
+   - `src/executor.c` - Removed `_POSIX_C_SOURCE`
+   - `src/display/prompt_layer.c` - Removed `_POSIX_C_SOURCE`, `_GNU_SOURCE`
+   - `include/display/autosuggestions_layer.h` - Removed `_POSIX_C_SOURCE`
+   - `include/display/display_controller.h` - Removed `_POSIX_C_SOURCE`
+   - `include/display/command_layer.h` - Removed `_POSIX_C_SOURCE`
+   - `include/display/composition_engine.h` - Removed `_POSIX_C_SOURCE`
+   - `include/display/prompt_layer.h` - Removed `_POSIX_C_SOURCE`
+   - `src/lle/core/error_handling.c` - Removed `_POSIX_C_SOURCE`, `_GNU_SOURCE`
+   - `src/lle/core/performance.c` - Removed `_POSIX_C_SOURCE`
+   - `src/lle/core/testing.c` - Removed `_POSIX_C_SOURCE`
+   - `src/lle/history/history_forensics.c` - Removed `_POSIX_C_SOURCE`
+   - `tests/lle/unit/test_terminal_capability.c` - Removed `_POSIX_C_SOURCE`
+
+2. **All 51 tests pass** on macOS after cleanup.
+
+3. **Build verified clean** with `-Wmacro-redefined` flag - no redefinition warnings.
+
+**Note for Linux Testing**: These changes should significantly reduce or eliminate 
+the 200+ `_XOPEN_SOURCE` redefinition warnings on Linux. Pull and test on Fedora 
+to verify.
 
 ### Session 56 Accomplishments
 
