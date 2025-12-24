@@ -49,6 +49,8 @@
    - 6 active stubs awaiting integration (wire up when ready)
    
    Cross-referenced against LLE specs in `docs/lle_specification/`.
+   
+   **Full audit details**: See `docs/development/DEAD_CODE_AUDIT.md`
 
 3. **GCC vs Clang MAYBE_UNUSED Attribute Placement**:
    Discovered why some MAYBE_UNUSED macros worked on macOS but not Linux:
