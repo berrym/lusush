@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 57
+# AI Assistant Handoff Document - Session 58
 
 **Date**: 2025-12-24  
-**Session Type**: Build System Cleanup - Feature Macro Consolidation  
+**Session Type**: Dead Code Audit & MAYBE_UNUSED Attribute Fixes  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -24,6 +24,56 @@
 | 5 | Test Suite Cleanup | LOW | **COMPLETE** |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 | 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
+
+### Session 58 Accomplishments
+
+1. **Linux Build Warning Fix - _XOPEN_SOURCE Redefinition (282 warnings eliminated)**:
+   Session 57's macOS changes needed Linux-specific fixes. Fedora/RHEL readline.pc and 
+   ncurses.pc define `-D_XOPEN_SOURCE=600` which conflicted with project's `=700`.
+   
+   **Build System Fix:**
+   - Created `readline_compile_dep` and `ncurses_compile_dep` using 
+     `partial_dependency(includes: true)` - strips pkg-config compile_args
+   - Created `readline_link_dep` and `ncurses_link_dep` using 
+     `partial_dependency(includes: true, link_args: true)` - preserves link flags
+   - Static libraries use `*_compile_dep` (no `-D_XOPEN_SOURCE=600` contamination)
+   - Declared dependencies and executables use `*_link_dep` (proper linking)
+   
+   **Result:** 399 warnings → 117 warnings (282 _XOPEN_SOURCE warnings eliminated)
+
+2. **Comprehensive Dead Code Audit**:
+   Catalogued all 40 functions/variables marked with MAYBE_UNUSED/LLE_MAYBE_UNUSED:
+   - 18 spec-compliant future stubs (KEEP)
+   - 10 internal utilities used by subsystems (KEEP)
+   - 6 abandoned/legacy functions (documented)
+   - 6 active stubs awaiting integration (wire up when ready)
+   
+   Cross-referenced against LLE specs in `docs/lle_specification/`.
+
+3. **GCC vs Clang MAYBE_UNUSED Attribute Placement**:
+   Discovered why some MAYBE_UNUSED macros worked on macOS but not Linux:
+   - GCC is strict: attribute MUST come before return type
+   - Clang is lenient: accepts attribute in various positions
+   
+   **Portable placement rule established:**
+   - `MAYBE_UNUSED static int func()` ✓ (works on both)
+   - `static MAYBE_UNUSED int func()` ✓ (works on both)
+   - `static int * MAYBE_UNUSED func()` ✗ (fails on GCC)
+
+4. **Fixed incorrect MAYBE_UNUSED placement**:
+   - `src/lle/display/render_cache.c:272-274` - `lle_lru_get_eviction_candidate()`
+   - Moved `LLE_MAYBE_UNUSED` before `static` instead of between type and name
+   - Warnings: 117 → 116
+
+5. **Remaining 116 warnings breakdown**:
+   - ~100 strncpy truncation warnings (GCC strictness, not bugs)
+   - ~7 format truncation warnings
+   - 3 type-limits warnings (`>= 0` on unsigned)
+   - 2 use-after-free warnings (potential bugs to investigate)
+   - 1 maybe-uninitialized warning
+   - 2 unused: `parse_control_structure` (declared not defined), `global_config` (unused var)
+
+6. **All 51 tests pass** on Linux after fixes.
 
 ### Session 57 Accomplishments
 

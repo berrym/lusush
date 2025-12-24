@@ -269,8 +269,8 @@ static void lle_lru_touch_entry(lle_display_cache_policy_t *policy,
  * @param policy LRU policy
  * @return Least recently used entry, or NULL if list is empty
  */
-static lle_cached_entry_t *
 LLE_MAYBE_UNUSED
+static lle_cached_entry_t *
 lle_lru_get_eviction_candidate(lle_display_cache_policy_t *policy) {
     if (!policy) {
         return NULL;
