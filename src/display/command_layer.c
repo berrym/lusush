@@ -52,7 +52,7 @@
 #include "display/display_controller.h"
 #include "display/base_terminal.h"
 #include "display/terminal_control.h"
-#include "termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 #include "alias.h"
 #include "builtins.h"
 #include "lle/syntax_highlighting.h"
@@ -1325,14 +1325,14 @@ command_layer_error_t command_layer_create_default_colors(command_color_scheme_t
         return COMMAND_LAYER_ERROR_INVALID_PARAM;
     }
 
-    // Detect terminal capabilities for adaptive color support
-    termcap_detect_capabilities();
-    const terminal_info_t *term_info = termcap_get_info();
+    // Detect terminal capabilities for adaptive color support via LLE
+    lle_terminal_detection_result_t *detection = NULL;
+    lle_detect_terminal_capabilities_optimized(&detection);
 
     // Determine color mode based on terminal capabilities
-    bool has_colors = term_info && term_info->caps.colors;
-    bool has_256_colors = term_info && term_info->caps.colors_256;
-    bool has_truecolor = term_info && term_info->caps.truecolor;
+    bool has_colors = detection && detection->supports_colors;
+    bool has_256_colors = detection && detection->supports_256_colors;
+    bool has_truecolor = detection && detection->supports_truecolor;
 
     // Reset color is always the same when colors are supported
     if (has_colors) {

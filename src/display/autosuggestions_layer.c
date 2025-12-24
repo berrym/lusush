@@ -38,7 +38,7 @@
 #include "../include/display/autosuggestions_layer.h"
 #include "../include/display_integration.h"
 #include "../include/config.h"
-#include "../include/termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -391,20 +391,19 @@ autosuggestions_layer_error_t autosuggestions_layer_init(autosuggestions_layer_t
     // Get terminal capabilities
     layer->terminal_caps = terminal_control_get_capabilities(layer->terminal_control);
     
-    // Use enhanced termcap system for comprehensive terminal capability detection
-    termcap_init();
-    termcap_detect_capabilities();
-    const terminal_info_t *term_info = termcap_get_info();
+    // Use LLE for comprehensive terminal capability detection
+    lle_terminal_detection_result_t *detection = NULL;
+    lle_detect_terminal_capabilities_optimized(&detection);
     
     // For autosuggestions, we need stdout to be a TTY for display, not necessarily stdin
-    if (!term_info || !isatty(STDOUT_FILENO)) {
+    if (!detection || !detection->stdout_is_tty) {
         set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL);
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }
     
     // Check if terminal has basic capabilities needed for autosuggestions
     // We need colors and unicode support for professional display
-    if (!term_info->caps.colors || !term_info->caps.unicode) {
+    if (!detection->supports_colors || !detection->supports_unicode) {
         set_layer_error(layer, AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL);
         return AUTOSUGGESTIONS_LAYER_ERROR_UNSUPPORTED_TERMINAL;
     }

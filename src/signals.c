@@ -1,7 +1,7 @@
 #include "../include/signals.h"
 
 #include "../include/errors.h"
-#include "../include/termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -229,7 +229,6 @@ void execute_exit_traps(void) {
         system(trap->command);
     }
     
-    // Cleanup terminal capabilities on exit
-    // Use standard termcap cleanup
-    termcap_cleanup();
+    // Reset terminal to clean state on exit
+    lle_terminal_reset();
 }

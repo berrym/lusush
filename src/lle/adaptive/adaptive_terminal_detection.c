@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <termios.h>
 #include <time.h>
@@ -136,6 +137,18 @@ analyze_environment_variables(lle_terminal_detection_result_t *detection) {
                        strcmp(colorterm, "24bit") == 0));
     detection->supports_unicode =
         (colorterm != NULL); /* COLORTERM usually implies UTF-8 */
+
+    /* Detect terminal multiplexer */
+    const char *tmux = getenv("TMUX");
+    const char *sty = getenv("STY");
+
+    if (tmux && tmux[0] != '\0') {
+        detection->multiplexer_type = LLE_MUX_TYPE_TMUX;
+    } else if ((term && strstr(term, "screen")) || (sty && sty[0] != '\0')) {
+        detection->multiplexer_type = LLE_MUX_TYPE_SCREEN;
+    } else {
+        detection->multiplexer_type = LLE_MUX_TYPE_NONE;
+    }
 
     return LLE_SUCCESS;
 }
@@ -405,6 +418,9 @@ lle_result_t lle_detect_terminal_capabilities_comprehensive(
     detection->stdout_is_tty = isatty(STDOUT_FILENO);
     detection->stderr_is_tty = isatty(STDERR_FILENO);
 
+    /* Get terminal dimensions */
+    lle_get_terminal_size(&detection->terminal_cols, &detection->terminal_rows);
+
     /* Step 2: Environment variable analysis */
     lle_result_t env_result = analyze_environment_variables(detection);
     if (env_result != LLE_SUCCESS) {
@@ -577,4 +593,132 @@ const char *lle_capability_level_to_string(lle_capability_level_t level) {
     default:
         return "unknown";
     }
+}
+
+/* ============================================================================
+ * TERMINAL TYPE DETECTION HELPERS
+ * ============================================================================
+ */
+
+/**
+ * Check if running in iTerm2.
+ */
+bool lle_is_iterm2(const lle_terminal_detection_result_t *detection) {
+    if (detection) {
+        return (detection->term_program[0] != '\0' &&
+                strstr(detection->term_program, "iTerm") != NULL);
+    }
+
+    /* Check environment directly */
+    const char *term_program = getenv("TERM_PROGRAM");
+    return (term_program && strstr(term_program, "iTerm") != NULL);
+}
+
+/**
+ * Check if running inside tmux.
+ */
+bool lle_is_tmux(const lle_terminal_detection_result_t *detection) {
+    if (detection) {
+        return (detection->multiplexer_type == LLE_MUX_TYPE_TMUX);
+    }
+
+    /* Check environment directly */
+    const char *tmux = getenv("TMUX");
+    return (tmux != NULL && tmux[0] != '\0');
+}
+
+/**
+ * Check if running inside GNU screen.
+ */
+bool lle_is_screen(const lle_terminal_detection_result_t *detection) {
+    if (detection) {
+        return (detection->multiplexer_type == LLE_MUX_TYPE_SCREEN);
+    }
+
+    /* Check environment directly */
+    const char *term = getenv("TERM");
+    const char *sty = getenv("STY");
+
+    return ((term && strstr(term, "screen") != NULL) ||
+            (sty != NULL && sty[0] != '\0'));
+}
+
+/**
+ * Check if running inside any terminal multiplexer.
+ */
+bool lle_is_multiplexed(const lle_terminal_detection_result_t *detection) {
+    if (detection) {
+        return (detection->multiplexer_type != LLE_MUX_TYPE_NONE);
+    }
+
+    /* Check for common multiplexers */
+    return lle_is_tmux(NULL) || lle_is_screen(NULL);
+}
+
+/**
+ * Get terminal type string (e.g., "xterm-256color").
+ */
+const char *
+lle_get_terminal_type(const lle_terminal_detection_result_t *detection) {
+    if (detection && detection->term_name[0] != '\0') {
+        return detection->term_name;
+    }
+
+    return getenv("TERM");
+}
+
+/**
+ * Get current terminal dimensions.
+ */
+lle_result_t lle_get_terminal_size(int *cols, int *rows) {
+    struct winsize ws;
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
+        if (cols) {
+            *cols = ws.ws_col > 0 ? ws.ws_col : 80;
+        }
+        if (rows) {
+            *rows = ws.ws_row > 0 ? ws.ws_row : 24;
+        }
+        return LLE_SUCCESS;
+    }
+
+    /* Fallback to environment variables */
+    const char *columns = getenv("COLUMNS");
+    const char *lines = getenv("LINES");
+
+    if (cols) {
+        *cols = columns ? atoi(columns) : 80;
+        if (*cols <= 0) {
+            *cols = 80;
+        }
+    }
+    if (rows) {
+        *rows = lines ? atoi(lines) : 24;
+        if (*rows <= 0) {
+            *rows = 24;
+        }
+    }
+
+    return LLE_SUCCESS;
+}
+
+/**
+ * Check if stdout is a TTY.
+ */
+bool lle_is_tty(void) {
+    return isatty(STDOUT_FILENO) != 0;
+}
+
+/**
+ * Reset terminal to clean state.
+ */
+void lle_terminal_reset(void) {
+    if (!isatty(STDOUT_FILENO)) {
+        return;
+    }
+
+    /* Reset all attributes, show cursor, move to new line */
+    static const char reset_seq[] = "\x1b[0m\x1b[?25h\n";
+    (void)write(STDOUT_FILENO, reset_seq, sizeof(reset_seq) - 1);
 }

@@ -1,7 +1,7 @@
-# AI Assistant Handoff Document - Session 61
+# AI Assistant Handoff Document - Session 62
 
 **Date**: 2025-12-24  
-**Session Type**: clangd Warning Cleanup and Orphaned Test Audit  
+**Session Type**: Legacy termcap.c Removal - Complete Migration to LLE  
 **Status**: MERGE BLOCKED - Theme/prompt system violates user choice principles (Issues #20, #21)  
 **Branch**: `feature/lle`
 
@@ -24,6 +24,42 @@
 | 5 | Test Suite Cleanup | LOW | **COMPLETE** |
 | 6 | Documentation Cleanup | LOW | **COMPLETE** |
 | 7 | Legacy Readline Cruft Removal | HIGH | **COMPLETE** |
+| 8 | Legacy termcap.c Removal | HIGH | **COMPLETE** |
+
+### Session 62 Accomplishments
+
+1. **Complete termcap.c Removal (~2,500 lines deleted)**:
+   Migrated all terminal capability detection to LLE's adaptive terminal integration.
+   The project now has a single, unified terminal detection system.
+   
+   **Deleted Files:**
+   - `src/termcap.c` (~1,300 lines)
+   - `src/termcap_test.c` (~500 lines)
+   - `include/termcap.h` (~300 lines)
+   - `include/termcap_internal.h` (~100 lines)
+
+2. **LLE Terminal Detection API Additions** (`adaptive_terminal_integration.h`):
+   - Added `terminal_cols`, `terminal_rows` to `lle_terminal_detection_result_t`
+   - Added `multiplexer_type` field for tmux/screen detection
+   - New helper functions:
+     - `lle_is_iterm2()`, `lle_is_tmux()`, `lle_is_screen()`, `lle_is_multiplexed()`
+     - `lle_get_terminal_type()`, `lle_get_terminal_size()`, `lle_is_tty()`
+     - `lle_terminal_reset()` for clean terminal state on exit
+
+3. **Migrated Consumer Files:**
+   - `src/init.c`: Shell initialization uses LLE detection
+   - `src/signals.c`: Exit cleanup uses `lle_terminal_reset()`
+   - `src/themes.c`: Theme rendering uses LLE for terminal info
+   - `src/completion.c`: Tab completion uses LLE for terminal width
+   - `src/display/command_layer.c`: Color detection via LLE
+   - `src/display/autosuggestions_layer.c`: Capability checks via LLE
+   - `src/builtins/builtins.c`: Replaced `termcap` builtin with `terminal`
+   - `src/prompt.c`: Removed unused termcap.h include
+
+4. **Build Verification**:
+   - Clean build on macOS (0 warnings)
+   - All 51 tests pass
+   - meson.build updated to remove termcap source files
 
 ### Session 61 Accomplishments
 

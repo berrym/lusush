@@ -81,6 +81,21 @@ typedef struct {
 } lle_terminal_signature_t;
 
 /* ============================================================================
+ * MULTIPLEXER TYPES
+ * ============================================================================
+ */
+
+/**
+ * Terminal multiplexer type for special handling.
+ */
+typedef enum {
+    LLE_MUX_TYPE_NONE = 0,
+    LLE_MUX_TYPE_TMUX,
+    LLE_MUX_TYPE_SCREEN,
+    LLE_MUX_TYPE_OTHER
+} lle_multiplexer_type_t;
+
+/* ============================================================================
  * DETECTION SYSTEM
  * ============================================================================
  */
@@ -110,6 +125,13 @@ typedef struct {
     bool supports_bracketed_paste;
     bool supports_unicode;
 
+    /* Terminal dimensions */
+    int terminal_cols;   /**< Terminal width in columns */
+    int terminal_rows;   /**< Terminal height in rows */
+
+    /* Multiplexer detection */
+    lle_multiplexer_type_t multiplexer_type;
+
     /* Terminal classification */
     const lle_terminal_signature_t *matched_signature;
     lle_capability_level_t capability_level;
@@ -132,21 +154,6 @@ typedef struct {
     uint64_t max_detection_time_us;
     uint64_t probe_timeouts;
 } lle_detection_performance_stats_t;
-
-/* ============================================================================
- * MULTIPLEXER TYPES
- * ============================================================================
- */
-
-/**
- * Terminal multiplexer type for special handling.
- */
-typedef enum {
-    LLE_MUX_TYPE_NONE = 0,
-    LLE_MUX_TYPE_TMUX,
-    LLE_MUX_TYPE_SCREEN,
-    LLE_MUX_TYPE_OTHER
-} lle_multiplexer_type_t;
 
 /* ============================================================================
  * MODE-SPECIFIC CONTROLLERS (Forward Declarations)
@@ -467,6 +474,75 @@ const char *lle_adaptive_mode_to_string(lle_adaptive_mode_t mode);
  * @return Level name string (static, do not free)
  */
 const char *lle_capability_level_to_string(lle_capability_level_t level);
+
+/* ============================================================================
+ * TERMINAL TYPE DETECTION HELPERS
+ * ============================================================================
+ */
+
+/**
+ * Check if running in iTerm2.
+ *
+ * @param detection Detection result (NULL to perform fresh detection)
+ * @return true if iTerm2 detected
+ */
+bool lle_is_iterm2(const lle_terminal_detection_result_t *detection);
+
+/**
+ * Check if running inside tmux.
+ *
+ * @param detection Detection result (NULL to perform fresh detection)
+ * @return true if tmux detected
+ */
+bool lle_is_tmux(const lle_terminal_detection_result_t *detection);
+
+/**
+ * Check if running inside GNU screen.
+ *
+ * @param detection Detection result (NULL to perform fresh detection)
+ * @return true if screen detected
+ */
+bool lle_is_screen(const lle_terminal_detection_result_t *detection);
+
+/**
+ * Check if running inside any terminal multiplexer.
+ *
+ * @param detection Detection result (NULL to perform fresh detection)
+ * @return true if any multiplexer detected
+ */
+bool lle_is_multiplexed(const lle_terminal_detection_result_t *detection);
+
+/**
+ * Get terminal type string (e.g., "xterm-256color").
+ *
+ * @param detection Detection result
+ * @return Terminal type string or NULL if unknown
+ */
+const char *lle_get_terminal_type(const lle_terminal_detection_result_t *detection);
+
+/**
+ * Get current terminal dimensions.
+ *
+ * @param cols Output column count (may be NULL)
+ * @param rows Output row count (may be NULL)
+ * @return LLE_SUCCESS or error code
+ */
+lle_result_t lle_get_terminal_size(int *cols, int *rows);
+
+/**
+ * Check if stdout is a TTY.
+ *
+ * @return true if stdout is a TTY
+ */
+bool lle_is_tty(void);
+
+/**
+ * Reset terminal to clean state.
+ *
+ * Resets formatting, shows cursor, and outputs newline.
+ * Safe to call even if terminal is not a TTY.
+ */
+void lle_terminal_reset(void);
 
 #ifdef __cplusplus
 }

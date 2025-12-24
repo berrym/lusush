@@ -16,7 +16,7 @@
 #include "../include/prompt.h"
 #include "../include/signals.h"
 #include "../include/symtable.h"
-#include "../include/termcap.h"
+
 #include "../include/themes.h"
 #include "../include/version.h"
 #include "../include/display_integration.h"
@@ -50,6 +50,32 @@ static bool IS_INTERACTIVE_SHELL = false;
 
 static int parse_opts(int argc, char **argv);
 static void usage(int err);
+
+/**
+ * Ensure safe bottom margin for interactive shell display.
+ * Creates scroll space at the bottom of the terminal.
+ */
+static void ensure_bottom_margin(void) {
+    static bool margin_created = false;
+    if (margin_created) {
+        return;
+    }
+
+    int rows = 0;
+    lle_get_terminal_size(NULL, &rows);
+    if (rows <= 0) {
+        rows = 24;
+    }
+
+    /* Save cursor, move to bottom, scroll, restore */
+    char cmd[64];
+    int len = snprintf(cmd, sizeof(cmd), "\x1b[s\x1b[%d;1H\n\x1b[u", rows);
+    if (len > 0 && (size_t)len < sizeof(cmd)) {
+        (void)write(STDOUT_FILENO, cmd, (size_t)len);
+    }
+
+    margin_created = true;
+}
 
 // Function to handle shebang processing
 static void process_shebang(FILE *file) {
@@ -152,18 +178,19 @@ int init(int argc, char **argv, FILE **in) {
         }
     }
 
-    // Initialize terminal capabilities (Phase 3 Target 4)
-    if (termcap_init() != TERMCAP_OK) {
+    // Initialize terminal capabilities via LLE adaptive detection
+    lle_terminal_detection_result_t *detection = NULL;
+    if (lle_detect_terminal_capabilities_optimized(&detection) != LLE_SUCCESS) {
         if (IS_INTERACTIVE_SHELL) {
-            fprintf(stderr, "Warning: Failed to initialize terminal capabilities\n");
+            fprintf(stderr, "Warning: Failed to detect terminal capabilities\n");
         }
     } else {
-        // Terminal capabilities successfully initialized
-        const terminal_info_t *term_info = termcap_get_info();
-        if (IS_INTERACTIVE_SHELL && term_info->is_tty) {
+        // Terminal capabilities successfully detected
+        if (IS_INTERACTIVE_SHELL && detection->stdout_is_tty) {
             // Create safe bottom margin for interactive shells
-            termcap_ensure_bottom_margin();
+            ensure_bottom_margin();
         }
+        // Note: detection result is cached, no need to destroy here
     }
 
     // Initialize theme system (Phase 3 Target 2)

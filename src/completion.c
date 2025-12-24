@@ -9,7 +9,7 @@
 #include "../include/lusush.h"
 #include "../include/network.h"
 #include "../include/symtable.h"
-#include "../include/termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 #include "lle/unicode_compare.h"
 
 #include <ctype.h>
@@ -137,9 +137,9 @@ void lusush_completion_callback(const char *buf, lusush_completions_t *lc) {
     update_fuzzy_options_from_config();
 
     // Get terminal capabilities for completion optimization
-    const terminal_info_t *term_info = termcap_get_info();
-    bool has_terminal = term_info && term_info->is_tty;
-    int terminal_width = term_info ? term_info->cols : 80;
+    int terminal_width = 80;
+    lle_get_terminal_size(&terminal_width, NULL);
+    bool has_terminal = lle_is_tty();
 
     int start_pos = 0;
     char *word = get_completion_word(buf, &start_pos);

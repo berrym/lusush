@@ -7,7 +7,6 @@
 #include "../include/lusush.h"
 #include "../include/strings.h"
 #include "../include/symtable.h"
-#include "../include/termcap.h"
 #include "../include/themes.h"
 
 #include <getopt.h>

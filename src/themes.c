@@ -14,7 +14,7 @@
 #include "../include/display_integration.h"
 
 #include "../include/prompt.h"
-#include "../include/termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 #include "lle/utf8_support.h"
 
 #include <sys/time.h>
@@ -90,7 +90,7 @@ static const char *THEME_VERSION = "1.0.0";
 
 // Terminal capability detection
 static int terminal_color_support = 0;
-static bool termcap_integrated = false;
+static bool lle_integrated = false;
 
 // Debug flag
 static bool debug_enabled = false;
@@ -721,17 +721,18 @@ bool theme_init(void) {
     theme_ctx.fallback_to_basic = true;
     theme_ctx.debug_mode = false;
 
-    // Integrate with termcap system for enhanced terminal detection
-    const terminal_info_t *term_info = termcap_get_info();
-    if (term_info && term_info->is_tty) {
-        termcap_integrated = true;
-        // Use termcap for more accurate terminal detection
+    // Integrate with LLE for enhanced terminal detection
+    lle_terminal_detection_result_t *detection = NULL;
+    if (lle_detect_terminal_capabilities_optimized(&detection) == LLE_SUCCESS &&
+        detection->stdout_is_tty) {
+        lle_integrated = true;
+        // Use LLE for more accurate terminal detection
         terminal_color_support = theme_detect_color_support();
         
         // Adjust theme capabilities based on terminal type
-        if (termcap_is_iterm2()) {
+        if (lle_is_iterm2(detection)) {
             theme_ctx.auto_detect_capabilities = true;
-        } else if (termcap_is_tmux() || termcap_is_screen()) {
+        } else if (lle_is_tmux(detection) || lle_is_screen(detection)) {
             // More conservative for multiplexers
             theme_ctx.auto_detect_capabilities = false;
         }
@@ -1823,9 +1824,9 @@ bool theme_generate_primary_prompt(char *output, size_t output_size) {
     display_integration_record_cache_operation(false);
 
     // Get terminal capabilities for responsive template rendering
-    const terminal_info_t *term_info = termcap_get_info();
-    bool has_terminal = term_info && term_info->is_tty;
-    int terminal_width = term_info ? term_info->cols : 80;
+    int terminal_width = 80;
+    lle_get_terminal_size(&terminal_width, NULL);
+    bool has_terminal = lle_is_tty();
     bool use_colors = has_terminal && terminal_color_support;
 
     // Create template context
@@ -1996,9 +1997,9 @@ bool theme_generate_secondary_prompt(char *output, size_t output_size) {
     }
 
     // Get terminal capabilities for responsive template rendering
-    const terminal_info_t *term_info = termcap_get_info();
-    bool has_terminal = term_info && term_info->is_tty;
-    int terminal_width = term_info ? term_info->cols : 80;
+    int terminal_width = 80;
+    lle_get_terminal_size(&terminal_width, NULL);
+    bool has_terminal = lle_is_tty();
     bool use_colors = has_terminal && terminal_color_support;
 
     // Create template context
@@ -2068,9 +2069,9 @@ void theme_display_startup_branding(void) {
     }
 
     // Get terminal capabilities for responsive branding display
-    const terminal_info_t *term_info = termcap_get_info();
-    bool has_terminal = term_info && term_info->is_tty;
-    int terminal_width = term_info ? term_info->cols : 80;
+    int terminal_width = 80;
+    lle_get_terminal_size(&terminal_width, NULL);
+    bool has_terminal = lle_is_tty();
     bool use_colors = has_terminal && terminal_color_support;
 
     if (strlen(current_branding.logo_ascii) > 0) {
@@ -2115,15 +2116,13 @@ void theme_update_dynamic_variables(template_context_t *ctx) {
     }
     
     // Get current terminal capabilities
-    const terminal_info_t *term_info = termcap_get_info();
-    if (!term_info) {
-        return;
-    }
+    int cols = 80, rows = 24;
+    lle_get_terminal_size(&cols, &rows);
     
     // Update terminal size variables
     char cols_str[16], rows_str[16];
-    snprintf(cols_str, sizeof(cols_str), "%d", term_info->cols);
-    snprintf(rows_str, sizeof(rows_str), "%d", term_info->rows);
+    snprintf(cols_str, sizeof(cols_str), "%d", cols);
+    snprintf(rows_str, sizeof(rows_str), "%d", rows);
     
     // Update or add terminal capability variables
     for (size_t i = 0; i < ctx->count; i++) {
@@ -2136,10 +2135,11 @@ void theme_update_dynamic_variables(template_context_t *ctx) {
                 ctx->variables[i].value = strdup(rows_str);
             } else if (strcmp(ctx->variables[i].name, "terminal") == 0) {
                 free(ctx->variables[i].value);
-                ctx->variables[i].value = strdup(term_info->term_type ? term_info->term_type : "unknown");
+                const char *term_type = lle_get_terminal_type(NULL);
+                ctx->variables[i].value = strdup(term_type ? term_type : "unknown");
             } else if (strcmp(ctx->variables[i].name, "has_colors") == 0) {
                 free(ctx->variables[i].value);
-                ctx->variables[i].value = strdup(term_info->is_tty && terminal_color_support ? "1" : "0");
+                ctx->variables[i].value = strdup(lle_is_tty() && terminal_color_support ? "1" : "0");
             }
         }
     }
@@ -2153,29 +2153,30 @@ void theme_add_terminal_variables(template_context_t *ctx) {
         return;
     }
     
-    const terminal_info_t *term_info = termcap_get_info();
-    if (!term_info) {
-        return;
-    }
+    // Get terminal info via LLE
+    int cols = 80, rows = 24;
+    lle_get_terminal_size(&cols, &rows);
+    const char *term_type = lle_get_terminal_type(NULL);
+    bool is_tty = lle_is_tty();
     
     // Add dynamic terminal variables
     char cols_str[16], rows_str[16];
-    snprintf(cols_str, sizeof(cols_str), "%d", term_info->cols);
-    snprintf(rows_str, sizeof(rows_str), "%d", term_info->rows);
+    snprintf(cols_str, sizeof(cols_str), "%d", cols);
+    snprintf(rows_str, sizeof(rows_str), "%d", rows);
     
     template_add_variable(ctx, "cols", cols_str, NULL, true);
     template_add_variable(ctx, "rows", rows_str, NULL, true);
-    template_add_variable(ctx, "terminal", term_info->term_type ? term_info->term_type : "unknown", NULL, true);
-    template_add_variable(ctx, "has_colors", term_info->is_tty && terminal_color_support ? "1" : "0", NULL, true);
+    template_add_variable(ctx, "terminal", term_type ? term_type : "unknown", NULL, true);
+    template_add_variable(ctx, "has_colors", is_tty && terminal_color_support ? "1" : "0", NULL, true);
     
     // Add platform-specific variables
-    if (termcap_is_iterm2()) {
+    if (lle_is_iterm2(NULL)) {
         template_add_variable(ctx, "iterm2", "1", NULL, false);
     }
-    if (termcap_is_tmux()) {
+    if (lle_is_tmux(NULL)) {
         template_add_variable(ctx, "tmux", "1", NULL, false);
     }
-    if (termcap_is_screen()) {
+    if (lle_is_screen(NULL)) {
         template_add_variable(ctx, "screen", "1", NULL, false);
     }
 }

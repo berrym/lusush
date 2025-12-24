@@ -14,7 +14,7 @@
 #include "../../include/prompt.h"
 #include "../../include/signals.h"
 #include "../../include/symtable.h"
-#include "../../include/termcap.h"
+#include "lle/adaptive_terminal_integration.h"
 #include "../../include/themes.h"
 #include "../../include/version.h"
 #include "../../include/input.h"
@@ -72,7 +72,7 @@ builtin builtins[] = {
     {   "alias",                     "set an alias",    bin_alias},
     { "unalias",                   "unset an alias",  bin_unalias},
     {   "clear",                 "clear the screen",    bin_clear},
-    { "termcap",      "terminal capability testing",  bin_termcap},
+    { "terminal",     "display terminal information",  bin_terminal},
 
     {    "type",             "display command type",     bin_type},
     {   "unset",           "unset a shell variable",    bin_unset},
@@ -474,92 +474,76 @@ int bin_history(int argc __attribute__((unused)),
 }
 
 /**
- * bin_termcap:
- *      Test and demonstrate enhanced termcap functionality.
+ * bin_terminal:
+ *      Display terminal information using LLE detection.
  */
-int bin_termcap(int argc, char **argv) {
-    extern int termcap_run_all_tests(void);
-    extern int termcap_interactive_demo(void);
-    extern void termcap_dump_capabilities(void);
-    
-    if (argc == 1) {
-        // No arguments - show capabilities
-        termcap_dump_capabilities();
+int bin_terminal(int argc, char **argv) {
+    if (argc > 2) {
+        error_message("terminal: too many arguments");
+        error_message("Run 'terminal help' for usage information");
+        return 1;
+    }
+
+    if (argc == 2 && (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0)) {
+        printf("terminal - Display terminal capability information\n\n");
+        printf("Usage: terminal [option]\n\n");
+        printf("Options:\n");
+        printf("  (none)  Show terminal capabilities (default)\n");
+        printf("  help    Show this help message\n\n");
+        printf("The terminal command displays information about the current\n");
+        printf("terminal environment detected by LLE.\n");
         return 0;
     }
-    
-    if (argc == 2) {
-        if (strcmp(argv[1], "test") == 0 || strcmp(argv[1], "--test") == 0) {
-            return termcap_run_all_tests();
-        } else if (strcmp(argv[1], "demo") == 0 || strcmp(argv[1], "--demo") == 0) {
-            return termcap_interactive_demo();
-        } else if (strcmp(argv[1], "capabilities") == 0 || strcmp(argv[1], "--capabilities") == 0) {
-            termcap_dump_capabilities();
-            return 0;
-        } else if (strcmp(argv[1], "integration") == 0 || strcmp(argv[1], "--integration") == 0) {
-            // Enhanced shell integration demo
-            printf("Lusush Enhanced Termcap Integration Demo\n");
-            printf("=========================================\n\n");
-            
-            const terminal_info_t *term_info = termcap_get_info();
-            if (term_info && term_info->is_tty) {
-                success_message("Terminal detected successfully");
-                info_message("Terminal size: %dx%d", term_info->cols, term_info->rows);
-                
-                if (termcap_supports_colors()) {
-                    termcap_print_colored(TERMCAP_GREEN, TERMCAP_DEFAULT, "Color support: ");
-                    printf("OK Active\n");
-                    
-                    if (termcap_supports_256_colors()) {
-                        termcap_print_colored(TERMCAP_CYAN, TERMCAP_DEFAULT, "256-color mode: ");
-                        printf("OK Available\n");
-                    }
-                    
-                    if (termcap_supports_truecolor()) {
-                        termcap_print_colored(TERMCAP_MAGENTA, TERMCAP_DEFAULT, "True color mode: ");
-                        printf("OK Available\n");
-                    }
-                } else {
-                    warning_message("Color support not available");
-                }
-                
-                printf("\nEnhanced prompt example:\n");
-                termcap_print_colored(TERMCAP_CYAN, TERMCAP_DEFAULT, "lusush");
-                printf(":");
-                termcap_print_colored(TERMCAP_BLUE, TERMCAP_DEFAULT, "~/project");
-                printf(" ");
-                termcap_print_colored(TERMCAP_GREEN, TERMCAP_DEFAULT, "$");
-                printf(" ");
-                termcap_reset_all_formatting();
-                printf("\n");
-                
-            } else {
-                warning_message("No terminal detected - running in non-interactive mode");
-            }
-            
-            return 0;
-        } else if (strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0) {
-            printf("termcap - Enhanced terminal capability testing and demonstration\n\n");
-            printf("Usage: termcap [option]\n\n");
-            printf("Options:\n");
-            printf("  test         Run comprehensive test suite\n");
-            printf("  demo         Run interactive demonstration\n");
-            printf("  capabilities Show terminal capabilities (default)\n");
-            printf("  integration  Show enhanced shell integration demo\n");
-            printf("  help         Show this help message\n\n");
-            printf("The termcap command showcases lusush's enhanced terminal handling,\n");
-            printf("including colors, cursor control, and advanced features.\n");
-            return 0;
-        } else {
-            error_message("termcap: unknown option '%s'", argv[1]);
-            error_message("Run 'termcap help' for usage information");
-            return 1;
-        }
+
+    lle_terminal_detection_result_t *detection = NULL;
+    if (lle_detect_terminal_capabilities_optimized(&detection) != LLE_SUCCESS || !detection) {
+        error_message("terminal: failed to detect terminal capabilities");
+        return 1;
     }
-    
-    error_message("termcap: too many arguments");
-    error_message("Run 'termcap help' for usage information");
-    return 1;
+
+    printf("Terminal Information (LLE Detection)\n");
+    printf("=====================================\n\n");
+
+    printf("TTY Status:\n");
+    printf("  stdin:  %s\n", detection->stdin_is_tty ? "yes" : "no");
+    printf("  stdout: %s\n", detection->stdout_is_tty ? "yes" : "no");
+    printf("  stderr: %s\n", detection->stderr_is_tty ? "yes" : "no");
+
+    printf("\nTerminal Type:\n");
+    printf("  TERM:         %s\n", detection->term_name[0] ? detection->term_name : "(not set)");
+    printf("  TERM_PROGRAM: %s\n", detection->term_program[0] ? detection->term_program : "(not set)");
+    printf("  COLORTERM:    %s\n", detection->colorterm[0] ? detection->colorterm : "(not set)");
+
+    printf("\nDimensions:\n");
+    printf("  Columns: %d\n", detection->terminal_cols);
+    printf("  Rows:    %d\n", detection->terminal_rows);
+
+    printf("\nCapabilities:\n");
+    printf("  Colors:        %s\n", detection->supports_colors ? "yes" : "no");
+    printf("  256 colors:    %s\n", detection->supports_256_colors ? "yes" : "no");
+    printf("  True color:    %s\n", detection->supports_truecolor ? "yes" : "no");
+    printf("  Unicode:       %s\n", detection->supports_unicode ? "yes" : "no");
+    printf("  Mouse:         %s\n", detection->supports_mouse ? "yes" : "no");
+    printf("  Bracketed paste: %s\n", detection->supports_bracketed_paste ? "yes" : "no");
+
+    printf("\nMultiplexer:\n");
+    if (lle_is_tmux(detection)) {
+        printf("  Running inside: tmux\n");
+    } else if (lle_is_screen(detection)) {
+        printf("  Running inside: GNU screen\n");
+    } else {
+        printf("  Running inside: (none detected)\n");
+    }
+
+    if (lle_is_iterm2(detection)) {
+        printf("  Terminal app:   iTerm2\n");
+    }
+
+    printf("\nLLE Mode:\n");
+    printf("  Recommended: %s\n", lle_adaptive_mode_to_string(detection->recommended_mode));
+    printf("  Capability:  %s\n", lle_capability_level_to_string(detection->capability_level));
+
+    return 0;
 }
 
 /**
@@ -3398,34 +3382,25 @@ int bin_theme(int argc, char **argv) {
 
             printf("Color scheme for theme: %s\n\n", theme->name);
 
-            // Display color palette with examples using termcap
-            if (termcap_supports_colors()) {
-                termcap_print_colored(TERMCAP_BLUE, TERMCAP_COLOR_DEFAULT, "Primary:    ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_CYAN, TERMCAP_COLOR_DEFAULT, "Secondary:  ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_GREEN, TERMCAP_COLOR_DEFAULT, "Success:    ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_YELLOW, TERMCAP_COLOR_DEFAULT, "Warning:    ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_RED, TERMCAP_COLOR_DEFAULT, "Error:      ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_CYAN, TERMCAP_COLOR_DEFAULT, "Info:       ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_WHITE, TERMCAP_COLOR_DEFAULT, "Text:       ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_COLOR_BRIGHT_BLACK, TERMCAP_COLOR_DEFAULT, "Text dim:   ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_COLOR_BRIGHT_CYAN, TERMCAP_COLOR_DEFAULT, "Highlight:  ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_GREEN, TERMCAP_COLOR_DEFAULT, "Git clean:  ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_YELLOW, TERMCAP_COLOR_DEFAULT, "Git dirty:  ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_COLOR_BRIGHT_GREEN, TERMCAP_COLOR_DEFAULT, "Git staged: ");
-                printf("Example text\n");
-                termcap_print_colored(TERMCAP_MAGENTA, TERMCAP_COLOR_DEFAULT, "Git branch: ");
-                printf("Example text\n");
+            // Display color palette with examples
+            lle_terminal_detection_result_t *det = NULL;
+            lle_detect_terminal_capabilities_optimized(&det);
+            bool use_colors = det && det->supports_colors;
+            
+            if (use_colors) {
+                printf("\033[34mPrimary:\033[0m    Example text\n");
+                printf("\033[36mSecondary:\033[0m  Example text\n");
+                printf("\033[32mSuccess:\033[0m    Example text\n");
+                printf("\033[33mWarning:\033[0m    Example text\n");
+                printf("\033[31mError:\033[0m      Example text\n");
+                printf("\033[36mInfo:\033[0m       Example text\n");
+                printf("\033[37mText:\033[0m       Example text\n");
+                printf("\033[90mText dim:\033[0m   Example text\n");
+                printf("\033[96mHighlight:\033[0m  Example text\n");
+                printf("\033[32mGit clean:\033[0m  Example text\n");
+                printf("\033[33mGit dirty:\033[0m  Example text\n");
+                printf("\033[92mGit staged:\033[0m Example text\n");
+                printf("\033[35mGit branch:\033[0m Example text\n");
             } else {
                 printf("Primary:    Example text\n");
                 printf("Secondary:  Example text\n");
