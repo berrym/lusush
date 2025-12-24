@@ -21,8 +21,7 @@
 static node_t *parse_command_list(parser_t *parser);
 static node_t *parse_pipeline(parser_t *parser);
 static node_t *parse_simple_command(parser_t *parser);
-MAYBE_UNUSED
-static node_t *parse_control_structure(parser_t *parser);
+
 static node_t *parse_brace_group(parser_t *parser);
 static node_t *parse_subshell(parser_t *parser);
 static node_t *parse_if_statement(parser_t *parser);

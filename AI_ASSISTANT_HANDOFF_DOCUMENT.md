@@ -65,15 +65,22 @@
    - Moved `LLE_MAYBE_UNUSED` before `static` instead of between type and name
    - Warnings: 117 → 116
 
-5. **Remaining 116 warnings breakdown**:
+5. **Remaining 114 warnings breakdown**:
    - ~100 strncpy truncation warnings (GCC strictness, not bugs)
    - ~7 format truncation warnings
    - 3 type-limits warnings (`>= 0` on unsigned)
    - 2 use-after-free warnings (potential bugs to investigate)
    - 1 maybe-uninitialized warning
-   - 2 unused: `parse_control_structure` (declared not defined), `global_config` (unused var)
+   - **0 unused warnings** (all resolved)
 
-6. **All 51 tests pass** on Linux after fixes.
+6. **Dead code removal**:
+   - `src/parser.c` - Removed `parse_control_structure` forward declaration (never implemented,
+     control structures handled directly via switch-case to individual parsers)
+   - `src/network.c` - Removed unused `extern config_values_t global_config` declaration
+     (misleading comment suggested it should be used, but `network_load_config()` already
+     properly reads from config system after `set_network_config_defaults()` sets fallbacks)
+
+7. **All 51 tests pass** on Linux after fixes.
 
 ### Session 57 Accomplishments
 

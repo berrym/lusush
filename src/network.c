@@ -100,8 +100,6 @@ void set_network_config_defaults(network_config_t *config) {
         return;
     }
 
-    // Use defaults from main config system
-    extern config_values_t global_config;
     config->ssh_completion_enabled = true;
     config->cloud_discovery_enabled = false;
     config->cache_ssh_hosts = true;
